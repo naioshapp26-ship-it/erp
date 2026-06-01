@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 نظام الموافقات والصلاحيات والحوكمة - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f9fafb; color: #0f172a; }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        .stat-pill {
+            border-radius: 999px;
+            box-shadow: 0 20px 35px rgba(15, 23, 42, 0.18);
+        }
+        .stat-angled {
+            border-radius: 32px 8px 32px 8px;
+        }
+        .stat-rounded {
+            border-radius: 32px;
+        }
+        .stat-cut {
+            border-radius: 8px 32px 8px 32px;
+        }
+        .table-scroll {
+            max-height: 550px;
+            overflow: auto;
+        }
+        .section-accent-violet { border-top: 5px solid #8b5cf6; }
+        .section-accent-indigo { border-top: 5px solid #6366f1; }
+        .section-accent-purple { border-top: 5px solid #a855f7; }
+        .section-accent-fuchsia { border-top: 5px solid #d946ef; }
+        .section-accent-rose { border-top: 5px solid #f43f5e; }
+        .level-card {
+            transition: all 0.3s;
+        }
+        .level-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        .badge {
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+    
+        .card-gradient {
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Keep text visible on white action buttons */
+        button.bg-white,
+        a.bg-white,
+        .bg-white,
+        .action-btn.bg-white,
+        .btn-action.bg-white,
+        .table-actions button.bg-white,
+        button.bg-slate-50,
+        a.bg-slate-50,
+        button.bg-gray-50,
+        a.bg-gray-50 {
+            color: #0f172a !important;
+        }
+
+        .table-action-btn i,
+        .table-action-btn svg {
+            color: #000000 !important;
+            fill: #000000 !important;
+            stroke: #000000 !important;
+        }
+    
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-5xl font-bold mb-3">🔐 نظام الموافقات والصلاحيات والحوكمة</h1>
+            <p class="text-xl opacity-90">نظام الموافقات - الصلاحيات - حوكمة البيانات - حوكمة التقارير - حوكمة الذكاء الاصطناعي - حوكمة المخاطر (الصفحة 41)</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-purple-700 px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="downloadAllJSON()" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-code"></i>
+                تنزيل بيانات شاملة
+            </button>
+            <button onclick="printReport()" class="bg-fuchsia-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة التقرير
+            </button>
+            <button onclick="openRoleForm()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-user-plus"></i>
+                إضافة دور جديد
+            </button>
+            <button onclick="openAssignmentForm()" class="bg-blue-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-link"></i>
+                إضافة صلاحية لنظام
+            </button>
+        </div>
+
+        <div id="messageBox" class="hidden mb-6 p-4 rounded-2xl border text-sm font-bold"></div>
+
+        <div id="previewCard" class="hidden card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-purple">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center text-xl" id="previewIcon">🔍</div>
+                    <div>
+                        <div class="text-xl font-bold" id="previewTitle">—</div>
+                        <div class="text-sm text-slate-500" id="previewSubtitle">—</div>
+                    </div>
+                </div>
+                <span class="badge bg-slate-100 text-slate-700" id="previewStatus">—</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm" id="previewDetails"></div>
+        </div>
+
+        <!-- Approval System Overview -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-violet">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-3xl font-bold text-slate-800">✅ نظام الموافقات والصلاحيات</h2>
+                <div class="text-sm text-slate-500">مصدر البيانات: جداول الصلاحيات والأدوار</div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+                <div class="stat-pill bg-gradient-to-br from-violet-500 to-purple-600 text-slate-900 p-6">
+                    <div class="flex justify-between mb-3"><span>إجمالي الأدوار</span><i class="fas fa-user-tag text-3xl opacity-70"></i></div>
+                    <div id="totalRoles" class="text-4xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-angled bg-gradient-to-br from-indigo-500 to-blue-600 text-slate-900 p-6">
+                    <div class="flex justify-between mb-3"><span>إجمالي الصلاحيات</span><i class="fas fa-shield-halved text-3xl opacity-70"></i></div>
+                    <div id="totalPermissions" class="text-4xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-rounded bg-gradient-to-br from-fuchsia-500 to-pink-600 text-slate-900 p-6">
+                    <div class="flex justify-between mb-3"><span>المستويات النشطة</span><i class="fas fa-layer-group text-3xl opacity-70"></i></div>
+                    <div id="activeLevels" class="text-4xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-cut bg-gradient-to-br from-rose-500 to-red-600 text-slate-900 p-6">
+                    <div class="flex justify-between mb-3"><span>المستخدمون النشطون</span><i class="fas fa-users text-3xl opacity-70"></i></div>
+                    <div id="activeUsers" class="text-4xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Approval Levels -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">📊 مستويات الموافقات</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Level 1 -->
+                <div class="level-card bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border-r-8 border-emerald-500">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="bg-emerald-500 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">1</div>
+                        <h3 class="text-xl font-bold text-slate-800">محاسب</h3>
+                    </div>
+                    <div class="space-y-2 text-sm text-slate-700">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-emerald-600"></i>
+                            <span>إدخال قيود</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-emerald-600"></i>
+                            <span>تسجيل فواتير</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-emerald-600"></i>
+                            <span>تسجيل مصروفات</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Level 2 -->
+                <div class="level-card bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl p-6 border-r-8 border-sky-500">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="bg-sky-500 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">2</div>
+                        <h3 class="text-xl font-bold text-slate-800">مدير مالي</h3>
+                    </div>
+                    <div class="space-y-2 text-sm text-slate-700">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-sky-600"></i>
+                            <span>اعتماد الفواتير</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-sky-600"></i>
+                            <span>اعتماد المصروفات</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-sky-600"></i>
+                            <span>اعتماد خطط الدفع</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-sky-600"></i>
+                            <span>تعديل قيود قبل الإقفال</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Level 3 -->
+                <div class="level-card bg-gradient-to-br from-violet-50 to-purple-50 rounded-2xl p-6 border-r-8 border-violet-500">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="bg-violet-500 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">3</div>
+                        <h3 class="text-xl font-bold text-slate-800">مدير مالي تنفيذي</h3>
+                    </div>
+                    <div class="space-y-2 text-sm text-slate-700">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-violet-600"></i>
+                            <span>اعتماد الميزانيات</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-violet-600"></i>
+                            <span>اعتماد المصروفات الكبيرة</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-violet-600"></i>
+                            <span>تعديل القيود بعد الإقفال</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-violet-600"></i>
+                            <span>اعتماد سياسات مالية</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Level 4 -->
+                <div class="level-card bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl p-6 border-r-8 border-rose-500">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="bg-rose-500 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">4</div>
+                        <h3 class="text-xl font-bold text-slate-800">مجلس الإدارة</h3>
+                    </div>
+                    <div class="space-y-2 text-sm text-slate-700">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-rose-600"></i>
+                            <span>اعتماد الميزانية السنوية</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-rose-600"></i>
+                            <span>اعتماد المشاريع الكبرى</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-rose-600"></i>
+                            <span>اعتماد التوسع المالي</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financial Data Governance -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-purple">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">🛡️ حوكمة البيانات المالية</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-6 border-r-4 border-purple-500">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-file-shield text-purple-600"></i>
+                        السياسات
+                    </h3>
+                    <div class="space-y-3 text-sm text-slate-700">
+                        <div class="bg-white p-3 rounded-xl flex items-start gap-2">
+                            <i class="fas fa-calendar text-purple-600 mt-1"></i>
+                            <span>كل عملية مالية يجب أن تحتوي على: تاريخ - مستخدم - مصدر - مرفقات</span>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl flex items-start gap-2">
+                            <i class="fas fa-ban text-red-600 mt-1"></i>
+                            <span>لا يُسمح بحذف أي سجل مالي</span>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl flex items-start gap-2">
+                            <i class="fas fa-edit text-blue-600 mt-1"></i>
+                            <span>التعديل يتم عبر: إشعار دائن/مدين - قيد عكسي</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl p-6 border-r-4 border-indigo-500">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-magnifying-glass-chart text-indigo-600"></i>
+                        التدقيق
+                    </h3>
+                    <div class="space-y-3 text-sm text-slate-700">
+                        <div class="bg-white p-3 rounded-xl flex items-center justify-between">
+                            <span>تدقيق شهري داخلي</span>
+                            <span class="badge bg-green-100 text-green-700">شهري</span>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl flex items-center justify-between">
+                            <span>تدقيق ربع سنوي</span>
+                            <span class="badge bg-blue-100 text-blue-700">ربع سنوي</span>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl flex items-center justify-between">
+                            <span>تدقيق سنوي خارجي</span>
+                            <span class="badge bg-purple-100 text-purple-700">سنوي</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reporting Governance -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-fuchsia">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">📑 حوكمة التقارير المالية</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gradient-to-br from-fuchsia-50 to-pink-50 rounded-2xl p-6 border-r-4 border-fuchsia-500">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-line text-fuchsia-600"></i>
+                        أنواع التقارير
+                    </h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="bg-white p-4 rounded-xl flex items-center justify-between hover:shadow-md transition">
+                            <span class="font-semibold text-slate-700">تقارير تشغيلية</span>
+                            <span class="badge bg-emerald-100 text-emerald-700">يومي</span>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl flex items-center justify-between hover:shadow-md transition">
+                            <span class="font-semibold text-slate-700">تقارير تكتيكية</span>
+                            <span class="badge bg-sky-100 text-sky-700">شهري</span>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl flex items-center justify-between hover:shadow-md transition">
+                            <span class="font-semibold text-slate-700">تقارير استراتيجية</span>
+                            <span class="badge bg-violet-100 text-violet-700">سنوي</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-rose-50 to-red-50 rounded-2xl p-6 border-r-4 border-rose-500">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-list-check text-rose-600"></i>
+                        سياسات التقارير
+                    </h3>
+                    <div class="space-y-3 text-sm text-slate-700">
+                        <div class="bg-white p-3 rounded-xl flex items-start gap-2">
+                            <i class="fas fa-robot text-blue-600 mt-1"></i>
+                            <span>كل تقرير يجب أن يكون آلي</span>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl flex items-start gap-2">
+                            <i class="fas fa-equals text-green-600 mt-1"></i>
+                            <span>كل تقرير يجب أن يكون موحد</span>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl flex items-start gap-2">
+                            <i class="fas fa-check-double text-purple-600 mt-1"></i>
+                            <span>كل تقرير يجب أن يكون قابل للتدقيق</span>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl flex items-start gap-2">
+                            <i class="fas fa-database text-orange-600 mt-1"></i>
+                            <span>كل تقرير يحتوي على مصدر البيانات</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Governance -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">🤖 حوكمة الذكاء الاصطناعي المالي</h2>
+            
+            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 border-r-4 border-indigo-500">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fas fa-brain text-indigo-600"></i>
+                    السياسات
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
+                    <div class="bg-white p-4 rounded-xl flex items-start gap-3">
+                        <i class="fas fa-lightbulb text-amber-600 text-xl mt-1"></i>
+                        <div>
+                            <div class="font-bold mb-1">توصيات فقط</div>
+                            <div>الذكاء الاصطناعي يقدم توصيات، لا قرارات نهائية</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl flex items-start gap-3">
+                        <i class="fas fa-glasses text-blue-600 text-xl mt-1"></i>
+                        <div>
+                            <div class="font-bold mb-1">قابلية التفسير</div>
+                            <div>كل توصية يجب أن تكون قابلة للتفسير</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl flex items-start gap-3">
+                        <i class="fas fa-user-check text-green-600 text-xl mt-1"></i>
+                        <div>
+                            <div class="font-bold mb-1">موافقة بشرية</div>
+                            <div>لا إجراء مالي آلي دون موافقة بشرية</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl flex items-start gap-3">
+                        <i class="fas fa-broom text-purple-600 text-xl mt-1"></i>
+                        <div>
+                            <div class="font-bold mb-1">بيانات نظيفة</div>
+                            <div>تدريب النماذج على بيانات نظيفة فقط</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl flex items-start gap-3 md:col-span-2">
+                        <i class="fas fa-calendar-check text-rose-600 text-xl mt-1"></i>
+                        <div>
+                            <div class="font-bold mb-1">مراجعة دورية</div>
+                            <div>مراجعة أداء النموذج كل 3 أشهر</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Governance -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-rose">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">⚠️ حوكمة المخاطر المالية</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border-r-4 border-amber-500">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-simple text-amber-600"></i>
+                        تصنيف المخاطر
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="bg-white p-4 rounded-xl flex items-center justify-between border-r-4 border-green-500">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                                    <i class="fas fa-circle-check text-green-600"></i>
+                                </div>
+                                <span class="font-bold text-slate-700">منخفض</span>
+                            </div>
+                            <span class="badge bg-green-100 text-green-700">آمن</span>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl flex items-center justify-between border-r-4 border-yellow-500">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                                    <i class="fas fa-circle-exclamation text-yellow-600"></i>
+                                </div>
+                                <span class="font-bold text-slate-700">متوسط</span>
+                            </div>
+                            <span class="badge bg-yellow-100 text-yellow-700">مراقبة</span>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl flex items-center justify-between border-r-4 border-orange-500">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                                    <i class="fas fa-triangle-exclamation text-orange-600"></i>
+                                </div>
+                                <span class="font-bold text-slate-700">مرتفع</span>
+                            </div>
+                            <span class="badge bg-orange-100 text-orange-700">تحذير</span>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl flex items-center justify-between border-r-4 border-red-500">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                                    <i class="fas fa-circle-xmark text-red-600"></i>
+                                </div>
+                                <span class="font-bold text-slate-700">حرج</span>
+                            </div>
+                            <span class="badge bg-red-100 text-red-700">عاجل</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-red-50 to-rose-50 rounded-2xl p-6 border-r-4 border-red-500">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-gears text-red-600"></i>
+                        إجراءات التعامل
+                    </h3>
+                    <div class="space-y-3 text-sm text-slate-700">
+                        <div class="bg-white p-4 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-bold text-green-700">منخفض</span>
+                                <i class="fas fa-bell text-green-600"></i>
+                            </div>
+                            <div>تذكير للعميل فقط</div>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-bold text-yellow-700">متوسط</span>
+                                <i class="fas fa-calendar-days text-yellow-600"></i>
+                            </div>
+                            <div>إنشاء خطة دفع للعميل</div>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-bold text-orange-700">مرتفع</span>
+                                <i class="fas fa-user-tie text-orange-600"></i>
+                            </div>
+                            <div>تدخل إداري مباشر</div>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-bold text-red-700">حرج</span>
+                                <i class="fas fa-hand text-red-600"></i>
+                            </div>
+                            <div>إيقاف خدمات + خطة دفع خاصة</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Roles Table -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-violet">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800">📋 جدول الأدوار</h3>
+                    <p class="text-xs text-slate-500">إضافة/تعديل/حذف الأدوار مع حفظ مباشر في قاعدة البيانات</p>
+                </div>
+                <span id="rolesCount" class="text-sm text-slate-500"></span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-violet-50 text-violet-700 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-right">الدور</th>
+                            <th class="px-4 py-3 text-right">المستوى</th>
+                            <th class="px-4 py-3 text-right">حد الموافقة</th>
+                            <th class="px-4 py-3 text-right">الحالة</th>
+                            <th class="px-4 py-3 text-right">أضيف في</th>
+                            <th class="px-4 py-3 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rolesTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="6" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Permissions Assignments Table -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 section-accent-indigo">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800">🔑 ربط الأدوار بالأنظمة</h3>
+                    <p class="text-xs text-slate-500">إضافة/تعديل/حذف صلاحيات النظام لكل دور</p>
+                </div>
+                <span id="permissionsCount" class="text-sm text-slate-500"></span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-indigo-50 text-indigo-700 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-right">الدور</th>
+                            <th class="px-4 py-3 text-right">النظام</th>
+                            <th class="px-4 py-3 text-right">مستوى الصلاحية</th>
+                            <th class="px-4 py-3 text-right">الحالة</th>
+                            <th class="px-4 py-3 text-right">ملاحظات</th>
+                            <th class="px-4 py-3 text-right">آخر تحديث</th>
+                            <th class="px-4 py-3 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="permissionsTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="7" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- نموذج إدارة الدور -->
+    <div id="roleModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800" id="roleModalTitle">إضافة دور جديد</h3>
+                    <p class="text-xs text-slate-500">جميع الحقول تحفظ مباشرة في قاعدة البيانات</p>
+                </div>
+                <button class="text-slate-500 hover:text-slate-800" onclick="toggleModal('roleModal', false)"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <form id="roleForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" id="roleId">
+                <div>
+                    <label class="text-xs text-slate-500">كود الدور (إنجليزي)*</label>
+                    <input id="roleCode" required class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الاسم العربي*</label>
+                    <input id="roleNameAr" required class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">المسمى الوظيفي*</label>
+                    <input id="roleJobTitleAr" required class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">المستوى (level)</label>
+                    <select id="roleLevel" class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-purple-500">
+                        <option value="HQ">المكتب الرئيسي</option>
+                        <option value="BRANCH">فرع</option>
+                        <option value="INCUBATOR">حاضنة</option>
+                        <option value="PLATFORM">منصة</option>
+                        <option value="OFFICE">مكتب تنفيذي</option>
+                        <option value="EXECUTIVE_OFFICE">تنفيذي مكتب</option>
+                        <option value="DEPARTMENT">قسم/متطوع</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">المستوى الهرمي</label>
+                    <select id="roleHierarchy" class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-purple-500">
+                        <option value="0">0 - المكتب الرئيسي</option>
+                        <option value="1">1 - فرع</option>
+                        <option value="2">2 - حاضنة</option>
+                        <option value="3">3 - منصة</option>
+                        <option value="4">4 - مكتب تنفيذي</option>
+                        <option value="5">5 - قسم / متطوع</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">حد الموافقة الأدنى</label>
+                    <input id="roleMinLimit" type="number" step="0.01" class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">حد الموافقة الأقصى</label>
+                    <input id="roleMaxLimit" type="number" step="0.01" class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">ملاحظات الموافقة</label>
+                    <textarea id="roleNotes" rows="3" class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-purple-500"></textarea>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">وصف الدور</label>
+                    <textarea id="roleDescription" rows="3" class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-purple-500"></textarea>
+                </div>
+                <div class="md:col-span-2 flex items-center justify-between">
+                    <label class="flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" id="roleIsActive" class="rounded">
+                        نشط
+                    </label>
+                    <div class="flex gap-3">
+                        <button type="button" onclick="toggleModal('roleModal', false)" class="px-4 py-2 rounded-xl border text-slate-600">إلغاء</button>
+                        <button type="submit" class="px-5 py-2 rounded-xl bg-purple-600 text-white font-bold">حفظ</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نموذج ربط الصلاحيات -->
+    <div id="assignmentModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800" id="assignmentModalTitle">إضافة صلاحية لنظام</h3>
+                    <p class="text-xs text-slate-500">يتم الحفظ فوراً في قاعدة البيانات</p>
+                </div>
+                <button class="text-slate-500 hover:text-slate-800" onclick="toggleModal('assignmentModal', false)"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <form id="assignmentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" id="assignmentId">
+                <div>
+                    <label class="text-xs text-slate-500">اختيار الدور*</label>
+                    <select id="assignmentRole" required class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-indigo-500"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">اختيار النظام*</label>
+                    <select id="assignmentSystem" required class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-indigo-500"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">مستوى الصلاحية*</label>
+                    <select id="assignmentLevel" required class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-indigo-500"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">ملاحظات</label>
+                    <textarea id="assignmentNotes" rows="3" class="w-full mt-1 rounded-xl border px-3 py-2 focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <div class="md:col-span-2 flex items-center justify-between">
+                    <label class="flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" id="assignmentActive" class="rounded">
+                        نشط
+                    </label>
+                    <div class="flex gap-3">
+                        <button type="button" onclick="toggleModal('assignmentModal', false)" class="px-4 py-2 rounded-xl border text-slate-600">إلغاء</button>
+                        <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 text-white font-bold">حفظ</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Use explicit API base when opened from file:// or other hosts
+        const API_BASE = (window.location && window.location.origin && window.location.origin.startsWith('http'))
+            ? window.location.origin
+            : '';
+        const hierarchyLabels = {
+            0: 'المكتب الرئيسي',
+            1: 'فرع',
+            2: 'حاضنة',
+            3: 'منصة',
+            4: 'مكتب تنفيذي',
+            5: 'قسم / متطوع'
+        };
+
+        let roles = [];
+        let stats = {};
+        let assignments = [];
+        let systems = [];
+        let levels = [];
+        let editingRoleId = null;
+        let editingAssignmentId = null;
+
+        const messageBox = document.getElementById('messageBox');
+        const previewCard = document.getElementById('previewCard');
+
+        async function loadData() {
+            try {
+                const [rolesRes, statsRes, assignmentsRes, systemsRes, levelsRes] = await Promise.all([
+                    fetch(`${API_BASE}/api/permissions/roles`),
+                    fetch(`${API_BASE}/api/permissions/stats`),
+                    fetch(`${API_BASE}/api/permissions/assignments`),
+                    fetch(`${API_BASE}/api/permissions/systems`),
+                    fetch(`${API_BASE}/api/permissions/levels`)
+                ]);
+
+                const [rolesData, statsData, assignmentsData, systemsData, levelsData] = await Promise.all([
+                    rolesRes.json(),
+                    statsRes.json(),
+                    assignmentsRes.json(),
+                    systemsRes.json(),
+                    levelsRes.json()
+                ]);
+
+                roles = rolesData.roles || [];
+                stats = statsData.stats || {};
+                assignments = assignmentsData.assignments || [];
+                systems = systemsData.systems || [];
+                levels = levelsData.levels || [];
+
+                populateSelectors();
+                renderStats();
+                renderTables();
+                showMessage('تم تحديث البيانات بنجاح', 'success');
+            } catch (error) {
+                console.error('خطأ في تحميل البيانات:', error);
+                showMessage('تعذر تحميل البيانات، حاول مجدداً', 'error');
+            }
+        }
+
+        function renderStats() {
+            document.getElementById('totalRoles').textContent = roles.length || 0;
+            document.getElementById('totalPermissions').textContent = stats.total_permissions || assignments.length || 0;
+
+            const uniqueLevels = new Set(roles.map(r => r.hierarchy_level).filter(l => l !== null && l !== undefined));
+            document.getElementById('activeLevels').textContent = uniqueLevels.size || 4;
+            document.getElementById('activeUsers').textContent = '—';
+        }
+
+        function renderTables() {
+            const rolesRows = roles.map((r) => {
+                const levelLabel = hierarchyLabels[r.hierarchy_level] || `مستوى ${r.hierarchy_level}`;
+                const maxLimit = formatLimit(r.max_approval_limit);
+                return `
+                <tr class="hover:bg-violet-50 transition">
+                    <td class="px-4 py-3">
+                        <div class="font-bold text-slate-800">${escapeHTML(r.job_title_ar || r.name_ar)}</div>
+                        <div class="text-[11px] text-slate-500">${escapeHTML(r.name)}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="badge ${getLevelColor(r.hierarchy_level)}">${levelLabel}</span>
+                    </td>
+                    <td class="px-4 py-3">${maxLimit}</td>
+                    <td class="px-4 py-3">${statusBadge(r.is_active)}</td>
+                    <td class="px-4 py-3 text-slate-500">${formatDateTime(r.created_at)}</td>
+                    <td class="px-4 py-3 flex flex-wrap gap-2">
+                        <button class="table-action-btn text-xs px-3 py-2 rounded-lg bg-purple-50 text-purple-700" onclick="previewRole(${r.id})"><i class="fas fa-eye"></i> معاينة</button>
+                        <button class="table-action-btn text-xs px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700" onclick="openRoleForm(${r.id})"><i class="fas fa-pen"></i> تعديل</button>
+                        <button class="table-action-btn text-xs px-3 py-2 rounded-lg bg-rose-50 text-rose-700" onclick="confirmDeleteRole(${r.id})"><i class="fas fa-trash"></i> حذف</button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('rolesTable').innerHTML = rolesRows || `<tr><td colspan="6" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('rolesCount').textContent = `عدد الأدوار: ${roles.length}`;
+
+            const permissionsRows = assignments.map((p) => `
+                <tr class="hover:bg-indigo-50 transition">
+                    <td class="px-4 py-3">
+                        <div class="font-bold">${escapeHTML(p.role_name_ar)}</div>
+                        <div class="text-[11px] text-slate-500">${hierarchyLabels[p.hierarchy_level] || '—'}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="font-semibold text-slate-800">${escapeHTML(p.system_name_ar)}</div>
+                        <div class="text-[11px] text-slate-500">${escapeHTML(p.system_code)}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="badge bg-indigo-100 text-indigo-700">${escapeHTML(p.level_name_ar)}</span>
+                    </td>
+                    <td class="px-4 py-3">${statusBadge(p.is_active)}</td>
+                    <td class="px-4 py-3 text-slate-600">${escapeHTML(p.notes || '—')}</td>
+                    <td class="px-4 py-3 text-slate-500">${formatDateTime(p.updated_at || p.created_at)}</td>
+                    <td class="px-4 py-3 flex flex-wrap gap-2">
+                        <button class="table-action-btn text-xs px-3 py-2 rounded-lg bg-purple-50 text-purple-700" onclick="openAssignmentForm(${p.id})"><i class="fas fa-eye"></i> معاينة</button>
+                        <button class="table-action-btn text-xs px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700" onclick="openAssignmentForm(${p.id})"><i class="fas fa-pen"></i> تعديل</button>
+                        <button class="table-action-btn text-xs px-3 py-2 rounded-lg bg-rose-50 text-rose-700" onclick="confirmDeleteAssignment(${p.id})"><i class="fas fa-trash"></i> حذف</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('permissionsTable').innerHTML = permissionsRows || `<tr><td colspan="7" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('permissionsCount').textContent = `عدد السجلات: ${assignments.length}`;
+        }
+
+        function statusBadge(isActive) {
+            return `<span class="badge ${getStatusColor(isActive)}">${translateStatus(isActive)}</span>`;
+        }
+
+        function getLevelColor(level) {
+            const colorMap = {
+                0: 'bg-emerald-100 text-emerald-700',
+                1: 'bg-sky-100 text-sky-700',
+                2: 'bg-violet-100 text-violet-700',
+                3: 'bg-blue-100 text-blue-700',
+                4: 'bg-rose-100 text-rose-700',
+                5: 'bg-amber-100 text-amber-700'
+            };
+            return colorMap[level] || 'bg-slate-100 text-slate-700';
+        }
+
+        function getStatusColor(isActive) {
+            return isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+        }
+
+        function translateStatus(isActive) {
+            return isActive ? 'نشط' : 'متوقف';
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '—';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function formatLimit(value) {
+            if (value === null || value === undefined) return '—';
+            const num = Number(value);
+            return Number.isNaN(num) ? '—' : num.toLocaleString('en-US', { minimumFractionDigits: 0 });
+        }
+
+        function escapeHTML(value) {
+            if (value === null || value === undefined) return '—';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showMessage(text, type = 'success') {
+            if (!messageBox) return;
+            const styles = type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : 'bg-rose-50 border-rose-200 text-rose-700';
+            messageBox.className = `mb-6 p-4 rounded-2xl border text-sm font-bold ${styles}`;
+            messageBox.textContent = text;
+            messageBox.classList.remove('hidden');
+            setTimeout(() => messageBox.classList.add('hidden'), 3000);
+        }
+
+        function toggleModal(id, show = true) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (show) {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        function populateSelectors() {
+            const roleSelect = document.getElementById('assignmentRole');
+            const systemSelect = document.getElementById('assignmentSystem');
+            const levelSelect = document.getElementById('assignmentLevel');
+            if (roleSelect) {
+                roleSelect.innerHTML = roles.map(r => `<option value="${r.id}">${escapeHTML(r.job_title_ar || r.name_ar)}</option>`).join('');
+            }
+            if (systemSelect) {
+                systemSelect.innerHTML = systems.map(s => `<option value="${s.id}">${escapeHTML(s.system_name_ar)} (${escapeHTML(s.system_code)})</option>`).join('');
+            }
+            if (levelSelect) {
+                levelSelect.innerHTML = levels.map(l => `<option value="${l.id}">${escapeHTML(l.level_name_ar)} (${escapeHTML(l.level_code)})</option>`).join('');
+            }
+        }
+
+        function openRoleForm(id = null) {
+            editingRoleId = id;
+            document.getElementById('roleModalTitle').textContent = id ? 'تعديل الدور' : 'إضافة دور جديد';
+            const role = roles.find(r => r.id === id);
+            document.getElementById('roleId').value = role?.id || '';
+            document.getElementById('roleCode').value = role?.name || '';
+            document.getElementById('roleNameAr').value = role?.name_ar || '';
+            document.getElementById('roleJobTitleAr').value = role?.job_title_ar || '';
+            document.getElementById('roleLevel').value = role?.level || 'HQ';
+            document.getElementById('roleHierarchy').value = role?.hierarchy_level ?? 0;
+            document.getElementById('roleMinLimit').value = role?.min_approval_limit ?? '';
+            document.getElementById('roleMaxLimit').value = role?.max_approval_limit ?? '';
+            document.getElementById('roleNotes').value = role?.approval_notes_ar || '';
+            document.getElementById('roleDescription').value = role?.description || '';
+            document.getElementById('roleIsActive').checked = role?.is_active ?? true;
+            toggleModal('roleModal', true);
+        }
+
+        function previewRole(id) {
+            const role = roles.find(r => r.id === id);
+            if (!role) return;
+            document.getElementById('previewTitle').textContent = role.job_title_ar || role.name_ar || '—';
+            document.getElementById('previewSubtitle').textContent = role.name || '—';
+            document.getElementById('previewStatus').textContent = translateStatus(role.is_active);
+            document.getElementById('previewStatus').className = `badge ${getStatusColor(role.is_active)}`;
+            document.getElementById('previewDetails').innerHTML = `
+                <div class="bg-slate-50 p-3 rounded-xl">
+                    <div class="text-[11px] text-slate-500">المستوى</div>
+                    <div class="font-bold">${hierarchyLabels[role.hierarchy_level] || '—'}</div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl">
+                    <div class="text-[11px] text-slate-500">حد الموافقة</div>
+                    <div class="font-bold">${formatLimit(role.max_approval_limit)}</div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl">
+                    <div class="text-[11px] text-slate-500">الوصف</div>
+                    <div class="font-bold">${escapeHTML(role.description || '—')}</div>
+                </div>
+            `;
+            previewCard.classList.remove('hidden');
+        }
+
+        async function saveRole(event) {
+            event.preventDefault();
+            const payload = {
+                role_code: document.getElementById('roleCode').value,
+                name_ar: document.getElementById('roleNameAr').value,
+                job_title_ar: document.getElementById('roleJobTitleAr').value,
+                level: document.getElementById('roleLevel').value,
+                hierarchy_level: Number(document.getElementById('roleHierarchy').value),
+                min_approval_limit: document.getElementById('roleMinLimit').value,
+                max_approval_limit: document.getElementById('roleMaxLimit').value,
+                approval_notes_ar: document.getElementById('roleNotes').value,
+                description: document.getElementById('roleDescription').value,
+                is_active: document.getElementById('roleIsActive').checked
+            };
+
+            const method = editingRoleId ? 'PUT' : 'POST';
+            const url = editingRoleId ? `${API_BASE}/api/permissions/roles/${editingRoleId}` : `${API_BASE}/api/permissions/roles`;
+
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'فشل الحفظ');
+
+            showMessage('تم حفظ الدور بنجاح', 'success');
+            toggleModal('roleModal', false);
+            loadData();
+        }
+
+        async function confirmDeleteRole(id) {
+            if (!confirm('تأكيد حذف الدور؟ سيتم إيقافه وإيقاف صلاحياته.')) return;
+            const response = await fetch(`${API_BASE}/api/permissions/roles/${id}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'تعذر الحذف');
+            showMessage('تم إيقاف الدور والصلاحيات المرتبطة به', 'success');
+            loadData();
+        }
+
+        function openAssignmentForm(id = null) {
+            editingAssignmentId = id;
+            const assignment = assignments.find(a => a.id === id);
+            document.getElementById('assignmentModalTitle').textContent = id ? 'تعديل صلاحية' : 'إضافة صلاحية لنظام';
+            document.getElementById('assignmentId').value = assignment?.id || '';
+            document.getElementById('assignmentRole').value = assignment?.role_id || (roles[0]?.id || '');
+            document.getElementById('assignmentSystem').value = assignment?.system_id || (systems[0]?.id || '');
+            document.getElementById('assignmentLevel').value = assignment?.permission_level_id || (levels[0]?.id || '');
+            document.getElementById('assignmentNotes').value = assignment?.notes || '';
+            document.getElementById('assignmentActive').checked = assignment?.is_active ?? true;
+            toggleModal('assignmentModal', true);
+        }
+
+        async function saveAssignment(event) {
+            event.preventDefault();
+            const payload = {
+                role_id: Number(document.getElementById('assignmentRole').value),
+                system_id: Number(document.getElementById('assignmentSystem').value),
+                permission_level_id: Number(document.getElementById('assignmentLevel').value),
+                notes: document.getElementById('assignmentNotes').value,
+                is_active: document.getElementById('assignmentActive').checked
+            };
+
+            const method = editingAssignmentId ? 'PUT' : 'POST';
+            const url = editingAssignmentId
+                ? `${API_BASE}/api/permissions/assignments/${editingAssignmentId}`
+                : `${API_BASE}/api/permissions/assignments`;
+
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'فشل الحفظ');
+            showMessage('تم حفظ الصلاحية بنجاح', 'success');
+            toggleModal('assignmentModal', false);
+            loadData();
+        }
+
+        async function confirmDeleteAssignment(id) {
+            if (!confirm('تأكيد حذف/تعطيل هذه الصلاحية؟')) return;
+            const response = await fetch(`${API_BASE}/api/permissions/assignments/${id}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'تعذر الحذف');
+            showMessage('تم إيقاف الصلاحية', 'success');
+            loadData();
+        }
+
+        function downloadAllJSON() {
+            const payload = {
+                roles,
+                assignments,
+                stats,
+                governance: {
+                    data_governance: {
+                        policies: [
+                            'كل عملية مالية يجب أن تحتوي على: تاريخ - مستخدم - مصدر - مرفقات',
+                            'لا يُسمح بحذف أي سجل مالي',
+                            'التعديل يتم عبر: إشعار دائن/مدين - قيد عكسي'
+                        ],
+                        audit: ['تدقيق شهري داخلي', 'تدقيق ربع سنوي', 'تدقيق سنوي خارجي']
+                    },
+                    reporting_governance: {
+                        types: ['تشغيلية', 'تكتيكية', 'استراتيجية'],
+                        policies: ['آلي', 'موحد', 'قابل للتدقيق', 'يحتوي على مصدر البيانات']
+                    },
+                    ai_governance: {
+                        policies: [
+                            'الذكاء الاصطناعي يقدم توصيات، لا قرارات نهائية',
+                            'كل توصية يجب أن تكون قابلة للتفسير',
+                            'لا إجراء مالي آلي دون موافقة بشرية',
+                            'تدريب النماذج على بيانات نظيفة فقط',
+                            'مراجعة أداء النموذج كل 3 أشهر'
+                        ]
+                    },
+                    risk_governance: {
+                        classifications: ['منخفض', 'متوسط', 'مرتفع', 'حرج'],
+                        actions: {
+                            low: 'تذكير',
+                            medium: 'خطة دفع',
+                            high: 'تدخل إداري',
+                            critical: 'إيقاف خدمات + خطة دفع خاصة'
+                        }
+                    }
+                }
+            };
+            downloadBlob(JSON.stringify(payload, null, 2), 'الموافقات-والصلاحيات-والحوكمة.json', 'application/json');
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function refreshData() {
+            loadData();
+        }
+
+        document.getElementById('roleForm').addEventListener('submit', (e) => {
+            saveRole(e).catch(err => {
+                console.error(err);
+                showMessage(err.message, 'error');
+            });
+        });
+
+        document.getElementById('assignmentForm').addEventListener('submit', (e) => {
+            saveAssignment(e).catch(err => {
+                console.error(err);
+                showMessage(err.message, 'error');
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

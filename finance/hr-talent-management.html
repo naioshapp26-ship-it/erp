@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام إدارة المواهب</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --navy: #0b1220;
+      --teal: #0f766e;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(16, 185, 129, 0.18), transparent 42%),
+        radial-gradient(circle at 90% 12%, rgba(245, 158, 11, 0.16), transparent 40%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 14px 16px;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .talent-head,
+    .talent-row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1.4fr 0.8fr 0.9fr 1fr 1.5fr 1fr 1.2fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .table-shell .talent-row {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table-shell .talent-row:last-child {
+      border-bottom: none;
+    }
+
+    .table-shell .talent-head {
+      background: #f8fafc;
+      font-size: 12px;
+      font-weight: 800;
+      color: #64748b;
+      text-transform: none;
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .status-chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      padding: 20px;
+      width: min(760px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-card h3 {
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .field-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    .field-input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+      .talent-head,
+      .talent-row {
+        grid-template-columns: repeat(9, minmax(140px, 1fr));
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">إدارة المواهب</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">نظام إدارة المواهب</h1>
+        <p class="text-slate-600">تحديد أصحاب الأداء العالي ومتابعة تقدمهم بخطط تطوير دقيقة.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="addTalentBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد المواهب المسجلة</div>
+        <div id="statTotal" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">سجل موحد للمواهب</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">المواهب عالية الإمكانيات</div>
+        <div id="statHigh" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-emerald-600 mt-1">أولوية للتطوير</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">المواهب قيد التطوير</div>
+        <div id="statDeveloping" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-amber-600 mt-1">مسارات متابعة نشطة</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">خطط التطوير النشطة</div>
+        <div id="statPlans" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">قابلة للقياس</div>
+      </div>
+    </div>
+
+    <div class="glass p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">قائمة المواهب ذات الأداء العالي</h2>
+          <p class="text-sm text-slate-500">تصنيف المواهب وخططهم التطويرية.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث بالاسم أو القسم" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-56">
+          </div>
+          <select id="classificationFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل التصنيفات</option>
+            <option value="عالية">عالية</option>
+            <option value="متوسطة">متوسطة</option>
+            <option value="قيد التطوير">قيد التطوير</option>
+          </select>
+          <select id="sortSelect" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="last-review-desc">الأحدث تقييمًا</option>
+            <option value="performance-desc">الأداء الأعلى</option>
+            <option value="performance-asc">الأداء الأقل</option>
+            <option value="potential-desc">الإمكانات الأعلى</option>
+            <option value="potential-asc">الإمكانات الأقل</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4">
+        <div class="talent-head px-4 py-3">
+          <div>اسم الموظف</div>
+          <div>القسم</div>
+          <div>المهارات الأساسية</div>
+          <div>الأداء</div>
+          <div>الإمكانات</div>
+          <div>تصنيف الموهبة</div>
+          <div>خطة التطوير</div>
+          <div>آخر تقييم</div>
+          <div>الإجراءات</div>
+        </div>
+        <div id="tableBody" class="text-sm"></div>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة لبحثك.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="detailModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card">
+      <div class="flex items-center justify-between">
+        <h3 id="detailTitle">تفاصيل الموهبة</h3>
+        <button id="closeDetailBtn" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+      </div>
+      <div id="detailContent" class="mt-4 text-sm text-slate-700"></div>
+    </div>
+  </div>
+
+  <div id="formModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card">
+      <div class="flex items-center justify-between">
+        <h3 id="formTitle">إضافة موهبة جديدة</h3>
+        <button id="closeFormBtn" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+      </div>
+      <form id="talentForm" class="mt-4 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="field-label">اسم الموظف</label>
+            <input id="employeeName" class="field-input" type="text" required>
+          </div>
+          <div>
+            <label class="field-label">القسم</label>
+            <input id="department" class="field-input" type="text" required>
+          </div>
+          <div>
+            <label class="field-label">المهارات الأساسية (مفصولة بفواصل)</label>
+            <input id="coreSkills" class="field-input" type="text" placeholder="تحليل البيانات, قيادة الفريق">
+          </div>
+          <div>
+            <label class="field-label">مستوى الأداء</label>
+            <input id="performanceLevel" class="field-input" type="number" step="0.1" min="0" max="5">
+          </div>
+          <div>
+            <label class="field-label">مستوى الإمكانيات المستقبلية</label>
+            <input id="potentialLevel" class="field-input" type="number" step="0.1" min="0" max="5">
+          </div>
+          <div>
+            <label class="field-label">تصنيف الموهبة</label>
+            <select id="talentClassification" class="field-input">
+              <option value="عالية">عالية</option>
+              <option value="متوسطة">متوسطة</option>
+              <option value="قيد التطوير">قيد التطوير</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">خطة التطوير</label>
+            <input id="developmentPlan" class="field-input" type="text" placeholder="برنامج قيادة لمدة 6 أشهر">
+          </div>
+          <div>
+            <label class="field-label">حالة خطة التطوير</label>
+            <select id="developmentPlanStatus" class="field-input">
+              <option value="نشطة">نشطة</option>
+              <option value="قيد التنفيذ">قيد التنفيذ</option>
+              <option value="مكتملة">مكتملة</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">تاريخ آخر تقييم</label>
+            <input id="lastReviewDate" class="field-input" type="date">
+          </div>
+          <div>
+            <label class="field-label">ملاحظات إضافية</label>
+            <input id="notes" class="field-input" type="text" placeholder="مستعد لدور قيادي خلال 6 أشهر">
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="cancelFormBtn" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+          <button type="submit" class="btn bg-slate-900 text-white">حفظ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const apiBase = '/api/hr-talent-management';
+    const searchInput = document.getElementById('searchInput');
+    const classificationFilter = document.getElementById('classificationFilter');
+    const sortSelect = document.getElementById('sortSelect');
+    const tableBody = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+    const addTalentBtn = document.getElementById('addTalentBtn');
+
+    const statTotal = document.getElementById('statTotal');
+    const statHigh = document.getElementById('statHigh');
+    const statDeveloping = document.getElementById('statDeveloping');
+    const statPlans = document.getElementById('statPlans');
+
+    const detailModal = document.getElementById('detailModal');
+    const detailTitle = document.getElementById('detailTitle');
+    const detailContent = document.getElementById('detailContent');
+    const closeDetailBtn = document.getElementById('closeDetailBtn');
+
+    const formModal = document.getElementById('formModal');
+    const formTitle = document.getElementById('formTitle');
+    const talentForm = document.getElementById('talentForm');
+    const closeFormBtn = document.getElementById('closeFormBtn');
+    const cancelFormBtn = document.getElementById('cancelFormBtn');
+
+    const employeeNameInput = document.getElementById('employeeName');
+    const departmentInput = document.getElementById('department');
+    const coreSkillsInput = document.getElementById('coreSkills');
+    const performanceLevelInput = document.getElementById('performanceLevel');
+    const potentialLevelInput = document.getElementById('potentialLevel');
+    const talentClassificationInput = document.getElementById('talentClassification');
+    const developmentPlanInput = document.getElementById('developmentPlan');
+    const developmentPlanStatusInput = document.getElementById('developmentPlanStatus');
+    const lastReviewDateInput = document.getElementById('lastReviewDate');
+    const notesInput = document.getElementById('notes');
+
+    let talentRecords = [];
+    let activeFormId = null;
+
+    const formatNumber = (value) => new Intl.NumberFormat('en-US').format(value || 0);
+    const formatDate = (value) => {
+      if (!value) return '-';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toISOString().slice(0, 10);
+    };
+
+    const getClassificationStyle = (classification) => {
+      if (classification === 'عالية') return 'bg-emerald-100 text-emerald-700';
+      if (classification === 'قيد التطوير') return 'bg-amber-100 text-amber-700';
+      return 'bg-slate-100 text-slate-700';
+    };
+
+    const updateStats = (records) => {
+      const total = records.length;
+      const highCount = records.filter((item) => item.talent_classification === 'عالية').length;
+      const developingCount = records.filter((item) => item.talent_classification === 'قيد التطوير').length;
+      const activePlanCount = records.filter((item) => ['نشطة', 'قيد التنفيذ'].includes(item.development_plan_status)).length;
+
+      statTotal.textContent = formatNumber(total);
+      statHigh.textContent = formatNumber(highCount);
+      statDeveloping.textContent = formatNumber(developingCount);
+      statPlans.textContent = formatNumber(activePlanCount);
+    };
+
+    const renderTable = (records) => {
+      if (!records.length) {
+        tableBody.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      tableBody.innerHTML = records.map((record) => {
+        const skills = Array.isArray(record.core_skills)
+          ? record.core_skills.filter(Boolean).join('، ')
+          : (record.core_skills || '');
+        const performanceLevel = record.performance_level !== null && record.performance_level !== undefined
+          ? Number(record.performance_level).toFixed(1)
+          : '-';
+        const potentialLevel = record.potential_level !== null && record.potential_level !== undefined
+          ? Number(record.potential_level).toFixed(1)
+          : '-';
+        const classification = record.talent_classification || 'متوسطة';
+        return `
+          <div class="talent-row px-4 py-3" data-id="${record.id}">
+            <div class="font-bold text-slate-900">${record.employee_name || '-'}</div>
+            <div>${record.department || '-'}</div>
+            <div class="text-slate-600">${skills || '-'}</div>
+            <div>${performanceLevel}</div>
+            <div>${potentialLevel}</div>
+            <div><span class="status-chip ${getClassificationStyle(classification)}">${classification}</span></div>
+            <div>${record.development_plan || '-'}</div>
+            <div>${formatDate(record.last_review_date)}</div>
+            <div class="row-actions flex flex-wrap gap-2">
+              <button data-action="view">عرض</button>
+              <button data-action="preview">معاينة</button>
+              <button data-action="edit">تعديل</button>
+              <button data-action="delete" class="text-rose-600 border-rose-200">حذف</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    const applyFilters = () => {
+      const searchValue = searchInput.value.trim().toLowerCase();
+      const classificationValue = classificationFilter.value;
+      let filtered = [...talentRecords];
+
+      if (searchValue) {
+        filtered = filtered.filter((record) => {
+          const name = (record.employee_name || '').toLowerCase();
+          const dept = (record.department || '').toLowerCase();
+          return name.includes(searchValue) || dept.includes(searchValue);
+        });
+      }
+
+      if (classificationValue !== 'all') {
+        filtered = filtered.filter((record) => record.talent_classification === classificationValue);
+      }
+
+      const sortValue = sortSelect.value;
+      filtered.sort((a, b) => {
+        if (sortValue === 'performance-desc') return Number(b.performance_level || 0) - Number(a.performance_level || 0);
+        if (sortValue === 'performance-asc') return Number(a.performance_level || 0) - Number(b.performance_level || 0);
+        if (sortValue === 'potential-desc') return Number(b.potential_level || 0) - Number(a.potential_level || 0);
+        if (sortValue === 'potential-asc') return Number(a.potential_level || 0) - Number(b.potential_level || 0);
+        if (sortValue === 'last-review-asc') return new Date(a.last_review_date || 0) - new Date(b.last_review_date || 0);
+        return new Date(b.last_review_date || 0) - new Date(a.last_review_date || 0);
+      });
+
+      renderTable(filtered);
+    };
+
+    const fetchRecords = async () => {
+      try {
+        const response = await fetch(apiBase);
+        if (!response.ok) throw new Error('فشل تحميل البيانات');
+        talentRecords = await response.json();
+        updateStats(talentRecords);
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+        alert('حدث خطأ أثناء تحميل بيانات المواهب.');
+      }
+    };
+
+    const openDetailModal = (record, mode) => {
+      detailTitle.textContent = mode === 'preview' ? 'معاينة سريعة' : 'تفاصيل الموهبة';
+      const skills = Array.isArray(record.core_skills)
+        ? record.core_skills.filter(Boolean).join('، ')
+        : (record.core_skills || '-');
+      const fullHtml = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><span class="field-label">اسم الموظف</span><div class="font-bold">${record.employee_name || '-'}</div></div>
+          <div><span class="field-label">القسم</span><div>${record.department || '-'}</div></div>
+          <div><span class="field-label">المهارات الأساسية</span><div>${skills || '-'}</div></div>
+          <div><span class="field-label">تصنيف الموهبة</span><div>${record.talent_classification || '-'}</div></div>
+          <div><span class="field-label">مستوى الأداء</span><div>${Number(record.performance_level || 0).toFixed(1)}</div></div>
+          <div><span class="field-label">مستوى الإمكانيات المستقبلية</span><div>${Number(record.potential_level || 0).toFixed(1)}</div></div>
+          <div><span class="field-label">خطة التطوير</span><div>${record.development_plan || '-'}</div></div>
+          <div><span class="field-label">حالة الخطة</span><div>${record.development_plan_status || '-'}</div></div>
+          <div><span class="field-label">آخر تقييم</span><div>${formatDate(record.last_review_date)}</div></div>
+          <div><span class="field-label">ملاحظات</span><div>${record.notes || '-'}</div></div>
+        </div>
+      `;
+      const previewHtml = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><span class="field-label">اسم الموظف</span><div class="font-bold">${record.employee_name || '-'}</div></div>
+          <div><span class="field-label">القسم</span><div>${record.department || '-'}</div></div>
+          <div><span class="field-label">تصنيف الموهبة</span><div>${record.talent_classification || '-'}</div></div>
+          <div><span class="field-label">الأداء / الإمكانيات</span><div>${Number(record.performance_level || 0).toFixed(1)} / ${Number(record.potential_level || 0).toFixed(1)}</div></div>
+        </div>
+      `;
+      detailContent.innerHTML = mode === 'preview' ? previewHtml : fullHtml;
+      detailModal.classList.add('active');
+    };
+
+    const closeDetailModal = () => {
+      detailModal.classList.remove('active');
+    };
+
+    const openFormModal = (mode, record = {}) => {
+      activeFormId = mode === 'edit' ? record.id : null;
+      formTitle.textContent = mode === 'edit' ? 'تعديل بيانات الموهبة' : 'إضافة موهبة جديدة';
+      employeeNameInput.value = record.employee_name || '';
+      departmentInput.value = record.department || '';
+      coreSkillsInput.value = Array.isArray(record.core_skills) ? record.core_skills.join(', ') : (record.core_skills || '');
+      performanceLevelInput.value = record.performance_level ?? '';
+      potentialLevelInput.value = record.potential_level ?? '';
+      talentClassificationInput.value = record.talent_classification || 'عالية';
+      developmentPlanInput.value = record.development_plan || '';
+      developmentPlanStatusInput.value = record.development_plan_status || 'نشطة';
+      lastReviewDateInput.value = record.last_review_date ? formatDate(record.last_review_date) : '';
+      notesInput.value = record.notes || '';
+      formModal.classList.add('active');
+    };
+
+    const closeFormModal = () => {
+      formModal.classList.remove('active');
+      activeFormId = null;
+      talentForm.reset();
+    };
+
+    const submitForm = async (event) => {
+      event.preventDefault();
+      const payload = {
+        employee_name: employeeNameInput.value.trim(),
+        department: departmentInput.value.trim(),
+        core_skills: coreSkillsInput.value
+          .split(',')
+          .map((skill) => skill.trim())
+          .filter(Boolean),
+        performance_level: performanceLevelInput.value ? Number(performanceLevelInput.value) : null,
+        potential_level: potentialLevelInput.value ? Number(potentialLevelInput.value) : null,
+        talent_classification: talentClassificationInput.value,
+        development_plan: developmentPlanInput.value.trim(),
+        development_plan_status: developmentPlanStatusInput.value,
+        last_review_date: lastReviewDateInput.value || null,
+        notes: notesInput.value.trim()
+      };
+
+      try {
+        const response = await fetch(activeFormId ? `${apiBase}/${activeFormId}` : apiBase, {
+          method: activeFormId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('فشل حفظ البيانات');
+        closeFormModal();
+        await fetchRecords();
+      } catch (error) {
+        console.error(error);
+        alert('تعذر حفظ البيانات، يرجى المحاولة مرة أخرى.');
+      }
+    };
+
+    const handleRowAction = async (event) => {
+      const button = event.target.closest('button');
+      if (!button || !button.dataset.action) return;
+      const row = button.closest('.talent-row');
+      if (!row) return;
+      const recordId = Number(row.dataset.id);
+      const record = talentRecords.find((item) => Number(item.id) === recordId);
+      if (!record) return;
+      const action = button.dataset.action;
+
+      if (action === 'view' || action === 'preview') {
+        openDetailModal(record, action);
+        return;
+      }
+
+      if (action === 'edit') {
+        openFormModal('edit', record);
+        return;
+      }
+
+      if (action === 'delete') {
+        const confirmed = confirm('هل أنت متأكد من حذف هذا السجل؟');
+        if (!confirmed) return;
+        try {
+          const response = await fetch(`${apiBase}/${recordId}`, { method: 'DELETE' });
+          if (!response.ok) throw new Error('فشل حذف السجل');
+          await fetchRecords();
+        } catch (error) {
+          console.error(error);
+          alert('تعذر حذف السجل، يرجى المحاولة مرة أخرى.');
+        }
+      }
+    };
+
+    searchInput.addEventListener('input', applyFilters);
+    classificationFilter.addEventListener('change', applyFilters);
+    sortSelect.addEventListener('change', applyFilters);
+    addTalentBtn.addEventListener('click', () => openFormModal('add'));
+    closeDetailBtn.addEventListener('click', closeDetailModal);
+    detailModal.addEventListener('click', (event) => {
+      if (event.target === detailModal) closeDetailModal();
+    });
+    closeFormBtn.addEventListener('click', closeFormModal);
+    cancelFormBtn.addEventListener('click', closeFormModal);
+    formModal.addEventListener('click', (event) => {
+      if (event.target === formModal) closeFormModal();
+    });
+    talentForm.addEventListener('submit', submitForm);
+    tableBody.addEventListener('click', handleRowAction);
+
+    fetchRecords();
+  </script>
+</body>
+</html>

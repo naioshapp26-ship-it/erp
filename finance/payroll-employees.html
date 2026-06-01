@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👥 موظفو الرواتب - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background: #f9fafb; }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-4">
+                     <a href="/finance/index.html" class="flex items-center gap-2 text-slate-700 hover:text-blue-600 transition">
+                        <img src="/لوجو%20نايوش%20خلفيه.png" alt="Logo" class="h-8 w-auto">
+                        <span class="font-bold text-xl">نظام نايوش</span>
+                    </a>
+                    <span class="h-6 w-px bg-gray-300 mx-2"></span>
+                    <span class="font-medium text-slate-600">موظفو الرواتب</span>
+                </div>
+            </div>
+            <div class="flex overflow-x-auto gap-2 py-2 text-sm font-medium border-t border-gray-100 no-scrollbar">
+                <a href="/finance/payroll-employees.html" class="px-3 py-1 rounded-full bg-blue-50 text-blue-700 whitespace-nowrap">الموظفون</a>
+                <a href="/finance/payroll-components.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">المكونات</a>
+                <a href="/finance/payroll-assignments.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الربط</a>
+                <a href="/finance/payroll-runs.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الدورات</a>
+                <a href="/finance/payroll-payslips.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الكشوف</a>
+                <a href="/finance/payroll-bank-batches.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">البنوك</a>
+                <a href="/finance/payroll-overtime.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الإضافي</a>
+                <a href="/finance/payroll-settlements.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">التسويات</a>
+                <a href="/finance/payroll-reports.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">التقارير</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">👥 إدارة موظفي الرواتب</h1>
+            <p class="text-slate-500">سجل موحد للموظفين مع بيانات الرواتب والحسابات البنكية.</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="text-xs font-semibold text-gray-500 mb-1">إجمالي الموظفين</div>
+                <div id="statTotal" class="text-2xl font-bold text-slate-800">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-green-500">
+                <div class="text-xs font-semibold text-gray-500 mb-1">الموظفون النشطون</div>
+                <div id="statActive" class="text-2xl font-bold text-green-600">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-red-400">
+                <div class="text-xs font-semibold text-gray-500 mb-1">الموظفون غير النشطين</div>
+                <div id="statInactive" class="text-2xl font-bold text-red-500">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="text-xs font-semibold text-gray-500 mb-1">عدد المتعاقدين</div>
+                <div id="statContractors" class="text-2xl font-bold text-slate-800">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="text-xs font-semibold text-gray-500 mb-1">متوسط الراتب الأساسي</div>
+                <div id="statSalary" class="text-2xl font-bold text-slate-800">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="text-xs font-semibold text-gray-500 mb-1">إجمالي الرواتب الأساسية</div>
+                <div id="statPayroll" class="text-2xl font-bold text-blue-600">--</div>
+            </div>
+        </div>
+
+        <!-- Filters & Action -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                <h2 class="text-lg font-bold text-slate-800">مرشحات البحث</h2>
+                <div class="flex gap-2">
+                    <button onclick="resetFilters()" class="text-gray-500 hover:text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
+                        إعادة ضبط
+                    </button>
+                    <button onclick="openEmployeeModal()" class="bg-white hover:bg-slate-50 text-slate-900 px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition flex items-center gap-2 border-2 border-blue-500">
+                        <i class="fas fa-plus"></i> إضافة موظف
+                    </button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">بحث سريع</label>
+                    <input id="filterQuery" type="text" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-gray-50 border" placeholder="اسم الموظف أو الكود">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">نوع التوظيف</label>
+                    <select id="filterType" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-white border">
+                        <option value="">الكل</option>
+                        <option value="EMPLOYEE">موظف</option>
+                        <option value="CONTRACTOR">متعاقد</option>
+                        <option value="INTERN">متدرب</option>
+                        <option value="FREELANCER">متعاون</option>
+                        <option value="HOURLY">اجير بالساعة</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
+                    <select id="filterActive" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-white border">
+                        <option value="">الكل</option>
+                        <option value="true">نشط</option>
+                        <option value="false">غير نشط</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">قائمة الموظفين</h2>
+                <span id="employeesCount" class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">--</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-sm text-gray-600">
+                    <thead class="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-4">الكود</th>
+                            <th class="px-6 py-4">الاسم</th>
+                            <th class="px-6 py-4">النوع</th>
+                            <th class="px-6 py-4">تاريخ التعيين</th>
+                            <th class="px-6 py-4">الراتب الأساسي</th>
+                            <th class="px-6 py-4">البنك</th>
+                            <th class="px-6 py-4">الآيبان</th>
+                            <th class="px-6 py-4">الحالة</th>
+                            <th class="px-6 py-4 text-center">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeesTable" class="divide-y divide-gray-100">
+                        <tr>
+                            <td colspan="9" class="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Form -->
+    <div id="employeeModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto transform transition-transform scale-95">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                <h3 class="text-xl font-bold text-slate-800" id="employeeModalTitle">إضافة موظف</h3>
+                <button onclick="closeEmployeeModal()" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">كود الموظف *</label>
+                    <input id="employeeCode" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="EMP-0001">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الاسم بالعربية *</label>
+                    <input id="employeeNameAr" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="الاسم الكامل">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الاسم بالإنجليزية</label>
+                    <input id="employeeNameEn" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Full Name">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">نوع التوظيف</label>
+                    <select id="employeeType" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        <option value="EMPLOYEE">موظف</option>
+                        <option value="CONTRACTOR">متعاقد</option>
+                        <option value="INTERN">متدرب</option>
+                        <option value="FREELANCER">متعاون</option>
+                        <option value="HOURLY">اجير بالساعة</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ التعيين</label>
+                    <input id="hireDate" type="date" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ الانتهاء</label>
+                    <input id="endDate" type="date" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الراتب الأساسي</label>
+                    <input id="baseSalary" type="number" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">اسم البنك</label>
+                    <input id="bankName" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="البنك">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">رقم الآيبان</label>
+                    <input id="bankIban" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="SA00...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الحساب البنكي</label>
+                    <input id="bankAccount" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="رقم الحساب">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">رقم التأمينات (GOSI)</label>
+                    <input id="socialInsurance" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="الرقم">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">رقم بوليصة التأمين</label>
+                    <input id="insuranceNumber" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="الرقم">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الفرع</label>
+                    <input id="branchId" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="BR-001">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الحاضنة</label>
+                    <input id="incubatorId" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="INC-001">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">المنصة</label>
+                    <input id="platformId" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="PLAT-001">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">المكتب</label>
+                    <input id="officeId" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="OFF-001">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
+                    <select id="employeeActive" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                        <option value="true">نشط</option>
+                        <option value="false">غير نشط</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+                    <textarea id="employeeNotes" rows="3" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="ملاحظات إضافية"></textarea>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-100 flex gap-3 justify-end bg-gray-50 rounded-b-2xl">
+                <button onclick="closeEmployeeModal()" class="px-6 py-2 rounded-lg text-gray-600 font-bold hover:bg-gray-200 transition">إلغاء</button>
+                <button onclick="saveEmployee()" class="px-6 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg hover:shadow-xl transition">حفظ البيانات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="employeePreview" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 transform transition-transform scale-95">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                <h3 class="text-xl font-bold text-slate-800">معاينة بيانات الموظف</h3>
+                <button onclick="closeEmployeePreview()" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="flex justify-between border-b border-gray-100 pb-2">
+                    <span class="text-gray-500">الكود:</span>
+                    <span id="previewCode" class="font-bold text-slate-800">-</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-2">
+                    <span class="text-gray-500">الاسم:</span>
+                    <span id="previewName" class="font-bold text-slate-800">-</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-2">
+                    <span class="text-gray-500">النوع:</span>
+                    <span id="previewType" class="font-bold text-slate-800">-</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-2">
+                    <span class="text-gray-500">تاريخ التعيين:</span>
+                    <span id="previewHireDate" class="font-bold text-slate-800">-</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-2">
+                    <span class="text-gray-500">الراتب الأساسي:</span>
+                    <span id="previewSalary" class="font-bold text-slate-800">-</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-2">
+                    <span class="text-gray-500">البنك:</span>
+                    <span id="previewBank" class="font-bold text-slate-800">-</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-2">
+                    <span class="text-gray-500">الآيبان:</span>
+                    <span id="previewIban" class="font-bold text-slate-800">-</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-100 pb-2">
+                    <span class="text-gray-500">الحالة:</span>
+                    <span id="previewStatus" class="font-bold text-slate-800">-</span>
+                </div>
+                <div>
+                    <span class="block text-gray-500 mb-1">ملاحظات:</span>
+                    <p id="previewNotes" class="text-sm text-slate-700 bg-gray-50 p-2 rounded">-</p>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-b-2xl flex justify-end">
+                <button onclick="closeEmployeePreview()" class="px-6 py-2 rounded-lg bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/finance/finance-context.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+        let employees = [];
+        let editingEmployeeId = null;
+
+        async function loadEmployees() {
+            const params = new URLSearchParams();
+            const query = document.getElementById('filterQuery').value.trim();
+            const employmentType = document.getElementById('filterType').value;
+            const isActive = document.getElementById('filterActive').value;
+
+            if (query) params.set('q', query);
+            if (employmentType) params.set('employment_type', employmentType);
+            if (isActive) params.set('is_active', isActive);
+
+            const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/employees?${params.toString()}`, { headers });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر تحميل الموظفين');
+                employees = data.employees || [];
+                renderStats();
+                renderTable();
+            } catch (error) {
+                console.error('Error loading employees:', error);
+                document.getElementById('employeesTable').innerHTML = `
+                    <tr><td colspan="9" class="px-6 py-8 text-center text-red-500 font-bold">تعذر تحميل البيانات</td></tr>
+                `;
+            }
+        }
+
+        function renderStats() {
+            const total = employees.length;
+            const active = employees.filter((e) => e.is_active).length;
+            const inactive = total - active;
+            const contractors = employees.filter((e) => e.employment_type === 'CONTRACTOR').length;
+            const totalSalary = employees.reduce((sum, e) => sum + Number(e.base_salary || 0), 0);
+            const avgSalary = total ? totalSalary / total : 0;
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statActive').textContent = active;
+            document.getElementById('statInactive').textContent = inactive;
+            document.getElementById('statContractors').textContent = contractors;
+            document.getElementById('statSalary').textContent = avgSalary.toFixed(2);
+            document.getElementById('statPayroll').textContent = totalSalary.toFixed(2);
+            document.getElementById('employeesCount').textContent = `${total}`;
+        }
+
+        function renderTable() {
+            if (!employees.length) {
+                document.getElementById('employeesTable').innerHTML = `
+                    <tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">لا توجد بيانات</td></tr>
+                `;
+                return;
+            }
+            const rows = employees.map((emp) => {
+                const statusBadge = emp.is_active
+                    ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">نشط</span>'
+                    : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">غير نشط</span>';
+                const hireDate = emp.hire_date ? emp.hire_date.slice(0, 10) : '-';
+                return `
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 font-bold text-gray-900">${emp.employee_code || '-'}</td>
+                        <td class="px-6 py-4">${emp.full_name_ar || '-'}</td>
+                        <td class="px-6 py-4 text-xs font-medium">${emp.employment_type || '-'}</td>
+                        <td class="px-6 py-4">${hireDate}</td>
+                        <td class="px-6 py-4 font-mono font-medium">${Number(emp.base_salary || 0).toFixed(2)}</td>
+                        <td class="px-6 py-4">${emp.bank_name || '-'}</td>
+                        <td class="px-6 py-4 font-mono text-xs">${emp.bank_iban || '-'}</td>
+                        <td class="px-6 py-4">${statusBadge}</td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="previewEmployee(${emp.employee_id})" class="p-2 text-black bg-white border-2 border-blue-500 hover:bg-blue-50 rounded-full shadow-sm transition" title="معاينة">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button onclick="addFromEmployee(${emp.employee_id})" class="p-2 text-black bg-white border-2 border-teal-500 hover:bg-teal-50 rounded-full shadow-sm transition" title="نسخ">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button onclick="editEmployee(${emp.employee_id})" class="p-2 text-black bg-white border-2 border-indigo-500 hover:bg-indigo-50 rounded-full shadow-sm transition" title="تعديل">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteEmployee(${emp.employee_id})" class="p-2 text-black bg-white border-2 border-red-500 hover:bg-red-50 rounded-full shadow-sm transition" title="حذف">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('employeesTable').innerHTML = rows;
+        }
+
+        function openEmployeeModal() {
+            editingEmployeeId = null;
+            document.getElementById('employeeModalTitle').textContent = 'إضافة موظف';
+            document.getElementById('employeeModal').classList.remove('hidden');
+            clearEmployeeForm();
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').classList.add('hidden');
+        }
+
+        function clearEmployeeForm() {
+            document.getElementById('employeeCode').value = '';
+            document.getElementById('employeeNameAr').value = '';
+            document.getElementById('employeeNameEn').value = '';
+            document.getElementById('employeeType').value = 'EMPLOYEE';
+            document.getElementById('hireDate').value = '';
+            document.getElementById('endDate').value = '';
+            document.getElementById('baseSalary').value = '';
+            document.getElementById('bankName').value = '';
+            document.getElementById('bankIban').value = '';
+            document.getElementById('bankAccount').value = '';
+            document.getElementById('socialInsurance').value = '';
+            document.getElementById('insuranceNumber').value = '';
+            document.getElementById('branchId').value = '';
+            document.getElementById('incubatorId').value = '';
+            document.getElementById('platformId').value = '';
+            document.getElementById('officeId').value = '';
+            document.getElementById('employeeActive').value = 'true';
+            document.getElementById('employeeNotes').value = '';
+        }
+
+        function editEmployee(id) {
+            const emp = employees.find((item) => item.employee_id === id);
+            if (!emp) return;
+            editingEmployeeId = id;
+            document.getElementById('employeeModalTitle').textContent = 'تعديل موظف';
+            document.getElementById('employeeModal').classList.remove('hidden');
+            
+            // Populate form
+            document.getElementById('employeeCode').value = emp.employee_code || '';
+            document.getElementById('employeeNameAr').value = emp.full_name_ar || '';
+            document.getElementById('employeeNameEn').value = emp.full_name_en || '';
+            document.getElementById('employeeType').value = emp.employment_type || 'EMPLOYEE';
+            document.getElementById('hireDate').value = emp.hire_date ? emp.hire_date.slice(0, 10) : '';
+            document.getElementById('endDate').value = emp.end_date ? emp.end_date.slice(0, 10) : '';
+            document.getElementById('baseSalary').value = emp.base_salary || 0;
+            document.getElementById('bankName').value = emp.bank_name || '';
+            document.getElementById('bankIban').value = emp.bank_iban || '';
+            document.getElementById('bankAccount').value = emp.bank_account || '';
+            document.getElementById('socialInsurance').value = emp.social_insurance_number || '';
+            document.getElementById('insuranceNumber').value = emp.insurance_number || '';
+            document.getElementById('branchId').value = emp.branch_id || '';
+            document.getElementById('incubatorId').value = emp.incubator_id || '';
+            document.getElementById('platformId').value = emp.platform_id || '';
+            document.getElementById('officeId').value = emp.office_id || '';
+            document.getElementById('employeeActive').value = String(emp.is_active);
+            document.getElementById('employeeNotes').value = emp.notes || '';
+        }
+
+        function addFromEmployee(id) {
+            const emp = employees.find((item) => item.employee_id === id);
+            if (!emp) return;
+            editingEmployeeId = null;
+            document.getElementById('employeeModalTitle').textContent = 'إضافة موظف';
+            document.getElementById('employeeModal').classList.remove('hidden');
+            // Populate form
+            document.getElementById('employeeCode').value = '';
+            document.getElementById('employeeNameAr').value = emp.full_name_ar || '';
+            document.getElementById('employeeNameEn').value = emp.full_name_en || '';
+            document.getElementById('employeeType').value = emp.employment_type || 'EMPLOYEE';
+            document.getElementById('hireDate').value = '';
+            document.getElementById('endDate').value = '';
+            document.getElementById('baseSalary').value = emp.base_salary || 0;
+            document.getElementById('bankName').value = emp.bank_name || '';
+            document.getElementById('bankIban').value = emp.bank_iban || '';
+            document.getElementById('bankAccount').value = emp.bank_account || '';
+            document.getElementById('socialInsurance').value = emp.social_insurance_number || '';
+            document.getElementById('insuranceNumber').value = emp.insurance_number || '';
+            document.getElementById('branchId').value = emp.branch_id || '';
+            document.getElementById('incubatorId').value = emp.incubator_id || '';
+            document.getElementById('platformId').value = emp.platform_id || '';
+            document.getElementById('officeId').value = emp.office_id || '';
+            document.getElementById('employeeActive').value = 'true';
+            document.getElementById('employeeNotes').value = emp.notes || '';
+        }
+
+        function previewEmployee(id) {
+            const emp = employees.find((item) => item.employee_id === id);
+            if (!emp) return;
+            document.getElementById('previewCode').textContent = emp.employee_code || '-';
+            document.getElementById('previewName').textContent = emp.full_name_ar || '-';
+            document.getElementById('previewType').textContent = emp.employment_type || '-';
+            document.getElementById('previewHireDate').textContent = emp.hire_date ? emp.hire_date.slice(0, 10) : '-';
+            document.getElementById('previewSalary').textContent = Number(emp.base_salary || 0).toFixed(2);
+            document.getElementById('previewBank').textContent = emp.bank_name || '-';
+            document.getElementById('previewIban').textContent = emp.bank_iban || '-';
+            document.getElementById('previewStatus').textContent = emp.is_active ? 'نشط' : 'غير نشط';
+            document.getElementById('previewNotes').textContent = emp.notes || '-';
+            document.getElementById('employeePreview').classList.remove('hidden');
+        }
+
+        function closeEmployeePreview() {
+            document.getElementById('employeePreview').classList.add('hidden');
+        }
+
+        async function saveEmployee() {
+            const payload = {
+                employee_code: document.getElementById('employeeCode').value.trim(),
+                full_name_ar: document.getElementById('employeeNameAr').value.trim(),
+                full_name_en: document.getElementById('employeeNameEn').value.trim(),
+                employment_type: document.getElementById('employeeType').value,
+                hire_date: document.getElementById('hireDate').value || null,
+                end_date: document.getElementById('endDate').value || null,
+                base_salary: Number(document.getElementById('baseSalary').value || 0),
+                bank_name: document.getElementById('bankName').value.trim(),
+                bank_iban: document.getElementById('bankIban').value.trim(),
+                bank_account: document.getElementById('bankAccount').value.trim(),
+                social_insurance_number: document.getElementById('socialInsurance').value.trim(),
+                insurance_number: document.getElementById('insuranceNumber').value.trim(),
+                branch_id: document.getElementById('branchId').value.trim() || null,
+                incubator_id: document.getElementById('incubatorId').value.trim() || null,
+                platform_id: document.getElementById('platformId').value.trim() || null,
+                office_id: document.getElementById('officeId').value.trim() || null,
+                is_active: document.getElementById('employeeActive').value === 'true',
+                notes: document.getElementById('employeeNotes').value.trim()
+            };
+
+            if (!payload.employee_code || !payload.full_name_ar) {
+                alert('يرجى إدخال كود الموظف والاسم بالعربية');
+                return;
+            }
+
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+            };
+
+            const url = editingEmployeeId
+                ? `${API_BASE}/finance/payroll/employees/${editingEmployeeId}`
+                : `${API_BASE}/finance/payroll/employees`;
+            const method = editingEmployeeId ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر حفظ الموظف');
+                closeEmployeeModal();
+                await loadEmployees();
+            } catch (error) {
+                console.error('Error saving employee:', error);
+                alert('تعذر حفظ بيانات الموظف');
+            }
+        }
+
+        async function deleteEmployee(id) {
+            if (!confirm('هل تريد حذف الموظف؟')) return;
+            const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/employees/${id}`, { method: 'DELETE', headers });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر حذف الموظف');
+                await loadEmployees();
+            } catch (error) {
+                console.error('Error deleting employee:', error);
+                alert('تعذر حذف الموظف');
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('filterQuery').value = '';
+            document.getElementById('filterType').value = '';
+            document.getElementById('filterActive').value = '';
+            loadEmployees();
+        }
+
+        document.getElementById('filterQuery').addEventListener('input', loadEmployees);
+        document.getElementById('filterType').addEventListener('change', loadEmployees);
+        document.getElementById('filterActive').addEventListener('change', loadEmployees);
+
+        loadEmployees();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

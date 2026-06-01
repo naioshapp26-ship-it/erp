@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧾 الفواتير والتحصيل والميزانيات التقديرية - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f9fafb; color: #0f172a; }
+        
+        .card-gradient {
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    
+        .shape-a { border-radius: 26px 8px 26px 8px; }
+        .shape-b { border-radius: 999px; }
+        .shape-c { border-radius: 28px 28px 6px 28px; }
+        .shape-d { border-radius: 18px 40px 18px 40px; }
+        .shape-e { border-radius: 12px 40px 12px 40px; }
+        .stat-card { transition: transform 0.3s, box-shadow 0.3s; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(15,23,42,0.15); }
+        .table-scroll { max-height: 520px; overflow: auto; }
+        .chart-container { position: relative; height: 280px; }
+        .section-accent-sky { border-top: 4px solid #0ea5e9; }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .section-accent-amber { border-top: 4px solid #f59e0b; }
+        .section-accent-indigo { border-top: 4px solid #6366f1; }
+        .section-accent-rose { border-top: 4px solid #f43f5e; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); display: none; align-items: center; justify-content: center; z-index: 50; }
+        .modal { width: min(520px, 92vw); }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 0.75rem 1.5rem; border-radius: 999px; color: white; font-weight: 700; z-index: 60; }
+        .toast-success { background: #10b981; }
+        .toast-info { background: #6366f1; }
+        .toast-warn { background: #f59e0b; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🧾 الفواتير والتحصيل والميزانيات التقديرية</h1>
+            <p class="text-lg text-slate-600">الفواتير والتحصيل + نموذج الميزانية التقديرية + تحليل الانحراف (الصفحة 34)</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="downloadJSON()" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-code"></i>
+                تنزيل ملف بيانات
+            </button>
+            <button onclick="downloadCSV()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-csv"></i>
+                تنزيل ملف جدولي
+            </button>
+            <button onclick="printReport()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة
+            </button>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧾 واجهة الفواتير والتحصيل</h2>
+                <span class="text-sm text-slate-500">قائمة الفواتير مع حالة السداد والإجراءات</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+                <div class="stat-card shape-b bg-gradient-to-br from-sky-500 to-blue-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>إجمالي الفواتير</span><i class="fas fa-file-invoice text-2xl opacity-70"></i></div>
+                    <div id="totalInvoices" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-a bg-gradient-to-br from-emerald-500 to-teal-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>إجمالي المدفوع</span><i class="fas fa-hand-holding-dollar text-2xl opacity-70"></i></div>
+                    <div id="totalPaid" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-c bg-gradient-to-br from-amber-500 to-orange-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>المتبقي للتحصيل</span><i class="fas fa-hourcard-gradient-half text-2xl opacity-70"></i></div>
+                    <div id="totalRemaining" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-d bg-gradient-to-br from-rose-500 to-red-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>نسبة التحصيل</span><i class="fas fa-percent text-2xl opacity-70"></i></div>
+                    <div id="collectionRate" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-e bg-gradient-to-br from-indigo-500 to-purple-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>الفواتير المتأخرة</span><i class="fas fa-triangle-exclamation text-2xl opacity-70"></i></div>
+                    <div id="overdueInvoices" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-b bg-gradient-to-br from-cyan-500 to-sky-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>الفواتير المسددة</span><i class="fas fa-check-circle text-2xl opacity-70"></i></div>
+                    <div id="paidInvoices" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-a bg-gradient-to-br from-slate-600 to-slate-800 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>خطط السداد النشطة</span><i class="fas fa-calendar-check text-2xl opacity-70"></i></div>
+                    <div id="plansCount" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-c bg-gradient-to-br from-fuchsia-500 to-pink-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>متوسط قيمة الفاتورة</span><i class="fas fa-chart-line text-2xl opacity-70"></i></div>
+                    <div id="avgInvoice" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-sky-50 text-sky-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم الفاتورة</th>
+                            <th class="px-3 py-2 text-right">تاريخ الفاتورة</th>
+                            <th class="px-3 py-2 text-right">العميل</th>
+                            <th class="px-3 py-2 text-right">إجمالي الفاتورة</th>
+                            <th class="px-3 py-2 text-right">المدفوع</th>
+                            <th class="px-3 py-2 text-right">المتبقي</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoicesTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+            <div id="invoicesCount" class="text-sm text-slate-500 mt-2"></div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">📌 واجهة الميزانيات التقديرية</h2>
+                <span class="text-sm text-slate-500">ميزانية الإيرادات والمصروفات والانحرافات</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+                <div class="stat-card shape-b bg-gradient-to-br from-emerald-500 to-teal-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>قيمة الميزانيات</span><i class="fas fa-coins text-2xl opacity-70"></i></div>
+                    <div id="totalBudgetAmount" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-a bg-gradient-to-br from-indigo-500 to-purple-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>الإجمالي الفعلي</span><i class="fas fa-chart-column text-2xl opacity-70"></i></div>
+                    <div id="totalActual" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-c bg-gradient-to-br from-amber-500 to-orange-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>الانحراف الكلي</span><i class="fas fa-arrows-left-right text-2xl opacity-70"></i></div>
+                    <div id="totalVariance" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-d bg-gradient-to-br from-sky-500 to-blue-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>نسبة الالتزام بالميزانية</span><i class="fas fa-percent text-2xl opacity-70"></i></div>
+                    <div id="budgetCompliance" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">📊 مقارنة المخطط بالفعلي</h3>
+                    <div class="chart-container"><canvas id="varianceChart"></canvas></div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-indigo">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">🤖 توقعات الذكاء الاصطناعي</h3>
+                    <div id="aiForecasts" class="space-y-3 text-sm text-slate-700"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧠 نموذج الميزانية التقديرية التفصيلي</h2>
+                <span class="text-sm text-slate-500">العقل المالي لنايوش</span>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-emerald">
+                    <h3 class="font-bold text-slate-800 mb-3">ميزانية الإيرادات</h3>
+                    <div id="revenueBudgetModel" class="space-y-2 text-sm text-slate-700"></div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-rose">
+                    <h3 class="font-bold text-slate-800 mb-3">ميزانية المصروفات</h3>
+                    <div id="expenseBudgetModel" class="space-y-2 text-sm text-slate-700"></div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="font-bold text-slate-800 mb-3">ميزانية التدفقات النقدية</h3>
+                    <div id="cashflowBudgetModel" class="space-y-2 text-sm text-slate-700"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-rose">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🏗️ ميزانية رأس المال</h2>
+                <span class="text-sm text-slate-500">افتتاح فروع وتطوير منصات وشراء أصول</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-700" id="capitalBudget"></div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-amber">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">📉 تحليل الانحراف</h2>
+                <span class="text-sm text-slate-500">الانحراف = الفعلي - المخطط</span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-amber-50 text-amber-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">الفترة</th>
+                            <th class="px-3 py-2 text-right">الحساب</th>
+                            <th class="px-3 py-2 text-right">المخطط</th>
+                            <th class="px-3 py-2 text-right">الفعلي</th>
+                            <th class="px-3 py-2 text-right">الانحراف</th>
+                            <th class="px-3 py-2 text-right">النسبة</th>
+                            <th class="px-3 py-2 text-right">المستوى</th>
+                        </tr>
+                    </thead>
+                    <tbody id="varianceTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+            <div id="varianceCount" class="text-sm text-slate-500 mt-2"></div>
+        </div>
+
+        <div class="space-y-6">
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-sky" open>
+                <summary class="text-xl font-bold text-slate-800">📚 جدول الميزانيات</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">تفاصيل الميزانيات</h4><span id="budgetsCount" class="text-sm text-slate-500"></span></div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead class="bg-sky-50 text-sky-700">
+                                <tr>
+                                    <th class="px-3 py-2 text-right">كود الميزانية</th>
+                                    <th class="px-3 py-2 text-right">اسم الميزانية</th>
+                                    <th class="px-3 py-2 text-right">النوع</th>
+                                    <th class="px-3 py-2 text-right">السنة</th>
+                                    <th class="px-3 py-2 text-right">السيناريو</th>
+                                    <th class="px-3 py-2 text-right">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="budgetsTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-indigo">
+                <summary class="text-xl font-bold text-slate-800">📑 سطور الميزانية</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">تفاصيل البنود</h4><span id="linesCount" class="text-sm text-slate-500"></span></div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead class="bg-indigo-50 text-indigo-700">
+                                <tr>
+                                    <th class="px-3 py-2 text-right">كود الحساب</th>
+                                    <th class="px-3 py-2 text-right">اسم الحساب</th>
+                                    <th class="px-3 py-2 text-right">الإجمالي السنوي</th>
+                                    <th class="px-3 py-2 text-right">ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="linesTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <div id="paymentModal" class="modal-overlay">
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 modal">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="modalTitle" class="text-xl font-bold text-slate-800"></h3>
+                <button onclick="closeModal()" class="text-slate-500"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="space-y-3 text-sm text-slate-700" id="modalContent"></div>
+            <div class="flex gap-3 mt-5">
+                <button onclick="confirmAction()" class="bg-emerald-600 text-white px-5 py-2 rounded-full font-bold hover:shadow-lg">تأكيد</button>
+                <button onclick="closeModal()" class="bg-slate-200 text-slate-700 px-5 py-2 rounded-full font-bold">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+
+        const store = {
+            invoices: [],
+            payments: [],
+            plans: [],
+            budgets: [],
+            lines: [],
+            variances: [],
+            budgetsSummary: null,
+            expenses: [],
+            expensesSummary: null,
+            cashflow: null,
+            forecasts: [],
+            fixedAssets: [],
+            fixedAssetsSummary: null
+        };
+
+        let varianceChartInstance = null;
+        let modalState = { type: null, invoice: null };
+
+        async function fetchJson(url) {
+            const res = await fetch(url, {
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            });
+            const data = await res.json();
+            return { ok: res.ok, data };
+        }
+
+        async function loadData() {
+            try {
+                const [invRes, payRes, planRes, budgetRes, expenseRes, cashflowRes, forecastRes, assetsRes] = await Promise.all([
+                    fetchJson(`${API_BASE}/finance/invoices?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/payments?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/payment-plans?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/budgets?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/expenses?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/cashflow/overview?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/ai-forecasts?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/fixed-assets?entity_id=${ENTITY_ID}`)
+                ]);
+
+                store.invoices = invRes.data.invoices || [];
+                store.payments = payRes.data.payments || [];
+                store.plans = planRes.data.plans || [];
+                store.budgets = budgetRes.data.budgets || [];
+                store.lines = budgetRes.data.lines || [];
+                store.variances = budgetRes.data.variances || [];
+                store.budgetsSummary = budgetRes.data.summary || null;
+                store.expenses = expenseRes.data.expenses || [];
+                store.expensesSummary = expenseRes.data.summary || null;
+                store.cashflow = cashflowRes.data || null;
+                store.forecasts = forecastRes.data.forecasts || [];
+                store.fixedAssets = assetsRes.data.assets || [];
+                store.fixedAssetsSummary = assetsRes.data.summary || null;
+
+                renderInvoices();
+                renderBudgetSummary();
+                renderMasterBudgetModel();
+                renderCapitalBudget();
+                renderVarianceTable();
+                renderBudgetsTable();
+                renderLinesTable();
+                renderVarianceChart();
+                renderAIForecasts();
+            } catch (error) {
+                console.error('❌ خطأ في تحميل البيانات:', error);
+            }
+        }
+
+        function renderInvoices() {
+            const totalInvoices = store.invoices.length;
+            const totalAmount = sum(store.invoices, 'total_amount');
+            const totalPaid = sum(store.invoices, 'paid_amount');
+            const totalRemaining = sum(store.invoices, 'remaining_amount');
+            const collectionRate = totalAmount ? (totalPaid / totalAmount) * 100 : 0;
+            const overdue = store.invoices.filter(i => String(i.status || '').toUpperCase() === 'OVERDUE').length;
+            const paid = store.invoices.filter(i => String(i.status || '').toUpperCase() === 'PAID').length;
+            const avgInvoice = totalInvoices ? totalAmount / totalInvoices : 0;
+
+            document.getElementById('totalInvoices').textContent = totalInvoices.toLocaleString('en-US');
+            document.getElementById('totalPaid').textContent = formatMoney(totalPaid);
+            document.getElementById('totalRemaining').textContent = formatMoney(totalRemaining);
+            document.getElementById('collectionRate').textContent = `${collectionRate.toFixed(1)}%`;
+            document.getElementById('overdueInvoices').textContent = overdue.toLocaleString('en-US');
+            document.getElementById('paidInvoices').textContent = paid.toLocaleString('en-US');
+            document.getElementById('plansCount').textContent = store.plans.length.toLocaleString('en-US');
+            document.getElementById('avgInvoice').textContent = formatMoney(avgInvoice);
+
+            const rows = store.invoices.map(inv => `
+                <tr class="hover:bg-sky-50">
+                    <td class="px-3 py-2">${sanitizeText(inv.invoice_number)}</td>
+                    <td class="px-3 py-2">${formatDate(inv.invoice_date)}</td>
+                    <td class="px-3 py-2">${sanitizeText(inv.customer_name_ar || inv.customer_name)}</td>
+                    <td class="px-3 py-2">${formatMoney(inv.total_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(inv.paid_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(inv.remaining_amount)}</td>
+                    <td class="px-3 py-2">${translateStatus(inv.status)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="openAction('full', '${inv.invoice_id}')" class="bg-emerald-600 text-white px-3 py-1 rounded-full text-xs">سداد كامل</button>
+                            <button onclick="openAction('partial', '${inv.invoice_id}')" class="bg-amber-500 text-white px-3 py-1 rounded-full text-xs">سداد جزئي</button>
+                            <button onclick="openAction('plan', '${inv.invoice_id}')" class="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs">إنشاء خطة دفع</button>
+                            <button onclick="openEditInvoice(${inv.invoice_id})" class="bg-white text-slate-900 px-3 py-1 rounded-full text-xs border border-white">تعديل</button>
+                            <button onclick="deleteInvoice(${inv.invoice_id})" class="bg-rose-600 text-white px-3 py-1 rounded-full text-xs">حذف</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('invoicesTable').innerHTML = rows || `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('invoicesCount').textContent = `عدد الصفوف: ${totalInvoices}`;
+        }
+
+        function openEditInvoice(invoiceId) {
+            const invoice = store.invoices.find(i => i.invoice_id === invoiceId);
+            if (!invoice) return;
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay flex';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="modal bg-white rounded-2xl shadow-2xl">
+                    <div class="p-5 border-b flex items-center justify-between">
+                        <h3 class="font-bold text-lg">تعديل الفاتورة ${invoice.invoice_number || ''}</h3>
+                        <button onclick="this.closest('.modal-overlay').remove()" class="text-slate-500 hover:text-slate-700"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="p-5 space-y-4 text-sm">
+                        <div>
+                            <label class="block mb-1 text-slate-600">تاريخ الاستحقاق</label>
+                            <input id="edit-invoice-due" type="date" class="w-full border rounded-lg px-3 py-2" value="${(invoice.due_date || '').slice(0,10)}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-slate-600">إجمالي الفاتورة</label>
+                            <input id="edit-invoice-total" type="number" class="w-full border rounded-lg px-3 py-2" value="${invoice.total_amount || 0}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-slate-600">الحالة</label>
+                            <input id="edit-invoice-status" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.status || ''}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-slate-600">ملاحظات</label>
+                            <textarea id="edit-invoice-notes" class="w-full border rounded-lg px-3 py-2" rows="3">${invoice.notes || ''}</textarea>
+                        </div>
+                        <div class="border-t border-slate-200 pt-3">
+                            <div class="text-sm font-semibold text-slate-700 mb-2">بيانات العنوان</div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block mb-1 text-slate-600">اسم الشارع</label>
+                                    <input id="edit-invoice-street" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.street_name || ''}">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-slate-600">الرمز البريدي</label>
+                                    <input id="edit-invoice-postal" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.postal_code || ''}">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-slate-600">رقم المبنى</label>
+                                    <input id="edit-invoice-building" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.building_number || ''}">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                <div>
+                                    <label class="block mb-1 text-slate-600">اسم المدينة</label>
+                                    <input id="edit-invoice-city" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.city || ''}">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-slate-600">اسم المنطقة</label>
+                                    <input id="edit-invoice-district" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.district || ''}">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-slate-600">الرمز الوطني</label>
+                                    <input id="edit-invoice-national" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.national_address_number || ''}">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                <div>
+                                    <label class="block mb-1 text-slate-600">العنوان المختصر</label>
+                                    <input id="edit-invoice-short" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.short_address || ''}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5 border-t flex items-center justify-end gap-2">
+                        <button onclick="this.closest('.modal-overlay').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                        <button onclick="submitEditInvoice(${invoiceId})" class="px-4 py-2 rounded-lg bg-slate-800 text-white">حفظ</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function submitEditInvoice(invoiceId) {
+            const payload = {
+                due_date: document.getElementById('edit-invoice-due').value,
+                total_amount: parseFloat(document.getElementById('edit-invoice-total').value || 0),
+                status: document.getElementById('edit-invoice-status').value,
+                notes: document.getElementById('edit-invoice-notes').value,
+                street_name: document.getElementById('edit-invoice-street').value,
+                postal_code: document.getElementById('edit-invoice-postal').value,
+                building_number: document.getElementById('edit-invoice-building').value,
+                city: document.getElementById('edit-invoice-city').value,
+                district: document.getElementById('edit-invoice-district').value,
+                national_address_number: document.getElementById('edit-invoice-national').value,
+                short_address: document.getElementById('edit-invoice-short').value
+            };
+            const res = await fetch(`${API_BASE}/finance/invoices/${invoiceId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                document.querySelector('.modal-overlay')?.remove();
+                await loadData();
+            } else {
+                alert('تعذر تحديث الفاتورة');
+            }
+        }
+
+        async function deleteInvoice(invoiceId) {
+            if (!confirm('هل تريد حذف هذه الفاتورة؟')) return;
+            const res = await fetch(`${API_BASE}/finance/invoices/${invoiceId}`, {
+                method: 'DELETE',
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            });
+            if (res.ok) {
+                await loadData();
+            } else {
+                alert('تعذر حذف الفاتورة');
+            }
+        }
+
+        function renderBudgetSummary() {
+            const summary = store.budgetsSummary || {};
+            document.getElementById('totalBudgetAmount').textContent = formatMoney(summary.total_budget_amount || 0);
+            document.getElementById('totalActual').textContent = formatMoney(summary.total_actual || 0);
+            document.getElementById('totalVariance').textContent = formatMoney(summary.total_variance || 0);
+            const compliance = summary.total_budget_amount ? (summary.total_actual / summary.total_budget_amount) * 100 : 0;
+            document.getElementById('budgetCompliance').textContent = `${compliance.toFixed(1)}%`;
+        }
+
+        function renderVarianceChart() {
+            const grouped = store.variances.reduce((acc, v) => {
+                const key = sanitizeText(v.period_name) || `${v.fiscal_year || 'سنة'}-${v.fiscal_period || 'فترة'}`;
+                acc[key] = acc[key] || { budgeted: 0, actual: 0 };
+                acc[key].budgeted += parseFloat(v.budgeted_amount || 0);
+                acc[key].actual += parseFloat(v.actual_amount || 0);
+                return acc;
+            }, {});
+
+            const labels = Object.keys(grouped);
+            const budgeted = labels.map(l => grouped[l].budgeted);
+            const actual = labels.map(l => grouped[l].actual);
+
+            const ctx = document.getElementById('varianceChart').getContext('2d');
+            if (varianceChartInstance) varianceChartInstance.destroy();
+            varianceChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.length ? labels : ['لا توجد بيانات'],
+                    datasets: [
+                        { label: 'المخطط', data: budgeted.length ? budgeted : [0], backgroundColor: '#6366f1' },
+                        { label: 'الفعلي', data: actual.length ? actual : [0], backgroundColor: '#10b981' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderAIForecasts() {
+            const container = document.getElementById('aiForecasts');
+            const cards = store.forecasts.slice(0, 4).map(f => `
+                <div class="bg-slate-50 p-3 rounded-xl">
+                    <div class="font-bold">توقع ${translateForecastType(f.forecast_type)}</div>
+                    <div>${formatMoney(f.forecast_amount)} خلال ${sanitizeText(f.forecast_period) || 'الفترة القادمة'}</div>
+                </div>
+            `);
+            container.innerHTML = cards.length ? cards.join('') : '<div class="text-slate-500">لا توجد توقعات متاحة</div>';
+        }
+
+        function renderMasterBudgetModel() {
+            const revenueBudget = document.getElementById('revenueBudgetModel');
+            const expenseBudget = document.getElementById('expenseBudgetModel');
+            const cashflowBudget = document.getElementById('cashflowBudgetModel');
+
+            const customerCount = new Set(store.invoices.map(i => i.customer_id)).size;
+            const avgPrice = store.invoices.length ? sum(store.invoices, 'total_amount') / store.invoices.length : 0;
+            const collectionRate = sum(store.payments, 'payment_amount') && sum(store.invoices, 'total_amount')
+                ? (sum(store.payments, 'payment_amount') / sum(store.invoices, 'total_amount')) * 100 : 0;
+            const growthRate = calcGrowthRate(store.invoices);
+
+            revenueBudget.innerHTML = `
+                <div>عدد العملاء المتوقع: ${customerCount || 0}</div>
+                <div>متوسط سعر الخدمة: ${formatMoney(avgPrice)}</div>
+                <div>نسبة التحصيل: ${collectionRate.toFixed(1)}%</div>
+                <div>نمو الفروع: ${growthRate.toFixed(1)}%</div>
+            `;
+
+            const expenseMap = (store.expensesSummary?.by_category || {});
+            expenseBudget.innerHTML = `
+                <div>الرواتب: ${formatMoney(expenseMap['رواتب'] || expenseMap['رواتب تشغيل'] || 0)}</div>
+                <div>الإيجارات: ${formatMoney(expenseMap['إيجارات'] || 0)}</div>
+                <div>التسويق: ${formatMoney(expenseMap['التسويق'] || 0)}</div>
+                <div>التقنية: ${formatMoney(expenseMap['التقنية'] || 0)}</div>
+                <div>التشغيل: ${formatMoney(expenseMap['التشغيل'] || 0)}</div>
+            `;
+
+            const inflow = store.cashflow?.operating?.inflow || 0;
+            const outflow = store.cashflow?.operating?.outflow || 0;
+            const net = store.cashflow?.total_net_cashflow || 0;
+            cashflowBudget.innerHTML = `
+                <div>النقد الداخل: ${formatMoney(inflow)}</div>
+                <div>النقد الخارج: ${formatMoney(Math.abs(outflow))}</div>
+                <div>صافي التدفق: ${formatMoney(net)}</div>
+            `;
+        }
+
+        function renderCapitalBudget() {
+            const container = document.getElementById('capitalBudget');
+            const totalAssets = store.fixedAssetsSummary?.total_cost || 0;
+            const assetsCount = store.fixedAssetsSummary?.total_assets || 0;
+            const platformBudget = sum(store.budgets, 'budget_id') ? sum(store.budgets, 'budget_id') * 0 : 0;
+            container.innerHTML = `
+                <div class="card-gradient shape-a p-4 shadow-lg">
+                    <div class="font-bold">افتتاح فروع</div>
+                    <div class="text-sm text-slate-600">عدد الفروع المخططة: ${store.budgets.length}</div>
+                </div>
+                <div class="card-gradient shape-d p-4 shadow-lg">
+                    <div class="font-bold">تطوير منصات</div>
+                    <div class="text-sm text-slate-600">قيمة تقديرية: ${formatMoney(platformBudget)}</div>
+                </div>
+                <div class="card-gradient shape-c p-4 shadow-lg">
+                    <div class="font-bold">شراء أصول</div>
+                    <div class="text-sm text-slate-600">عدد الأصول: ${assetsCount} | التكلفة: ${formatMoney(totalAssets)}</div>
+                </div>
+            `;
+        }
+
+        function renderVarianceTable() {
+            const rows = store.variances.map(v => `
+                <tr class="hover:bg-amber-50">
+                    <td class="px-3 py-2">${sanitizeText(v.period_name) || `${v.fiscal_year || ''}-${v.fiscal_period || ''}`}</td>
+                    <td class="px-3 py-2">${sanitizeText(v.account_code)} ${sanitizeText(v.account_id)}</td>
+                    <td class="px-3 py-2">${formatMoney(v.budgeted_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(v.actual_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(v.variance_amount)}</td>
+                    <td class="px-3 py-2">${formatPercent(v.variance_percentage)}</td>
+                    <td class="px-3 py-2">${sanitizeText(v.significance_level)}</td>
+                </tr>
+            `).join('');
+            document.getElementById('varianceTable').innerHTML = rows || `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('varianceCount').textContent = `عدد الصفوف: ${store.variances.length}`;
+        }
+
+        function renderBudgetsTable() {
+            const rows = store.budgets.map(b => `
+                <tr class="hover:bg-sky-50">
+                    <td class="px-3 py-2">${sanitizeText(b.budget_code)}</td>
+                    <td class="px-3 py-2">${sanitizeText(b.budget_name_ar || b.budget_name_en)}</td>
+                    <td class="px-3 py-2">${translateBudgetType(b.budget_type)}</td>
+                    <td class="px-3 py-2">${b.fiscal_year ?? '-'}</td>
+                    <td class="px-3 py-2">${sanitizeText(b.scenario)}</td>
+                    <td class="px-3 py-2">${translateStatus(b.status)}</td>
+                </tr>
+            `).join('');
+            document.getElementById('budgetsTable').innerHTML = rows || `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('budgetsCount').textContent = `عدد الصفوف: ${store.budgets.length}`;
+        }
+
+        function renderLinesTable() {
+            const rows = store.lines.map(l => `
+                <tr class="hover:bg-indigo-50">
+                    <td class="px-3 py-2">${sanitizeText(l.account_code)}</td>
+                    <td class="px-3 py-2">${sanitizeText(l.account_name)}</td>
+                    <td class="px-3 py-2">${formatMoney(l.annual_amount)}</td>
+                    <td class="px-3 py-2">${sanitizeText(l.notes)}</td>
+                </tr>
+            `).join('');
+            document.getElementById('linesTable').innerHTML = rows || `<tr><td colspan="4" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('linesCount').textContent = `عدد الصفوف: ${store.lines.length}`;
+        }
+
+        function openAction(type, invoiceId) {
+            const invoice = store.invoices.find(i => String(i.invoice_id) === String(invoiceId));
+            if (!invoice) {
+                showToast('لم يتم العثور على الفاتورة', 'warn');
+                return;
+            }
+            modalState = { type, invoice };
+            const remaining = parseFloat(invoice.remaining_amount || 0);
+            const titleMap = { full: 'سداد كامل', partial: 'سداد جزئي', plan: 'إنشاء خطة دفع' };
+            document.getElementById('modalTitle').textContent = titleMap[type];
+            const content = type === 'plan'
+                ? `
+                    <div>رقم الفاتورة: ${sanitizeText(invoice.invoice_number)}</div>
+                    <div>المتبقي: ${formatMoney(remaining)}</div>
+                    <label class="text-sm">عدد الأقساط</label>
+                    <input id="planCount" class="w-full bg-slate-50 rounded-lg px-3 py-2" value="6">
+                    <label class="text-sm">قيمة القسط</label>
+                    <input id="planAmount" class="w-full bg-slate-50 rounded-lg px-3 py-2" value="${(remaining / 6).toFixed(2)}">
+                `
+                : `
+                    <div>رقم الفاتورة: ${sanitizeText(invoice.invoice_number)}</div>
+                    <div>المتبقي: ${formatMoney(remaining)}</div>
+                    <label class="text-sm">قيمة السداد</label>
+                    <input id="paymentAmount" class="w-full bg-slate-50 rounded-lg px-3 py-2" value="${type === 'full' ? remaining.toFixed(2) : ''}">
+                `;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('paymentModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('paymentModal').style.display = 'none';
+        }
+
+        function confirmAction() {
+            if (modalState.type === 'plan') {
+                showToast('تم إنشاء خطة دفع (محاكاة)', 'success');
+            } else if (modalState.type === 'partial') {
+                showToast('تم تسجيل سداد جزئي (محاكاة)', 'info');
+            } else {
+                showToast('تم تسجيل سداد كامل (محاكاة)', 'success');
+            }
+            closeModal();
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'success' ? 'toast-success' : type === 'warn' ? 'toast-warn' : 'toast-info'}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        function translateStatus(value) {
+            const map = { PAID: 'مدفوع', OVERDUE: 'متأخر', PARTIAL: 'جزئي', OPEN: 'مفتوح', APPROVED: 'معتمد', POSTED: 'مرحل', ACTIVE: 'نشط', CLOSED: 'مغلق', DRAFT: 'مسودة', CANCELLED: 'ملغي' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateBudgetType(value) {
+            const map = { REVENUE: 'ميزانية الإيرادات', EXPENSE: 'ميزانية المصروفات', CASHFLOW: 'ميزانية التدفقات', CAPITAL: 'ميزانية رأس المال' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateForecastType(value) {
+            const map = { REVENUE: 'إيرادات', EXPENSE: 'مصروفات', CASHFLOW: 'تدفقات نقدية', DEFAULT: 'تعثر' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function sum(rows, key) {
+            return rows.reduce((acc, r) => acc + parseFloat(r[key] || 0), 0);
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        function formatPercent(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            const num = parseFloat(value || 0);
+            return `${num.toFixed(1)}%`;
+        }
+
+        function sanitizeText(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            const text = typeof value === 'string' ? value : JSON.stringify(value);
+            const cleaned = text.replace(/[A-Za-z]+/g, '').replace(/\s{2,}/g, ' ').trim();
+            return cleaned || '-';
+        }
+
+        function calcGrowthRate(invoices) {
+            const now = new Date();
+            const last30 = invoices.filter(i => diffDays(i.invoice_date, now) <= 30).length;
+            const prev30 = invoices.filter(i => {
+                const days = diffDays(i.invoice_date, now);
+                return days > 30 && days <= 60;
+            }).length;
+            if (!prev30) return last30 ? 100 : 0;
+            return ((last30 - prev30) / prev30) * 100;
+        }
+
+        function diffDays(date, ref) {
+            if (!date) return 9999;
+            const d1 = new Date(date);
+            const d2 = new Date(ref);
+            return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+        }
+
+        function downloadJSON() {
+            downloadBlob(JSON.stringify(store, null, 2), 'الفواتير-والميزانيات-التقديرية.json', 'application/json');
+        }
+
+        function downloadCSV() {
+            const rows = [];
+            rows.push(['الفواتير']);
+            rows.push(['رقم الفاتورة','تاريخ الفاتورة','العميل','إجمالي الفاتورة','المدفوع','المتبقي','الحالة']);
+            store.invoices.forEach(inv => rows.push([
+                inv.invoice_number, inv.invoice_date, inv.customer_name_ar || inv.customer_name, inv.total_amount,
+                inv.paid_amount, inv.remaining_amount, translateStatus(inv.status)
+            ]));
+
+            rows.push([]);
+            rows.push(['الميزانيات']);
+            rows.push(['كود الميزانية','اسم الميزانية','النوع','السنة','السيناريو','الحالة']);
+            store.budgets.forEach(b => rows.push([
+                b.budget_code, b.budget_name_ar || b.budget_name_en, translateBudgetType(b.budget_type), b.fiscal_year, b.scenario, translateStatus(b.status)
+            ]));
+
+            rows.push([]);
+            rows.push(['تحليل الانحراف']);
+            rows.push(['الفترة','الحساب','المخطط','الفعلي','الانحراف','النسبة','المستوى']);
+            store.variances.forEach(v => rows.push([
+                v.period_name, v.account_code, v.budgeted_amount, v.actual_amount, v.variance_amount, v.variance_percentage, v.significance_level
+            ]));
+
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            downloadBlob(csvContent, 'الفواتير-والميزانيات-التقديرية.csv', 'text/csv;charset=utf-8;');
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() { window.print(); }
+        function refreshData() { loadData(); }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

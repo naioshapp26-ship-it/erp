@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📆 خطط السداد والتوزيعات - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.30/dist/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb; /* Slate-50 */
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
+            backdrop-filter: blur(10px);
+        }
+        .stat-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+        .table-scroll {
+            max-height: 520px;
+            overflow: auto;
+        }
+        .section-accent-indigo {
+            border-top: 4px solid #6366f1;
+        }
+        .section-accent-emerald {
+            border-top: 4px solid #10b981;
+        }
+        .section-accent-amber {
+            border-top: 4px solid #f59e0b;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">📆 خطط السداد والتوزيعات</h1>
+            <p class="text-lg opacity-90">تفاصيل خطط السداد وربطها بتوزيعات المدفوعات</p>
+        </div>
+
+        <div class="mb-6 flex gap-3 flex-wrap">
+            <button onclick="downloadPlansPDF()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-blue-500 group">
+                <i class="fas fa-file-pdf text-xl text-blue-600 group-hover:text-blue-700 transition"></i>
+                تنزيل PDF للخطط
+            </button>
+            <button onclick="downloadAllocationsPDF()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-purple-500 group">
+                <i class="fas fa-file-pdf text-xl text-purple-600 group-hover:text-purple-700 transition"></i>
+                تنزيل PDF للتوزيعات
+            </button>
+            <button onclick="printReport()" class="bg-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print text-xl text-gray-600 group-hover:text-gray-700 transition"></i>
+                طباعة
+            </button>
+            <button onclick="refreshData()" class="bg-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="openPlanModal()" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus"></i>
+                إضافة خطة سداد
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-calendar-check text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">عدد الخطط</span>
+                </div>
+                <div id="totalPlans" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-sack-dollar text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المبالغ</span>
+                </div>
+                <div id="totalAmount" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-hand-holding-dollar text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المدفوع</span>
+                </div>
+                <div id="totalPaid" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-rose-500 to-red-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-hourglass-half text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المتبقي</span>
+                </div>
+                <div id="totalRemaining" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h3 class="text-lg font-bold text-gray-800">🔎 فلاتر البحث</h3>
+                <button onclick="resetFilters()" class="text-sm text-indigo-700 hover:text-indigo-900 font-semibold">إعادة ضبط الفلاتر</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">الحالة</label>
+                    <input id="status" type="text" placeholder="نشط" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">رقم الخطة</label>
+                    <input id="planNumberFilter" type="text" placeholder="خطة-0001" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">اسم العميل</label>
+                    <input id="customerName" type="text" placeholder="اسم العميل" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">رقم الفاتورة</label>
+                    <input id="invoiceNumber" type="text" placeholder="فاتورة-0001" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">من تاريخ البداية</label>
+                    <input id="fromDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">إلى تاريخ النهاية</label>
+                    <input id="toDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none" onchange="applyFilters()">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card-gradient rounded-2xl shadow-2xl p-6 section-accent-emerald">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📊 توزيع الحالات</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            <div class="card-gradient rounded-2xl shadow-2xl p-6 section-accent-amber">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">💳 ملخص التوزيعات</h3>
+                <div id="allocSummary" class="space-y-4">
+                    <div class="animate-pulse text-gray-500">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl overflow-hidden mb-8 section-accent-indigo">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">📋 جدول خطط السداد</h3>
+                    <span id="plansCount" class="text-sm text-gray-600"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-3 py-2 text-right">معرّف الخطة</th>
+                                <th class="px-3 py-2 text-right">رقم الخطة</th>
+                                <th class="px-3 py-2 text-right">رقم العميل</th>
+                                <th class="px-3 py-2 text-right">اسم العميل (عربي)</th>
+                                <th class="px-3 py-2 text-right">اسم العميل (إنجليزي)</th>
+                                <th class="px-3 py-2 text-right">كود العميل</th>
+                                <th class="px-3 py-2 text-right">نوع العميل</th>
+                                <th class="px-3 py-2 text-right">رقم الفاتورة</th>
+                                <th class="px-3 py-2 text-right">رقم الفاتورة الداخلي</th>
+                                <th class="px-3 py-2 text-right">تاريخ الفاتورة</th>
+                                <th class="px-3 py-2 text-right">حالة الفاتورة</th>
+                                <th class="px-3 py-2 text-right">حالة السداد للفاتورة</th>
+                                <th class="px-3 py-2 text-right">تاريخ البداية</th>
+                                <th class="px-3 py-2 text-right">تاريخ النهاية</th>
+                                <th class="px-3 py-2 text-right">إجمالي المبلغ</th>
+                                <th class="px-3 py-2 text-right">المبلغ المدفوع</th>
+                                <th class="px-3 py-2 text-right">المتبقي</th>
+                                <th class="px-3 py-2 text-right">عدد الأقساط</th>
+                                <th class="px-3 py-2 text-right">مبلغ القسط</th>
+                                <th class="px-3 py-2 text-right">دورية السداد</th>
+                                <th class="px-3 py-2 text-right">حالة الخطة</th>
+                                <th class="px-3 py-2 text-right">درجة المخاطر</th>
+                                <th class="px-3 py-2 text-right">مستوى المخاطر</th>
+                                <th class="px-3 py-2 text-right">نوع الكيان</th>
+                                <th class="px-3 py-2 text-right">معرّف الكيان</th>
+                                <th class="px-3 py-2 text-right">الفرع</th>
+                                <th class="px-3 py-2 text-right">الحاضنة</th>
+                                <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                                <th class="px-3 py-2 text-right">آخر تحديث</th>
+                                <th class="px-3 py-2 text-right">منشأ بواسطة</th>
+                                <th class="px-3 py-2 text-right">مُعتمد بواسطة</th>
+                                <th class="px-3 py-2 text-right">تاريخ الاعتماد</th>
+                                <th class="px-3 py-2 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="plansTable" class="text-xs divide-y divide-gray-100">
+                            <tr>
+                                <td colspan="33" class="px-4 py-12 text-center text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل البيانات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl overflow-hidden section-accent-amber">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">🔗 جدول توزيع المدفوعات</h3>
+                    <div class="flex items-center gap-3">
+                        <span id="allocCount" class="text-sm text-gray-600"></span>
+                        <button onclick="openAllocationModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition flex items-center gap-2">
+                            <i class="fas fa-plus"></i>
+                            إضافة توزيع
+                        </button>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-3 py-2 text-right">معرّف التوزيع</th>
+                                <th class="px-3 py-2 text-right">معرّف الدفعة</th>
+                                <th class="px-3 py-2 text-right">رقم الدفعة</th>
+                                <th class="px-3 py-2 text-right">تاريخ الدفعة</th>
+                                <th class="px-3 py-2 text-right">مبلغ الدفعة</th>
+                                <th class="px-3 py-2 text-right">طريقة الدفع</th>
+                                <th class="px-3 py-2 text-right">حالة الدفعة</th>
+                                <th class="px-3 py-2 text-right">معرّف الفاتورة</th>
+                                <th class="px-3 py-2 text-right">رقم الفاتورة</th>
+                                <th class="px-3 py-2 text-right">تاريخ الفاتورة</th>
+                                <th class="px-3 py-2 text-right">حالة الفاتورة</th>
+                                <th class="px-3 py-2 text-right">رقم العميل</th>
+                                <th class="px-3 py-2 text-right">اسم العميل (عربي)</th>
+                                <th class="px-3 py-2 text-right">اسم العميل (إنجليزي)</th>
+                                <th class="px-3 py-2 text-right">المبلغ الموزع</th>
+                                <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                                <th class="px-3 py-2 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allocTable" class="text-xs divide-y divide-gray-100">
+                            <tr>
+                                <td colspan="17" class="px-4 py-12 text-center text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل البيانات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan Form Modal -->
+    <div id="planModal" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm hidden items-start justify-center z-50 overflow-y-auto p-4 py-6">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-6 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-gray-800" id="planModalTitle">إضافة خطة سداد</h3>
+                <button class="text-slate-800 hover:text-red-600 font-bold" onclick="closeModal('planModal')"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            <form id="planForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" id="planId">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">رقم الخطة</label>
+                    <input id="planNumberInput" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">رقم العميل</label>
+                    <input id="customerId" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">رقم الفاتورة</label>
+                    <input id="invoiceId" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">تاريخ البداية</label>
+                    <input id="startDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">تاريخ النهاية</label>
+                    <input id="endDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">إجمالي المبلغ</label>
+                    <input id="totalAmountInput" type="number" step="0.01" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">المبلغ المدفوع</label>
+                    <input id="paidAmount" type="number" step="0.01" class="w-full border border-gray-300 rounded-lg px-4 py-3" value="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">عدد الأقساط</label>
+                    <input id="installments" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">مبلغ القسط</label>
+                    <input id="installmentAmount" type="number" step="0.01" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">دورية السداد</label>
+                    <select id="installmentFrequency" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        <option value="MONTHLY">شهري</option>
+                        <option value="WEEKLY">أسبوعي</option>
+                        <option value="QUARTERLY">ربع سنوي</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">الحالة</label>
+                    <select id="statusField" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        <option value="active">نشط</option>
+                        <option value="in_progress">قيد التنفيذ</option>
+                        <option value="completed">مكتمل</option>
+                        <option value="overdue">متأخر</option>
+                        <option value="cancelled">ملغي</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">تقييم المخاطر</label>
+                    <input id="riskScore" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-3" placeholder="مثال: 75">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">مستوى المخاطر</label>
+                    <input id="riskLevel" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3" placeholder="LOW / MEDIUM / HIGH">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">الفرع</label>
+                    <input id="branchId" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3" value="BR001">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">الحاضنة</label>
+                    <input id="incubatorId" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3" value="INC01">
+                </div>
+                <div class="md:col-span-2 border-t border-gray-200 pt-4">
+                    <h4 class="text-sm font-bold text-gray-800 mb-3">بيانات العنوان</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">اسم الشارع</label>
+                            <input id="planStreetName" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">الرمز البريدي</label>
+                            <input id="planPostalCode" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">رقم المبنى</label>
+                            <input id="planBuildingNumber" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">اسم المدينة</label>
+                            <input id="planCity" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">اسم المنطقة</label>
+                            <input id="planDistrict" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">الرمز الوطني</label>
+                            <input id="planNationalAddress" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">العنوان المختصر</label>
+                            <input id="planShortAddress" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                    </div>
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+                    <button type="button" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700" onclick="closeModal('planModal')">إلغاء</button>
+                    <button type="submit" class="px-6 py-2 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div id="detailsModal" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm hidden items-start justify-center z-50 overflow-y-auto p-4 py-6">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-gray-800" id="detailsTitle">تفاصيل الخطة</h3>
+                <button class="text-slate-800 hover:text-red-600 font-bold" onclick="closeModal('detailsModal')"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            <div id="detailsContent" class="space-y-2 text-sm text-gray-800"></div>
+        </div>
+    </div>
+
+    <!-- Allocation Form Modal -->
+    <div id="allocationModal" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm hidden items-start justify-center z-50 overflow-y-auto p-4 py-6">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-gray-800" id="allocationModalTitle">إضافة توزيع</h3>
+                <button class="text-slate-800 hover:text-red-600 font-bold" onclick="closeModal('allocationModal')"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            <form id="allocationForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" id="allocationId">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">معرّف الدفعة</label>
+                    <input id="allocationPaymentId" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">معرّف الفاتورة</label>
+                    <input id="allocationInvoiceId" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-gray-700 mb-1">المبلغ الموزع</label>
+                    <input id="allocationAmount" type="number" step="0.01" class="w-full border border-gray-300 rounded-lg px-4 py-3" required>
+                </div>
+                <div class="md:col-span-2 border-t border-gray-200 pt-4">
+                    <h4 class="text-sm font-bold text-gray-800 mb-3">بيانات العنوان</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">اسم الشارع</label>
+                            <input id="allocationStreetName" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">الرمز البريدي</label>
+                            <input id="allocationPostalCode" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">رقم المبنى</label>
+                            <input id="allocationBuildingNumber" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">اسم المدينة</label>
+                            <input id="allocationCity" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">اسم المنطقة</label>
+                            <input id="allocationDistrict" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">الرمز الوطني</label>
+                            <input id="allocationNationalAddress" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">العنوان المختصر</label>
+                            <input id="allocationShortAddress" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3">
+                        </div>
+                    </div>
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+                    <button type="button" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700" onclick="closeModal('allocationModal')">إلغاء</button>
+                    <button type="submit" class="px-6 py-2 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Allocation Details Modal -->
+    <div id="allocationDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm hidden items-start justify-center z-50 overflow-y-auto p-4 py-6">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-gray-800" id="allocationDetailsTitle">تفاصيل التوزيع</h3>
+                <button class="text-gray-500 hover:text-gray-700" onclick="closeModal('allocationDetailsModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="allocationDetailsContent" class="space-y-2 text-sm text-gray-800"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const DEFAULT_BRANCH_ID = 'BR001';
+        const DEFAULT_INCUBATOR_ID = 'INC01';
+        const PLAN_STATUS_LABELS = {
+            active: 'نشط',
+            in_progress: 'قيد التنفيذ',
+            completed: 'مكتمل',
+            overdue: 'متأخر',
+            cancelled: 'ملغي'
+        };
+        const INVOICE_STATUS_LABELS = {
+            ISSUED: 'صادرة',
+            DRAFT: 'مسودة',
+            PAID: 'مدفوعة',
+            PARTIAL: 'مدفوعة جزئياً',
+            CANCELLED: 'ملغاة'
+        };
+        const PAYMENT_STATUS_LABELS = {
+            UNPAID: 'غير مدفوعة',
+            PARTIAL: 'مدفوعة جزئياً',
+            PAID: 'مدفوعة',
+            PENDING: 'قيد الانتظار',
+            COMPLETED: 'مكتملة',
+            completed: 'مكتملة',
+            APPROVED: 'معتمدة'
+        };
+        const PAYMENT_METHOD_LABELS = {
+            CASH: 'نقداً',
+            CARD: 'بطاقة',
+            BANK_TRANSFER: 'حوالة بنكية',
+            BANK: 'بنك'
+        };
+        const RISK_LEVEL_LABELS = {
+            LOW: 'منخفض',
+            MEDIUM: 'متوسط',
+            HIGH: 'مرتفع'
+        };
+        const FREQUENCY_LABELS = {
+            MONTHLY: 'شهري',
+            WEEKLY: 'أسبوعي',
+            QUARTERLY: 'ربع سنوي'
+        };
+        let plans = [];
+        let allocations = [];
+        let statusChartInstance = null;
+        let currentPlanId = null;
+        let currentAllocationId = null;
+
+        async function loadReport() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/payment-plans?entity_id=${ENTITY_ID}`);
+                const data = await response.json();
+
+                if (!data.success) throw new Error(data.error || 'تعذر تحميل التقرير');
+
+                plans = data.plans || [];
+                allocations = data.allocations || [];
+
+                renderSummary(data.summary || {});
+                renderPlansTable(plans);
+                renderAllocationsTable(allocations);
+                renderCharts(data.summary || {});
+                renderAllocSummary(data.summary || {});
+            } catch (error) {
+                console.error('❌ خطأ في تحميل التقرير:', error);
+                document.getElementById('plansTable').innerHTML = `
+                    <tr>
+                        <td colspan="33" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل بيانات الخطط</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function applyFilters() {
+            const params = new URLSearchParams({ entity_id: ENTITY_ID });
+            const status = document.getElementById('status').value;
+            const planNumber = document.getElementById('planNumberFilter').value;
+            const customerName = document.getElementById('customerName').value;
+            const invoiceNumber = document.getElementById('invoiceNumber').value;
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+
+            if (status) params.append('status', status);
+            if (planNumber) params.append('plan_number', planNumber);
+            if (customerName) params.append('customer_name', customerName);
+            if (invoiceNumber) params.append('invoice_number', invoiceNumber);
+            if (fromDate) params.append('from_date', fromDate);
+            if (toDate) params.append('to_date', toDate);
+
+            fetch(`${API_BASE}/finance/payment-plans?${params.toString()}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'تعذر تحميل التقرير');
+                    plans = data.plans || [];
+                    allocations = data.allocations || [];
+                    renderSummary(data.summary || {});
+                    renderPlansTable(plans);
+                    renderAllocationsTable(allocations);
+                    renderCharts(data.summary || {});
+                    renderAllocSummary(data.summary || {});
+                })
+                .catch(err => console.error('❌', err));
+        }
+
+        function resetFilters() {
+            document.getElementById('status').value = '';
+            document.getElementById('planNumberFilter').value = '';
+            document.getElementById('customerName').value = '';
+            document.getElementById('invoiceNumber').value = '';
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            applyFilters();
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('totalPlans').textContent = summary.total_plans ?? 0;
+            document.getElementById('totalAmount').textContent = formatMoney(summary.total_amount || 0);
+            document.getElementById('totalPaid').textContent = formatMoney(summary.total_paid || 0);
+            document.getElementById('totalRemaining').textContent = formatMoney(summary.total_remaining || 0);
+        }
+
+        function renderPlansTable(rows) {
+            const body = rows.map(r => `
+                <tr class="hover:bg-indigo-50">
+                    <td class="px-3 py-2">${r.plan_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.plan_number ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_name_ar ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_name_en ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_code ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_type ?? '-'}</td>
+                    <td class="px-3 py-2">${r.invoice_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.invoice_number ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.invoice_date)}</td>
+                    <td class="px-3 py-2">${translateInvoiceStatus(r.invoice_status)}</td>
+                    <td class="px-3 py-2">${translatePaymentStatus(r.invoice_payment_status)}</td>
+                    <td class="px-3 py-2">${formatDate(r.start_date)}</td>
+                    <td class="px-3 py-2">${formatDate(r.end_date)}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(r.total_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.paid_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.remaining_amount)}</td>
+                    <td class="px-3 py-2">${r.number_of_installments ?? '-'}</td>
+                    <td class="px-3 py-2">${formatMoney(r.installment_amount)}</td>
+                    <td class="px-3 py-2">${translateFrequency(r.installment_frequency)}</td>
+                    <td class="px-3 py-2">${translatePlanStatus(r.status)}</td>
+                    <td class="px-3 py-2">${r.risk_score_at_creation ?? '-'}</td>
+                    <td class="px-3 py-2">${translateRiskLevel(r.risk_level_at_creation)}</td>
+                    <td class="px-3 py-2">${r.entity_type ?? '-'}</td>
+                    <td class="px-3 py-2">${r.entity_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.branch_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.incubator_id ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.created_at)}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.updated_at)}</td>
+                    <td class="px-3 py-2">${r.created_by ?? '-'}</td>
+                    <td class="px-3 py-2">${r.approved_by ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.approved_at)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex items-center gap-2">
+                            <button class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة" onclick="viewPlanById(${r.plan_id})"><i class="fas fa-eye text-lg"></i></button>
+                            <button class="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-md font-semibold" title="تعديل" onclick="openPlanModalById(${r.plan_id})"><i class="fas fa-pen-to-square text-lg"></i></button>
+                            <button class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف" onclick="deletePlan(${r.plan_id})"><i class="fas fa-trash text-lg"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('plansTable').innerHTML = body.length ? body : `
+                <tr>
+                    <td colspan="33" class="px-4 py-12 text-center text-gray-500">لا توجد بيانات</td>
+                </tr>
+            `;
+            document.getElementById('plansCount').textContent = `عدد الصفوف: ${rows.length}`;
+        }
+
+        function renderAllocationsTable(rows) {
+            const body = rows.map(r => `
+                <tr class="hover:bg-orange-50">
+                    <td class="px-3 py-2">${r.allocation_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.payment_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.payment_number ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.payment_date)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.payment_amount)}</td>
+                    <td class="px-3 py-2">${translatePaymentMethod(r.payment_method)}</td>
+                    <td class="px-3 py-2">${translatePaymentStatus(r.payment_status)}</td>
+                    <td class="px-3 py-2">${r.invoice_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.invoice_number ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.invoice_date)}</td>
+                    <td class="px-3 py-2">${translateInvoiceStatus(r.invoice_status)}</td>
+                    <td class="px-3 py-2">${r.customer_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_name_ar ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_name_en ?? '-'}</td>
+                    <td class="px-3 py-2 font-semibold text-orange-700">${formatMoney(r.allocated_amount)}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.created_at)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex items-center gap-2">
+                            <button class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة" onclick="viewAllocationById(${r.allocation_id})"><i class="fas fa-eye text-lg"></i></button>
+                            <button class="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-md font-semibold" title="تعديل" onclick="openAllocationModalById(${r.allocation_id})"><i class="fas fa-pen-to-square text-lg"></i></button>
+                            <button class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف" onclick="deleteAllocation(${r.allocation_id})"><i class="fas fa-trash text-lg"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('allocTable').innerHTML = body.length ? body : `
+                <tr>
+                    <td colspan="17" class="px-4 py-12 text-center text-gray-500">لا توجد بيانات</td>
+                </tr>
+            `;
+            document.getElementById('allocCount').textContent = `عدد الصفوف: ${rows.length}`;
+        }
+
+        function renderCharts(summary) {
+            const statusData = summary.by_status || {};
+            const statusKeys = Object.keys(statusData);
+            const statusLabels = statusKeys.map(k => PLAN_STATUS_LABELS[k] || PLAN_STATUS_LABELS[k.toLowerCase()] || k);
+            const statusValues = statusKeys.map(k => statusData[k]);
+
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            if (statusChartInstance) statusChartInstance.destroy();
+            statusChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: statusLabels.length ? statusLabels : ['لا يوجد'],
+                    datasets: [{
+                        data: statusValues.length ? statusValues : [1],
+                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderAllocSummary(summary) {
+            document.getElementById('allocSummary').innerHTML = `
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-link text-indigo-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">عدد التوزيعات</div>
+                        <div class="font-bold">${summary.total_allocations ?? 0}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-coins text-indigo-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">إجمالي المبلغ الموزع</div>
+                        <div class="font-bold">${formatMoney(summary.total_allocated_amount || 0)}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-database text-indigo-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">الكيان</div>
+                        <div class="font-bold">${summary.entity_id ?? '-'}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-clock text-indigo-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">آخر تحديث</div>
+                        <div class="font-bold">${summary.generated_at ? formatDateTime(summary.generated_at) : '-'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function translatePlanStatus(value) {
+            if (!value) return '-';
+            return PLAN_STATUS_LABELS[value.toLowerCase()] || value;
+        }
+
+        function translateInvoiceStatus(value) {
+            if (!value) return '-';
+            return INVOICE_STATUS_LABELS[value] || INVOICE_STATUS_LABELS[value.toUpperCase()] || value;
+        }
+
+        function translatePaymentStatus(value) {
+            if (!value) return '-';
+            return PAYMENT_STATUS_LABELS[value] || PAYMENT_STATUS_LABELS[value.toUpperCase()] || value;
+        }
+
+        function translatePaymentMethod(value) {
+            if (!value) return '-';
+            return PAYMENT_METHOD_LABELS[value] || PAYMENT_METHOD_LABELS[value.toUpperCase()] || value;
+        }
+
+        function translateFrequency(value) {
+            if (!value) return '-';
+            return FREQUENCY_LABELS[value] || FREQUENCY_LABELS[value.toUpperCase()] || value;
+        }
+
+        function translateRiskLevel(value) {
+            if (!value) return '-';
+            return RISK_LEVEL_LABELS[value] || RISK_LEVEL_LABELS[value.toUpperCase()] || value;
+        }
+
+        function showModal(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        }
+
+        function openPlanModal(plan) {
+            currentPlanId = plan?.plan_id || null;
+            document.getElementById('planModalTitle').textContent = currentPlanId ? 'تعديل خطة سداد' : 'إضافة خطة سداد';
+            document.getElementById('planId').value = plan?.plan_id || '';
+            document.getElementById('planNumberInput').value = plan?.plan_number || `خطة-${Date.now()}`;
+            document.getElementById('customerId').value = plan?.customer_id || '';
+            document.getElementById('invoiceId').value = plan?.invoice_id || '';
+            document.getElementById('startDate').value = plan?.start_date ? plan.start_date.slice(0, 10) : '';
+            document.getElementById('endDate').value = plan?.end_date ? plan.end_date.slice(0, 10) : '';
+            document.getElementById('totalAmountInput').value = plan?.total_amount || '';
+            document.getElementById('paidAmount').value = plan?.paid_amount || 0;
+            document.getElementById('installments').value = plan?.number_of_installments || '';
+            document.getElementById('installmentAmount').value = plan?.installment_amount || '';
+            document.getElementById('installmentFrequency').value = plan?.installment_frequency || 'MONTHLY';
+            document.getElementById('statusField').value = plan?.status || 'active';
+            document.getElementById('riskScore').value = plan?.risk_score_at_creation || '';
+            document.getElementById('riskLevel').value = plan?.risk_level_at_creation || '';
+            document.getElementById('branchId').value = plan?.branch_id || DEFAULT_BRANCH_ID;
+            document.getElementById('incubatorId').value = plan?.incubator_id || DEFAULT_INCUBATOR_ID;
+            document.getElementById('planStreetName').value = plan?.street_name || '';
+            document.getElementById('planPostalCode').value = plan?.postal_code || '';
+            document.getElementById('planBuildingNumber').value = plan?.building_number || '';
+            document.getElementById('planCity').value = plan?.city || '';
+            document.getElementById('planDistrict').value = plan?.district || '';
+            document.getElementById('planNationalAddress').value = plan?.national_address_number || '';
+            document.getElementById('planShortAddress').value = plan?.short_address || '';
+            showModal('planModal');
+        }
+
+        function openPlanModalById(planId) {
+            const plan = plans.find(p => p.plan_id === planId);
+            openPlanModal(plan);
+        }
+
+        function viewPlan(plan) {
+            if (!plan) return;
+            const details = [
+                ['رقم الخطة', plan.plan_number],
+                ['رقم الفاتورة', plan.invoice_number || plan.invoice_id],
+                ['العميل', plan.customer_name_ar || plan.customer_name_en || plan.customer_id],
+                ['إجمالي المبلغ', formatMoney(plan.total_amount)],
+                ['المدفوع', formatMoney(plan.paid_amount)],
+                ['المتبقي', formatMoney(plan.remaining_amount)],
+                ['عدد الأقساط', plan.number_of_installments],
+                ['مبلغ القسط', formatMoney(plan.installment_amount)],
+                ['الدورية', translateFrequency(plan.installment_frequency)],
+                ['الحالة', translatePlanStatus(plan.status)],
+                ['تاريخ البدء', formatDate(plan.start_date)],
+                ['تاريخ النهاية', formatDate(plan.end_date)],
+                ['المخاطر', translateRiskLevel(plan.risk_level_at_creation)],
+                ['المستخدم المنشئ', plan.created_by || '-'],
+                ['آخر تحديث', formatDateTime(plan.updated_at)]
+            ];
+
+            document.getElementById('detailsContent').innerHTML = details.map(([label, value]) => `
+                <div class="flex items-center justify-between border-b border-gray-200 pb-2">
+                    <span class="font-semibold text-gray-700">${label}</span>
+                    <span class="text-gray-900">${value ?? '-'}</span>
+                </div>
+            `).join('');
+
+            showModal('detailsModal');
+        }
+
+        function viewPlanById(planId) {
+            const plan = plans.find(p => p.plan_id === planId);
+            viewPlan(plan);
+        }
+
+        function openAllocationModal(allocation) {
+            currentAllocationId = allocation?.allocation_id || null;
+            document.getElementById('allocationModalTitle').textContent = currentAllocationId ? 'تعديل توزيع' : 'إضافة توزيع';
+            document.getElementById('allocationId').value = allocation?.allocation_id || '';
+            document.getElementById('allocationPaymentId').value = allocation?.payment_id || '';
+            document.getElementById('allocationInvoiceId').value = allocation?.invoice_id || '';
+            document.getElementById('allocationAmount').value = allocation?.allocated_amount || '';
+            document.getElementById('allocationStreetName').value = allocation?.street_name || '';
+            document.getElementById('allocationPostalCode').value = allocation?.postal_code || '';
+            document.getElementById('allocationBuildingNumber').value = allocation?.building_number || '';
+            document.getElementById('allocationCity').value = allocation?.city || '';
+            document.getElementById('allocationDistrict').value = allocation?.district || '';
+            document.getElementById('allocationNationalAddress').value = allocation?.national_address_number || '';
+            document.getElementById('allocationShortAddress').value = allocation?.short_address || '';
+            showModal('allocationModal');
+        }
+
+        function openAllocationModalById(allocationId) {
+            const allocation = allocations.find(a => a.allocation_id === allocationId);
+            openAllocationModal(allocation);
+        }
+
+        function viewAllocation(allocation) {
+            if (!allocation) return;
+            const details = [
+                ['معرّف التوزيع', allocation.allocation_id],
+                ['معرّف الدفعة', allocation.payment_id],
+                ['رقم الدفعة', allocation.payment_number],
+                ['تاريخ الدفعة', formatDate(allocation.payment_date)],
+                ['مبلغ الدفعة', formatMoney(allocation.payment_amount)],
+                ['طريقة الدفع', translatePaymentMethod(allocation.payment_method)],
+                ['حالة الدفعة', translatePaymentStatus(allocation.payment_status)],
+                ['معرّف الفاتورة', allocation.invoice_id],
+                ['رقم الفاتورة', allocation.invoice_number],
+                ['تاريخ الفاتورة', formatDate(allocation.invoice_date)],
+                ['حالة الفاتورة', translateInvoiceStatus(allocation.invoice_status)],
+                ['العميل', allocation.customer_name_ar || allocation.customer_name_en || allocation.customer_id],
+                ['المبلغ الموزع', formatMoney(allocation.allocated_amount)],
+                ['تاريخ الإنشاء', formatDateTime(allocation.created_at)]
+            ];
+
+            document.getElementById('allocationDetailsContent').innerHTML = details.map(([label, value]) => `
+                <div class="flex items-center justify-between border-b border-gray-200 pb-2">
+                    <span class="font-semibold text-gray-700">${label}</span>
+                    <span class="text-gray-900">${value ?? '-'}</span>
+                </div>
+            `).join('');
+
+            showModal('allocationDetailsModal');
+        }
+
+        function viewAllocationById(allocationId) {
+            const allocation = allocations.find(a => a.allocation_id === allocationId);
+            viewAllocation(allocation);
+        }
+
+        async function savePlan(event) {
+            event.preventDefault();
+
+            const payload = {
+                plan_number: document.getElementById('planNumberInput').value.trim(),
+                customer_id: Number(document.getElementById('customerId').value),
+                invoice_id: Number(document.getElementById('invoiceId').value),
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value || null,
+                total_amount: parseFloat(document.getElementById('totalAmountInput').value || 0),
+                paid_amount: parseFloat(document.getElementById('paidAmount').value || 0),
+                number_of_installments: Number(document.getElementById('installments').value || 0),
+                installment_amount: parseFloat(document.getElementById('installmentAmount').value || 0),
+                installment_frequency: document.getElementById('installmentFrequency').value,
+                status: document.getElementById('statusField').value,
+                risk_score_at_creation: document.getElementById('riskScore').value || null,
+                risk_level_at_creation: document.getElementById('riskLevel').value || null,
+                entity_type: 'HQ',
+                entity_id: ENTITY_ID,
+                branch_id: document.getElementById('branchId').value || null,
+                incubator_id: document.getElementById('incubatorId').value || null,
+                created_by: 'dashboard',
+                street_name: document.getElementById('planStreetName').value || null,
+                postal_code: document.getElementById('planPostalCode').value || null,
+                building_number: document.getElementById('planBuildingNumber').value || null,
+                city: document.getElementById('planCity').value || null,
+                district: document.getElementById('planDistrict').value || null,
+                national_address_number: document.getElementById('planNationalAddress').value || null,
+                short_address: document.getElementById('planShortAddress').value || null
+            };
+
+            const method = currentPlanId ? 'PUT' : 'POST';
+            const url = currentPlanId ? `${API_BASE}/finance/payment-plans/${currentPlanId}` : `${API_BASE}/finance/payment-plans`;
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await res.json();
+            if (!result.success) {
+                alert(result.error || 'فشل حفظ الخطة');
+                return;
+            }
+
+            closeModal('planModal');
+            await loadReport();
+        }
+
+        async function deletePlan(planId) {
+            if (!planId) return;
+            const confirmDelete = confirm('هل أنت متأكد من حذف الخطة؟');
+            if (!confirmDelete) return;
+
+            const res = await fetch(`${API_BASE}/finance/payment-plans/${planId}`, { method: 'DELETE' });
+            const result = await res.json();
+            if (!result.success) {
+                alert(result.error || 'فشل حذف الخطة');
+                return;
+            }
+            await loadReport();
+        }
+
+        async function saveAllocation(event) {
+            event.preventDefault();
+
+            const payload = {
+                payment_id: Number(document.getElementById('allocationPaymentId').value),
+                invoice_id: Number(document.getElementById('allocationInvoiceId').value),
+                allocated_amount: parseFloat(document.getElementById('allocationAmount').value || 0),
+                street_name: document.getElementById('allocationStreetName').value || null,
+                postal_code: document.getElementById('allocationPostalCode').value || null,
+                building_number: document.getElementById('allocationBuildingNumber').value || null,
+                city: document.getElementById('allocationCity').value || null,
+                district: document.getElementById('allocationDistrict').value || null,
+                national_address_number: document.getElementById('allocationNationalAddress').value || null,
+                short_address: document.getElementById('allocationShortAddress').value || null
+            };
+
+            const method = currentAllocationId ? 'PUT' : 'POST';
+            const url = currentAllocationId
+                ? `${API_BASE}/finance/payment-allocations/${currentAllocationId}`
+                : `${API_BASE}/finance/payment-allocations`;
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await res.json();
+            if (!result.success) {
+                alert(result.error || 'فشل حفظ التوزيع');
+                return;
+            }
+
+            closeModal('allocationModal');
+            await loadReport();
+        }
+
+        async function deleteAllocation(allocationId) {
+            if (!allocationId) return;
+            const confirmDelete = confirm('هل أنت متأكد من حذف التوزيع؟');
+            if (!confirmDelete) return;
+
+            const res = await fetch(`${API_BASE}/finance/payment-allocations/${allocationId}`, { method: 'DELETE' });
+            const result = await res.json();
+            if (!result.success) {
+                alert(result.error || 'فشل حذف التوزيع');
+                return;
+            }
+            await loadReport();
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function downloadPlansPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape' });
+
+            doc.setFontSize(14);
+            doc.text('تقرير خطط السداد', 14, 14);
+
+            const head = [[
+                'معرّف الخطة','رقم الخطة','رقم العميل','اسم العميل (عربي)','اسم العميل (إنجليزي)','كود العميل','نوع العميل',
+                'رقم الفاتورة','رقم الفاتورة الداخلي','تاريخ الفاتورة','حالة الفاتورة','حالة السداد للفاتورة','تاريخ البداية',
+                'تاريخ النهاية','إجمالي المبلغ','المبلغ المدفوع','المتبقي','عدد الأقساط','مبلغ القسط','دورية السداد','حالة الخطة',
+                'درجة المخاطر','مستوى المخاطر','نوع الكيان','معرّف الكيان','الفرع','الحاضنة','تاريخ الإنشاء','آخر تحديث',
+                'منشأ بواسطة','مُعتمد بواسطة','تاريخ الاعتماد'
+            ]];
+
+            const body = plans.map(p => [
+                p.plan_id, p.plan_number, p.customer_id, p.customer_name_ar, p.customer_name_en, p.customer_code,
+                p.customer_type, p.invoice_id, p.invoice_number, formatDate(p.invoice_date), translateInvoiceStatus(p.invoice_status),
+                translatePaymentStatus(p.invoice_payment_status), formatDate(p.start_date), formatDate(p.end_date),
+                formatMoney(p.total_amount), formatMoney(p.paid_amount), formatMoney(p.remaining_amount), p.number_of_installments,
+                formatMoney(p.installment_amount), translateFrequency(p.installment_frequency), translatePlanStatus(p.status),
+                p.risk_score_at_creation, translateRiskLevel(p.risk_level_at_creation), p.entity_type, p.entity_id,
+                p.branch_id, p.incubator_id, formatDateTime(p.created_at), formatDateTime(p.updated_at),
+                p.created_by, p.approved_by, formatDateTime(p.approved_at)
+            ]);
+
+            doc.autoTable({
+                head,
+                body,
+                startY: 20,
+                styles: { fontSize: 7, cellPadding: 2 },
+                headStyles: { fillColor: [79, 70, 229] }
+            });
+
+            doc.save('تقرير-خطط-السداد.pdf');
+        }
+
+        function downloadAllocationsPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape' });
+
+            doc.setFontSize(14);
+            doc.text('تقرير توزيعات المدفوعات', 14, 14);
+
+            const head = [[
+                'معرّف التوزيع','معرّف الدفعة','رقم الدفعة','تاريخ الدفعة','مبلغ الدفعة','طريقة الدفع','حالة الدفعة',
+                'معرّف الفاتورة','رقم الفاتورة','تاريخ الفاتورة','حالة الفاتورة','رقم العميل','اسم العميل (عربي)',
+                'اسم العميل (إنجليزي)','المبلغ الموزع','تاريخ الإنشاء'
+            ]];
+
+            const body = allocations.map(a => [
+                a.allocation_id, a.payment_id, a.payment_number, formatDate(a.payment_date), formatMoney(a.payment_amount),
+                translatePaymentMethod(a.payment_method), translatePaymentStatus(a.payment_status), a.invoice_id, a.invoice_number,
+                formatDate(a.invoice_date), translateInvoiceStatus(a.invoice_status), a.customer_id, a.customer_name_ar,
+                a.customer_name_en, formatMoney(a.allocated_amount), formatDateTime(a.created_at)
+            ]);
+
+            doc.autoTable({
+                head,
+                body,
+                startY: 20,
+                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor: [249, 115, 22] }
+            });
+
+            doc.save('تقرير-توزيعات-المدفوعات.pdf');
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function refreshData() {
+            loadReport();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadReport();
+            const form = document.getElementById('planForm');
+            if (form) form.addEventListener('submit', savePlan);
+            const allocationForm = document.getElementById('allocationForm');
+            if (allocationForm) allocationForm.addEventListener('submit', saveAllocation);
+        });
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

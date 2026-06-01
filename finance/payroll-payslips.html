@@ -1,0 +1,1925 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>كشوف الرواتب | نظام نايوش</title>
+    
+    <!-- External Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#475569',
+                        success: '#16a34a',
+                        danger: '#dc2626',
+                        warning: '#ca8a04',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #f3f4f6;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body class="text-slate-800 font-sans antialiased">
+
+    <!-- Navigation Bar -->
+    <nav class="glass-effect fixed top-0 w-full z-40 border-b border-slate-200 shadow-sm transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <!-- Logo & Breadcrumbs -->
+                <div class="flex items-center gap-4">
+                    <div class="flex-shrink-0 flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg text-white">
+                            <i class="fas fa-file-invoice-dollar text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600">
+                                كشوف الرواتب
+                            </h1>
+                            <p class="text-xs text-gray-500 font-medium">عرض البنود التفصيلية وإدارة الكشوف</p>
+                        </div>
+                    </div>
+
+                    <div class="hidden md:flex items-center text-sm text-gray-400 mx-4">
+                        <i class="fas fa-chevron-left text-xs mx-2"></i>
+                        <span class="text-gray-600 font-medium">المالية</span>
+                        <i class="fas fa-chevron-left text-xs mx-2"></i>
+                        <span class="text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-full">الكشوف</span>
+                    </div>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-reverse space-x-2">
+                    <a href="/finance/index.html" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors">
+                        <i class="fas fa-home ml-2"></i>الرئيسية
+                    </a>
+                    <a href="/finance/payroll-employees.html" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors">
+                        الموظفون
+                    </a>
+                    <a href="/finance/payroll-runs.html" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors">
+                        الدورات
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
+        
+        <!-- Action Toolbar -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+          <div class="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+            <!-- Period Selection -->
+            <div class="flex-1 min-w-[280px]">
+              <label class="block text-sm font-medium text-gray-700 mb-2">الدورة المالية</label>
+              <div class="relative">
+                <select id="runSelector" class="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none transition-all">
+                  <!-- Populated dynamically -->
+                </select>
+                <i class="fas fa-chevron-down absolute left-3 top-3 text-gray-400 pointer-events-none"></i>
+              </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+              <label class="flex items-center cursor-pointer gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
+                <div class="relative">
+                  <input id="linkedCurrencyToggle" type="checkbox" class="sr-only peer" checked>
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </div>
+                <span class="text-sm font-medium text-gray-700">تنسيق العملة</span>
+              </label>
+              <button onclick="reloadPayslips()" class="flex items-center justify-center px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                <i class="fas fa-sync-alt ml-2"></i>
+                تحديث
+              </button>
+              <button onclick="exportPayslipsCsv()" class="flex items-center justify-center px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <i class="fas fa-file-csv ml-2 text-emerald-600"></i>
+                تصدير CSV
+              </button>
+              <button onclick="openPayslipModal('create')" class="flex items-center justify-center px-6 py-2.5 bg-white text-slate-900 rounded-lg hover:bg-slate-50 shadow-sm transition-all hover:-translate-y-0.5 border-2 border-blue-500">
+                <i class="fas fa-plus ml-2"></i>
+                إضافة كشف يدوي
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+          <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-sm font-medium text-gray-500 mb-1">عدد الكشوف</p>
+                <h3 class="text-2xl font-bold text-gray-800" id="payslipsCount">--</h3>
+                <p class="text-xs text-gray-400 mt-1" id="approvedCount">--</p>
+              </div>
+              <div class="p-2 bg-blue-50 rounded-lg">
+                <i class="fas fa-file-alt text-blue-600 text-lg"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-sm font-medium text-gray-500 mb-1">إجمالي الاستحقاقات</p>
+                <h3 class="text-2xl font-bold text-emerald-700" id="grossTotalStats">--</h3>
+              </div>
+              <div class="p-2 bg-emerald-50 rounded-lg">
+                <i class="fas fa-coins text-emerald-600 text-lg"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-sm font-medium text-gray-500 mb-1">إجمالي الاستقطاعات</p>
+                <h3 class="text-2xl font-bold text-red-600" id="deductionsTotalStats">--</h3>
+              </div>
+              <div class="p-2 bg-rose-50 rounded-lg">
+                <i class="fas fa-minus-circle text-rose-600 text-lg"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-sm font-medium text-gray-500 mb-1">إجمالي الصافي</p>
+                <h3 class="text-2xl font-bold text-blue-700" id="netTotalStats">--</h3>
+              </div>
+              <div class="p-2 bg-blue-50 rounded-lg">
+                <i class="fas fa-wallet text-blue-600 text-lg"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-sm font-medium text-gray-500 mb-1">إجمالي الإضافي</p>
+                <h3 class="text-2xl font-bold text-gray-800" id="overtimeTotalStats">--</h3>
+              </div>
+              <div class="p-2 bg-emerald-50 rounded-lg">
+                <i class="fas fa-clock text-emerald-600 text-lg"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-sm font-medium text-gray-500 mb-1">إجمالي التسويات</p>
+                <h3 class="text-2xl font-bold text-gray-800" id="settlementsTotalStats">--</h3>
+              </div>
+              <div class="p-2 bg-amber-50 rounded-lg">
+                <i class="fas fa-balance-scale text-amber-600 text-lg"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payslip Filters -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+            <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
+              <i class="fas fa-filter text-gray-400"></i>
+              تصفية الكشوف
+            </h3>
+            <div class="flex items-center gap-3">
+              <button onclick="resetPayslipFilters()" class="text-sm text-gray-500 hover:text-gray-700">إعادة ضبط</button>
+              <button onclick="exportLinesCsv()" class="flex items-center justify-center px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+                <i class="fas fa-file-export ml-2 text-indigo-500"></i>
+                تصدير البنود
+              </button>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">بحث سريع</label>
+              <input id="payslipSearch" type="text" class="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="اسم الموظف أو الكود أو الملاحظات">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+              <select id="payslipStatusFilter" class="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none transition-all">
+                <option value="">كل الحالات</option>
+                <option value="DRAFT">مسودة</option>
+                <option value="APPROVED">معتمد</option>
+                <option value="PAID">مدفوع</option>
+                <option value="REJECTED">مرفوض</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">صافي من</label>
+              <input id="payslipNetMin" type="number" class="w-full pl-4 pr-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="0">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">صافي إلى</label>
+              <input id="payslipNetMax" type="number" class="w-full pl-4 pr-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="10000">
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Payslips Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-list text-blue-500"></i>
+                    بنود الكشوف
+                </h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right">
+                    <thead class="bg-gray-50 text-gray-600 font-medium text-sm">
+                      <tr>
+                        <th class="px-6 py-4">الموظف</th>
+                        <th class="px-6 py-4">الكود</th>
+                        <th class="px-6 py-4">إجمالي الاستحقاقات</th>
+                        <th class="px-6 py-4">الاستقطاعات</th>
+                        <th class="px-6 py-4">الصافي</th>
+                        <th class="px-6 py-4">الحالة</th>
+                        <th class="px-6 py-4">تاريخ الإنشاء</th>
+                        <th class="px-6 py-4">ملاحظات</th>
+                        <th class="px-6 py-4 text-center">إجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody id="payslipsTable" class="divide-y divide-gray-100 text-sm text-gray-700">
+                        <tr>
+                          <td colspan="9" class="px-6 py-8 text-center text-gray-500">
+                                اختر دورة لعرض البيانات
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+          <div id="runsEmptyNotice" class="hidden bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 mb-6">
+            <div class="flex items-start gap-3">
+              <div class="mt-1">
+                <i class="fas fa-triangle-exclamation"></i>
+              </div>
+              <div>
+                <p class="font-semibold">لا توجد دورات رواتب متاحة</p>
+                <p class="text-sm text-amber-700">يرجى إنشاء دورة جديدة من صفحة الدورات ثم العودة للكشوف.</p>
+              </div>
+            </div>
+          </div>
+
+        <!-- Selected Payslip Summary -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 p-6">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-receipt text-indigo-500"></i>
+                ملخص الكشف المحدد
+              </h3>
+              <p class="text-sm text-gray-500" id="selectedPayslipHint">اختر كشف من الجدول لعرض التفاصيل</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-gray-500" id="selectedPayslipMeta"></div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <div class="bg-gray-50 border border-gray-100 rounded-lg p-4">
+              <div class="text-xs text-gray-500">إجمالي الاستحقاقات</div>
+              <div class="text-xl font-bold text-emerald-700" id="selectedGross">--</div>
+            </div>
+            <div class="bg-gray-50 border border-gray-100 rounded-lg p-4">
+              <div class="text-xs text-gray-500">إجمالي الاستقطاعات</div>
+              <div class="text-xl font-bold text-red-600" id="selectedDeductions">--</div>
+            </div>
+            <div class="bg-gray-50 border border-gray-100 rounded-lg p-4">
+              <div class="text-xs text-gray-500">صافي المستحق</div>
+              <div class="text-xl font-bold text-blue-700" id="selectedNet">--</div>
+            </div>
+            <div class="bg-gray-50 border border-gray-100 rounded-lg p-4">
+              <div class="text-xs text-gray-500">عدد البنود</div>
+              <div class="text-xl font-bold text-gray-800" id="selectedLinesCount">--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payslip Details Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8 overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <i class="fas fa-info-circle text-indigo-500"></i>
+              تفاصيل البنود (Lines)
+            </h2>
+            <span id="linesCount" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">--</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-right">
+              <thead class="bg-gray-50 text-gray-600 font-medium text-sm">
+                <tr>
+                  <th class="px-6 py-4">الموظف</th>
+                  <th class="px-6 py-4">المكون</th>
+                  <th class="px-6 py-4">نوع البند</th>
+                  <th class="px-6 py-4">القيمة</th>
+                  <th class="px-6 py-4">الوصف</th>
+                </tr>
+              </thead>
+              <tbody id="linesTable" class="divide-y divide-gray-100 text-sm text-gray-700">
+                <tr>
+                  <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                    لا توجد بيانات بعد
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <h3 class="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i class="fas fa-filter text-gray-400"></i>
+                تصفية الإضافي والتسويات
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">الموظف</label>
+                    <select id="linkedEmployeeFilter" class="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none transition-all">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+                    <select id="linkedStatusFilter" class="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none transition-all">
+                        <option value="">كل الحالات</option>
+                        <option value="APPROVED">معتمد</option>
+                        <option value="DRAFT">مسودة</option>
+                        <option value="REJECTED">مرفوض</option>
+                        <option value="PAID">مدفوع</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Linked Overtime Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-clock text-emerald-500"></i>
+                            الإضافي المرتبط
+                        </h2>
+                      <div class="flex items-center gap-3">
+                        <span id="overtimeCount" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">--</span>
+                        <button onclick="openOvertimeModal('create')" class="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5 hover:bg-emerald-100">
+                        <i class="fas fa-plus ml-1"></i>
+                        إضافة إضافي
+                        </button>
+                      </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right">
+                        <thead class="bg-gray-50 text-gray-600 font-medium text-sm">
+                            <tr>
+                                <th class="px-4 py-3">الموظف</th>
+                                <th class="px-4 py-3">الساعات</th>
+                                <th class="px-4 py-3">القيمة</th>
+                                <th class="px-4 py-3">الحالة</th>
+                          <th class="px-4 py-3 text-center">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="overtimeTable" class="divide-y divide-gray-100 text-sm text-gray-700">
+                             <tr>
+                          <td colspan="5" class="px-6 py-8 text-center text-gray-500">اختر دورة لعرض البيانات</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Linked Settlements Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-hand-holding-usd text-amber-500"></i>
+                            التسويات المرتبطة
+                        </h2>
+                      <div class="flex items-center gap-3">
+                        <span id="settlementsCount" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">--</span>
+                        <button onclick="openSettlementModal('create')" class="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 hover:bg-amber-100">
+                        <i class="fas fa-plus ml-1"></i>
+                        إضافة تسوية
+                        </button>
+                      </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right">
+                        <thead class="bg-gray-50 text-gray-600 font-medium text-sm">
+                            <tr>
+                                <th class="px-4 py-3">الموظف</th>
+                                <th class="px-4 py-3">القيمة</th>
+                                <th class="px-4 py-3">السبب</th>
+                                <th class="px-4 py-3">الحالة</th>
+                          <th class="px-4 py-3 text-center">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="settlementsTable" class="divide-y divide-gray-100 text-sm text-gray-700">
+                             <tr>
+                          <td colspan="5" class="px-6 py-8 text-center text-gray-500">اختر دورة لعرض البيانات</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Create/Edit Payslip Modal -->
+    <div id="payslipModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="payslipModalBackdrop"></div>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-2xl bg-white text-right shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" id="payslipModalPanel">
+                    
+                    <!-- Header -->
+                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4 border-b border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xl font-bold leading-6 text-gray-900" id="modal-title">
+                                <i class="fas fa-file-invoice text-blue-600 ml-2"></i>
+                                إضافة كشف رواتب
+                            </h3>
+                            <button onclick="closePayslipModal()" class="text-gray-400 hover:text-gray-500 transition-colors">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="px-4 py-6 sm:p-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="col-span-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">دورة الرواتب <span class="text-red-500">*</span></label>
+                                <select id="payslipRun" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"></select>
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">الموظف <span class="text-red-500">*</span></label>
+                                <select id="payslipEmployee" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"></select>
+                            </div>
+                          <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+                            <select id="payslipStatus" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                              <option value="DRAFT">مسودة</option>
+                              <option value="APPROVED">معتمد</option>
+                              <option value="PAID">مدفوع</option>
+                              <option value="REJECTED">مرفوض</option>
+                            </select>
+                          </div>
+                            
+                          <div class="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">إجمالي الاستحقاقات</label>
+                                    <input type="number" id="grossAmount" placeholder="0.00" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">إجمالي الاستقطاعات</label>
+                                    <input type="number" id="deductionsAmount" placeholder="0.00" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">الصافي</label>
+                                    <input type="number" id="netAmount" placeholder="0.00" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                                </div>
+                            </div>
+
+                            <div class="col-span-1 md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ملاحظات</label>
+                                <textarea id="payslipNotes" rows="2" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"></textarea>
+                            </div>
+
+                          <div class="col-span-1 md:col-span-2" id="autoIncludeControls">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <label class="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                <input id="includeOvertime" type="checkbox" class="h-4 w-4 text-blue-600" checked>
+                                <div>
+                                  <p class="text-sm font-medium text-gray-700">إضافة الإضافي تلقائيا</p>
+                                  <p class="text-xs text-gray-500">يتم جلب الإضافي المعتمد في نفس الدورة</p>
+                                </div>
+                              </label>
+                              <label class="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                <input id="includeSettlements" type="checkbox" class="h-4 w-4 text-blue-600" checked>
+                                <div>
+                                  <p class="text-sm font-medium text-gray-700">إضافة التسويات تلقائيا</p>
+                                  <p class="text-xs text-gray-500">يتم جلب التسويات المعتمدة في نفس الدورة</p>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Lines Section -->
+                        <div class="border-t border-gray-100 pt-6">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+                                <h4 class="text-lg font-bold text-gray-800">بنود الكشف التفصيلية</h4>
+                              <div class="flex items-center gap-3">
+                                <button onclick="recalculateTotals()" class="text-xs text-gray-500 hover:text-gray-700" id="recalculateButton">إعادة احتساب</button>
+                                <button onclick="addLineRow()" id="addLineButton" class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                                  <i class="fas fa-plus"></i>
+                                  إضافة بند
+                                </button>
+                              </div>
+                            </div>
+                            <div id="linesContainer" class="space-y-4">
+                                <!-- Dynamic lines will go here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+                        <button type="button" onclick="savePayslip()" id="payslipSaveButton" class="inline-flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-500 sm:w-auto">
+                            حفظ الكشف
+                        </button>
+                        <button type="button" onclick="closePayslipModal()" class="mt-3 inline-flex w-full justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">
+                            إلغاء
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overtime Modal -->
+    <div id="overtimeModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+      <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
+      <div class="fixed inset-0 z-10 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl">
+          <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-gray-800" id="overtimeModalTitle">إضافة عمل إضافي</h3>
+            <button onclick="closeOvertimeModal()" class="text-gray-400 hover:text-gray-600">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">الموظف</label>
+              <select id="overtimeEmployee" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5"></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">التاريخ</label>
+              <input id="overtimeDate" type="date" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">الساعات</label>
+              <input id="overtimeHours" type="number" step="0.5" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5" placeholder="0">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">السعر</label>
+              <input id="overtimeRate" type="number" step="0.01" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5" placeholder="0">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">المضاعف</label>
+              <input id="overtimeMultiplier" type="number" step="0.1" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5" placeholder="1">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">القيمة</label>
+              <input id="overtimeAmount" type="number" step="0.01" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5" placeholder="0">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+              <select id="overtimeStatus" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5">
+                <option value="PENDING">معلق</option>
+                <option value="APPROVED">معتمد</option>
+                <option value="REJECTED">مرفوض</option>
+                <option value="PAID">مدفوع</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">الدورة</label>
+              <select id="overtimeRun" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5"></select>
+            </div>
+          </div>
+          <div class="px-6 pb-6 flex justify-end gap-3">
+            <button onclick="closeOvertimeModal()" class="px-4 py-2 text-sm font-medium text-gray-600">إلغاء</button>
+            <button onclick="saveOvertime()" id="overtimeSaveButton" class="px-4 py-2 text-sm font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700">حفظ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="deleteOvertimeModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+      <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
+      <div class="fixed inset-0 z-10 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+          <div class="p-6 border-b border-gray-100">
+            <h3 class="text-lg font-bold text-gray-800">تأكيد الحذف</h3>
+            <p class="text-sm text-gray-500 mt-2" id="deleteOvertimeHint">هل تريد حذف سجل الإضافي؟</p>
+          </div>
+          <div class="p-6 flex justify-end gap-3">
+            <button onclick="closeDeleteOvertimeModal()" class="px-4 py-2 text-sm font-medium text-gray-600">إلغاء</button>
+            <button onclick="confirmDeleteOvertime()" class="px-4 py-2 text-sm font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700">حذف</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settlements Modal -->
+    <div id="settlementModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+      <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
+      <div class="fixed inset-0 z-10 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl">
+          <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-gray-800" id="settlementModalTitle">إضافة تسوية</h3>
+            <button onclick="closeSettlementModal()" class="text-gray-400 hover:text-gray-600">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">الموظف</label>
+              <select id="settlementEmployee" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5"></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">التاريخ</label>
+              <input id="settlementDate" type="date" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">القيمة</label>
+              <input id="settlementAmount" type="number" step="0.01" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5" placeholder="0">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+              <select id="settlementStatus" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5">
+                <option value="DRAFT">مسودة</option>
+                <option value="APPROVED">معتمد</option>
+                <option value="REJECTED">مرفوض</option>
+                <option value="PAID">مدفوع</option>
+              </select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">السبب</label>
+              <input id="settlementReason" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5" placeholder="سبب التسوية">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">الدورة</label>
+              <select id="settlementRun" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5"></select>
+            </div>
+          </div>
+          <div class="px-6 pb-6 flex justify-end gap-3">
+            <button onclick="closeSettlementModal()" class="px-4 py-2 text-sm font-medium text-gray-600">إلغاء</button>
+            <button onclick="saveSettlement()" id="settlementSaveButton" class="px-4 py-2 text-sm font-bold text-white bg-amber-600 rounded-lg hover:bg-amber-700">حفظ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="deleteSettlementModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+      <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
+      <div class="fixed inset-0 z-10 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+          <div class="p-6 border-b border-gray-100">
+            <h3 class="text-lg font-bold text-gray-800">تأكيد الحذف</h3>
+            <p class="text-sm text-gray-500 mt-2" id="deleteSettlementHint">هل تريد حذف التسوية؟</p>
+          </div>
+          <div class="p-6 flex justify-end gap-3">
+            <button onclick="closeDeleteSettlementModal()" class="px-4 py-2 text-sm font-medium text-gray-600">إلغاء</button>
+            <button onclick="confirmDeleteSettlement()" class="px-4 py-2 text-sm font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700">حذف</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Payslip Modal -->
+    <div id="deletePayslipModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+      <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
+      <div class="fixed inset-0 z-10 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+          <div class="p-6 border-b border-gray-100">
+            <h3 class="text-lg font-bold text-gray-800">تأكيد الحذف</h3>
+            <p class="text-sm text-gray-500 mt-2" id="deletePayslipHint">هل تريد حذف هذا الكشف؟</p>
+          </div>
+          <div class="p-6 flex justify-end gap-3">
+            <button onclick="closeDeleteModal()" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">إلغاء</button>
+            <button onclick="confirmDeletePayslip()" class="px-4 py-2 text-sm font-bold text-white bg-red-600 rounded-lg hover:bg-red-700">حذف</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/finance/finance-context.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+        let runs = [];
+        let employees = [];
+        let components = [];
+        let payslipItems = [];
+        let payslipLines = [];
+        let filteredPayslips = [];
+        let linkedOvertime = [];
+        let linkedSettlements = [];
+        let useCurrencyFormat = true;
+        let selectedPayslipId = null;
+        let editingItemId = null;
+        let modalMode = 'create';
+        let deleteItemId = null;
+        let overtimeModalMode = 'create';
+        let overtimeEditingId = null;
+        let deleteOvertimeId = null;
+        let settlementModalMode = 'create';
+        let settlementEditingId = null;
+        let deleteSettlementId = null;
+        const currencyToggleKey = 'payrollPayslipCurrencyFormat';
+        const currencyFormatter = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'SAR',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+        const STATUS_LABELS = {
+          DRAFT: 'مسودة',
+          APPROVED: 'معتمد',
+          PAID: 'مدفوع',
+          REJECTED: 'مرفوض',
+          POSTED: 'مرحّل'
+        };
+        const STATUS_STYLES = {
+          DRAFT: 'bg-gray-100 text-gray-800',
+          APPROVED: 'bg-emerald-100 text-emerald-700',
+          PAID: 'bg-blue-100 text-blue-700',
+          REJECTED: 'bg-rose-100 text-rose-700',
+          POSTED: 'bg-indigo-100 text-indigo-700'
+        };
+    
+        function formatCurrency(value) {
+          const amount = Number(value || 0);
+          return useCurrencyFormat ? currencyFormatter.format(amount) : amount.toFixed(2);
+        }
+
+        function formatDate(value) {
+          if (!value) return '--';
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) return '--';
+          return date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        }
+
+        function getStatusBadge(status) {
+          const label = STATUS_LABELS[status] || status || '-';
+          const classes = STATUS_STYLES[status] || 'bg-gray-100 text-gray-800';
+          return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${classes}">${label}</span>`;
+        }
+
+        function getFinanceHeadersSafe() {
+          if (window.getFinanceHeaders) return window.getFinanceHeaders();
+          return { 'x-entity-id': 'HQ001', 'x-entity-type': 'HQ' };
+        }
+    
+        function syncCurrencyToggle() {
+          const toggle = document.getElementById('linkedCurrencyToggle');
+          if (toggle) toggle.checked = useCurrencyFormat;
+        }
+    
+        function loadCurrencyPreference() {
+          const stored = localStorage.getItem(currencyToggleKey);
+          if (stored !== null) {
+            useCurrencyFormat = stored === 'true';
+          }
+          syncCurrencyToggle();
+        }
+    
+        function saveCurrencyPreference() {
+          localStorage.setItem(currencyToggleKey, String(useCurrencyFormat));
+        }
+    
+        async function loadReferenceData() {
+          const headers = getFinanceHeadersSafe();
+          try {
+            const [runsRes, employeesRes, componentsRes] = await Promise.all([
+              fetch(`${API_BASE}/finance/payroll/runs`, { headers }),
+              fetch(`${API_BASE}/finance/payroll/employees`, { headers }),
+              fetch(`${API_BASE}/finance/payroll/components`, { headers })
+            ]);
+            const runsData = await runsRes.json();
+            const employeesData = await employeesRes.json();
+            const componentsData = await componentsRes.json();
+            runs = runsData.runs || [];
+            employees = employeesData.employees || [];
+            components = componentsData.components || [];
+            renderSelectors();
+          } catch (error) {
+            console.error('Error loading reference data:', error);
+            document.getElementById('runsEmptyNotice').classList.remove('hidden');
+          }
+        }
+    
+        function renderSelectors() {
+          const runOptions = ['<option value="">اختر الدورة</option>']
+            .concat(runs.map((run) => `<option value="${run.run_id}">${run.run_number}</option>`))
+            .join('');
+          document.getElementById('runSelector').innerHTML = runOptions;
+          document.getElementById('payslipRun').innerHTML = runOptions;
+
+          const runSelector = document.getElementById('runSelector');
+          const runsNotice = document.getElementById('runsEmptyNotice');
+          if (!runs.length) {
+            runSelector.disabled = true;
+            runsNotice.classList.remove('hidden');
+          } else {
+            runSelector.disabled = false;
+            runsNotice.classList.add('hidden');
+          }
+    
+          const employeeOptions = ['<option value="">اختر الموظف</option>']
+            .concat(employees.map((emp) => `<option value="${emp.employee_id}">${emp.full_name_ar} (${emp.employee_code})</option>`))
+            .join('');
+          document.getElementById('payslipEmployee').innerHTML = employeeOptions;
+          document.getElementById('linkedEmployeeFilter').innerHTML = ['<option value="">كل الموظفين</option>']
+            .concat(employees.map((emp) => `<option value="${emp.employee_id}">${emp.full_name_ar} (${emp.employee_code})</option>`))
+            .join('');
+
+          const overtimeEmployee = document.getElementById('overtimeEmployee');
+          if (overtimeEmployee) overtimeEmployee.innerHTML = employeeOptions;
+          const settlementEmployee = document.getElementById('settlementEmployee');
+          if (settlementEmployee) settlementEmployee.innerHTML = employeeOptions;
+
+          const runOptionsWithEmpty = ['<option value="">بدون دورة</option>']
+            .concat(runs.map((run) => `<option value="${run.run_id}">${run.run_number}</option>`))
+            .join('');
+          const overtimeRun = document.getElementById('overtimeRun');
+          if (overtimeRun) overtimeRun.innerHTML = runOptionsWithEmpty;
+          const settlementRun = document.getElementById('settlementRun');
+          if (settlementRun) settlementRun.innerHTML = runOptionsWithEmpty;
+        }
+
+        function ensureRunSelected() {
+          if (!runs.length) return null;
+          const selector = document.getElementById('runSelector');
+          if (!selector.value) {
+            selector.value = runs[0].run_id;
+          }
+          document.getElementById('payslipRun').value = selector.value;
+          return selector.value;
+        }
+
+        function applyRunQueryParam() {
+          const params = new URLSearchParams(window.location.search);
+          const runId = params.get('run_id');
+          if (!runId) return false;
+          document.getElementById('runSelector').value = runId;
+          document.getElementById('payslipRun').value = runId;
+          return true;
+        }
+    
+        async function reloadPayslips() {
+          const runId = document.getElementById('runSelector').value;
+          if (!runId) {
+            document.getElementById('payslipsTable').innerHTML = '<tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">اختر دورة لعرض البيانات</td></tr>';
+            document.getElementById('linesTable').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">لا توجد بيانات بعد</td></tr>';
+            document.getElementById('payslipsCount').textContent = '--';
+            document.getElementById('approvedCount').textContent = '--';
+            document.getElementById('grossTotalStats').textContent = '--';
+            document.getElementById('deductionsTotalStats').textContent = '--';
+            document.getElementById('netTotalStats').textContent = '--';
+            document.getElementById('overtimeTable').innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500">اختر دورة لعرض البيانات</td></tr>';
+            document.getElementById('settlementsTable').innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500">اختر دورة لعرض البيانات</td></tr>';
+            document.getElementById('overtimeTotalStats').textContent = '--';
+            document.getElementById('settlementsTotalStats').textContent = '--';
+            document.getElementById('overtimeCount').textContent = '--';
+            document.getElementById('settlementsCount').textContent = '--';
+            document.getElementById('linesCount').textContent = '--';
+            clearSelectedPayslip();
+            return;
+          }
+    
+          const headers = getFinanceHeadersSafe();
+          try {
+            const response = await fetch(`${API_BASE}/finance/payroll/payslips?run_id=${runId}`, { headers });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'تعذر تحميل الكشوف');
+            payslipItems = data.items || [];
+            payslipLines = data.lines || [];
+            renderPayslips();
+            selectFirstPayslip();
+            renderLines();
+            await loadLinkedAdjustments(runId);
+          } catch (error) {
+            console.error('Error loading payslips:', error);
+            document.getElementById('payslipsTable').innerHTML = '<tr><td colspan="9" class="px-6 py-8 text-center text-red-500">تعذر تحميل البيانات</td></tr>';
+          }
+        }
+    
+        function renderPayslips() {
+          if (!payslipItems.length) {
+            document.getElementById('payslipsTable').innerHTML = '<tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">لا توجد كشوف بعد</td></tr>';
+            document.getElementById('payslipsCount').textContent = '0';
+            updatePayslipStats([]);
+            clearSelectedPayslip();
+            return;
+          }
+          filteredPayslips = applyPayslipFilters(payslipItems);
+          updatePayslipStats(filteredPayslips);
+
+          if (!filteredPayslips.length) {
+            document.getElementById('payslipsTable').innerHTML = '<tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">لا توجد نتائج مطابقة</td></tr>';
+            return;
+          }
+
+          const rows = filteredPayslips.map((item) => `
+            <tr class="hover:bg-gray-50 transition-colors ${selectedPayslipId === item.item_id ? 'bg-blue-50/60' : ''}" data-id="${item.item_id}">
+              <td class="px-6 py-4 border-b border-gray-100 font-medium text-gray-800">${item.full_name_ar || item.full_name_en || '-'}</td>
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-500">${item.employee_code || '--'}</td>
+              <td class="px-6 py-4 border-b border-gray-100 font-medium text-emerald-700">${formatCurrency(item.gross_amount || 0)}</td>
+              <td class="px-6 py-4 border-b border-gray-100 font-medium text-red-600">${formatCurrency(item.deductions_amount || 0)}</td>
+              <td class="px-6 py-4 border-b border-gray-100 font-bold text-blue-700">${formatCurrency(item.net_amount || 0)}</td>
+              <td class="px-6 py-4 border-b border-gray-100">${getStatusBadge(item.status)}</td>
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-500">${formatDate(item.created_at)}</td>
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-500">${item.notes || '-'}</td>
+              <td class="px-6 py-4 border-b border-gray-100 text-center">
+                <div class="inline-flex items-center gap-2">
+                  <button data-action="view" data-id="${item.item_id}" class="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm hover:bg-blue-700" title="معاينة">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button data-action="edit" data-id="${item.item_id}" class="w-9 h-9 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm hover:bg-emerald-700" title="تعديل">
+                    <i class="fas fa-pen"></i>
+                  </button>
+                  <button data-action="delete" data-id="${item.item_id}" class="w-9 h-9 flex items-center justify-center rounded-lg bg-rose-600 text-white shadow-sm hover:bg-rose-700" title="حذف">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+          document.getElementById('payslipsTable').innerHTML = rows;
+        }
+
+        function applyPayslipFilters(items) {
+          const search = document.getElementById('payslipSearch').value.trim().toLowerCase();
+          const status = document.getElementById('payslipStatusFilter').value;
+          const netMin = Number(document.getElementById('payslipNetMin').value || 0);
+          const netMaxValue = document.getElementById('payslipNetMax').value;
+          const netMax = netMaxValue ? Number(netMaxValue) : null;
+
+          return items.filter((item) => {
+            if (status && item.status !== status) return false;
+            const net = Number(item.net_amount || 0);
+            if (!Number.isNaN(netMin) && net < netMin) return false;
+            if (netMax !== null && !Number.isNaN(netMax) && net > netMax) return false;
+            if (search) {
+              const haystack = `${item.full_name_ar || ''} ${item.full_name_en || ''} ${item.employee_code || ''} ${item.notes || ''}`.toLowerCase();
+              if (!haystack.includes(search)) return false;
+            }
+            return true;
+          });
+        }
+
+        function updatePayslipStats(items) {
+          const totalGross = items.reduce((sum, item) => sum + Number(item.gross_amount || 0), 0);
+          const totalDeductions = items.reduce((sum, item) => sum + Number(item.deductions_amount || 0), 0);
+          const totalNet = items.reduce((sum, item) => sum + Number(item.net_amount || 0), 0);
+          const approved = items.filter((item) => item.status === 'APPROVED').length;
+          const paid = items.filter((item) => item.status === 'PAID').length;
+
+          document.getElementById('payslipsCount').textContent = `${items.length}`;
+          document.getElementById('approvedCount').textContent = `معتمد: ${approved} | مدفوع: ${paid}`;
+          document.getElementById('grossTotalStats').textContent = formatCurrency(totalGross);
+          document.getElementById('deductionsTotalStats').textContent = formatCurrency(totalDeductions);
+          document.getElementById('netTotalStats').textContent = formatCurrency(totalNet);
+        }
+
+        function selectPayslip(itemId) {
+          selectedPayslipId = itemId;
+          renderPayslips();
+          renderLines();
+          renderSelectedSummary();
+        }
+
+        function selectFirstPayslip() {
+          if (!filteredPayslips.length) {
+            clearSelectedPayslip();
+            return;
+          }
+          const previous = selectedPayslipId;
+          if (!selectedPayslipId || !filteredPayslips.some((item) => item.item_id === selectedPayslipId)) {
+            selectedPayslipId = filteredPayslips[0].item_id;
+          }
+          if (previous !== selectedPayslipId) {
+            renderPayslips();
+          }
+          renderSelectedSummary();
+        }
+
+        function clearSelectedPayslip() {
+          selectedPayslipId = null;
+          document.getElementById('selectedPayslipHint').textContent = 'اختر كشف من الجدول لعرض التفاصيل';
+          document.getElementById('selectedPayslipMeta').innerHTML = '';
+          document.getElementById('selectedGross').textContent = '--';
+          document.getElementById('selectedDeductions').textContent = '--';
+          document.getElementById('selectedNet').textContent = '--';
+          document.getElementById('selectedLinesCount').textContent = '--';
+        }
+
+        function renderSelectedSummary() {
+          const item = payslipItems.find((entry) => entry.item_id === selectedPayslipId);
+          if (!item) {
+            clearSelectedPayslip();
+            return;
+          }
+          const linesCount = payslipLines.filter((line) => line.item_id === item.item_id).length;
+          document.getElementById('selectedPayslipHint').textContent = item.full_name_ar || item.full_name_en || '—';
+          document.getElementById('selectedPayslipMeta').innerHTML = `
+            <span>${item.employee_code || '--'}</span>
+            <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
+            <span>${formatDate(item.created_at)}</span>
+            <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
+            ${getStatusBadge(item.status)}
+          `;
+          document.getElementById('selectedGross').textContent = formatCurrency(item.gross_amount || 0);
+          document.getElementById('selectedDeductions').textContent = formatCurrency(item.deductions_amount || 0);
+          document.getElementById('selectedNet').textContent = formatCurrency(item.net_amount || 0);
+          document.getElementById('selectedLinesCount').textContent = `${linesCount}`;
+        }
+    
+        function renderLines() {
+          if (!payslipLines.length) {
+            document.getElementById('linesTable').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">لا توجد بنود بعد</td></tr>';
+            document.getElementById('linesCount').textContent = '0';
+            return;
+          }
+
+          const employeeMap = new Map(payslipItems.map((item) => [item.item_id, item.full_name_ar]));
+          const componentMap = new Map(components.map((component) => [component.component_id, component.component_name_ar]));
+          const filteredLines = selectedPayslipId
+            ? payslipLines.filter((line) => line.item_id === selectedPayslipId)
+            : payslipLines;
+
+          if (!filteredLines.length) {
+            document.getElementById('linesTable').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">لا توجد بنود للكشف المحدد</td></tr>';
+            document.getElementById('linesCount').textContent = '0';
+            return;
+          }
+
+          const rows = filteredLines.map((line) => `
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-6 py-4 border-b border-gray-100">${employeeMap.get(line.item_id) || '-'}</td>
+              <td class="px-6 py-4 border-b border-gray-100">${componentMap.get(line.component_id) || 'بدون مكون'}</td>
+              <td class="px-6 py-4 border-b border-gray-100">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${line.line_type === 'EARNING' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                    ${line.line_type === 'EARNING' ? 'استحقاق' : 'استقطاع'}
+                </span>
+              </td>
+              <td class="px-6 py-4 border-b border-gray-100 font-medium">${formatCurrency(line.amount || 0)}</td>
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-500">${line.description || '-'}</td>
+            </tr>
+          `).join('');
+          document.getElementById('linesTable').innerHTML = rows;
+          document.getElementById('linesCount').textContent = `${filteredLines.length}`;
+        }
+    
+        async function loadLinkedAdjustments(runId) {
+          const headers = getFinanceHeadersSafe();
+          try {
+            const [overtimeRes, settlementsRes] = await Promise.all([
+              fetch(`${API_BASE}/finance/payroll/overtime?payroll_run_id=${runId}`, { headers }),
+              fetch(`${API_BASE}/finance/payroll/settlements?payroll_run_id=${runId}`, { headers })
+            ]);
+            const overtimeData = await overtimeRes.json();
+            const settlementsData = await settlementsRes.json();
+            linkedOvertime = overtimeData.overtime || [];
+            linkedSettlements = settlementsData.settlements || [];
+            renderLinkedOvertime();
+            renderLinkedSettlements();
+          } catch (error) {
+            console.error('Error loading linked adjustments:', error);
+            document.getElementById('overtimeTable').innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-red-500">تعذر تحميل البيانات</td></tr>';
+            document.getElementById('settlementsTable').innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-red-500">تعذر تحميل البيانات</td></tr>';
+          }
+        }
+    
+        function getLinkedFilters() {
+          const employeeId = document.getElementById('linkedEmployeeFilter').value;
+          const status = document.getElementById('linkedStatusFilter').value;
+          return { employeeId, status };
+        }
+    
+        function applyLinkedFilters(rows) {
+          const { employeeId, status } = getLinkedFilters();
+          return rows.filter((row) => {
+            if (employeeId && String(row.employee_id) !== String(employeeId)) return false;
+            if (status && row.status !== status) return false;
+            return true;
+          });
+        }
+    
+        function renderLinkedOvertime() {
+          if (!linkedOvertime.length) {
+            document.getElementById('overtimeTable').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">لا توجد سجلات إضافي مرتبطة</td></tr>';
+            document.getElementById('overtimeCount').textContent = `0`;
+            document.getElementById('overtimeTotalStats').textContent = formatCurrency(0);
+            return;
+          }
+          const filtered = applyLinkedFilters(linkedOvertime);
+          const totalAmount = filtered.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+          const overallAmount = linkedOvertime.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+          
+          if (!filtered.length) {
+            document.getElementById('overtimeTable').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">لا توجد نتائج مطابقة</td></tr>';
+            document.getElementById('overtimeCount').textContent = `0 / ${linkedOvertime.length}`;
+            document.getElementById('overtimeTotalStats').textContent = formatCurrency(overallAmount);
+            return;
+          }
+          const rows = filtered.map((row) => `
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-4 py-3 border-b border-gray-100">${row.full_name_ar || '-'}</td>
+              <td class="px-4 py-3 border-b border-gray-100">${Number(row.hours || 0).toFixed(2)} ساع</td>
+              <td class="px-4 py-3 border-b border-gray-100 font-medium text-emerald-600">${formatCurrency(row.amount || 0)}</td>
+              <td class="px-4 py-3 border-b border-gray-100">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                    ${row.status || '-'}
+                </span>
+              </td>
+              <td class="px-4 py-3 border-b border-gray-100 text-center">
+                <div class="inline-flex items-center gap-2">
+                  <button data-action="view" data-id="${row.overtime_id}" class="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700" title="معاينة">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button data-action="edit" data-id="${row.overtime_id}" class="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-600 text-white hover:bg-emerald-700" title="تعديل">
+                    <i class="fas fa-pen"></i>
+                  </button>
+                  <button data-action="delete" data-id="${row.overtime_id}" class="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-600 text-white hover:bg-rose-700" title="حذف">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+          
+          document.getElementById('overtimeTable').innerHTML = rows;
+          document.getElementById('overtimeCount').textContent = `${filtered.length} / ${linkedOvertime.length}`;
+          document.getElementById('overtimeTotalStats').textContent = formatCurrency(overallAmount);
+        }
+    
+        function renderLinkedSettlements() {
+          if (!linkedSettlements.length) {
+            document.getElementById('settlementsTable').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">لا توجد تسويات مرتبطة</td></tr>';
+            document.getElementById('settlementsCount').textContent = `0`;
+            document.getElementById('settlementsTotalStats').textContent = formatCurrency(0);
+            return;
+          }
+          const filtered = applyLinkedFilters(linkedSettlements);
+          const totalAmount = filtered.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+          const overallAmount = linkedSettlements.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+          
+          if (!filtered.length) {
+            document.getElementById('settlementsTable').innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">لا توجد نتائج مطابقة</td></tr>';
+            document.getElementById('settlementsCount').textContent = `0 / ${linkedSettlements.length}`;
+            document.getElementById('settlementsTotalStats').textContent = formatCurrency(overallAmount);
+            return;
+          }
+          const rows = filtered.map((row) => `
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-4 py-3 border-b border-gray-100">${row.full_name_ar || '-'}</td>
+              <td class="px-4 py-3 border-b border-gray-100 font-medium text-amber-600">${formatCurrency(row.amount || 0)}</td>
+              <td class="px-4 py-3 border-b border-gray-100 text-gray-500 text-xs">${row.reason || '-'}</td>
+              <td class="px-4 py-3 border-b border-gray-100">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                    ${row.status || '-'}
+                </span>
+              </td>
+              <td class="px-4 py-3 border-b border-gray-100 text-center">
+                <div class="inline-flex items-center gap-2">
+                  <button data-action="view" data-id="${row.settlement_id}" class="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700" title="معاينة">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button data-action="edit" data-id="${row.settlement_id}" class="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-600 text-white hover:bg-amber-700" title="تعديل">
+                    <i class="fas fa-pen"></i>
+                  </button>
+                  <button data-action="delete" data-id="${row.settlement_id}" class="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-600 text-white hover:bg-rose-700" title="حذف">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+          
+          document.getElementById('settlementsTable').innerHTML = rows;
+          document.getElementById('settlementsCount').textContent = `${filtered.length} / ${linkedSettlements.length}`;
+          document.getElementById('settlementsTotalStats').textContent = formatCurrency(overallAmount);
+        }
+    
+        function openPayslipModal(mode = 'create', itemId = null) {
+          const modal = document.getElementById('payslipModal');
+          const backdrop = document.getElementById('payslipModalBackdrop');
+          const panel = document.getElementById('payslipModalPanel');
+
+          modalMode = mode;
+          editingItemId = itemId;
+          setModalMode(mode);
+
+          modal.classList.remove('hidden');
+          void modal.offsetWidth;
+
+          backdrop.classList.remove('opacity-0');
+          panel.classList.remove('opacity-0', 'translate-y-4', 'sm:translate-y-0', 'sm:scale-95');
+          panel.classList.add('opacity-100', 'translate-y-0', 'sm:scale-100');
+
+          if (mode === 'create') {
+            document.getElementById('payslipRun').value = document.getElementById('runSelector').value || '';
+            document.getElementById('payslipEmployee').value = '';
+            document.getElementById('payslipStatus').value = 'DRAFT';
+            document.getElementById('grossAmount').value = '';
+            document.getElementById('deductionsAmount').value = '';
+            document.getElementById('netAmount').value = '';
+            document.getElementById('payslipNotes').value = '';
+            document.getElementById('includeOvertime').checked = true;
+            document.getElementById('includeSettlements').checked = true;
+            document.getElementById('linesContainer').innerHTML = '';
+            addLineRow();
+          } else {
+            const item = payslipItems.find((entry) => entry.item_id === itemId);
+            if (item) {
+              populateModalForItem(item);
+            }
+          }
+        }
+
+        function closePayslipModal() {
+            const modal = document.getElementById('payslipModal');
+            const backdrop = document.getElementById('payslipModalBackdrop');
+            const panel = document.getElementById('payslipModalPanel');
+            
+            backdrop.classList.add('opacity-0');
+            panel.classList.remove('opacity-100', 'translate-y-0', 'sm:scale-100');
+            panel.classList.add('opacity-0', 'translate-y-4', 'sm:translate-y-0', 'sm:scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+          function setModalMode(mode) {
+            const title = document.getElementById('modal-title');
+            const saveButton = document.getElementById('payslipSaveButton');
+            const addButton = document.getElementById('addLineButton');
+            const recalcButton = document.getElementById('recalculateButton');
+            const autoInclude = document.getElementById('autoIncludeControls');
+
+            const isView = mode === 'view';
+            const isEdit = mode === 'edit';
+            const isCreate = mode === 'create';
+
+            const titleText = isView ? 'عرض كشف رواتب' : isEdit ? 'تعديل كشف رواتب' : 'إضافة كشف رواتب';
+            title.innerHTML = `<i class="fas fa-file-invoice text-blue-600 ml-2"></i>${titleText}`;
+            saveButton.classList.toggle('hidden', isView);
+            addButton.classList.toggle('hidden', isView);
+            recalcButton.classList.toggle('hidden', isView);
+            autoInclude.classList.toggle('hidden', !isCreate);
+
+            const inputs = document.querySelectorAll('#payslipModal input, #payslipModal select, #payslipModal textarea');
+            inputs.forEach((input) => {
+              if (input.id === 'includeOvertime' || input.id === 'includeSettlements') {
+                input.disabled = !isCreate;
+              } else {
+                input.disabled = isView;
+              }
+            });
+          }
+
+          function populateModalForItem(item) {
+            document.getElementById('payslipRun').value = item.run_id || '';
+            document.getElementById('payslipEmployee').value = item.employee_id || '';
+            document.getElementById('payslipStatus').value = item.status || 'DRAFT';
+            document.getElementById('grossAmount').value = Number(item.gross_amount || 0).toFixed(2);
+            document.getElementById('deductionsAmount').value = Number(item.deductions_amount || 0).toFixed(2);
+            document.getElementById('netAmount').value = Number(item.net_amount || 0).toFixed(2);
+            document.getElementById('payslipNotes').value = item.notes || '';
+            document.getElementById('linesContainer').innerHTML = '';
+
+            const lines = payslipLines.filter((line) => line.item_id === item.item_id);
+            if (lines.length) {
+              lines.forEach((line) => addLineRow(line));
+            } else {
+              addLineRow();
+            }
+          }
+    
+        function addLineRow(line = {}) {
+          const container = document.getElementById('linesContainer');
+          const row = document.createElement('div');
+          row.className = 'grid grid-cols-1 md:grid-cols-12 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200 relative group';
+          const componentOptions = ['<option value="">بدون مكون</option>']
+            .concat(components.map((c) => `<option value="${c.component_id}">${c.component_name_ar}</option>`))
+            .join('');
+          const isReadOnly = modalMode === 'view';
+          row.innerHTML = `
+            <div class="md:col-span-3">
+              <label class="block text-xs font-medium text-gray-500 mb-1">المكون</label>
+              <select class="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 line-component" ${isReadOnly ? 'disabled' : ''}>${componentOptions}</select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-medium text-gray-500 mb-1">النوع</label>
+              <select class="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 line-type" ${isReadOnly ? 'disabled' : ''}>
+                <option value="EARNING">استحقاق</option>
+                <option value="DEDUCTION">استقطاع</option>
+              </select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-medium text-gray-500 mb-1">القيمة</label>
+              <input type="number" class="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 line-amount" placeholder="0" ${isReadOnly ? 'disabled' : ''}>
+            </div>
+            <div class="md:col-span-4">
+              <label class="block text-xs font-medium text-gray-500 mb-1">الوصف</label>
+              <input class="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 line-desc" placeholder="بدل أو استقطاع" ${isReadOnly ? 'disabled' : ''}>
+            </div>
+            <button type="button" onclick="removeLineRow(this)" class="absolute -top-2 -left-2 bg-red-100 text-red-600 rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity ${isReadOnly ? 'hidden' : ''}">
+                <i class="fas fa-times text-xs"></i>
+            </button>
+          `;
+          container.appendChild(row);
+
+          const componentSelect = row.querySelector('.line-component');
+          const typeSelect = row.querySelector('.line-type');
+          const amountInput = row.querySelector('.line-amount');
+          const descInput = row.querySelector('.line-desc');
+
+          componentSelect.value = line.component_id || '';
+          typeSelect.value = line.line_type || 'EARNING';
+          amountInput.value = line.amount !== undefined && line.amount !== null ? Number(line.amount).toFixed(2) : '';
+          descInput.value = line.description || '';
+        }
+
+        function removeLineRow(button) {
+          const row = button.closest('.grid');
+          if (row) row.remove();
+          recalculateTotals();
+        }
+    
+        function collectLinesFromModal() {
+          const lines = [];
+          document.querySelectorAll('#linesContainer .grid').forEach((row) => {
+            const componentId = row.querySelector('.line-component').value;
+            const lineType = row.querySelector('.line-type').value;
+            const amount = Number(row.querySelector('.line-amount').value || 0);
+            const desc = row.querySelector('.line-desc').value.trim();
+            if (amount || desc || componentId) {
+              lines.push({
+                component_id: componentId || null,
+                line_type: lineType,
+                amount,
+                description: desc
+              });
+            }
+          });
+          return lines;
+        }
+
+        function recalculateTotals() {
+          const lines = collectLinesFromModal();
+          const totals = lines.reduce(
+            (acc, line) => {
+              const amountValue = Number(line.amount || 0);
+              if ((line.line_type || 'EARNING') === 'DEDUCTION') {
+                acc.deductions += amountValue;
+              } else {
+                acc.gross += amountValue;
+              }
+              return acc;
+            },
+            { gross: 0, deductions: 0 }
+          );
+          document.getElementById('grossAmount').value = totals.gross.toFixed(2);
+          document.getElementById('deductionsAmount').value = totals.deductions.toFixed(2);
+          document.getElementById('netAmount').value = (totals.gross - totals.deductions).toFixed(2);
+        }
+
+        async function savePayslip() {
+          const payload = {
+            run_id: document.getElementById('payslipRun').value,
+            employee_id: document.getElementById('payslipEmployee').value,
+            status: document.getElementById('payslipStatus').value,
+            gross_amount: Number(document.getElementById('grossAmount').value || 0),
+            deductions_amount: Number(document.getElementById('deductionsAmount').value || 0),
+            net_amount: Number(document.getElementById('netAmount').value || 0),
+            notes: document.getElementById('payslipNotes').value.trim(),
+            lines: collectLinesFromModal()
+          };
+
+          if (!payload.run_id || !payload.employee_id) {
+            alert('يرجى اختيار الدورة والموظف');
+            return;
+          }
+
+          if (modalMode === 'create') {
+            payload.include_overtime = document.getElementById('includeOvertime').checked;
+            payload.include_settlements = document.getElementById('includeSettlements').checked;
+          }
+
+          const headers = {
+            'Content-Type': 'application/json',
+            ...(getFinanceHeadersSafe())
+          };
+          try {
+            const url = modalMode === 'edit'
+              ? `${API_BASE}/finance/payroll/payslips/${editingItemId}`
+              : `${API_BASE}/finance/payroll/payslips`;
+            const method = modalMode === 'edit' ? 'PUT' : 'POST';
+            const response = await fetch(url, {
+              method,
+              headers,
+              body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'تعذر حفظ الكشف');
+            closePayslipModal();
+            document.getElementById('runSelector').value = payload.run_id;
+            resetPayslipFilters();
+            await reloadPayslips();
+          } catch (error) {
+            console.error('Error saving payslip:', error);
+            alert(error.message || 'تعذر حفظ الكشف');
+          }
+        }
+
+        function openViewModal(itemId) {
+          openPayslipModal('view', itemId);
+        }
+
+        function openEditModal(itemId) {
+          openPayslipModal('edit', itemId);
+        }
+
+        function openDeleteModal(itemId) {
+          deleteItemId = itemId;
+          const item = payslipItems.find((entry) => entry.item_id === itemId);
+          document.getElementById('deletePayslipHint').textContent = item
+            ? `هل تريد حذف كشف الموظف ${item.full_name_ar || item.full_name_en || ''}؟`
+            : 'هل تريد حذف هذا الكشف؟';
+          document.getElementById('deletePayslipModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+          document.getElementById('deletePayslipModal').classList.add('hidden');
+          deleteItemId = null;
+        }
+
+        async function confirmDeletePayslip() {
+          if (!deleteItemId) return;
+          const headers = {
+            ...(getFinanceHeadersSafe())
+          };
+          try {
+            const response = await fetch(`${API_BASE}/finance/payroll/payslips/${deleteItemId}`, {
+              method: 'DELETE',
+              headers
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'تعذر حذف الكشف');
+            closeDeleteModal();
+            await reloadPayslips();
+          } catch (error) {
+            console.error('Error deleting payslip:', error);
+            alert('تعذر حذف الكشف');
+          }
+        }
+
+        function resetPayslipFilters() {
+          document.getElementById('payslipSearch').value = '';
+          document.getElementById('payslipStatusFilter').value = '';
+          document.getElementById('payslipNetMin').value = '';
+          document.getElementById('payslipNetMax').value = '';
+          renderPayslips();
+          selectFirstPayslip();
+          renderLines();
+        }
+
+        function exportPayslipsCsv() {
+          if (!filteredPayslips.length) {
+            alert('لا توجد بيانات للتصدير');
+            return;
+          }
+          const headers = ['الموظف', 'الكود', 'إجمالي الاستحقاقات', 'الاستقطاعات', 'الصافي', 'الحالة', 'تاريخ الإنشاء', 'ملاحظات'];
+          const rows = filteredPayslips.map((item) => [
+            item.full_name_ar || item.full_name_en || '',
+            item.employee_code || '',
+            Number(item.gross_amount || 0).toFixed(2),
+            Number(item.deductions_amount || 0).toFixed(2),
+            Number(item.net_amount || 0).toFixed(2),
+            STATUS_LABELS[item.status] || item.status || '',
+            formatDate(item.created_at),
+            (item.notes || '').replace(/\n/g, ' ')
+          ]);
+          downloadCsv('payslips.csv', [headers, ...rows]);
+        }
+
+        function exportLinesCsv() {
+          const lines = selectedPayslipId
+            ? payslipLines.filter((line) => line.item_id === selectedPayslipId)
+            : payslipLines;
+          if (!lines.length) {
+            alert('لا توجد بنود للتصدير');
+            return;
+          }
+          const employeeMap = new Map(payslipItems.map((item) => [item.item_id, item.full_name_ar || item.full_name_en || '']));
+          const componentMap = new Map(components.map((component) => [component.component_id, component.component_name_ar || '']));
+          const headers = ['الموظف', 'المكون', 'نوع البند', 'القيمة', 'الوصف'];
+          const rows = lines.map((line) => [
+            employeeMap.get(line.item_id) || '',
+            componentMap.get(line.component_id) || 'بدون مكون',
+            line.line_type === 'DEDUCTION' ? 'استقطاع' : 'استحقاق',
+            Number(line.amount || 0).toFixed(2),
+            (line.description || '').replace(/\n/g, ' ')
+          ]);
+          downloadCsv('payslip-lines.csv', [headers, ...rows]);
+        }
+
+        function downloadCsv(filename, rows) {
+          const csvContent = rows
+            .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = filename;
+          link.click();
+          URL.revokeObjectURL(link.href);
+        }
+
+        function openOvertimeModal(mode = 'create', entryId = null) {
+          overtimeModalMode = mode;
+          overtimeEditingId = entryId;
+          document.getElementById('overtimeModalTitle').textContent =
+            mode === 'view' ? 'عرض عمل إضافي' : mode === 'edit' ? 'تعديل عمل إضافي' : 'إضافة عمل إضافي';
+          document.getElementById('overtimeSaveButton').classList.toggle('hidden', mode === 'view');
+
+          const runId = document.getElementById('runSelector').value || '';
+          document.getElementById('overtimeRun').value = runId;
+
+          if (mode === 'create') {
+            document.getElementById('overtimeEmployee').value = '';
+            document.getElementById('overtimeDate').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('overtimeHours').value = '';
+            document.getElementById('overtimeRate').value = '';
+            document.getElementById('overtimeMultiplier').value = '1';
+            document.getElementById('overtimeAmount').value = '';
+            document.getElementById('overtimeStatus').value = 'PENDING';
+          } else {
+            const entry = linkedOvertime.find((row) => row.overtime_id === entryId);
+            if (entry) {
+              document.getElementById('overtimeEmployee').value = entry.employee_id;
+              document.getElementById('overtimeDate').value = entry.work_date ? entry.work_date.slice(0, 10) : '';
+              document.getElementById('overtimeHours').value = Number(entry.hours || 0);
+              document.getElementById('overtimeRate').value = Number(entry.rate || 0);
+              document.getElementById('overtimeMultiplier').value = Number(entry.multiplier || 1);
+              document.getElementById('overtimeAmount').value = Number(entry.amount || 0);
+              document.getElementById('overtimeStatus').value = entry.status || 'PENDING';
+              document.getElementById('overtimeRun').value = entry.payroll_run_id || '';
+            }
+          }
+
+          const isView = mode === 'view';
+          document.querySelectorAll('#overtimeModal input, #overtimeModal select').forEach((input) => {
+            input.disabled = isView;
+          });
+
+          document.getElementById('overtimeModal').classList.remove('hidden');
+        }
+
+        function closeOvertimeModal() {
+          document.getElementById('overtimeModal').classList.add('hidden');
+          overtimeEditingId = null;
+        }
+
+        function calculateOvertimeAmount() {
+          const hours = Number(document.getElementById('overtimeHours').value || 0);
+          const rate = Number(document.getElementById('overtimeRate').value || 0);
+          const multiplier = Number(document.getElementById('overtimeMultiplier').value || 1);
+          const amount = Number((hours * rate * multiplier).toFixed(2));
+          if (!Number.isNaN(amount)) {
+            document.getElementById('overtimeAmount').value = amount;
+          }
+        }
+
+        async function saveOvertime() {
+          const payload = {
+            employee_id: document.getElementById('overtimeEmployee').value,
+            work_date: document.getElementById('overtimeDate').value,
+            hours: Number(document.getElementById('overtimeHours').value || 0),
+            rate: Number(document.getElementById('overtimeRate').value || 0),
+            multiplier: Number(document.getElementById('overtimeMultiplier').value || 1),
+            amount: Number(document.getElementById('overtimeAmount').value || 0),
+            status: document.getElementById('overtimeStatus').value,
+            payroll_run_id: document.getElementById('overtimeRun').value || null
+          };
+
+          if (!payload.employee_id || !payload.work_date) {
+            alert('يرجى اختيار الموظف والتاريخ');
+            return;
+          }
+
+          const headers = {
+            'Content-Type': 'application/json',
+            ...getFinanceHeadersSafe()
+          };
+
+          try {
+            const url = overtimeModalMode === 'edit'
+              ? `${API_BASE}/finance/payroll/overtime/${overtimeEditingId}`
+              : `${API_BASE}/finance/payroll/overtime`;
+            const method = overtimeModalMode === 'edit' ? 'PUT' : 'POST';
+            const response = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'تعذر حفظ الإضافي');
+            closeOvertimeModal();
+            await loadLinkedAdjustments(document.getElementById('runSelector').value);
+          } catch (error) {
+            console.error('Error saving overtime:', error);
+            alert(error.message || 'تعذر حفظ الإضافي');
+          }
+        }
+
+        function openDeleteOvertimeModal(id) {
+          deleteOvertimeId = id;
+          document.getElementById('deleteOvertimeModal').classList.remove('hidden');
+        }
+
+        function closeDeleteOvertimeModal() {
+          deleteOvertimeId = null;
+          document.getElementById('deleteOvertimeModal').classList.add('hidden');
+        }
+
+        async function confirmDeleteOvertime() {
+          if (!deleteOvertimeId) return;
+          const headers = getFinanceHeadersSafe();
+          try {
+            const response = await fetch(`${API_BASE}/finance/payroll/overtime/${deleteOvertimeId}`, {
+              method: 'DELETE',
+              headers
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'تعذر حذف الإضافي');
+            closeDeleteOvertimeModal();
+            await loadLinkedAdjustments(document.getElementById('runSelector').value);
+          } catch (error) {
+            console.error('Error deleting overtime:', error);
+            alert(error.message || 'تعذر حذف الإضافي');
+          }
+        }
+
+        function openSettlementModal(mode = 'create', entryId = null) {
+          settlementModalMode = mode;
+          settlementEditingId = entryId;
+          document.getElementById('settlementModalTitle').textContent =
+            mode === 'view' ? 'عرض تسوية' : mode === 'edit' ? 'تعديل تسوية' : 'إضافة تسوية';
+          document.getElementById('settlementSaveButton').classList.toggle('hidden', mode === 'view');
+
+          const runId = document.getElementById('runSelector').value || '';
+          document.getElementById('settlementRun').value = runId;
+
+          if (mode === 'create') {
+            document.getElementById('settlementEmployee').value = '';
+            document.getElementById('settlementDate').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('settlementAmount').value = '';
+            document.getElementById('settlementStatus').value = 'DRAFT';
+            document.getElementById('settlementReason').value = '';
+          } else {
+            const entry = linkedSettlements.find((row) => row.settlement_id === entryId);
+            if (entry) {
+              document.getElementById('settlementEmployee').value = entry.employee_id;
+              document.getElementById('settlementDate').value = entry.settlement_date ? entry.settlement_date.slice(0, 10) : '';
+              document.getElementById('settlementAmount').value = Number(entry.amount || 0);
+              document.getElementById('settlementStatus').value = entry.status || 'DRAFT';
+              document.getElementById('settlementReason').value = entry.reason || '';
+              document.getElementById('settlementRun').value = entry.payroll_run_id || '';
+            }
+          }
+
+          const isView = mode === 'view';
+          document.querySelectorAll('#settlementModal input, #settlementModal select').forEach((input) => {
+            input.disabled = isView;
+          });
+
+          document.getElementById('settlementModal').classList.remove('hidden');
+        }
+
+        function closeSettlementModal() {
+          document.getElementById('settlementModal').classList.add('hidden');
+          settlementEditingId = null;
+        }
+
+        async function saveSettlement() {
+          const payload = {
+            employee_id: document.getElementById('settlementEmployee').value,
+            settlement_date: document.getElementById('settlementDate').value,
+            amount: Number(document.getElementById('settlementAmount').value || 0),
+            reason: document.getElementById('settlementReason').value.trim(),
+            status: document.getElementById('settlementStatus').value,
+            payroll_run_id: document.getElementById('settlementRun').value || null
+          };
+
+          if (!payload.employee_id || !payload.settlement_date || Number.isNaN(payload.amount)) {
+            alert('يرجى إدخال الموظف والتاريخ والقيمة');
+            return;
+          }
+
+          const headers = {
+            'Content-Type': 'application/json',
+            ...getFinanceHeadersSafe()
+          };
+
+          try {
+            const url = settlementModalMode === 'edit'
+              ? `${API_BASE}/finance/payroll/settlements/${settlementEditingId}`
+              : `${API_BASE}/finance/payroll/settlements`;
+            const method = settlementModalMode === 'edit' ? 'PUT' : 'POST';
+            const response = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'تعذر حفظ التسوية');
+            closeSettlementModal();
+            await loadLinkedAdjustments(document.getElementById('runSelector').value);
+          } catch (error) {
+            console.error('Error saving settlement:', error);
+            alert(error.message || 'تعذر حفظ التسوية');
+          }
+        }
+
+        function openDeleteSettlementModal(id) {
+          deleteSettlementId = id;
+          document.getElementById('deleteSettlementModal').classList.remove('hidden');
+        }
+
+        function closeDeleteSettlementModal() {
+          deleteSettlementId = null;
+          document.getElementById('deleteSettlementModal').classList.add('hidden');
+        }
+
+        async function confirmDeleteSettlement() {
+          if (!deleteSettlementId) return;
+          const headers = getFinanceHeadersSafe();
+          try {
+            const response = await fetch(`${API_BASE}/finance/payroll/settlements/${deleteSettlementId}`, {
+              method: 'DELETE',
+              headers
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'تعذر حذف التسوية');
+            closeDeleteSettlementModal();
+            await loadLinkedAdjustments(document.getElementById('runSelector').value);
+          } catch (error) {
+            console.error('Error deleting settlement:', error);
+            alert(error.message || 'تعذر حذف التسوية');
+          }
+        }
+    
+        document.getElementById('runSelector').addEventListener('change', reloadPayslips);
+        document.getElementById('payslipSearch').addEventListener('input', () => {
+          renderPayslips();
+          selectFirstPayslip();
+          renderLines();
+        });
+        document.getElementById('payslipStatusFilter').addEventListener('change', () => {
+          renderPayslips();
+          selectFirstPayslip();
+          renderLines();
+        });
+        document.getElementById('payslipNetMin').addEventListener('input', () => {
+          renderPayslips();
+          selectFirstPayslip();
+          renderLines();
+        });
+        document.getElementById('payslipNetMax').addEventListener('input', () => {
+          renderPayslips();
+          selectFirstPayslip();
+          renderLines();
+        });
+        document.getElementById('linkedEmployeeFilter').addEventListener('change', () => {
+          renderLinkedOvertime();
+          renderLinkedSettlements();
+        });
+        document.getElementById('linkedStatusFilter').addEventListener('change', () => {
+          renderLinkedOvertime();
+          renderLinkedSettlements();
+        });
+        document.getElementById('linkedCurrencyToggle').addEventListener('change', (event) => {
+          useCurrencyFormat = event.target.checked;
+          saveCurrencyPreference();
+          syncCurrencyToggle();
+          renderPayslips();
+          renderSelectedSummary();
+          renderLines();
+          renderLinkedOvertime();
+          renderLinkedSettlements();
+        });
+
+        document.getElementById('overtimeTable').addEventListener('click', (event) => {
+          const button = event.target.closest('button[data-action]');
+          if (!button) return;
+          const action = button.dataset.action;
+          const entryId = Number(button.dataset.id);
+          if (!entryId) return;
+          if (action === 'view') openOvertimeModal('view', entryId);
+          if (action === 'edit') openOvertimeModal('edit', entryId);
+          if (action === 'delete') openDeleteOvertimeModal(entryId);
+        });
+
+        document.getElementById('settlementsTable').addEventListener('click', (event) => {
+          const button = event.target.closest('button[data-action]');
+          if (!button) return;
+          const action = button.dataset.action;
+          const entryId = Number(button.dataset.id);
+          if (!entryId) return;
+          if (action === 'view') openSettlementModal('view', entryId);
+          if (action === 'edit') openSettlementModal('edit', entryId);
+          if (action === 'delete') openDeleteSettlementModal(entryId);
+        });
+
+        document.getElementById('overtimeHours').addEventListener('input', calculateOvertimeAmount);
+        document.getElementById('overtimeRate').addEventListener('input', calculateOvertimeAmount);
+        document.getElementById('overtimeMultiplier').addEventListener('input', calculateOvertimeAmount);
+    
+        // Close modal on backend click
+        document.getElementById('payslipModalBackdrop').addEventListener('click', closePayslipModal);
+
+        document.getElementById('linesContainer').addEventListener('input', (event) => {
+          if (modalMode === 'view') return;
+          if (event.target.classList.contains('line-amount') || event.target.classList.contains('line-type')) {
+            recalculateTotals();
+          }
+        });
+        document.getElementById('linesContainer').addEventListener('change', (event) => {
+          if (modalMode === 'view') return;
+          if (event.target.classList.contains('line-type')) {
+            recalculateTotals();
+          }
+        });
+
+        document.getElementById('payslipsTable').addEventListener('click', (event) => {
+          const actionButton = event.target.closest('button[data-action]');
+          if (actionButton) {
+            const action = actionButton.dataset.action;
+            const itemId = Number(actionButton.dataset.id);
+            if (!itemId) return;
+            if (action === 'view') openViewModal(itemId);
+            if (action === 'edit') openEditModal(itemId);
+            if (action === 'delete') openDeleteModal(itemId);
+            return;
+          }
+          const row = event.target.closest('tr[data-id]');
+          if (row) {
+            selectPayslip(Number(row.dataset.id));
+          }
+        });
+
+        async function initPage() {
+          loadCurrencyPreference();
+          await loadReferenceData();
+          const applied = applyRunQueryParam();
+          if (!applied) {
+            ensureRunSelected();
+          }
+          if (document.getElementById('runSelector').value) {
+            await reloadPayslips();
+          }
+        }
+    
+        initPage();
+    </script>
+  <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

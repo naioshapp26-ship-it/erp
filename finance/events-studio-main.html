@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>استوديو الفعاليات الذكي</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-dark: #4338ca;
+      --primary-light: #eef2ff;
+      --primary-border: #c7d2fe;
+      --ink: #0f172a;
+      --text: #1e293b;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --surface: #f8fafc;
+    }
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: #f1f5f9;
+      background-image: radial-gradient(circle at 15% 10%, rgba(79,70,229,0.06), transparent 40%), radial-gradient(circle at 85% 90%, rgba(99,102,241,0.05), transparent 40%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .panel {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .section { display: none; animation: fadeIn 0.25s ease-out; }
+    .section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ─── Navigation Tabs ─── */
+    .nav-tile {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      line-height: 1.3;
+      text-align: center;
+    }
+    .nav-tile i { font-size: 1.1rem; transition: transform 0.2s ease; }
+    .nav-tile:hover {
+      border-color: var(--primary-border);
+      color: var(--primary);
+      background: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(79,70,229,0.12);
+    }
+    .nav-tile:hover i { transform: scale(1.15); }
+    .nav-tile.active {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px rgba(79,70,229,0.35);
+    }
+
+    /* ─── Tables ─── */
+    table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .table-cell { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; color: #334155; font-size: 0.875rem; }
+    th.table-cell { background-color: #f8fafc; font-weight: 700; color: var(--muted); font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    tr:last-child td.table-cell { border-bottom: none; }
+    tbody tr:hover td.table-cell { background-color: #fafbff; }
+
+    /* ─── Buttons ─── */
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-weight: 700;
+      font-family: 'Cairo', sans-serif;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #fff;
+      border-color: var(--primary-dark);
+      box-shadow: 0 2px 8px rgba(79,70,229,0.22);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 16px rgba(79,70,229,0.35); transform: translateY(-1px); }
+    .btn-soft { background: #fff; border-color: #d1d5db; color: #475569; }
+    .btn-soft:hover { background: #f8fafc; border-color: #94a3b8; color: #1e293b; }
+    .btn-xs { padding: 4px 9px; font-size: 0.72rem; border-radius: 6px; gap: 4px; }
+    .btn-icon { padding: 5px 8px; }
+
+    /* ─── Badges ─── */
+    .badge { border-radius: 9999px; font-size: 0.72rem; font-weight: 700; padding: 3px 9px; display: inline-flex; align-items: center; gap: 4px; }
+
+    /* ─── Forms ─── */
+    .field-label { font-weight: 700; font-size: 0.825rem; color: #334155; margin-bottom: 5px; display: block; }
+    .field-input {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 9px;
+      padding: 9px 13px;
+      background: #ffffff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      color: var(--text);
+      font-size: 0.875rem;
+      font-family: 'Cairo', sans-serif;
+    }
+    .field-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+    .form-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; }
+
+    /* ─── Upload / Content Cards ─── */
+    .upload-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+    .meta-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+    .drop-zone { border: 2px dashed #c7d2fe; background: #f8fafc; border-radius: 12px; padding: 22px; transition: all 0.2s ease; }
+    .drop-zone:focus-within, .drop-zone:hover { border-color: var(--primary); background: var(--primary-light); }
+
+    /* ─── Content Type Cards ─── */
+    .content-type-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    @media (min-width: 640px) { .content-type-grid { grid-template-columns: repeat(4, 1fr); } }
+    .content-type-card {
+      background: #fff;
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .content-type-card i { font-size: 1.3rem; color: var(--primary); }
+    .content-type-card:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(79,70,229,0.1); }
+
+    /* ─── Stat Cards ─── */
+    .stat-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; transition: transform 0.2s, box-shadow 0.2s; }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.07); }
+    .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+    /* ─── Section Header ─── */
+    .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9; }
+    .section-header h2 { font-size: 1.25rem; font-weight: 800; color: var(--ink); margin: 0; }
+    .section-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+
+    /* ─── Info Banner ─── */
+    .info-banner {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #1e3a8a;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .info-banner i { color: #2563eb; }
+
+    /* ─── Recording ─── */
+    .recording-preview {
+      width: 100%;
+      min-height: 220px;
+      border-radius: 12px;
+      background: #0f172a;
+      border: 1px solid #e2e8f0;
+    }
+    .recording-status {
+      font-size: 0.78rem;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ─── Publish Log ─── */
+    .log-item { background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; display: flex; align-items: flex-start; gap: 10px; font-size: 0.825rem; }
+    .log-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 5px; }
+
+    /* ─── Platform Checkbox Card ─── */
+    .platform-card { border: 1.5px solid var(--line); background: #fff; border-radius: 11px; padding: 11px 14px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 10px; }
+    .platform-card:hover { border-color: var(--primary-border); background: var(--primary-light); }
+    .platform-card input:checked + .platform-card { border-color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+
+    <!-- ═══ Header ═══ -->
+    <header class="rounded-2xl p-6 relative overflow-hidden bg-slate-900 text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #312e81 100%);">
+      <div class="absolute -left-10 -top-10 w-56 h-56 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -right-10 bottom-0 w-48 h-48 bg-violet-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="relative z-10 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-bold border border-white/15 text-indigo-200">
+              <i class="fas fa-clapperboard text-indigo-300"></i> استوديو الفعاليات
+            </span>
+          </div>
+          <h1 class="text-2xl md:text-3xl font-extrabold mb-1.5 text-white" style="color: #ffffff !important;">استوديو الفعاليات الذكي</h1>
+          <p class="text-indigo-200/80 text-sm leading-relaxed max-w-xl">منصة موحدة لإدارة الفعاليات، تسجيل المقاطع، وتجهيز الريلز للنشر على المنصات الرقمية بسهولة.</p>
+        </div>
+        <a href="/index.html" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-xl font-bold transition-all border border-white/15 text-sm flex-shrink-0">
+          <i class="fas fa-arrow-right text-xs"></i> رجوع للرئيسية
+        </a>
+      </div>
+    </header>
+
+    <!-- ═══ Navigation ═══ -->
+    <nav class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <button class="nav-tab nav-tile active" data-section="dashboard"><i class="fas fa-chart-pie"></i>لوحة الاستوديو</button>
+      <button class="nav-tab nav-tile" data-section="create-event"><i class="fas fa-calendar-plus"></i>إنشاء فعالية</button>
+      <button class="nav-tab nav-tile" data-section="manage-events"><i class="fas fa-layer-group"></i>إدارة الفعاليات</button>
+      <button class="nav-tab nav-tile" data-section="add-content"><i class="fas fa-video"></i>تسجيل الفعاليات</button>
+      <button class="nav-tab nav-tile" data-section="video-library"><i class="fas fa-photo-film"></i>مكتبة الفيديو</button>
+      <button class="nav-tab nav-tile" data-section="reel-maker"><i class="fas fa-scissors"></i>صانع المقاطع القصيرة</button>
+      <button class="nav-tab nav-tile" data-section="reels-library"><i class="fas fa-film"></i>مكتبة المقاطع القصيرة</button>
+      <button class="nav-tab nav-tile" data-section="publishing"><i class="fas fa-share-nodes"></i>النشر على المنصات</button>
+      <button class="nav-tab nav-tile" data-section="self-record"><i class="fas fa-circle-dot text-rose-500"></i>تصوير ريلز ذاتي</button>
+    </nav>
+
+    <!-- ═══ Dashboard ═══ -->
+    <section id="dashboard" class="section active panel p-6">
+      <div class="section-header">
+        <div class="section-icon"><i class="fas fa-chart-pie"></i></div>
+        <h2>ملخص الاستوديو</h2>
+      </div>
+      <div class="info-banner">
+        <i class="fas fa-circle-info"></i>
+        <span>هذه اللوحة تمنحك نظرة سريعة على الفعاليات والمقاطع المسجلة لتسهيل تجهيز الريلز والنشر.</span>
+      </div>
+      <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5"></div>
+      <div class="mt-7">
+        <h3 class="font-bold text-base text-slate-700 mb-3 flex items-center gap-2">
+          <i class="fas fa-clock-rotate-left text-slate-400 text-sm"></i> آخر الفعاليات المضافة
+        </h3>
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="min-w-full text-sm bg-white rounded-xl overflow-hidden">
+            <thead>
+              <tr class="bg-slate-50 text-right">
+                <th class="table-cell">الفعالية</th>
+                <th class="table-cell">التاريخ</th>
+                <th class="table-cell">الوقت</th>
+                <th class="table-cell">المنصة</th>
+                <th class="table-cell">الحالة</th>
+              </tr>
+            </thead>
+            <tbody id="latestEventsBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ Create Event ═══ -->
+    <section id="create-event" class="section panel p-6">
+      <div class="section-header">
+        <div class="section-icon"><i class="fas fa-calendar-plus"></i></div>
+        <h2>إنشاء فعالية جديدة</h2>
+      </div>
+      <form id="eventForm" class="form-section grid md:grid-cols-2 gap-4">
+        <div class="md:col-span-2">
+          <label class="field-label">اسم الفعالية</label>
+          <input id="eventName" class="field-input" required>
+        </div>
+        <div class="md:col-span-2">
+          <label class="field-label">وصف الفعالية</label>
+          <textarea id="eventDescription" rows="3" class="field-input"></textarea>
+        </div>
+        <div>
+          <label class="field-label">التاريخ</label>
+          <input id="eventDate" type="date" class="field-input" required>
+        </div>
+        <div>
+          <label class="field-label">الوقت</label>
+          <input id="eventTime" type="time" class="field-input" required>
+        </div>
+        <div>
+          <label class="field-label">المنصة</label>
+          <select id="eventPlatform" class="field-input" required>
+            <option value="">اختر المنصة</option>
+            <option>Instagram</option>
+            <option>TikTok</option>
+            <option>YouTube Shorts</option>
+            <option>Facebook</option>
+            <option>Zoom</option>
+            <option>Microsoft Teams</option>
+            <option>Google Meet</option>
+            <option>SmartX</option>
+            <option>متعدد المنصات</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">حالة الفعالية</label>
+          <select id="eventStatus" class="field-input">
+            <option>نشطة</option>
+            <option>قادمة</option>
+            <option>مكتملة</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">نوع الفعالية</label>
+          <input id="eventType" class="field-input" placeholder="ورشة / لقاء / حملة">
+        </div>
+        <div>
+          <label class="field-label">منسق الفعالية</label>
+          <input id="eventSpeaker" class="field-input" placeholder="اسم المسؤول">
+        </div>
+        <div>
+          <label class="field-label">مدة الفعالية (دقيقة)</label>
+          <input id="eventDuration" type="number" min="0" class="field-input" value="60">
+        </div>
+        <div>
+          <label class="field-label">قسم الفعالية</label>
+          <input id="eventDepartment" class="field-input" value="فريق الفعاليات">
+        </div>
+        <div class="md:col-span-2 pt-3 border-t border-slate-200">
+          <button class="btn btn-primary px-8" type="submit"><i class="fas fa-plus"></i> حفظ الفعالية</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ═══ Manage Events ═══ -->
+    <section id="manage-events" class="section panel p-6">
+      <div class="section-header">
+        <div class="section-icon"><i class="fas fa-layer-group"></i></div>
+        <h2>إدارة الفعاليات</h2>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="min-w-full bg-white rounded-xl overflow-hidden">
+          <thead>
+            <tr class="bg-slate-50 text-right">
+              <th class="table-cell">اسم الفعالية</th>
+              <th class="table-cell">التاريخ</th>
+              <th class="table-cell">الوقت</th>
+              <th class="table-cell">المنصة</th>
+              <th class="table-cell">الحالة</th>
+              <th class="table-cell text-center">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="eventsBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══ Add Content ═══ -->
+    <section id="add-content" class="section panel p-6">
+      <div class="section-header">
+        <div class="section-icon"><i class="fas fa-cloud-arrow-up"></i></div>
+        <h2>تسجيل الفعاليات والمقاطع</h2>
+      </div>
+      <form id="mediaUploadForm" class="space-y-5">
+        <!-- Content Type Shortcuts -->
+        <div class="content-type-grid" aria-label="أنواع المحتوى">
+          <div class="content-type-card"><i class="fas fa-image" aria-hidden="true"></i>صور الفعالية</div>
+          <div class="content-type-card"><i class="fas fa-video" aria-hidden="true"></i>فيديوهات الفعالية</div>
+          <div class="content-type-card"><i class="fas fa-camera-retro" aria-hidden="true"></i>تسجيلات مباشرة</div>
+          <div class="content-type-card"><i class="fas fa-paper-plane" aria-hidden="true"></i>مقاطع جاهزة</div>
+        </div>
+        <!-- Upload + Meta Grid -->
+        <div class="grid lg:grid-cols-2 gap-5">
+          <!-- Upload -->
+          <div class="upload-card">
+            <h3 class="font-extrabold text-sm text-indigo-700 flex items-center gap-2 mb-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 bg-indigo-100 rounded-full text-xs font-black text-indigo-700">١</span>
+              رفع الوسائط
+            </h3>
+            <div class="drop-zone space-y-5">
+              <div>
+                <label for="videoFile" class="field-label flex items-center justify-between">
+                  <span>رفع فيديو</span>
+                  <i class="fas fa-film text-indigo-400 text-sm"></i>
+                </label>
+                <input id="videoFile" type="file" accept="video/mp4,video/quicktime,video/webm" aria-describedby="videoFormatsHint" class="field-input">
+                <p id="videoFormatsHint" class="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><i class="fas fa-circle-info"></i>MP4 / MOV / WEBM</p>
+              </div>
+              <div class="border-t border-slate-200/70 pt-4">
+                <label for="imageFile" class="field-label flex items-center justify-between">
+                  <span>رفع الصور</span>
+                  <i class="fas fa-image text-indigo-400 text-sm"></i>
+                </label>
+                <input id="imageFile" type="file" accept="image/jpeg,image/png,image/gif" aria-describedby="imageFormatsHint" class="field-input">
+                <p id="imageFormatsHint" class="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><i class="fas fa-circle-info"></i>JPG / PNG / GIF</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Meta -->
+          <div class="meta-card space-y-4">
+            <h3 class="font-extrabold text-sm text-indigo-700 flex items-center gap-2 mb-1">
+              <span class="inline-flex items-center justify-center w-6 h-6 bg-indigo-100 rounded-full text-xs font-black text-indigo-700">٢</span>
+              المعلومات الأساسية للمحتوى
+            </h3>
+            <div>
+              <label class="field-label" for="campaignId">اسم الفعالية</label>
+              <select id="campaignId" class="field-input" required></select>
+            </div>
+            <div>
+              <label class="field-label" for="contentTitle">عنوان المقطع</label>
+              <input id="contentTitle" class="field-input" required>
+            </div>
+            <div>
+              <label class="field-label" for="contentDescription">وصف المقطع</label>
+              <textarea id="contentDescription" rows="3" class="field-input" required></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="field-label" for="targetPlatform">المنصة المستهدفة</label>
+                <select id="targetPlatform" class="field-input" required>
+                  <option value="">اختر منصة</option>
+                  <option>Instagram</option>
+                  <option>TikTok</option>
+                  <option>YouTube Shorts</option>
+                  <option>Facebook</option>
+                  <option>Zoom</option>
+                  <option>Microsoft Teams</option>
+                  <option>Google Meet</option>
+                  <option>SmartX</option>
+                  <option>متعدد المنصات</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label" for="contentType">نوع المحتوى</label>
+                <select id="contentType" class="field-input" required>
+                  <option value="">اختر النوع</option>
+                  <option>فيديو</option>
+                  <option>Reel</option>
+                  <option>صورة</option>
+                  <option>تسجيل</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="field-label" for="campaignDepartment">قسم الفعالية</label>
+              <input id="campaignDepartment" class="field-input" value="فريق الفعاليات" required>
+            </div>
+            <div class="flex gap-3 pt-3 border-t border-slate-100 mt-1">
+              <button type="submit" class="btn btn-primary flex-1"><i class="fas fa-cloud-arrow-up"></i> رفع وحفظ التسجيل</button>
+              <button type="button" id="resetMediaForm" class="btn btn-soft btn-icon" title="تهيئة"><i class="fas fa-rotate-left"></i></button>
+            </div>
+          </div>
+          <!-- Recording -->
+          <div class="upload-card lg:col-span-2">
+            <h3 class="font-extrabold text-sm text-indigo-700 flex items-center gap-2 mb-4">
+              <span class="inline-flex items-center justify-center w-6 h-6 bg-indigo-100 rounded-full text-xs font-black text-indigo-700">٣</span>
+              تسجيل ريلز مباشر من الكاميرا
+            </h3>
+            <div class="grid lg:grid-cols-2 gap-5">
+              <div class="space-y-3">
+                <video id="recordPreview" class="recording-preview" playsinline muted></video>
+                <div id="recordStatus" class="recording-status"><i class="fas fa-circle text-slate-300"></i>جاهز للتسجيل المباشر.</div>
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" id="startRecord" class="btn btn-primary"><i class="fas fa-circle-play"></i> بدء التسجيل</button>
+                  <button type="button" id="stopRecord" class="btn btn-soft" disabled><i class="fas fa-stop"></i> إيقاف</button>
+                  <button type="button" id="resetRecord" class="btn btn-soft" disabled><i class="fas fa-rotate-left"></i> إعادة المحاولة</button>
+                </div>
+              </div>
+              <div class="space-y-3">
+                <div>
+                  <label class="field-label" for="recordEventId">الفعالية المرتبطة</label>
+                  <select id="recordEventId" class="field-input" required></select>
+                </div>
+                <div>
+                  <label class="field-label" for="recordTitle">عنوان المقطع</label>
+                  <input id="recordTitle" class="field-input" placeholder="مثال: لقطات افتتاح الفعالية">
+                </div>
+                <div>
+                  <label class="field-label" for="recordDescription">ملاحظات التسجيل</label>
+                  <textarea id="recordDescription" rows="3" class="field-input" placeholder="وصف سريع للمقطع المسجل"></textarea>
+                </div>
+                <div>
+                  <label class="field-label" for="recordPlatform">المنصة المستهدفة</label>
+                  <select id="recordPlatform" class="field-input">
+                    <option>Instagram</option>
+                    <option>TikTok</option>
+                    <option>YouTube Shorts</option>
+                    <option>Facebook</option>
+                    <option>Zoom</option>
+                    <option>Microsoft Teams</option>
+                    <option>Google Meet</option>
+                    <option>SmartX</option>
+                    <option>متعدد المنصات</option>
+                  </select>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-slate-500">
+                  <input type="checkbox" id="autoReel" class="accent-indigo-600 w-4 h-4">
+                  <label for="autoReel">إنشاء مقطع قصير تلقائياً بعد الحفظ</label>
+                </div>
+                <div class="flex gap-2 pt-2">
+                  <button type="button" id="uploadRecord" class="btn btn-primary flex-1"><i class="fas fa-cloud-arrow-up"></i> حفظ التسجيل في المكتبة</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- ═══ Video Library ═══ -->
+    <section id="video-library" class="section panel p-6">
+      <div class="section-header">
+        <div class="section-icon"><i class="fas fa-video"></i></div>
+        <h2>مكتبة الفيديو</h2>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="min-w-full bg-white rounded-xl overflow-hidden">
+          <thead>
+            <tr class="bg-slate-50 text-right">
+              <th class="table-cell">اسم الفيديو</th>
+              <th class="table-cell">تاريخ الرفع</th>
+              <th class="table-cell">الفعالية المرتبطة</th>
+              <th class="table-cell">نوع الملف</th>
+              <th class="table-cell">المسؤول</th>
+              <th class="table-cell text-center">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="videosBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══ Reel Maker ═══ -->
+    <section id="reel-maker" class="section panel p-6">
+      <div class="section-header">
+        <div class="section-icon"><i class="fas fa-scissors"></i></div>
+        <h2>صانع المقاطع القصيرة</h2>
+      </div>
+      <form id="reelForm" class="form-section grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="field-label">اختر فيديو من المكتبة</label>
+          <select id="reelSource" class="field-input" required></select>
+        </div>
+        <div>
+          <label class="field-label">اسم المقطع القصير</label>
+          <input id="reelName" class="field-input" required>
+        </div>
+        <div>
+          <label class="field-label">بداية المقطع (ثانية)</label>
+          <input id="reelStart" type="number" min="0" class="field-input" required>
+        </div>
+        <div>
+          <label class="field-label">نهاية المقطع (ثانية)</label>
+          <input id="reelEnd" type="number" min="1" class="field-input" required>
+        </div>
+        <div class="md:col-span-2 pt-3 border-t border-slate-200">
+          <button class="btn btn-primary px-8" type="submit"><i class="fas fa-wand-magic-sparkles"></i> إنشاء مقطع قصير وحفظه في المكتبة</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ═══ Reels Library ═══ -->
+    <section id="reels-library" class="section panel p-6">
+      <div class="section-header">
+        <div class="section-icon"><i class="fas fa-film"></i></div>
+        <h2>مكتبة المقاطع القصيرة</h2>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="min-w-full bg-white rounded-xl overflow-hidden">
+          <thead>
+            <tr class="bg-slate-50 text-right">
+              <th class="table-cell">اسم المقطع</th>
+              <th class="table-cell">الفيديو الأصلي</th>
+              <th class="table-cell">المدة</th>
+              <th class="table-cell">الحالة</th>
+              <th class="table-cell text-center">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="reelsBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══ Publishing ═══ -->
+    <section id="publishing" class="section panel p-6">
+      <div class="section-header">
+        <div class="section-icon"><i class="fas fa-share-nodes"></i></div>
+        <h2>النشر على المنصات</h2>
+      </div>
+      <form id="publishForm" class="form-section space-y-5 mb-7">
+        <div>
+          <label class="field-label">اختر مقطع قصير جاهز</label>
+          <select id="publishReel" class="field-input" required></select>
+        </div>
+        <div>
+          <label class="field-label mb-2">المنصات المستهدفة للنشر</label>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <label class="platform-card cursor-pointer">
+              <input type="checkbox" class="publish-platform w-4 h-4 rounded accent-indigo-600" value="Instagram">
+              <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-instagram text-pink-500"></i> Instagram</span>
+            </label>
+            <label class="platform-card cursor-pointer">
+              <input type="checkbox" class="publish-platform w-4 h-4 rounded accent-indigo-600" value="TikTok">
+              <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-tiktok text-slate-800"></i> TikTok</span>
+            </label>
+            <label class="platform-card cursor-pointer">
+              <input type="checkbox" class="publish-platform w-4 h-4 rounded accent-indigo-600" value="YouTube Shorts">
+              <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-youtube text-red-600"></i> Shorts</span>
+            </label>
+            <label class="platform-card cursor-pointer">
+              <input type="checkbox" class="publish-platform w-4 h-4 rounded accent-indigo-600" value="Facebook">
+              <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-facebook text-blue-600"></i> Facebook</span>
+            </label>
+            <label class="platform-card cursor-pointer">
+              <input type="checkbox" class="publish-platform w-4 h-4 rounded accent-indigo-600" value="Snapchat">
+              <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-snapchat text-yellow-400"></i> Snapchat</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="field-label">ملاحظة النشر <span class="text-slate-400 font-normal">(اختياري)</span></label>
+          <textarea id="publishNote" rows="2" class="field-input"></textarea>
+        </div>
+        <div class="pt-3 border-t border-slate-200">
+          <button type="submit" class="btn btn-primary px-8"><i class="fas fa-paper-plane"></i> تجهيز وإرسال للنشر</button>
+        </div>
+      </form>
+      <div>
+        <h3 class="font-bold text-base text-slate-700 mb-3 flex items-center gap-2">
+          <i class="fas fa-rectangle-history text-slate-400 text-sm"></i> سجل عمليات التجهيز
+        </h3>
+        <ul id="publishLog" class="space-y-2 text-sm"></ul>
+      </div>
+    </section>
+
+    <!-- ═══ Self-Record Reel ═══ -->
+    <section id="self-record" class="section panel p-6">
+      <div class="section-header">
+        <div class="section-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca);color:#ef4444"><i class="fas fa-circle-dot"></i></div>
+        <h2>تصوير ريلز ذاتي ونشره</h2>
+      </div>
+      <div class="info-banner" style="background:#fef3c7;border-color:#fde68a;color:#92400e">
+        <i class="fas fa-lightbulb text-amber-500"></i>
+        <span>صوّر مقطعك الآن من الكاميرا واختر المنصات التي تريد النشر عليها مباشرةً — بدون أي خطوات إضافية.</span>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-6 mt-5">
+
+        <!-- ── Camera & Recording ── -->
+        <div class="space-y-4">
+          <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-6 h-6 bg-rose-100 rounded-full text-xs font-black text-rose-600">١</span>
+            تشغيل الكاميرا والتسجيل
+          </h3>
+          <video id="selfRecordPreview" class="recording-preview w-full rounded-xl border border-slate-200 bg-slate-900" playsinline muted style="max-height:320px;object-fit:cover;"></video>
+          <div id="selfRecordStatus" class="recording-status"><i class="fas fa-circle text-slate-300"></i>اضغط "بدء التصوير" — سيطلب المتصفح إذن الكاميرا.</div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="selfStartRecord" class="btn btn-primary"><i class="fas fa-circle text-rose-300"></i> بدء التصوير</button>
+            <button type="button" id="selfStopRecord" class="btn btn-soft" disabled><i class="fas fa-stop"></i> إيقاف</button>
+            <button type="button" id="selfResetRecord" class="btn btn-soft" disabled><i class="fas fa-rotate-left"></i> إعادة</button>
+          </div>
+          <!-- Recorded video playback shown here via JS -->
+        </div>
+
+        <!-- ── Publish Options ── -->
+        <div class="space-y-4">
+          <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-6 h-6 bg-indigo-100 rounded-full text-xs font-black text-indigo-700">٢</span>
+            تفاصيل النشر
+          </h3>
+          <div>
+            <label class="field-label">عنوان المقطع</label>
+            <input id="selfReelTitle" class="field-input" placeholder="مثال: مقطع إعلاني - الفعالية الصيفية">
+          </div>
+          <div>
+            <label class="field-label">اختر الفعالية <span class="text-slate-400 font-normal">(اختياري)</span></label>
+            <select id="selfReelEventId" class="field-input"><option value="">بدون فعالية</option></select>
+          </div>
+          <div>
+            <label class="field-label mb-2">المنصات المستهدفة للنشر</label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="platform-card cursor-pointer">
+                <input type="checkbox" class="self-publish-platform w-4 h-4 rounded accent-indigo-600" value="Instagram">
+                <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-instagram text-pink-500"></i> Instagram</span>
+              </label>
+              <label class="platform-card cursor-pointer">
+                <input type="checkbox" class="self-publish-platform w-4 h-4 rounded accent-indigo-600" value="TikTok">
+                <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-tiktok text-slate-800"></i> TikTok</span>
+              </label>
+              <label class="platform-card cursor-pointer">
+                <input type="checkbox" class="self-publish-platform w-4 h-4 rounded accent-indigo-600" value="Snapchat">
+                <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-snapchat text-yellow-400"></i> Snapchat</span>
+              </label>
+              <label class="platform-card cursor-pointer">
+                <input type="checkbox" class="self-publish-platform w-4 h-4 rounded accent-indigo-600" value="YouTube Shorts">
+                <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-youtube text-red-600"></i> Shorts</span>
+              </label>
+              <label class="platform-card cursor-pointer">
+                <input type="checkbox" class="self-publish-platform w-4 h-4 rounded accent-indigo-600" value="Facebook">
+                <span class="font-bold text-slate-700 text-sm flex items-center gap-1.5"><i class="fab fa-facebook text-blue-600"></i> Facebook</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="field-label">ملاحظة <span class="text-slate-400 font-normal">(اختياري)</span></label>
+            <textarea id="selfReelNote" rows="2" class="field-input" placeholder="أضف وصفاً أو تعليقاً مختصراً..."></textarea>
+          </div>
+          <div class="pt-3 border-t border-slate-200">
+            <button type="button" id="selfPublishBtn" class="btn btn-primary w-full text-base py-3" disabled>
+              <i class="fas fa-rocket"></i> نشر الريلز الآن
+            </button>
+            <p id="selfPublishHint" class="text-xs text-slate-400 text-center mt-2">سجّل مقطعاً أولاً لتفعيل زر النشر.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Publish success log -->
+      <div id="selfPublishLog" class="mt-5 hidden">
+        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold flex items-center gap-2">
+          <i class="fas fa-circle-check text-emerald-500 text-lg"></i>
+          <span id="selfPublishLogText">تم إرسال الريلز للنشر بنجاح!</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    const state = { campaigns: [], materials: [], reels: [], summary: null, publications: [] };
+
+    const toEn = (value) => Number(value || 0).toLocaleString('en-US');
+    const fmtDate = (value) => value ? new Date(value).toLocaleDateString('en-US') : '-';
+    const escapeHtml = (text) => String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    const badge = (status = '') => {
+      if (status === 'جاهز للنشر') return '<span class="badge bg-emerald-100 text-emerald-700">جاهز للنشر</span>';
+      if (status === 'نشطة') return '<span class="badge bg-sky-100 text-sky-700">نشطة</span>';
+      if (status === 'قادمة') return '<span class="badge bg-amber-100 text-amber-700">قادمة</span>';
+      if (status === 'مكتملة') return '<span class="badge bg-slate-200 text-slate-700">مكتملة</span>';
+      if (status === 'موقوف') return '<span class="badge bg-rose-100 text-rose-700">موقوف</span>';
+      return `<span class="badge bg-slate-100 text-slate-700">${escapeHtml(status || '—')}</span>`;
+    };
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Operation failed');
+      }
+      return response.json();
+    }
+
+    async function loadAll() {
+      const [summaryRes, campaignsRes, materialsRes, reelsRes] = await Promise.all([
+        api('/api/events-studio/summary'),
+        api('/api/events-studio/events'),
+        api('/api/events-studio/recordings'),
+        api('/api/events-studio/clips')
+      ]);
+      state.summary = summaryRes.summary || {};
+      state.campaigns = campaignsRes.events || [];
+      state.materials = materialsRes.recordings || [];
+      state.reels = reelsRes.clips || [];
+      state.publications = summaryRes.summary?.publications || [];
+      renderAll();
+    }
+
+    function renderSummary() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const upcomingEvents = state.campaigns.filter((event) => {
+        if (event.status === 'مكتملة') return false;
+        if (!event.date) return true;
+        return new Date(event.date) >= today;
+      }).length;
+      const completedEvents = state.campaigns.filter((event) => event.status === 'مكتملة').length;
+      const cards = [
+        { label: 'فعاليات قادمة', value: upcomingEvents, icon: 'fa-calendar-check', color: 'bg-indigo-50 text-indigo-600', border: 'border-t-indigo-500' },
+        { label: 'فعاليات مكتملة', value: completedEvents, icon: 'fa-calendar-day', color: 'bg-sky-50 text-sky-600', border: 'border-t-sky-500' },
+        { label: 'المقاطع المسجلة', value: state.materials.length, icon: 'fa-video', color: 'bg-violet-50 text-violet-600', border: 'border-t-violet-500' },
+        { label: 'مقاطع ريلز جاهزة', value: state.reels.length, icon: 'fa-film', color: 'bg-emerald-50 text-emerald-600', border: 'border-t-emerald-500' }
+      ];
+      document.getElementById('summaryCards').innerHTML = cards.map((card) => `
+        <div class="stat-card border-t-4 ${card.border}">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-bold text-slate-500 leading-tight">${card.label}</p>
+            <div class="stat-icon ${card.color}"><i class="fas ${card.icon} text-base"></i></div>
+          </div>
+          <div class="text-2xl font-extrabold text-slate-800">${toEn(card.value)}</div>
+        </div>
+      `).join('');
+
+      const latestEvents = [...state.campaigns]
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+        .slice(0, 5);
+      document.getElementById('latestEventsBody').innerHTML = latestEvents.length
+        ? latestEvents.map((event) => `
+            <tr>
+              <td class="table-cell font-bold">${escapeHtml(event.name)}</td>
+              <td class="table-cell">${fmtDate(event.date)}</td>
+              <td class="table-cell">${escapeHtml(event.time || '-')}</td>
+              <td class="table-cell">${escapeHtml(event.platform || '-')}</td>
+              <td class="table-cell">${badge(event.status)}</td>
+            </tr>
+          `).join('')
+        : '<tr><td class="table-cell text-slate-400 text-center py-6" colspan="5"><i class="fas fa-inbox text-2xl block mb-2 text-slate-300"></i>لا توجد فعاليات مضافة بعد.</td></tr>';
+    }
+
+    function renderCampaignOptions() {
+      const options = '<option value="">اختر فعالية</option>' + state.campaigns.map((campaign) => `<option value="${campaign.id}">${escapeHtml(campaign.name)}</option>`).join('');
+      document.getElementById('campaignId').innerHTML = options;
+      document.getElementById('recordEventId').innerHTML = options;
+    }
+
+    function renderEventsTable() {
+      const events = [...state.campaigns].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      document.getElementById('eventsBody').innerHTML = events.length
+        ? events.map((event) => `
+            <tr>
+              <td class="table-cell font-bold">${escapeHtml(event.name)}</td>
+              <td class="table-cell">${fmtDate(event.date)}</td>
+              <td class="table-cell">${escapeHtml(event.time || '-')}</td>
+              <td class="table-cell">${escapeHtml(event.platform || '-')}</td>
+              <td class="table-cell">${badge(event.status)}</td>
+              <td class="table-cell">
+                <div class="flex flex-wrap gap-1.5 justify-center">
+                  <button class="btn btn-soft btn-xs" onclick="editEvent(${event.id})"><i class="fas fa-pen"></i> تعديل</button>
+                  <button class="btn btn-soft btn-xs" onclick="goToRecordEvent(${event.id})" style="color:#4f46e5;border-color:#c7d2fe;background:#eef2ff"><i class="fas fa-video"></i> تسجيل</button>
+                  <button class="btn btn-soft btn-xs" onclick="deleteEvent(${event.id})" style="color:#ef4444;border-color:#fecaca;background:#fff5f5"><i class="fas fa-trash"></i></button>
+                </div>
+              </td>
+            </tr>
+          `).join('')
+        : '<tr><td class="table-cell text-slate-400 text-center py-8" colspan="6"><i class="fas fa-calendar-xmark text-3xl block mb-2 text-slate-200"></i>لا توجد فعاليات لعرضها.</td></tr>';
+    }
+
+    function renderVideoLibrary() {
+      const videos = state.materials.filter((item) => String(item.mediaCategory || '').toLowerCase() !== 'image');
+      document.getElementById('reelSource').innerHTML = '<option value="">اختر فيديو</option>' + videos.map((video) => `<option value="${video.id}">${escapeHtml(video.name)}</option>`).join('');
+      document.getElementById('videosBody').innerHTML = videos.length
+        ? videos.map((video) => `
+          <tr>
+            <td class="table-cell font-bold">${escapeHtml(video.name)}</td>
+            <td class="table-cell text-slate-500">${fmtDate(video.recordingDate || video.createdAt)}</td>
+            <td class="table-cell">${escapeHtml(video.eventName || '-')}</td>
+            <td class="table-cell"><span class="badge bg-slate-100 text-slate-600">${escapeHtml(video.fileType || '-')}</span></td>
+            <td class="table-cell text-slate-500">${escapeHtml(video.owner || '-')}</td>
+            <td class="table-cell">
+              <div class="flex flex-wrap gap-1.5 justify-center">
+                <button class="btn btn-soft btn-xs" onclick="viewVideoDetails(${video.id})"><i class="fas fa-eye"></i> عرض</button>
+                <button class="btn btn-soft btn-xs" onclick="playVideo(${video.id})"><i class="fas fa-play"></i> تشغيل</button>
+                <button class="btn btn-soft btn-xs" onclick="downloadVideo(${video.id})"><i class="fas fa-download"></i> تحميل</button>
+                <button class="btn btn-soft btn-xs" onclick="prepareReelFromVideo(${video.id})" style="color:#4f46e5;border-color:#c7d2fe;background:#eef2ff"><i class="fas fa-scissors"></i> مقطع</button>
+                <button class="btn btn-soft btn-xs" onclick="deleteMaterial(${video.id})" style="color:#ef4444;border-color:#fecaca;background:#fff5f5"><i class="fas fa-trash"></i></button>
+              </div>
+            </td>
+          </tr>
+        `).join('')
+        : '<tr><td class="table-cell text-slate-400 text-center py-8" colspan="6"><i class="fas fa-video-slash text-3xl block mb-2 text-slate-200"></i>لا توجد فيديوهات بعد.</td></tr>';
+    }
+
+    function renderReels() {
+      document.getElementById('publishReel').innerHTML = '<option value="">اختر مقطع</option>' + state.reels.map((reel) => `<option value="${reel.id}">${escapeHtml(reel.name)}</option>`).join('');
+      document.getElementById('reelsBody').innerHTML = state.reels.length
+        ? state.reels.map((reel) => `
+          <tr>
+            <td class="table-cell font-bold">${escapeHtml(reel.name)}</td>
+            <td class="table-cell text-slate-500">${escapeHtml(reel.videoName || '-')}</td>
+            <td class="table-cell"><span class="badge bg-slate-100 text-slate-600">${toEn(reel.duration)}s</span></td>
+            <td class="table-cell">${badge(reel.status)}</td>
+            <td class="table-cell">
+              <div class="flex flex-wrap gap-1.5 justify-center">
+                <button class="btn btn-soft btn-xs" onclick="viewReel(${reel.id})"><i class="fas fa-eye"></i> عرض</button>
+                <button class="btn btn-soft btn-xs" onclick="editReel(${reel.id})"><i class="fas fa-pen"></i> تعديل</button>
+                <button class="btn btn-soft btn-xs" onclick="downloadReel(${reel.id})"><i class="fas fa-download"></i> تحميل</button>
+                <button class="btn btn-soft btn-xs" onclick="goToPublish(${reel.id})" style="color:#4f46e5;border-color:#c7d2fe;background:#eef2ff"><i class="fas fa-share-nodes"></i> نشر</button>
+                <button class="btn btn-soft btn-xs" onclick="deleteReel(${reel.id})" style="color:#ef4444;border-color:#fecaca;background:#fff5f5"><i class="fas fa-trash"></i></button>
+              </div>
+            </td>
+          </tr>
+        `).join('')
+        : '<tr><td class="table-cell text-slate-400 text-center py-8" colspan="5"><i class="fas fa-film text-3xl block mb-2 text-slate-200"></i>لا توجد مقاطع قصيرة جاهزة بعد.</td></tr>';
+    }
+
+    function renderPublishLog() {
+      const logs = (state.publications || []).slice(0, 8);
+      document.getElementById('publishLog').innerHTML = logs.length
+        ? logs.map((log) => `
+          <li class="log-item">
+            <div class="log-dot mt-1.5"></div>
+            <div>
+              <span class="text-slate-700">تم تجهيز مقطع قصير رقم <strong class="text-indigo-700">#${toEn(log.clipId)}</strong> للنشر على <strong>${escapeHtml((log.platforms || []).join(', '))}</strong></span>
+              <span class="text-slate-400 mr-2 text-xs">${fmtDate(log.createdAt)}</span>
+            </div>
+          </li>
+        `).join('')
+        : '<li class="log-item text-slate-400"><div class="log-dot" style="background:#cbd5e1"></div><span>لا توجد عمليات تجهيز نشر بعد.</span></li>';
+    }
+
+    function renderAll() {
+      renderSummary();
+      renderCampaignOptions();
+      renderEventsTable();
+      renderVideoLibrary();
+      renderReels();
+      renderPublishLog();
+      document.getElementById('selfReelEventId').innerHTML = '<option value="">بدون فعالية</option>' +
+        state.campaigns.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    }
+
+    function switchSection(sectionId) {
+      document.querySelectorAll('.section').forEach((section) => section.classList.remove('active'));
+      document.getElementById(sectionId).classList.add('active');
+      document.querySelectorAll('.nav-tab').forEach((button) => button.classList.toggle('active', button.dataset.section === sectionId));
+    }
+
+    window.viewVideoDetails = (id) => {
+      const item = state.materials.find((material) => material.id === Number(id));
+      if (!item) return;
+      alert(`العنوان: ${item.contentTitle || item.name}\nالفعالية: ${item.eventName || '-'}\nالوصف: ${item.contentDescription || '-'}`);
+    };
+    window.playVideo = (id) => {
+      const item = state.materials.find((material) => material.id === Number(id));
+      if (!item) return;
+      if (String(item.mediaCategory || '').toLowerCase() === 'image') {
+        alert('هذا الملف صورة وليس فيديو.');
+        return;
+      }
+      window.open(`/api/events-studio/recordings/${id}/view`, '_blank');
+    };
+    window.downloadVideo = (id) => window.open(`/api/events-studio/recordings/${id}/download`, '_blank');
+    window.deleteMaterial = async (id) => {
+      if (!confirm('هل تريد حذف هذا الفيديو؟')) return;
+      await api(`/api/events-studio/recordings/${id}`, { method: 'DELETE' });
+      await loadAll();
+    };
+    window.prepareReelFromVideo = (id) => {
+      const video = state.materials.find((material) => material.id === Number(id));
+      switchSection('reel-maker');
+      document.getElementById('reelSource').value = String(id);
+      document.getElementById('reelName').value = `مقطع - ${video?.name || 'محتوى جديد'}`;
+    };
+
+    window.viewReel = (id) => {
+      const reel = state.reels.find((item) => item.id === Number(id));
+      if (!reel) return;
+      alert(`المقطع: ${reel.name}\nالبداية: ${reel.startAt}s\nالنهاية: ${reel.endAt}s\nالفعالية: ${reel.campaignName || '-'}`);
+    };
+    window.editReel = async (id) => {
+      const reel = state.reels.find((item) => item.id === Number(id));
+      if (!reel) return;
+      const nextName = prompt('اسم المقطع الجديد', reel.name);
+      if (!nextName) return;
+      await api(`/api/events-studio/clips/${id}`, { method: 'PUT', body: JSON.stringify({ name: nextName }) });
+      await loadAll();
+    };
+    window.downloadReel = (id) => {
+      const reel = state.reels.find((item) => item.id === Number(id));
+      if (!reel) return;
+      window.open(`/api/events-studio/recordings/${reel.recordingId}/download`, '_blank');
+    };
+    window.deleteReel = async (id) => {
+      if (!confirm('هل تريد حذف Reel؟')) return;
+      await api(`/api/events-studio/clips/${id}`, { method: 'DELETE' });
+      await loadAll();
+    };
+    window.goToPublish = (id) => {
+      switchSection('publishing');
+      document.getElementById('publishReel').value = String(id);
+    };
+    window.editEvent = async (id) => {
+      const eventItem = state.campaigns.find((item) => item.id === Number(id));
+      if (!eventItem) return;
+      const nextName = prompt('اسم الفعالية', eventItem.name);
+      if (nextName === null) return;
+      const nextDate = prompt('تاريخ الفعالية (YYYY-MM-DD)', eventItem.date);
+      if (nextDate === null) return;
+      const nextTime = prompt('وقت الفعالية (HH:MM)', eventItem.time);
+      if (nextTime === null) return;
+      const nextPlatform = prompt('المنصة', eventItem.platform || 'متعدد المنصات');
+      if (nextPlatform === null) return;
+      const nextStatus = prompt('الحالة (نشطة/قادمة/مكتملة)', eventItem.status || 'نشطة');
+      if (nextStatus === null) return;
+      await api(`/api/events-studio/events/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: nextName.trim() || eventItem.name,
+          date: nextDate.trim() || eventItem.date,
+          time: nextTime.trim() || eventItem.time,
+          platform: nextPlatform.trim() || eventItem.platform,
+          status: nextStatus.trim() || eventItem.status
+        })
+      });
+      await loadAll();
+    };
+    window.deleteEvent = async (id) => {
+      if (!confirm('هل تريد حذف هذه الفعالية؟')) return;
+      await api(`/api/events-studio/events/${id}`, { method: 'DELETE' });
+      await loadAll();
+    };
+    window.goToRecordEvent = (id) => {
+      const eventItem = state.campaigns.find((item) => item.id === Number(id));
+      switchSection('add-content');
+      document.getElementById('recordEventId').value = String(id);
+      document.getElementById('recordTitle').value = `مقطع - ${eventItem?.name || 'فعالية جديدة'}`;
+      document.getElementById('recordDescription').value = eventItem?.description || '';
+    };
+
+    document.getElementById('eventForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      await api('/api/events-studio/events', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: document.getElementById('eventName').value,
+          description: document.getElementById('eventDescription').value,
+          date: document.getElementById('eventDate').value,
+          time: document.getElementById('eventTime').value,
+          platform: document.getElementById('eventPlatform').value,
+          status: document.getElementById('eventStatus').value,
+          type: document.getElementById('eventType').value,
+          speaker: document.getElementById('eventSpeaker').value,
+          duration: Number(document.getElementById('eventDuration').value || 0),
+          campaignDepartment: document.getElementById('eventDepartment').value
+        })
+      });
+      event.target.reset();
+      document.getElementById('eventDepartment').value = 'فريق الفعاليات';
+      await loadAll();
+      switchSection('manage-events');
+    });
+
+    const recordPreview = document.getElementById('recordPreview');
+    const recordStatus = document.getElementById('recordStatus');
+    const startRecordButton = document.getElementById('startRecord');
+    const stopRecordButton = document.getElementById('stopRecord');
+    const resetRecordButton = document.getElementById('resetRecord');
+    const uploadRecordButton = document.getElementById('uploadRecord');
+    const DEFAULT_RECORDING_DURATION = 15;
+    let recordingStream;
+    let mediaRecorder;
+    let recordedChunks = [];
+    let recordedBlob;
+    let recordedDuration = 0;
+    let recordingStartTime = 0;
+
+    const setRecordStatus = (text, iconClass) => {
+      recordStatus.innerHTML = `<i class="${iconClass}"></i>${text}`;
+    };
+
+    const resetRecordingState = () => {
+      if (recordingStream) {
+        recordingStream.getTracks().forEach((track) => track.stop());
+        recordingStream = null;
+      }
+      if (recordPreview.src) {
+        URL.revokeObjectURL(recordPreview.src);
+      }
+      recordPreview.pause();
+      recordPreview.srcObject = null;
+      recordPreview.removeAttribute('src');
+      recordPreview.controls = false;
+      recordedChunks = [];
+      recordedBlob = null;
+      recordedDuration = 0;
+      recordingStartTime = 0;
+      startRecordButton.disabled = false;
+      stopRecordButton.disabled = true;
+      resetRecordButton.disabled = true;
+      setRecordStatus('جاهز للتسجيل المباشر.', 'fas fa-circle text-slate-300');
+    };
+
+    startRecordButton.addEventListener('click', async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        alert('المتصفح لا يدعم تسجيل الفيديو المباشر.');
+        return;
+      }
+      resetRecordButton.disabled = true;
+      try {
+        recordingStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        recordPreview.srcObject = recordingStream;
+        recordPreview.muted = true;
+        recordPreview.controls = false;
+        await recordPreview.play();
+        const preferredType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+          ? 'video/webm;codecs=vp9,opus'
+          : 'video/webm';
+        mediaRecorder = new MediaRecorder(recordingStream, { mimeType: preferredType });
+        recordedChunks = [];
+        mediaRecorder.addEventListener('dataavailable', (event) => {
+          if (event.data?.size) {
+            recordedChunks.push(event.data);
+          }
+        });
+        mediaRecorder.addEventListener('stop', () => {
+          recordedBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+          const previewDuration = Math.round(recordPreview.duration || 0);
+          const timerDuration = recordingStartTime ? Math.round((Date.now() - recordingStartTime) / 1000) : 0;
+          recordedDuration = previewDuration || timerDuration || recordedDuration || DEFAULT_RECORDING_DURATION;
+          recordPreview.srcObject = null;
+          recordPreview.src = URL.createObjectURL(recordedBlob);
+          recordPreview.muted = false;
+          recordPreview.controls = true;
+          recordPreview.play().catch(() => {});
+          startRecordButton.disabled = false;
+          stopRecordButton.disabled = true;
+          resetRecordButton.disabled = false;
+          setRecordStatus(`تم حفظ التسجيل (${toEn(recordedDuration)} ثانية).`, 'fas fa-circle-check text-emerald-500');
+          if (recordingStream) {
+            recordingStream.getTracks().forEach((track) => track.stop());
+            recordingStream = null;
+          }
+        });
+        setRecordStatus('جاري التسجيل الآن...', 'fas fa-circle text-rose-500');
+        startRecordButton.disabled = true;
+        stopRecordButton.disabled = false;
+        recordingStartTime = Date.now();
+        mediaRecorder.start();
+      } catch (error) {
+        console.error(error);
+        alert('تعذر تشغيل الكاميرا للتسجيل.');
+        resetRecordingState();
+      }
+    });
+
+    stopRecordButton.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    });
+
+    resetRecordButton.addEventListener('click', resetRecordingState);
+
+    uploadRecordButton.addEventListener('click', async () => {
+      const eventId = document.getElementById('recordEventId').value;
+      if (!eventId) {
+        alert('اختر فعالية قبل حفظ التسجيل.');
+        return;
+      }
+      if (!recordedBlob) {
+        alert('سجل مقطع فيديو أولاً.');
+        return;
+      }
+      const title = document.getElementById('recordTitle').value || 'مقطع جديد';
+      const description = document.getElementById('recordDescription').value || '';
+      const platform = document.getElementById('recordPlatform').value || 'متعدد المنصات';
+      const fileName = `${title.replace(/\s+/g, '-') || 'تسجيل-فعالية'}.webm`;
+      const file = new File([recordedBlob], fileName, { type: recordedBlob.type || 'video/webm' });
+      const formData = new FormData();
+      formData.append('media', file);
+      formData.append('eventId', eventId);
+      formData.append('name', title);
+      formData.append('recordingDate', new Date().toISOString().slice(0, 10));
+      formData.append('duration', String(recordedDuration || 0));
+      formData.append('owner', 'منسق الفعالية');
+      formData.append('contentTitle', title);
+      formData.append('contentDescription', description);
+      formData.append('targetPlatform', platform);
+      formData.append('contentType', 'Reel');
+      formData.append('campaignDepartment', 'فريق الفعاليات');
+
+      const response = await fetch('/api/events-studio/recordings/upload', { method: 'POST', body: formData });
+      const body = await response.json();
+      if (!response.ok) {
+        alert(body.error || 'فشل رفع التسجيل.');
+        return;
+      }
+
+      if (document.getElementById('autoReel').checked && body.recording?.id && (recordedDuration || 0) > 0) {
+        const clipRes = await api('/api/events-studio/clips', {
+          method: 'POST',
+          body: JSON.stringify({
+            recordingId: Number(body.recording.id),
+            name: title,
+            startAt: 0,
+            endAt: Number(recordedDuration)
+          })
+        });
+        await loadAll();
+        if (clipRes?.clip?.id) {
+          switchSection('publishing');
+          document.getElementById('publishReel').value = String(clipRes.clip.id);
+        }
+      } else {
+        await loadAll();
+        switchSection('video-library');
+      }
+      document.getElementById('autoReel').checked = false;
+      resetRecordingState();
+    });
+
+    document.getElementById('mediaUploadForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const videoFile = document.getElementById('videoFile').files[0];
+      const imageFile = document.getElementById('imageFile').files[0];
+      const mediaFile = videoFile || imageFile;
+      if (!mediaFile) {
+        alert('اختر ملف فيديو أو صورة من الجهاز.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('media', mediaFile);
+      formData.append('eventId', document.getElementById('campaignId').value);
+      formData.append('name', document.getElementById('contentTitle').value);
+      formData.append('recordingDate', new Date().toISOString().slice(0, 10));
+      formData.append('duration', '0');
+      formData.append('owner', 'فريق الفعاليات');
+      formData.append('contentTitle', document.getElementById('contentTitle').value);
+      formData.append('contentDescription', document.getElementById('contentDescription').value);
+      formData.append('targetPlatform', document.getElementById('targetPlatform').value);
+      formData.append('contentType', document.getElementById('contentType').value);
+      formData.append('campaignDepartment', document.getElementById('campaignDepartment').value);
+
+      const response = await fetch('/api/events-studio/recordings/upload', { method: 'POST', body: formData });
+      const body = await response.json();
+      if (!response.ok) {
+        alert(body.error || 'فشل رفع التسجيل.');
+        return;
+      }
+      event.target.reset();
+      document.getElementById('campaignDepartment').value = 'فريق الفعاليات';
+      await loadAll();
+      switchSection('video-library');
+    });
+
+    document.getElementById('resetMediaForm').addEventListener('click', () => {
+      document.getElementById('mediaUploadForm').reset();
+      document.getElementById('campaignDepartment').value = 'فريق الفعاليات';
+    });
+
+    document.getElementById('reelForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      await api('/api/events-studio/clips', {
+        method: 'POST',
+        body: JSON.stringify({
+          recordingId: Number(document.getElementById('reelSource').value),
+          name: document.getElementById('reelName').value,
+          startAt: Number(document.getElementById('reelStart').value),
+          endAt: Number(document.getElementById('reelEnd').value)
+        })
+      });
+      event.target.reset();
+      await loadAll();
+      switchSection('reels-library');
+    });
+
+    document.getElementById('publishForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const platforms = [...document.querySelectorAll('.publish-platform:checked')].map((item) => item.value);
+      await api('/api/events-studio/publish', {
+        method: 'POST',
+        body: JSON.stringify({
+          clipId: Number(document.getElementById('publishReel').value),
+          platforms,
+          note: document.getElementById('publishNote').value
+        })
+      });
+      event.target.reset();
+      await loadAll();
+      alert('تم تجهيز المقطع للنشر بنجاح.');
+    });
+
+    document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListener('click', () => switchSection(button.dataset.section)));
+
+    // ── Self-Record Reel Logic ────────────────────────────────────────
+    const selfPreview    = document.getElementById('selfRecordPreview');
+    const selfStatus     = document.getElementById('selfRecordStatus');
+    const selfStartBtn   = document.getElementById('selfStartRecord');
+    const selfStopBtn    = document.getElementById('selfStopRecord');
+    const selfResetBtn   = document.getElementById('selfResetRecord');
+    const selfPublishBtn = document.getElementById('selfPublishBtn');
+    const selfPublishHint = document.getElementById('selfPublishHint');
+    const selfPublishLog = document.getElementById('selfPublishLog');
+    const selfPublishLogText = document.getElementById('selfPublishLogText');
+
+    let selfStream, selfRecorder, selfChunks = [], selfBlob = null, selfDuration = 0, selfStartTime = 0;
+
+    const setSelfStatus = (html) => { selfStatus.innerHTML = html; };
+
+    const resetSelfRecording = () => {
+      if (selfStream) { selfStream.getTracks().forEach((t) => t.stop()); selfStream = null; }
+      if (selfPreview.src) URL.revokeObjectURL(selfPreview.src);
+      selfPreview.pause();
+      selfPreview.srcObject = null;
+      selfPreview.removeAttribute('src');
+      selfPreview.controls = false;
+      selfChunks = []; selfBlob = null; selfDuration = 0; selfStartTime = 0;
+      selfStartBtn.disabled = false;
+      selfStopBtn.disabled = true;
+      selfResetBtn.disabled = true;
+      selfPublishBtn.disabled = true;
+      selfPublishHint.textContent = 'سجّل مقطعاً أولاً لتفعيل زر النشر.';
+      selfPublishLog.classList.add('hidden');
+      setSelfStatus('<i class="fas fa-circle text-slate-300"></i>اضغط "بدء التصوير" لتشغيل الكاميرا.');
+    };
+
+    selfStartBtn.addEventListener('click', async () => {
+      if (!window.isSecureContext) {
+        setSelfStatus('<i class="fas fa-exclamation-triangle text-amber-500"></i> يجب فتح الصفحة عبر HTTPS لاستخدام الكاميرا.');
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setSelfStatus('<i class="fas fa-exclamation-triangle text-amber-500"></i> المتصفح لا يدعم التصوير المباشر. جرّب Chrome أو Firefox.');
+        return;
+      }
+      selfResetBtn.disabled = true;
+      selfStartBtn.disabled = true;
+      setSelfStatus('<i class="fas fa-spinner fa-spin text-indigo-400"></i> جاري طلب إذن الكاميرا...');
+      try {
+        // Try video+audio first; fall back to video-only if no microphone
+        try {
+          selfStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+        } catch (audioErr) {
+          selfStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        }
+        selfPreview.srcObject = selfStream;
+        selfPreview.muted = true;
+        selfPreview.controls = false;
+        await selfPreview.play();
+        const preferredMime = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+        selfRecorder = new MediaRecorder(selfStream, preferredMime ? { mimeType: preferredMime } : {});
+        selfChunks = [];
+        selfRecorder.addEventListener('dataavailable', (e) => { if (e.data?.size) selfChunks.push(e.data); });
+        selfRecorder.addEventListener('stop', () => {
+          selfBlob = new Blob(selfChunks, { type: selfRecorder.mimeType || 'video/webm' });
+          const timerSec = selfStartTime ? Math.round((Date.now() - selfStartTime) / 1000) : 15;
+          selfDuration = timerSec;
+          selfPreview.srcObject = null;
+          selfPreview.src = URL.createObjectURL(selfBlob);
+          selfPreview.muted = false;
+          selfPreview.controls = true;
+          selfPreview.play().catch(() => {});
+          if (selfStream) { selfStream.getTracks().forEach((t) => t.stop()); selfStream = null; }
+          selfStartBtn.disabled = false;
+          selfStopBtn.disabled = true;
+          selfResetBtn.disabled = false;
+          selfPublishBtn.disabled = false;
+          selfPublishHint.textContent = 'اختر المنصات واضغط "نشر الريلز الآن".';
+          setSelfStatus(`<i class="fas fa-circle-check text-emerald-500"></i>التسجيل جاهز (${toEn(selfDuration)} ثانية) — اختر المنصات وانشر.`);
+        });
+        selfStartBtn.disabled = true;
+        selfStopBtn.disabled = false;
+        selfStartTime = Date.now();
+        selfRecorder.start();
+        setSelfStatus('<i class="fas fa-circle text-rose-500"></i> جاري التسجيل...');
+      } catch (err) {
+        console.error(err.name, err.message);
+        let msg;
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          msg = '<i class="fas fa-lock text-rose-500"></i> تم رفض الإذن. اضغط على أيقونة الكاميرا في شريط العنوان واختر <strong>"السماح"</strong>، ثم أعد المحاولة.';
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          msg = '<i class="fas fa-video-slash text-rose-500"></i> لم يتم العثور على كاميرا. تأكد من توصيل كاميرا بجهازك.';
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          msg = '<i class="fas fa-exclamation-circle text-rose-500"></i> الكاميرا مستخدمة من تطبيق آخر. أغلق التطبيقات الأخرى وأعد المحاولة.';
+        } else if (err.name === 'OverconstrainedError') {
+          msg = '<i class="fas fa-exclamation-circle text-rose-500"></i> لا تدعم الكاميرا الإعدادات المطلوبة. جرّب إعادة التحميل.';
+        } else {
+          msg = `<i class="fas fa-exclamation-triangle text-rose-500"></i> خطأ: ${err.message || err.name}`;
+        }
+        setSelfStatus(msg);
+        selfStartBtn.disabled = false;
+        selfResetBtn.disabled = true;
+      }
+    });
+
+    selfStopBtn.addEventListener('click', () => {
+      if (selfRecorder && selfRecorder.state !== 'inactive') selfRecorder.stop();
+    });
+
+    selfResetBtn.addEventListener('click', resetSelfRecording);
+
+    selfPublishBtn.addEventListener('click', async () => {
+      if (!selfBlob) { alert('سجّل مقطعاً أولاً.'); return; }
+      const platforms = [...document.querySelectorAll('.self-publish-platform:checked')].map((el) => el.value);
+      if (!platforms.length) { alert('اختر منصة واحدة على الأقل للنشر.'); return; }
+
+      const title = document.getElementById('selfReelTitle').value.trim() || `ريلز ذاتي ${new Date().toLocaleDateString('ar-EG')}`;
+      let eventId = document.getElementById('selfReelEventId').value;
+      const note    = document.getElementById('selfReelNote').value;
+
+      selfPublishBtn.disabled = true;
+      selfPublishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الرفع والنشر...';
+
+      try {
+        // Resolve eventId: use selected, fallback to first existing, or create a default event
+        if (!eventId) {
+          if (state.campaigns.length > 0) {
+            eventId = String(state.campaigns[0].id);
+          } else {
+            // Auto-create a default event so the upload can proceed
+            const defaultEvent = await api('/api/events-studio/events', {
+              method: 'POST',
+              body: JSON.stringify({
+                name: 'مقاطع عامة',
+                description: 'فعالية افتراضية للمقاطع الذاتية',
+                date: new Date().toISOString().slice(0, 10),
+                time: '00:00',
+                platform: 'متعدد المنصات',
+                status: 'نشطة',
+                type: 'ريلز',
+                speaker: 'عميل',
+                duration: 0,
+                campaignDepartment: 'فريق الفعاليات'
+              })
+            });
+            await loadAll();
+            eventId = String(defaultEvent.event?.id || state.campaigns[0]?.id || '');
+          }
+        }
+
+        if (!eventId) throw new Error('لم يتم العثور على فعالية. يرجى إنشاء فعالية من تبويب "إنشاء فعالية" أولاً.');
+
+        // Upload recording
+        const fileName = `${title.replace(/\s+/g, '-')}.webm`;
+        const file = new File([selfBlob], fileName, { type: selfBlob.type || 'video/webm' });
+        const formData = new FormData();
+        formData.append('media', file);
+        formData.append('eventId', eventId);
+        formData.append('name', title);
+        formData.append('recordingDate', new Date().toISOString().slice(0, 10));
+        formData.append('duration', String(selfDuration || 0));
+        formData.append('owner', 'عميل');
+        formData.append('contentTitle', title);
+        formData.append('contentDescription', note);
+        formData.append('targetPlatform', platforms.join(', '));
+        formData.append('contentType', 'Reel');
+        formData.append('campaignDepartment', 'فريق الفعاليات');
+
+        const uploadRes = await fetch('/api/events-studio/recordings/upload', { method: 'POST', body: formData });
+        const uploadBody = await uploadRes.json();
+        if (!uploadRes.ok) throw new Error(uploadBody.error || 'فشل الرفع');
+
+        // Create clip
+        const clipRes = await api('/api/events-studio/clips', {
+          method: 'POST',
+          body: JSON.stringify({ recordingId: Number(uploadBody.recording.id), name: title, startAt: 0, endAt: Number(selfDuration || 15) })
+        });
+
+        // Publish
+        await api('/api/events-studio/publish', {
+          method: 'POST',
+          body: JSON.stringify({ clipId: Number(clipRes.clip.id), platforms, note })
+        });
+
+        await loadAll();
+        // Populate selfReelEventId with fresh events
+        document.getElementById('selfReelEventId').innerHTML = '<option value="">بدون فعالية</option>' +
+          state.campaigns.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+
+        selfPublishLogText.textContent = `تم نشر "${escapeHtml(title)}" على: ${platforms.join(' + ')} بنجاح!`;
+        selfPublishLog.classList.remove('hidden');
+        selfPublishBtn.innerHTML = '<i class="fas fa-rocket"></i> نشر الريلز الآن';
+        // reset after success
+        setTimeout(resetSelfRecording, 800);
+        document.getElementById('selfReelTitle').value = '';
+        document.getElementById('selfReelNote').value = '';
+        document.querySelectorAll('.self-publish-platform').forEach((el) => { el.checked = false; });
+      } catch (err) {
+        console.error(err);
+        alert('حدث خطأ أثناء النشر: ' + err.message);
+        selfPublishBtn.disabled = false;
+        selfPublishBtn.innerHTML = '<i class="fas fa-rocket"></i> نشر الريلز الآن';
+      }
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+
+    loadAll().catch((error) => {
+      console.error(error);
+      alert('تعذر تحميل بيانات الاستوديو.');
+    });
+  </script>
+</body>
+</html>

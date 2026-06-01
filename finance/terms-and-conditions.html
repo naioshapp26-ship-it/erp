@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📜 الشروط والأحكام - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background: #f8fafc; color: #0f172a; }
+        .card-glass { background: rgba(255, 255, 255, 0.96); border: 1px solid #e2e8f0; box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08); }
+        .stat-card { background: #fff; border: 1px solid #e2e8f0; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12); }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .accordion-item { border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; }
+        .accordion-item[open] { box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); }
+        .action-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 13px; }
+        .modal-overlay { background: rgba(15, 23, 42, 0.55); }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">📜 إدارة الشروط والأحكام</h1>
+            <p class="text-lg text-slate-600">أضف البنود والأحكام، حررها، وفعّلها ليظهر كل تحديث فوراً للمستخدمين.</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-indigo-700 border border-indigo-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البنود
+            </button>
+            <button onclick="openSectionModal()" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus"></i>
+                إضافة بند
+            </button>
+            <button onclick="openRuleModal()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus"></i>
+                إضافة حكم
+            </button>
+            <button onclick="printPage()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة البنود
+            </button>
+            <button onclick="copySummary()" class="bg-amber-500 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-copy"></i>
+                نسخ الملخص
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-indigo-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">آخر تحديث</span>
+                    <i class="fas fa-calendar-check text-indigo-500"></i>
+                </div>
+                <div id="statLastUpdate" class="text-2xl font-bold text-slate-800">--</div>
+                <div class="text-xs text-slate-500">حسب التعديل الأخير</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-emerald-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">إجمالي البنود</span>
+                    <i class="fas fa-layer-group text-emerald-500"></i>
+                </div>
+                <div id="statSectionsTotal" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">كل البنود المسجلة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-amber-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">البنود المفعلة</span>
+                    <i class="fas fa-toggle-on text-amber-500"></i>
+                </div>
+                <div id="statSectionsActive" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">جاهزة للعرض للمستخدم</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-rose-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">الأحكام المفعلة</span>
+                    <i class="fas fa-gavel text-rose-500"></i>
+                </div>
+                <div id="statRulesActive" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">ضمن البنود النشطة</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2">
+                <div class="card-glass rounded-3xl p-6">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <h2 class="text-2xl font-bold text-slate-800">📑 إدارة البنود والأحكام</h2>
+                        <span class="badge bg-indigo-100 text-indigo-700" id="sectionsCountBadge">0 بند</span>
+                    </div>
+                    <div id="sectionsList" class="space-y-4">
+                        <div class="text-center text-slate-500 py-10">جاري تحميل البنود...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-1">
+                <div class="card-glass rounded-3xl p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-slate-800">👀 عرض المستخدم</h3>
+                        <span class="badge bg-emerald-100 text-emerald-700">يظهر فوراً</span>
+                    </div>
+                    <div id="previewList" class="space-y-4 text-sm text-slate-700"></div>
+                </div>
+
+                <div class="card-glass rounded-3xl p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">🧭 إرشادات سريعة</h3>
+                    <ul class="space-y-3 text-sm text-slate-600">
+                        <li>أضف بنداً ثم أضف أحكامه لتظهر في المعاينة.</li>
+                        <li>يمكنك إيقاف بند أو حكم دون الحذف.</li>
+                        <li>كل تعديل يتم حفظه فوراً داخل قاعدة البيانات.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="sectionModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                <h3 id="sectionModalTitle" class="text-xl font-bold text-slate-800">إضافة بند جديد</h3>
+                <button type="button" onclick="closeSectionModal()" class="text-slate-400 hover:text-slate-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="sectionForm" class="p-6 space-y-5">
+                <input type="hidden" id="sectionId">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">عنوان البند *</label>
+                    <input id="sectionTitle" type="text" required class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200" placeholder="مثال: حماية البيانات والخصوصية">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">وصف البند</label>
+                    <textarea id="sectionDescription" rows="3" class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200" placeholder="وصف مختصر يساعد المستخدم"></textarea>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">حالة البند</label>
+                        <select id="sectionStatus" class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                            <option value="true">مفعل</option>
+                            <option value="false">موقوف</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">ترتيب العرض</label>
+                        <input id="sectionOrder" type="number" min="0" value="0" class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeSectionModal()" class="px-5 py-2 rounded-full border border-slate-200 text-slate-600 font-bold">إلغاء</button>
+                    <button type="submit" class="px-5 py-2 rounded-full bg-indigo-600 text-white font-bold">حفظ البند</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="ruleModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                <h3 id="ruleModalTitle" class="text-xl font-bold text-slate-800">إضافة حكم جديد</h3>
+                <button type="button" onclick="closeRuleModal()" class="text-slate-400 hover:text-slate-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="ruleForm" class="p-6 space-y-5">
+                <input type="hidden" id="ruleId">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">نص الحكم *</label>
+                    <textarea id="ruleText" rows="4" required class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" placeholder="مثال: يلتزم العميل بتحديث بياناته خلال 30 يوماً."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">البند التابع له *</label>
+                    <select id="ruleSection" required class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"></select>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">حالة الحكم</label>
+                        <select id="ruleStatus" class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
+                            <option value="true">مفعل</option>
+                            <option value="false">موقوف</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">ترتيب العرض</label>
+                        <input id="ruleOrder" type="number" min="0" value="0" class="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeRuleModal()" class="px-5 py-2 rounded-full border border-slate-200 text-slate-600 font-bold">إلغاء</button>
+                    <button type="submit" class="px-5 py-2 rounded-full bg-emerald-600 text-white font-bold">حفظ الحكم</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        const state = {
+            sections: []
+        };
+
+        const elements = {
+            sectionsList: document.getElementById('sectionsList'),
+            previewList: document.getElementById('previewList'),
+            statLastUpdate: document.getElementById('statLastUpdate'),
+            statSectionsTotal: document.getElementById('statSectionsTotal'),
+            statSectionsActive: document.getElementById('statSectionsActive'),
+            statRulesActive: document.getElementById('statRulesActive'),
+            sectionsCountBadge: document.getElementById('sectionsCountBadge')
+        };
+
+        const formatDate = (dateValue) => {
+            if (!dateValue) return '--';
+            const date = new Date(dateValue);
+            if (Number.isNaN(date.getTime())) return '--';
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${date.getFullYear()}/${month}/${day}`;
+        };
+
+        const setLoading = () => {
+            elements.sectionsList.innerHTML = '<div class="text-center text-slate-500 py-10">جاري تحميل البنود...</div>';
+            elements.previewList.innerHTML = '<div class="text-center text-slate-400">جاري تحميل المعاينة...</div>';
+        };
+
+        const getSectionById = (id) => state.sections.find((section) => section.id === Number(id));
+
+        const getRuleById = (id) => {
+            for (const section of state.sections) {
+                const rule = (section.rules || []).find((item) => item.id === Number(id));
+                if (rule) return rule;
+            }
+            return null;
+        };
+
+        const buildSummaryText = () => {
+            const activeSections = state.sections.filter((section) => section.is_active);
+            const activeRules = activeSections.reduce((sum, section) => {
+                return sum + (section.rules || []).filter((rule) => rule.is_active).length;
+            }, 0);
+            return `الشروط والأحكام: ${activeSections.length} بند نشط، ${activeRules} حكم نشط.`;
+        };
+
+        async function refreshData() {
+            try {
+                setLoading();
+                const response = await fetch(`${API_BASE}/api/terms-sections?include_rules=true&include_inactive=true`);
+                const data = await response.json();
+                state.sections = data.sections || [];
+                renderAll();
+            } catch (error) {
+                elements.sectionsList.innerHTML = '<div class="text-center text-rose-600 py-10">تعذر تحميل البنود. حاول لاحقاً.</div>';
+                elements.previewList.innerHTML = '';
+            }
+        }
+
+        function renderAll() {
+            renderStats();
+            renderSections();
+            renderPreview();
+        }
+
+        function renderStats() {
+            const totalSections = state.sections.length;
+            const activeSections = state.sections.filter((section) => section.is_active).length;
+            const totalActiveRules = state.sections.reduce((sum, section) => {
+                return sum + (section.rules || []).filter((rule) => rule.is_active).length;
+            }, 0);
+
+            const latestUpdate = state.sections.reduce((latest, section) => {
+                const sectionDate = new Date(section.updated_at || section.created_at || 0);
+                if (sectionDate > latest) latest = sectionDate;
+                (section.rules || []).forEach((rule) => {
+                    const ruleDate = new Date(rule.updated_at || rule.created_at || 0);
+                    if (ruleDate > latest) latest = ruleDate;
+                });
+                return latest;
+            }, new Date(0));
+
+            elements.statLastUpdate.textContent = totalSections ? formatDate(latestUpdate) : '--';
+            elements.statSectionsTotal.textContent = totalSections;
+            elements.statSectionsActive.textContent = activeSections;
+            elements.statRulesActive.textContent = totalActiveRules;
+            elements.sectionsCountBadge.textContent = `${totalSections} بند`;
+        }
+
+        function renderSections() {
+            if (!state.sections.length) {
+                elements.sectionsList.innerHTML = '<div class="text-center text-slate-500 py-10">لا توجد بنود حالياً. أضف بنداً جديداً.</div>';
+                return;
+            }
+
+            elements.sectionsList.innerHTML = state.sections.map((section) => {
+                const statusBadge = section.is_active
+                    ? '<span class="badge bg-emerald-100 text-emerald-700">مفعل</span>'
+                    : '<span class="badge bg-slate-200 text-slate-600">موقوف</span>';
+
+                const rules = (section.rules || []).length
+                    ? section.rules.map((rule) => {
+                        const ruleStatus = rule.is_active
+                            ? '<span class="badge bg-emerald-50 text-emerald-700">مفعل</span>'
+                            : '<span class="badge bg-slate-100 text-slate-600">موقوف</span>';
+                        return `
+                            <div class="flex flex-col gap-3 border border-slate-100 rounded-2xl p-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <p class="text-sm text-slate-700">${rule.rule_text}</p>
+                                    ${ruleStatus}
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" class="action-btn bg-amber-500 text-white" onclick="openRuleModal(${rule.id}); event.stopPropagation();">
+                                        <i class="fas fa-pen"></i>
+                                        تعديل حكم
+                                    </button>
+                                    <button type="button" class="action-btn bg-black text-white icon-white" onclick="toggleRule(${rule.id}); event.stopPropagation();">
+                                        <i class="fas fa-toggle-on"></i>
+                                        تفعيل/إيقاف
+                                    </button>
+                                    <button type="button" class="action-btn bg-rose-600 text-white" onclick="deleteRule(${rule.id}); event.stopPropagation();">
+                                        <i class="fas fa-trash"></i>
+                                        حذف حكم
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')
+                    : '<div class="text-sm text-slate-500">لا توجد أحكام ضمن هذا البند.</div>';
+
+                return `
+                    <details class="accordion-item p-4">
+                        <summary class="cursor-pointer flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-lg font-bold text-slate-800">${section.title}</h4>
+                                <p class="text-sm text-slate-500">${section.description || 'بدون وصف إضافي'}</p>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                ${statusBadge}
+                                <button type="button" class="action-btn bg-indigo-600 text-white" onclick="openRuleModal(null, ${section.id}); event.stopPropagation();">
+                                    <i class="fas fa-plus"></i>
+                                    إضافة حكم
+                                </button>
+                                <button type="button" class="action-btn bg-amber-500 text-white" onclick="openSectionModal(${section.id}); event.stopPropagation();">
+                                    <i class="fas fa-pen"></i>
+                                    تعديل بند
+                                </button>
+                                <button type="button" class="action-btn bg-black text-white icon-white" onclick="toggleSection(${section.id}); event.stopPropagation();">
+                                    <i class="fas fa-toggle-on"></i>
+                                    تفعيل/إيقاف
+                                </button>
+                                <button type="button" class="action-btn bg-rose-600 text-white" onclick="deleteSection(${section.id}); event.stopPropagation();">
+                                    <i class="fas fa-trash"></i>
+                                    حذف بند
+                                </button>
+                            </div>
+                        </summary>
+                        <div class="mt-4 space-y-3">
+                            ${rules}
+                        </div>
+                    </details>
+                `;
+            }).join('');
+        }
+
+        function renderPreview() {
+            const activeSections = state.sections.filter((section) => section.is_active);
+            if (!activeSections.length) {
+                elements.previewList.innerHTML = '<div class="text-slate-400">لا توجد بنود مفعلة بعد.</div>';
+                return;
+            }
+
+            elements.previewList.innerHTML = activeSections.map((section) => {
+                const activeRules = (section.rules || []).filter((rule) => rule.is_active);
+                const rulesList = activeRules.length
+                    ? `<ol class="list-decimal list-inside space-y-2 text-slate-600">${activeRules.map((rule) => `<li>${rule.rule_text}</li>`).join('')}</ol>`
+                    : '<p class="text-slate-400 text-sm">لا توجد أحكام مفعلة لهذا البند.</p>';
+
+                return `
+                    <div class="border border-slate-100 rounded-2xl p-4">
+                        <h4 class="font-bold text-slate-800 mb-2">${section.title}</h4>
+                        ${rulesList}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function printPage() { window.print(); }
+
+        function copySummary() {
+            navigator.clipboard.writeText(buildSummaryText()).then(() => {
+                alert('تم نسخ ملخص الشروط والأحكام.');
+            });
+        }
+
+        function openSectionModal(sectionId = null) {
+            const modal = document.getElementById('sectionModal');
+            const title = document.getElementById('sectionModalTitle');
+            const section = sectionId ? getSectionById(sectionId) : null;
+
+            document.getElementById('sectionId').value = section ? section.id : '';
+            document.getElementById('sectionTitle').value = section ? section.title : '';
+            document.getElementById('sectionDescription').value = section ? (section.description || '') : '';
+            document.getElementById('sectionStatus').value = section ? String(section.is_active) : 'true';
+            document.getElementById('sectionOrder').value = section ? section.display_order : 0;
+            title.textContent = section ? 'تعديل بند' : 'إضافة بند جديد';
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeSectionModal() {
+            document.getElementById('sectionModal').classList.add('hidden');
+        }
+
+        function openRuleModal(ruleId = null, sectionId = null) {
+            const modal = document.getElementById('ruleModal');
+            const title = document.getElementById('ruleModalTitle');
+            const rule = ruleId ? getRuleById(ruleId) : null;
+            const sectionSelect = document.getElementById('ruleSection');
+
+            if (!state.sections.length) {
+                alert('أضف بنداً أولاً قبل إضافة حكم.');
+                return;
+            }
+
+            sectionSelect.innerHTML = state.sections
+                .map((section) => `<option value="${section.id}">${section.title}</option>`)
+                .join('');
+
+            document.getElementById('ruleId').value = rule ? rule.id : '';
+            document.getElementById('ruleText').value = rule ? rule.rule_text : '';
+            document.getElementById('ruleStatus').value = rule ? String(rule.is_active) : 'true';
+            document.getElementById('ruleOrder').value = rule ? rule.display_order : 0;
+
+            const selectedSection = rule ? rule.section_id : sectionId;
+            if (selectedSection) {
+                sectionSelect.value = String(selectedSection);
+            }
+
+            title.textContent = rule ? 'تعديل حكم' : 'إضافة حكم جديد';
+            modal.classList.remove('hidden');
+        }
+
+        function closeRuleModal() {
+            document.getElementById('ruleModal').classList.add('hidden');
+        }
+
+        async function saveSection(event) {
+            event.preventDefault();
+            const id = document.getElementById('sectionId').value;
+            const payload = {
+                title: document.getElementById('sectionTitle').value.trim(),
+                description: document.getElementById('sectionDescription').value.trim() || null,
+                is_active: document.getElementById('sectionStatus').value === 'true',
+                display_order: Number(document.getElementById('sectionOrder').value || 0)
+            };
+
+            const url = id ? `${API_BASE}/api/terms-sections/${id}` : `${API_BASE}/api/terms-sections`;
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                alert(error.error || 'تعذر حفظ البند');
+                return;
+            }
+
+            closeSectionModal();
+            await refreshData();
+        }
+
+        async function saveRule(event) {
+            event.preventDefault();
+            const id = document.getElementById('ruleId').value;
+            const payload = {
+                section_id: Number(document.getElementById('ruleSection').value),
+                rule_text: document.getElementById('ruleText').value.trim(),
+                is_active: document.getElementById('ruleStatus').value === 'true',
+                display_order: Number(document.getElementById('ruleOrder').value || 0)
+            };
+
+            const url = id ? `${API_BASE}/api/terms-rules/${id}` : `${API_BASE}/api/terms-rules`;
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                alert(error.error || 'تعذر حفظ الحكم');
+                return;
+            }
+
+            closeRuleModal();
+            await refreshData();
+        }
+
+        async function toggleSection(id) {
+            await fetch(`${API_BASE}/api/terms-sections/${id}/toggle-active`, { method: 'PATCH' });
+            await refreshData();
+        }
+
+        async function toggleRule(id) {
+            await fetch(`${API_BASE}/api/terms-rules/${id}/toggle-active`, { method: 'PATCH' });
+            await refreshData();
+        }
+
+        async function deleteSection(id) {
+            if (!confirm('هل تريد حذف هذا البند بجميع أحكامه؟')) return;
+            await fetch(`${API_BASE}/api/terms-sections/${id}`, { method: 'DELETE' });
+            await refreshData();
+        }
+
+        async function deleteRule(id) {
+            if (!confirm('هل تريد حذف هذا الحكم؟')) return;
+            await fetch(`${API_BASE}/api/terms-rules/${id}`, { method: 'DELETE' });
+            await refreshData();
+        }
+
+        document.getElementById('sectionForm').addEventListener('submit', saveSection);
+        document.getElementById('ruleForm').addEventListener('submit', saveRule);
+        document.getElementById('sectionModal').addEventListener('click', (event) => {
+            if (event.target.id === 'sectionModal') closeSectionModal();
+        });
+        document.getElementById('ruleModal').addEventListener('click', (event) => {
+            if (event.target.id === 'ruleModal') closeRuleModal();
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshData();
+        });
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

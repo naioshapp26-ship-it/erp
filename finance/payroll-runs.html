@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📆 دورات الرواتب - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background: #f9fafb; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-4">
+                     <a href="/finance/index.html" class="flex items-center gap-2 text-slate-700 hover:text-blue-600 transition">
+                        <img src="/لوجو%20نايوش%20خلفيه.png" alt="Logo" class="h-8 w-auto">
+                        <span class="font-bold text-xl">نظام نايوش</span>
+                    </a>
+                    <span class="h-6 w-px bg-gray-300 mx-2"></span>
+                    <span class="font-medium text-slate-600">دورات الرواتب</span>
+                </div>
+            </div>
+            <div class="flex overflow-x-auto gap-2 py-2 text-sm font-medium border-t border-gray-100 no-scrollbar">
+                <a href="/finance/payroll-employees.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الموظفون</a>
+                <a href="/finance/payroll-components.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">المكونات</a>
+                <a href="/finance/payroll-assignments.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الربط</a>
+                <a href="/finance/payroll-runs.html" class="px-3 py-1 rounded-full bg-blue-50 text-blue-700 whitespace-nowrap">الدورات</a>
+                <a href="/finance/payroll-payslips.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الكشوف</a>
+                <a href="/finance/payroll-bank-batches.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">البنوك</a>
+                <a href="/finance/payroll-overtime.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الإضافي</a>
+                <a href="/finance/payroll-settlements.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">التسويات</a>
+                <a href="/finance/payroll-reports.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">التقارير</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">📆 دورات الرواتب</h1>
+            <p class="text-slate-600 mb-1">دورات الرواتب تمثل دورة معالجة الرواتب الشهرية وتشمل: إنشاء الدورة، مراجعتها، اعتمادها ثم صرف الرواتب.</p>
+            <p class="text-slate-500">إدارة دورات الرواتب والموافقات وربط القيود المحاسبية.</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="text-xs font-semibold text-gray-500 mb-1">إجمالي الدورات</div>
+                <div id="statTotal" class="text-2xl font-bold text-slate-800">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-blue-500">
+                <div class="text-xs font-semibold text-gray-500 mb-1">إجمالي الصافي</div>
+                <div id="statNet" class="text-2xl font-bold text-blue-600">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-green-500">
+                <div class="text-xs font-semibold text-gray-500 mb-1">الدورات المعتمدة</div>
+                <div id="statApproved" class="text-2xl font-bold text-green-600">--</div>
+            </div>
+        </div>
+
+        <!-- Overview -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-slate-800">مؤشرات التشغيل</h2>
+                    <span id="focusPeriod" class="text-xs font-semibold text-blue-700 bg-blue-50 px-3 py-1 rounded-full">--</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="text-xs font-semibold text-gray-500 mb-1">إجمالي الإجمالي</div>
+                        <div id="statGross" class="text-lg font-bold text-slate-800">--</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-rose-50 border border-rose-100">
+                        <div class="text-xs font-semibold text-rose-500 mb-1">إجمالي الاستقطاعات</div>
+                        <div id="statDeductions" class="text-lg font-bold text-rose-600">--</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                        <div class="text-xs font-semibold text-blue-600 mb-1">متوسط الصافي</div>
+                        <div id="statAvgNet" class="text-lg font-bold text-blue-700">--</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <div class="text-xs font-semibold text-emerald-600 mb-1">آخر دورة مرحّلة</div>
+                        <div id="statLatestRun" class="text-lg font-bold text-emerald-700">--</div>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-sm font-semibold text-slate-700">تقدّم دورة الفترة الحالية</p>
+                        <span id="focusStatus" class="text-xs font-bold text-slate-600">--</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                        <div id="focusProgress" class="h-2 rounded-full bg-blue-600" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div class="p-4 rounded-xl border border-gray-200">
+                        <div class="text-xs font-semibold text-gray-500 mb-1">مسودات بحاجة للمراجعة</div>
+                        <div id="statDraft" class="text-xl font-bold text-gray-800">--</div>
+                    </div>
+                    <div class="p-4 rounded-xl border border-gray-200">
+                        <div class="text-xs font-semibold text-gray-500 mb-1">معتمد بانتظار الترحيل</div>
+                        <div id="statPendingPost" class="text-xl font-bold text-indigo-600">--</div>
+                    </div>
+                    <div class="p-4 rounded-xl border border-gray-200">
+                        <div class="text-xs font-semibold text-gray-500 mb-1">ملاحظات تشغيلية</div>
+                        <div id="statAlerts" class="text-xl font-bold text-amber-600">--</div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl shadow-sm p-6">
+                <h3 class="text-lg font-bold mb-4">نقاط تركيز الأسبوع</h3>
+                <ul id="focusList" class="space-y-3 text-sm text-slate-200">
+                    <li class="flex items-center gap-2"><i class="fas fa-check-circle text-emerald-400"></i> مراجعة بنود الخصومات المتراكمة</li>
+                    <li class="flex items-center gap-2"><i class="fas fa-clock text-amber-300"></i> متابعة الموافقات المتأخرة</li>
+                    <li class="flex items-center gap-2"><i class="fas fa-chart-line text-blue-300"></i> تحليل تغيرات الصافي مقارنة بالشهر السابق</li>
+                </ul>
+                <div class="mt-6 p-4 bg-white/10 rounded-xl">
+                    <p class="text-xs uppercase tracking-wide text-slate-300">تنبيه سريع</p>
+                    <p id="focusNote" class="mt-2 text-sm font-semibold">--</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operational Alerts -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-slate-800">تنبيهات تشغيل الرواتب</h2>
+                <span class="text-xs text-gray-500">محدث لحظياً من بيانات الدورات</span>
+            </div>
+            <div id="alertsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-4 rounded-xl bg-gray-50 border border-gray-200">جاري التحديث...</div>
+            </div>
+        </div>
+
+        <!-- Filters & Action -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                <h2 class="text-lg font-bold text-slate-800">فلترة دورات الرواتب</h2>
+                <div class="flex gap-2">
+                    <button onclick="resetFilters()" class="text-gray-500 hover:text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
+                        إعادة ضبط
+                    </button>
+                    <button onclick="openRunModal()" class="bg-white hover:bg-slate-50 text-slate-900 px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition flex items-center gap-2 border-2 border-blue-500">
+                        <i class="fas fa-plus"></i> إنشاء دورة
+                    </button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">السنة</label>
+                    <input id="filterYear" type="number" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-gray-50 border" placeholder="2026">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الشهر</label>
+                    <input id="filterMonth" type="number" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-gray-50 border" placeholder="8">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
+                    <select id="filterStatus" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-white border">
+                        <option value="">الكل</option>
+                        <option value="DRAFT">مسودة</option>
+                        <option value="APPROVED">معتمد</option>
+                        <option value="POSTED">مرحّل</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">بحث برقم الدورة</label>
+                    <input id="filterSearch" type="text" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-white border" placeholder="PR-202602">
+                </div>
+            </div>
+            <p class="mt-3 text-sm text-slate-500">يمكنك استخدام الفلاتر للبحث عن دورات الرواتب حسب السنة أو الشهر أو حالة الدورة.</p>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">قائمة الدورات</h2>
+                <span id="runsCount" class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">--</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-sm text-gray-600">
+                    <thead class="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-4">رقم الدورة</th>
+                            <th class="px-6 py-4">الفترة</th>
+                            <th class="px-6 py-4">تاريخ الدورة</th>
+                            <th class="px-6 py-4">الحالة</th>
+                            <th class="px-6 py-4">إجمالي الإجمالي</th>
+                            <th class="px-6 py-4">إجمالي الاستقطاعات</th>
+                            <th class="px-6 py-4">الصافي</th>
+                            <th class="px-6 py-4">القيد</th>
+                            <th class="px-6 py-4 text-center">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="runsTable" class="divide-y divide-gray-100">
+                        <tr>
+                            <td colspan="9" class="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Run Modal -->
+    <div id="runModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto transform transition-transform scale-95">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                <h3 class="text-xl font-bold text-slate-800">إنشاء دورة رواتب</h3>
+                <button onclick="closeRunModal()" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">السنة *</label>
+                        <input id="runYear" type="number" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="2026">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الشهر *</label>
+                        <input id="runMonth" type="number" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="8">
+                    </div>
+                </div>
+                <div>
+                     <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ الدورة</label>
+                     <input id="runDate" type="date" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">رقم الدورة</label>
+                     <input id="runNumber" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="PR-202608-001">
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-100 flex gap-3 justify-end bg-gray-50 rounded-b-2xl">
+                <button onclick="closeRunModal()" class="px-6 py-2 rounded-lg text-gray-600 font-bold hover:bg-gray-200 transition">إلغاء</button>
+                <button onclick="createRun()" class="px-6 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg hover:shadow-xl transition">حفظ الدورة</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Post Modal -->
+    <div id="postModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto transform transition-transform scale-95">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                <h3 class="text-xl font-bold text-slate-800">ترحيل الدورة</h3>
+                <button onclick="closePostModal()" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-sm text-gray-500">أدخل أكواد الحسابات المستخدمة في القيد.</p>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">حساب المدين *</label>
+                    <input id="postDebit" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="5100">
+                </div>
+                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">حساب الدائن *</label>
+                    <input id="postCredit" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="2150">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">حساب الاستقطاعات (اختياري)</label>
+                    <input id="postDeductions" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="2160">
+                </div>
+            </div>
+             <div class="p-6 border-t border-gray-100 flex gap-3 justify-end bg-gray-50 rounded-b-2xl">
+                <button onclick="closePostModal()" class="px-6 py-2 rounded-lg text-gray-600 font-bold hover:bg-gray-200 transition">إلغاء</button>
+                <button onclick="postRun()" class="px-6 py-2 rounded-lg bg-green-600 text-white font-bold hover:bg-green-700 shadow-lg hover:shadow-xl transition">ترحيل</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Run Details Drawer -->
+    <div id="runDrawer" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/40" onclick="closeRunDrawer()"></div>
+        <div class="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <p class="text-xs text-gray-500">تفاصيل الدورة</p>
+                    <h3 id="drawerRunNumber" class="text-xl font-bold text-slate-800">--</h3>
+                </div>
+                <button onclick="closeRunDrawer()" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p class="text-xs font-semibold text-gray-500">الفترة</p>
+                        <p id="drawerPeriod" class="text-sm font-bold text-slate-800">--</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p class="text-xs font-semibold text-gray-500">الحالة</p>
+                        <p id="drawerStatus" class="text-sm font-bold text-slate-800">--</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p class="text-xs font-semibold text-gray-500">تاريخ التشغيل</p>
+                        <p id="drawerDate" class="text-sm font-bold text-slate-800">--</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p class="text-xs font-semibold text-gray-500">عدد البنود</p>
+                        <p id="drawerItems" class="text-sm font-bold text-slate-800">--</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="p-4 rounded-xl bg-blue-50 border border-blue-100">
+                        <p class="text-xs font-semibold text-blue-600">الإجمالي</p>
+                        <p id="drawerGross" class="text-base font-bold text-blue-700">--</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-rose-50 border border-rose-100">
+                        <p class="text-xs font-semibold text-rose-500">الاستقطاعات</p>
+                        <p id="drawerDeductions" class="text-base font-bold text-rose-600">--</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <p class="text-xs font-semibold text-emerald-600">الصافي</p>
+                        <p id="drawerNet" class="text-base font-bold text-emerald-700">--</p>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-sm font-bold text-slate-700">أبرز البنود</h4>
+                        <a id="drawerPayslips" href="#" class="text-xs text-blue-600 hover:text-blue-800">عرض الكشوف</a>
+                    </div>
+                    <div class="overflow-hidden border border-gray-200 rounded-xl">
+                        <table class="w-full text-sm text-gray-600">
+                            <thead class="bg-gray-50 text-gray-700">
+                                <tr>
+                                    <th class="px-4 py-2">الموظف</th>
+                                    <th class="px-4 py-2">الإجمالي</th>
+                                    <th class="px-4 py-2">الخصم</th>
+                                    <th class="px-4 py-2">الصافي</th>
+                                </tr>
+                            </thead>
+                            <tbody id="drawerItemsTable" class="divide-y divide-gray-100">
+                                <tr>
+                                    <td colspan="4" class="px-4 py-3 text-center text-gray-500">--</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Run Modal -->
+    <div id="editRunModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto transform transition-transform scale-95">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                <h3 class="text-xl font-bold text-slate-800">تعديل دورة الرواتب</h3>
+                <button onclick="closeEditModal()" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">السنة *</label>
+                        <input id="editYear" type="number" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="2026">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الشهر *</label>
+                        <input id="editMonth" type="number" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="8">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">تاريخ الدورة</label>
+                    <input id="editDate" type="date" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">رقم الدورة</label>
+                    <input id="editNumber" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="PR-202608-001">
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-100 flex gap-3 justify-end bg-gray-50 rounded-b-2xl">
+                <button onclick="closeEditModal()" class="px-6 py-2 rounded-lg text-gray-600 font-bold hover:bg-gray-200 transition">إلغاء</button>
+                <button onclick="updateRun()" class="px-6 py-2 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg hover:shadow-xl transition">حفظ التعديلات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div class="p-6 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+                <h3 class="text-lg font-bold text-slate-800">تأكيد حذف الدورة</h3>
+            </div>
+            <div class="p-6">
+                <p id="deleteMessage" class="text-sm text-gray-600">هل أنت متأكد من حذف هذه الدورة؟</p>
+            </div>
+            <div class="p-6 border-t border-gray-100 flex gap-3 justify-end bg-gray-50 rounded-b-2xl">
+                <button onclick="closeDeleteModal()" class="px-5 py-2 rounded-lg text-gray-600 font-bold hover:bg-gray-200 transition">إلغاء</button>
+                <button onclick="confirmDelete()" class="px-5 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg hover:shadow-xl transition">حذف</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/finance/finance-context.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+        let runs = [];
+        let summary = null;
+        let currentPostRunId = null;
+        let currentEditRunId = null;
+        let currentDeleteRunId = null;
+        let searchTimer = null;
+
+        const STATUS_LABELS = {
+            DRAFT: 'مسودة',
+            APPROVED: 'معتمد',
+            POSTED: 'مرحّل'
+        };
+
+        const STATUS_PROGRESS = {
+            DRAFT: 35,
+            APPROVED: 70,
+            POSTED: 100
+        };
+
+        function formatCurrency(value) {
+            const number = Number(value || 0);
+            return number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toISOString().slice(0, 10);
+        }
+
+        function getStatusBadge(status) {
+            if (status === 'APPROVED') {
+                return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">معتمد</span>';
+            }
+            if (status === 'POSTED') {
+                return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">مرحّل</span>';
+            }
+            return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">مسودة</span>';
+        }
+
+        function showToast(message, tone = 'info') {
+            const toast = document.createElement('div');
+            const toneClasses = {
+                info: 'bg-slate-900 text-white',
+                success: 'bg-emerald-600 text-white',
+                error: 'bg-red-600 text-white'
+            };
+            toast.className = `fixed bottom-6 right-6 px-4 py-3 rounded-xl shadow-lg text-sm font-semibold ${toneClasses[tone] || toneClasses.info}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        function setLoadingState() {
+            document.getElementById('runsTable').innerHTML = `
+                <tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">جاري التحميل...</td></tr>
+            `;
+        }
+
+        async function loadRuns() {
+            setLoadingState();
+            const params = new URLSearchParams();
+            const year = document.getElementById('filterYear').value;
+            const month = document.getElementById('filterMonth').value;
+            const status = document.getElementById('filterStatus').value;
+            const search = document.getElementById('filterSearch').value.trim();
+            if (year) params.set('period_year', year);
+            if (month) params.set('period_month', month);
+            if (status) params.set('status', status);
+
+            const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+            try {
+                const [runsResponse, summaryResponse] = await Promise.all([
+                    fetch(`${API_BASE}/finance/payroll/runs?${params.toString()}`, { headers }),
+                    fetch(`${API_BASE}/finance/payroll/reports/summary?${params.toString()}`, { headers })
+                ]);
+                const runsData = await runsResponse.json();
+                const summaryData = await summaryResponse.json();
+                if (!runsData.success) throw new Error(runsData.error || 'تعذر تحميل الدورات');
+                runs = runsData.runs || [];
+                summary = summaryData.success ? summaryData.summary : null;
+
+                if (search) {
+                    runs = runs.filter((run) => (run.run_number || '').toLowerCase().includes(search.toLowerCase()));
+                }
+                renderStats();
+                renderAlerts();
+                renderTable();
+            } catch (error) {
+                console.error('Error loading runs:', error);
+                document.getElementById('runsTable').innerHTML = `
+                    <tr><td colspan="9" class="px-6 py-8 text-center text-red-500 font-bold">تعذر تحميل البيانات</td></tr>
+                `;
+                showToast('تعذر تحميل البيانات', 'error');
+            }
+        }
+
+        function renderStats() {
+            const total = summary?.total_runs ?? runs.length;
+            const totalNet = summary?.total_net ?? runs.reduce((sum, run) => sum + Number(run.total_net || 0), 0);
+            const totalGross = summary?.total_gross ?? runs.reduce((sum, run) => sum + Number(run.total_gross || 0), 0);
+            const totalDeductions = summary?.total_deductions ?? runs.reduce((sum, run) => sum + Number(run.total_deductions || 0), 0);
+            const approved = runs.filter((run) => run.status === 'APPROVED').length;
+            const posted = runs.filter((run) => run.status === 'POSTED').length;
+            const draft = runs.filter((run) => run.status === 'DRAFT').length;
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statNet').textContent = formatCurrency(totalNet);
+            document.getElementById('statApproved').textContent = approved;
+            document.getElementById('runsCount').textContent = `${total} دورة`;
+            document.getElementById('statGross').textContent = formatCurrency(totalGross);
+            document.getElementById('statDeductions').textContent = formatCurrency(totalDeductions);
+            document.getElementById('statAvgNet').textContent = total ? formatCurrency(totalNet / total) : '--';
+
+            const latestPosted = runs.find((run) => run.status === 'POSTED');
+            document.getElementById('statLatestRun').textContent = latestPosted ? latestPosted.run_number : '--';
+
+            document.getElementById('statDraft').textContent = draft;
+            document.getElementById('statPendingPost').textContent = approved;
+            document.getElementById('statAlerts').textContent = draft + approved;
+
+            const focusRun = runs[0];
+            const focusPeriod = focusRun
+                ? `${focusRun.period_year}-${String(focusRun.period_month).padStart(2, '0')}`
+                : '--';
+            const focusStatus = focusRun ? (STATUS_LABELS[focusRun.status] || focusRun.status) : '--';
+            const progress = focusRun ? (STATUS_PROGRESS[focusRun.status] || 0) : 0;
+            document.getElementById('focusPeriod').textContent = focusPeriod;
+            document.getElementById('focusStatus').textContent = focusStatus;
+            document.getElementById('focusProgress').style.width = `${progress}%`;
+
+            const focusNote = draft
+                ? `لديك ${draft} دورة تحتاج مراجعة قبل الاعتماد.`
+                : approved
+                    ? `هناك ${approved} دورة معتمدة بانتظار الترحيل.`
+                    : posted
+                        ? `آخر دورة مرحّلة: ${latestPosted?.run_number || '--'}`
+                        : 'لا توجد دورات حالية.';
+            document.getElementById('focusNote').textContent = focusNote;
+        }
+
+        function renderAlerts() {
+            const draftRuns = runs.filter((run) => run.status === 'DRAFT');
+            const approvedRuns = runs.filter((run) => run.status === 'APPROVED');
+            const postedRuns = runs.filter((run) => run.status === 'POSTED');
+            const topNet = runs
+                .slice()
+                .sort((a, b) => Number(b.total_net || 0) - Number(a.total_net || 0))
+                .slice(0, 1)[0];
+
+            const cards = [
+                {
+                    title: 'مسودات بحاجة اعتماد',
+                    value: draftRuns.length,
+                    note: draftRuns.length ? `أقدم مسودة: ${draftRuns[draftRuns.length - 1]?.run_number || '-'}` : 'لا توجد مسودات حالياً'
+                },
+                {
+                    title: 'اعتمادات بانتظار الترحيل',
+                    value: approvedRuns.length,
+                    note: approvedRuns.length ? `أحدث اعتماد: ${approvedRuns[0]?.run_number || '-'}` : 'كل الدورات تم ترحيلها'
+                },
+                {
+                    title: 'أعلى صافي مسجل',
+                    value: topNet ? formatCurrency(topNet.total_net) : '--',
+                    note: topNet ? topNet.run_number : 'لا توجد بيانات بعد'
+                }
+            ];
+
+            document.getElementById('alertsGrid').innerHTML = cards.map((card) => `
+                <div class="p-4 rounded-xl border border-gray-200 bg-gray-50">
+                    <p class="text-xs font-semibold text-gray-500">${card.title}</p>
+                    <p class="text-lg font-bold text-slate-800">${card.value}</p>
+                    <p class="text-xs text-gray-500 mt-1">${card.note}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderTable() {
+            if (!runs.length) {
+                document.getElementById('runsTable').innerHTML = `
+                    <tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">لا توجد بيانات</td></tr>
+                `;
+                return;
+            }
+            const rows = runs.map((run) => {
+                const statusBadge = getStatusBadge(run.status);
+                return `
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 font-bold text-gray-900">${run.run_number || '-'}</td>
+                        <td class="px-6 py-4">${run.period_year}-${String(run.period_month).padStart(2, '0')}</td>
+                        <td class="px-6 py-4">${formatDate(run.run_date)}</td>
+                        <td class="px-6 py-4">${statusBadge}</td>
+                        <td class="px-6 py-4 font-mono text-gray-600">${formatCurrency(run.total_gross)}</td>
+                        <td class="px-6 py-4 font-mono text-red-600">${formatCurrency(run.total_deductions)}</td>
+                        <td class="px-6 py-4 font-bold text-blue-600 font-mono">${formatCurrency(run.total_net)}</td>
+                        <td class="px-6 py-4 font-mono text-xs">${run.journal_entry_id || '-'}</td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <button data-action="preview" data-id="${run.run_id}" class="text-xs bg-slate-100 text-slate-700 hover:bg-slate-200 px-3 py-1 rounded-full transition font-bold" title="معاينة">
+                                    معاينة
+                                </button>
+                                <button data-action="edit" data-id="${run.run_id}" class="text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 px-3 py-1 rounded-full transition font-bold" title="تعديل">
+                                    تعديل
+                                </button>
+                                <button data-action="delete" data-id="${run.run_id}" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1 rounded-full transition font-bold" title="حذف">
+                                    حذف
+                                </button>
+                                <button data-action="approve" data-id="${run.run_id}" class="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-1 rounded-full transition font-bold" title="اعتماد">
+                                    اعتماد
+                                </button>
+                                <button data-action="post" data-id="${run.run_id}" class="text-xs bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1 rounded-full transition font-bold" title="ترحيل">
+                                    ترحيل
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('runsTable').innerHTML = rows;
+        }
+
+        function openRunModal() {
+            document.getElementById('runModal').classList.remove('hidden');
+            document.getElementById('runYear').value = '';
+            document.getElementById('runMonth').value = '';
+            document.getElementById('runDate').value = '';
+            document.getElementById('runNumber').value = '';
+        }
+
+        function closeRunModal() {
+            document.getElementById('runModal').classList.add('hidden');
+        }
+
+        function openEditModal(runId) {
+            const run = runs.find((item) => item.run_id === runId);
+            if (!run) {
+                showToast('تعذر العثور على الدورة', 'error');
+                return;
+            }
+            currentEditRunId = runId;
+            document.getElementById('editYear').value = run.period_year || '';
+            document.getElementById('editMonth').value = run.period_month || '';
+            document.getElementById('editDate').value = run.run_date ? formatDate(run.run_date) : '';
+            document.getElementById('editNumber').value = run.run_number || '';
+            document.getElementById('editRunModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editRunModal').classList.add('hidden');
+        }
+
+        function openDeleteModal(runId) {
+            const run = runs.find((item) => item.run_id === runId);
+            if (!run) {
+                showToast('تعذر العثور على الدورة', 'error');
+                return;
+            }
+            currentDeleteRunId = runId;
+            document.getElementById('deleteMessage').textContent = `سيتم حذف الدورة ${run.run_number}. هل تريد المتابعة؟`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+        }
+
+        async function createRun() {
+            const payload = {
+                period_year: Number(document.getElementById('runYear').value),
+                period_month: Number(document.getElementById('runMonth').value),
+                run_date: document.getElementById('runDate').value || null,
+                run_number: document.getElementById('runNumber').value.trim() || null
+            };
+
+            if (!payload.period_year || !payload.period_month) {
+                showToast('يرجى إدخال السنة والشهر', 'error');
+                return;
+            }
+
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/runs`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر إنشاء الدورة');
+                closeRunModal();
+                await loadRuns();
+                showToast('تم إنشاء الدورة بنجاح', 'success');
+            } catch (error) {
+                console.error('Error creating run:', error);
+                showToast(error.message || 'تعذر إنشاء الدورة', 'error');
+            }
+        }
+
+        async function updateRun() {
+            if (!currentEditRunId) return;
+            const payload = {
+                period_year: Number(document.getElementById('editYear').value),
+                period_month: Number(document.getElementById('editMonth').value),
+                run_date: document.getElementById('editDate').value || null,
+                run_number: document.getElementById('editNumber').value.trim() || null
+            };
+
+            if (!payload.period_year || !payload.period_month) {
+                showToast('يرجى إدخال السنة والشهر', 'error');
+                return;
+            }
+
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/runs/${currentEditRunId}`, {
+                    method: 'PUT',
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر تحديث الدورة');
+                closeEditModal();
+                await loadRuns();
+                showToast('تم تحديث الدورة بنجاح', 'success');
+            } catch (error) {
+                console.error('Error updating run:', error);
+                showToast(error.message || 'تعذر تحديث الدورة', 'error');
+            }
+        }
+
+        async function confirmDelete() {
+            if (!currentDeleteRunId) return;
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/runs/${currentDeleteRunId}`, {
+                    method: 'DELETE',
+                    headers
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر حذف الدورة');
+                closeDeleteModal();
+                await loadRuns();
+                showToast('تم حذف الدورة', 'success');
+            } catch (error) {
+                console.error('Error deleting run:', error);
+                showToast(error.message || 'تعذر حذف الدورة', 'error');
+            }
+        }
+
+        async function approveRun(runId) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+            };
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/runs/${runId}/approve`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ approved_by: 'WEB_UI' })
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر اعتماد الدورة');
+                await loadRuns();
+                showToast('تم اعتماد الدورة', 'success');
+            } catch (error) {
+                console.error('Error approving run:', error);
+                showToast(error.message || 'تعذر اعتماد الدورة', 'error');
+            }
+        }
+
+        function openPostModal(runId) {
+            const run = runs.find((r) => r.run_id === runId);
+            if (!run) {
+                showToast('تعذر العثور على الدورة', 'error');
+                return;
+            }
+            currentPostRunId = runId;
+            document.getElementById('postModal').classList.remove('hidden');
+        }
+
+        function closePostModal() {
+            document.getElementById('postModal').classList.add('hidden');
+        }
+
+        async function postRun() {
+            if (!currentPostRunId) return;
+            const payload = {
+                debit_account_code: document.getElementById('postDebit').value.trim(),
+                credit_account_code: document.getElementById('postCredit').value.trim(),
+                deductions_account_code: document.getElementById('postDeductions').value.trim() || null
+            };
+
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/runs/${currentPostRunId}/post`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر ترحيل الدورة');
+                closePostModal();
+                await loadRuns();
+                showToast('تم ترحيل الدورة', 'success');
+            } catch (error) {
+                console.error('Error posting run:', error);
+                showToast(error.message || 'تعذر ترحيل الدورة', 'error');
+            }
+        }
+
+        async function openRunDrawer(runId) {
+            const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+            const drawer = document.getElementById('runDrawer');
+            drawer.classList.remove('hidden');
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/reports/run-details?run_id=${runId}`, { headers });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر تحميل تفاصيل الدورة');
+
+                const run = data.run || {};
+                const totals = data.totals || {};
+                const items = data.items || [];
+
+                document.getElementById('drawerRunNumber').textContent = run.run_number || '--';
+                document.getElementById('drawerPeriod').textContent = `${run.period_year}-${String(run.period_month).padStart(2, '0')}`;
+                document.getElementById('drawerStatus').textContent = STATUS_LABELS[run.status] || run.status || '--';
+                document.getElementById('drawerDate').textContent = formatDate(run.run_date);
+                document.getElementById('drawerItems').textContent = items.length;
+                document.getElementById('drawerGross').textContent = formatCurrency(totals.total_gross);
+                document.getElementById('drawerDeductions').textContent = formatCurrency(totals.total_deductions);
+                document.getElementById('drawerNet').textContent = formatCurrency(totals.total_net);
+                document.getElementById('drawerPayslips').href = `/finance/payroll-payslips.html?run_id=${runId}`;
+
+                const itemsRows = items.slice(0, 6).map((item) => `
+                    <tr>
+                        <td class="px-4 py-2">${item.full_name_ar || item.full_name_en || item.employee_code || '--'}</td>
+                        <td class="px-4 py-2">${formatCurrency(item.gross_amount)}</td>
+                        <td class="px-4 py-2 text-red-600">${formatCurrency(item.deductions_amount)}</td>
+                        <td class="px-4 py-2 font-semibold text-blue-600">${formatCurrency(item.net_amount)}</td>
+                    </tr>
+                `).join('');
+
+                document.getElementById('drawerItemsTable').innerHTML = itemsRows || `
+                    <tr><td colspan="4" class="px-4 py-3 text-center text-gray-500">لا توجد بنود</td></tr>
+                `;
+            } catch (error) {
+                console.error('Error loading run details:', error);
+                showToast(error.message || 'تعذر تحميل تفاصيل الدورة', 'error');
+            }
+        }
+
+        function closeRunDrawer() {
+            document.getElementById('runDrawer').classList.add('hidden');
+        }
+
+        function resetFilters() {
+            document.getElementById('filterYear').value = '';
+            document.getElementById('filterMonth').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterSearch').value = '';
+            loadRuns();
+        }
+
+        document.getElementById('filterYear').addEventListener('input', loadRuns);
+        document.getElementById('filterMonth').addEventListener('input', loadRuns);
+        document.getElementById('filterStatus').addEventListener('change', loadRuns);
+        document.getElementById('filterSearch').addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(loadRuns, 300);
+        });
+
+        document.getElementById('runsTable').addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-action]');
+            if (!button) return;
+            if (button.disabled) return;
+            const action = button.dataset.action;
+            const runId = Number(button.dataset.id);
+            if (!runId) return;
+            if (action === 'preview') openRunDrawer(runId);
+            if (action === 'edit') openEditModal(runId);
+            if (action === 'delete') openDeleteModal(runId);
+            if (action === 'approve') approveRun(runId);
+            if (action === 'post') openPostModal(runId);
+        });
+
+        loadRuns();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الصفحة العامة | NAIOSH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root{--red:#d70000;--red-dark:#6a0009;--bg:#05070b;--line:#303646;--text:#f8f9fc;--muted:#b5bdd0;}
+    *{box-sizing:border-box} body{margin:0;font-family:'Cairo',sans-serif;background:radial-gradient(circle at 30% 0,#310b13 0,#090b11 35%,#06070a 100%);color:var(--text)}
+    .container{width:min(760px,100% - 26px);margin:20px auto}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.01));border:1px solid var(--line);border-radius:22px;backdrop-filter:blur(8px);overflow:hidden}
+    .cover{height:200px;background:#171c28 center/cover no-repeat}
+    .inner{padding:0 16px 18px;text-align:center}
+    .avatar{width:110px;height:110px;border-radius:50%;border:4px solid #fff;margin:-55px auto 8px;background:#1a2130 center/cover no-repeat}
+    .bio{color:var(--muted);margin:0 auto 12px;max-width:560px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;border-radius:12px;padding:11px 12px;text-decoration:none;font-weight:800}
+    .btn-primary{color:#fff;background:linear-gradient(135deg,var(--red),var(--red-dark))}
+    .btn-dark{color:#fff;background:#1c2231;border:1px solid #343c4f}
+    .social-grid{display:grid;grid-template-columns:1fr;gap:10px;margin:14px 0}
+    .social-grid a{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:#fff;background:linear-gradient(135deg,#191f2d,#141923);border:1px solid #353c4d;border-radius:12px;padding:11px;font-weight:800}
+    .contacts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:12px 0}
+    .share{margin-top:14px;padding-top:14px;border-top:1px dashed #3a4253}
+    .share-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+    .followers{font-weight:800;color:#ffd1d6}
+    .qr-wrap{margin-top:12px}
+    .qr{max-width:220px;width:100%;border-radius:12px;border:1px solid #3a4253;background:#fff;padding:8px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <article class="card">
+      <div class="cover" id="cover"></div>
+      <div class="inner">
+        <div class="avatar" id="avatar"></div>
+        <h1 id="name">...</h1>
+        <p class="bio" id="bio"></p>
+        <div class="followers" id="followersCount">0 متابع</div>
+        <div style="margin-top:10px; display:flex; justify-content:center;">
+          <button class="btn btn-primary" id="followBtn"><i class="fas fa-user-plus"></i> متابعة</button>
+        </div>
+
+        <div class="social-grid" id="socialGrid"></div>
+
+        <div class="contacts" id="contacts"></div>
+
+        <section class="share">
+          <h3 style="margin:0 0 8px">مشاركة الصفحة</h3>
+          <div class="share-grid">
+            <button class="btn btn-dark" data-share="whatsapp"><i class="fab fa-whatsapp"></i> واتساب</button>
+            <button class="btn btn-dark" data-share="facebook"><i class="fab fa-facebook"></i> فيسبوك</button>
+            <button class="btn btn-dark" data-share="messenger"><i class="fab fa-facebook-messenger"></i> ماسنجر</button>
+            <button class="btn btn-dark" data-share="x"><i class="fab fa-x-twitter"></i> X</button>
+            <button class="btn btn-dark" id="copyLinkBtn"><i class="fas fa-link"></i> نسخ الرابط</button>
+          </div>
+          <div class="qr-wrap">
+            <img id="qrImage" class="qr" alt="QR" loading="lazy" hidden />
+            <div style="margin-top:8px"><button class="btn btn-primary" id="downloadQrBtn" hidden><i class="fas fa-download"></i> تحميل QR</button></div>
+          </div>
+        </section>
+      </div>
+    </article>
+  </div>
+
+  <script>
+    const username = decodeURIComponent((location.pathname.split('/u/')[1] || '').split('/')[0] || '').trim().toLowerCase();
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+
+    const cover = document.getElementById('cover');
+    const avatar = document.getElementById('avatar');
+    const nameEl = document.getElementById('name');
+    const bioEl = document.getElementById('bio');
+    const followersCount = document.getElementById('followersCount');
+    const followBtn = document.getElementById('followBtn');
+    const socialGrid = document.getElementById('socialGrid');
+    const contacts = document.getElementById('contacts');
+    const qrImage = document.getElementById('qrImage');
+    const downloadQrBtn = document.getElementById('downloadQrBtn');
+
+    let pageData = null;
+    let pageUrl = location.href;
+
+    const toSafeHttpUrl = (value='') => {
+      const trimmed = String(value || '').trim();
+      if (!trimmed) return '';
+      try {
+        const parsed = new URL(trimmed);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
+      } catch (_error) {}
+      return '';
+    };
+
+    const socialLink = (label, icon, url, clickKey) => {
+      const safe = toSafeHttpUrl(url);
+      if (!safe) return '';
+      return `<a href="${safe}" target="_blank" rel="noopener" data-click-key="${clickKey}" data-click-url="${safe}"><i class="${icon}"></i> ${label}</a>`;
+    };
+
+    const render = (payload) => {
+      pageData = payload;
+      const p = payload.page;
+      nameEl.textContent = p.name || '';
+      bioEl.textContent = p.bio || '';
+      followersCount.textContent = `${Number(p.followers_count || 0).toLocaleString('ar-SA')} متابع`;
+      if (p.cover_image_url) cover.style.backgroundImage = `url('${p.cover_image_url}')`;
+      if (p.profile_image_url) avatar.style.backgroundImage = `url('${p.profile_image_url}')`;
+
+      const socialHtml = [
+        socialLink('واتساب','fab fa-whatsapp', p.whatsapp, 'whatsapp'),
+        socialLink('فيسبوك','fab fa-facebook', p.facebook, 'facebook'),
+        socialLink('إنستغرام','fab fa-instagram', p.instagram, 'instagram'),
+        socialLink('يوتيوب','fab fa-youtube', p.youtube, 'youtube'),
+        socialLink('سناب شات','fab fa-snapchat', p.snapchat, 'snapchat'),
+        socialLink('تيك توك','fab fa-tiktok', p.tiktok, 'tiktok'),
+        ...(payload.customLinks || []).map((item, index) => socialLink(item.label || `رابط ${index+1}`, 'fas fa-link', item.url, `custom-${index+1}`))
+      ].filter(Boolean);
+      socialGrid.innerHTML = socialHtml.join('') || '<span style="color:#b5bdd0">لا توجد روابط حتى الآن</span>';
+
+      contacts.innerHTML = '';
+      if (p.phone) {
+        contacts.innerHTML += `<a class="btn btn-dark" href="tel:${p.phone}"><i class="fas fa-phone"></i> اتصال</a>`;
+        const sanitizedPhone = String(p.phone).replace(/[^\d+]/g, '');
+        contacts.innerHTML += `<a class="btn btn-primary" href="https://wa.me/${encodeURIComponent(sanitizedPhone)}" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> واتساب</a>`;
+      }
+
+      document.querySelectorAll('[data-click-key]').forEach((a) => {
+        a.addEventListener('click', () => {
+          fetch(`/api/creator-pages/${encodeURIComponent(username)}/link-click`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ clickKey: a.dataset.clickKey, targetUrl: a.dataset.clickUrl })
+          }).catch(() => {});
+        });
+      });
+    };
+
+    const updateFollowButton = async () => {
+      try {
+        const response = await fetch(`/api/creator-pages/${encodeURIComponent(username)}/follow-state`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        followBtn.dataset.following = data.following ? 'true' : 'false';
+        followBtn.innerHTML = data.following
+          ? '<i class="fas fa-user-check"></i> تتابع الآن'
+          : '<i class="fas fa-user-plus"></i> متابعة';
+        followersCount.textContent = `${Number(data.followers_count || 0).toLocaleString('ar-SA')} متابع`;
+      } catch (_e) {}
+    };
+
+    followBtn.addEventListener('click', async () => {
+      if (!token) {
+        window.location.href = '/login-page.html?reason=session';
+        return;
+      }
+      const following = followBtn.dataset.following === 'true';
+      const method = following ? 'DELETE' : 'POST';
+      const res = await fetch(`/api/creator-pages/${encodeURIComponent(username)}/follow`, {
+        method,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) updateFollowButton();
+    });
+
+    const openShare = (url) => window.open(url, '_blank', 'noopener,noreferrer');
+
+    document.querySelectorAll('[data-share]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.share;
+        const text = encodeURIComponent(`شاهد صفحتي: ${pageUrl}`);
+        if (type === 'whatsapp') openShare(`https://wa.me/?text=${text}`);
+        if (type === 'facebook') openShare(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`);
+        if (type === 'messenger') openShare(`https://www.facebook.com/dialog/send?link=${encodeURIComponent(pageUrl)}&app_id=291494419107518&redirect_uri=${encodeURIComponent(pageUrl)}`);
+        if (type === 'x') openShare(`https://x.com/intent/post?text=${text}`);
+      });
+    });
+
+    document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(pageUrl); } catch (_e) {}
+    });
+
+    downloadQrBtn.addEventListener('click', () => {
+      if (!qrImage.src) return;
+      const a = document.createElement('a');
+      a.href = qrImage.src;
+      a.download = `${username}-qr.png`;
+      a.click();
+    });
+
+    const loadPage = async () => {
+      const pageResponse = await fetch(`/api/creator-pages/${encodeURIComponent(username)}`);
+      if (!pageResponse.ok) {
+        document.body.innerHTML = '<div style="padding:24px;color:white">الصفحة غير موجودة أو معطلة.</div>';
+        return;
+      }
+      const payload = await pageResponse.json();
+      render(payload);
+      pageUrl = `${location.origin}/u/${encodeURIComponent(username)}`;
+
+      fetch(`/api/creator-pages/${encodeURIComponent(username)}/view`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      }).catch(() => {});
+
+      const qrRes = await fetch(`/api/creator-pages/${encodeURIComponent(username)}/qr`);
+      if (qrRes.ok) {
+        const qr = await qrRes.json();
+        if (qr.qrDataUrl) {
+          qrImage.src = qr.qrDataUrl;
+          qrImage.hidden = false;
+          downloadQrBtn.hidden = false;
+        }
+      }
+      updateFollowButton();
+    };
+
+    loadPage();
+  </script>
+</body>
+</html>

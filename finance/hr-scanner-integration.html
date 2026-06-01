@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تكامل مع الماسح الضوئي - نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --brand: #dc2626;
+      --brand-dark: #b91c1c;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --sun: #f59e0b;
+      --sky: #0ea5e9;
+      --line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 12%, rgba(220,38,38,0.12), transparent 40%),
+        radial-gradient(circle at 88% 15%, rgba(185,28,28,0.08), transparent 40%),
+        radial-gradient(circle at 50% 90%, rgba(15,23,42,0.05), transparent 50%),
+        linear-gradient(180deg, #fff5f5 0%, #f8fafc 50%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255,255,255,0.93);
+      border: 1px solid rgba(148,163,184,0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15,23,42,0.4);
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; font-weight: 800; border-radius: 999px;
+      padding: 10px 20px; transition: all 0.2s ease; border: 1px solid transparent;
+      cursor: pointer; font-family: 'Cairo', sans-serif;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px -18px rgba(15,23,42,0.4); }
+
+    /* ===== Hero Section ===== */
+    .scanner-hero {
+      background:
+        radial-gradient(circle at 20% 30%, rgba(220,38,38,0.25) 0%, transparent 50%),
+        radial-gradient(circle at 85% 20%, rgba(185,28,28,0.18) 0%, transparent 45%),
+        linear-gradient(135deg, rgba(15,23,42,0.97) 0%, rgba(60,10,10,0.95) 60%, rgba(120,20,20,0.92) 100%);
+      border-radius: 28px;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .scanner-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(220,38,38,0.04) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(220,38,38,0.04) 0 1px, transparent 1px 40px);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(220,38,38,0.18); border: 1px solid rgba(220,38,38,0.35);
+      border-radius: 999px; padding: 6px 16px;
+      font-size: 13px; font-weight: 800; color: #fca5a5;
+    }
+    .pulse-dot {
+      width: 10px; height: 10px; border-radius: 999px; background: #f87171;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(248,113,113,0.5); }
+      50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(248,113,113,0); }
+    }
+    .scanner-orb {
+      width: 180px; height: 180px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(220,38,38,0.35), rgba(185,28,28,0.2), rgba(15,23,42,0.5));
+      border: 1px solid rgba(220,38,38,0.3);
+      display: flex; align-items: center; justify-content: center;
+      position: relative; box-shadow: 0 0 60px rgba(220,38,38,0.2), inset 0 0 40px rgba(220,38,38,0.1);
+    }
+    .scanner-orb::before {
+      content: ''; position: absolute; inset: -8px; border-radius: 50%;
+      border: 1px solid rgba(220,38,38,0.15);
+    }
+    .scanner-orb::after {
+      content: ''; position: absolute; inset: -20px; border-radius: 50%;
+      border: 1px solid rgba(220,38,38,0.08);
+    }
+    /* scan beam animation */
+    .scan-beam {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(248,113,113,0.8), transparent);
+      animation: scanBeam 2.5s linear infinite;
+      border-radius: 999px;
+    }
+    @keyframes scanBeam {
+      0%   { top: 20%; opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { top: 80%; opacity: 0; }
+    }
+
+    /* ===== Stats Cards ===== */
+    .stat-card {
+      border-radius: 22px; border: 1px solid var(--line);
+      background: #fff; padding: 18px 20px;
+      box-shadow: 0 8px 28px -16px rgba(15,23,42,0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px -20px rgba(15,23,42,0.3); }
+    .stat-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .stat-progress { height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .stat-progress-bar { height: 100%; border-radius: 999px; transition: width 1s ease; }
+
+    /* ===== Section Labels ===== */
+    .section-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(220,38,38,0.1); border: 1px solid rgba(220,38,38,0.25);
+      border-radius: 999px; padding: 5px 14px;
+      font-size: 12px; font-weight: 800; color: #b91c1c;
+    }
+
+    /* ===== Feature Cards ===== */
+    .feature-card {
+      background: #fff; border: 1px solid var(--line); border-radius: 24px;
+      box-shadow: 0 8px 28px -16px rgba(15,23,42,0.15);
+      transition: transform 0.2s, box-shadow 0.2s;
+      overflow: hidden;
+    }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 50px -20px rgba(220,38,38,0.25); }
+    .feature-card-top {
+      height: 6px;
+      background: linear-gradient(90deg, #dc2626, #ef4444);
+    }
+
+    /* ===== How It Works Steps ===== */
+    .step-card {
+      background: #fff; border: 1px solid var(--line); border-radius: 20px;
+      padding: 24px; text-align: center;
+      box-shadow: 0 8px 28px -16px rgba(15,23,42,0.15);
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+    .step-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px -20px rgba(220,38,38,0.2); }
+    .step-num {
+      width: 52px; height: 52px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800;
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      color: #fff; margin: 0 auto 16px;
+      box-shadow: 0 8px 24px -8px rgba(220,38,38,0.5);
+    }
+    .step-connector {
+      position: absolute; top: 42px; left: 0;
+      width: 50%; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(220,38,38,0.3));
+    }
+    .step-connector-right {
+      position: absolute; top: 42px; right: 0;
+      width: 50%; height: 2px;
+      background: linear-gradient(270deg, transparent, rgba(220,38,38,0.3));
+    }
+
+    /* ===== Preview Area ===== */
+    .preview-area {
+      background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 24px;
+      min-height: 300px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .preview-area:hover { border-color: #dc2626; background: rgba(220,38,38,0.02); }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      background: linear-gradient(135deg, rgba(220,38,38,0.04), rgba(185,28,28,0.03));
+      border: 1px solid rgba(220,38,38,0.15);
+      border-radius: 24px; text-align: center;
+      padding: 60px 24px;
+      box-shadow: 0 8px 28px -16px rgba(15,23,42,0.1);
+    }
+    .empty-icon-wrap {
+      width: 80px; height: 80px; border-radius: 24px;
+      background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px; margin: 0 auto 20px;
+    }
+
+    /* ===== Badge / Chip ===== */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 11px; border-radius: 999px; font-size: 11px; font-weight: 800;
+    }
+    .badge-success { background: rgba(16,185,129,0.12); color: #047857; }
+    .badge-warning  { background: rgba(245,158,11,0.12);  color: #b45309; }
+    .badge-info     { background: rgba(14,165,233,0.12);  color: #0369a1; }
+    .badge-red      { background: rgba(220,38,38,0.12);   color: #b91c1c; }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
+    }
+
+    /* ===== Upload Zone ===== */
+    .upload-zone {
+      border: 2px dashed #cbd5e1; border-radius: 16px;
+      padding: 24px; text-align: center; cursor: pointer;
+      transition: all 0.2s; background: #fafafa;
+    }
+    .upload-zone:hover { border-color: #dc2626; background: rgba(220,38,38,0.03); }
+
+    /* ===== Scan List ===== */
+    .scan-item {
+      background: #fff; border: 1px solid var(--line); border-radius: 16px;
+      padding: 14px 18px;
+      box-shadow: 0 4px 16px -8px rgba(15,23,42,0.1);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .scan-item:hover { transform: translateX(-3px); box-shadow: 0 8px 28px -12px rgba(220,38,38,0.2); }
+
+    /* ===== Toast ===== */
+    #sc-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #0f172a; color: #fff; padding: 12px 28px; border-radius: 999px;
+      font-size: 14px; font-weight: 700; z-index: 100; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; white-space: nowrap;
+    }
+    #sc-toast.show { opacity: 1; }
+
+    /* Counter */
+    .counter { display: inline-block; }
+
+    @media (max-width: 768px) {
+      .scanner-orb { width: 120px; height: 120px; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+  <!-- ============================================================
+       1. PAGE HEADER
+  ============================================================ -->
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <span class="chip bg-white text-slate-600 border border-slate-200 mb-2">
+        <i class="fas fa-print text-red-500"></i>
+        تكامل مع الماسح الضوئي
+      </span>
+    </div>
+    <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200 text-sm">
+      <i class="fas fa-arrow-right"></i>
+      العودة للموارد البشرية
+    </a>
+  </div>
+
+  <!-- ============================================================
+       2. HERO SECTION
+  ============================================================ -->
+  <div class="scanner-hero p-8 md:p-12 mb-8">
+    <div class="relative z-10">
+      <div class="flex flex-col lg:flex-row gap-10 items-center">
+        <div class="flex-1">
+          <div class="hero-badge mb-5">
+            <div class="pulse-dot"></div>
+            نظام المسح الضوئي الذكي
+          </div>
+          <h1 class="text-4xl md:text-5xl font-extrabold mb-4 leading-tight">
+            📠 تكامل مع الماسح الضوئي
+          </h1>
+          <p class="text-lg md:text-xl mb-6 leading-relaxed" style="color:#fca5a5;">
+            اربط الماسح الضوئي الخاص بك مع النظام لتحويل المستندات الورقية إلى بيانات رقمية بسهولة.
+          </p>
+
+          <!-- Value props -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+            <div class="flex items-center gap-2 text-sm" style="color:#fca5a5;">
+              <i class="fas fa-usb text-red-300 flex-shrink-0"></i>
+              USB / Network
+            </div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fca5a5;">
+              <i class="fas fa-file-pdf text-rose-300 flex-shrink-0"></i>
+              تحويل إلى PDF
+            </div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fca5a5;">
+              <i class="fas fa-save text-orange-300 flex-shrink-0"></i>
+              حفظ تلقائي
+            </div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fca5a5;">
+              <i class="fas fa-brain text-red-300 flex-shrink-0"></i>
+              أرشفة ذكية
+            </div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fca5a5;">
+              <i class="fas fa-folder-open text-rose-300 flex-shrink-0"></i>
+              ربط بالملفات
+            </div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fca5a5;">
+              <i class="fas fa-shield-alt text-orange-300 flex-shrink-0"></i>
+              أمان كامل
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3">
+            <button onclick="document.getElementById('scan-section').scrollIntoView({behavior:'smooth'})"
+              class="btn text-sm" style="background:linear-gradient(135deg,#dc2626,#b91c1c); color:#fff; border-color:transparent; box-shadow:0 8px 24px -8px rgba(220,38,38,0.5);">
+              <i class="fas fa-play"></i>
+              ابدأ الآن
+            </button>
+            <button onclick="document.getElementById('docs-section').scrollIntoView({behavior:'smooth'})"
+              class="btn text-sm" style="background:rgba(255,255,255,0.1); color:#fff; border-color:rgba(255,255,255,0.2);">
+              <i class="fas fa-folder"></i>
+              المستندات المحفوظة
+            </button>
+          </div>
+        </div>
+
+        <!-- Orb Visual -->
+        <div class="flex flex-col items-center gap-6 flex-shrink-0">
+          <div class="scanner-orb">
+            <div class="scan-beam"></div>
+            <div style="text-align:center; position:relative; z-index:1;">
+              <div style="font-size:42px;">📠</div>
+              <div style="font-size:11px; font-weight:800; color:#fca5a5; margin-top:4px;">SCANNER</div>
+            </div>
+          </div>
+          <div class="flex gap-4 text-center">
+            <div>
+              <div class="text-2xl font-extrabold" style="color:#f87171;"><span class="counter" data-target="5830" data-suffix="">0</span></div>
+              <div class="text-xs text-slate-400">مستند ممسوح</div>
+            </div>
+            <div style="width:1px; background:rgba(255,255,255,0.1);"></div>
+            <div>
+              <div class="text-2xl font-extrabold text-emerald-400"><span class="counter" data-target="99" data-suffix="%">0%</span></div>
+              <div class="text-xs text-slate-400">دقة التحويل</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       3. STATS CARDS
+  ============================================================ -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(220,38,38,0.1); color:#b91c1c;">
+          <i class="fas fa-file-alt"></i>
+        </div>
+        <span class="chip text-xs" style="background:rgba(220,38,38,0.1); color:#b91c1c;">اليوم</span>
+      </div>
+      <div class="text-3xl font-extrabold mb-1">
+        <span class="counter" data-target="47" data-suffix="">0</span>
+      </div>
+      <div class="text-sm font-bold text-slate-700 mb-1">مستندات مُمسوحة اليوم</div>
+      <div class="text-xs text-slate-500 mb-3">عبر جميع الأجهزة</div>
+      <div class="stat-progress">
+        <div class="stat-progress-bar" style="width:62%; background:linear-gradient(90deg,#dc2626,#ef4444);"></div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(16,185,129,0.12); color:#047857;">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <span class="chip text-xs" style="background:rgba(16,185,129,0.12); color:#047857;">ممتاز</span>
+      </div>
+      <div class="text-3xl font-extrabold mb-1">
+        <span class="counter" data-target="99" data-suffix="%">0%</span>
+      </div>
+      <div class="text-sm font-bold text-slate-700 mb-1">دقة التحويل</div>
+      <div class="text-xs text-slate-500 mb-3">جودة عالية في كل مسح</div>
+      <div class="stat-progress">
+        <div class="stat-progress-bar" style="width:99%; background:linear-gradient(90deg,#10b981,#34d399);"></div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(14,165,233,0.12); color:#0369a1;">
+          <i class="fas fa-hdd"></i>
+        </div>
+        <span class="chip text-xs" style="background:rgba(14,165,233,0.12); color:#0369a1;">محفوظ</span>
+      </div>
+      <div class="text-3xl font-extrabold mb-1">
+        <span class="counter" data-target="5830" data-suffix="">0</span>
+      </div>
+      <div class="text-sm font-bold text-slate-700 mb-1">إجمالي الملفات</div>
+      <div class="text-xs text-slate-500 mb-3">مرفوعة ومؤرشفة</div>
+      <div class="stat-progress">
+        <div class="stat-progress-bar" style="width:74%; background:linear-gradient(90deg,#0ea5e9,#38bdf8);"></div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(245,158,11,0.12); color:#b45309;">
+          <i class="fas fa-plug"></i>
+        </div>
+        <span class="chip text-xs" style="background:rgba(245,158,11,0.12); color:#b45309;">متصل</span>
+      </div>
+      <div class="text-3xl font-extrabold mb-1">
+        <span class="counter" data-target="3" data-suffix="">0</span>
+      </div>
+      <div class="text-sm font-bold text-slate-700 mb-1">أجهزة مرتبطة</div>
+      <div class="text-xs text-slate-500 mb-3">USB + شبكي</div>
+      <div class="stat-progress">
+        <div class="stat-progress-bar" style="width:100%; background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       4. FEATURES SECTION
+  ============================================================ -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="section-label"><i class="fas fa-star"></i> المميزات الرئيسية</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-red-200"></div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+
+      <!-- Feature 1 -->
+      <div class="feature-card">
+        <div class="feature-card-top"></div>
+        <div class="p-6">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-4"
+            style="background:rgba(220,38,38,0.1);">
+            <i class="fas fa-print" style="color:#dc2626;"></i>
+          </div>
+          <h3 class="text-lg font-extrabold mb-2">مسح مباشر للمستندات</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">
+            تحويل الملفات الورقية إلى PDF أو صور بضغطة زر واحدة بشكل فوري.
+          </p>
+          <div class="mt-4">
+            <span class="badge badge-red">
+              <i class="fas fa-bolt"></i> فوري
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 2 -->
+      <div class="feature-card">
+        <div class="feature-card-top" style="background: linear-gradient(90deg, #10b981, #34d399);"></div>
+        <div class="p-6">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-4"
+            style="background:rgba(16,185,129,0.1);">
+            <i class="fas fa-save" style="color:#10b981;"></i>
+          </div>
+          <h3 class="text-lg font-extrabold mb-2">حفظ تلقائي داخل النظام</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">
+            يتم حفظ الملفات مباشرة داخل ملفات العملاء أو المشاريع بدون أي تدخل يدوي.
+          </p>
+          <div class="mt-4">
+            <span class="badge badge-success">
+              <i class="fas fa-check-circle"></i> تلقائي
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 3 -->
+      <div class="feature-card">
+        <div class="feature-card-top" style="background: linear-gradient(90deg, #0ea5e9, #38bdf8);"></div>
+        <div class="p-6">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-4"
+            style="background:rgba(14,165,233,0.1);">
+            <i class="fas fa-network-wired" style="color:#0ea5e9;"></i>
+          </div>
+          <h3 class="text-lg font-extrabold mb-2">دعم جميع الأجهزة</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">
+            يدعم الماسحات الضوئية المختلفة عبر USB أو الشبكة المحلية بدون إعداد معقد.
+          </p>
+          <div class="mt-4">
+            <span class="badge badge-info">
+              <i class="fas fa-plug"></i> USB / Network
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 4 -->
+      <div class="feature-card">
+        <div class="feature-card-top" style="background: linear-gradient(90deg, #f59e0b, #fbbf24);"></div>
+        <div class="p-6">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-4"
+            style="background:rgba(245,158,11,0.1);">
+            <i class="fas fa-brain" style="color:#f59e0b;"></i>
+          </div>
+          <h3 class="text-lg font-extrabold mb-2">أرشفة ذكية</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">
+            تصنيف المستندات وربطها تلقائياً بالبيانات والسجلات ذات الصلة في النظام.
+          </p>
+          <div class="mt-4">
+            <span class="badge badge-warning">
+              <i class="fas fa-magic"></i> ذكاء اصطناعي
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================
+       5. HOW IT WORKS
+  ============================================================ -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="section-label"><i class="fas fa-list-ol"></i> كيف يعمل؟</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-red-200"></div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+
+      <!-- Step 1 -->
+      <div class="step-card">
+        <div class="step-connector-right md:block hidden"></div>
+        <div class="step-num">١</div>
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4"
+          style="background:rgba(220,38,38,0.08); border:1px solid rgba(220,38,38,0.15);">
+          <i class="fas fa-plug" style="color:#dc2626;"></i>
+        </div>
+        <h3 class="text-lg font-extrabold mb-2">توصيل الماسح بالنظام</h3>
+        <p class="text-sm text-slate-500 leading-relaxed">
+          قم بتوصيل الماسح الضوئي عبر USB أو الشبكة المحلية وسيتم التعرف عليه تلقائياً.
+        </p>
+        <div class="mt-4 p-3 rounded-xl text-xs font-bold text-slate-500"
+          style="background:#f8fafc; border:1px solid #e2e8f0;">
+          <i class="fas fa-info-circle text-red-400 ml-1"></i>
+          يدعم TWAIN / WIA / SANE
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-card">
+        <div class="step-connector md:block hidden"></div>
+        <div class="step-connector-right md:block hidden"></div>
+        <div class="step-num">٢</div>
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4"
+          style="background:rgba(220,38,38,0.08); border:1px solid rgba(220,38,38,0.15);">
+          <i class="fas fa-print" style="color:#dc2626;"></i>
+        </div>
+        <h3 class="text-lg font-extrabold mb-2">بدء عملية المسح</h3>
+        <p class="text-sm text-slate-500 leading-relaxed">
+          اختر نوع المستند وجودة المسح ثم اضغط مسح لتحويل الورق إلى ملف رقمي فوري.
+        </p>
+        <div class="mt-4 p-3 rounded-xl text-xs font-bold text-slate-500"
+          style="background:#f8fafc; border:1px solid #e2e8f0;">
+          <i class="fas fa-info-circle text-red-400 ml-1"></i>
+          PDF / JPG / PNG / TIFF
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-card">
+        <div class="step-connector md:block hidden"></div>
+        <div class="step-num">٣</div>
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4"
+          style="background:rgba(220,38,38,0.08); border:1px solid rgba(220,38,38,0.15);">
+          <i class="fas fa-folder-plus" style="color:#dc2626;"></i>
+        </div>
+        <h3 class="text-lg font-extrabold mb-2">حفظ وتنظيم الملفات تلقائياً</h3>
+        <p class="text-sm text-slate-500 leading-relaxed">
+          يقوم النظام بحفظ وتصنيف الملفات وربطها تلقائياً بالسجل الصحيح داخل المنظومة.
+        </p>
+        <div class="mt-4 p-3 rounded-xl text-xs font-bold text-slate-500"
+          style="background:#f8fafc; border:1px solid #e2e8f0;">
+          <i class="fas fa-info-circle text-red-400 ml-1"></i>
+          أرشفة + OCR تلقائي
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================
+       6. SCAN INTERFACE
+  ============================================================ -->
+  <div id="scan-section" class="mb-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="section-label"><i class="fas fa-print"></i> بدء عملية المسح</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-red-200"></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+      <!-- Scanner Config Panel -->
+      <div class="lg:col-span-3">
+        <div class="glass" style="overflow:hidden;">
+          <div class="p-5 border-b border-slate-100"
+            style="background:linear-gradient(135deg, rgba(220,38,38,0.06), rgba(185,28,28,0.03));">
+            <h3 class="text-lg font-extrabold mb-1">⚙️ إعدادات المسح</h3>
+            <p class="text-sm text-slate-500">حدد الجهاز والإعدادات ثم ابدأ المسح</p>
+          </div>
+          <div class="p-6 space-y-5">
+
+            <!-- Device Select -->
+            <div>
+              <label class="block text-xs font-extrabold text-slate-500 mb-2">الجهاز المتصل</label>
+              <select class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none transition-all"
+                style="font-family:'Cairo',sans-serif;"
+                onfocus="this.style.borderColor='#dc2626'; this.style.boxShadow='0 0 0 3px rgba(220,38,38,0.1)'"
+                onblur="this.style.borderColor=''; this.style.boxShadow=''">
+                <option>📠 Canon DR-C225W — USB</option>
+                <option>🖨️ HP ScanJet Pro 3000 — Network</option>
+                <option>📄 Epson WorkForce DS-870 — USB</option>
+              </select>
+            </div>
+
+            <!-- Document Type -->
+            <div>
+              <label class="block text-xs font-extrabold text-slate-500 mb-2">نوع المستند</label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="doc-type-grid">
+                <button class="doc-type-btn active border-2 rounded-xl p-3 text-center text-sm font-extrabold transition-all"
+                  style="border-color:#dc2626; background:rgba(220,38,38,0.07); color:#b91c1c;"
+                  onclick="selectDocType(this, 'عقد')">
+                  <i class="fas fa-file-contract block text-2xl mb-1"></i>عقد
+                </button>
+                <button class="doc-type-btn border-2 border-slate-200 rounded-xl p-3 text-center text-sm font-extrabold transition-all hover:border-red-300 text-slate-600"
+                  onclick="selectDocType(this, 'فاتورة')">
+                  <i class="fas fa-file-invoice block text-2xl mb-1"></i>فاتورة
+                </button>
+                <button class="doc-type-btn border-2 border-slate-200 rounded-xl p-3 text-center text-sm font-extrabold transition-all hover:border-red-300 text-slate-600"
+                  onclick="selectDocType(this, 'تقرير')">
+                  <i class="fas fa-chart-bar block text-2xl mb-1"></i>تقرير
+                </button>
+                <button class="doc-type-btn border-2 border-slate-200 rounded-xl p-3 text-center text-sm font-extrabold transition-all hover:border-red-300 text-slate-600"
+                  onclick="selectDocType(this, 'هوية')">
+                  <i class="fas fa-id-card block text-2xl mb-1"></i>هوية
+                </button>
+                <button class="doc-type-btn border-2 border-slate-200 rounded-xl p-3 text-center text-sm font-extrabold transition-all hover:border-red-300 text-slate-600"
+                  onclick="selectDocType(this, 'صورة')">
+                  <i class="fas fa-image block text-2xl mb-1"></i>صورة
+                </button>
+                <button class="doc-type-btn border-2 border-slate-200 rounded-xl p-3 text-center text-sm font-extrabold transition-all hover:border-red-300 text-slate-600"
+                  onclick="selectDocType(this, 'أخرى')">
+                  <i class="fas fa-ellipsis-h block text-2xl mb-1"></i>أخرى
+                </button>
+              </div>
+            </div>
+
+            <!-- Quality + Format -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-extrabold text-slate-500 mb-2">الجودة (DPI)</label>
+                <select class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                  style="font-family:'Cairo',sans-serif;"
+                  onfocus="this.style.borderColor='#dc2626'; this.style.boxShadow='0 0 0 3px rgba(220,38,38,0.1)'"
+                  onblur="this.style.borderColor=''; this.style.boxShadow=''">
+                  <option>150 DPI — سريع</option>
+                  <option selected>300 DPI — موصى به</option>
+                  <option>600 DPI — عالي</option>
+                  <option>1200 DPI — فائق</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-extrabold text-slate-500 mb-2">الصيغة</label>
+                <select class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                  style="font-family:'Cairo',sans-serif;"
+                  onfocus="this.style.borderColor='#dc2626'; this.style.boxShadow='0 0 0 3px rgba(220,38,38,0.1)'"
+                  onblur="this.style.borderColor=''; this.style.boxShadow=''">
+                  <option selected>PDF</option>
+                  <option>JPG</option>
+                  <option>PNG</option>
+                  <option>TIFF</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Destination -->
+            <div>
+              <label class="block text-xs font-extrabold text-slate-500 mb-2">الوجهة (حفظ في)</label>
+              <select class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                style="font-family:'Cairo',sans-serif;"
+                onfocus="this.style.borderColor='#dc2626'; this.style.boxShadow='0 0 0 3px rgba(220,38,38,0.1)'"
+                onblur="this.style.borderColor=''; this.style.boxShadow=''">
+                <option>📁 ملفات العملاء</option>
+                <option>📂 ملفات المشاريع</option>
+                <option>🗂️ الأرشيف العام</option>
+                <option>👤 ملف موظف</option>
+                <option>💼 سجل عقود</option>
+              </select>
+            </div>
+
+            <!-- Scan Button -->
+            <button id="scan-btn" onclick="startScan()" class="btn w-full text-base"
+              style="background:linear-gradient(135deg,#dc2626,#b91c1c); color:#fff; border-color:transparent; box-shadow:0 8px 24px -8px rgba(220,38,38,0.5); padding:14px 20px;">
+              <i class="fas fa-print" id="scan-icon"></i>
+              <span id="scan-label">ابدأ المسح الآن</span>
+            </button>
+
+            <!-- Progress bar -->
+            <div id="scan-progress-wrap" style="display:none;">
+              <div style="height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden;">
+                <div id="scan-progress-bar"
+                  style="height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#dc2626,#ef4444); transition:width 0.3s ease;"></div>
+              </div>
+              <p id="scan-status-text" class="text-xs text-center text-slate-400 mt-2 font-bold">
+                جارٍ المسح... <span id="scan-pct">0</span>%
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Preview & Upload -->
+      <div class="lg:col-span-2 space-y-5">
+
+        <!-- Live Preview -->
+        <div class="glass p-5">
+          <h4 class="font-extrabold text-base mb-4">
+            <i class="fas fa-eye text-red-500 ml-2"></i>معاينة المسح
+          </h4>
+          <div class="preview-area" id="preview-area">
+            <div class="text-center p-6">
+              <i class="fas fa-print text-5xl text-slate-200 block mb-3"></i>
+              <p class="text-sm font-bold text-slate-400">ستظهر هنا معاينة المستند بعد المسح</p>
+              <p class="text-xs text-slate-300 mt-1">Scanner Preview</p>
+              <!-- Scan animation placeholder -->
+              <div class="mt-4 w-24 h-28 mx-auto rounded-xl border-2 border-dashed border-slate-200 relative overflow-hidden"
+                id="scan-preview-box" style="display:none;">
+                <div id="scan-preview-beam"
+                  style="position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(220,38,38,0.7),transparent);top:20%;"></div>
+                <div class="flex items-center justify-center h-full">
+                  <i class="fas fa-file-alt text-2xl text-slate-300"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload Zone Alternative -->
+        <div class="glass p-5">
+          <h4 class="font-extrabold text-base mb-3">
+            <i class="fas fa-cloud-upload-alt text-red-500 ml-2"></i>أو ارفع ملفاً مباشرة
+          </h4>
+          <div class="upload-zone" onclick="document.getElementById('file-upload-sc').click()"
+            ondragover="event.preventDefault(); this.classList.add('hover')"
+            ondragleave="this.classList.remove('hover')"
+            ondrop="handleFileDrop(event)">
+            <input type="file" id="file-upload-sc" multiple accept="image/*,.pdf,.tiff"
+              style="display:none" onchange="handleFileSelect(this.files)">
+            <i class="fas fa-cloud-upload-alt text-3xl text-slate-300 block mb-2"></i>
+            <p class="text-sm font-bold text-slate-500">
+              اسحب الملفات أو <span style="color:#dc2626;">انقر للرفع</span>
+            </p>
+            <p class="text-xs text-slate-400 mt-1">PDF، صور، TIFF — حد أقصى 20 MB</p>
+          </div>
+          <div id="uploaded-files-list" class="mt-3 space-y-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       7. DOCUMENTS SECTION (with empty state)
+  ============================================================ -->
+  <div id="docs-section" class="mb-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="section-label"><i class="fas fa-folder-open"></i> المستندات المحفوظة</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-red-200"></div>
+      <!-- Filter Pills -->
+      <div class="flex flex-wrap gap-2">
+        <button class="filter-pill active" onclick="filterDocs('all', this)">الكل</button>
+        <button class="filter-pill" onclick="filterDocs('pdf', this)">
+          <i class="fas fa-file-pdf text-red-500"></i> PDF
+        </button>
+        <button class="filter-pill" onclick="filterDocs('img', this)">
+          <i class="fas fa-image text-sky-500"></i> صور
+        </button>
+      </div>
+    </div>
+
+    <!-- Document List (populated by JS) -->
+    <div id="docs-container">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+  <!-- ============================================================
+       8. BOTTOM CTA
+  ============================================================ -->
+  <div class="mb-8"
+    style="background:linear-gradient(135deg,#0b1220,#3c0a0a 50%,#1a0505); border-radius:28px; position:relative; overflow:hidden;">
+    <div style="position:absolute;inset:0;background:radial-gradient(circle at 20% 50%, rgba(220,38,38,0.15), transparent 50%),radial-gradient(circle at 80% 30%, rgba(185,28,28,0.12), transparent 45%);pointer-events:none;"></div>
+    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(220,38,38,0.03) 0 1px,transparent 1px 40px),repeating-linear-gradient(90deg,rgba(220,38,38,0.03) 0 1px,transparent 1px 40px);pointer-events:none;"></div>
+    <div class="relative z-10 p-10 md:p-14 text-center">
+      <div class="inline-flex items-center gap-2 mb-5"
+        style="background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.25);border-radius:999px;padding:6px 16px;color:#fca5a5;font-size:13px;font-weight:800;">
+        <div class="pulse-dot"></div>
+        جاهز للاتصال الآن
+      </div>
+      <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-4">
+        وفّر الوقت مع المسح الضوئي الذكي
+      </h2>
+      <p class="text-lg mb-8 max-w-xl mx-auto leading-relaxed" style="color:#fca5a5;">
+        حوّل آلاف المستندات الورقية إلى أرشيف رقمي منظم في دقائق معدودة
+      </p>
+      <div class="flex flex-wrap gap-4 justify-center">
+        <button onclick="document.getElementById('scan-section').scrollIntoView({behavior:'smooth'})"
+          class="btn text-sm"
+          style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border-color:transparent;box-shadow:0 12px 30px -8px rgba(220,38,38,0.5);font-size:15px;padding:12px 28px;">
+          <i class="fas fa-play"></i>
+          ابدأ الآن
+        </button>
+        <button onclick="document.getElementById('docs-section').scrollIntoView({behavior:'smooth'})"
+          class="btn text-sm"
+          style="background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.25);font-size:15px;padding:12px 28px;">
+          <i class="fas fa-folder-open"></i>
+          عرض الأرشيف
+        </button>
+      </div>
+      <!-- Trust indicators -->
+      <div class="flex flex-wrap gap-5 justify-center mt-10">
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <i class="fas fa-usb text-red-400"></i>
+          <span>USB وشبكي</span>
+        </div>
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <i class="fas fa-shield-alt text-red-400"></i>
+          <span>تشفير كامل للملفات</span>
+        </div>
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <i class="fas fa-brain text-orange-400"></i>
+          <span>OCR ذكي</span>
+        </div>
+        <div class="flex items-center gap-2 text-slate-400 text-sm">
+          <i class="fas fa-archive text-amber-400"></i>
+          <span>أرشفة فورية</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- Toast -->
+<div id="sc-toast"></div>
+
+<style>
+.filter-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
+  border: 1px solid #e2e8f0; background: #fff; cursor: pointer; transition: all 0.2s;
+  font-family: 'Cairo', sans-serif;
+}
+.filter-pill:hover { border-color: #dc2626; color: #b91c1c; }
+.filter-pill.active { border-color: #dc2626; background: rgba(220,38,38,0.08); color: #b91c1c; }
+</style>
+
+<script>
+// ===================================================================
+// COUNTER ANIMATION
+// ===================================================================
+function animateCounter(el) {
+  const target = parseInt(el.dataset.target || 0);
+  const suffix = el.dataset.suffix || '';
+  const duration = 1800;
+  const step = target / (duration / 16);
+  let current = 0;
+  const timer = setInterval(() => {
+    current = Math.min(current + step, target);
+    el.textContent = Math.floor(current).toLocaleString('ar-SA') + suffix;
+    if (current >= target) clearInterval(timer);
+  }, 16);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.counter').forEach(animateCounter);
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.3 });
+  document.querySelectorAll('.stat-card, .scanner-hero').forEach(el => observer.observe(el));
+
+  renderDocs();
+});
+
+// ===================================================================
+// DOCUMENT TYPE SELECTION
+// ===================================================================
+function selectDocType(btn, type) {
+  document.querySelectorAll('.doc-type-btn').forEach(b => {
+    b.style.borderColor = '#e2e8f0';
+    b.style.background = '';
+    b.style.color = '#475569';
+  });
+  btn.style.borderColor = '#dc2626';
+  btn.style.background = 'rgba(220,38,38,0.07)';
+  btn.style.color = '#b91c1c';
+}
+
+// ===================================================================
+// SCAN SIMULATION
+// ===================================================================
+function startScan() {
+  const btn = document.getElementById('scan-btn');
+  const icon = document.getElementById('scan-icon');
+  const label = document.getElementById('scan-label');
+  const progressWrap = document.getElementById('scan-progress-wrap');
+  const progressBar = document.getElementById('scan-progress-bar');
+  const pct = document.getElementById('scan-pct');
+  const previewBox = document.getElementById('scan-preview-box');
+
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  icon.className = 'fas fa-spinner fa-spin';
+  label.textContent = 'جارٍ المسح...';
+  progressWrap.style.display = 'block';
+  if (previewBox) previewBox.style.display = 'block';
+
+  let p = 0;
+  const interval = setInterval(() => {
+    p += Math.random() * 15;
+    if (p > 100) p = 100;
+    progressBar.style.width = p + '%';
+    pct.textContent = Math.floor(p);
+    if (p >= 100) {
+      clearInterval(interval);
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        icon.className = 'fas fa-print';
+        label.textContent = 'ابدأ المسح الآن';
+        progressWrap.style.display = 'none';
+        progressBar.style.width = '0%';
+        addScannedDoc();
+        showToast('✅ تم مسح المستند وحفظه بنجاح!');
+      }, 600);
+    }
+  }, 150);
+}
+
+// ===================================================================
+// FILE UPLOAD
+// ===================================================================
+function handleFileDrop(e) {
+  e.preventDefault();
+  const files = e.dataTransfer.files;
+  handleFileSelect(files);
+}
+
+function handleFileSelect(files) {
+  const list = document.getElementById('uploaded-files-list');
+  Array.from(files).forEach(file => {
+    const item = document.createElement('div');
+    item.className = 'flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-white text-sm font-bold';
+    item.innerHTML = `
+      <div class="flex items-center gap-2 text-slate-700 truncate">
+        <i class="fas fa-file-alt text-red-400"></i>
+        <span class="truncate max-w-xs">${file.name}</span>
+      </div>
+      <button onclick="this.parentElement.remove()" class="text-slate-300 hover:text-red-400 transition-colors ml-2">
+        <i class="fas fa-times"></i>
+      </button>
+    `;
+    list.appendChild(item);
+  });
+  if (files.length) showToast(`📎 تم رفع ${files.length} ملف`);
+}
+
+// ===================================================================
+// SAMPLE SCANNED DOCUMENTS DATA
+// ===================================================================
+const sampleDocs = [
+  { id:1, name:'عقد_خدمات_2026_001.pdf', type:'pdf', size:'1.2 MB', date:'2026-04-05 09:12', dest:'ملفات العملاء', docType:'عقد' },
+  { id:2, name:'فاتورة_مارس_2026.pdf',   type:'pdf', size:'824 KB', date:'2026-04-04 14:30', dest:'سجل عقود',     docType:'فاتورة' },
+  { id:3, name:'تقرير_ربعي_Q1.pdf',      type:'pdf', size:'3.1 MB', date:'2026-04-03 10:00', dest:'الأرشيف العام',docType:'تقرير' },
+  { id:4, name:'هوية_موظف_0042.jpg',     type:'img', size:'412 KB', date:'2026-04-02 16:45', dest:'ملف موظف',     docType:'هوية' },
+  { id:5, name:'صورة_موقع.jpg',          type:'img', size:'2.7 MB', date:'2026-04-01 08:20', dest:'ملفات المشاريع',docType:'صورة' },
+];
+
+let docsData = [...sampleDocs];
+let docsFilter = 'all';
+
+function addScannedDoc() {
+  const now = new Date().toISOString().replace('T',' ').substring(0,16);
+  docsData.unshift({
+    id: Date.now(),
+    name: `مستند_جديد_${Date.now()}.pdf`,
+    type: 'pdf', size: '1.0 MB', date: now,
+    dest: 'الأرشيف العام', docType: 'أخرى'
+  });
+  renderDocs();
+  document.getElementById('docs-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderDocs() {
+  const container = document.getElementById('docs-container');
+  const filtered = docsFilter === 'all' ? docsData : docsData.filter(d => d.type === docsFilter);
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon-wrap">
+          <i class="fas fa-folder-open" style="color:#dc2626;"></i>
+        </div>
+        <h3 class="text-xl font-extrabold mb-2">لا توجد مستندات حالياً</h3>
+        <p class="text-slate-500 mb-6 text-sm">لم يتم مسح أي مستند بعد. ابدأ أول عملية مسح الآن.</p>
+        <button onclick="document.getElementById('scan-section').scrollIntoView({behavior:'smooth'})"
+          class="btn text-sm"
+          style="background:linear-gradient(135deg,#dc2626,#b91c1c); color:#fff; border-color:transparent; box-shadow:0 8px 24px -8px rgba(220,38,38,0.4);">
+          <i class="fas fa-print"></i>
+          ابدأ أول عملية مسح
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="glass overflow-hidden">
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="background:#f8fafc;text-align:right;padding:13px 16px;font-size:12px;font-weight:800;color:#64748b;border-bottom:1px solid #e2e8f0;">اسم الملف</th>
+              <th style="background:#f8fafc;text-align:right;padding:13px 16px;font-size:12px;font-weight:800;color:#64748b;border-bottom:1px solid #e2e8f0;">النوع</th>
+              <th style="background:#f8fafc;text-align:right;padding:13px 16px;font-size:12px;font-weight:800;color:#64748b;border-bottom:1px solid #e2e8f0;">الحجم</th>
+              <th style="background:#f8fafc;text-align:right;padding:13px 16px;font-size:12px;font-weight:800;color:#64748b;border-bottom:1px solid #e2e8f0;">الوجهة</th>
+              <th style="background:#f8fafc;text-align:right;padding:13px 16px;font-size:12px;font-weight:800;color:#64748b;border-bottom:1px solid #e2e8f0;">التاريخ</th>
+              <th style="background:#f8fafc;text-align:right;padding:13px 16px;font-size:12px;font-weight:800;color:#64748b;border-bottom:1px solid #e2e8f0;">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map((doc, idx) => `
+              <tr style="${idx < filtered.length - 1 ? 'border-bottom:1px solid rgba(226,232,240,0.6);' : ''}">
+                <td style="padding:14px 16px;font-size:13px;font-weight:700;">
+                  <div class="flex items-center gap-2">
+                    <i class="fas ${doc.type === 'pdf' ? 'fa-file-pdf text-red-400' : 'fa-file-image text-sky-400'}"></i>
+                    <span class="truncate max-w-xs">${doc.name}</span>
+                  </div>
+                </td>
+                <td style="padding:14px 16px;">
+                  <span class="badge ${doc.type === 'pdf' ? 'badge-red' : 'badge-info'}">
+                    ${doc.type.toUpperCase()}
+                  </span>
+                </td>
+                <td style="padding:14px 16px;font-size:13px;font-weight:600;color:#64748b;">${doc.size}</td>
+                <td style="padding:14px 16px;font-size:13px;font-weight:600;color:#64748b;">${doc.dest}</td>
+                <td style="padding:14px 16px;font-size:12px;font-weight:600;color:#94a3b8;white-space:nowrap;">${doc.date}</td>
+                <td style="padding:14px 16px;">
+                  <div class="flex gap-2">
+                    <button onclick="showToast('👁️ جارٍ فتح الملف...')"
+                      class="btn bg-white text-slate-600 border border-slate-200 text-xs" style="padding:5px 12px;">
+                      <i class="fas fa-eye"></i>
+                    </button>
+                    <button onclick="deleteDoc(${doc.id})"
+                      class="btn bg-white text-red-500 border border-red-100 text-xs" style="padding:5px 12px;">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="p-4 border-t border-slate-100 flex items-center justify-between">
+        <span style="font-size:12px;font-weight:700;color:#94a3b8;">يتم عرض ${filtered.length} مستند</span>
+        <button onclick="clearAllDocs()"
+          class="btn bg-white text-red-500 border border-red-100 text-xs" style="padding:7px 14px;">
+          <i class="fas fa-trash-alt"></i> مسح الكل
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function filterDocs(filter, btn) {
+  docsFilter = filter;
+  document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderDocs();
+}
+
+function deleteDoc(id) {
+  docsData = docsData.filter(d => d.id !== id);
+  renderDocs();
+  showToast('🗑️ تم حذف المستند');
+}
+
+function clearAllDocs() {
+  docsData = [];
+  renderDocs();
+  showToast('🗑️ تم مسح جميع المستندات');
+}
+
+// ===================================================================
+// TOAST
+// ===================================================================
+function showToast(msg) {
+  const t = document.getElementById('sc-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>↩️ مركز سياسة الاسترجاع المتقدم - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ink: #0b1220;
+            --muted: #64748b;
+            --brand: #0f766e;
+            --brand-2: #f59e0b;
+            --brand-3: #e11d48;
+            --panel: #ffffff;
+            --panel-ghost: rgba(255, 255, 255, 0.85);
+        }
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            color: var(--ink);
+            background: radial-gradient(circle at top left, rgba(15, 118, 110, 0.16), transparent 52%),
+                radial-gradient(circle at 80% 12%, rgba(245, 158, 11, 0.14), transparent 48%),
+                linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+            min-height: 100vh;
+        }
+
+        .glass {
+            background: var(--panel-ghost);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            animation: floatIn 0.6s ease both;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .table-scroll { max-height: 460px; overflow: auto; }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .fade-enter { animation: fadeUp 0.6s ease both; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes floatIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-backdrop {
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(6px);
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-10">
+        <header class="glass rounded-3xl p-8 mb-8 fade-enter">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div>
+                    <p class="text-sm text-slate-500 font-semibold">لوحة التحكم المتقدمة</p>
+                    <h1 class="text-4xl font-black mt-2">↩️ مركز سياسة الاسترجاع المتكامل</h1>
+                    <p class="text-lg text-slate-600 mt-3">نظام شامل لإدارة الاسترجاعات، الأهلية، التدقيق، وتحويل الأثر المالي إلى قرارات فورية.</p>
+                    <div class="mt-4 flex flex-wrap gap-3">
+                        <span class="pill bg-emerald-100 text-emerald-700"><i class="fa-solid fa-shield-check"></i> التزام تشغيلي 98%</span>
+                        <span class="pill bg-amber-100 text-amber-700"><i class="fa-solid fa-bolt"></i> وقت معالجة متوسط 2.1 يوم</span>
+                        <span class="pill bg-rose-100 text-rose-700"><i class="fa-solid fa-sparkles"></i> محرك أهلية ذكي</span>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="refreshData()" class="bg-white text-emerald-700 border border-emerald-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-rotate"></i>
+                        تحديث البيانات
+                    </button>
+                    <button onclick="exportCsv()" class="bg-amber-500 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-file-export"></i>
+                        تصدير CSV
+                    </button>
+                    <button onclick="printPage()" class="bg-slate-900 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-print"></i>
+                        طباعة السياسة
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+            <div class="card rounded-2xl p-5 border-t-4 border-emerald-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">فترة الاسترجاع</span>
+                    <i class="fas fa-calendar-alt text-emerald-500"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800">14 يوم</div>
+                <div class="text-xs text-slate-500">من تاريخ الاستلام</div>
+            </div>
+            <div class="card rounded-2xl p-5 border-t-4 border-amber-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">نسبة القبول</span>
+                    <i class="fas fa-circle-check text-amber-500"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800">88.6%</div>
+                <div class="text-xs text-slate-500">مقارنة بالربع السابق +4.2%</div>
+            </div>
+            <div class="card rounded-2xl p-5 border-t-4 border-rose-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">متوسط الاسترداد</span>
+                    <i class="fas fa-wallet text-rose-500"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800">4,280 SAR</div>
+                <div class="text-xs text-slate-500">حسب آخر 30 يوم</div>
+            </div>
+            <div class="card rounded-2xl p-5 border-t-4 border-slate-700">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">قضايا نشطة</span>
+                    <i class="fas fa-layer-group text-slate-700"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800">27</div>
+                <div class="text-xs text-slate-500">12 منها عالية المخاطر</div>
+            </div>
+            <div class="card rounded-2xl p-5 border-t-4 border-emerald-600">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">مستوى الامتثال</span>
+                    <i class="fas fa-shield-halved text-emerald-600"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800">97.4%</div>
+                <div class="text-xs text-slate-500">دون مخالفات حرجة</div>
+            </div>
+            <div class="card rounded-2xl p-5 border-t-4 border-amber-600">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">وقت الإغلاق</span>
+                    <i class="fas fa-stopwatch text-amber-600"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800">2.1 يوم</div>
+                <div class="text-xs text-slate-500">SLA الهدف 3 أيام</div>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="glass rounded-3xl p-6 lg:col-span-2">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-slate-800">📌 قواعد الاسترجاع الذكية</h2>
+                    <span class="badge bg-emerald-100 text-emerald-700">محدثة اليوم</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="bg-emerald-50 p-4 rounded-2xl">تأكيد رقم الطلب + إثبات التسليم</div>
+                    <div class="bg-amber-50 p-4 rounded-2xl">استثناء المنتجات الرقمية والخدمات الفورية</div>
+                    <div class="bg-rose-50 p-4 rounded-2xl">تقييم حالة المنتج عبر نموذج جودة موحد</div>
+                    <div class="bg-slate-50 p-4 rounded-2xl">فرض رسوم إرجاع على حالات تغيير الرغبة</div>
+                    <div class="bg-emerald-50 p-4 rounded-2xl">إغلاق تلقائي للطلبات خارج المدة</div>
+                    <div class="bg-amber-50 p-4 rounded-2xl">مطابقة تلقائية مع سجل الشكاوى السابق</div>
+                </div>
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div class="p-4 rounded-2xl border border-slate-200">
+                        <p class="text-slate-500">تقييم المخاطر</p>
+                        <p class="text-lg font-bold text-slate-800">منخفض 62% · متوسط 28% · مرتفع 10%</p>
+                    </div>
+                    <div class="p-4 rounded-2xl border border-slate-200">
+                        <p class="text-slate-500">القنوات الأعلى استرجاعًا</p>
+                        <p class="text-lg font-bold text-slate-800">متجر الرياض · التطبيق · شريك B2B</p>
+                    </div>
+                    <div class="p-4 rounded-2xl border border-slate-200">
+                        <p class="text-slate-500">تنبيهات حرجة</p>
+                        <p class="text-lg font-bold text-slate-800">2 حالة متجاوزة SLA</p>
+                    </div>
+                </div>
+            </div>
+            <div class="glass rounded-3xl p-6">
+                <h2 class="text-2xl font-bold text-slate-800 mb-4">🧠 محرك الأهلية الفوري</h2>
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <label class="text-slate-500">أيام منذ الاستلام</label>
+                        <input id="eligibilityDays" type="number" min="0" value="6" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="text-slate-500">حالة المنتج</label>
+                        <select id="eligibilityCondition" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                            <option>غير مستخدم</option>
+                            <option>بحالة جيدة</option>
+                            <option>متضرر جزئيًا</option>
+                            <option>متضرر بشدة</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-500">فئة المنتج</label>
+                        <select id="eligibilityCategory" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                            <option>إلكترونيات</option>
+                            <option>موضة</option>
+                            <option>خدمات رقمية</option>
+                            <option>أجهزة مكتبية</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-500">سبب الاسترجاع</label>
+                        <select id="eligibilityReason" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                            <option>عيب تصنيع</option>
+                            <option>تغيير رغبة</option>
+                            <option>تلف بالشحن</option>
+                            <option>مخالفة المواصفات</option>
+                        </select>
+                    </div>
+                    <button onclick="evaluateEligibility()" class="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold hover:bg-emerald-700 transition">تحليل الأهلية</button>
+                </div>
+                <div class="mt-5 rounded-2xl border border-slate-200 p-4 bg-white">
+                    <p class="text-sm text-slate-500">النتيجة الفورية</p>
+                    <p id="eligibilityResult" class="text-lg font-bold text-slate-800">مؤهل — استرداد كامل بدون رسوم</p>
+                    <p id="eligibilityMeta" class="text-xs text-slate-500 mt-1">SLA متوقع: 2 يوم · مستوى المخاطر: منخفض</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="glass rounded-3xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-slate-800">🧭 مسار الموافقات</h2>
+                    <span class="badge bg-amber-100 text-amber-700">3 مستويات</span>
+                </div>
+                <div class="space-y-4 text-sm">
+                    <div class="p-4 rounded-2xl border border-slate-200 bg-white">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-800">مدير الفرع</span>
+                            <span class="pill bg-emerald-100 text-emerald-700">≤ 6 ساعات</span>
+                        </div>
+                        <p class="text-slate-500 mt-2">التحقق من المستندات وصحة الطلب</p>
+                    </div>
+                    <div class="p-4 rounded-2xl border border-slate-200 bg-white">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-800">فريق الجودة</span>
+                            <span class="pill bg-amber-100 text-amber-700">≤ 24 ساعة</span>
+                        </div>
+                        <p class="text-slate-500 mt-2">تقييم الحالة وإصدار توصية فنية</p>
+                    </div>
+                    <div class="p-4 rounded-2xl border border-slate-200 bg-white">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-800">المالية</span>
+                            <span class="pill bg-rose-100 text-rose-700">≤ 48 ساعة</span>
+                        </div>
+                        <p class="text-slate-500 mt-2">تنفيذ الاسترداد وإقفال القيود</p>
+                    </div>
+                </div>
+            </div>
+            <div class="glass rounded-3xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-slate-800">📚 سجل التدقيق الذكي</h2>
+                    <span class="badge bg-slate-100 text-slate-700">آخر 24 ساعة</span>
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div class="p-3 rounded-2xl border border-slate-200 bg-white">
+                        <p class="font-bold text-slate-800">RET-7841 — اعتماد الجودة</p>
+                        <p class="text-slate-500">تم من قبل: سارة الحربي · 09:12 صباحًا</p>
+                    </div>
+                    <div class="p-3 rounded-2xl border border-slate-200 bg-white">
+                        <p class="font-bold text-slate-800">RET-7846 — تعديل سبب الاسترجاع</p>
+                        <p class="text-slate-500">تم من قبل: أحمد الدوسري · 10:03 صباحًا</p>
+                    </div>
+                    <div class="p-3 rounded-2xl border border-slate-200 bg-white">
+                        <p class="font-bold text-slate-800">RET-7851 — استرداد مالي</p>
+                        <p class="text-slate-500">تم من قبل: ليان الغامدي · 11:28 صباحًا</p>
+                    </div>
+                    <div class="p-3 rounded-2xl border border-slate-200 bg-white">
+                        <p class="font-bold text-slate-800">RET-7854 — حالة عالية المخاطر</p>
+                        <p class="text-slate-500">تم تصعيدها تلقائيًا · 12:10 مساءً</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="glass rounded-3xl p-6 mb-8">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">📋 طلبات الاسترجاع النشطة</h2>
+                    <p class="text-sm text-slate-500">بحث سريع، فلاتر المخاطر، وأزرار معاينة/تعديل/حذف لكل طلب.</p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <div class="relative">
+                        <input id="searchInput" type="text" placeholder="ابحث برقم الطلب أو العميل" class="w-72 rounded-xl border border-slate-200 px-4 py-2">
+                        <i class="fas fa-search absolute left-4 top-3 text-slate-400"></i>
+                    </div>
+                    <select id="statusFilter" class="rounded-xl border border-slate-200 px-4 py-2">
+                        <option value="all">كل الحالات</option>
+                        <option value="مفتوح">مفتوح</option>
+                        <option value="قيد المعالجة">قيد المعالجة</option>
+                        <option value="مقبول">مقبول</option>
+                        <option value="مرفوض">مرفوض</option>
+                        <option value="مكتمل">مكتمل</option>
+                    </select>
+                    <select id="riskFilter" class="rounded-xl border border-slate-200 px-4 py-2">
+                        <option value="all">كل المخاطر</option>
+                        <option value="منخفض">منخفض</option>
+                        <option value="متوسط">متوسط</option>
+                        <option value="مرتفع">مرتفع</option>
+                    </select>
+                    <button onclick="openCreateModal()" class="bg-emerald-600 text-white px-5 py-2 rounded-full font-bold hover:bg-emerald-700 transition">
+                        <i class="fas fa-plus"></i>
+                        إضافة طلب
+                    </button>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 mb-4 text-sm">
+                <span id="resultCount" class="pill bg-slate-100 text-slate-700">0 طلب</span>
+                <button onclick="bulkUpdateStatus('مقبول')" class="pill bg-emerald-100 text-emerald-700">اعتماد جماعي</button>
+                <button onclick="bulkUpdateStatus('مرفوض')" class="pill bg-rose-100 text-rose-700">رفض جماعي</button>
+                <button onclick="bulkUpdateStatus('قيد المعالجة')" class="pill bg-amber-100 text-amber-700">إعادة فتح</button>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-100 text-slate-700">
+                        <tr>
+                            <th class="px-3 py-3 text-right"><input id="selectAll" type="checkbox"></th>
+                            <th class="px-3 py-3 text-right">رقم الطلب</th>
+                            <th class="px-3 py-3 text-right">العميل</th>
+                            <th class="px-3 py-3 text-right">السبب</th>
+                            <th class="px-3 py-3 text-right">القيمة</th>
+                            <th class="px-3 py-3 text-right">الرسوم</th>
+                            <th class="px-3 py-3 text-right">الحالة</th>
+                            <th class="px-3 py-3 text-right">المخاطر</th>
+                            <th class="px-3 py-3 text-right">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="returnsTable" class="divide-y divide-slate-100 bg-white"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <div id="modal" class="fixed inset-0 hidden items-center justify-center modal-backdrop z-50">
+        <div class="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="modalTitle" class="text-2xl font-bold text-slate-800">تفاصيل الطلب</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700"><i class="fas fa-xmark text-xl"></i></button>
+            </div>
+            <div id="modalContent" class="space-y-4 text-sm"></div>
+            <div class="mt-6 flex flex-wrap gap-3 justify-end">
+                <button onclick="closeModal()" class="px-5 py-2 rounded-full border border-slate-200">إغلاق</button>
+                <button id="modalSave" onclick="saveModal()" class="px-5 py-2 rounded-full bg-emerald-600 text-white font-bold">حفظ التعديل</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const summaryText = 'سياسة الاسترجاع: 14 يوم للاسترجاع، محرك أهلية ذكي، تدقيق متعدد المراحل، واسترداد خلال 7 أيام عمل.';
+        const policyDays = 14;
+        const apiBase = '/finance/return-requests';
+        let returnsData = [];
+
+        let currentModalId = null;
+        let modalMode = 'view';
+
+        const statusClasses = {
+            'مفتوح': 'bg-slate-100 text-slate-700',
+            'قيد المعالجة': 'bg-amber-100 text-amber-700',
+            'مقبول': 'bg-emerald-100 text-emerald-700',
+            'مرفوض': 'bg-rose-100 text-rose-700',
+            'مكتمل': 'bg-indigo-100 text-indigo-700'
+        };
+
+        const riskClasses = {
+            'منخفض': 'bg-emerald-100 text-emerald-700',
+            'متوسط': 'bg-amber-100 text-amber-700',
+            'مرتفع': 'bg-rose-100 text-rose-700'
+        };
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR' }).format(value);
+        }
+
+        function normalizeRow(row) {
+            return {
+                id: row.id,
+                orderId: row.order_id,
+                customer: row.customer,
+                reason: row.reason,
+                condition: row.condition,
+                category: row.category,
+                amount: Number(row.amount) || 0,
+                feeRate: Number(row.fee_rate) || 0,
+                status: row.status,
+                risk: row.risk,
+                received: row.received,
+                channel: row.channel,
+                inspector: row.inspector,
+                refundType: row.refund_type,
+                slaDays: Number(row.sla_days) || 0
+            };
+        }
+
+        async function requestJson(url, options = {}) {
+            const response = await fetch(url, {
+                headers: { 'Content-Type': 'application/json' },
+                ...options
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Request failed');
+            }
+            return response.json();
+        }
+
+        async function loadReturns() {
+            try {
+                const data = await requestJson(apiBase);
+                returnsData = (data.requests || []).map(normalizeRow);
+                renderTable();
+            } catch (error) {
+                console.error('Failed to load return requests:', error);
+                alert('تعذر تحميل بيانات الاسترجاع من قاعدة البيانات.');
+            }
+        }
+
+        function refreshData() { window.location.reload(); }
+        function printPage() { window.print(); }
+
+        function copySummary() {
+            navigator.clipboard.writeText(summaryText).then(() => {
+                alert('تم نسخ ملخص سياسة الاسترجاع.');
+            });
+        }
+
+        function getFilteredData() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const riskFilter = document.getElementById('riskFilter').value;
+
+            return returnsData.filter((item) => {
+                const matchesSearch = !searchTerm ||
+                    item.id.includes(searchTerm) ||
+                    item.customer.includes(searchTerm) ||
+                    item.orderId.includes(searchTerm);
+                const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+                const matchesRisk = riskFilter === 'all' || item.risk === riskFilter;
+                return matchesSearch && matchesStatus && matchesRisk;
+            });
+        }
+
+        function renderTable() {
+            const tableBody = document.getElementById('returnsTable');
+            const data = getFilteredData();
+            document.getElementById('resultCount').textContent = `${data.length} طلب`;
+            tableBody.innerHTML = data.map((item) => {
+                return `
+                    <tr>
+                        <td class="px-3 py-3"><input type="checkbox" class="row-select" data-id="${item.id}"></td>
+                        <td class="px-3 py-3 font-bold text-slate-800">${item.id}</td>
+                        <td class="px-3 py-3">${item.customer}</td>
+                        <td class="px-3 py-3">${item.reason}</td>
+                        <td class="px-3 py-3">${formatCurrency(item.amount)}</td>
+                        <td class="px-3 py-3">${(item.feeRate * 100).toFixed(0)}%</td>
+                        <td class="px-3 py-3"><span class="badge ${statusClasses[item.status] || 'bg-slate-100 text-slate-700'}">${item.status}</span></td>
+                        <td class="px-3 py-3"><span class="badge ${riskClasses[item.risk] || 'bg-slate-100 text-slate-700'}">${item.risk}</span></td>
+                        <td class="px-3 py-3">
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="openViewModal('${item.id}')" class="px-3 py-1 rounded-full bg-slate-100 text-slate-700">معاينة</button>
+                                <button onclick="openEditModal('${item.id}')" class="px-3 py-1 rounded-full bg-amber-100 text-amber-700">تعديل</button>
+                                <button onclick="deleteRequest('${item.id}')" class="px-3 py-1 rounded-full bg-rose-100 text-rose-700">حذف</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openViewModal(id) {
+            modalMode = 'view';
+            currentModalId = id;
+            const item = returnsData.find((row) => row.id === id);
+            if (!item) return;
+            document.getElementById('modalTitle').textContent = `تفاصيل ${item.id}`;
+            document.getElementById('modalSave').classList.add('hidden');
+            document.getElementById('modalContent').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-3 rounded-2xl bg-slate-50">رقم الطلب: <strong>${item.orderId}</strong></div>
+                    <div class="p-3 rounded-2xl bg-slate-50">العميل: <strong>${item.customer}</strong></div>
+                    <div class="p-3 rounded-2xl bg-slate-50">السبب: <strong>${item.reason}</strong></div>
+                    <div class="p-3 rounded-2xl bg-slate-50">الحالة: <strong>${item.status}</strong></div>
+                    <div class="p-3 rounded-2xl bg-slate-50">القيمة: <strong>${formatCurrency(item.amount)}</strong></div>
+                    <div class="p-3 rounded-2xl bg-slate-50">الرسوم: <strong>${(item.feeRate * 100).toFixed(0)}%</strong></div>
+                    <div class="p-3 rounded-2xl bg-slate-50">القناة: <strong>${item.channel}</strong></div>
+                    <div class="p-3 rounded-2xl bg-slate-50">المُدقق: <strong>${item.inspector}</strong></div>
+                    <div class="p-3 rounded-2xl bg-slate-50">نوع الإجراء: <strong>${item.refundType}</strong></div>
+                    <div class="p-3 rounded-2xl bg-slate-50">SLA متوقع: <strong>${item.slaDays} أيام</strong></div>
+                </div>
+            `;
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('modal').classList.add('flex');
+        }
+
+        function openEditModal(id) {
+            modalMode = 'edit';
+            currentModalId = id;
+            const item = returnsData.find((row) => row.id === id);
+            if (!item) return;
+            document.getElementById('modalTitle').textContent = `تعديل ${item.id}`;
+            document.getElementById('modalSave').classList.remove('hidden');
+            document.getElementById('modalContent').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-slate-500">العميل</label>
+                        <input id="editCustomer" value="${item.customer}" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="text-slate-500">السبب</label>
+                        <input id="editReason" value="${item.reason}" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="text-slate-500">الحالة</label>
+                        <select id="editStatus" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                            ${['مفتوح', 'قيد المعالجة', 'مقبول', 'مرفوض', 'مكتمل'].map((status) => `
+                                <option ${item.status === status ? 'selected' : ''}>${status}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-500">المخاطر</label>
+                        <select id="editRisk" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                            ${['منخفض', 'متوسط', 'مرتفع'].map((risk) => `
+                                <option ${item.risk === risk ? 'selected' : ''}>${risk}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-500">القيمة</label>
+                        <input id="editAmount" type="number" value="${item.amount}" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="text-slate-500">رسوم الإرجاع (%)</label>
+                        <input id="editFee" type="number" value="${(item.feeRate * 100).toFixed(0)}" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                    </div>
+                </div>
+            `;
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('modal').classList.add('flex');
+        }
+
+        function openCreateModal() {
+            modalMode = 'create';
+            currentModalId = null;
+            document.getElementById('modalTitle').textContent = 'إضافة طلب استرجاع';
+            document.getElementById('modalSave').classList.remove('hidden');
+            document.getElementById('modalContent').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-slate-500">رقم الطلب</label>
+                        <input id="createId" value="RET-${Math.floor(7800 + Math.random() * 200)}" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="text-slate-500">رقم الفاتورة</label>
+                        <input id="createOrderId" value="ORD-${Math.floor(99000 + Math.random() * 200)}" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="text-slate-500">العميل</label>
+                        <input id="createCustomer" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2" placeholder="اسم العميل">
+                    </div>
+                    <div>
+                        <label class="text-slate-500">السبب</label>
+                        <input id="createReason" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2" placeholder="سبب الاسترجاع">
+                    </div>
+                    <div>
+                        <label class="text-slate-500">الحالة</label>
+                        <select id="createStatus" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                            ${['مفتوح', 'قيد المعالجة', 'مقبول', 'مرفوض', 'مكتمل'].map((status) => `
+                                <option>${status}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-500">المخاطر</label>
+                        <select id="createRisk" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2">
+                            ${['منخفض', 'متوسط', 'مرتفع'].map((risk) => `
+                                <option>${risk}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-500">القيمة</label>
+                        <input id="createAmount" type="number" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="text-slate-500">رسوم الإرجاع (%)</label>
+                        <input id="createFee" type="number" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2" placeholder="0">
+                    </div>
+                </div>
+            `;
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('modal').classList.add('flex');
+        }
+
+        async function saveModal() {
+            try {
+                if (modalMode === 'edit') {
+                    const payload = {
+                        customer: document.getElementById('editCustomer').value,
+                        reason: document.getElementById('editReason').value,
+                        status: document.getElementById('editStatus').value,
+                        risk: document.getElementById('editRisk').value,
+                        amount: Number(document.getElementById('editAmount').value || 0),
+                        fee_rate: Number(document.getElementById('editFee').value || 0) / 100
+                    };
+                    await requestJson(`${apiBase}/${currentModalId}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                if (modalMode === 'create') {
+                    const payload = {
+                        id: document.getElementById('createId').value || undefined,
+                        order_id: document.getElementById('createOrderId').value,
+                        customer: document.getElementById('createCustomer').value || 'عميل جديد',
+                        reason: document.getElementById('createReason').value || 'غير محدد',
+                        condition: 'غير مستخدم',
+                        category: 'إلكترونيات',
+                        amount: Number(document.getElementById('createAmount').value || 0),
+                        fee_rate: Number(document.getElementById('createFee').value || 0) / 100,
+                        status: document.getElementById('createStatus').value,
+                        risk: document.getElementById('createRisk').value,
+                        received: new Date().toISOString().split('T')[0],
+                        channel: 'بوابة العملاء',
+                        inspector: 'غير معين',
+                        refund_type: 'قيد التقييم',
+                        sla_days: 3
+                    };
+                    await requestJson(apiBase, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                closeModal();
+                await loadReturns();
+            } catch (error) {
+                console.error('Failed to save return request:', error);
+                alert('تعذر حفظ التغييرات. برجاء التأكد من البيانات والمحاولة مرة أخرى.');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+            document.getElementById('modal').classList.remove('flex');
+        }
+
+        async function deleteRequest(id) {
+            if (!confirm(`تأكيد حذف الطلب ${id}?`)) return;
+            try {
+                await requestJson(`${apiBase}/${id}`, { method: 'DELETE' });
+                await loadReturns();
+            } catch (error) {
+                console.error('Failed to delete return request:', error);
+                alert('تعذر حذف الطلب من قاعدة البيانات.');
+            }
+        }
+
+        async function bulkUpdateStatus(status) {
+            const selected = Array.from(document.querySelectorAll('.row-select:checked')).map((el) => el.dataset.id);
+            if (selected.length === 0) return;
+            try {
+                await Promise.all(selected.map((id) => requestJson(`${apiBase}/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status })
+                })));
+                await loadReturns();
+            } catch (error) {
+                console.error('Failed to bulk update status:', error);
+                alert('تعذر تحديث الحالات دفعة واحدة.');
+            }
+        }
+
+        function evaluateEligibility() {
+            const days = Number(document.getElementById('eligibilityDays').value || 0);
+            const condition = document.getElementById('eligibilityCondition').value;
+            const category = document.getElementById('eligibilityCategory').value;
+            const reason = document.getElementById('eligibilityReason').value;
+
+            let eligible = days <= policyDays && condition !== 'متضرر بشدة' && category !== 'خدمات رقمية';
+            let fee = reason === 'تغيير رغبة' ? 0.05 : 0;
+            let risk = 'منخفض';
+            let sla = 2;
+
+            if (condition === 'متضرر جزئيًا') {
+                risk = 'متوسط';
+                sla = 4;
+            }
+            if (reason === 'تلف بالشحن' || condition === 'متضرر بشدة') {
+                risk = 'مرتفع';
+                sla = 5;
+            }
+            if (days > policyDays) {
+                eligible = false;
+                fee = 0;
+            }
+
+            const result = eligible ? `مؤهل — ${fee > 0 ? 'استرداد جزئي' : 'استرداد كامل'} ${fee > 0 ? `مع رسوم ${(fee * 100).toFixed(0)}%` : 'بدون رسوم'}` : 'غير مؤهل — خارج شروط السياسة';
+            document.getElementById('eligibilityResult').textContent = result;
+            document.getElementById('eligibilityMeta').textContent = `SLA متوقع: ${sla} يوم · مستوى المخاطر: ${risk}`;
+        }
+
+        function exportCsv() {
+            const data = getFilteredData();
+            const headers = ['رقم الطلب', 'رقم الفاتورة', 'العميل', 'السبب', 'القيمة', 'الرسوم', 'الحالة', 'المخاطر'];
+            const rows = data.map((item) => [
+                item.id,
+                item.orderId,
+                item.customer,
+                item.reason,
+                item.amount,
+                (item.feeRate * 100).toFixed(0) + '%',
+                item.status,
+                item.risk
+            ]);
+            const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'returns-policy.csv';
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', renderTable);
+        document.getElementById('statusFilter').addEventListener('change', renderTable);
+        document.getElementById('riskFilter').addEventListener('change', renderTable);
+        document.getElementById('selectAll').addEventListener('change', (event) => {
+            document.querySelectorAll('.row-select').forEach((checkbox) => {
+                checkbox.checked = event.target.checked;
+            });
+        });
+
+        loadReturns();
+        evaluateEligibility();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

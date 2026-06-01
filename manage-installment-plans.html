@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة خطط الأقساط - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .plan-card {
+            transition: all 0.3s ease;
+        }
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg border-b-4 border-blue-600">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <a href="/" class="text-gray-600 hover:text-blue-600 transition">
+                        <i class="fas fa-arrow-right text-2xl"></i>
+                    </a>
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                        <i class="fas fa-calendar-alt text-blue-600"></i>
+                        إدارة خطط الأقساط
+                    </h1>
+                </div>
+                <button onclick="openAddModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg transition transform hover:scale-105">
+                    <i class="fas fa-plus ml-2"></i>
+                    إضافة خطة جديدة
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">إجمالي الخطط</p>
+                        <p class="text-3xl font-bold text-gray-800" id="total-plans">0</p>
+                    </div>
+                    <div class="bg-blue-100 p-4 rounded-full">
+                        <i class="fas fa-calendar-alt text-blue-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">الخطط النشطة</p>
+                        <p class="text-3xl font-bold text-gray-800" id="active-plans">0</p>
+                    </div>
+                    <div class="bg-green-100 p-4 rounded-full">
+                        <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">بدون فوائد</p>
+                        <p class="text-3xl font-bold text-gray-800" id="zero-interest">0</p>
+                    </div>
+                    <div class="bg-yellow-100 p-4 rounded-full">
+                        <i class="fas fa-percent text-yellow-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">متوسط المدة</p>
+                        <p class="text-3xl font-bold text-gray-800" id="avg-duration">0</p>
+                    </div>
+                    <div class="bg-purple-100 p-4 rounded-full">
+                        <i class="fas fa-clock text-purple-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter & Search -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2">بحث</label>
+                    <input type="text" id="search-input" placeholder="ابحث عن خطة..." 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2">الحالة</label>
+                    <select id="status-filter" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">الكل</option>
+                        <option value="true">نشط</option>
+                        <option value="false">غير نشط</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button onclick="applyFilters()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold transition">
+                        <i class="fas fa-filter ml-2"></i>
+                        تطبيق الفلاتر
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Plans Grid -->
+        <div id="plans-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Plans will be loaded here -->
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden flex items-center justify-center py-20">
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin text-6xl text-blue-600 mb-4"></i>
+                <p class="text-gray-600 font-bold">جاري التحميل...</p>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20">
+            <i class="fas fa-calendar-alt text-8xl text-gray-300 mb-4"></i>
+            <h3 class="text-2xl font-bold text-gray-600 mb-2">لا توجد خطط أقساط</h3>
+            <p class="text-gray-500 mb-6">ابدأ بإضافة خطة جديدة</p>
+            <button onclick="openAddModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-bold shadow-lg transition">
+                <i class="fas fa-plus ml-2"></i>
+                إضافة خطة
+            </button>
+        </div>
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div id="planModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-2xl flex justify-between items-center z-10">
+                <h2 class="text-2xl font-bold flex items-center gap-3">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span id="modal-title">إضافة خطة أقساط جديدة</span>
+                </h2>
+                <button onclick="closeModal()" class="text-white/80 hover:text-white hover:rotate-90 transition-all duration-300">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <form id="planForm" class="p-6 space-y-6">
+                <input type="hidden" id="plan-id">
+
+                <!-- معلومات أساسية -->
+                <div class="border-b pb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-info-circle text-blue-600"></i>
+                        المعلومات الأساسية
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">كود الخطة *</label>
+                            <input type="text" id="plan-code" required 
+                                   placeholder="مثال: PLAN_6M"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <p class="text-xs text-gray-500 mt-1">يستخدم في البرمجة (بدون مسافات)</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">الاسم بالعربية *</label>
+                            <input type="text" id="plan-name-ar" required 
+                                   placeholder="مثال: 6 أشهر"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">الاسم بالإنجليزية</label>
+                            <input type="text" id="plan-name-en" 
+                                   placeholder="Example: 6 Months"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">الأيقونة</label>
+                            <input type="text" id="icon" 
+                                   placeholder="مثال: 📅"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">اللون</label>
+                            <input type="color" id="color" value="#3b82f6"
+                                   class="w-full h-12 border border-gray-300 rounded-lg cursor-pointer">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">نص الشارة</label>
+                            <input type="text" id="badge-text" 
+                                   placeholder="مثال: ✓ بدون فائدة"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="block text-gray-700 font-bold mb-2">الوصف بالعربية</label>
+                        <textarea id="description-ar" rows="2" 
+                                  placeholder="وصف مختصر للخطة..."
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                    </div>
+                </div>
+
+                <!-- تفاصيل الخطة -->
+                <div class="border-b pb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-calendar text-green-600"></i>
+                        تفاصيل الخطة
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">مدة الخطة (بالأشهر) *</label>
+                            <input type="number" id="duration-months" required min="1" 
+                                   placeholder="مثال: 6"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">عدد الدفعات *</label>
+                            <input type="number" id="number-of-payments" required min="1" 
+                                   placeholder="مثال: 6"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">تكرار الدفع</label>
+                            <select id="payment-frequency" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="MONTHLY">شهري</option>
+                                <option value="QUARTERLY">ربع سنوي</option>
+                                <option value="SEMI_ANNUAL">نصف سنوي</option>
+                                <option value="ANNUAL">سنوي</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">ترتيب العرض</label>
+                            <input type="number" id="display-order" min="0" value="0"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- الرسوم والفوائد -->
+                <div class="border-b pb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-percent text-yellow-600"></i>
+                        الرسوم والفوائد
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">معدل الفائدة %</label>
+                            <input type="number" id="interest-rate" min="0" max="100" step="0.01" value="0"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">رسوم إدارية (ثابتة)</label>
+                            <input type="number" id="admin-fee" min="0" step="0.01" value="0"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">رسوم التأخير</label>
+                            <input type="number" id="late-payment-fee" min="0" step="0.01" value="0"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">خصم الدفع المبكر %</label>
+                            <input type="number" id="early-payment-discount" min="0" max="100" step="0.01" value="0"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- الحدود -->
+                <div class="border-b pb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-line text-purple-600"></i>
+                        حدود المبالغ
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">الحد الأدنى للمبلغ</label>
+                            <input type="number" id="min-amount" min="0" step="0.01"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">الحد الأقصى للمبلغ</label>
+                            <input type="number" id="max-amount" min="0" step="0.01"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- الخيارات -->
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-cog text-red-600"></i>
+                        الخيارات
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="is-active" checked 
+                                   class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                            <span class="font-bold text-gray-700">نشط</span>
+                        </label>
+
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="is-featured" 
+                                   class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                            <span class="font-bold text-gray-700">مميز</span>
+                        </label>
+
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="has-grace-period" 
+                                   class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                            <span class="font-bold text-gray-700">يوجد فترة سماح</span>
+                        </label>
+
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">عدد أيام السماح</label>
+                            <input type="number" id="grace-period-days" min="0" value="0"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex gap-4 pt-4 border-t">
+                    <button type="button" onclick="closeModal()" 
+                            class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-bold transition">
+                        <i class="fas fa-times ml-2"></i>
+                        إلغاء
+                    </button>
+                    <button type="submit" 
+                            class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg transition transform hover:scale-105">
+                        <i class="fas fa-save ml-2"></i>
+                        حفظ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = '/api';
+        let currentEditId = null;
+        let allPlans = [];
+
+        // Load plans
+        async function loadPlans() {
+            const loadingEl = document.getElementById('loading');
+            const containerEl = document.getElementById('plans-container');
+            const emptyStateEl = document.getElementById('empty-state');
+
+            try {
+                loadingEl.classList.remove('hidden');
+                containerEl.innerHTML = '';
+                emptyStateEl.classList.add('hidden');
+
+                const response = await fetch(`${API_BASE_URL}/installment-plan-types`);
+                allPlans = await response.json();
+
+                if (allPlans.length === 0) {
+                    emptyStateEl.classList.remove('hidden');
+                } else {
+                    displayPlans(allPlans);
+                    updateStats(allPlans);
+                }
+            } catch (error) {
+                console.error('Error loading plans:', error);
+                alert('حدث خطأ في تحميل البيانات');
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        }
+
+        // Display plans
+        function displayPlans(plans) {
+            const container = document.getElementById('plans-container');
+            container.innerHTML = '';
+
+            plans.forEach(plan => {
+                const card = document.createElement('div');
+                card.className = 'plan-card bg-white rounded-xl shadow-lg overflow-hidden border-r-4';
+                card.style.borderColor = plan.color || '#3b82f6';
+
+                const statusBadge = plan.is_active 
+                    ? '<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold">نشط</span>'
+                    : '<span class="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs font-bold">غير نشط</span>';
+
+                card.innerHTML = `
+                    <div class="p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <span class="text-4xl">${plan.icon || '📅'}</span>
+                                <div>
+                                    <h3 class="font-bold text-lg text-gray-800">${plan.plan_name_ar}</h3>
+                                    <p class="text-xs text-gray-500">${plan.plan_code}</p>
+                                </div>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        
+                        ${plan.badge_text ? `<p class="text-sm text-gray-600 mb-3">${plan.badge_text}</p>` : ''}
+                        ${plan.description_ar ? `<p class="text-sm text-gray-600 mb-4">${plan.description_ar}</p>` : ''}
+                        
+                        <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                            <div class="bg-blue-50 p-3 rounded-lg">
+                                <p class="text-xs text-blue-600 font-bold">المدة</p>
+                                <p class="text-lg font-bold text-blue-800">${plan.duration_months} شهر</p>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-lg">
+                                <p class="text-xs text-green-600 font-bold">الدفعات</p>
+                                <p class="text-lg font-bold text-green-800">${plan.number_of_payments} دفعة</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 mb-4 text-xs text-gray-600">
+                            ${plan.interest_rate > 0 ? `<div>📊 فائدة: ${plan.interest_rate}%</div>` : '<div>✓ بدون فوائد</div>'}
+                            ${plan.admin_fee > 0 ? `<div>💵 رسوم إدارية: ${plan.admin_fee} ر.س</div>` : ''}
+                            ${plan.early_payment_discount > 0 ? `<div>🎁 خصم الدفع المبكر: ${plan.early_payment_discount}%</div>` : ''}
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button onclick="editPlan(${plan.id})" 
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                                <i class="fas fa-edit ml-1"></i>
+                                تعديل
+                            </button>
+                            <button onclick="toggleActive(${plan.id})" 
+                                    class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                                <i class="fas fa-power-off ml-1"></i>
+                                تبديل
+                            </button>
+                            <button onclick="deletePlan(${plan.id})" 
+                                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // Update stats
+        function updateStats(plans) {
+            document.getElementById('total-plans').textContent = plans.length;
+            document.getElementById('active-plans').textContent = plans.filter(p => p.is_active).length;
+            document.getElementById('zero-interest').textContent = plans.filter(p => p.interest_rate == 0).length;
+            
+            const avgDuration = plans.length > 0 
+                ? Math.round(plans.reduce((sum, p) => sum + p.duration_months, 0) / plans.length)
+                : 0;
+            document.getElementById('avg-duration').textContent = `${avgDuration} شهر`;
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const status = document.getElementById('status-filter').value;
+
+            let filtered = allPlans;
+
+            if (search) {
+                filtered = filtered.filter(p => 
+                    p.plan_name_ar.toLowerCase().includes(search) ||
+                    p.plan_code.toLowerCase().includes(search)
+                );
+            }
+
+            if (status !== '') {
+                const isActive = status === 'true';
+                filtered = filtered.filter(p => p.is_active === isActive);
+            }
+
+            displayPlans(filtered);
+        }
+
+        // Open add modal
+        function openAddModal() {
+            currentEditId = null;
+            document.getElementById('modal-title').textContent = 'إضافة خطة أقساط جديدة';
+            document.getElementById('planForm').reset();
+            document.getElementById('plan-id').value = '';
+            document.getElementById('planModal').classList.remove('hidden');
+        }
+
+        // Edit plan
+        async function editPlan(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/installment-plan-types/${id}`);
+                const plan = await response.json();
+
+                currentEditId = id;
+                document.getElementById('modal-title').textContent = 'تعديل خطة الأقساط';
+                document.getElementById('plan-id').value = id;
+                document.getElementById('plan-code').value = plan.plan_code;
+                document.getElementById('plan-name-ar').value = plan.plan_name_ar;
+                document.getElementById('plan-name-en').value = plan.plan_name_en || '';
+                document.getElementById('description-ar').value = plan.description_ar || '';
+                document.getElementById('icon').value = plan.icon || '';
+                document.getElementById('color').value = plan.color || '#3b82f6';
+                document.getElementById('badge-text').value = plan.badge_text || '';
+                document.getElementById('duration-months').value = plan.duration_months;
+                document.getElementById('number-of-payments').value = plan.number_of_payments;
+                document.getElementById('payment-frequency').value = plan.payment_frequency || 'MONTHLY';
+                document.getElementById('interest-rate').value = plan.interest_rate || 0;
+                document.getElementById('admin-fee').value = plan.admin_fee || 0;
+                document.getElementById('late-payment-fee').value = plan.late_payment_fee || 0;
+                document.getElementById('early-payment-discount').value = plan.early_payment_discount || 0;
+                document.getElementById('min-amount').value = plan.min_amount || '';
+                document.getElementById('max-amount').value = plan.max_amount || '';
+                document.getElementById('is-active').checked = plan.is_active;
+                document.getElementById('is-featured').checked = plan.is_featured || false;
+                document.getElementById('has-grace-period').checked = plan.has_grace_period || false;
+                document.getElementById('grace-period-days').value = plan.grace_period_days || 0;
+                document.getElementById('display-order').value = plan.display_order || 0;
+
+                document.getElementById('planModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading plan:', error);
+                alert('حدث خطأ في تحميل البيانات');
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('planModal').classList.add('hidden');
+            currentEditId = null;
+        }
+
+        // Toggle active status
+        async function toggleActive(id) {
+            if (!confirm('هل تريد تبديل حالة هذه الخطة؟')) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/installment-plan-types/${id}/toggle-active`, {
+                    method: 'PATCH'
+                });
+
+                if (response.ok) {
+                    loadPlans();
+                } else {
+                    alert('حدث خطأ في تبديل الحالة');
+                }
+            } catch (error) {
+                console.error('Error toggling status:', error);
+                alert('حدث خطأ في تبديل الحالة');
+            }
+        }
+
+        // Delete plan
+        async function deletePlan(id) {
+            if (!confirm('هل أنت متأكد من حذف هذه الخطة؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/installment-plan-types/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadPlans();
+                } else {
+                    alert('حدث خطأ في الحذف');
+                }
+            } catch (error) {
+                console.error('Error deleting plan:', error);
+                alert('حدث خطأ في الحذف');
+            }
+        }
+
+        // Form submit
+        document.getElementById('planForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const data = {
+                plan_code: document.getElementById('plan-code').value,
+                plan_name_ar: document.getElementById('plan-name-ar').value,
+                plan_name_en: document.getElementById('plan-name-en').value,
+                description_ar: document.getElementById('description-ar').value,
+                icon: document.getElementById('icon').value,
+                color: document.getElementById('color').value,
+                badge_text: document.getElementById('badge-text').value,
+                duration_months: parseInt(document.getElementById('duration-months').value),
+                number_of_payments: parseInt(document.getElementById('number-of-payments').value),
+                payment_frequency: document.getElementById('payment-frequency').value,
+                interest_rate: parseFloat(document.getElementById('interest-rate').value),
+                admin_fee: parseFloat(document.getElementById('admin-fee').value),
+                late_payment_fee: parseFloat(document.getElementById('late-payment-fee').value),
+                early_payment_discount: parseFloat(document.getElementById('early-payment-discount').value),
+                min_amount: document.getElementById('min-amount').value ? parseFloat(document.getElementById('min-amount').value) : null,
+                max_amount: document.getElementById('max-amount').value ? parseFloat(document.getElementById('max-amount').value) : null,
+                is_active: document.getElementById('is-active').checked,
+                is_featured: document.getElementById('is-featured').checked,
+                has_grace_period: document.getElementById('has-grace-period').checked,
+                grace_period_days: parseInt(document.getElementById('grace-period-days').value),
+                display_order: parseInt(document.getElementById('display-order').value)
+            };
+
+            try {
+                const url = currentEditId 
+                    ? `${API_BASE_URL}/installment-plan-types/${currentEditId}`
+                    : `${API_BASE_URL}/installment-plan-types`;
+                
+                const method = currentEditId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    closeModal();
+                    loadPlans();
+                    alert(currentEditId ? 'تم التحديث بنجاح' : 'تم الإضافة بنجاح');
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'حدث خطأ');
+                }
+            } catch (error) {
+                console.error('Error saving:', error);
+                alert('حدث خطأ في الحفظ');
+            }
+        });
+
+        // Search on input
+        document.getElementById('search-input').addEventListener('input', applyFilters);
+
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', loadPlans);
+    </script>
+</body>
+</html>

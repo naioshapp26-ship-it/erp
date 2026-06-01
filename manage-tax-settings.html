@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الضرائب - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .tax-card {
+            transition: all 0.3s ease;
+        }
+        .tax-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg border-b-4 border-red-600">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <a href="/" class="text-gray-600 hover:text-red-600 transition">
+                        <i class="fas fa-arrow-right text-2xl"></i>
+                    </a>
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                        <i class="fas fa-percent text-red-600"></i>
+                        إدارة الضرائب والإعدادات
+                    </h1>
+                </div>
+                <button onclick="openAddTaxModal()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg transition transform hover:scale-105">
+                    <i class="fas fa-plus ml-2"></i>
+                    إضافة ضريبة جديدة
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">إجمالي الضرائب</p>
+                        <p class="text-3xl font-bold text-gray-800" id="total-taxes">0</p>
+                    </div>
+                    <div class="bg-red-100 p-4 rounded-full">
+                        <i class="fas fa-percent text-red-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">الضرائب النشطة</p>
+                        <p class="text-3xl font-bold text-gray-800" id="active-taxes">0</p>
+                    </div>
+                    <div class="bg-green-100 p-4 rounded-full">
+                        <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">الضرائب الخاصة بالفروع</p>
+                        <p class="text-3xl font-bold text-gray-800" id="branch-specific">0</p>
+                    </div>
+                    <div class="bg-blue-100 p-4 rounded-full">
+                        <i class="fas fa-code-branch text-blue-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">متوسط المعدل</p>
+                        <p class="text-3xl font-bold text-gray-800" id="avg-rate">0%</p>
+                    </div>
+                    <div class="bg-purple-100 p-4 rounded-full">
+                        <i class="fas fa-chart-line text-purple-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="flex flex-wrap gap-4">
+                <div class="flex-1 min-w-[200px]">
+                    <input 
+                        type="text" 
+                        id="search-taxes" 
+                        placeholder="ابحث عن ضريبة..."
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                        onkeyup="filterTaxes()"
+                    >
+                </div>
+                <select 
+                    id="filter-tax-type" 
+                    class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                    onchange="filterTaxes()"
+                >
+                    <option value="">-- جميع الأنواع --</option>
+                    <option value="VAT">ضريبة القيمة المضافة</option>
+                    <option value="Income">ضريبة الدخل</option>
+                    <option value="Corporate">ضريبة الشركات</option>
+                    <option value="Custom">مخصصة</option>
+                </select>
+                <select 
+                    id="filter-active-status" 
+                    class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                    onchange="filterTaxes()"
+                >
+                    <option value="">-- كل الحالات --</option>
+                    <option value="true">نشطة فقط</option>
+                    <option value="false">معطلة فقط</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Taxes Table -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full">
+                    <thead class="bg-gradient-to-r from-red-500 to-red-600 text-white">
+                        <tr>
+                            <th class="px-6 py-4 text-right font-bold">اسم الضريبة</th>
+                            <th class="px-6 py-4 text-right font-bold">النوع</th>
+                            <th class="px-6 py-4 text-right font-bold">المعدل الافتراضي</th>
+                            <th class="px-6 py-4 text-right font-bold">الفرع</th>
+                            <th class="px-6 py-4 text-right font-bold">الحالة</th>
+                            <th class="px-6 py-4 text-center font-bold">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200" id="taxes-tbody">
+                        <tr>
+                            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                <i class="fas fa-spinner fa-spin text-2xl"></i> جاري التحميل...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Tax Modal -->
+    <div id="taxModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-gradient-to-r from-red-500 to-red-600 text-white px-8 py-6 border-b-4 border-red-700">
+                <h2 class="text-2xl font-bold" id="modal-title">إضافة ضريبة جديدة</h2>
+            </div>
+
+            <form id="taxForm" onsubmit="saveTax(event)" class="p-8 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Tax Code -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">كود الضريبة *</label>
+                        <input 
+                            type="text" 
+                            id="tax_code" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                            placeholder="مثال: vat_15"
+                            required
+                        >
+                    </div>
+
+                    <!-- Tax Type -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">نوع الضريبة *</label>
+                        <select id="tax_type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500" required>
+                            <option value="VAT">ضريبة القيمة المضافة</option>
+                            <option value="Income">ضريبة الدخل</option>
+                            <option value="Corporate">ضريبة الشركات</option>
+                            <option value="Custom">مخصصة</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Tax Name Arabic -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">اسم الضريبة (عربي) *</label>
+                        <input 
+                            type="text" 
+                            id="tax_name_ar" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                            placeholder="مثال: ضريبة القيمة المضافة"
+                            required
+                        >
+                    </div>
+
+                    <!-- Tax Name English -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">اسم الضريبة (إنجليزي)</label>
+                        <input 
+                            type="text" 
+                            id="tax_name_en" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                            placeholder="مثال: VAT 15%"
+                        >
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Default Rate -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">المعدل الافتراضي (%) *</label>
+                        <input 
+                            type="number" 
+                            id="default_rate" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                            placeholder="مثال: 15"
+                            step="0.01"
+                            required
+                        >
+                    </div>
+
+                    <!-- Applicable On -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">تطبيق على</label>
+                        <select id="applicable_on" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500">
+                            <option value="invoice">الفاتورة</option>
+                            <option value="product">المنتج</option>
+                            <option value="service">الخدمة</option>
+                            <option value="all">الكل</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Priority -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">الأولوية</label>
+                        <input 
+                            type="number" 
+                            id="priority" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                            placeholder="0"
+                            value="0"
+                        >
+                    </div>
+
+                    <!-- Calculation Method -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">طريقة الحساب</label>
+                        <select id="calculation_method" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500">
+                            <option value="percentage">نسبة مئوية</option>
+                            <option value="fixed_amount">مبلغ ثابت</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Branch-Specific Override Section -->
+                <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <input 
+                            type="checkbox" 
+                            id="has_branch_override" 
+                            class="w-5 h-5 text-blue-600"
+                            onchange="toggleBranchOverride()"
+                        >
+                        <label class="text-blue-700 font-bold">تعيين معدل خاص بفرع محدد</label>
+                    </div>
+
+                    <div id="branch-override-section" class="hidden space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Branch ID -->
+                            <div>
+                                <label class="block text-gray-700 font-bold mb-2">رقم الفرع</label>
+                                <input 
+                                    type="number" 
+                                    id="branch_id" 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                                    placeholder="رقم الفرع"
+                                >
+                            </div>
+
+                            <!-- Branch Name -->
+                            <div>
+                                <label class="block text-gray-700 font-bold mb-2">اسم الفرع</label>
+                                <input 
+                                    type="text" 
+                                    id="branch_name_ar" 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                                    placeholder="اسم الفرع"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Branch-Specific Rate -->
+                        <div>
+                            <label class="block text-gray-700 font-bold mb-2">معدل الضريبة الخاص بالفرع (%)</label>
+                            <input 
+                                type="number" 
+                                id="branch_specific_rate" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                                placeholder="معدل مخصص للفرع"
+                                step="0.01"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Min Amount -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">الحد الأدنى</label>
+                        <input 
+                            type="number" 
+                            id="min_amount" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                            placeholder="0"
+                            step="0.01"
+                        >
+                    </div>
+
+                    <!-- Max Amount -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">الحد الأقصى</label>
+                        <input 
+                            type="number" 
+                            id="max_amount" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                            placeholder="بدون حد"
+                            step="0.01"
+                        >
+                    </div>
+
+                    <!-- Is Default -->
+                    <div class="flex items-end">
+                        <label class="flex items-center gap-2">
+                            <input 
+                                type="checkbox" 
+                                id="is_default" 
+                                class="w-5 h-5 text-red-600"
+                            >
+                            <span class="text-gray-700 font-bold">ضريبة افتراضية</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2">الوصف</label>
+                    <textarea 
+                        id="description_ar" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                        placeholder="وصف الضريبة"
+                        rows="3"
+                    ></textarea>
+                </div>
+
+                <!-- Checkboxes -->
+                <div class="flex flex-wrap gap-6">
+                    <label class="flex items-center gap-2">
+                        <input 
+                            type="checkbox" 
+                            id="is_active" 
+                            class="w-5 h-5 text-green-600"
+                            checked
+                        >
+                        <span class="text-gray-700 font-bold">مفعل</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input 
+                            type="checkbox" 
+                            id="include_in_total" 
+                            class="w-5 h-5 text-blue-600"
+                            checked
+                        >
+                        <span class="text-gray-700 font-bold">إدراج في الإجمالي</span>
+                    </label>
+                </div>
+
+                <input type="hidden" id="tax_id">
+
+                <!-- Form Actions -->
+                <div class="flex gap-4 pt-6 border-t border-gray-200">
+                    <button 
+                        type="submit" 
+                        class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition transform hover:scale-105"
+                    >
+                        <i class="fas fa-save ml-2"></i>
+                        حفظ الضريبة
+                    </button>
+                    <button 
+                        type="button" 
+                        onclick="closeAddTaxModal()" 
+                        class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 rounded-lg transition"
+                    >
+                        <i class="fas fa-times ml-2"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allTaxes = [];
+
+        // Load taxes on page load
+        window.onload = () => {
+            loadTaxes();
+        };
+
+        async function loadTaxes() {
+            try {
+                const response = await fetch('/api/tax-settings');
+                if (!response.ok) throw new Error('Failed to load taxes');
+                allTaxes = await response.json();
+                updateStats();
+                renderTaxes();
+            } catch (error) {
+                console.error('Error loading taxes:', error);
+                alert('خطأ في تحميل الضرائب');
+            }
+        }
+
+        function updateStats() {
+            const totalTaxes = allTaxes.length;
+            const activeTaxes = allTaxes.filter(t => t.is_active).length;
+            const branchSpecific = allTaxes.filter(t => t.branch_id !== null).length;
+            const avgRate = allTaxes.length > 0 
+                ? (allTaxes.reduce((sum, t) => sum + (t.default_rate || 0), 0) / allTaxes.length).toFixed(2)
+                : 0;
+
+            document.getElementById('total-taxes').textContent = totalTaxes;
+            document.getElementById('active-taxes').textContent = activeTaxes;
+            document.getElementById('branch-specific').textContent = branchSpecific;
+            document.getElementById('avg-rate').textContent = avgRate + '%';
+        }
+
+        function renderTaxes() {
+            const tbody = document.getElementById('taxes-tbody');
+            
+            if (allTaxes.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl mb-2"></i>
+                            <p>لا توجد ضرائب حتى الآن</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = allTaxes.map(tax => {
+                const statusBadge = tax.is_active 
+                    ? '<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-bold">✅ نشطة</span>'
+                    : '<span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-bold">❌ معطلة</span>';
+
+                const branchInfo = tax.branch_name_ar || 'عام (كل الفروع)';
+                const specificRate = tax.branch_specific_rate !== null ? `(${tax.branch_specific_rate}%)` : '';
+
+                return `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-gray-800">${tax.tax_name_ar}</div>
+                            <div class="text-sm text-gray-500">${tax.tax_code}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-bold">${tax.tax_type}</span>
+                        </td>
+                        <td class="px-6 py-4 font-bold text-red-600">${tax.default_rate}%</td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-600">${branchInfo}</div>
+                            ${specificRate ? `<div class="text-sm font-bold text-blue-600">${specificRate}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4">${statusBadge}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex gap-2 justify-center">
+                                <button onclick="editTax(${tax.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg transition">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="toggleTaxStatus(${tax.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg transition">
+                                    <i class="fas fa-toggle-${tax.is_active ? 'on' : 'off'}"></i>
+                                </button>
+                                <button onclick="deleteTax(${tax.id})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg transition">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openAddTaxModal() {
+            document.getElementById('tax_id').value = '';
+            document.getElementById('modal-title').textContent = 'إضافة ضريبة جديدة';
+            document.getElementById('taxForm').reset();
+            document.getElementById('has_branch_override').checked = false;
+            document.getElementById('branch-override-section').classList.add('hidden');
+            document.getElementById('taxModal').classList.remove('hidden');
+        }
+
+        function closeAddTaxModal() {
+            document.getElementById('taxModal').classList.add('hidden');
+        }
+
+        function toggleBranchOverride() {
+            const isChecked = document.getElementById('has_branch_override').checked;
+            document.getElementById('branch-override-section').classList.toggle('hidden');
+        }
+
+        async function editTax(id) {
+            try {
+                const response = await fetch(`/api/tax-settings/${id}`);
+                if (!response.ok) throw new Error('Failed to load tax');
+                const tax = await response.json();
+
+                document.getElementById('tax_id').value = tax.id;
+                document.getElementById('tax_code').value = tax.tax_code;
+                document.getElementById('tax_name_ar').value = tax.tax_name_ar;
+                document.getElementById('tax_name_en').value = tax.tax_name_en || '';
+                document.getElementById('description_ar').value = tax.description_ar || '';
+                document.getElementById('tax_type').value = tax.tax_type;
+                document.getElementById('default_rate').value = tax.default_rate;
+                document.getElementById('applicable_on').value = tax.applicable_on;
+                document.getElementById('calculation_method').value = tax.calculation_method;
+                document.getElementById('priority').value = tax.priority || 0;
+                document.getElementById('min_amount').value = tax.min_amount || '';
+                document.getElementById('max_amount').value = tax.max_amount || '';
+                document.getElementById('is_active').checked = tax.is_active;
+                document.getElementById('include_in_total').checked = tax.include_in_total;
+                document.getElementById('is_default').checked = tax.is_default;
+
+                if (tax.branch_id) {
+                    document.getElementById('has_branch_override').checked = true;
+                    document.getElementById('branch-override-section').classList.remove('hidden');
+                    document.getElementById('branch_id').value = tax.branch_id;
+                    document.getElementById('branch_name_ar').value = tax.branch_name_ar || '';
+                    document.getElementById('branch_specific_rate').value = tax.branch_specific_rate || '';
+                }
+
+                document.getElementById('modal-title').textContent = 'تعديل الضريبة';
+                document.getElementById('taxModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading tax:', error);
+                alert('خطأ في تحميل بيانات الضريبة');
+            }
+        }
+
+        async function saveTax(event) {
+            event.preventDefault();
+
+            const taxId = document.getElementById('tax_id').value;
+            const method = taxId ? 'PUT' : 'POST';
+            const url = taxId ? `/api/tax-settings/${taxId}` : '/api/tax-settings';
+
+            const payload = {
+                tax_code: document.getElementById('tax_code').value,
+                tax_name_ar: document.getElementById('tax_name_ar').value,
+                tax_name_en: document.getElementById('tax_name_en').value,
+                description_ar: document.getElementById('description_ar').value,
+                tax_type: document.getElementById('tax_type').value,
+                default_rate: parseFloat(document.getElementById('default_rate').value),
+                applicable_on: document.getElementById('applicable_on').value,
+                calculation_method: document.getElementById('calculation_method').value,
+                priority: parseInt(document.getElementById('priority').value) || 0,
+                min_amount: document.getElementById('min_amount').value ? parseFloat(document.getElementById('min_amount').value) : null,
+                max_amount: document.getElementById('max_amount').value ? parseFloat(document.getElementById('max_amount').value) : null,
+                is_active: document.getElementById('is_active').checked,
+                include_in_total: document.getElementById('include_in_total').checked,
+                is_default: document.getElementById('is_default').checked
+            };
+
+            if (document.getElementById('has_branch_override').checked) {
+                payload.branch_id = document.getElementById('branch_id').value ? parseInt(document.getElementById('branch_id').value) : null;
+                payload.branch_name_ar = document.getElementById('branch_name_ar').value;
+                payload.branch_specific_rate = document.getElementById('branch_specific_rate').value ? parseFloat(document.getElementById('branch_specific_rate').value) : null;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error('Failed to save tax');
+
+                closeAddTaxModal();
+                await loadTaxes();
+                alert(taxId ? 'تم تحديث الضريبة بنجاح' : 'تم إضافة الضريبة الجديدة بنجاح');
+            } catch (error) {
+                console.error('Error saving tax:', error);
+                alert('خطأ في حفظ الضريبة');
+            }
+        }
+
+        async function toggleTaxStatus(id) {
+            try {
+                const response = await fetch(`/api/tax-settings/${id}/toggle-active`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) throw new Error('Failed to toggle status');
+
+                await loadTaxes();
+                alert('تم تحديث الحالة بنجاح');
+            } catch (error) {
+                console.error('Error toggling status:', error);
+                alert('خطأ في تحديث الحالة');
+            }
+        }
+
+        async function deleteTax(id) {
+            if (!confirm('هل أنت متأكد من حذف هذه الضريبة؟')) return;
+
+            try {
+                const response = await fetch(`/api/tax-settings/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error('Failed to delete tax');
+
+                await loadTaxes();
+                alert('تم حذف الضريبة بنجاح');
+            } catch (error) {
+                console.error('Error deleting tax:', error);
+                alert('خطأ في حذف الضريبة');
+            }
+        }
+
+        function filterTaxes() {
+            const searchTerm = document.getElementById('search-taxes').value.toLowerCase();
+            const taxType = document.getElementById('filter-tax-type').value;
+            const activeStatus = document.getElementById('filter-active-status').value;
+
+            const filtered = allTaxes.filter(tax => {
+                const matchesSearch = tax.tax_name_ar.includes(searchTerm) || tax.tax_code.includes(searchTerm);
+                const matchesType = !taxType || tax.tax_type === taxType;
+                const matchesStatus = !activeStatus || tax.is_active.toString() === activeStatus;
+
+                return matchesSearch && matchesType && matchesStatus;
+            });
+
+            allTaxes = filtered;
+            renderTaxes();
+            updateStats();
+        }
+    </script>
+</body>
+</html>

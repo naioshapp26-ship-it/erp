@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>عرض النظام - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: 'Cairo', sans-serif; background: #f8fafc; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(4px); z-index:1000; display:none; align-items:center; justify-content:center; }
+    .modal-overlay.show { display:flex; }
+    .modal-box { background:#fff; border-radius:20px; width:min(600px,96vw); max-height:90vh; overflow-y:auto; box-shadow:0 28px 60px -10px rgba(0,0,0,.35); padding:28px; }
+    .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 12px; border-radius:999px; font-size:12px; font-weight:700; }
+    .table-tab { padding:10px 20px; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer; border:2px solid transparent; transition:all .2s; }
+    .table-tab.active { color:#fff; }
+    .table-tab:not(.active) { background:#f1f5f9; color:#475569; }
+    .rec-row:hover { background:#f8fafc; }
+    input, textarea, select { font-family:'Cairo',sans-serif; }
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:#0f172a; color:#fff; padding:12px 24px; border-radius:14px; font-weight:700; font-size:14px; z-index:9999; transition:transform .3s ease, opacity .3s ease; opacity:0; }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    .empty-state { text-align:center; padding:60px 20px; color:#94a3b8; }
+    .empty-state i { font-size:48px; margin-bottom:16px; }
+  </style>
+</head>
+<body>
+
+<div id="app" class="min-h-screen">
+  <!-- Header -->
+  <div id="page-header" class="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-md px-6 py-4 flex items-center gap-4">
+    <a href="/hr/no-code-builder" class="text-slate-500 hover:text-slate-800 transition">
+      <i class="fas fa-arrow-right"></i>
+    </a>
+    <div id="header-icon" class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg" style="background:#7c3aed">
+      <i class="fas fa-layer-group"></i>
+    </div>
+    <div class="flex-1">
+      <h1 id="system-title" class="font-extrabold text-xl text-slate-800">جاري التحميل...</h1>
+      <p id="system-desc" class="text-xs text-slate-400 mt-0.5 truncate max-w-lg"></p>
+    </div>
+    <button onclick="openAddRecord()" id="add-btn" class="hidden items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm transition hover:opacity-90" style="background:#7c3aed">
+      <i class="fas fa-plus"></i> إضافة سجل
+    </button>
+  </div>
+
+  <!-- Tables Tabs -->
+  <div class="px-6 pt-5">
+    <div id="tables-tabs" class="flex flex-wrap gap-2 mb-6"></div>
+
+    <!-- Records Table -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <div>
+          <h2 id="active-table-title" class="font-extrabold text-lg text-slate-800"></h2>
+          <span id="records-count" class="text-sm text-slate-400 font-medium"></span>
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="search-input" placeholder="بحث..." onkeyup="filterRecords()"
+            class="border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-violet-400 w-48" />
+          <button onclick="exportCSV()" class="px-3 py-2 text-sm font-bold text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+            <i class="fas fa-download"></i>
+          </button>
+        </div>
+      </div>
+      <div id="records-container" class="overflow-x-auto">
+        <div class="empty-state">
+          <i class="fas fa-spinner fa-spin text-violet-400"></i>
+          <p class="mt-3">جاري التحميل...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-overlay" id="record-modal">
+  <div class="modal-box">
+    <div class="flex items-center justify-between mb-6">
+      <h3 id="modal-title" class="text-xl font-extrabold text-slate-800">إضافة سجل جديد</h3>
+      <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 transition text-xl"><i class="fas fa-times"></i></button>
+    </div>
+    <form id="record-form" onsubmit="saveRecord(event)" class="space-y-4">
+      <div id="form-fields"></div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" id="save-btn" class="flex-1 py-3 rounded-xl text-white font-extrabold text-sm transition hover:opacity-90" style="background:#7c3aed">
+          <i class="fas fa-save me-2"></i>حفظ
+        </button>
+        <button type="button" onclick="closeModal()" class="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition">
+          إلغاء
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+  // ─── State ───────────────────────────────────────────────────────────────
+  const systemId = location.pathname.split('/').pop();
+  let system = null;
+  let activeTableKey = null;
+  let allRecords = [];
+  let editingRecordId = null;
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
+  async function init() {
+    try {
+      const r = await fetch(`/api/nocode/systems/${systemId}`);
+      if (!r.ok) throw new Error('النظام غير موجود');
+      system = await r.json();
+
+      // Update header
+      document.getElementById('system-title').textContent = system.name;
+      document.getElementById('system-desc').textContent = system.description || '';
+      const headerIcon = document.getElementById('header-header-icon') || document.getElementById('header-icon');
+      headerIcon.innerHTML = `<i class="${system.icon}"></i>`;
+      headerIcon.style.background = system.color;
+      document.getElementById('add-btn').style.background = system.color;
+      document.getElementById('add-btn').classList.remove('hidden');
+      document.getElementById('add-btn').classList.add('flex');
+
+      document.title = system.name + ' - نظام نايوش';
+
+      // Build table tabs
+      const tables = system.tables_config || [];
+      const tabsEl = document.getElementById('tables-tabs');
+      tables.forEach((tbl, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'table-tab' + (i === 0 ? ' active' : '');
+        if (i === 0) btn.style.background = system.color;
+        btn.dataset.key = tbl.key;
+        btn.innerHTML = `<i class="${tbl.icon} me-2"></i>${tbl.name_ar}`;
+        btn.onclick = () => switchTable(tbl.key, btn);
+        tabsEl.appendChild(btn);
+      });
+
+      if (tables.length > 0) {
+        await switchTable(tables[0].key, tabsEl.firstChild);
+      }
+    } catch (e) {
+      document.getElementById('system-title').textContent = e.message;
+    }
+  }
+
+  // ─── Switch Table Tab ─────────────────────────────────────────────────────
+  async function switchTable(tableKey, btnEl) {
+    activeTableKey = tableKey;
+    // Update tabs
+    document.querySelectorAll('.table-tab').forEach(b => {
+      b.classList.remove('active');
+      b.style.background = '';
+    });
+    btnEl.classList.add('active');
+    btnEl.style.background = system.color;
+
+    const tbl = getTableConfig(tableKey);
+    document.getElementById('active-table-title').textContent = tbl ? tbl.name_ar : tableKey;
+    document.getElementById('search-input').value = '';
+
+    await loadRecords();
+  }
+
+  // ─── Load Records ─────────────────────────────────────────────────────────
+  async function loadRecords() {
+    const container = document.getElementById('records-container');
+    container.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-spin text-violet-400"></i><p class="mt-3">جاري التحميل...</p></div>`;
+
+    try {
+      const r = await fetch(`/api/nocode/systems/${systemId}/tables/${activeTableKey}/records`);
+      allRecords = await r.json();
+      renderTable(allRecords);
+      document.getElementById('records-count').textContent = `${allRecords.length} سجل`;
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle text-rose-400"></i><p class="mt-3">خطأ في التحميل</p></div>`;
+    }
+  }
+
+  // ─── Render Table ─────────────────────────────────────────────────────────
+  function renderTable(records) {
+    const container = document.getElementById('records-container');
+    const tbl = getTableConfig(activeTableKey);
+    if (!tbl) return;
+
+    if (!records.length) {
+      container.innerHTML = `<div class="empty-state"><i class="${tbl.icon}" style="color:${system.color}"></i><p class="mt-3 font-bold text-slate-500">لا توجد سجلات بعد</p><p class="text-sm text-slate-400 mt-1">اضغط "إضافة سجل" لإضافة أول سجل</p></div>`;
+      return;
+    }
+
+    // Build table headers from fields
+    const fields = tbl.fields;
+    const displayFields = fields.slice(0, 5); // Show max 5 columns in table
+
+    let html = `<table class="w-full text-sm">
+      <thead><tr class="bg-slate-50 border-b border-slate-100">
+        <th class="text-right px-4 py-3 text-slate-500 font-bold">#</th>`;
+
+    displayFields.forEach(f => {
+      html += `<th class="text-right px-4 py-3 text-slate-500 font-bold">${f.label_ar}</th>`;
+    });
+    html += `<th class="text-right px-4 py-3 text-slate-500 font-bold">الإجراءات</th></tr></thead>
+      <tbody>`;
+
+    records.forEach((rec, idx) => {
+      const data = rec.record_data || {};
+      html += `<tr class="rec-row border-b border-slate-50 transition" data-id="${rec.id}">
+        <td class="px-4 py-3 text-slate-400 font-mono text-xs">${idx + 1}</td>`;
+      displayFields.forEach(f => {
+        const val = data[f.key] || '';
+        if (f.type === 'select') {
+          html += `<td class="px-4 py-3"><span class="badge" style="background:${system.color}22; color:${system.color}">${val || '-'}</span></td>`;
+        } else {
+          html += `<td class="px-4 py-3 text-slate-700 font-medium">${val || '<span class="text-slate-300">-</span>'}</td>`;
+        }
+      });
+      html += `<td class="px-4 py-3">
+          <div class="flex gap-2">
+            <button onclick="editRecord(${rec.id})" class="text-xs px-3 py-1.5 rounded-lg font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 transition"><i class="fas fa-edit me-1"></i>تعديل</button>
+            <button onclick="deleteRecord(${rec.id})" class="text-xs px-3 py-1.5 rounded-lg font-bold text-rose-500 border border-rose-100 hover:bg-rose-50 transition"><i class="fas fa-trash me-1"></i>حذف</button>
+          </div>
+        </td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+  }
+
+  // ─── Filter ───────────────────────────────────────────────────────────────
+  function filterRecords() {
+    const q = document.getElementById('search-input').value.toLowerCase();
+    if (!q) { renderTable(allRecords); return; }
+    const filtered = allRecords.filter(r => JSON.stringify(r.record_data).toLowerCase().includes(q));
+    renderTable(filtered);
+  }
+
+  // ─── Modal Open/Close ─────────────────────────────────────────────────────
+  function openAddRecord() {
+    editingRecordId = null;
+    document.getElementById('modal-title').textContent = 'إضافة سجل جديد';
+    document.getElementById('save-btn').style.background = system.color;
+    buildFormFields({});
+    document.getElementById('record-modal').classList.add('show');
+  }
+
+  function editRecord(id) {
+    const rec = allRecords.find(r => r.id === id);
+    if (!rec) return;
+    editingRecordId = id;
+    document.getElementById('modal-title').textContent = 'تعديل السجل';
+    document.getElementById('save-btn').style.background = system.color;
+    buildFormFields(rec.record_data || {});
+    document.getElementById('record-modal').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('record-modal').classList.remove('show');
+    document.getElementById('record-form').reset();
+    editingRecordId = null;
+  }
+
+  // ─── Build Form Fields ────────────────────────────────────────────────────
+  function buildFormFields(data) {
+    const tbl = getTableConfig(activeTableKey);
+    if (!tbl) return;
+    const container = document.getElementById('form-fields');
+    container.innerHTML = '';
+
+    tbl.fields.forEach(f => {
+      const val = data[f.key] || '';
+      const wrapper = document.createElement('div');
+
+      let inputHtml = '';
+      const base = `id="field-${f.key}" name="${f.key}" ${f.required ? 'required' : ''} class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-violet-400 transition"`;
+
+      if (f.type === 'select') {
+        const opts = (f.options || []).map(o => `<option value="${o}" ${val === o ? 'selected' : ''}>${o}</option>`).join('');
+        inputHtml = `<select ${base}><option value="">اختر...</option>${opts}</select>`;
+      } else if (f.type === 'textarea') {
+        inputHtml = `<textarea ${base} rows="3">${val}</textarea>`;
+      } else {
+        inputHtml = `<input type="${f.type || 'text'}" ${base} value="${val.toString().replace(/"/g, '&quot;')}" placeholder="${f.label_ar}" />`;
+      }
+
+      wrapper.innerHTML = `
+        <label class="block text-sm font-bold text-slate-600 mb-1.5">
+          ${f.label_ar}${f.required ? ' <span class="text-rose-400">*</span>' : ''}
+        </label>
+        ${inputHtml}`;
+      container.appendChild(wrapper);
+    });
+  }
+
+  // ─── Save Record ──────────────────────────────────────────────────────────
+  async function saveRecord(e) {
+    e.preventDefault();
+    const tbl = getTableConfig(activeTableKey);
+    const data = {};
+    tbl.fields.forEach(f => {
+      const el = document.getElementById(`field-${f.key}`);
+      if (el) data[f.key] = el.value;
+    });
+
+    try {
+      let url = `/api/nocode/systems/${systemId}/tables/${activeTableKey}/records`;
+      let method = 'POST';
+      if (editingRecordId) {
+        url += `/${editingRecordId}`;
+        method = 'PUT';
+      }
+
+      const r = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!r.ok) throw new Error('فشل في الحفظ');
+
+      closeModal();
+      await loadRecords();
+      showToast(editingRecordId ? '✅ تم تعديل السجل بنجاح' : '✅ تم إضافة السجل بنجاح');
+    } catch (err) {
+      showToast('❌ ' + err.message);
+    }
+  }
+
+  // ─── Delete Record ────────────────────────────────────────────────────────
+  async function deleteRecord(id) {
+    if (!confirm('هل تريد حذف هذا السجل؟')) return;
+    try {
+      await fetch(`/api/nocode/systems/${systemId}/tables/${activeTableKey}/records/${id}`, { method: 'DELETE' });
+      await loadRecords();
+      showToast('🗑️ تم حذف السجل');
+    } catch (err) {
+      showToast('❌ فشل في الحذف');
+    }
+  }
+
+  // ─── Export CSV ───────────────────────────────────────────────────────────
+  function exportCSV() {
+    const tbl = getTableConfig(activeTableKey);
+    if (!allRecords.length || !tbl) { showToast('لا توجد بيانات للتصدير'); return; }
+    const headers = tbl.fields.map(f => f.label_ar).join(',');
+    const rows = allRecords.map(r => tbl.fields.map(f => `"${(r.record_data[f.key] || '').toString().replace(/"/g, '""')}"`).join(','));
+    const csv = '\uFEFF' + [headers, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = tbl.name_ar + '.csv'; a.click();
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  function getTableConfig(key) {
+    if (!system) return null;
+    return (system.tables_config || []).find(t => t.key === key);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  init();
+</script>
+</body>
+</html>

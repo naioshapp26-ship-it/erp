@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مقارنة ساعات العمل بالإنتاجية</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0b1220;
+      --muted: #6b7280;
+      --blue: #1d4ed8;
+      --cyan: #0891b2;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --line: #e5e7eb;
+      --card: #ffffff;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 18%, rgba(29, 78, 216, 0.16), transparent 46%),
+        radial-gradient(circle at 88% 16%, rgba(8, 145, 178, 0.18), transparent 42%),
+        linear-gradient(180deg, #f1f5ff 0%, #f8fafc 48%, #e0f2fe 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 22px;
+      box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 16px;
+    }
+
+    .panel-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 18px;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 18px 30px -18px rgba(15, 23, 42, 0.6);
+      display: none;
+      z-index: 50;
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div class="max-w-2xl">
+        <span class="chip bg-white text-slate-700 border border-slate-200">إنتاجية الموظفين</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">مقارنة ساعات العمل بالإنتاجية</h1>
+        <p class="text-slate-600">لوحة تحليلية تربط ساعات العمل بالنتائج الفعلية وتكشف فجوات الكفاءة.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="addEvaluationBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة تقييم
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">إجمالي ساعات العمل الشهرية</div>
+        <div id="totalHours" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">ساعات العمل الفعلية</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">متوسط الإنتاجية</div>
+        <div id="avgProductivity" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-emerald-600 mt-1">اتجاه إيجابي</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">أعلى موظف إنتاجية</div>
+        <div id="topEmployee" class="text-2xl font-extrabold mt-2">-</div>
+        <div class="text-xs text-slate-500 mt-1">قائد الأداء</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">أقل موظف إنتاجية</div>
+        <div id="lowEmployee" class="text-2xl font-extrabold mt-2">-</div>
+        <div class="text-xs text-rose-600 mt-1">يحتاج دعم</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">نسبة الكفاءة العامة</div>
+        <div id="overallEfficiency" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">مقارنة بالهدف</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="panel-card lg:col-span-2">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold">العلاقة بين الساعات والإنتاجية</h2>
+          <span class="chip bg-blue-100 text-blue-700">بيانات مباشرة</span>
+        </div>
+        <div class="mt-4">
+          <svg viewBox="0 0 520 220" class="w-full">
+            <rect x="0" y="0" width="520" height="220" fill="#f8fafc" rx="16"></rect>
+            <line x1="40" y1="180" x2="480" y2="180" stroke="#e2e8f0"></line>
+            <line x1="40" y1="40" x2="40" y2="180" stroke="#e2e8f0"></line>
+            <circle cx="110" cy="120" r="8" fill="#1d4ed8"></circle>
+            <circle cx="170" cy="90" r="8" fill="#0891b2"></circle>
+            <circle cx="230" cy="140" r="8" fill="#f59e0b"></circle>
+            <circle cx="290" cy="70" r="8" fill="#10b981"></circle>
+            <circle cx="360" cy="130" r="8" fill="#ef4444"></circle>
+            <circle cx="420" cy="95" r="8" fill="#1d4ed8"></circle>
+          </svg>
+          <div class="mt-3 flex justify-between text-xs text-slate-500">
+            <span>ساعات أقل</span>
+            <span>ساعات أكثر</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">تنبيهات ذكية</h2>
+        <p class="text-sm text-slate-500">ساعات عالية بإنتاجية منخفضة أو فرص للترقية.</p>
+        <div id="alertList" class="mt-4 space-y-3"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">مقارنة الأقسام</h2>
+        <p class="text-sm text-slate-500">الكفاءة مقابل ساعات العمل لكل قسم.</p>
+        <div id="departmentComparison" class="mt-4 space-y-3"></div>
+      </div>
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">تطور الأداء عبر الوقت</h2>
+        <p class="text-sm text-slate-500">آخر 6 أشهر من متوسط الإنتاجية.</p>
+        <div class="mt-4">
+          <svg viewBox="0 0 520 180" class="w-full">
+            <defs>
+              <linearGradient id="perf" x1="0" x2="1">
+                <stop offset="0%" stop-color="#1d4ed8" />
+                <stop offset="100%" stop-color="#0891b2" />
+              </linearGradient>
+            </defs>
+            <polyline fill="none" stroke="url(#perf)" stroke-width="4" points="40,140 120,120 200,130 280,90 360,100 440,80" />
+            <line x1="40" y1="150" x2="480" y2="150" stroke="#e2e8f0" />
+          </svg>
+          <div class="mt-3 flex justify-between text-xs text-slate-500">
+            <span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">جدول المقارنة التفصيلي</h2>
+          <p class="text-sm text-slate-500">تفاصيل ساعات العمل والإنتاجية لكل موظف.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث باسم الموظف" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-56">
+          </div>
+          <select id="departmentFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل الأقسام</option>
+          </select>
+          <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-2 text-sm">
+            <span class="text-slate-500">ساعات</span>
+            <input id="hoursFilter" type="range" min="120" max="240" value="120" class="accent-slate-900">
+            <span id="hoursValue" class="font-bold text-slate-700">120+</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4 overflow-x-auto">
+        <table class="min-w-[960px] w-full text-sm">
+          <thead class="bg-slate-50 text-xs font-bold text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-right">اسم الموظف</th>
+              <th class="px-4 py-3 text-right">عدد ساعات العمل</th>
+              <th class="px-4 py-3 text-right">ساعات إضافية</th>
+              <th class="px-4 py-3 text-right">مستوى الإنتاجية</th>
+              <th class="px-4 py-3 text-right">نسبة الكفاءة</th>
+              <th class="px-4 py-3 text-right">التقييم النهائي</th>
+              <th class="px-4 py-3 text-right">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة للبحث.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="productivityModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center z-40">
+    <div class="bg-white rounded-2xl border border-slate-200 w-[92%] max-w-2xl p-6">
+      <div class="flex items-center justify-between">
+        <h3 id="productivityModalTitle" class="text-xl font-extrabold">إضافة تقييم</h3>
+        <button id="closeModalBtn" class="text-slate-500"><i class="fas fa-xmark"></i></button>
+      </div>
+      <p id="productivityModalHint" class="text-sm text-slate-500 mt-1">أدخل بيانات التقييم بدقة لضمان موثوقية التحليل.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label class="text-sm text-slate-600">اسم الموظف</label>
+          <input id="employeeNameInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: خالد عمر">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">القسم</label>
+          <input id="employeeDepartmentInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: العمليات الإدارية">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">عدد ساعات العمل</label>
+          <input id="employeeHoursInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 180">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">ساعات إضافية</label>
+          <input id="employeeOvertimeInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 12">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">مستوى الإنتاجية</label>
+          <input id="employeeProductivityInput" type="number" min="0" max="100" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 88">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">نسبة الكفاءة</label>
+          <input id="employeeEfficiencyInput" type="number" min="0" max="100" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 82">
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-sm text-slate-600">التقييم النهائي</label>
+          <input id="employeeRatingInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: ممتاز">
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button id="saveEvaluationBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-check"></i>
+          حفظ التقييم
+        </button>
+        <button id="cancelEvaluationBtn" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">تم حفظ التقييم بنجاح.</div>
+
+  <script>
+    const apiBase = '/api/hr-productivity-records';
+    let employees = [];
+    let currentMode = 'add';
+    let currentEditId = null;
+
+    const searchInput = document.getElementById('searchInput');
+    const departmentFilter = document.getElementById('departmentFilter');
+    const hoursFilter = document.getElementById('hoursFilter');
+    const hoursValue = document.getElementById('hoursValue');
+    const tableBody = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+    const totalHours = document.getElementById('totalHours');
+    const avgProductivity = document.getElementById('avgProductivity');
+    const topEmployee = document.getElementById('topEmployee');
+    const lowEmployee = document.getElementById('lowEmployee');
+    const overallEfficiency = document.getElementById('overallEfficiency');
+    const departmentComparison = document.getElementById('departmentComparison');
+    const alertList = document.getElementById('alertList');
+    const addEvaluationBtn = document.getElementById('addEvaluationBtn');
+    const toast = document.getElementById('toast');
+    const productivityModal = document.getElementById('productivityModal');
+    const productivityModalTitle = document.getElementById('productivityModalTitle');
+    const productivityModalHint = document.getElementById('productivityModalHint');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelEvaluationBtn = document.getElementById('cancelEvaluationBtn');
+    const saveEvaluationBtn = document.getElementById('saveEvaluationBtn');
+    const employeeNameInput = document.getElementById('employeeNameInput');
+    const employeeDepartmentInput = document.getElementById('employeeDepartmentInput');
+    const employeeHoursInput = document.getElementById('employeeHoursInput');
+    const employeeOvertimeInput = document.getElementById('employeeOvertimeInput');
+    const employeeProductivityInput = document.getElementById('employeeProductivityInput');
+    const employeeEfficiencyInput = document.getElementById('employeeEfficiencyInput');
+    const employeeRatingInput = document.getElementById('employeeRatingInput');
+
+    const showToast = (message) => {
+      toast.textContent = message;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 2400);
+    };
+
+    const formatNumber = (value) => value.toLocaleString('en-US');
+
+    const normalizeEmployee = (item) => ({
+      id: item.id,
+      name: item.employee_name,
+      department: item.department,
+      hours: Number(item.work_hours || 0),
+      overtime: Number(item.overtime_hours || 0),
+      productivity: Number(item.productivity_level || 0),
+      efficiency: Number(item.efficiency_percent || 0),
+      rating: item.final_rating || 'غير محدد'
+    });
+
+    const fetchEmployees = async () => {
+      const response = await fetch(apiBase);
+      if (!response.ok) throw new Error('تعذر تحميل بيانات الإنتاجية.');
+      const data = await response.json();
+      return data.map(normalizeEmployee);
+    };
+
+    const createEmployee = async (payload) => {
+      const response = await fetch(apiBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error('تعذر حفظ التقييم.');
+      const data = await response.json();
+      return normalizeEmployee(data);
+    };
+
+    const updateEmployee = async (id, payload) => {
+      const response = await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error('تعذر تحديث التقييم.');
+      const data = await response.json();
+      return normalizeEmployee(data);
+    };
+
+    const removeEmployee = async (id) => {
+      const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('تعذر حذف التقييم.');
+      return response.json();
+    };
+
+    const updateSummary = () => {
+      const hours = employees.reduce((sum, item) => sum + item.hours, 0);
+      const avgProd = employees.length
+        ? employees.reduce((sum, item) => sum + item.productivity, 0) / employees.length
+        : 0;
+      const top = employees.length
+        ? employees.reduce((prev, curr) => (curr.productivity > prev.productivity ? curr : prev), employees[0])
+        : null;
+      const low = employees.length
+        ? employees.reduce((prev, curr) => (curr.productivity < prev.productivity ? curr : prev), employees[0])
+        : null;
+      const efficiency = employees.length
+        ? employees.reduce((sum, item) => sum + item.efficiency, 0) / employees.length
+        : 0;
+
+      totalHours.textContent = formatNumber(hours);
+      avgProductivity.textContent = avgProd.toFixed(1);
+      topEmployee.textContent = top ? top.name : '-';
+      lowEmployee.textContent = low ? low.name : '-';
+      overallEfficiency.textContent = `${efficiency.toFixed(1)}%`;
+    };
+
+    const renderDepartmentComparison = () => {
+      departmentComparison.innerHTML = '';
+      const grouped = employees.reduce((acc, item) => {
+        acc[item.department] = acc[item.department] || { hours: 0, productivity: 0, count: 0 };
+        acc[item.department].hours += item.hours;
+        acc[item.department].productivity += item.productivity;
+        acc[item.department].count += 1;
+        return acc;
+      }, {});
+
+      Object.entries(grouped).forEach(([department, data]) => {
+        const avg = data.productivity / data.count;
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+        row.innerHTML = `
+          <div class="flex items-center justify-between text-sm">
+            <span>${department}</span>
+            <span class="font-bold text-slate-700">${avg.toFixed(1)}%</span>
+          </div>
+          <div class="text-xs text-slate-500 mt-1">إجمالي الساعات: ${formatNumber(data.hours)}</div>
+          <div class="h-2 bg-slate-100 rounded-full overflow-hidden mt-2">
+            <div class="h-full bg-blue-600" style="width: ${Math.min(avg, 100)}%"></div>
+          </div>
+        `;
+        departmentComparison.appendChild(row);
+      });
+    };
+
+    const renderAlerts = () => {
+      alertList.innerHTML = '';
+      const alerts = employees
+        .filter((item) => item.hours > 200 && item.productivity < 75)
+        .map((item) => `${item.name}: ساعات مرتفعة وإنتاجية منخفضة.`);
+
+      employees
+        .filter((item) => item.productivity > 90)
+        .slice(0, 2)
+        .forEach((item) => alerts.push(`${item.name}: أداء مرتفع يمكن نقل خبرته.`));
+
+      alerts.forEach((alert) => {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl border border-amber-200 bg-amber-50 text-sm text-amber-700';
+        row.innerHTML = `<i class="fas fa-bell ml-2"></i>${alert}`;
+        alertList.appendChild(row);
+      });
+
+      if (!alerts.length) {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl border border-emerald-200 bg-emerald-50 text-sm text-emerald-700';
+        row.innerHTML = '<i class="fas fa-shield-check ml-2"></i>لا توجد تنبيهات عاجلة.';
+        alertList.appendChild(row);
+      }
+    };
+
+    const fillDepartmentOptions = () => {
+      departmentFilter.innerHTML = '<option value="all">كل الأقسام</option>';
+      const options = [...new Set(employees.map((item) => item.department))];
+      options.forEach((department) => {
+        const option = document.createElement('option');
+        option.value = department;
+        option.textContent = department;
+        departmentFilter.appendChild(option);
+      });
+    };
+
+    const renderTable = (data) => {
+      tableBody.innerHTML = '';
+      if (!data.length) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      data.forEach((item) => {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-slate-100';
+        row.innerHTML = `
+          <td class="px-4 py-3 font-bold text-slate-700">${item.name}</td>
+          <td class="px-4 py-3">${item.hours}</td>
+          <td class="px-4 py-3">${item.overtime}</td>
+          <td class="px-4 py-3">${item.productivity}%</td>
+          <td class="px-4 py-3">${item.efficiency}%</td>
+          <td class="px-4 py-3">${item.rating}</td>
+          <td class="px-4 py-3 row-actions" data-id="${item.id}">
+            <div class="flex flex-wrap gap-1">
+              <button data-action="view">عرض</button>
+              <button data-action="preview">معاينة</button>
+              <button data-action="edit">تعديل</button>
+              <button data-action="delete" class="text-rose-600">حذف</button>
+              <button data-action="plan" class="text-emerald-600">إضافة تقييم</button>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    };
+
+    const applyFilters = () => {
+      const searchValue = searchInput.value.trim().toLowerCase();
+      const departmentValue = departmentFilter.value;
+      const minHours = Number(hoursFilter.value || 0);
+
+      const filtered = employees.filter((item) => {
+        const matchesSearch = item.name.toLowerCase().includes(searchValue);
+        const matchesDepartment = departmentValue === 'all' || item.department === departmentValue;
+        const matchesHours = item.hours >= minHours;
+        return matchesSearch && matchesDepartment && matchesHours;
+      });
+
+      renderTable(filtered);
+    };
+
+    const resetModal = () => {
+      employeeNameInput.value = '';
+      employeeDepartmentInput.value = '';
+      employeeHoursInput.value = '';
+      employeeOvertimeInput.value = '';
+      employeeProductivityInput.value = '';
+      employeeEfficiencyInput.value = '';
+      employeeRatingInput.value = '';
+    };
+
+    const setModalDisabled = (disabled) => {
+      [
+        employeeNameInput,
+        employeeDepartmentInput,
+        employeeHoursInput,
+        employeeOvertimeInput,
+        employeeProductivityInput,
+        employeeEfficiencyInput,
+        employeeRatingInput
+      ].forEach((input) => {
+        input.disabled = disabled;
+        input.classList.toggle('bg-slate-100', disabled);
+      });
+    };
+
+    const openModal = (mode, item = null) => {
+      currentMode = mode;
+      currentEditId = item ? item.id : null;
+
+      if (!item) {
+        resetModal();
+      } else {
+        employeeNameInput.value = item.name;
+        employeeDepartmentInput.value = item.department;
+        employeeHoursInput.value = item.hours;
+        employeeOvertimeInput.value = item.overtime;
+        employeeProductivityInput.value = item.productivity;
+        employeeEfficiencyInput.value = item.efficiency;
+        employeeRatingInput.value = item.rating === 'غير محدد' ? '' : item.rating;
+      }
+
+      const isReadOnly = mode === 'view' || mode === 'preview';
+      setModalDisabled(isReadOnly);
+      saveEvaluationBtn.classList.toggle('hidden', isReadOnly);
+      productivityModalTitle.textContent = mode === 'edit' ? 'تعديل التقييم' : mode === 'preview' ? 'معاينة التقييم' : mode === 'view' ? 'عرض التقييم' : 'إضافة تقييم';
+      productivityModalHint.textContent = isReadOnly ? 'عرض تفاصيل الموظف كما هي مسجلة.' : 'أدخل بيانات التقييم بدقة لضمان موثوقية التحليل.';
+      productivityModal.classList.remove('hidden');
+      productivityModal.classList.add('flex');
+    };
+
+    const closeModal = () => {
+      productivityModal.classList.add('hidden');
+      productivityModal.classList.remove('flex');
+    };
+
+    searchInput.addEventListener('input', applyFilters);
+    departmentFilter.addEventListener('change', applyFilters);
+    hoursFilter.addEventListener('input', () => {
+      hoursValue.textContent = `${hoursFilter.value}+`;
+      applyFilters();
+    });
+
+    tableBody.addEventListener('click', (event) => {
+      const action = event.target.getAttribute('data-action');
+      if (!action) return;
+      const row = event.target.closest('[data-id]');
+      const id = row ? Number(row.dataset.id) : null;
+      const item = employees.find((entry) => entry.id === id);
+      if (action === 'delete') {
+        const confirmed = window.confirm('هل تريد حذف تقييم الموظف؟');
+        if (!confirmed) return;
+        removeEmployee(id)
+          .then(() => {
+            employees = employees.filter((entry) => entry.id !== id);
+            updateSummary();
+            fillDepartmentOptions();
+            renderDepartmentComparison();
+            renderAlerts();
+            applyFilters();
+            showToast('تم حذف التقييم بنجاح.');
+          })
+          .catch((error) => showToast(error.message));
+        return;
+      }
+      if (action === 'plan') {
+        if (item) openModal('edit', item);
+        return;
+      }
+      if (action === 'edit') {
+        if (item) openModal('edit', item);
+        return;
+      }
+      if (action === 'view' && item) {
+        openModal('view', item);
+        return;
+      }
+      if (action === 'preview' && item) {
+        openModal('preview', item);
+        return;
+      }
+    });
+
+    addEvaluationBtn.addEventListener('click', () => openModal('add'));
+    closeModalBtn.addEventListener('click', closeModal);
+    cancelEvaluationBtn.addEventListener('click', closeModal);
+
+    saveEvaluationBtn.addEventListener('click', () => {
+      if (!employeeNameInput.value.trim() || !employeeDepartmentInput.value.trim() || !employeeHoursInput.value || !employeeProductivityInput.value || !employeeEfficiencyInput.value) {
+        showToast('يرجى إدخال البيانات الأساسية للتقييم.');
+        return;
+      }
+
+      const payload = {
+        employee_name: employeeNameInput.value.trim(),
+        department: employeeDepartmentInput.value.trim(),
+        work_hours: Number(employeeHoursInput.value),
+        overtime_hours: employeeOvertimeInput.value ? Number(employeeOvertimeInput.value) : 0,
+        productivity_level: Number(employeeProductivityInput.value),
+        efficiency_percent: Number(employeeEfficiencyInput.value),
+        final_rating: employeeRatingInput.value.trim() || null
+      };
+
+      const request = currentMode === 'edit'
+        ? updateEmployee(currentEditId, payload)
+        : createEmployee(payload);
+
+      request
+        .then((saved) => {
+          if (currentMode === 'edit') {
+            const index = employees.findIndex((entry) => entry.id === saved.id);
+            if (index !== -1) employees[index] = saved;
+          } else {
+            employees.unshift(saved);
+          }
+          updateSummary();
+          fillDepartmentOptions();
+          renderDepartmentComparison();
+          renderAlerts();
+          applyFilters();
+          closeModal();
+          showToast('تم حفظ التقييم بنجاح.');
+        })
+        .catch((error) => showToast(error.message));
+    });
+
+    fetchEmployees()
+      .then((data) => {
+        employees = data;
+        updateSummary();
+        fillDepartmentOptions();
+        renderDepartmentComparison();
+        renderAlerts();
+        applyFilters();
+      })
+      .catch((error) => {
+        showToast(error.message);
+      });
+  </script>
+</body>
+</html>

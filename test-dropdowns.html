@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار القوائم المنسدلة</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+        }
+        select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 اختبار القوائم المنسدلة</h1>
+        
+        <div class="form-group">
+            <label for="branch">1️⃣ اختر الفرع:</label>
+            <select id="branch" onchange="loadIncubatorsAndPlatforms()">
+                <option value="">-- اختر فرع --</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="incubators">2️⃣ الحاضنات المتاحة:</label>
+            <select id="incubators">
+                <option value="">-- اختر فرع أولاً --</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="platforms">3️⃣ المنصات المتاحة:</label>
+            <select id="platforms">
+                <option value="">-- اختر فرع أولاً --</option>
+            </select>
+        </div>
+        
+        <div id="result" style="display:none;"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+
+        // Load branches on page load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_URL}/entities`);
+                const entities = await response.json();
+                const branches = entities.filter(e => e.type === 'BRANCH');
+                
+                const select = document.getElementById('branch');
+                select.innerHTML = '<option value="">-- اختر فرع --</option>' +
+                    branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+                    
+                showResult(`✅ تم تحميل ${branches.length} فرع`, false);
+            } catch (error) {
+                showResult(`❌ خطأ في تحميل الفروع: ${error.message}`, true);
+            }
+        });
+
+        async function loadIncubatorsAndPlatforms() {
+            const branchId = document.getElementById('branch').value;
+            
+            if (!branchId) {
+                document.getElementById('incubators').innerHTML = '<option value="">-- اختر فرع أولاً --</option>';
+                document.getElementById('platforms').innerHTML = '<option value="">-- اختر فرع أولاً --</option>';
+                hideResult();
+                return;
+            }
+            
+            try {
+                showResult('⏳ جاري التحميل...', false);
+                
+                // Load incubators
+                const incResponse = await fetch(`${API_URL}/incubators?branch_id=${branchId}`);
+                const incubators = await incResponse.json();
+                
+                const incSelect = document.getElementById('incubators');
+                incSelect.innerHTML = '<option value="">-- اختر حاضنة --</option>' +
+                    incubators.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+                
+                // Load platforms
+                const platResponse = await fetch(`${API_URL}/platforms?branch_id=${branchId}`);
+                const platforms = await platResponse.json();
+                
+                const platSelect = document.getElementById('platforms');
+                platSelect.innerHTML = '<option value="">-- اختر منصة --</option>' +
+                    platforms.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                
+                showResult(`✅ تم التحميل بنجاح!
+                    🟢 ${incubators.length} حاضنة
+                    🟠 ${platforms.length} منصة`, false);
+                    
+            } catch (error) {
+                showResult(`❌ خطأ: ${error.message}`, true);
+            }
+        }
+
+        function showResult(message, isError) {
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.className = isError ? 'result error' : 'result';
+            result.innerHTML = message.replace(/\n/g, '<br>');
+        }
+
+        function hideResult() {
+            document.getElementById('result').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

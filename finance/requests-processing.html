@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📥 معالجة الطلبات - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink:        #0f172a;
+      --muted:      #64748b;
+      --primary:    #0ea5e9;
+      --primary-dk: #0284c7;
+      --rose:       #f43f5e;
+      --sun:        #f59e0b;
+      --line:       #e2e8f0;
+      --navy:       #0b1220;
+    }
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 12%, rgba(14,165,233,0.18), transparent 40%),
+        radial-gradient(circle at 88% 15%, rgba(2,132,199,0.12), transparent 40%),
+        radial-gradient(circle at 50% 90%, rgba(15,23,42,0.06), transparent 50%),
+        linear-gradient(180deg, #f0f9ff 0%, #f8fafc 50%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+    .glass {
+      background: rgba(255,255,255,0.93);
+      border: 1px solid rgba(148,163,184,0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15,23,42,0.4);
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; font-weight: 800; border-radius: 999px;
+      padding: 10px 20px; transition: all 0.2s ease; border: 1px solid transparent;
+      cursor: pointer; font-family: 'Cairo', sans-serif; text-decoration: none;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px -18px rgba(15,23,42,0.4); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    /* ===== Hero ===== */
+    .page-hero {
+      background:
+        radial-gradient(circle at 20% 30%, rgba(14,165,233,0.28) 0%, transparent 50%),
+        radial-gradient(circle at 85% 20%, rgba(2,132,199,0.18) 0%, transparent 45%),
+        linear-gradient(135deg, rgba(11,18,32,0.97) 0%, rgba(15,23,42,0.95) 60%, rgba(7,89,133,0.92) 100%);
+      border-radius: 28px;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .page-hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(14,165,233,0.05) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(14,165,233,0.05) 0 1px, transparent 1px 40px);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(14,165,233,0.2); border: 1px solid rgba(14,165,233,0.4);
+      border-radius: 999px; padding: 6px 16px;
+      font-size: 13px; font-weight: 800; color: #7dd3fc;
+    }
+    .hero-pulse {
+      width: 10px; height: 10px; border-radius: 999px; background: #38bdf8;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(56,189,248,0.5); }
+      50%      { opacity:.8; box-shadow:0 0 0 6px rgba(56,189,248,0); }
+    }
+    .scan-line {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(14,165,233,0.6), transparent);
+      animation: scanLine 3.5s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes scanLine {
+      0%   { transform: translateY(-100%); }
+      100% { transform: translateY(500%); }
+    }
+    .hero-orb {
+      width: 180px; height: 180px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(14,165,233,0.4), rgba(2,132,199,0.2), rgba(15,23,42,0.5));
+      border: 1px solid rgba(14,165,233,0.3);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      box-shadow: 0 0 60px rgba(14,165,233,0.2), inset 0 0 40px rgba(14,165,233,0.1);
+    }
+    .hero-orb::before { content:''; position:absolute; inset:-8px; border-radius:50%; border:1px solid rgba(14,165,233,0.15); }
+    .hero-orb::after  { content:''; position:absolute; inset:-20px; border-radius:50%; border:1px solid rgba(14,165,233,0.08); }
+
+    /* ===== Stat Cards ===== */
+    .stat-card {
+      border-radius: 22px; border: 1px solid var(--line);
+      background: #fff; padding: 18px 20px;
+      box-shadow: 0 8px 28px -16px rgba(15,23,42,0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px -20px rgba(15,23,42,0.3); }
+    .stat-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .stat-progress { height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .stat-progress-bar { height: 100%; border-radius: 999px; transition: width 1s ease; }
+
+    /* ===== Section label ===== */
+    .section-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(14,165,233,0.1); border: 1px solid rgba(14,165,233,0.25);
+      border-radius: 999px; padding: 5px 14px;
+      font-size: 12px; font-weight: 800; color: #0284c7;
+    }
+
+    /* ===== Table shell ===== */
+    .table-shell {
+      border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fff;
+    }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table thead tr { background: #f8fafc; }
+    .data-table thead th {
+      padding: 12px 16px; font-size: 12px; font-weight: 800; color: var(--muted);
+      text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 2;
+    }
+    .data-table tbody tr { border-bottom: 1px solid var(--line); transition: background 0.15s; }
+    .data-table tbody tr:last-child { border-bottom: none; }
+    .data-table tbody tr:hover { background: #f0f9ff; }
+    .data-table tbody td { padding: 12px 16px; font-size: 13px; vertical-align: middle; }
+    .table-scroll { max-height: 520px; overflow: auto; }
+
+    /* ===== Status pill ===== */
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 999px; font-weight: 700; font-size: 12px;
+    }
+
+    /* ===== Step cards ===== */
+    .step-card {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 20px; background: #fff;
+      border: 1px solid var(--line); border-radius: 20px;
+      box-shadow: 0 4px 16px -8px rgba(15,23,42,0.12);
+      transition: transform 0.2s;
+    }
+    .step-card:hover { transform: translateX(-4px); }
+    .step-num {
+      width: 44px; height: 44px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; flex-shrink: 0;
+    }
+
+    /* ===== Feature Cards ===== */
+    .feature-card {
+      background: #fff; border: 1px solid var(--line);
+      border-radius: 22px; padding: 22px;
+      box-shadow: 0 8px 24px -16px rgba(15,23,42,0.15);
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 45px -20px rgba(15,23,42,0.3); }
+    .feature-icon {
+      width: 52px; height: 52px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center; font-size: 24px;
+    }
+
+    /* ===== Chip ===== */
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
+    }
+
+    /* ===== Filter panel ===== */
+    .form-label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
+    .form-input {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s;
+      background: #fff;
+    }
+    .form-input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.12); }
+    .form-select {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none; background: #fff;
+      transition: border-color 0.2s; appearance: none; cursor: pointer;
+    }
+    .form-select:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.12); }
+
+    /* ===== CTA section ===== */
+    .cta-section {
+      background: linear-gradient(135deg, #0b1220, #0f172a 50%, #075985);
+      border-radius: 28px; position: relative; overflow: hidden;
+    }
+    .cta-section::before {
+      content:''; position:absolute; inset:0;
+      background: radial-gradient(circle at 20% 50%, rgba(14,165,233,0.15), transparent 50%),
+                  radial-gradient(circle at 80% 30%, rgba(2,132,199,0.12), transparent 45%);
+      pointer-events:none;
+    }
+    .cta-section::after {
+      content:''; position:absolute; inset:0;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(14,165,233,0.03) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(14,165,233,0.03) 0 1px, transparent 1px 40px);
+      pointer-events:none;
+    }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(15,23,42,0.65); backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 28px; width: 100%; max-width: 600px;
+      box-shadow: 0 40px 80px -20px rgba(15,23,42,0.5);
+      max-height: 92vh; overflow-y: auto;
+    }
+    .modal-box.wide { max-width: 720px; }
+    .modal-header { padding: 24px 24px 16px; border-bottom: 1px solid var(--line); }
+    .modal-body   { padding: 20px 24px; }
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid #f1f5f9;
+      background: #f8fafc; border-radius: 0 0 28px 28px;
+      display: flex; justify-content: flex-end; gap: 10px;
+    }
+
+    /* ===== Toast ===== */
+    #rq-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #0f172a; color: #fff; padding: 12px 28px; border-radius: 999px;
+      font-size: 14px; font-weight: 700; z-index: 200; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; white-space: nowrap;
+    }
+    #rq-toast.show { opacity: 1; }
+    #rq-toast.success { background: linear-gradient(135deg,#0ea5e9,#0284c7); }
+    #rq-toast.error   { background: linear-gradient(135deg,#dc2626,#ef4444); }
+
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 768px) {
+      .hero-orb { width: 120px; height: 120px; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+  <!-- 1. PAGE HEADER -->
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <span class="chip bg-white text-slate-600 border border-slate-200 mb-2">
+        <i class="fas fa-inbox text-sky-500"></i>
+        إدارة الطلبات
+      </span>
+    </div>
+    <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200 text-sm">
+      <i class="fas fa-arrow-right"></i>
+      العودة للموارد البشرية
+    </a>
+  </div>
+
+  <!-- 2. HERO -->
+  <div class="page-hero p-8 md:p-12 mb-8">
+    <div class="scan-line"></div>
+    <div class="relative z-10">
+      <div class="flex flex-col lg:flex-row gap-10 items-center">
+        <div class="flex-1">
+          <div class="hero-badge mb-5">
+            <div class="hero-pulse"></div>
+            نظام معالجة الطلبات — مباشر
+          </div>
+          <h1 class="text-4xl md:text-5xl font-extrabold mb-4 leading-tight">
+            📥 معالجة الطلبات
+          </h1>
+          <p class="text-lg md:text-xl mb-6 leading-relaxed" style="color:#7dd3fc;">
+            مراجعة طلبات الموظفين والبت فيها بسهولة وفق مستوى الأولوية ومؤشرات الالتزام بالوقت.
+          </p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+            <div class="flex items-center gap-2 text-sm" style="color:#7dd3fc;"><i class="fas fa-check-circle flex-shrink-0" style="color:#38bdf8;"></i> بحث متقدم</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#7dd3fc;"><i class="fas fa-check-circle flex-shrink-0" style="color:#38bdf8;"></i> فلترة الأولوية</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#7dd3fc;"><i class="fas fa-check-circle flex-shrink-0" style="color:#38bdf8;"></i> SLA مؤشر</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#7dd3fc;"><i class="fas fa-check-circle flex-shrink-0" style="color:#38bdf8;"></i> اعتماد/رفض</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#7dd3fc;"><i class="fas fa-check-circle flex-shrink-0" style="color:#38bdf8;"></i> تصنيف الطلبات</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#7dd3fc;"><i class="fas fa-check-circle flex-shrink-0" style="color:#38bdf8;"></i> تحديث فوري</div>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button id="refreshBtn" class="btn text-sm"
+              style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border-color:transparent;box-shadow:0 8px 24px -8px rgba(14,165,233,0.5);">
+              <i class="fas fa-rotate"></i> تحديث
+            </button>
+            <a href="/finance/hr-portal-workflows.html" class="btn text-white text-sm"
+              style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);">
+              <i class="fas fa-external-link-alt"></i> بوابة الطلبات
+            </a>
+          </div>
+        </div>
+        <div class="flex flex-col items-center gap-6 flex-shrink-0">
+          <div class="hero-orb">
+            <div style="text-align:center;position:relative;z-index:1;">
+              <div style="font-size:42px;">📥</div>
+              <div style="font-size:11px;font-weight:800;color:#7dd3fc;margin-top:4px;">REQUESTS</div>
+            </div>
+          </div>
+          <div class="flex gap-4 text-center">
+            <div>
+              <div class="text-2xl font-extrabold" style="color:#38bdf8;" id="heroTotal">0</div>
+              <div class="text-xs text-slate-400">إجمالي</div>
+            </div>
+            <div style="width:1px;background:rgba(255,255,255,0.1);"></div>
+            <div>
+              <div class="text-2xl font-extrabold" style="color:#34d399;" id="heroApproved">0</div>
+              <div class="text-xs text-slate-400">معتمد</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. STATS -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+    <!-- إجمالي الطلبات -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(14,165,233,0.12);color:#0284c7;"><i class="fas fa-inbox"></i></div>
+        <span class="chip text-xs" style="background:rgba(14,165,233,0.12);color:#0284c7;">الكل</span>
+      </div>
+      <div id="statTotal" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">إجمالي الطلبات</div>
+      <div class="text-xs text-slate-500 mb-3">جميع الطلبات المسجّلة</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressTotal" style="width:100%;background:linear-gradient(90deg,#0ea5e9,#0284c7);"></div></div>
+    </div>
+    <!-- قيد المعالجة -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(245,158,11,0.12);color:#b45309;"><i class="fas fa-hourglass-half"></i></div>
+        <span class="chip text-xs" style="background:rgba(245,158,11,0.12);color:#b45309;">قيد المعالجة</span>
+      </div>
+      <div id="statPending" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">قيد المعالجة</div>
+      <div class="text-xs text-slate-500 mb-3">بانتظار اتخاذ القرار</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressPending" style="width:0%;background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div></div>
+    </div>
+    <!-- معتمد -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(16,185,129,0.12);color:#047857;"><i class="fas fa-check-circle"></i></div>
+        <span class="chip text-xs" style="background:rgba(16,185,129,0.12);color:#047857;">معتمد</span>
+      </div>
+      <div id="statApproved" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">معتمد</div>
+      <div class="text-xs text-slate-500 mb-3">تمت الموافقة على الطلب</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressApproved" style="width:0%;background:linear-gradient(90deg,#10b981,#34d399);"></div></div>
+    </div>
+    <!-- مرفوض -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(244,63,94,0.12);color:#be123c;"><i class="fas fa-times-circle"></i></div>
+        <span class="chip text-xs" style="background:rgba(244,63,94,0.12);color:#be123c;">مرفوض</span>
+      </div>
+      <div id="statRejected" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">مرفوض</div>
+      <div class="text-xs text-slate-500 mb-3">لم تتم الموافقة على الطلب</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressRejected" style="width:0%;background:linear-gradient(90deg,#f43f5e,#fb7185);"></div></div>
+    </div>
+    <!-- متأخر عن SLA -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(244,63,94,0.12);color:#be123c;"><i class="fas fa-exclamation-triangle"></i></div>
+        <span class="chip text-xs" style="background:rgba(244,63,94,0.12);color:#be123c;">تجاوز SLA</span>
+      </div>
+      <div id="statOverdue" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">متأخر عن SLA</div>
+      <div class="text-xs text-slate-500 mb-3">تجاوز المهلة الزمنية</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressOverdue" style="width:0%;background:linear-gradient(90deg,#f43f5e,#fb7185);"></div></div>
+    </div>
+    <!-- قريب من الاستحقاق -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(245,158,11,0.12);color:#b45309;"><i class="fas fa-clock"></i></div>
+        <span class="chip text-xs" style="background:rgba(245,158,11,0.12);color:#b45309;">قريب</span>
+      </div>
+      <div id="statDueSoon" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">قريب من الاستحقاق</div>
+      <div class="text-xs text-slate-500 mb-3">يستحق خلال يوم أو أقل</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressDueSoon" style="width:0%;background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div></div>
+    </div>
+  </div>
+
+  <!-- 4. FILTER BAR -->
+  <div class="glass p-5 mb-6">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="section-label"><i class="fas fa-filter"></i> البحث والتصفية</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-sky-200"></div>
+      <button id="printBtn" class="btn bg-white border border-slate-200 text-slate-600 text-xs py-2" onclick="window.print()">
+        <i class="fas fa-print"></i> طباعة
+      </button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
+      <div class="xl:col-span-2">
+        <label class="form-label">بحث سريع</label>
+        <div class="relative">
+          <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input id="searchInput" type="text" class="form-input" style="padding-right:36px;"
+            placeholder="بحث بالاسم أو نوع الطلب أو العنوان" />
+        </div>
+      </div>
+      <div>
+        <label class="form-label">الحالة</label>
+        <select id="statusFilter" class="form-select">
+          <option value="all">الكل</option>
+          <option value="PENDING">قيد المعالجة</option>
+          <option value="IN_PROGRESS">قيد التنفيذ</option>
+          <option value="APPROVED">معتمد</option>
+          <option value="COMPLETED">مكتمل</option>
+          <option value="REJECTED">مرفوض</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">الأولوية</label>
+        <select id="priorityFilter" class="form-select">
+          <option value="all">الكل</option>
+          <option value="HIGH">عاجل</option>
+          <option value="NORMAL">عادي</option>
+          <option value="LOW">منخفض</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">مؤشر SLA</label>
+        <select id="slaFilter" class="form-select">
+          <option value="all">الكل</option>
+          <option value="onTrack">ضمن الوقت</option>
+          <option value="dueSoon">قريب</option>
+          <option value="overdue">متأخر</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">الترتيب</label>
+        <select id="sortBy" class="form-select">
+          <option value="newest">الأحدث</option>
+          <option value="oldest">الأقدم</option>
+          <option value="priority">الأولوية</option>
+          <option value="sla">الأكثر تأخيراً</option>
+        </select>
+      </div>
+      <div class="flex flex-wrap gap-2 items-end">
+        <button id="searchBtn" class="btn text-sm"
+          style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border-color:transparent;">
+          <i class="fas fa-search"></i> بحث
+        </button>
+        <button id="resetSearch" class="btn bg-white border border-slate-200 text-slate-600 text-sm">
+          <i class="fas fa-eraser"></i> مسح
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. REQUESTS TABLE -->
+  <div class="glass p-5 mb-8">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="section-label"><i class="fas fa-list"></i> قائمة الطلبات</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-sky-200"></div>
+    </div>
+    <div class="table-shell">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>الموظف</th>
+              <th>نوع الطلب</th>
+              <th>عنوان الطلب</th>
+              <th>تاريخ الطلب</th>
+              <th>الحالة</th>
+              <th>مؤشر SLA</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="requestsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. HOW IT WORKS -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="section-label"><i class="fas fa-route"></i> كيف يعمل النظام</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-sky-200"></div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="step-card fade-in">
+        <div class="step-num" style="background:rgba(14,165,233,0.12);color:#0284c7;">1</div>
+        <div>
+          <div class="text-base font-extrabold text-slate-800 mb-1">استقبال الطلب</div>
+          <div class="text-sm text-slate-500">يُرسل الموظف طلبه عبر النظام ويُسجَّل تلقائياً مع تحديد مستوى الأولوية.</div>
+        </div>
+      </div>
+      <div class="step-card fade-in">
+        <div class="step-num" style="background:rgba(245,158,11,0.12);color:#b45309;">2</div>
+        <div>
+          <div class="text-base font-extrabold text-slate-800 mb-1">مراجعة الطلب</div>
+          <div class="text-sm text-slate-500">يراجع المسؤول تفاصيل الطلب ويتحقق من مؤشرات الوقت والأولوية.</div>
+        </div>
+      </div>
+      <div class="step-card fade-in">
+        <div class="step-num" style="background:rgba(16,185,129,0.12);color:#047857;">3</div>
+        <div>
+          <div class="text-base font-extrabold text-slate-800 mb-1">اتخاذ القرار</div>
+          <div class="text-sm text-slate-500">يعتمد المسؤول الطلب أو يرفضه مع إضافة ملاحظات القرار.</div>
+        </div>
+      </div>
+      <div class="step-card fade-in">
+        <div class="step-num" style="background:rgba(14,165,233,0.12);color:#0284c7;">4</div>
+        <div>
+          <div class="text-base font-extrabold text-slate-800 mb-1">إشعار الموظف</div>
+          <div class="text-sm text-slate-500">يتلقى الموظف إشعاراً بنتيجة طلبه فور اتخاذ القرار.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. FEATURE CARDS -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="section-label"><i class="fas fa-star"></i> مزايا النظام</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-sky-200"></div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(244,63,94,0.1);">⏱️</div>
+        <h3 class="text-base font-extrabold text-slate-800 mb-2">مؤشر SLA</h3>
+        <p class="text-sm text-slate-500">تتبع الالتزام بالوقت لكل طلب بناءً على أولويته — عاجل: يومان، عادي: 5 أيام، منخفض: 10 أيام.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(14,165,233,0.1);">🔍</div>
+        <h3 class="text-base font-extrabold text-slate-800 mb-2">فلترة متقدمة</h3>
+        <p class="text-sm text-slate-500">ابحث وصفّ الطلبات حسب الحالة والأولوية ومؤشر SLA لتحديد الطلبات العاجلة بسرعة.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(16,185,129,0.1);">✅</div>
+        <h3 class="text-base font-extrabold text-slate-800 mb-2">اعتماد/رفض سريع</h3>
+        <p class="text-sm text-slate-500">اعتمد الطلبات أو ارفضها مع إضافة ملاحظات القرار بنقرة واحدة من قائمة الطلبات.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(14,165,233,0.1);">👁️</div>
+        <h3 class="text-base font-extrabold text-slate-800 mb-2">عرض التفاصيل</h3>
+        <p class="text-sm text-slate-500">اعرض كامل تفاصيل أي طلب بما فيها التواريخ والوصف وملاحظات القرار السابقة.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(245,158,11,0.1);">🏷️</div>
+        <h3 class="text-base font-extrabold text-slate-800 mb-2">تتبع الأولوية</h3>
+        <p class="text-sm text-slate-500">صنّف الطلبات حسب الأولوية — عاجل، عادي، منخفض — لضمان معالجة أهم الطلبات أولاً.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(14,165,233,0.1);">🔄</div>
+        <h3 class="text-base font-extrabold text-slate-800 mb-2">تحديث فوري</h3>
+        <p class="text-sm text-slate-500">تُحدَّث قائمة الطلبات والإحصائيات فوراً بعد كل إجراء دون الحاجة لتحديث الصفحة.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. CTA SECTION -->
+  <div class="cta-section p-10 mb-8 text-center">
+    <div class="relative z-10">
+      <div class="text-4xl mb-4">📥</div>
+      <h2 class="text-3xl font-extrabold text-white mb-3">جاهز لمراجعة الطلبات؟</h2>
+      <p class="text-sky-300 mb-6 max-w-xl mx-auto">ابدأ بمعالجة طلبات الموظفين ومتابعة مؤشرات الأداء عبر بوابة الطلبات المتكاملة.</p>
+      <a href="/finance/hr-portal-workflows.html"
+        class="btn text-sm"
+        style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border-color:transparent;box-shadow:0 8px 24px -8px rgba(14,165,233,0.5);">
+        <i class="fas fa-external-link-alt"></i> بوابة الطلبات
+      </a>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- VIEW MODAL -->
+<div id="viewModal" class="modal-overlay">
+  <div class="modal-box wide fade-in">
+    <div class="modal-header flex items-center justify-between">
+      <h3 class="text-xl font-extrabold">تفاصيل الطلب</h3>
+      <button id="closeViewModal" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+        <i class="fas fa-times text-slate-600"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="viewDetails" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm"></div>
+    </div>
+    <div class="modal-footer">
+      <button id="closeViewModalBtn" class="btn bg-white border border-slate-200 text-slate-600 text-sm">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- DECISION MODAL -->
+<div id="decisionModal" class="modal-overlay">
+  <div class="modal-box fade-in">
+    <div class="modal-header flex items-center justify-between">
+      <h3 id="decisionTitle" class="text-xl font-extrabold">اتخاذ قرار</h3>
+      <button id="closeDecisionModal" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+        <i class="fas fa-times text-slate-600"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="decisionRequest" class="text-sm text-slate-600 mb-4 p-3 bg-slate-50 rounded-xl font-semibold"></div>
+      <div>
+        <label class="form-label">ملاحظات القرار (اختياري)</label>
+        <textarea id="decisionNotes" class="form-input" rows="4" style="resize:vertical;"
+          placeholder="أضف ملاحظات حول القرار..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="cancelDecision" class="btn bg-white border border-slate-200 text-slate-600 text-sm">إلغاء</button>
+      <button id="confirmDecision" class="btn text-white text-sm"
+        style="background:linear-gradient(135deg,#0ea5e9,#0284c7);border-color:transparent;">
+        تأكيد القرار
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="rq-toast"></div>
+
+<script>
+  const API_BASE = '';  // use relative paths so it works across all environments
+
+  let requests = [];
+  let searchQuery = '';
+  let statusFilter = 'all';
+  let priorityFilter = 'all';
+  let slaFilter = 'all';
+  let sortBy = 'newest';
+  let currentDecision = { id: null, status: null };
+
+  const sanitize = (t) => {
+    if (t === null || t === undefined) return '';
+    return String(t).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  };
+
+  const statusMeta = {
+    PENDING:     { label: 'قيد المعالجة', className: 'bg-amber-100 text-amber-700' },
+    IN_PROGRESS: { label: 'قيد التنفيذ',  className: 'bg-sky-100 text-sky-700' },
+    APPROVED:    { label: 'معتمد',         className: 'bg-emerald-100 text-emerald-700' },
+    COMPLETED:   { label: 'مكتمل',         className: 'bg-slate-100 text-slate-700' },
+    REJECTED:    { label: 'مرفوض',         className: 'bg-rose-100 text-rose-700' }
+  };
+
+  const priorityMeta  = { HIGH: 'عاجل', NORMAL: 'عادي', LOW: 'منخفض' };
+  const priorityRank  = { HIGH: 3, NORMAL: 2, LOW: 1 };
+  const slaTargets    = { HIGH: 2, NORMAL: 5, LOW: 10 };
+
+  const showToast = (msg, isError = false) => {
+    const t = document.getElementById('rq-toast');
+    t.textContent = msg;
+    t.classList.remove('success', 'error', 'show');
+    t.classList.add(isError ? 'error' : 'success');
+    requestAnimationFrame(() => t.classList.add('show'));
+    setTimeout(() => t.classList.remove('show'), 2800);
+  };
+
+  const apiRequest = async (url, options = {}) => {
+    const response = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+    if (!response.ok) {
+      let message = 'تعذر تنفيذ العملية';
+      try {
+        const payload = await response.json();
+        message = payload.error || message;
+      } catch (_) {
+        message = response.statusText || message;
+      }
+      throw new Error(message);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  };
+
+  const formatDate = (value) => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  const getDateOnly = (value) => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  const getSlaDetails = (item) => {
+    const requestedDate = getDateOnly(item.requested_date);
+    if (!requestedDate) {
+      return { label: 'غير محدد', className: 'bg-slate-100 text-slate-700', status: 'unknown', ageDays: null, daysLeft: null };
+    }
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const targetDays = slaTargets[item.priority] || slaTargets.NORMAL;
+    const deadline = new Date(requestedDate);
+    deadline.setDate(deadline.getDate() + targetDays);
+    const ageDays = Math.max(0, Math.floor((now - requestedDate) / 86400000));
+    const daysLeft = Math.ceil((deadline - now) / 86400000);
+
+    if (daysLeft < 0) {
+      return { label: `متأخر ${Math.abs(daysLeft)} يوم`, className: 'bg-rose-100 text-rose-700', status: 'overdue', ageDays, daysLeft };
+    }
+    if (daysLeft <= 1) {
+      return { label: 'قريب من الاستحقاق', className: 'bg-amber-100 text-amber-700', status: 'dueSoon', ageDays, daysLeft };
+    }
+    return { label: 'ضمن الوقت', className: 'bg-emerald-100 text-emerald-700', status: 'onTrack', ageDays, daysLeft };
+  };
+
+  const loadRequests = async () => {
+    try {
+      requests = await apiRequest(API_BASE + '/api/employee-requests');
+      updateStats();
+      renderTable();
+    } catch (err) {
+      showToast(err.message || 'خطأ أثناء التحميل', true);
+    }
+  };
+
+  const updateStats = () => {
+    const total    = requests.length;
+    const pending  = requests.filter(r => r.status === 'PENDING').length;
+    const approved = requests.filter(r => r.status === 'APPROVED').length;
+    const rejected = requests.filter(r => r.status === 'REJECTED').length;
+    const slaData  = requests.map(getSlaDetails);
+    const overdue  = slaData.filter(s => s.status === 'overdue').length;
+    const dueSoon  = slaData.filter(s => s.status === 'dueSoon').length;
+
+    document.getElementById('statTotal').textContent   = total;
+    document.getElementById('statPending').textContent  = pending;
+    document.getElementById('statApproved').textContent = approved;
+    document.getElementById('statRejected').textContent = rejected;
+    document.getElementById('statOverdue').textContent  = overdue;
+    document.getElementById('statDueSoon').textContent  = dueSoon;
+    document.getElementById('heroTotal').textContent    = total;
+    document.getElementById('heroApproved').textContent = approved;
+
+    const pct = (n) => total ? Math.round((n / total) * 100) + '%' : '0%';
+    document.getElementById('progressPending').style.width  = pct(pending);
+    document.getElementById('progressApproved').style.width = pct(approved);
+    document.getElementById('progressRejected').style.width = pct(rejected);
+    document.getElementById('progressOverdue').style.width  = pct(overdue);
+    document.getElementById('progressDueSoon').style.width  = pct(dueSoon);
+  };
+
+  const renderTable = () => {
+    const tbody = document.getElementById('requestsBody');
+    tbody.innerHTML = '';
+
+    const filtered = requests.filter(item => {
+      const matchesStatus   = statusFilter === 'all' || item.status === statusFilter;
+      const matchesPriority = priorityFilter === 'all' || item.priority === priorityFilter;
+      const slaDetails = getSlaDetails(item);
+      const matchesSla =
+        slaFilter === 'all' ||
+        (slaFilter === 'onTrack' && slaDetails.status === 'onTrack') ||
+        (slaFilter === 'dueSoon' && slaDetails.status === 'dueSoon') ||
+        (slaFilter === 'overdue' && slaDetails.status === 'overdue');
+      const q = searchQuery.trim();
+      const matchesQuery =
+        !q ||
+        (item.employee_name || '').includes(q) ||
+        (item.request_title || '').includes(q) ||
+        (item.request_type  || '').includes(q);
+      return matchesStatus && matchesPriority && matchesSla && matchesQuery;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      const dateA = getDateOnly(a.requested_date);
+      const dateB = getDateOnly(b.requested_date);
+      const rankA = priorityRank[a.priority] || 0;
+      const rankB = priorityRank[b.priority] || 0;
+      const slaA  = getSlaDetails(a).daysLeft ?? Number.POSITIVE_INFINITY;
+      const slaB  = getSlaDetails(b).daysLeft ?? Number.POSITIVE_INFINITY;
+      switch (sortBy) {
+        case 'oldest':   return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+        case 'priority': return rankB - rankA;
+        case 'sla':      return slaA - slaB;
+        default:          return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+      }
+    });
+
+    if (!sorted.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="px-4 py-12 text-center">
+            <div class="text-4xl mb-3">📋</div>
+            <div class="font-bold text-slate-600 mb-1">لا توجد طلبات مطابقة حالياً</div>
+            <div class="text-sm text-slate-400">جرب تغيير معايير البحث أو الفلتر</div>
+          </td>
+        </tr>`;
+      return;
+    }
+
+    sorted.forEach(item => {
+      const status     = statusMeta[item.status] || statusMeta.PENDING;
+      const slaDetails = getSlaDetails(item);
+      const id         = String(item.id);
+      const row = document.createElement('tr');
+      row.className = 'fade-in';
+      row.innerHTML = `
+        <td class="px-4 py-3">
+          <div class="font-bold">${sanitize(item.employee_name || '—')}</div>
+          <div class="text-xs text-slate-500">${sanitize(item.employee_id || '')}</div>
+        </td>
+        <td class="px-4 py-3">${sanitize(item.request_type || '—')}</td>
+        <td class="px-4 py-3">
+          <div class="font-semibold">${sanitize(item.request_title || '—')}</div>
+          <div class="text-xs text-slate-500">${sanitize(priorityMeta[item.priority] || 'عادي')}</div>
+        </td>
+        <td class="px-4 py-3">${formatDate(item.requested_date)}</td>
+        <td class="px-4 py-3">
+          <span class="chip ${status.className}">${status.label}</span>
+        </td>
+        <td class="px-4 py-3">
+          <div class="text-xs text-slate-500 mb-1">${slaDetails.ageDays !== null ? `عمر ${sanitize(String(slaDetails.ageDays))} يوم` : 'غير محدد'}</div>
+          <span class="chip ${slaDetails.className}">${slaDetails.label}</span>
+        </td>
+        <td class="px-4 py-3">
+          <div class="flex flex-wrap gap-2">
+            <button class="btn bg-white text-slate-700 border border-slate-200 text-xs py-2 px-3"
+              data-action="view" data-id="${sanitize(id)}">
+              <i class="fas fa-eye"></i> عرض
+            </button>
+            <button class="btn text-white text-xs py-2 px-3"
+              style="background:#10b981;border-color:#10b981;"
+              data-action="approve" data-id="${sanitize(id)}">
+              <i class="fas fa-check"></i> اعتماد
+            </button>
+            <button class="btn text-white text-xs py-2 px-3"
+              style="background:#f43f5e;border-color:#f43f5e;"
+              data-action="reject" data-id="${sanitize(id)}">
+              <i class="fas fa-xmark"></i> رفض
+            </button>
+          </div>
+        </td>`;
+      tbody.appendChild(row);
+    });
+  };
+
+  const getRequestById = (id) => requests.find(r => String(r.id) === String(id));
+
+  const openViewModal = (id) => {
+    const req = getRequestById(id);
+    if (!req) return;
+    const sla = getSlaDetails(req);
+    const details = {
+      'اسم الموظف':         req.employee_name || '—',
+      'رقم الموظف':         req.employee_id   || '—',
+      'نوع الطلب':          req.request_type  || '—',
+      'عنوان الطلب':        req.request_title || '—',
+      'الوصف':              req.description   || '—',
+      'الحالة':             statusMeta[req.status]?.label || '—',
+      'الأولوية':           priorityMeta[req.priority]   || '—',
+      'تاريخ الطلب':        formatDate(req.requested_date),
+      'بداية التنفيذ':      formatDate(req.start_date),
+      'نهاية التنفيذ':      formatDate(req.end_date),
+      'مؤشر الالتزام':      sla.label,
+      'عمر الطلب (أيام)':   sla.ageDays !== null ? sla.ageDays : '—',
+      'ملاحظات':            req.notes          || '—',
+      'ملاحظات القرار':     req.approval_notes || '—'
+    };
+    const container = document.getElementById('viewDetails');
+    container.innerHTML = '';
+    Object.entries(details).forEach(([label, value]) => {
+      const div = document.createElement('div');
+      div.className = 'glass p-4';
+      const lbl = document.createElement('div');
+      lbl.className = 'text-xs text-slate-500 mb-1';
+      lbl.textContent = label;
+      const val = document.createElement('div');
+      val.className = 'font-semibold text-slate-800';
+      val.textContent = String(value);
+      div.appendChild(lbl);
+      div.appendChild(val);
+      container.appendChild(div);
+    });
+    document.getElementById('viewModal').classList.add('open');
+  };
+
+  const openDecisionModal = (id, status) => {
+    const req = getRequestById(id);
+    if (!req) return;
+    currentDecision = { id, status };
+    document.getElementById('decisionTitle').textContent   = status === 'APPROVED' ? 'اعتماد الطلب' : 'رفض الطلب';
+    document.getElementById('decisionRequest').textContent = `الطلب: ${req.request_title || '—'} — ${req.employee_name || '—'}`;
+    document.getElementById('decisionNotes').value = '';
+    document.getElementById('decisionModal').classList.add('open');
+  };
+
+  const updateRequestStatus = async (id, status, approvalNotes) => {
+    try {
+      await apiRequest(API_BASE + `/api/employee-requests/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status, approvalNotes })
+      });
+      showToast('تم تحديث حالة الطلب بنجاح');
+      await loadRequests();
+    } catch (err) {
+      showToast(err.message || 'خطأ أثناء التحديث', true);
+    }
+  };
+
+  // ── Table delegation ──────────────────────────────────────────────
+  document.getElementById('requestsBody').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id     = btn.dataset.id;
+    const action = btn.dataset.action;
+    if (action === 'view')    openViewModal(id);
+    if (action === 'approve') openDecisionModal(id, 'APPROVED');
+    if (action === 'reject')  openDecisionModal(id, 'REJECTED');
+  });
+
+  // ── Filters ───────────────────────────────────────────────────────
+  const doSearch = () => {
+    searchQuery = document.getElementById('searchInput').value.trim();
+    renderTable();
+  };
+  document.getElementById('searchBtn').addEventListener('click', doSearch);
+  document.getElementById('searchInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+  document.getElementById('statusFilter').addEventListener('change', (e) => { statusFilter   = e.target.value; renderTable(); });
+  document.getElementById('priorityFilter').addEventListener('change', (e) => { priorityFilter = e.target.value; renderTable(); });
+  document.getElementById('slaFilter').addEventListener('change', (e) => { slaFilter       = e.target.value; renderTable(); });
+  document.getElementById('sortBy').addEventListener('change', (e) => { sortBy            = e.target.value; renderTable(); });
+  document.getElementById('resetSearch').addEventListener('click', () => {
+    searchQuery = ''; statusFilter = 'all'; priorityFilter = 'all'; slaFilter = 'all'; sortBy = 'newest';
+    document.getElementById('searchInput').value   = '';
+    document.getElementById('statusFilter').value   = 'all';
+    document.getElementById('priorityFilter').value = 'all';
+    document.getElementById('slaFilter').value       = 'all';
+    document.getElementById('sortBy').value           = 'newest';
+    renderTable();
+  });
+  document.getElementById('refreshBtn').addEventListener('click', loadRequests);
+
+  // ── Modals ────────────────────────────────────────────────────────
+  document.getElementById('closeViewModal').addEventListener('click', () => document.getElementById('viewModal').classList.remove('open'));
+  document.getElementById('closeViewModalBtn').addEventListener('click', () => document.getElementById('viewModal').classList.remove('open'));
+  document.getElementById('closeDecisionModal').addEventListener('click', () => {
+    document.getElementById('decisionModal').classList.remove('open');
+    currentDecision = { id: null, status: null };
+  });
+  document.getElementById('cancelDecision').addEventListener('click', () => {
+    document.getElementById('decisionModal').classList.remove('open');
+    currentDecision = { id: null, status: null };
+  });
+  document.getElementById('confirmDecision').addEventListener('click', async () => {
+    if (!currentDecision.id || !currentDecision.status) return;
+    const notes = document.getElementById('decisionNotes').value.trim();
+    document.getElementById('decisionModal').classList.remove('open');
+    await updateRequestStatus(currentDecision.id, currentDecision.status, notes || null);
+    currentDecision = { id: null, status: null };
+  });
+
+  // Close modals on backdrop click
+  document.getElementById('viewModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+  });
+  document.getElementById('decisionModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) { e.currentTarget.classList.remove('open'); currentDecision = { id: null, status: null }; }
+  });
+
+  loadRequests();
+</script>
+</body>
+</html>

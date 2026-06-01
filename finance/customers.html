@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👥 العملاء - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f9fafb;
+            color: #1e293b;
+        }
+        .stat-card {
+            transition: all 0.3s ease;
+            background: white;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">👥 العملاء (Customers)</h1>
+            <p class="text-slate-600">عرض جميع العملاء وربطهم بالبيانات المالية</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mb-6 flex gap-3 flex-wrap">
+            <button onclick="openCustomerModal('create')" class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-plus"></i>
+                إضافة عميل
+            </button>
+            <button onclick="downloadCSV()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-csv text-green-600"></i>
+                تنزيل CSV
+            </button>
+            <button onclick="downloadJSON()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-code text-blue-600"></i>
+                تنزيل JSON
+            </button>
+            <button onclick="printCustomers()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-print text-slate-600"></i>
+                طباعة
+            </button>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card p-6 rounded-xl border-t-4 border-blue-500 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                         <p class="text-sm font-medium text-slate-500 mb-1">إجمالي العملاء</p>
+                         <h3 id="totalCustomers" class="text-2xl font-bold text-slate-800">
+                             <div class="animate-pulse h-8 w-24 bg-slate-200 rounded"></div>
+                         </h3>
+                    </div>
+                    <div class="p-3 bg-blue-50 rounded-lg">
+                        <i class="fas fa-users text-xl text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-6 rounded-xl border-t-4 border-emerald-500 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                     <div>
+                         <p class="text-sm font-medium text-slate-500 mb-1">العملاء النشطون</p>
+                         <h3 id="activeCustomers" class="text-2xl font-bold text-slate-800">
+                             <div class="animate-pulse h-8 w-24 bg-slate-200 rounded"></div>
+                         </h3>
+                    </div>
+                    <div class="p-3 bg-emerald-50 rounded-lg">
+                        <i class="fas fa-check-circle text-xl text-emerald-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-6 rounded-xl border-t-4 border-orange-500 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                     <div>
+                         <p class="text-sm font-medium text-slate-500 mb-1">العملاء المحظورون</p>
+                         <h3 id="blockedCustomers" class="text-2xl font-bold text-slate-800">
+                             <div class="animate-pulse h-8 w-24 bg-slate-200 rounded"></div>
+                         </h3>
+                    </div>
+                    <div class="p-3 bg-orange-50 rounded-lg">
+                        <i class="fas fa-user-slash text-xl text-orange-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-6 rounded-xl border-t-4 border-purple-500 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                     <div>
+                         <p class="text-sm font-medium text-slate-500 mb-1">حد الائتمان</p>
+                         <h3 id="creditLimitTotal" class="text-xl font-bold text-slate-800">
+                             <div class="animate-pulse h-8 w-24 bg-slate-200 rounded"></div>
+                         </h3>
+                    </div>
+                    <div class="p-3 bg-purple-50 rounded-lg">
+                        <i class="fas fa-credit-card text-xl text-purple-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">بحث</label>
+                    <input id="searchInput" type="text" placeholder="ابحث بالكود أو الاسم أو البريد" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">نوع العميل</label>
+                    <select id="typeFilter" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                        <option value="INDIVIDUAL">فرد</option>
+                        <option value="COMPANY">شركة</option>
+                        <option value="GOVERNMENT">جهة حكومية</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">الحالة</label>
+                    <select id="statusFilter" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                        <option value="active">نشط</option>
+                        <option value="inactive">غير نشط</option>
+                        <option value="blocked">محظور</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customers Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-0">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 text-slate-600 text-sm border-b border-slate-200">
+                            <tr>
+                                <th class="px-4 py-3 text-right">كود العميل</th>
+                                <th class="px-4 py-3 text-right">اسم العميل</th>
+                                <th class="px-4 py-3 text-right">النوع</th>
+                                <th class="px-4 py-3 text-right">البريد</th>
+                                <th class="px-4 py-3 text-right">الهاتف</th>
+                                <th class="px-4 py-3 text-right">المدينة</th>
+                                <th class="px-4 py-3 text-right">حد الائتمان</th>
+                                <th class="px-4 py-3 text-right">الحالة</th>
+                                <th class="px-4 py-3 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customersTable" class="text-sm divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="9" class="px-4 py-12 text-center text-slate-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل العملاء...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-4 border-t border-slate-200 text-sm text-slate-600" id="tableCount"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Modal -->
+    <div id="customerModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b">
+                <h3 id="customerModalTitle" class="text-lg font-bold text-gray-800">إضافة عميل</h3>
+                <button onclick="closeCustomerModal()" class="text-slate-800 hover:text-red-600 font-bold">
+                    <i class="fas fa-xmark text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">كود العميل</label>
+                        <input id="customerCode" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="يتم توليده تلقائياً إذا تركته فارغاً">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">نوع العميل</label>
+                        <select id="customerType" class="w-full border rounded-lg px-3 py-2">
+                            <option value="COMPANY">شركة</option>
+                            <option value="INDIVIDUAL">فرد</option>
+                            <option value="GOVERNMENT">جهة حكومية</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">اسم العميل (عربي)</label>
+                        <input id="customerNameAr" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم العميل" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">اسم العميل (إنجليزي)</label>
+                        <input id="customerNameEn" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="Customer name">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">اسم المنشأة</label>
+                        <input id="customerCompanyName" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم المنشأة" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الموقع الإلكتروني</label>
+                        <input id="customerWebsite" type="url" class="w-full border rounded-lg px-3 py-2" placeholder="https://example.com" required>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">البريد الإلكتروني الأساسي</label>
+                        <input id="customerEmail" type="email" class="w-full border rounded-lg px-3 py-2" placeholder="example@email.com" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">البريد الإلكتروني الثانوي</label>
+                        <input id="customerEmailSecondary" type="email" class="w-full border rounded-lg px-3 py-2" placeholder="secondary@email.com" required>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">رقم الجوال الأساسي</label>
+                        <input id="customerMobile" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="05xxxxxxxx" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">رقم الجوال الثانوي</label>
+                        <input id="customerMobileSecondary" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="05xxxxxxxx" required>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الهاتف الثابت</label>
+                        <input id="customerPhone" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="011xxxxxxxx">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">العنوان</label>
+                        <input id="customerAddress" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="العنوان">
+                    </div>
+                </div>
+                <div class="border-t border-slate-200 pt-4">
+                    <h4 class="text-sm font-bold text-slate-800 mb-3">عنوان الفوترة</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم الشارع</label>
+                            <input id="customerStreetName" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم الشارع" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">الرمز البريدي</label>
+                            <input id="customerPostalCode" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز البريدي" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">رقم المبنى</label>
+                            <input id="customerBuildingNumber" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="رقم المبنى" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم المدينة</label>
+                            <input id="customerCity" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرياض" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم المنطقة</label>
+                            <input id="customerDistrict" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المنطقة" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">الدولة</label>
+                            <input id="customerCountry" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="السعودية" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">الرمز الوطني</label>
+                            <input id="customerNationalAddress" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز الوطني">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">العنوان المختصر</label>
+                            <input id="customerShortAddress" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="العنوان المختصر">
+                        </div>
+                    </div>
+                </div>
+                <div class="border-t border-slate-200 pt-4">
+                    <h4 class="text-sm font-bold text-slate-800 mb-3">عنوان الشحن</h4>
+                    <div class="flex items-center gap-2 mb-3">
+                        <input id="customerShippingCopy" type="checkbox" class="h-4 w-4" checked>
+                        <label for="customerShippingCopy" class="text-sm text-slate-700">نسخ عنوان الفوترة إلى عنوان الشحن</label>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم الشارع</label>
+                            <input id="customerShippingStreet" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم الشارع" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم المدينة</label>
+                            <input id="customerShippingCity" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المدينة" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم المنطقة</label>
+                            <input id="customerShippingRegion" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المنطقة" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">الرمز البريدي</label>
+                            <input id="customerShippingPostal" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز البريدي" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الرقم الضريبي</label>
+                        <input id="customerTax" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="رقم ضريبي" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">السجل التجاري</label>
+                        <input id="customerCR" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="سجل تجاري">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">شروط الدفع</label>
+                        <input id="customerTerms" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="مثال: 30 يوم">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">حد الائتمان</label>
+                        <input id="customerCredit" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">مدة الائتمان (أيام)</label>
+                        <input id="customerCreditDays" type="number" class="w-full border rounded-lg px-3 py-2" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">مستوى المخاطر</label>
+                        <input id="customerRisk" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="منخفض/متوسط/مرتفع">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">نقاط المخاطر</label>
+                        <input id="customerRiskScore" type="number" class="w-full border rounded-lg px-3 py-2" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">عوامل المخاطر</label>
+                        <input id="customerRiskFactors" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اختياري">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الحالة</label>
+                        <select id="customerStatus" class="w-full border rounded-lg px-3 py-2" required>
+                            <option value="active">نشط</option>
+                            <option value="inactive">غير نشط</option>
+                            <option value="blocked">محظور</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-700 mb-1">سبب الحظر</label>
+                    <input id="customerBlockedReason" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اختياري">
+                </div>
+            </div>
+            <div class="p-5 border-t flex items-center justify-end gap-2">
+                <button onclick="closeCustomerModal()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                <button id="customerModalSave" onclick="submitCustomer()" class="px-4 py-2 rounded-lg bg-green-600 text-white">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        let allCustomers = [];
+        let customerModalMode = 'create';
+        let editingCustomerId = null;
+
+        async function loadCustomers() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/customers?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load customers');
+                }
+
+                allCustomers = data.customers || [];
+                renderSummary(data.summary || {});
+                renderTable(allCustomers);
+            } catch (error) {
+                console.error('❌ خطأ في تحميل العملاء:', error);
+                document.getElementById('customersTable').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل العملاء</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('totalCustomers').textContent = summary.total_customers ?? '0';
+            document.getElementById('activeCustomers').textContent = summary.active_customers ?? '0';
+            document.getElementById('blockedCustomers').textContent = summary.blocked_customers ?? '0';
+            document.getElementById('creditLimitTotal').textContent = formatMoney(summary.total_credit_limit || 0);
+        }
+
+        function renderTable(customers) {
+            const rows = customers.map(c => {
+                return `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                        <td class="px-4 py-3 font-mono text-slate-600">${c.customer_code || '-'}</td>
+                        <td class="px-4 py-3 font-medium text-slate-900">${c.customer_name_ar || '-'}</td>
+                        <td class="px-4 py-3">${translateType(c.customer_type)}</td>
+                        <td class="px-4 py-3 text-slate-600">${c.email || '-'}</td>
+                        <td class="px-4 py-3 text-slate-600">${c.phone || c.mobile || '-'}</td>
+                        <td class="px-4 py-3 text-slate-600">${c.city || '-'}</td>
+                        <td class="px-4 py-3 font-bold text-purple-700">${formatMoney(c.credit_limit)}</td>
+                        <td class="px-4 py-3">${getStatusBadge(c)}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex gap-2">
+                                <button onclick="openCustomerModal('view', ${c.customer_id})" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة">
+                                    <i class="fas fa-eye text-lg"></i>
+                                </button>
+                                <button onclick="openCustomerModal('edit', ${c.customer_id})" class="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition shadow-md font-semibold" title="تعديل">
+                                    <i class="fas fa-pen text-lg"></i>
+                                </button>
+                                <button onclick="toggleBlockCustomer(${c.customer_id})" class="p-2 ${c.is_blocked ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'} text-white rounded-lg transition shadow-md font-semibold" title="${c.is_blocked ? 'إلغاء الحظر' : 'حظر'}">
+                                    <i class="fas ${c.is_blocked ? 'fa-unlock' : 'fa-ban'} text-lg"></i>
+                                </button>
+                                <button onclick="deleteCustomer(${c.customer_id})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف">
+                                    <i class="fas fa-trash text-lg"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('customersTable').innerHTML = rows.length ? rows : `
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-slate-500">
+                        لا توجد عملاء
+                    </td>
+                </tr>
+            `;
+            document.getElementById('tableCount').textContent = `عدد الصفوف المعروضة: ${customers.length}`;
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            const type = document.getElementById('typeFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            const filtered = allCustomers.filter(c => {
+                const matchesSearch = !search ||
+                    (c.customer_code || '').toLowerCase().includes(search) ||
+                    (c.customer_name_ar || '').toLowerCase().includes(search) ||
+                    (c.email || '').toLowerCase().includes(search);
+
+                const matchesType = !type || (c.customer_type || '').toUpperCase() === type;
+
+                const isActive = !!c.is_active;
+                const isBlocked = !!c.is_blocked;
+                const matchesStatus = !status ||
+                    (status === 'active' && isActive && !isBlocked) ||
+                    (status === 'inactive' && !isActive) ||
+                    (status === 'blocked' && isBlocked);
+
+                return matchesSearch && matchesType && matchesStatus;
+            });
+
+            renderTable(filtered);
+        }
+
+        function translateType(type) {
+            const map = {
+                'INDIVIDUAL': 'فرد',
+                'COMPANY': 'شركة',
+                'GOVERNMENT': 'جهة حكومية'
+            };
+            return map[(type || '').toUpperCase()] || (type || '-');
+        }
+
+        function getStatusBadge(c) {
+            if (c.is_blocked) {
+                return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">محظور</span>';
+            }
+            if (c.is_active) {
+                return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">نشط</span>';
+            }
+            return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">غير نشط</span>';
+        }
+
+        function openCustomerModal(mode, customerId = null) {
+            customerModalMode = mode;
+            editingCustomerId = customerId;
+            const modal = document.getElementById('customerModal');
+            const title = document.getElementById('customerModalTitle');
+            const saveButton = document.getElementById('customerModalSave');
+
+            title.textContent = mode === 'view' ? 'معاينة العميل' : mode === 'edit' ? 'تعديل العميل' : 'إضافة عميل';
+            saveButton.textContent = mode === 'edit' ? 'حفظ التعديل' : 'حفظ';
+            saveButton.classList.toggle('hidden', mode === 'view');
+
+            resetCustomerForm();
+            setCustomerFormDisabled(mode === 'view');
+
+            if (mode !== 'create' && customerId) {
+                const customer = allCustomers.find(c => c.customer_id === customerId);
+                if (customer) fillCustomerForm(customer);
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeCustomerModal() {
+            const modal = document.getElementById('customerModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function isShippingCopyChecked() {
+            return !!document.getElementById('customerShippingCopy')?.checked;
+        }
+
+        function applyShippingCopy() {
+            const copyChecked = isShippingCopyChecked();
+            const shippingFields = [
+                'customerShippingStreet',
+                'customerShippingCity',
+                'customerShippingRegion',
+                'customerShippingPostal'
+            ];
+
+            shippingFields.forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.disabled = copyChecked;
+                el.required = !copyChecked;
+            });
+
+            if (copyChecked) {
+                document.getElementById('customerShippingStreet').value = document.getElementById('customerStreetName').value;
+                document.getElementById('customerShippingCity').value = document.getElementById('customerCity').value;
+                document.getElementById('customerShippingRegion').value = document.getElementById('customerDistrict').value;
+                document.getElementById('customerShippingPostal').value = document.getElementById('customerPostalCode').value;
+            }
+        }
+
+        function syncShippingFromBilling() {
+            if (!isShippingCopyChecked()) return;
+            document.getElementById('customerShippingStreet').value = document.getElementById('customerStreetName').value;
+            document.getElementById('customerShippingCity').value = document.getElementById('customerCity').value;
+            document.getElementById('customerShippingRegion').value = document.getElementById('customerDistrict').value;
+            document.getElementById('customerShippingPostal').value = document.getElementById('customerPostalCode').value;
+        }
+
+        function resetCustomerForm() {
+            document.getElementById('customerCode').value = '';
+            document.getElementById('customerType').value = 'COMPANY';
+            document.getElementById('customerNameAr').value = '';
+            document.getElementById('customerNameEn').value = '';
+            document.getElementById('customerCompanyName').value = '';
+            document.getElementById('customerWebsite').value = '';
+            document.getElementById('customerEmail').value = '';
+            document.getElementById('customerEmailSecondary').value = '';
+            document.getElementById('customerPhone').value = '';
+            document.getElementById('customerMobile').value = '';
+            document.getElementById('customerMobileSecondary').value = '';
+            document.getElementById('customerAddress').value = '';
+            document.getElementById('customerStreetName').value = '';
+            document.getElementById('customerPostalCode').value = '';
+            document.getElementById('customerBuildingNumber').value = '';
+            document.getElementById('customerCity').value = '';
+            document.getElementById('customerDistrict').value = '';
+            document.getElementById('customerNationalAddress').value = '';
+            document.getElementById('customerShortAddress').value = '';
+            document.getElementById('customerCountry').value = '';
+            document.getElementById('customerShippingCopy').checked = true;
+            document.getElementById('customerShippingStreet').value = '';
+            document.getElementById('customerShippingCity').value = '';
+            document.getElementById('customerShippingRegion').value = '';
+            document.getElementById('customerShippingPostal').value = '';
+            document.getElementById('customerTax').value = '';
+            document.getElementById('customerCR').value = '';
+            document.getElementById('customerTerms').value = '';
+            document.getElementById('customerCredit').value = '';
+            document.getElementById('customerCreditDays').value = '';
+            document.getElementById('customerRisk').value = '';
+            document.getElementById('customerRiskScore').value = '';
+            document.getElementById('customerRiskFactors').value = '';
+            document.getElementById('customerStatus').value = 'active';
+            document.getElementById('customerBlockedReason').value = '';
+            applyShippingCopy();
+        }
+
+        function fillCustomerForm(c) {
+            document.getElementById('customerCode').value = c.customer_code || '';
+            document.getElementById('customerType').value = (c.customer_type || 'COMPANY').toUpperCase();
+            document.getElementById('customerNameAr').value = c.customer_name_ar || '';
+            document.getElementById('customerNameEn').value = c.customer_name_en || '';
+            document.getElementById('customerCompanyName').value = c.company_name || '';
+            document.getElementById('customerWebsite').value = c.website || '';
+            document.getElementById('customerEmail').value = c.email || '';
+            document.getElementById('customerEmailSecondary').value = c.email_secondary || '';
+            document.getElementById('customerPhone').value = c.phone || '';
+            document.getElementById('customerMobile').value = c.mobile || '';
+            document.getElementById('customerMobileSecondary').value = c.mobile_secondary || '';
+            document.getElementById('customerAddress').value = c.address || '';
+            document.getElementById('customerStreetName').value = c.street_name || '';
+            document.getElementById('customerPostalCode').value = c.postal_code || '';
+            document.getElementById('customerBuildingNumber').value = c.building_number || '';
+            document.getElementById('customerCity').value = c.city || '';
+            document.getElementById('customerDistrict').value = c.district || '';
+            document.getElementById('customerNationalAddress').value = c.national_address_number || '';
+            document.getElementById('customerShortAddress').value = c.short_address || '';
+            document.getElementById('customerCountry').value = c.country || '';
+            document.getElementById('customerShippingCopy').checked = c.shipping_copy_billing !== false;
+            document.getElementById('customerShippingStreet').value = c.shipping_street_name || '';
+            document.getElementById('customerShippingCity').value = c.shipping_city || '';
+            document.getElementById('customerShippingRegion').value = c.shipping_region || '';
+            document.getElementById('customerShippingPostal').value = c.shipping_postal_code || '';
+            document.getElementById('customerTax').value = c.tax_number || '';
+            document.getElementById('customerCR').value = c.commercial_registration || '';
+            document.getElementById('customerTerms').value = c.payment_terms || '';
+            document.getElementById('customerCredit').value = c.credit_limit || '';
+            document.getElementById('customerCreditDays').value = c.credit_period_days || '';
+            document.getElementById('customerRisk').value = c.risk_level || '';
+            document.getElementById('customerRiskScore').value = c.risk_score || '';
+            document.getElementById('customerRiskFactors').value = c.risk_factors || '';
+            document.getElementById('customerStatus').value = c.is_blocked ? 'blocked' : (c.is_active ? 'active' : 'inactive');
+            document.getElementById('customerBlockedReason').value = c.blocked_reason || '';
+            applyShippingCopy();
+        }
+
+        function setCustomerFormDisabled(disabled) {
+            [
+                'customerCode',
+                'customerType',
+                'customerNameAr',
+                'customerNameEn',
+                'customerCompanyName',
+                'customerWebsite',
+                'customerEmail',
+                'customerEmailSecondary',
+                'customerPhone',
+                'customerMobile',
+                'customerMobileSecondary',
+                'customerAddress',
+                'customerStreetName',
+                'customerPostalCode',
+                'customerBuildingNumber',
+                'customerCity',
+                'customerDistrict',
+                'customerNationalAddress',
+                'customerShortAddress',
+                'customerCountry',
+                'customerShippingCopy',
+                'customerShippingStreet',
+                'customerShippingCity',
+                'customerShippingRegion',
+                'customerShippingPostal',
+                'customerTax',
+                'customerCR',
+                'customerTerms',
+                'customerCredit',
+                'customerCreditDays',
+                'customerRisk',
+                'customerRiskScore',
+                'customerRiskFactors',
+                'customerStatus',
+                'customerBlockedReason'
+            ].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = disabled;
+            });
+        }
+
+        async function submitCustomer() {
+            const status = document.getElementById('customerStatus').value;
+            const shippingCopy = isShippingCopyChecked();
+            const payload = {
+                entity_id: ENTITY_ID,
+                customer_code: document.getElementById('customerCode').value.trim(),
+                customer_type: document.getElementById('customerType').value,
+                customer_name_ar: document.getElementById('customerNameAr').value.trim(),
+                customer_name_en: document.getElementById('customerNameEn').value.trim(),
+                company_name: document.getElementById('customerCompanyName').value.trim(),
+                website: document.getElementById('customerWebsite').value.trim(),
+                email: document.getElementById('customerEmail').value.trim(),
+                email_secondary: document.getElementById('customerEmailSecondary').value.trim(),
+                phone: document.getElementById('customerPhone').value.trim(),
+                mobile: document.getElementById('customerMobile').value.trim(),
+                mobile_secondary: document.getElementById('customerMobileSecondary').value.trim(),
+                address: document.getElementById('customerAddress').value.trim(),
+                street_name: document.getElementById('customerStreetName').value.trim(),
+                postal_code: document.getElementById('customerPostalCode').value.trim(),
+                building_number: document.getElementById('customerBuildingNumber').value.trim(),
+                city: document.getElementById('customerCity').value.trim(),
+                district: document.getElementById('customerDistrict').value.trim(),
+                national_address_number: document.getElementById('customerNationalAddress').value.trim(),
+                short_address: document.getElementById('customerShortAddress').value.trim(),
+                country: document.getElementById('customerCountry').value.trim(),
+                shipping_copy_billing: shippingCopy,
+                shipping_street_name: document.getElementById('customerShippingStreet').value.trim(),
+                shipping_city: document.getElementById('customerShippingCity').value.trim(),
+                shipping_region: document.getElementById('customerShippingRegion').value.trim(),
+                shipping_postal_code: document.getElementById('customerShippingPostal').value.trim(),
+                tax_number: document.getElementById('customerTax').value.trim(),
+                commercial_registration: document.getElementById('customerCR').value.trim(),
+                payment_terms: document.getElementById('customerTerms').value.trim(),
+                credit_limit: parseFloat(document.getElementById('customerCredit').value || 0),
+                credit_period_days: parseInt(document.getElementById('customerCreditDays').value || 0, 10),
+                risk_level: document.getElementById('customerRisk').value.trim(),
+                risk_score: parseInt(document.getElementById('customerRiskScore').value || 0, 10),
+                risk_factors: document.getElementById('customerRiskFactors').value.trim(),
+                is_active: status === 'active',
+                is_blocked: status === 'blocked',
+                blocked_reason: document.getElementById('customerBlockedReason').value.trim()
+            };
+
+            if (shippingCopy) {
+                payload.shipping_street_name = payload.street_name;
+                payload.shipping_city = payload.city;
+                payload.shipping_region = payload.district;
+                payload.shipping_postal_code = payload.postal_code;
+            }
+
+            const missingFields = [];
+            if (!payload.customer_name_ar) missingFields.push('اسم العميل');
+            if (!payload.tax_number) missingFields.push('الرقم الضريبي');
+            if (!payload.mobile) missingFields.push('رقم الجوال الأساسي');
+            if (!payload.mobile_secondary) missingFields.push('رقم الجوال الثانوي');
+            if (!payload.email) missingFields.push('البريد الإلكتروني الأساسي');
+            if (!payload.email_secondary) missingFields.push('البريد الإلكتروني الثانوي');
+            if (!payload.company_name) missingFields.push('اسم المنشأة');
+            if (!payload.website) missingFields.push('الموقع الإلكتروني');
+            if (!payload.street_name) missingFields.push('اسم الشارع (عنوان الفوترة)');
+            if (!payload.city) missingFields.push('المدينة (عنوان الفوترة)');
+            if (!payload.district) missingFields.push('المنطقة (عنوان الفوترة)');
+            if (!payload.building_number) missingFields.push('رقم المبنى (عنوان الفوترة)');
+            if (!payload.postal_code) missingFields.push('الرمز البريدي (عنوان الفوترة)');
+            if (!payload.country) missingFields.push('الدولة (عنوان الفوترة)');
+
+            if (!payload.shipping_copy_billing) {
+                if (!payload.shipping_street_name) missingFields.push('اسم الشارع (عنوان الشحن)');
+                if (!payload.shipping_city) missingFields.push('المدينة (عنوان الشحن)');
+                if (!payload.shipping_region) missingFields.push('المنطقة (عنوان الشحن)');
+                if (!payload.shipping_postal_code) missingFields.push('الرمز البريدي (عنوان الشحن)');
+            }
+
+            if (missingFields.length) {
+                alert(`يرجى إدخال الحقول المطلوبة: ${missingFields.join('، ')}`);
+                return;
+            }
+
+            try {
+                const url = customerModalMode === 'edit'
+                    ? `${API_BASE}/finance/customers/${editingCustomerId}`
+                    : `${API_BASE}/finance/customers`;
+                const method = customerModalMode === 'edit' ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'تعذر حفظ العميل');
+                }
+
+                closeCustomerModal();
+                await loadCustomers();
+            } catch (error) {
+                console.error('❌ خطأ في حفظ العميل:', error);
+                alert(error.message || 'تعذر حفظ العميل');
+            }
+        }
+
+        async function deleteCustomer(customerId) {
+            if (!confirm('هل تريد حذف هذا العميل؟')) return;
+            const res = await fetch(`${API_BASE}/finance/customers/${customerId}?entity_id=${ENTITY_ID}`, {
+                method: 'DELETE',
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            });
+            if (res.ok) {
+                await loadCustomers();
+            } else {
+                const data = await res.json();
+                alert(data.error || 'تعذر حذف العميل');
+            }
+        }
+
+        async function toggleBlockCustomer(customerId) {
+            const customer = allCustomers.find(c => c.customer_id === customerId);
+            if (!customer) return;
+            const shouldBlock = !customer.is_blocked;
+            const confirmMsg = shouldBlock ? 'هل تريد حظر هذا العميل؟' : 'هل تريد إلغاء حظر هذا العميل؟';
+            if (!confirm(confirmMsg)) return;
+
+            const payload = {
+                entity_id: ENTITY_ID,
+                customer_code: customer.customer_code,
+                customer_type: customer.customer_type,
+                customer_name_ar: customer.customer_name_ar,
+                customer_name_en: customer.customer_name_en,
+                company_name: customer.company_name,
+                website: customer.website,
+                email: customer.email,
+                email_secondary: customer.email_secondary,
+                phone: customer.phone,
+                mobile: customer.mobile,
+                mobile_secondary: customer.mobile_secondary,
+                address: customer.address,
+                city: customer.city,
+                country: customer.country,
+                street_name: customer.street_name,
+                postal_code: customer.postal_code,
+                building_number: customer.building_number,
+                district: customer.district,
+                national_address_number: customer.national_address_number,
+                short_address: customer.short_address,
+                shipping_copy_billing: customer.shipping_copy_billing !== false,
+                shipping_street_name: customer.shipping_street_name,
+                shipping_city: customer.shipping_city,
+                shipping_region: customer.shipping_region,
+                shipping_postal_code: customer.shipping_postal_code,
+                tax_number: customer.tax_number,
+                commercial_registration: customer.commercial_registration,
+                payment_terms: customer.payment_terms,
+                credit_limit: customer.credit_limit,
+                credit_period_days: customer.credit_period_days,
+                risk_level: customer.risk_level,
+                risk_score: customer.risk_score,
+                risk_factors: customer.risk_factors,
+                is_active: customer.is_active !== false,
+                is_blocked: shouldBlock,
+                blocked_reason: shouldBlock ? 'تم الحظر من لوحة العملاء' : null
+            };
+
+            const res = await fetch(`${API_BASE}/finance/customers/${customerId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (!data.success) {
+                alert(data.error || 'تعذر تحديث حالة العميل');
+                return;
+            }
+
+            await loadCustomers();
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function downloadCSV() {
+            if (!allCustomers.length) return;
+            const rows = [
+                ['كود العميل', 'اسم العميل', 'النوع', 'البريد', 'الهاتف', 'المدينة', 'حد الائتمان', 'الحالة']
+            ];
+
+            allCustomers.forEach(c => {
+                rows.push([
+                    c.customer_code,
+                    c.customer_name_ar,
+                    translateType(c.customer_type),
+                    c.email,
+                    c.phone || c.mobile,
+                    c.city,
+                    c.credit_limit,
+                    c.is_blocked ? 'محظور' : (c.is_active ? 'نشط' : 'غير نشط')
+                ]);
+            });
+
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'customers.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadJSON() {
+            if (!allCustomers.length) return;
+            const blob = new Blob([JSON.stringify(allCustomers, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'customers.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printCustomers() {
+            window.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCustomers();
+            const shippingCopy = document.getElementById('customerShippingCopy');
+            if (shippingCopy) {
+                shippingCopy.addEventListener('change', applyShippingCopy);
+            }
+            ['customerStreetName', 'customerCity', 'customerDistrict', 'customerPostalCode'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', syncShippingFromBilling);
+                }
+            });
+        });
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>➕ زيادة مبلغ على القيمة - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f9fafb; color: #0f172a; }
+        .card-glass { background: rgba(255, 255, 255, 0.95); border: 1px solid #e2e8f0; box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08); }
+        .stat-card { background: #fff; border: 1px solid #e2e8f0; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12); }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .section-accent-amber { border-top: 4px solid #f59e0b; }
+        .section-accent-rose { border-top: 4px solid #f43f5e; }
+        .section-accent-indigo { border-top: 4px solid #6366f1; }
+        .table-scroll { max-height: 420px; overflow: auto; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">➕ زيادة مبلغ على القيمة</h1>
+            <p class="text-lg text-slate-600">تحصيل فرق القيمة عند الاستبدال أو الترقية مع توثيق الفروقات.</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-emerald-700 border border-emerald-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث الفروقات
+            </button>
+            <button onclick="printPage()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة الملخص
+            </button>
+            <button onclick="copySummary()" class="bg-amber-500 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-copy"></i>
+                نسخ الملخص
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-5 mb-8">
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-emerald-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">فرق السعر</span>
+                    <i class="fas fa-up-long text-emerald-500"></i>
+                </div>
+                <div id="totalDifference" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">إجمالي الفروقات</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-amber-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">ضريبة الفارق</span>
+                    <i class="fas fa-percent text-amber-500"></i>
+                </div>
+                <div id="avgTaxRate" class="text-2xl font-bold text-slate-800">0%</div>
+                <div class="text-xs text-slate-500">متوسط الضريبة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-rose-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">تحصيل فوري</span>
+                    <i class="fas fa-bolt text-rose-500"></i>
+                </div>
+                <div id="collectedCount" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">عمليات تم تحصيلها</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-indigo-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">عمليات اليوم</span>
+                    <i class="fas fa-clipboard-list text-indigo-500"></i>
+                </div>
+                <div id="pendingCount" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">بانتظار الموافقة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-slate-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">إجمالي المستحق</span>
+                    <i class="fas fa-coins text-slate-500"></i>
+                </div>
+                <div id="totalDue" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">بعد الضريبة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-emerald-700">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">معدل التحصيل</span>
+                    <i class="fas fa-chart-line text-emerald-700"></i>
+                </div>
+                <div id="collectionRate" class="text-2xl font-bold text-slate-800">0%</div>
+                <div class="text-xs text-slate-500">نسبة التحصيل</div>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 mb-8 section-accent-indigo">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">🔎 مرشحات ذكية</h3>
+            <form id="filtersForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 text-sm">
+                <div>
+                    <label class="block text-slate-600 mb-1">بحث سريع</label>
+                    <input id="filterQuery" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="رقم العملية أو اسم العميل">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">الحالة</label>
+                    <select id="filterStatus" class="w-full rounded-xl border border-slate-200 px-3 py-2">
+                        <option value="">الكل</option>
+                        <option value="تم التحصيل">تم التحصيل</option>
+                        <option value="قيد التحصيل">قيد التحصيل</option>
+                        <option value="بانتظار الموافقة">بانتظار الموافقة</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">حالة الموافقة</label>
+                    <select id="filterApproval" class="w-full rounded-xl border border-slate-200 px-3 py-2">
+                        <option value="">الكل</option>
+                        <option value="موافق عليه">موافق عليه</option>
+                        <option value="بانتظار الموافقة">بانتظار الموافقة</option>
+                        <option value="مرفوض">مرفوض</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">الفرع</label>
+                    <input id="filterBranch" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="الرياض - المبيعات">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">من تاريخ</label>
+                    <input id="filterDateFrom" type="date" class="w-full rounded-xl border border-slate-200 px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">إلى تاريخ</label>
+                    <input id="filterDateTo" type="date" class="w-full rounded-xl border border-slate-200 px-3 py-2">
+                </div>
+                <div class="flex items-center gap-3 md:col-span-2 lg:col-span-6">
+                    <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition">تطبيق المرشحات</button>
+                    <button type="button" id="resetFilters" class="bg-white text-slate-700 border border-slate-200 px-6 py-3 rounded-full font-bold hover:shadow-lg transition">مسح المرشحات</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 mb-8 section-accent-emerald">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">📌 ضوابط الزيادة</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div class="bg-emerald-50 p-4 rounded-2xl">احتساب الفرق بين المنتجين بدقة</div>
+                <div class="bg-amber-50 p-4 rounded-2xl">توليد إشعار تحصيل تلقائي</div>
+                <div class="bg-rose-50 p-4 rounded-2xl">منع التسليم قبل التحصيل</div>
+                <div class="bg-indigo-50 p-4 rounded-2xl">توثيق سبب الزيادة في الطلب</div>
+                <div class="bg-slate-50 p-4 rounded-2xl">تحديث الفاتورة مع الضريبة</div>
+                <div class="bg-emerald-50 p-4 rounded-2xl">موافقة مالية للفروقات الكبيرة</div>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 mb-8 section-accent-rose">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">🧾 إنشاء أو تعديل فرق قيمة</h3>
+            <form id="adjustmentForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <label class="block text-slate-600 mb-1">رقم العملية (اختياري)</label>
+                    <input id="adjustmentId" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="UP-8805">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">تاريخ الطلب</label>
+                    <input id="requestDate" type="date" class="w-full rounded-xl border border-slate-200 px-3 py-2" required>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">اسم العميل</label>
+                    <input id="customerName" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="شركة المدار الذكية" required>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">هاتف العميل</label>
+                    <input id="customerContact" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="+9665...">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">الفرع</label>
+                    <input id="branchName" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="الرياض - المبيعات" required>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">سبب الزيادة</label>
+                    <input id="adjustmentReason" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="ترقية باقة الدعم">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">المنتج السابق</label>
+                    <input id="previousProduct" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="خدمة أساسية" required>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">المنتج البديل</label>
+                    <input id="replacementProduct" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="خدمة متقدمة" required>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">فرق السعر</label>
+                    <input id="priceDifference" type="number" step="0.01" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="600" required>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">نسبة الضريبة</label>
+                    <input id="taxRate" type="number" step="0.0001" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="0.15" value="0.15">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">قيمة الضريبة</label>
+                    <input id="taxAmount" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">الإجمالي المستحق</label>
+                    <input id="totalDueField" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2 bg-slate-50" readonly>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">العملة</label>
+                    <select id="currency" class="w-full rounded-xl border border-slate-200 px-3 py-2">
+                        <option value="SAR">SAR</option>
+                        <option value="USD">USD</option>
+                        <option value="AED">AED</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">حالة الموافقة</label>
+                    <select id="approvalStatus" class="w-full rounded-xl border border-slate-200 px-3 py-2">
+                        <option value="موافق عليه">موافق عليه</option>
+                        <option value="بانتظار الموافقة">بانتظار الموافقة</option>
+                        <option value="مرفوض">مرفوض</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">مرحلة سير العمل</label>
+                    <select id="workflowStage" class="w-full rounded-xl border border-slate-200 px-3 py-2">
+                        <option value="فتح الطلب">فتح الطلب</option>
+                        <option value="مراجعة مالية">مراجعة مالية</option>
+                        <option value="تحصيل الفارق">تحصيل الفارق</option>
+                        <option value="إغلاق الطلب">إغلاق الطلب</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">حالة التحصيل</label>
+                    <select id="status" class="w-full rounded-xl border border-slate-200 px-3 py-2" required>
+                        <option value="تم التحصيل">تم التحصيل</option>
+                        <option value="قيد التحصيل">قيد التحصيل</option>
+                        <option value="بانتظار الموافقة">بانتظار الموافقة</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">طريقة التحصيل</label>
+                    <input id="collectionMethod" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="تحويل بنكي">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">مرجع التحصيل</label>
+                    <input id="referenceNo" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="BNK-3822">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">تم التحصيل بواسطة</label>
+                    <input id="collectedBy" type="text" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="ندى الشمري">
+                </div>
+                <div>
+                    <label class="block text-slate-600 mb-1">تاريخ الاستحقاق</label>
+                    <input id="dueDate" type="date" class="w-full rounded-xl border border-slate-200 px-3 py-2">
+                </div>
+                <div class="lg:col-span-3">
+                    <label class="block text-slate-600 mb-1">ملاحظات</label>
+                    <textarea id="notes" rows="2" class="w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="تفاصيل إضافية عن عملية التحصيل"></textarea>
+                </div>
+                <div class="flex items-center gap-3 md:col-span-2 lg:col-span-3">
+                    <button type="submit" id="submitButton" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition">إنشاء</button>
+                    <button type="button" id="resetButton" class="bg-white text-slate-700 border border-slate-200 px-6 py-3 rounded-full font-bold hover:shadow-lg transition">مسح</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 section-accent-amber">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">📋 سجل فروقات القيمة</h3>
+                <span class="badge bg-amber-100 text-amber-700">محدث</span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-sm">
+                    <thead class="bg-amber-50 text-amber-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم العملية</th>
+                            <th class="px-3 py-2 text-right">تاريخ الطلب</th>
+                            <th class="px-3 py-2 text-right">اسم العميل</th>
+                            <th class="px-3 py-2 text-right">الفرع</th>
+                            <th class="px-3 py-2 text-right">المنتج السابق</th>
+                            <th class="px-3 py-2 text-right">المنتج البديل</th>
+                            <th class="px-3 py-2 text-right">فرق السعر</th>
+                            <th class="px-3 py-2 text-right">ضريبة</th>
+                            <th class="px-3 py-2 text-right">الإجمالي</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">الموافقة</th>
+                            <th class="px-3 py-2 text-right">سير العمل</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adjustmentsTableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 mt-8 section-accent-emerald">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">🧩 سجل الإجراءات</h3>
+                <span class="badge bg-emerald-100 text-emerald-700">سجل تدقيق</span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-sm">
+                    <thead class="bg-emerald-50 text-emerald-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">الوقت</th>
+                            <th class="px-3 py-2 text-right">رقم العملية</th>
+                            <th class="px-3 py-2 text-right">الإجراء</th>
+                            <th class="px-3 py-2 text-right">المنفذ</th>
+                            <th class="px-3 py-2 text-right">ملاحظة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTableBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const summaryText = 'زيادة مبلغ على القيمة: احتساب فرق السعر تلقائيًا، تحصيل فوري، وتحديث الفاتورة والضريبة.';
+        const apiBase = '/finance/amount-adjustments';
+        const statusOptions = ['تم التحصيل', 'قيد التحصيل', 'بانتظار الموافقة'];
+        const approvalOptions = ['موافق عليه', 'بانتظار الموافقة', 'مرفوض'];
+        const workflowOptions = ['فتح الطلب', 'مراجعة مالية', 'تحصيل الفارق', 'إغلاق الطلب'];
+
+        const form = document.getElementById('adjustmentForm');
+        const submitButton = document.getElementById('submitButton');
+        const resetButton = document.getElementById('resetButton');
+        const tableBody = document.getElementById('adjustmentsTableBody');
+        const logsTableBody = document.getElementById('logsTableBody');
+
+        const filtersForm = document.getElementById('filtersForm');
+        const resetFiltersButton = document.getElementById('resetFilters');
+        const filterQueryInput = document.getElementById('filterQuery');
+        const filterStatusInput = document.getElementById('filterStatus');
+        const filterApprovalInput = document.getElementById('filterApproval');
+        const filterBranchInput = document.getElementById('filterBranch');
+        const filterDateFromInput = document.getElementById('filterDateFrom');
+        const filterDateToInput = document.getElementById('filterDateTo');
+
+        const totalDifferenceEl = document.getElementById('totalDifference');
+        const avgTaxRateEl = document.getElementById('avgTaxRate');
+        const collectedCountEl = document.getElementById('collectedCount');
+        const pendingCountEl = document.getElementById('pendingCount');
+        const totalDueEl = document.getElementById('totalDue');
+        const collectionRateEl = document.getElementById('collectionRate');
+
+        const adjustmentIdInput = document.getElementById('adjustmentId');
+        const requestDateInput = document.getElementById('requestDate');
+        const customerNameInput = document.getElementById('customerName');
+        const customerContactInput = document.getElementById('customerContact');
+        const branchNameInput = document.getElementById('branchName');
+        const adjustmentReasonInput = document.getElementById('adjustmentReason');
+        const previousProductInput = document.getElementById('previousProduct');
+        const replacementProductInput = document.getElementById('replacementProduct');
+        const priceDifferenceInput = document.getElementById('priceDifference');
+        const taxRateInput = document.getElementById('taxRate');
+        const taxAmountInput = document.getElementById('taxAmount');
+        const totalDueFieldInput = document.getElementById('totalDueField');
+        const currencyInput = document.getElementById('currency');
+        const approvalStatusInput = document.getElementById('approvalStatus');
+        const workflowStageInput = document.getElementById('workflowStage');
+        const statusInput = document.getElementById('status');
+        const collectionMethodInput = document.getElementById('collectionMethod');
+        const referenceNoInput = document.getElementById('referenceNo');
+        const collectedByInput = document.getElementById('collectedBy');
+        const dueDateInput = document.getElementById('dueDate');
+        const notesInput = document.getElementById('notes');
+
+        function refreshData() {
+            fetchAdjustments();
+            fetchLogs();
+        }
+        function printPage() { window.print(); }
+        function copySummary() {
+            navigator.clipboard.writeText(summaryText).then(() => {
+                alert('تم نسخ ملخص زيادة مبلغ على القيمة.');
+            });
+        }
+
+        function resetForm() {
+            form.dataset.editingId = '';
+            adjustmentIdInput.value = '';
+            requestDateInput.valueAsDate = new Date();
+            customerNameInput.value = '';
+            customerContactInput.value = '';
+            branchNameInput.value = '';
+            adjustmentReasonInput.value = '';
+            previousProductInput.value = '';
+            replacementProductInput.value = '';
+            priceDifferenceInput.value = '';
+            taxRateInput.value = '0.15';
+            currencyInput.value = 'SAR';
+            approvalStatusInput.value = approvalOptions[1];
+            workflowStageInput.value = workflowOptions[0];
+            statusInput.value = statusOptions[1];
+            collectionMethodInput.value = '';
+            referenceNoInput.value = '';
+            collectedByInput.value = '';
+            dueDateInput.value = '';
+            notesInput.value = '';
+            submitButton.textContent = 'إنشاء';
+            updateDerivedTotals();
+        }
+
+        function formatAmount(value) {
+            const number = Number(value || 0);
+            return `+${number.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+        }
+
+        function formatCurrency(value) {
+            const number = Number(value || 0);
+            return number.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        }
+
+        function updateDerivedTotals() {
+            const price = Number(priceDifferenceInput.value || 0);
+            const rate = Number(taxRateInput.value || 0);
+            const taxAmount = price * rate;
+            const totalDue = price + taxAmount;
+            taxAmountInput.value = formatCurrency(taxAmount);
+            totalDueFieldInput.value = formatCurrency(totalDue);
+        }
+
+        function renderTable(rows) {
+            tableBody.innerHTML = '';
+            if (!rows.length) {
+                const emptyRow = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.className = 'px-3 py-4 text-center text-slate-500';
+                cell.colSpan = 13;
+                cell.textContent = 'لا توجد بيانات بعد.';
+                emptyRow.appendChild(cell);
+                tableBody.appendChild(emptyRow);
+                return;
+            }
+
+            rows.forEach((row) => {
+                const tr = document.createElement('tr');
+
+                const idCell = document.createElement('td');
+                idCell.className = 'px-3 py-2';
+                idCell.textContent = row.id;
+                tr.appendChild(idCell);
+
+                const dateCell = document.createElement('td');
+                dateCell.className = 'px-3 py-2';
+                dateCell.textContent = row.request_date || '-';
+                tr.appendChild(dateCell);
+
+                const customerCell = document.createElement('td');
+                customerCell.className = 'px-3 py-2';
+                customerCell.textContent = row.customer_name || '-';
+                tr.appendChild(customerCell);
+
+                const branchCell = document.createElement('td');
+                branchCell.className = 'px-3 py-2';
+                branchCell.textContent = row.branch_name || '-';
+                tr.appendChild(branchCell);
+
+                const previousCell = document.createElement('td');
+                previousCell.className = 'px-3 py-2';
+                previousCell.textContent = row.previous_product;
+                tr.appendChild(previousCell);
+
+                const replacementCell = document.createElement('td');
+                replacementCell.className = 'px-3 py-2';
+                replacementCell.textContent = row.replacement_product;
+                tr.appendChild(replacementCell);
+
+                const priceCell = document.createElement('td');
+                priceCell.className = 'px-3 py-2';
+                priceCell.textContent = formatAmount(row.price_difference);
+                tr.appendChild(priceCell);
+
+                const taxCell = document.createElement('td');
+                taxCell.className = 'px-3 py-2';
+                taxCell.textContent = formatCurrency(row.tax_amount);
+                tr.appendChild(taxCell);
+
+                const totalCell = document.createElement('td');
+                totalCell.className = 'px-3 py-2';
+                totalCell.textContent = formatCurrency(row.total_due);
+                tr.appendChild(totalCell);
+
+                const statusCell = document.createElement('td');
+                statusCell.className = 'px-3 py-2';
+                const statusSelect = document.createElement('select');
+                statusSelect.className = 'rounded-xl border border-slate-200 px-2 py-1 text-sm';
+                statusOptions.forEach((option) => {
+                    const optionEl = document.createElement('option');
+                    optionEl.value = option;
+                    optionEl.textContent = option;
+                    if (row.status === option) optionEl.selected = true;
+                    statusSelect.appendChild(optionEl);
+                });
+                statusSelect.addEventListener('change', () => updateStatus(row.id, statusSelect.value));
+                statusCell.appendChild(statusSelect);
+                tr.appendChild(statusCell);
+
+                const approvalCell = document.createElement('td');
+                approvalCell.className = 'px-3 py-2';
+                const approvalSelect = document.createElement('select');
+                approvalSelect.className = 'rounded-xl border border-slate-200 px-2 py-1 text-sm';
+                approvalOptions.forEach((option) => {
+                    const optionEl = document.createElement('option');
+                    optionEl.value = option;
+                    optionEl.textContent = option;
+                    if (row.approval_status === option) optionEl.selected = true;
+                    approvalSelect.appendChild(optionEl);
+                });
+                approvalSelect.addEventListener('change', () => updateApproval(row.id, approvalSelect.value));
+                approvalCell.appendChild(approvalSelect);
+                tr.appendChild(approvalCell);
+
+                const workflowCell = document.createElement('td');
+                workflowCell.className = 'px-3 py-2';
+                const workflowSelect = document.createElement('select');
+                workflowSelect.className = 'rounded-xl border border-slate-200 px-2 py-1 text-sm';
+                workflowOptions.forEach((option) => {
+                    const optionEl = document.createElement('option');
+                    optionEl.value = option;
+                    optionEl.textContent = option;
+                    if (row.workflow_stage === option) optionEl.selected = true;
+                    workflowSelect.appendChild(optionEl);
+                });
+                workflowSelect.addEventListener('change', () => updateWorkflow(row.id, workflowSelect.value));
+                workflowCell.appendChild(workflowSelect);
+                tr.appendChild(workflowCell);
+
+                const actionCell = document.createElement('td');
+                actionCell.className = 'px-3 py-2';
+                const editButton = document.createElement('button');
+                editButton.className = 'bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold ml-2';
+                editButton.textContent = 'تعديل';
+                editButton.addEventListener('click', () => fillForm(row));
+
+                const viewButton = document.createElement('button');
+                viewButton.className = 'bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-bold ml-2';
+                viewButton.textContent = 'معاينة';
+                viewButton.addEventListener('click', () => previewAdjustment(row));
+
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'bg-rose-600 text-white px-3 py-1 rounded-full text-xs font-bold';
+                deleteButton.textContent = 'حذف';
+                deleteButton.addEventListener('click', () => deleteAdjustment(row.id));
+
+                actionCell.appendChild(editButton);
+                actionCell.appendChild(viewButton);
+                actionCell.appendChild(deleteButton);
+                tr.appendChild(actionCell);
+
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function renderLogs(logs) {
+            logsTableBody.innerHTML = '';
+            if (!logs.length) {
+                const emptyRow = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.className = 'px-3 py-4 text-center text-slate-500';
+                cell.colSpan = 5;
+                cell.textContent = 'لا توجد سجلات بعد.';
+                emptyRow.appendChild(cell);
+                logsTableBody.appendChild(emptyRow);
+                return;
+            }
+
+            logs.forEach((log) => {
+                const tr = document.createElement('tr');
+
+                const dateCell = document.createElement('td');
+                dateCell.className = 'px-3 py-2';
+                dateCell.textContent = new Date(log.created_at).toLocaleString('en-US');
+                tr.appendChild(dateCell);
+
+                const idCell = document.createElement('td');
+                idCell.className = 'px-3 py-2';
+                idCell.textContent = log.adjustment_id || '-';
+                tr.appendChild(idCell);
+
+                const actionCell = document.createElement('td');
+                actionCell.className = 'px-3 py-2';
+                actionCell.textContent = log.action;
+                tr.appendChild(actionCell);
+
+                const actorCell = document.createElement('td');
+                actorCell.className = 'px-3 py-2';
+                actorCell.textContent = log.actor || '-';
+                tr.appendChild(actorCell);
+
+                const noteCell = document.createElement('td');
+                noteCell.className = 'px-3 py-2';
+                noteCell.textContent = log.note || '-';
+                tr.appendChild(noteCell);
+
+                logsTableBody.appendChild(tr);
+            });
+        }
+
+        function updateStats(rows) {
+            const totalDifference = rows.reduce((sum, row) => sum + Number(row.price_difference || 0), 0);
+            const totalDue = rows.reduce((sum, row) => sum + Number(row.total_due || 0), 0);
+            const collectedCount = rows.filter((row) => row.status === 'تم التحصيل').length;
+            const pendingCount = rows.filter((row) => row.approval_status === 'بانتظار الموافقة').length;
+            const avgTaxRate = rows.length
+                ? rows.reduce((sum, row) => sum + Number(row.tax_rate || 0), 0) / rows.length
+                : 0;
+            const collectionRate = rows.length ? (collectedCount / rows.length) * 100 : 0;
+
+            totalDifferenceEl.textContent = formatCurrency(totalDifference);
+            totalDueEl.textContent = formatCurrency(totalDue);
+            collectedCountEl.textContent = collectedCount.toString();
+            pendingCountEl.textContent = pendingCount.toString();
+            avgTaxRateEl.textContent = `${(avgTaxRate * 100).toFixed(1)}%`;
+            collectionRateEl.textContent = `${collectionRate.toFixed(0)}%`;
+        }
+
+        async function fetchAdjustments() {
+            try {
+                const params = new URLSearchParams({
+                    status: filterStatusInput.value,
+                    approval_status: filterApprovalInput.value,
+                    branch_name: filterBranchInput.value,
+                    date_from: filterDateFromInput.value,
+                    date_to: filterDateToInput.value,
+                    q: filterQueryInput.value
+                });
+                const response = await fetch(`${apiBase}?${params.toString()}`);
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'تعذر جلب البيانات');
+                }
+                renderTable(data.adjustments || []);
+                updateStats(data.adjustments || []);
+            } catch (error) {
+                console.error(error);
+                alert('تعذر جلب البيانات من قاعدة البيانات.');
+            }
+        }
+
+        async function fetchLogs() {
+            try {
+                const response = await fetch(`${apiBase}/logs`);
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'تعذر جلب السجلات');
+                }
+                renderLogs(data.logs || []);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function createAdjustment(payload) {
+            const response = await fetch(apiBase, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return response.json();
+        }
+
+        async function updateAdjustment(id, payload) {
+            const response = await fetch(`${apiBase}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return response.json();
+        }
+
+        async function updateStatus(id, status) {
+            try {
+                const response = await fetch(`${apiBase}/${id}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'تعذر تحديث الحالة');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('تعذر تحديث الحالة.');
+                fetchAdjustments();
+            }
+        }
+
+        async function updateApproval(id, approval_status) {
+            try {
+                const response = await fetch(`${apiBase}/${id}/approval`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ approval_status })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'تعذر تحديث الموافقة');
+                }
+                fetchLogs();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر تحديث الموافقة.');
+                fetchAdjustments();
+            }
+        }
+
+        async function updateWorkflow(id, workflow_stage) {
+            try {
+                const response = await fetch(`${apiBase}/${id}/workflow`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workflow_stage })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'تعذر تحديث سير العمل');
+                }
+                fetchLogs();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر تحديث سير العمل.');
+                fetchAdjustments();
+            }
+        }
+
+        async function deleteAdjustment(id) {
+            if (!confirm('هل تريد حذف هذا السجل؟')) return;
+            try {
+                const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'تعذر حذف السجل');
+                }
+                resetForm();
+                fetchAdjustments();
+                fetchLogs();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر حذف السجل.');
+            }
+        }
+
+        function fillForm(row) {
+            form.dataset.editingId = row.id;
+            adjustmentIdInput.value = row.id;
+            requestDateInput.value = row.request_date || '';
+            customerNameInput.value = row.customer_name || '';
+            customerContactInput.value = row.customer_contact || '';
+            branchNameInput.value = row.branch_name || '';
+            adjustmentReasonInput.value = row.adjustment_reason || '';
+            previousProductInput.value = row.previous_product;
+            replacementProductInput.value = row.replacement_product;
+            priceDifferenceInput.value = row.price_difference;
+            taxRateInput.value = row.tax_rate || 0.15;
+            currencyInput.value = row.currency || 'SAR';
+            approvalStatusInput.value = row.approval_status || approvalOptions[1];
+            workflowStageInput.value = row.workflow_stage || workflowOptions[0];
+            statusInput.value = row.status || statusOptions[1];
+            collectionMethodInput.value = row.collection_method || '';
+            referenceNoInput.value = row.reference_no || '';
+            collectedByInput.value = row.collected_by || '';
+            dueDateInput.value = row.due_date || '';
+            notesInput.value = row.notes || '';
+            submitButton.textContent = 'حفظ التعديل';
+            updateDerivedTotals();
+        }
+
+        function previewAdjustment(row) {
+            const summary = [
+                `رقم العملية: ${row.id}`,
+                `العميل: ${row.customer_name || '-'}`,
+                `الفرع: ${row.branch_name || '-'}`,
+                `فرق السعر: ${formatAmount(row.price_difference)}`,
+                `الضريبة: ${formatCurrency(row.tax_amount)}`,
+                `الإجمالي: ${formatCurrency(row.total_due)}`,
+                `الحالة: ${row.status}`,
+                `الموافقة: ${row.approval_status}`,
+                `سير العمل: ${row.workflow_stage}`
+            ].join('\n');
+            alert(summary);
+        }
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const payload = {
+                id: adjustmentIdInput.value.trim() || undefined,
+                request_date: requestDateInput.value,
+                customer_name: customerNameInput.value.trim(),
+                customer_contact: customerContactInput.value.trim(),
+                branch_name: branchNameInput.value.trim(),
+                previous_product: previousProductInput.value.trim(),
+                replacement_product: replacementProductInput.value.trim(),
+                adjustment_reason: adjustmentReasonInput.value.trim(),
+                price_difference: Number(priceDifferenceInput.value),
+                tax_rate: Number(taxRateInput.value || 0.15),
+                currency: currencyInput.value,
+                approval_status: approvalStatusInput.value,
+                workflow_stage: workflowStageInput.value,
+                status: statusInput.value,
+                collection_method: collectionMethodInput.value.trim(),
+                reference_no: referenceNoInput.value.trim(),
+                collected_by: collectedByInput.value.trim(),
+                due_date: dueDateInput.value,
+                notes: notesInput.value.trim()
+            };
+
+            try {
+                let data;
+                if (form.dataset.editingId) {
+                    data = await updateAdjustment(form.dataset.editingId, payload);
+                } else {
+                    data = await createAdjustment(payload);
+                }
+
+                if (!data.success) {
+                    throw new Error(data.error || 'تعذر حفظ السجل');
+                }
+                resetForm();
+                fetchAdjustments();
+                fetchLogs();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر حفظ السجل.');
+            }
+        });
+
+        resetButton.addEventListener('click', resetForm);
+        resetFiltersButton.addEventListener('click', () => {
+            filtersForm.reset();
+            fetchAdjustments();
+        });
+
+        filtersForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            fetchAdjustments();
+        });
+
+        priceDifferenceInput.addEventListener('input', updateDerivedTotals);
+        taxRateInput.addEventListener('input', updateDerivedTotals);
+
+        fetchAdjustments();
+        fetchLogs();
+        resetForm();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

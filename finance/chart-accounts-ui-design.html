@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌳 تصميم شجرة الحسابات وواجهات النظام - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f9fafb; color: #0f172a; }
+        
+        .card-gradient {
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    
+        .shape-a { border-radius: 26px 8px 26px 8px; }
+        .shape-b { border-radius: 999px; }
+        .shape-c { border-radius: 28px 28px 6px 28px; }
+        .shape-d { border-radius: 18px 40px 18px 40px; }
+        .shape-e { border-radius: 12px 40px 12px 40px; }
+        .stat-card { transition: transform 0.3s, box-shadow 0.3s; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(15,23,42,0.15); }
+        .table-scroll { max-height: 520px; overflow: auto; }
+        .chart-container { position: relative; height: 280px; }
+        .section-accent-sky { border-top: 4px solid #0ea5e9; }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .section-accent-amber { border-top: 4px solid #f59e0b; }
+        .section-accent-indigo { border-top: 4px solid #6366f1; }
+        .section-accent-rose { border-top: 4px solid #f43f5e; }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 0.75rem 1.5rem; border-radius: 999px; color: white; font-weight: 700; z-index: 50; }
+        .toast-success { background: #10b981; }
+        .toast-info { background: #6366f1; }
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.55); display: none; align-items: center; justify-content: center; z-index: 70; }
+        .modal-card { background: #fff; width: min(720px, 96vw); border-radius: 24px; box-shadow: 0 20px 50px rgba(15,23,42,0.22); max-height: 90vh; overflow: auto; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 0.85rem; font-weight: 700; }
+        .chip-emerald { background: #ecfdf3; color: #047857; }
+        .chip-amber { background: #fffbeb; color: #b45309; }
+        .chip-slate { background: #f8fafc; color: #0f172a; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🌳 تصميم شجرة الحسابات وواجهات النظام</h1>
+            <p class="text-lg text-slate-600">شجرة حسابات تخدم 38+ حاضنة ومنصات متعددة مع واجهات تشغيلية كاملة (الصفحة 33)</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="openAccountModal('create')" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus-circle"></i>
+                إضافة حساب جديد
+            </button>
+            <button onclick="downloadJSON()" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-code"></i>
+                تنزيل ملف بيانات
+            </button>
+            <button onclick="downloadCSV()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-csv"></i>
+                تنزيل ملف جدولي
+            </button>
+            <button onclick="printReport()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة
+            </button>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">📌 مؤشرات لوحة التحكم</h2>
+                <span class="text-sm text-slate-500">قراءة موحدة من قاعدة البيانات</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="stat-card shape-b bg-gradient-to-br from-sky-500 to-blue-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>إجمالي الإيرادات</span><i class="fas fa-arrow-up text-2xl opacity-70"></i></div>
+                    <div id="totalRevenue" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-a bg-gradient-to-br from-rose-500 to-red-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>إجمالي المصروفات</span><i class="fas fa-arrow-down text-2xl opacity-70"></i></div>
+                    <div id="totalExpenses" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-c bg-gradient-to-br from-emerald-500 to-teal-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>صافي الربح</span><i class="fas fa-chart-line text-2xl opacity-70"></i></div>
+                    <div id="netProfit" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-d bg-gradient-to-br from-indigo-500 to-purple-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>صافي التدفقات النقدية</span><i class="fas fa-water text-2xl opacity-70"></i></div>
+                    <div id="netCashflow" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-e bg-gradient-to-br from-amber-500 to-orange-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>الذمم المدينة</span><i class="fas fa-hand-holding-dollar text-2xl opacity-70"></i></div>
+                    <div id="totalAR" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-b bg-gradient-to-br from-slate-600 to-slate-800 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>الذمم الدائنة</span><i class="fas fa-file-invoice-dollar text-2xl opacity-70"></i></div>
+                    <div id="totalAP" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-a bg-gradient-to-br from-fuchsia-500 to-pink-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>عدد الحسابات</span><i class="fas fa-layer-group text-2xl opacity-70"></i></div>
+                    <div id="accountsCount" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-c bg-gradient-to-br from-cyan-500 to-sky-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>إجمالي الأصول</span><i class="fas fa-building-columns text-2xl opacity-70"></i></div>
+                    <div id="totalAssets" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🌳 شجرة الحسابات مصممة لتخدم التوسع</h2>
+                <span class="text-sm text-slate-500">38+ حاضنة • منصات متعددة • برامج مختلفة</span>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">المستوى الأول (الفئات الرئيسية)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-700">
+                        <div class="bg-slate-50 p-3 rounded-xl">الأصول</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">الالتزامات</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">حقوق الملكية</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">الإيرادات</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">المصروفات</div>
+                    </div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-indigo">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">توزيع الحسابات حسب النوع</h3>
+                    <div class="chart-container"><canvas id="accountsChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧩 المستوى الثاني (تفصيل الفئات)</h2>
+                <span class="text-sm text-slate-500">أمثلة عملية للمستويات التفصيلية</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-slate-700" id="levelTwoList"></div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-rose">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧾 هيكل الإيرادات والمصروفات</h2>
+                <span class="text-sm text-slate-500">تصنيفات تشغيلية وإدارية وتقنية</span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-rose-50 text-rose-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">الفئة</th>
+                            <th class="px-3 py-2 text-right">الكود</th>
+                            <th class="px-3 py-2 text-right">الوصف</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sampleAccountsTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-amber">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧠 تصميم واجهات النظام التشغيلية</h2>
+                <span class="text-sm text-slate-500">واجهة لوحة التحكم وواجهة القيود المحاسبية</span>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-sky">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">واجهة لوحة التحكم</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-700">
+                        <div class="bg-slate-50 p-3 rounded-xl">إجمالي الإيرادات</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">إجمالي المصروفات</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">صافي الربح</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">التدفقات النقدية</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">الذمم المدينة</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">الذمم الدائنة</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">الفروع الأعلى أداءً</div>
+                        <div class="bg-slate-50 p-3 rounded-xl">العملاء الأعلى رصيدًا</div>
+                    </div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-emerald">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">واجهة القيود المحاسبية</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-700">
+                        <div>
+                            <label class="text-xs text-slate-500">تاريخ القيد</label>
+                            <input id="demoEntryDate" class="w-full bg-slate-50 rounded-lg px-3 py-2" readonly value="">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">رقم القيد</label>
+                            <input id="demoEntryNumber" class="w-full bg-slate-50 rounded-lg px-3 py-2" readonly value="">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">نوع العملية</label>
+                            <input id="demoEntryType" class="w-full bg-slate-50 rounded-lg px-3 py-2" readonly value="">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">الحساب المدين</label>
+                            <input id="demoDebit" class="w-full bg-slate-50 rounded-lg px-3 py-2" readonly value="">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">الحساب الدائن</label>
+                            <input id="demoCredit" class="w-full bg-slate-50 rounded-lg px-3 py-2" readonly value="">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">المبلغ</label>
+                            <input id="demoAmount" class="w-full bg-slate-50 rounded-lg px-3 py-2" readonly value="">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">المرفقات</label>
+                            <input id="demoAttachment" class="w-full bg-slate-50 rounded-lg px-3 py-2" readonly value="">
+                        </div>
+                    </div>
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="showToast('تم ترحيل القيد بنجاح', 'success')" class="bg-emerald-600 text-white px-5 py-2 rounded-full font-bold hover:shadow-lg">ترحيل</button>
+                        <button onclick="showToast('تم حفظ القيد كمسودة', 'info')" class="bg-sky-600 text-white px-5 py-2 rounded-full font-bold hover:shadow-lg">حفظ كمسودة</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-sky">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-slate-800">🏢 أعلى الفروع أداءً</h3>
+                    <span id="branchesCount" class="text-sm text-slate-500"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full text-xs">
+                        <thead class="bg-sky-50 text-sky-700">
+                            <tr>
+                                <th class="px-3 py-2 text-right">الفرع</th>
+                                <th class="px-3 py-2 text-right">إجمالي الإيراد</th>
+                                <th class="px-3 py-2 text-right">عدد الفواتير</th>
+                            </tr>
+                        </thead>
+                        <tbody id="branchesTable" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-emerald">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-slate-800">👥 العملاء الأعلى رصيدًا</h3>
+                    <span id="customersCount" class="text-sm text-slate-500"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full text-xs">
+                        <thead class="bg-emerald-50 text-emerald-700">
+                            <tr>
+                                <th class="px-3 py-2 text-right">العميل</th>
+                                <th class="px-3 py-2 text-right">الرصيد المتبقي</th>
+                                <th class="px-3 py-2 text-right">عدد الفواتير</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customersTable" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-indigo" open>
+                <summary class="text-xl font-bold text-slate-800">📚 جدول شجرة الحسابات</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">تفاصيل الحسابات</h4><span id="accountsTableCount" class="text-sm text-slate-500"></span></div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead class="bg-indigo-50 text-indigo-700">
+                                <tr>
+                                    <th class="px-3 py-2 text-right">رقم الحساب</th>
+                                    <th class="px-3 py-2 text-right">كود الحساب</th>
+                                    <th class="px-3 py-2 text-right">اسم الحساب</th>
+                                    <th class="px-3 py-2 text-right">نوع الحساب</th>
+                                    <th class="px-3 py-2 text-right">الرصيد</th>
+                                    <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                                    <th class="px-3 py-2 text-right">الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accountsTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <div id="accountModal" class="modal-backdrop">
+        <div class="modal-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="accountModalTitle" class="text-2xl font-bold text-slate-800">إضافة حساب</h3>
+                <button onclick="closeAccountModal()" class="text-slate-500 hover:text-slate-800 text-2xl">×</button>
+            </div>
+            <form id="accountForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm" onsubmit="submitAccountForm(event)">
+                <div>
+                    <label class="text-xs text-slate-500">كود الحساب</label>
+                    <input id="accountCode" class="w-full bg-slate-50 rounded-lg px-3 py-2" required>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">اسم الحساب (عربي)</label>
+                    <input id="accountNameAr" class="w-full bg-slate-50 rounded-lg px-3 py-2" required>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">اسم الحساب (إنجليزي)</label>
+                    <input id="accountNameEn" class="w-full bg-slate-50 rounded-lg px-3 py-2" placeholder="اختياري">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">نوع الحساب</label>
+                    <select id="accountType" class="w-full bg-slate-50 rounded-lg px-3 py-2" required>
+                        <option value="ASSET">أصول</option>
+                        <option value="LIABILITY">التزامات</option>
+                        <option value="EQUITY">حقوق ملكية</option>
+                        <option value="REVENUE">إيرادات</option>
+                        <option value="EXPENSE">مصروفات</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الحساب الأب</label>
+                    <select id="parentAccount" class="w-full bg-slate-50 rounded-lg px-3 py-2">
+                        <option value="">بدون حساب أب</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الطبيعة</label>
+                    <select id="normalBalance" class="w-full bg-slate-50 rounded-lg px-3 py-2">
+                        <option value="">تلقائي</option>
+                        <option value="DEBIT">مدين</option>
+                        <option value="CREDIT">دائن</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs text-slate-500">الوصف</label>
+                    <textarea id="accountDescription" class="w-full bg-slate-50 rounded-lg px-3 py-2" rows="2" placeholder="اختياري"></textarea>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs text-slate-500">ملاحظات</label>
+                    <textarea id="accountNotes" class="w-full bg-slate-50 rounded-lg px-3 py-2" rows="2" placeholder="اختياري"></textarea>
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+                    <button type="button" onclick="closeAccountModal()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-full font-bold">إلغاء</button>
+                    <button id="accountSubmitBtn" type="submit" class="bg-emerald-600 text-white px-5 py-2 rounded-full font-bold hover:shadow-lg">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="viewModal" class="modal-backdrop">
+        <div class="modal-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-2xl font-bold text-slate-800">معاينة الحساب</h3>
+                <button onclick="closeViewModal()" class="text-slate-500 hover:text-slate-800 text-2xl">×</button>
+            </div>
+            <div id="viewContent" class="space-y-3 text-sm text-slate-700"></div>
+            <div class="mt-4 flex justify-end">
+                <button onclick="closeViewModal()" class="bg-slate-800 text-white px-5 py-2 rounded-full font-bold">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteModal" class="modal-backdrop">
+        <div class="modal-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">تأكيد الحذف</h3>
+                <button onclick="closeDeleteModal()" class="text-slate-500 hover:text-slate-800 text-2xl">×</button>
+            </div>
+            <p class="text-slate-700 mb-4">هل أنت متأكد من حذف هذا الحساب؟ في حال وجود قيود مرتبطة سيتم إلغاء تفعيله بدلاً من حذفه.</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeDeleteModal()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-full font-bold">إلغاء</button>
+                <button onclick="performDeleteAccount()" id="deleteConfirmBtn" class="bg-rose-600 text-white px-5 py-2 rounded-full font-bold">تأكيد الحذف</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/finance/finance-context.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+
+        const store = {
+            accounts: [],
+            invoices: [],
+            payments: [],
+            arAging: [],
+            balanceSheet: null,
+            income: null,
+            cashflow: null
+        };
+
+        let accountsChartInstance = null;
+    let currentAccountId = null;
+    let currentMode = 'create';
+
+        const levelTwoItems = [
+            { label: 'الأصول', items: ['1100 النقدية', '1200 البنوك', '1300 الذمم المدينة', '1400 المخزون', '1500 الأصول الثابتة', '1600 مجمع الإهلاك'] },
+            { label: 'الالتزامات', items: ['2100 الذمم الدائنة', '2200 القروض', '2300 المستحقات الحكومية'] },
+            { label: 'حقوق الملكية', items: ['3100 رأس المال', '3200 الأرباح المبقاة'] }
+        ];
+
+
+        async function fetchJson(url) {
+            const res = await fetch(url);
+            const data = await res.json();
+            return { ok: res.ok, data };
+        }
+
+        async function loadData() {
+            try {
+                const [accountsRes, invoicesRes, paymentsRes, agingRes, balanceRes, incomeRes, cashflowRes] = await Promise.all([
+                    fetchJson(`${API_BASE}/finance/chart-of-accounts?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/invoices`),
+                    fetchJson(`${API_BASE}/finance/payments`),
+                    fetchJson(`${API_BASE}/finance/ar-aging?entity_id=HQ001`),
+                    fetchJson(`${API_BASE}/finance/balance-sheet/complete?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/income-statement?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/cashflow/overview?entity_id=${ENTITY_ID}`)
+                ]);
+
+                store.accounts = accountsRes.data.accounts || accountsRes.data.rows || [];
+                store.invoices = invoicesRes.data.invoices || [];
+                store.payments = paymentsRes.data.payments || [];
+                store.arAging = agingRes.data.rows || [];
+                store.balanceSheet = balanceRes.data.sheet || null;
+                store.income = incomeRes.data || null;
+                store.cashflow = cashflowRes.data || null;
+
+                populateParentOptions();
+                renderKPIs();
+                renderLevelTwo();
+                renderSampleAccounts();
+                renderAccountsChart();
+                renderTables();
+            } catch (error) {
+                console.error('❌ خطأ في تحميل البيانات:', error);
+            }
+        }
+
+        function renderKPIs() {
+            const revenue = sum(store.income?.revenue_accounts || [], 'balance');
+            const expenses = sum(store.income?.expense_accounts || [], 'balance');
+            const netProfit = revenue - expenses;
+            const netCashflow = store.cashflow?.total_net_cashflow || 0;
+            const arTotal = sum(store.arAging, 'remaining_amount');
+            const assets = store.balanceSheet?.totals?.total_assets || 0;
+            const liabilities = store.balanceSheet?.totals?.total_liabilities || 0;
+
+            document.getElementById('totalRevenue').textContent = formatMoney(revenue);
+            document.getElementById('totalExpenses').textContent = formatMoney(expenses);
+            document.getElementById('netProfit').textContent = formatMoney(netProfit);
+            document.getElementById('netCashflow').textContent = formatMoney(netCashflow);
+            document.getElementById('totalAR').textContent = formatMoney(arTotal);
+            document.getElementById('totalAP').textContent = formatMoney(liabilities);
+            document.getElementById('accountsCount').textContent = store.accounts.length.toLocaleString('en-US');
+            document.getElementById('totalAssets').textContent = formatMoney(assets);
+        }
+
+        function renderLevelTwo() {
+            const container = document.getElementById('levelTwoList');
+            container.innerHTML = levelTwoItems.map((section, idx) => `
+                <div class="card-gradient p-4 shadow-lg ${idx % 2 === 0 ? 'shape-a' : 'shape-d'}">
+                    <div class="font-bold text-slate-800 mb-2">${section.label}</div>
+                    <ul class="space-y-1 text-slate-700">
+                        ${section.items.map(item => `<li>${item}</li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
+        }
+
+        function renderSampleAccounts() {
+            const body = document.getElementById('sampleAccountsTable');
+            if (!body) return;
+
+            const rows = (store.accounts || []).filter((account) => {
+                const type = String(account.account_type || '').toUpperCase();
+                return type === 'REVENUE' || type === 'EXPENSE';
+            });
+
+            if (!rows.length) {
+                body.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="px-3 py-6 text-center text-slate-500">لا توجد بيانات متاحة</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            body.innerHTML = rows.slice(0, 20).map((account) => `
+                <tr class="hover:bg-rose-50">
+                    <td class="px-3 py-2">${translateAccountType(account.account_type)}</td>
+                    <td class="px-3 py-2">${account.account_code || '-'}</td>
+                    <td class="px-3 py-2">${account.account_name_ar || account.account_name || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAccountsChart() {
+            const counts = store.accounts.reduce((acc, a) => {
+                const key = translateAccountType(a.account_type);
+                acc[key] = (acc[key] || 0) + 1;
+                return acc;
+            }, {});
+
+            const ctx = document.getElementById('accountsChart').getContext('2d');
+            if (accountsChartInstance) accountsChartInstance.destroy();
+            accountsChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(counts),
+                    datasets: [{
+                        data: Object.values(counts),
+                        backgroundColor: ['#0ea5e9', '#10b981', '#f59e0b', '#6366f1', '#f43f5e']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderTables() {
+            renderAccountsTable();
+            renderBranchesTable();
+            renderCustomersTable();
+        }
+
+        function renderAccountsTable() {
+            const body = document.getElementById('accountsTable');
+            const count = document.getElementById('accountsTableCount');
+            count.textContent = `عدد الصفوف: ${store.accounts.length}`;
+
+            if (!store.accounts.length) {
+                body.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+                return;
+            }
+
+            body.innerHTML = store.accounts.map(a => `
+                <tr class="hover:bg-indigo-50">
+                    <td class="px-3 py-2">${a.account_id ?? '-'}</td>
+                    <td class="px-3 py-2">${sanitizeText(a.account_code)}</td>
+                    <td class="px-3 py-2">${sanitizeText(a.account_name_ar || a.account_name)}</td>
+                    <td class="px-3 py-2">${translateAccountType(a.account_type)}</td>
+                    <td class="px-3 py-2">${formatMoney(a.balance)}</td>
+                    <td class="px-3 py-2">${formatDateTime(a.created_at)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2 justify-end">
+                            <button class="text-sky-700 bg-sky-50 px-3 py-1 rounded-full font-bold" onclick="openAccountView(${a.account_id})">معاينة</button>
+                            <button class="text-amber-700 bg-amber-50 px-3 py-1 rounded-full font-bold" onclick="openAccountModal('edit', ${a.account_id})">تعديل</button>
+                            <button class="text-rose-700 bg-rose-50 px-3 py-1 rounded-full font-bold" onclick="confirmDeleteAccount(${a.account_id})">حذف</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderBranchesTable() {
+            const body = document.getElementById('branchesTable');
+            const count = document.getElementById('branchesCount');
+            const grouped = groupSum(store.invoices, 'branch_id', 'total_amount');
+            const rows = Object.entries(grouped).map(([branch, total]) => ({ branch, total, count: store.invoices.filter(i => (i.branch_id ?? 'غير محدد') === branch).length }))
+                .sort((a, b) => b.total - a.total)
+                .slice(0, 8);
+
+            count.textContent = `عدد الصفوف: ${rows.length}`;
+
+            body.innerHTML = rows.length ? rows.map(r => `
+                <tr class="hover:bg-sky-50">
+                    <td class="px-3 py-2">${sanitizeText(r.branch)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.total)}</td>
+                    <td class="px-3 py-2">${r.count}</td>
+                </tr>
+            `).join('') : `<tr><td colspan="3" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+        }
+
+        function renderCustomersTable() {
+            const body = document.getElementById('customersTable');
+            const count = document.getElementById('customersCount');
+            const grouped = groupSum(store.arAging, 'customer_id', 'remaining_amount');
+            const rows = Object.entries(grouped).map(([customer, total]) => ({ customer, total, count: store.arAging.filter(i => (i.customer_id ?? 'غير محدد') === customer).length }))
+                .sort((a, b) => b.total - a.total)
+                .slice(0, 8);
+
+            count.textContent = `عدد الصفوف: ${rows.length}`;
+
+            body.innerHTML = rows.length ? rows.map(r => `
+                <tr class="hover:bg-emerald-50">
+                    <td class="px-3 py-2">${sanitizeText(r.customer)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.total)}</td>
+                    <td class="px-3 py-2">${r.count}</td>
+                </tr>
+            `).join('') : `<tr><td colspan="3" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+        }
+
+        function translateAccountType(value) {
+            const map = { REVENUE: 'إيرادات', EXPENSE: 'مصروفات', ASSET: 'أصول', LIABILITY: 'التزامات', EQUITY: 'حقوق ملكية' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function sum(rows, key) {
+            return rows.reduce((acc, r) => acc + parseFloat(r[key] || 0), 0);
+        }
+
+        function groupSum(rows, key, valueKey) {
+            return rows.reduce((acc, row) => {
+                const label = row[key] ?? 'غير محدد';
+                acc[label] = (acc[label] || 0) + parseFloat(row[valueKey] || 0);
+                return acc;
+            }, {});
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function sanitizeText(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            const text = typeof value === 'string' ? value : JSON.stringify(value);
+            const cleaned = text.replace(/[A-Za-z]+/g, '').replace(/\s{2,}/g, ' ').trim();
+            return cleaned || '-';
+        }
+
+        function populateParentOptions(selectedId) {
+            const select = document.getElementById('parentAccount');
+            if (!select) return;
+            select.innerHTML = '<option value="">بدون حساب أب</option>' +
+                store.accounts
+                    .map(a => `<option value="${a.account_id}">${sanitizeText(a.account_code)} - ${sanitizeText(a.account_name_ar || a.account_name)}</option>`)
+                    .join('');
+            if (selectedId) {
+                select.value = selectedId;
+            }
+        }
+
+        function openAccountModal(mode = 'create', accountId = null) {
+            currentAccountId = accountId;
+            currentMode = mode;
+            const form = document.getElementById('accountForm');
+            form.reset();
+            const account = accountId ? store.accounts.find(a => String(a.account_id) === String(accountId)) : null;
+            populateParentOptions(account?.parent_account_id);
+            document.getElementById('accountModalTitle').textContent = mode === 'create' ? 'إضافة حساب' : 'تعديل حساب';
+            document.getElementById('accountCode').value = account?.account_code || '';
+            document.getElementById('accountNameAr').value = account?.account_name_ar || '';
+            document.getElementById('accountNameEn').value = account?.account_name_en || '';
+            document.getElementById('accountType').value = account?.account_type || 'ASSET';
+            document.getElementById('parentAccount').value = account?.parent_account_id || '';
+            document.getElementById('normalBalance').value = account?.normal_balance || '';
+            document.getElementById('accountDescription').value = account?.description || '';
+            document.getElementById('accountNotes').value = account?.notes || '';
+            document.getElementById('accountModal').style.display = 'flex';
+        }
+
+        function closeAccountModal() {
+            document.getElementById('accountModal').style.display = 'none';
+            currentAccountId = null;
+        }
+
+        async function submitAccountForm(event) {
+            event.preventDefault();
+            const btn = document.getElementById('accountSubmitBtn');
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = 'جار الحفظ...';
+
+            const payload = {
+                entity_id: ENTITY_ID,
+                account_code: document.getElementById('accountCode').value.trim(),
+                account_name_ar: document.getElementById('accountNameAr').value.trim(),
+                account_name_en: document.getElementById('accountNameEn').value.trim() || null,
+                account_type: document.getElementById('accountType').value,
+                parent_account_id: document.getElementById('parentAccount').value || null,
+                level: 1,
+                is_active: true,
+                is_header: false,
+                normal_balance: document.getElementById('normalBalance').value || null,
+                description: document.getElementById('accountDescription').value.trim() || null,
+                notes: document.getElementById('accountNotes').value.trim() || null
+            };
+
+            const isEdit = currentMode === 'edit' && currentAccountId;
+            const url = isEdit
+                ? `${API_BASE}/finance/chart-of-accounts/${currentAccountId}`
+                : `${API_BASE}/finance/chart-of-accounts`;
+            const method = isEdit ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (!res.ok || data.success === false) {
+                    throw new Error(data.error || 'تعذر حفظ الحساب');
+                }
+
+                showToast(isEdit ? 'تم تحديث الحساب بنجاح' : 'تم إنشاء الحساب بنجاح', 'success');
+                closeAccountModal();
+                await loadData();
+            } catch (error) {
+                console.error(error);
+                showToast(error.message || 'تعذر تنفيذ العملية', 'info');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        function openAccountView(accountId) {
+            const account = store.accounts.find(a => String(a.account_id) === String(accountId));
+            if (!account) return;
+            const view = document.getElementById('viewContent');
+            view.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="chip chip-slate">كود الحساب: ${sanitizeText(account.account_code)}</div>
+                    <div class="chip chip-slate">اسم الحساب: ${sanitizeText(account.account_name_ar || account.account_name)}</div>
+                    <div class="chip chip-amber">النوع: ${translateAccountType(account.account_type)}</div>
+                    <div class="chip chip-emerald">الرصيد: ${formatMoney(account.balance)}</div>
+                    <div class="chip chip-slate">الحساب الأب: ${account.parent_account_id || 'بدون'}</div>
+                    <div class="chip chip-slate">الطبيعة: ${account.normal_balance || 'تلقائي'}</div>
+                </div>
+                <div class="mt-3 text-slate-600">${sanitizeText(account.description || 'لا يوجد وصف')}</div>
+            `;
+            document.getElementById('viewModal').style.display = 'flex';
+        }
+
+        function closeViewModal() {
+            document.getElementById('viewModal').style.display = 'none';
+        }
+
+        function confirmDeleteAccount(accountId) {
+            currentAccountId = accountId;
+            document.getElementById('deleteModal').style.display = 'flex';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+            currentAccountId = null;
+        }
+
+        async function performDeleteAccount() {
+            if (!currentAccountId) return;
+            const btn = document.getElementById('deleteConfirmBtn');
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = 'جار التنفيذ...';
+            try {
+                const res = await fetch(`${API_BASE}/finance/chart-of-accounts/${currentAccountId}?entity_id=${ENTITY_ID}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (!res.ok || data.success === false) {
+                    throw new Error(data.error || 'تعذر حذف الحساب');
+                }
+                showToast(data.message || 'تم تنفيذ الحذف', 'success');
+                closeDeleteModal();
+                await loadData();
+            } catch (error) {
+                console.error(error);
+                showToast(error.message || 'تعذر تنفيذ العملية', 'info');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        function downloadJSON() {
+            downloadBlob(JSON.stringify(store, null, 2), 'تصميم-شجرة-الحسابات.json', 'application/json');
+        }
+
+        function downloadCSV() {
+            const rows = [];
+            rows.push(['شجرة الحسابات']);
+            rows.push(['رقم الحساب','كود الحساب','اسم الحساب','نوع الحساب','الرصيد','تاريخ الإنشاء']);
+            store.accounts.forEach(a => rows.push([a.account_id, a.account_code, a.account_name_ar || a.account_name, translateAccountType(a.account_type), a.balance, a.created_at]));
+
+            rows.push([]);
+            rows.push(['الفروع الأعلى أداءً']);
+            rows.push(['الفرع','إجمالي الإيراد','عدد الفواتير']);
+            const branchRows = Object.entries(groupSum(store.invoices, 'branch_id', 'total_amount'))
+                .map(([branch, total]) => ({ branch, total, count: store.invoices.filter(i => (i.branch_id ?? 'غير محدد') === branch).length }))
+                .sort((a, b) => b.total - a.total)
+                .slice(0, 8);
+            branchRows.forEach(r => rows.push([sanitizeText(r.branch), r.total, r.count]));
+
+            rows.push([]);
+            rows.push(['العملاء الأعلى رصيدًا']);
+            rows.push(['العميل','الرصيد المتبقي','عدد الفواتير']);
+            const customerRows = Object.entries(groupSum(store.arAging, 'customer_id', 'remaining_amount'))
+                .map(([customer, total]) => ({ customer, total, count: store.arAging.filter(i => (i.customer_id ?? 'غير محدد') === customer).length }))
+                .sort((a, b) => b.total - a.total)
+                .slice(0, 8);
+            customerRows.forEach(r => rows.push([sanitizeText(r.customer), r.total, r.count]));
+
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            downloadBlob(csvContent, 'تصميم-شجرة-الحسابات.csv', 'text/csv;charset=utf-8;');
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'success' ? 'toast-success' : 'toast-info'}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        function printReport() { window.print(); }
+        function refreshData() { loadData(); }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+        });
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

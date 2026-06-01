@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 التقرير الشامل للتدفقات النقدية - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb; /* Slate-50 */
+            min-height: 100vh;
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
+            backdrop-filter: blur(10px);
+        }
+        .stat-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .chart-container {
+            position: relative;
+            height: 320px;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">📊 التقرير الشامل للتدفقات النقدية</h1>
+            <p class="text-lg opacity-90">تجميع التدفقات حسب النوع والفئة والاتجاه</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mb-8 flex gap-3 flex-wrap">
+            <button onclick="openTransactionModal('create')" class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-green-700 transition flex items-center gap-3 border border-green-600">
+                <i class="fas fa-plus text-xl"></i>
+                <span>إضافة معاملة</span>
+            </button>
+            <button onclick="downloadCSV()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-red-500 group">
+                <i class="fas fa-file-csv text-xl text-red-600 group-hover:text-red-700 transition"></i>
+                <span class="">تنزيل CSV</span>
+            </button>
+            <button onclick="downloadJSON()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-red-500 group">
+                <i class="fas fa-file-code text-xl text-red-600 group-hover:text-red-700 transition"></i>
+                <span class="">تنزيل JSON</span>
+            </button>
+            <button onclick="printReport()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-red-500 group">
+                <i class="fas fa-print text-xl text-red-600 group-hover:text-red-700 transition"></i>
+                <span class="">طباعة</span>
+            </button>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card card-gradient rounded-xl p-6 shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-green-50 text-green-600">
+                        <i class="fas fa-arrow-down text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">إجمالي الداخل</span>
+                </div>
+                <div id="totalIn" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card card-gradient rounded-xl p-6 shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-red-50 text-red-600">
+                        <i class="fas fa-arrow-up text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">إجمالي الخارج</span>
+                </div>
+                <div id="totalOut" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card card-gradient rounded-xl p-6 shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-purple-50 text-purple-600">
+                        <i class="fas fa-wallet text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">صافي التدفق</span>
+                </div>
+                <div id="totalNet" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card card-gradient rounded-xl p-6 shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-blue-50 text-blue-600">
+                        <i class="fas fa-list text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">عدد الصفوف</span>
+                </div>
+                <div id="rowCount" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8 card-gradient">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">من تاريخ</label>
+                    <input id="fromDate" type="date" class="w-full bg-white border border-slate-300 text-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">إلى تاريخ</label>
+                    <input id="toDate" type="date" class="w-full bg-white border border-slate-300 text-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">السنة المالية</label>
+                    <input id="fiscalYear" type="number" placeholder="2024" class="w-full bg-white border border-slate-300 text-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all" oninput="applyFilters()">
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-8 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-800">🧾 سجل المعاملات</h3>
+                <span class="text-sm text-slate-500" id="transactionsCount"></span>
+            </div>
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-right">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">التاريخ</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">النوع</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">الفئة</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">الاتجاه</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">القيمة</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">الوصف</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">المرجع</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">السنة/الفترة</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionsTable" class="text-sm divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="9" class="px-4 py-12 text-center text-slate-500">
+                                <i class="fas fa-spinner fa-spin text-3xl mb-3 opacity-30"></i>
+                                <div>جاري تحميل المعاملات...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">📊 صافي التدفق حسب النوع</h3>
+                <div class="chart-container">
+                    <canvas id="netChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">ℹ️ ملخص سريع</h3>
+                <div id="infoPanel" class="space-y-4">
+                    <div class="animate-pulse text-slate-500">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-right">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">نوع التدفق</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">الفئة</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">الاتجاه</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">إجمالي القيمة</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 text-right">عدد العمليات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportTable" class="text-sm divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="5" class="px-4 py-12 text-center text-slate-500">
+                                <i class="fas fa-spinner fa-spin text-3xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل التقرير...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-200 text-sm text-slate-600" id="tableCount"></div>
+        </div>
+
+    </div>
+
+    <!-- Transaction Modal -->
+    <div id="transactionModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b">
+                <h3 id="transactionModalTitle" class="text-lg font-bold text-gray-800">إضافة معاملة</h3>
+                <button onclick="closeTransactionModal()" class="text-slate-800 hover:text-red-600 font-bold">
+                    <i class="fas fa-xmark text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">تاريخ المعاملة</label>
+                        <input id="transactionDate" type="date" class="w-full border rounded-lg px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">نوع التدفق</label>
+                        <select id="flowType" class="w-full border rounded-lg px-3 py-2">
+                            <option value="OPERATING">تشغيلي</option>
+                            <option value="INVESTING">استثماري</option>
+                            <option value="FINANCING">تمويلي</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الاتجاه</label>
+                        <select id="flowDirection" class="w-full border rounded-lg px-3 py-2">
+                            <option value="IN">داخل</option>
+                            <option value="OUT">خارج</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">القيمة</label>
+                        <input id="amount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="0">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الفئة</label>
+                        <input id="flowCategory" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="OPERATING / INVESTING / FINANCING">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الوصف</label>
+                        <input id="description" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="وصف المعاملة">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">نوع المرجع</label>
+                        <input id="referenceType" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="PAYMENT / INVOICE">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">رقم المرجع</label>
+                        <input id="referenceId" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="1001">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">السنة المالية</label>
+                        <input id="fiscalYearInput" type="number" class="w-full border rounded-lg px-3 py-2" placeholder="2026">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الفترة المالية</label>
+                        <input id="fiscalPeriodInput" type="number" class="w-full border rounded-lg px-3 py-2" placeholder="1">
+                    </div>
+                </div>
+                <div class="border-t border-slate-200 pt-4">
+                    <h4 class="text-sm font-bold text-slate-800 mb-3">بيانات العنوان</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم الشارع</label>
+                            <input id="transactionStreetName" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم الشارع">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">الرمز البريدي</label>
+                            <input id="transactionPostalCode" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز البريدي">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">رقم المبنى</label>
+                            <input id="transactionBuildingNumber" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="رقم المبنى">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم المدينة</label>
+                            <input id="transactionCity" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المدينة">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم المنطقة</label>
+                            <input id="transactionDistrict" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المنطقة">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">الرمز الوطني</label>
+                            <input id="transactionNationalAddress" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز الوطني">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">العنوان المختصر</label>
+                            <input id="transactionShortAddress" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="العنوان المختصر">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 border-t flex items-center justify-end gap-2">
+                <button onclick="closeTransactionModal()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                <button id="transactionModalSave" onclick="submitTransaction()" class="px-4 py-2 rounded-lg bg-green-600 text-white">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        let allRows = [];
+        let chartInstance = null;
+        let allTransactions = [];
+        let transactionModalMode = 'create';
+        let editingTransactionId = null;
+        let editingTransactionEntityId = null;
+
+        async function loadReport() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/cashflow-comprehensive?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load report');
+                }
+
+                allRows = data.rows || [];
+                renderSummary(data.summary || {});
+                renderTable(allRows);
+                renderChart(data.summary || {});
+                renderInfo(data.summary || {});
+            } catch (error) {
+                console.error('❌ خطأ في تحميل التقرير:', error);
+                document.getElementById('reportTable').innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل التقرير</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        async function loadTransactions() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/cashflow-transactions?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load transactions');
+                }
+                allTransactions = data.transactions || [];
+                renderTransactionsTable(allTransactions);
+                applyTransactionFilters();
+            } catch (error) {
+                console.error('❌ خطأ في تحميل المعاملات:', error);
+                document.getElementById('transactionsTable').innerHTML = `
+                    <tr>
+                        <td colspan="9" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل المعاملات</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function applyFilters() {
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            const fiscalYear = document.getElementById('fiscalYear').value;
+
+            const params = new URLSearchParams({ entity_id: ENTITY_ID });
+            if (fromDate) params.append('from_date', fromDate);
+            if (toDate) params.append('to_date', toDate);
+            if (fiscalYear) params.append('fiscal_year', fiscalYear);
+
+            fetch(`${API_BASE}/finance/cashflow-comprehensive?${params.toString()}`, {
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Failed to load report');
+                    allRows = data.rows || [];
+                    renderSummary(data.summary || {});
+                    renderTable(allRows);
+                    renderChart(data.summary || {});
+                    renderInfo(data.summary || {});
+                    applyTransactionFilters();
+                })
+                .catch(err => console.error('❌', err));
+        }
+
+        function applyTransactionFilters() {
+            const fromInput = document.getElementById('fromDate');
+            const toInput = document.getElementById('toDate');
+            const fiscalInput = document.getElementById('fiscalYear');
+
+            if (!fromInput || !toInput || !fiscalInput) {
+                renderTransactionsTable(allTransactions);
+                return;
+            }
+
+            const fromDate = fromInput.value;
+            const toDate = toInput.value;
+            const fiscalYear = fiscalInput.value;
+
+            const from = fromDate ? new Date(fromDate) : null;
+            const to = toDate ? new Date(toDate) : null;
+
+            const filtered = allTransactions.filter(t => {
+                const txDate = t.transaction_date ? new Date(t.transaction_date) : null;
+                const matchesFrom = !from || (txDate && txDate >= from);
+                const matchesTo = !to || (txDate && txDate <= to);
+                const matchesYear = !fiscalYear || String(t.fiscal_year || '') === String(fiscalYear);
+                return matchesFrom && matchesTo && matchesYear;
+            });
+
+            renderTransactionsTable(filtered);
+        }
+
+        function renderTransactionsTable(transactions) {
+            const tableBody = document.getElementById('transactionsTable');
+            if (!tableBody) return;
+            const rows = transactions.map(t => `
+                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                    <td class="px-4 py-3 text-slate-600">${formatDate(t.transaction_date)}</td>
+                    <td class="px-4 py-3">${translateType(t.flow_type)}</td>
+                    <td class="px-4 py-3 text-slate-700">${t.flow_category || '-'}</td>
+                    <td class="px-4 py-3">${translateDirection(t.flow_direction)}</td>
+                    <td class="px-4 py-3 font-bold ${(t.flow_direction || '').toUpperCase() === 'IN' ? 'text-green-600' : 'text-red-600'}">${formatMoney(t.amount)}</td>
+                    <td class="px-4 py-3 text-slate-600">${t.description || '-'}</td>
+                    <td class="px-4 py-3 text-slate-500">${t.reference_type || '-'} ${t.reference_id || ''}</td>
+                    <td class="px-4 py-3 text-slate-500">${t.fiscal_year || '-'} / ${t.fiscal_period || '-'}</td>
+                    <td class="px-4 py-3">
+                        <div class="flex gap-2">
+                            <button onclick="openTransactionModal('view', ${t.cashflow_id})" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة">
+                                <i class="fas fa-eye text-lg"></i>
+                            </button>
+                            <button onclick="openTransactionModal('edit', ${t.cashflow_id})" class="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition shadow-md font-semibold" title="تعديل">
+                                <i class="fas fa-pen text-lg"></i>
+                            </button>
+                            <button onclick="deleteTransaction(${t.cashflow_id})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف">
+                                <i class="fas fa-trash text-lg"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            tableBody.innerHTML = rows.length ? rows : `
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-slate-500">لا توجد معاملات</td>
+                </tr>
+            `;
+            const countEl = document.getElementById('transactionsCount');
+            if (countEl) {
+                countEl.textContent = `عدد المعاملات: ${transactions.length}`;
+            }
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('totalIn').textContent = formatMoney(summary.total_in || 0);
+            document.getElementById('totalOut').textContent = formatMoney(summary.total_out || 0);
+            document.getElementById('totalNet').textContent = formatMoney(summary.total_net || 0);
+            document.getElementById('rowCount').textContent = summary.total_rows ?? '0';
+        }
+
+        function renderInfo(summary) {
+            document.getElementById('infoPanel').innerHTML = `
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <i class="fas fa-database text-red-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-slate-600">مصدر البيانات</div>
+                        <div class="font-bold text-slate-800">finance_cashflow</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <i class="fas fa-wallet text-red-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-slate-600">صافي التدفق</div>
+                        <div class="font-bold text-slate-800">${formatMoney(summary.total_net || 0)}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                    <i class="fas fa-list text-red-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-slate-600">عدد الصفوف</div>
+                        <div class="font-bold text-slate-800">${summary.total_rows ?? 0}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTable(rows) {
+            const body = rows.map(r => `
+                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                    <td class="px-4 py-3">${translateType(r.flow_type)}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-700">${r.flow_category || '-'}</td>
+                    <td class="px-4 py-3">${translateDirection(r.flow_direction)}</td>
+                    <td class="px-4 py-3 font-bold ${(r.flow_direction || '').toUpperCase() === 'IN' ? 'text-green-600' : 'text-red-600'}">${formatMoney(r.total_amount)}</td>
+                    <td class="px-4 py-3 text-slate-600">${r.transaction_count || 0}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('reportTable').innerHTML = body.length ? body : `
+                <tr>
+                    <td colspan="5" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td>
+                </tr>
+            `;
+            document.getElementById('tableCount').textContent = `عدد الصفوف المعروضة: ${rows.length}`;
+        }
+
+        function renderChart(summary) {
+            const labels = ['تشغيلي', 'استثماري', 'تمويلي'];
+            const data = [
+                summary.operating?.net || 0,
+                summary.investing?.net || 0,
+                summary.financing?.net || 0
+            ];
+
+            const ctx = document.getElementById('netChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'صافي التدفق (ر.س)',
+                        data,
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.7)',
+                            'rgba(34, 197, 94, 0.7)',
+                            'rgba(245, 158, 11, 0.7)'
+                        ],
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: value => value.toLocaleString('en-US') + ' SAR',
+                                font: {
+                                    family: "'Cairo', sans-serif"
+                                }
+                            },
+                            grid: {
+                                color: '#f1f5f9'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    family: "'Cairo', sans-serif"
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function translateType(type) {
+            const map = {
+                'OPERATING': 'تشغيلي',
+                'INVESTING': 'استثماري',
+                'FINANCING': 'تمويلي'
+            };
+            return map[(type || '').toUpperCase()] || (type || '-');
+        }
+
+        function translateDirection(direction) {
+            const map = {
+                'IN': '<span class="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">داخل</span>',
+                'OUT': '<span class="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">خارج</span>'
+            };
+            return map[(direction || '').toUpperCase()] || (direction || '-');
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        function downloadCSV() {
+            if (!allRows.length) return;
+            const rows = [
+                ['نوع التدفق', 'الفئة', 'الاتجاه', 'إجمالي القيمة', 'عدد العمليات']
+            ];
+            allRows.forEach(r => {
+                rows.push([
+                    translateType(r.flow_type),
+                    r.flow_category,
+                    translateDirection(r.flow_direction).replace(/<[^>]*>/g, ''),
+                    r.total_amount,
+                    r.transaction_count
+                ]);
+            });
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'cashflow-report.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function openTransactionModal(mode, transactionId = null) {
+            transactionModalMode = mode;
+            editingTransactionId = transactionId;
+            editingTransactionEntityId = null;
+            const modal = document.getElementById('transactionModal');
+            const title = document.getElementById('transactionModalTitle');
+            const saveButton = document.getElementById('transactionModalSave');
+
+            title.textContent = mode === 'view' ? 'معاينة معاملة' : mode === 'edit' ? 'تعديل معاملة' : 'إضافة معاملة';
+            saveButton.textContent = mode === 'edit' ? 'حفظ التعديل' : 'حفظ';
+            saveButton.classList.toggle('hidden', mode === 'view');
+
+            resetTransactionForm();
+            setTransactionFormDisabled(mode === 'view');
+
+            if (mode !== 'create' && transactionId) {
+                const tx = allTransactions.find(t => t.cashflow_id === transactionId);
+                if (tx) {
+                    editingTransactionEntityId = tx.entity_id || ENTITY_ID;
+                    fillTransactionForm(tx);
+                }
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeTransactionModal() {
+            const modal = document.getElementById('transactionModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function resetTransactionForm() {
+            document.getElementById('transactionDate').value = '';
+            document.getElementById('flowType').value = 'OPERATING';
+            document.getElementById('flowDirection').value = 'IN';
+            document.getElementById('amount').value = '';
+            document.getElementById('flowCategory').value = '';
+            document.getElementById('description').value = '';
+            document.getElementById('referenceType').value = '';
+            document.getElementById('referenceId').value = '';
+            document.getElementById('fiscalYearInput').value = '';
+            document.getElementById('fiscalPeriodInput').value = '';
+            document.getElementById('transactionStreetName').value = '';
+            document.getElementById('transactionPostalCode').value = '';
+            document.getElementById('transactionBuildingNumber').value = '';
+            document.getElementById('transactionCity').value = '';
+            document.getElementById('transactionDistrict').value = '';
+            document.getElementById('transactionNationalAddress').value = '';
+            document.getElementById('transactionShortAddress').value = '';
+        }
+
+        function fillTransactionForm(tx) {
+            document.getElementById('transactionDate').value = tx.transaction_date ? tx.transaction_date.slice(0, 10) : '';
+            document.getElementById('flowType').value = (tx.flow_type || 'OPERATING').toUpperCase();
+            document.getElementById('flowDirection').value = (tx.flow_direction || 'IN').toUpperCase();
+            document.getElementById('amount').value = tx.amount || '';
+            document.getElementById('flowCategory').value = tx.flow_category || '';
+            document.getElementById('description').value = tx.description || '';
+            document.getElementById('referenceType').value = tx.reference_type || '';
+            document.getElementById('referenceId').value = tx.reference_id || '';
+            document.getElementById('fiscalYearInput').value = tx.fiscal_year || '';
+            document.getElementById('fiscalPeriodInput').value = tx.fiscal_period || '';
+            document.getElementById('transactionStreetName').value = tx.street_name || '';
+            document.getElementById('transactionPostalCode').value = tx.postal_code || '';
+            document.getElementById('transactionBuildingNumber').value = tx.building_number || '';
+            document.getElementById('transactionCity').value = tx.city || '';
+            document.getElementById('transactionDistrict').value = tx.district || '';
+            document.getElementById('transactionNationalAddress').value = tx.national_address_number || '';
+            document.getElementById('transactionShortAddress').value = tx.short_address || '';
+        }
+
+        function setTransactionFormDisabled(disabled) {
+            ['transactionDate', 'flowType', 'flowDirection', 'amount', 'flowCategory', 'description', 'referenceType', 'referenceId', 'fiscalYearInput', 'fiscalPeriodInput',
+                'transactionStreetName', 'transactionPostalCode', 'transactionBuildingNumber', 'transactionCity', 'transactionDistrict', 'transactionNationalAddress', 'transactionShortAddress']
+                .forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.disabled = disabled;
+                });
+        }
+
+        async function submitTransaction() {
+            const payload = {
+                entity_id: transactionModalMode === 'edit' ? (editingTransactionEntityId || ENTITY_ID) : ENTITY_ID,
+                transaction_date: document.getElementById('transactionDate').value,
+                flow_type: document.getElementById('flowType').value,
+                flow_direction: document.getElementById('flowDirection').value,
+                amount: parseFloat(document.getElementById('amount').value || 0),
+                flow_category: document.getElementById('flowCategory').value.trim(),
+                description: document.getElementById('description').value.trim(),
+                reference_type: document.getElementById('referenceType').value.trim(),
+                reference_id: (() => {
+                    const raw = document.getElementById('referenceId').value.trim();
+                    if (!raw) return null;
+                    const parsed = parseInt(raw, 10);
+                    return Number.isNaN(parsed) ? null : parsed;
+                })(),
+                fiscal_year: parseInt(document.getElementById('fiscalYearInput').value || 0, 10) || null,
+                fiscal_period: parseInt(document.getElementById('fiscalPeriodInput').value || 0, 10) || null,
+                street_name: document.getElementById('transactionStreetName').value.trim(),
+                postal_code: document.getElementById('transactionPostalCode').value.trim(),
+                building_number: document.getElementById('transactionBuildingNumber').value.trim(),
+                city: document.getElementById('transactionCity').value.trim(),
+                district: document.getElementById('transactionDistrict').value.trim(),
+                national_address_number: document.getElementById('transactionNationalAddress').value.trim(),
+                short_address: document.getElementById('transactionShortAddress').value.trim()
+            };
+
+            if (!payload.transaction_date || !payload.flow_type || !payload.flow_direction || !payload.flow_category || !payload.description) {
+                alert('يرجى إدخال التاريخ والنوع والاتجاه والفئة والوصف');
+                return;
+            }
+            if (!payload.amount) {
+                alert('يرجى إدخال قيمة المعاملة');
+                return;
+            }
+
+            try {
+                const url = transactionModalMode === 'edit'
+                    ? `${API_BASE}/finance/cashflow-transactions/${editingTransactionId}`
+                    : `${API_BASE}/finance/cashflow-transactions`;
+                const method = transactionModalMode === 'edit' ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'تعذر حفظ المعاملة');
+                }
+
+                closeTransactionModal();
+                await loadReport();
+                await loadTransactions();
+            } catch (error) {
+                console.error('❌ خطأ في حفظ المعاملة:', error);
+                alert(error.message || 'تعذر حفظ المعاملة');
+            }
+        }
+
+        async function deleteTransaction(cashflowId) {
+            if (!confirm('هل تريد حذف هذه المعاملة؟')) return;
+            const res = await fetch(`${API_BASE}/finance/cashflow-transactions/${cashflowId}?entity_id=${ENTITY_ID}`, {
+                method: 'DELETE',
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            });
+            if (res.ok) {
+                await loadReport();
+                await loadTransactions();
+            } else {
+                const data = await res.json();
+                alert(data.error || 'تعذر حذف المعاملة');
+            }
+        }
+
+        function downloadJSON() {
+            if (!allRows.length) return;
+            const blob = new Blob([JSON.stringify(allRows, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'cashflow-report.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+               loadReport();
+               loadTransactions();
+        });
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

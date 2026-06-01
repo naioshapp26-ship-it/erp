@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏷️ خصومات العناصر والفواتير - لوحة عمليات متقدمة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            color-scheme: light;
+            --ink: #0b1220;
+            --muted: #60738c;
+            --sea: #0ea5e9;
+            --amber: #f59e0b;
+            --emerald: #10b981;
+            --rose: #f43f5e;
+            --ink-soft: rgba(15, 23, 42, 0.08);
+        }
+        body {
+            font-family: 'Tajawal', sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 10% 10%, rgba(14, 165, 233, 0.12), transparent 40%),
+                radial-gradient(circle at 90% 0%, rgba(245, 158, 11, 0.18), transparent 45%),
+                linear-gradient(160deg, #f8fafc 0%, #eef2f7 60%, #fef3c7 100%);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+            backdrop-filter: blur(12px);
+        }
+        .hero-card {
+            background:
+                linear-gradient(120deg, rgba(14, 165, 233, 0.18), rgba(16, 185, 129, 0.18)),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Ccircle cx='40' cy='40' r='3' fill='%23cbd5f5'/%3E%3Ccircle cx='140' cy='30' r='3' fill='%23cbd5f5'/%3E%3Ccircle cx='230' cy='120' r='3' fill='%23cbd5f5'/%3E%3Ccircle cx='40' cy='200' r='3' fill='%23cbd5f5'/%3E%3Ccircle cx='200' cy='210' r='3' fill='%23cbd5f5'/%3E%3C/svg%3E");
+            border: 1px solid rgba(148, 163, 184, 0.45);
+        }
+        .tag-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            background: rgba(15, 23, 42, 0.05);
+        }
+        .stat-card {
+            background: #fff;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+        }
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 800;
+        }
+        .table-scroll {
+            max-height: 420px;
+            overflow: auto;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .animate-rise {
+            animation: rise 0.6s ease both;
+        }
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.45);
+            z-index: 40;
+        }
+        .modal.active { display: flex; }
+        .input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.5);
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .input:focus { outline: 2px solid rgba(14, 165, 233, 0.4); border-color: rgba(14, 165, 233, 0.6); }
+        .badge-flag {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            border: 1px dashed rgba(100, 116, 139, 0.4);
+            background: rgba(226, 232, 240, 0.45);
+        }
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .action-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 12px rgba(15, 23, 42, 0.15); }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="hero-card rounded-3xl p-6 md:p-8 mb-8">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div>
+                    <div class="flex flex-wrap items-center gap-3 mb-3">
+                        <span class="tag-pill"><i class="fas fa-shield-halved"></i> حوكمة الخصومات</span>
+                        <span class="tag-pill"><i class="fas fa-robot"></i> محرك قواعد ذكي</span>
+                        <span class="tag-pill"><i class="fas fa-clipboard-check"></i> تدقيق فوري</span>
+                    </div>
+                    <h1 class="text-4xl md:text-5xl font-black mb-2">🏷️ خصومات العناصر والفواتير</h1>
+                    <p class="text-lg text-slate-700 max-w-2xl">
+                        لوحة عمليات متكاملة تدير الخصومات من لحظة الإنشاء حتى الاعتماد والتنفيذ، مع سياسات ذكية، محاكاة تأثير، وسجل تدقيق مفصل.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="openModal()" class="bg-slate-900 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        إضافة خصم
+                    </button>
+                    <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-rotate"></i>
+                        تحديث اللوحة
+                    </button>
+                    <button onclick="copySummary()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-copy"></i>
+                        نسخ الملخص
+                    </button>
+                    <button onclick="printPage()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-print"></i>
+                        طباعة
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-sky-500 animate-rise">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">إجمالي الخصومات النشطة</span>
+                    <i class="fas fa-bolt text-sky-500"></i>
+                </div>
+                <div class="text-3xl font-bold" id="stat-active">0</div>
+                <div class="text-xs text-slate-500">قواعد تعمل الآن</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-emerald-500 animate-rise">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">قيمة الخصم المتوقعة</span>
+                    <i class="fas fa-chart-line text-emerald-500"></i>
+                </div>
+                <div class="text-3xl font-bold" id="stat-forecast">0</div>
+                <div class="text-xs text-slate-500">ريال لكل 100 فاتورة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-amber-500 animate-rise">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">قواعد تنتظر الموافقة</span>
+                    <i class="fas fa-user-check text-amber-500"></i>
+                </div>
+                <div class="text-3xl font-bold" id="stat-pending">0</div>
+                <div class="text-xs text-slate-500">طلبات تحتاج اعتماد</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-rose-500 animate-rise">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">مخاطر التجاوز</span>
+                    <i class="fas fa-triangle-exclamation text-rose-500"></i>
+                </div>
+                <div class="text-3xl font-bold" id="stat-risk">منخفض</div>
+                <div class="text-xs text-slate-500">بناء على السقف والكمية</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+            <div class="glass rounded-3xl p-6 xl:col-span-2">
+                <div class="section-title text-2xl mb-4">
+                    <i class="fas fa-layer-group text-emerald-500"></i>
+                    مركز قواعد الخصومات
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-sm">
+                    <input id="searchInput" class="input" placeholder="ابحث بالاسم أو الكود أو السبب">
+                    <select id="statusFilter" class="input">
+                        <option value="">كل الحالات</option>
+                        <option value="نشط">نشط</option>
+                        <option value="معلق">معلق</option>
+                        <option value="منتهي">منتهي</option>
+                    </select>
+                    <select id="scopeFilter" class="input">
+                        <option value="">كل النطاقات</option>
+                        <option value="عنصر">عنصر</option>
+                        <option value="فاتورة">فاتورة</option>
+                        <option value="حملة">حملة</option>
+                    </select>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-100 text-slate-600">
+                            <tr>
+                                <th class="px-3 py-2 text-right">الكود</th>
+                                <th class="px-3 py-2 text-right">النطاق</th>
+                                <th class="px-3 py-2 text-right">القيمة</th>
+                                <th class="px-3 py-2 text-right">الحدود</th>
+                                <th class="px-3 py-2 text-right">الاعتماد</th>
+                                <th class="px-3 py-2 text-right">الحالة</th>
+                                <th class="px-3 py-2 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="discountsTable" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="glass rounded-3xl p-6">
+                <div class="section-title text-xl mb-4">
+                    <i class="fas fa-sliders text-sky-500"></i>
+                    محاكاة تأثير الخصم
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div>
+                        <label class="text-xs text-slate-500">قيمة العنصر</label>
+                        <input id="simPrice" type="number" class="input" value="1200">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500">الكمية</label>
+                        <input id="simQty" type="number" class="input" value="5">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500">الخصم المختار</label>
+                        <select id="simDiscount" class="input"></select>
+                    </div>
+                    <button onclick="runSimulation()" class="bg-sky-600 text-white w-full py-3 rounded-xl font-bold hover:shadow-lg transition">
+                        تشغيل المحاكاة
+                    </button>
+                    <div class="bg-slate-50 rounded-2xl p-4">
+                        <div class="text-xs text-slate-500">الإجمالي بعد الخصم</div>
+                        <div class="text-2xl font-bold" id="simResult">0 ريال</div>
+                        <div class="text-xs text-slate-500" id="simNote">اختر خصم لتبدأ المحاكاة.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="glass rounded-3xl p-6">
+                <div class="section-title text-xl mb-4">
+                    <i class="fas fa-sitemap text-amber-500"></i>
+                    مصفوفة الاعتمادات
+                </div>
+                <div class="space-y-3 text-sm">
+                    <div class="flex items-center justify-between bg-amber-50 rounded-2xl p-4">
+                        <span>خصم حتى 5%</span>
+                        <span class="badge-flag">تلقائي</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-emerald-50 rounded-2xl p-4">
+                        <span>خصم 6% - 12%</span>
+                        <span class="badge-flag">مدير المبيعات</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-rose-50 rounded-2xl p-4">
+                        <span>خصم أعلى من 12%</span>
+                        <span class="badge-flag">المدير المالي</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50 rounded-2xl p-4">
+                        <span>خصومات فوق السقف</span>
+                        <span class="badge-flag">اللجنة العليا</span>
+                    </div>
+                </div>
+            </div>
+            <div class="glass rounded-3xl p-6">
+                <div class="section-title text-xl mb-4">
+                    <i class="fas fa-shield-heart text-emerald-500"></i>
+                    صحة القواعد
+                </div>
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span>نسبة التوافق مع السياسات</span>
+                            <span class="font-bold" id="policyCompliance">0%</span>
+                        </div>
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div id="policyBar" class="h-full bg-emerald-400" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span>قواعد تحتاج تحديث</span>
+                            <span class="font-bold" id="needsUpdate">0</span>
+                        </div>
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div id="updateBar" class="h-full bg-amber-400" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span>قواعد منتهية</span>
+                            <span class="font-bold" id="expiredCount">0</span>
+                        </div>
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div id="expiredBar" class="h-full bg-rose-400" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="glass rounded-3xl p-6">
+                <div class="section-title text-xl mb-4">
+                    <i class="fas fa-clock-rotate-left text-slate-600"></i>
+                    سجل التدقيق السريع
+                </div>
+                <div id="auditLog" class="space-y-3 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="glass rounded-3xl p-6 mb-8">
+            <div class="section-title text-2xl mb-4">
+                <i class="fas fa-bullseye text-rose-500"></i>
+                سياسات الخصم المتقدمة
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div class="bg-rose-50 p-4 rounded-2xl">قفل تلقائي عند تجاوز سقف الخصم</div>
+                <div class="bg-emerald-50 p-4 rounded-2xl">دمج خصم الولاء مع خصم الحملات فقط</div>
+                <div class="bg-amber-50 p-4 rounded-2xl">إلزامية رقم اعتماد لكل خصم فوق 8%</div>
+                <div class="bg-sky-50 p-4 rounded-2xl">تقييد الخصم في أوقات الذروة</div>
+                <div class="bg-indigo-50 p-4 rounded-2xl">تتبع الاسترداد بعد الخصم</div>
+                <div class="bg-slate-50 p-4 rounded-2xl">قواعد حسب قناة البيع (متجر - تطبيق - فرع)</div>
+                <div class="bg-rose-50 p-4 rounded-2xl">توزيع الخصم على بنود الفاتورة تلقائيا</div>
+                <div class="bg-emerald-50 p-4 rounded-2xl">رسائل تنبيه للحدود الحرجة</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="discountModal" aria-hidden="true">
+        <div class="glass rounded-3xl p-6 w-full max-w-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold" id="modalTitle">إضافة خصم جديد</h3>
+                <button onclick="closeModal()" class="text-slate-500 hover:text-slate-800"><i class="fas fa-xmark"></i></button>
+            </div>
+            <form id="discountForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <label class="text-xs text-slate-500">اسم الخصم</label>
+                    <input id="formName" class="input" required>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الكود</label>
+                    <input id="formCode" class="input" required>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">النطاق</label>
+                    <select id="formScope" class="input" required>
+                        <option value="عنصر">عنصر</option>
+                        <option value="فاتورة">فاتورة</option>
+                        <option value="حملة">حملة</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">نوع الخصم</label>
+                    <select id="formType" class="input" required>
+                        <option value="نسبة">نسبة</option>
+                        <option value="قيمة ثابتة">قيمة ثابتة</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">القيمة</label>
+                    <input id="formValue" type="number" class="input" required>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">السقف</label>
+                    <input id="formCap" type="number" class="input" required>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الحد الأدنى للكمية</label>
+                    <input id="formMinQty" type="number" class="input" required>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الحد الأدنى للفاتورة</label>
+                    <input id="formMinInvoice" type="number" class="input" required>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">تاريخ البداية</label>
+                    <input id="formStart" type="date" class="input" required>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">تاريخ النهاية</label>
+                    <input id="formEnd" type="date" class="input" required>
+                    <span id="formEndError" style="display:none;color:#dc2626;font-size:0.75rem;margin-top:4px;font-weight:500;">تاريخ النهاية لا يمكن أن يكون قبل تاريخ البداية</span>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الموافقة</label>
+                    <select id="formApproval" class="input" required>
+                        <option value="تلقائي">تلقائي</option>
+                        <option value="مدير المبيعات">مدير المبيعات</option>
+                        <option value="المدير المالي">المدير المالي</option>
+                        <option value="اللجنة العليا">اللجنة العليا</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">قناة البيع</label>
+                    <select id="formChannel" class="input" required>
+                        <option value="متجر">متجر</option>
+                        <option value="تطبيق">تطبيق</option>
+                        <option value="فرع">فرع</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs text-slate-500">سبب الخصم</label>
+                    <input id="formReason" class="input" required>
+                </div>
+                <div class="md:col-span-2 flex items-center justify-between gap-2">
+                    <button type="submit" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold">حفظ الخصم</button>
+                    <button type="button" onclick="closeModal()" class="bg-white text-slate-700 border border-slate-200 px-6 py-3 rounded-xl font-bold">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const storageKey = 'discounts_dashboard_v2';
+        const auditKey = 'discounts_audit_v2';
+        let discounts = [];
+        let auditEntries = [];
+        let currentEditId = null;
+        let selectedId = null;
+
+        const seedDiscounts = [
+            {
+                id: 'DS-1001',
+                name: 'حملة الافتتاح الكبرى',
+                code: 'OPEN25',
+                scope: 'حملة',
+                type: 'نسبة',
+                value: 25,
+                cap: 12000,
+                minQty: 3,
+                minInvoice: 5000,
+                startDate: '2026-01-05',
+                endDate: '2026-03-01',
+                approval: 'المدير المالي',
+                status: 'نشط',
+                channel: 'تطبيق',
+                createdBy: 'فريق التسعير',
+                reason: 'تنشيط الطلب في الربع الاول',
+                stackable: false,
+                priority: 1
+            },
+            {
+                id: 'DS-1002',
+                name: 'خصم كبار العملاء',
+                code: 'VIP12',
+                scope: 'فاتورة',
+                type: 'نسبة',
+                value: 12,
+                cap: 15000,
+                minQty: 1,
+                minInvoice: 20000,
+                startDate: '2026-01-01',
+                endDate: '2026-12-31',
+                approval: 'مدير المبيعات',
+                status: 'نشط',
+                channel: 'فرع',
+                createdBy: 'إدارة المبيعات',
+                reason: 'تحفيز العقود الكبرى',
+                stackable: true,
+                priority: 2
+            },
+            {
+                id: 'DS-1003',
+                name: 'تصريف مخزون بطئ',
+                code: 'CLEAR8',
+                scope: 'عنصر',
+                type: 'نسبة',
+                value: 8,
+                cap: 4000,
+                minQty: 8,
+                minInvoice: 0,
+                startDate: '2026-02-01',
+                endDate: '2026-04-01',
+                approval: 'تلقائي',
+                status: 'معلق',
+                channel: 'متجر',
+                createdBy: 'إدارة المخزون',
+                reason: 'تحريك اصناف راكدة',
+                stackable: false,
+                priority: 3
+            },
+            {
+                id: 'DS-1004',
+                name: 'حملة نهاية الموسم',
+                code: 'SEASON10',
+                scope: 'حملة',
+                type: 'نسبة',
+                value: 10,
+                cap: 8000,
+                minQty: 2,
+                minInvoice: 3000,
+                startDate: '2025-11-01',
+                endDate: '2025-12-31',
+                approval: 'المدير المالي',
+                status: 'منتهي',
+                channel: 'تطبيق',
+                createdBy: 'إدارة التسويق',
+                reason: 'رفع معدل التحويل',
+                stackable: false,
+                priority: 4
+            }
+        ];
+
+        const selectors = {
+            table: document.getElementById('discountsTable'),
+            search: document.getElementById('searchInput'),
+            statusFilter: document.getElementById('statusFilter'),
+            scopeFilter: document.getElementById('scopeFilter'),
+            simDiscount: document.getElementById('simDiscount'),
+            auditLog: document.getElementById('auditLog')
+        };
+
+        const stats = {
+            active: document.getElementById('stat-active'),
+            forecast: document.getElementById('stat-forecast'),
+            pending: document.getElementById('stat-pending'),
+            risk: document.getElementById('stat-risk'),
+            compliance: document.getElementById('policyCompliance'),
+            policyBar: document.getElementById('policyBar'),
+            needsUpdate: document.getElementById('needsUpdate'),
+            updateBar: document.getElementById('updateBar'),
+            expired: document.getElementById('expiredCount'),
+            expiredBar: document.getElementById('expiredBar')
+        };
+
+        function loadData() {
+            const stored = localStorage.getItem(storageKey);
+            const auditStored = localStorage.getItem(auditKey);
+            discounts = stored ? JSON.parse(stored) : seedDiscounts;
+            auditEntries = auditStored ? JSON.parse(auditStored) : [];
+            if (!stored) {
+                saveData('تهيئة بيانات الخصومات');
+            }
+        }
+
+        function saveData(actionLabel) {
+            localStorage.setItem(storageKey, JSON.stringify(discounts));
+            if (actionLabel) {
+                addAudit(actionLabel);
+            }
+        }
+
+        function addAudit(action) {
+            const entry = {
+                id: crypto.randomUUID(),
+                action,
+                at: new Date().toLocaleString('en-US'),
+                by: 'النظام الآلي'
+            };
+            auditEntries.unshift(entry);
+            auditEntries = auditEntries.slice(0, 6);
+            localStorage.setItem(auditKey, JSON.stringify(auditEntries));
+            renderAudit();
+        }
+
+        function formatValue(discount) {
+            return discount.type === 'نسبة'
+                ? `${discount.value}%`
+                : `${discount.value.toLocaleString('en-US')} ريال`;
+        }
+
+        function statusChip(status) {
+            const map = {
+                'نشط': 'bg-emerald-100 text-emerald-700',
+                'معلق': 'bg-amber-100 text-amber-700',
+                'منتهي': 'bg-rose-100 text-rose-700'
+            };
+            return `<span class="chip ${map[status] || 'bg-slate-100 text-slate-600'}">${status}</span>`;
+        }
+
+        function renderTable() {
+            const searchTerm = selectors.search.value.trim();
+            const statusTerm = selectors.statusFilter.value;
+            const scopeTerm = selectors.scopeFilter.value;
+            const filtered = discounts.filter(item => {
+                const haystack = `${item.name} ${item.code} ${item.reason}`;
+                const matchesSearch = !searchTerm || haystack.includes(searchTerm);
+                const matchesStatus = !statusTerm || item.status === statusTerm;
+                const matchesScope = !scopeTerm || item.scope === scopeTerm;
+                return matchesSearch && matchesStatus && matchesScope;
+            });
+
+            selectors.table.innerHTML = filtered.map(item => `
+                <tr>
+                    <td class="px-3 py-3 font-bold text-slate-800">${item.code}</td>
+                    <td class="px-3 py-3">${item.scope}</td>
+                    <td class="px-3 py-3">${formatValue(item)}</td>
+                    <td class="px-3 py-3 text-xs text-slate-500">حد ${item.cap.toLocaleString('en-US')} - حد أدنى ${item.minInvoice.toLocaleString('en-US')}</td>
+                    <td class="px-3 py-3">${item.approval}</td>
+                    <td class="px-3 py-3">${statusChip(item.status)}</td>
+                    <td class="px-3 py-3 flex flex-wrap gap-2">
+                        <button class="action-btn bg-sky-100 text-sky-700" onclick="assignDiscount('${item.id}')">تعيين</button>
+                        <button class="action-btn bg-amber-100 text-amber-700" onclick="editDiscount('${item.id}')">تعديل</button>
+                        <button class="action-btn bg-rose-100 text-rose-700" onclick="deleteDiscount('${item.id}')">حذف</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            renderStats(filtered);
+            renderSimulationOptions(filtered);
+        }
+
+        function renderStats(list) {
+            const activeCount = discounts.filter(item => item.status === 'نشط').length;
+            const pendingCount = discounts.filter(item => item.status === 'معلق').length;
+            const expiredCount = discounts.filter(item => item.status === 'منتهي').length;
+            const forecast = Math.round(list.reduce((sum, item) => sum + (item.type === 'نسبة' ? item.value * 120 : item.value), 0));
+            const complianceRate = Math.max(70, Math.min(98, 100 - pendingCount * 4));
+            const needsUpdate = Math.max(1, Math.round(discounts.length * 0.2));
+            const riskLevel = pendingCount > 2 || expiredCount > 1 ? 'متوسط' : 'منخفض';
+
+            stats.active.textContent = activeCount;
+            stats.pending.textContent = pendingCount;
+            stats.forecast.textContent = forecast.toLocaleString('en-US');
+            stats.risk.textContent = riskLevel;
+            stats.compliance.textContent = `${complianceRate}%`;
+            stats.policyBar.style.width = `${complianceRate}%`;
+            stats.needsUpdate.textContent = needsUpdate;
+            stats.updateBar.style.width = `${Math.min(100, needsUpdate * 12)}%`;
+            stats.expired.textContent = expiredCount;
+            stats.expiredBar.style.width = `${Math.min(100, expiredCount * 20)}%`;
+        }
+
+        function renderSimulationOptions(list) {
+            selectors.simDiscount.innerHTML = list.map(item => `<option value="${item.id}">${item.name} - ${formatValue(item)}</option>`).join('');
+        }
+
+        function renderAudit() {
+            selectors.auditLog.innerHTML = auditEntries.map(entry => `
+                <div class="flex items-start justify-between bg-slate-50 rounded-2xl p-3">
+                    <div>
+                        <div class="font-bold text-slate-800">${entry.action}</div>
+                        <div class="text-xs text-slate-500">${entry.by}</div>
+                    </div>
+                    <span class="text-xs text-slate-500">${entry.at}</span>
+                </div>
+            `).join('');
+        }
+
+        function openModal() {
+            document.getElementById('discountModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = currentEditId ? 'تعديل الخصم' : 'إضافة خصم جديد';
+        }
+
+        function closeModal() {
+            document.getElementById('discountModal').classList.remove('active');
+            document.getElementById('discountForm').reset();
+            currentEditId = null;
+        }
+
+        function assignDiscount(id) {
+            selectedId = id;
+            addAudit(`تعيين الخصم ${id} كخصم فعال`);
+            alert(`تم تعيين الخصم ${id} للاستخدام الحالي.`);
+        }
+
+        function editDiscount(id) {
+            const item = discounts.find(discount => discount.id === id);
+            if (!item) return;
+            currentEditId = id;
+            document.getElementById('formName').value = item.name;
+            document.getElementById('formCode').value = item.code;
+            document.getElementById('formScope').value = item.scope;
+            document.getElementById('formType').value = item.type;
+            document.getElementById('formValue').value = item.value;
+            document.getElementById('formCap').value = item.cap;
+            document.getElementById('formMinQty').value = item.minQty;
+            document.getElementById('formMinInvoice').value = item.minInvoice;
+            document.getElementById('formStart').value = item.startDate;
+            document.getElementById('formEnd').value = item.endDate;
+            document.getElementById('formEnd').min = item.startDate;
+            document.getElementById('formApproval').value = item.approval;
+            document.getElementById('formChannel').value = item.channel;
+            document.getElementById('formReason').value = item.reason;
+            openModal();
+        }
+
+        function deleteDiscount(id) {
+            if (!confirm('هل تريد حذف هذا الخصم؟')) return;
+            discounts = discounts.filter(item => item.id !== id);
+            saveData(`حذف خصم ${id}`);
+            renderTable();
+        }
+
+        function runSimulation() {
+            const price = Number(document.getElementById('simPrice').value || 0);
+            const qty = Number(document.getElementById('simQty').value || 0);
+            const id = document.getElementById('simDiscount').value;
+            const discount = discounts.find(item => item.id === id);
+            if (!discount) return;
+            const total = price * qty;
+            const discountValue = discount.type === 'نسبة'
+                ? Math.min(total * (discount.value / 100), discount.cap)
+                : Math.min(discount.value, discount.cap);
+            const finalTotal = Math.max(total - discountValue, 0);
+            document.getElementById('simResult').textContent = `${finalTotal.toLocaleString('en-US')} ريال`;
+            document.getElementById('simNote').textContent = `تم خصم ${discountValue.toLocaleString('en-US')} ريال وفق حدود الخصم.`;
+        }
+
+        function refreshData() {
+            loadData();
+            renderTable();
+            renderAudit();
+        }
+
+        function printPage() { window.print(); }
+
+        function copySummary() {
+            const summaryText = `لوحة خصومات متقدمة: ${discounts.length} قاعدة، نشط ${discounts.filter(item => item.status === 'نشط').length}, مع محاكاة تأثير وسجل تدقيق.`;
+            navigator.clipboard.writeText(summaryText).then(() => {
+                alert('تم نسخ ملخص الخصومات.');
+            });
+        }
+
+        document.getElementById('discountForm').addEventListener('submit', (event) => {
+            event.preventDefault();
+            const startVal = document.getElementById('formStart').value;
+            const endVal   = document.getElementById('formEnd').value;
+            const endError = document.getElementById('formEndError');
+            if (startVal && endVal && endVal < startVal) {
+                const endInput = document.getElementById('formEnd');
+                endInput.setCustomValidity('تاريخ النهاية لا يمكن أن يكون قبل تاريخ البداية');
+                endError.style.display = 'block';
+                endInput.reportValidity();
+                return;
+            }
+            document.getElementById('formEnd').setCustomValidity('');
+            if (endError) endError.style.display = 'none';
+            const payload = {
+                id: currentEditId || `DS-${Math.floor(Math.random() * 9000 + 1000)}`,
+                name: document.getElementById('formName').value.trim(),
+                code: document.getElementById('formCode').value.trim(),
+                scope: document.getElementById('formScope').value,
+                type: document.getElementById('formType').value,
+                value: Number(document.getElementById('formValue').value),
+                cap: Number(document.getElementById('formCap').value),
+                minQty: Number(document.getElementById('formMinQty').value),
+                minInvoice: Number(document.getElementById('formMinInvoice').value),
+                startDate: document.getElementById('formStart').value,
+                endDate: document.getElementById('formEnd').value,
+                approval: document.getElementById('formApproval').value,
+                status: 'نشط',
+                channel: document.getElementById('formChannel').value,
+                createdBy: 'لوحة الخصومات',
+                reason: document.getElementById('formReason').value.trim(),
+                stackable: false,
+                priority: 2
+            };
+
+            if (currentEditId) {
+                discounts = discounts.map(item => item.id === currentEditId ? payload : item);
+                saveData(`تعديل خصم ${payload.id}`);
+            } else {
+                discounts.unshift(payload);
+                saveData(`إضافة خصم ${payload.id}`);
+            }
+            closeModal();
+            renderTable();
+        });
+
+        selectors.search.addEventListener('input', renderTable);
+        selectors.statusFilter.addEventListener('change', renderTable);
+        selectors.scopeFilter.addEventListener('change', renderTable);
+
+        // Keep end-date min in sync with start-date to enforce ordering
+        document.getElementById('formStart').addEventListener('change', function () {
+            const endInput = document.getElementById('formEnd');
+            endInput.min = this.value;
+            const endError = document.getElementById('formEndError');
+            if (endInput.value && endInput.value < this.value) {
+                endInput.setCustomValidity('تاريخ النهاية لا يمكن أن يكون قبل تاريخ البداية');
+                endError.style.display = 'block';
+            } else {
+                endInput.setCustomValidity('');
+                endError.style.display = 'none';
+            }
+        });
+        document.getElementById('formEnd').addEventListener('change', function () {
+            const startVal = document.getElementById('formStart').value;
+            const endError = document.getElementById('formEndError');
+            if (startVal && this.value && this.value < startVal) {
+                this.setCustomValidity('تاريخ النهاية لا يمكن أن يكون قبل تاريخ البداية');
+                endError.style.display = 'block';
+            } else {
+                this.setCustomValidity('');
+                endError.style.display = 'none';
+            }
+        });
+
+        loadData();
+        renderTable();
+        renderAudit();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

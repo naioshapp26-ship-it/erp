@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔗 تكاملات ERP - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --sky: #0ea5e9;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --sun: #f59e0b;
+      --violet: #7c3aed;
+      --sand: #fef3c7;
+      --paper: #f8fafc;
+      --card: #ffffff;
+      --line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(99, 102, 241, 0.16), transparent 42%),
+        radial-gradient(circle at 86% 8%, rgba(14, 165, 233, 0.14), transparent 40%),
+        linear-gradient(180deg, #eef2ff 0%, #f8fafc 55%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 26px;
+      box-shadow: 0 20px 50px -30px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .tag {
+      border-radius: 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 22px;
+      box-shadow: 0 18px 45px -34px rgba(15, 23, 42, 0.45);
+    }
+
+    .stat {
+      border-radius: 18px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .table-wrapper {
+      overflow: auto;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1200px;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      text-align: right;
+      font-size: 0.85rem;
+      color: #475569;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+      vertical-align: top;
+    }
+
+    tbody tr:hover {
+      background: rgba(226, 232, 240, 0.3);
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      color: #0f172a;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px -18px rgba(15, 23, 42, 0.5);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+
+    .modal {
+      width: min(720px, 100%);
+      background: #fff;
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 30px 70px -40px rgba(15, 23, 42, 0.6);
+      animation: modalIn 0.25s ease;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    @keyframes modalIn {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+      <div class="max-w-2xl">
+        <span class="chip bg-white text-slate-700 border border-slate-200">تكاملات ERP</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">🔗 مركز إدارة تكاملات الـ ERP</h1>
+        <p class="text-slate-600 mt-2">لوحة احترافية لمتابعة كل التكاملات المتاحة والمفعلة، مع مؤشرات واضحة وعمليات سريعة.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button class="btn bg-slate-900 text-white" data-action="add">
+          <i class="fas fa-circle-plus"></i>
+          إضافة تكامل جديد
+        </button>
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <a href="/hr/operations" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-diagram-project"></i>
+          بوابة العمليات
+        </a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">إجمالي التكاملات</div>
+        <div id="totalCount" class="text-2xl font-extrabold mt-2">0</div>
+        <p class="text-sm text-slate-500 mt-2">يشمل المتاحة والمفعلة والمعلقة.</p>
+      </div>
+      <div class="stat">
+        <div class="text-sm text-slate-500">تكاملات مفعلة</div>
+        <div id="activeCount" class="text-2xl font-extrabold mt-2 text-emerald-600">0</div>
+        <p class="text-sm text-slate-500 mt-2">مزامنة تعمل بنجاح.</p>
+      </div>
+      <div class="stat">
+        <div class="text-sm text-slate-500">تكاملات غير مفعلة</div>
+        <div id="inactiveCount" class="text-2xl font-extrabold mt-2 text-rose-600">0</div>
+        <p class="text-sm text-slate-500 mt-2">متوقفة أو بانتظار التفعيل.</p>
+      </div>
+      <div class="stat">
+        <div class="text-sm text-slate-500">قيد الإعداد</div>
+        <div id="prepCount" class="text-2xl font-extrabold mt-2 text-amber-600">0</div>
+        <p class="text-sm text-slate-500 mt-2">تكوين أولي ومراجعة أمان.</p>
+      </div>
+    </div>
+
+    <div class="panel p-5 mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">البحث والتصفية</h2>
+          <p class="text-sm text-slate-500">فلترة التكاملات بسرعة حسب الحالة والنوع والجهة.</p>
+        </div>
+        <div class="text-sm text-slate-500">عدد النتائج: <span id="resultCount" class="font-bold text-slate-900">0</span></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-3">
+          <i class="fas fa-search text-slate-400"></i>
+          <input id="searchInput" type="text" class="w-full py-3 focus:outline-none" placeholder="ابحث بالاسم أو الجهة أو المسؤول">
+        </div>
+        <select id="statusFilter" class="bg-white border border-slate-200 rounded-2xl px-3 py-3">
+          <option value="">كل الحالات</option>
+          <option value="active">مفعل</option>
+          <option value="inactive">غير مفعل</option>
+          <option value="prep">قيد الإعداد</option>
+        </select>
+        <select id="typeFilter" class="bg-white border border-slate-200 rounded-2xl px-3 py-3">
+          <option value="">كل الأنواع</option>
+          <option value="مالي">مالي</option>
+          <option value="موارد بشرية">موارد بشرية</option>
+          <option value="مخزون">مخزون</option>
+          <option value="مشتريات">مشتريات</option>
+          <option value="حكومي">حكومي</option>
+        </select>
+        <select id="entityFilter" class="bg-white border border-slate-200 rounded-2xl px-3 py-3">
+          <option value="">كل الجهات</option>
+          <option value="SAP">SAP</option>
+          <option value="Oracle">Oracle</option>
+          <option value="Microsoft">Microsoft</option>
+          <option value="Zoho">Zoho</option>
+          <option value="Odoo">Odoo</option>
+        </select>
+        <select id="sortSelect" class="bg-white border border-slate-200 rounded-2xl px-3 py-3">
+          <option value="name">فرز حسب الاسم</option>
+          <option value="status">فرز حسب الحالة</option>
+          <option value="updated">فرز حسب آخر تحديث</option>
+          <option value="added">فرز حسب تاريخ الإضافة</option>
+        </select>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-4">
+        <button id="resetFilters" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-rotate"></i>
+          إعادة ضبط الفلاتر
+        </button>
+        <button class="btn bg-slate-900 text-white">
+          <i class="fas fa-file-export"></i>
+          تصدير التقرير
+        </button>
+      </div>
+    </div>
+
+    <div class="panel p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">جدول التكاملات الشامل</h2>
+          <p class="text-sm text-slate-500">عرض كل التكاملات مع الحالة والمسؤول والإجراءات.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span class="chip bg-emerald-100 text-emerald-700">مؤشر المزامنة 97%</span>
+          <span class="chip bg-amber-100 text-amber-700">7 طلبات مراجعة</span>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>اسم التكامل</th>
+              <th>النوع</th>
+              <th>الجهة المرتبطة</th>
+              <th>حالة التفعيل</th>
+              <th>تاريخ الإضافة</th>
+              <th>آخر تحديث</th>
+              <th>المسؤول عنه</th>
+              <th>ملاحظات</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="integrationTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="actionModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalTitle" class="text-xl font-bold">عنوان العملية</h3>
+          <p id="modalSubtitle" class="text-sm text-slate-500">تفاصيل العملية المختارة.</p>
+        </div>
+        <button id="closeModal" class="action-btn"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div id="modalBody" class="mt-4"></div>
+    </div>
+  </div>
+
+  <template id="tmpl-view">
+    <div class="space-y-4">
+      <div class="panel p-4">
+        <div class="text-sm text-slate-500">ملخص التكامل</div>
+        <div class="modal-grid mt-3">
+          <div>
+            <div class="text-xs text-slate-500">الحالة</div>
+            <div class="font-bold">مفعل مع مزامنة مستقرة</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">آخر تنفيذ</div>
+            <div class="font-bold">اليوم 09:42 صباحا</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">قواعد البيانات</div>
+            <div class="font-bold">4 جداول مرتبطة</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">مستوى المراقبة</div>
+            <div class="font-bold">مكثف</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel p-4">
+        <div class="text-sm text-slate-500">آخر السجلات</div>
+        <div class="text-sm mt-2 text-slate-700">تمت مزامنة 126 سجل بدون أخطاء، مع تنبيه بسيط في الحقول المالية.</div>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button class="btn bg-slate-900 text-white">تشغيل فحص مباشر</button>
+        <button class="btn bg-white text-slate-700 border border-slate-200">تحميل السجل</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tmpl-preview">
+    <div class="space-y-4">
+      <div class="panel p-4">
+        <div class="text-sm text-slate-500">معاينة البيانات</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
+          <div class="tag">رواتب الشهر الحالي: 342 موظف</div>
+          <div class="tag">قيمة القيود: 2.7M SAR</div>
+          <div class="tag">إشعارات أخطاء: 2</div>
+          <div class="tag">نسبة المطابقة: 98.6%</div>
+        </div>
+      </div>
+      <div class="panel p-4">
+        <div class="text-sm text-slate-500">عينات القيود</div>
+        <div class="text-sm mt-2">PAY-2026-02-118 | الرواتب الاساسية | 458,000 SAR</div>
+        <div class="text-sm">PAY-2026-02-119 | بدلات | 86,000 SAR</div>
+        <div class="text-sm">PAY-2026-02-120 | خصومات | 21,300 SAR</div>
+      </div>
+      <button class="btn bg-slate-900 text-white">المتابعة إلى صفحة التفاصيل</button>
+    </div>
+  </template>
+
+  <template id="tmpl-edit">
+    <form class="space-y-4" data-form="edit">
+      <div class="modal-grid">
+        <div>
+          <label class="text-sm text-slate-500">اسم التكامل</label>
+          <input data-field="name" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3" placeholder="ادخل الاسم">
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">نوع التكامل</label>
+          <select data-field="type" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3">
+            <option>مالي</option>
+            <option>موارد بشرية</option>
+            <option>مخزون</option>
+            <option>مشتريات</option>
+            <option>حكومي</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">الجهة</label>
+          <input data-field="entity" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3" placeholder="مثال: SAP الخليج">
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">المسؤول</label>
+          <input data-field="owner" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3" placeholder="اسم المسؤول">
+        </div>
+      </div>
+      <div>
+        <label class="text-sm text-slate-500">ملاحظات</label>
+        <textarea data-field="notes" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3" rows="3" placeholder="أضف ملاحظات تشغيلية"></textarea>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button type="button" class="btn bg-slate-900 text-white" data-role="save-edit">حفظ التعديلات</button>
+        <button type="button" class="btn bg-white text-slate-700 border border-slate-200" data-role="cancel">إلغاء</button>
+      </div>
+    </form>
+  </template>
+
+  <template id="tmpl-delete">
+    <div class="space-y-4">
+      <div class="panel p-4 bg-rose-50 border border-rose-200">
+        <div class="text-sm text-rose-700">تأكيد الحذف</div>
+        <div class="text-sm text-rose-700 mt-2">سيتم إزالة التكامل وجميع ربطاته والتقارير المرتبطة به.</div>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button class="btn bg-rose-600 text-white" data-role="confirm-delete">تأكيد الحذف</button>
+        <button class="btn bg-white text-slate-700 border border-slate-200" data-role="cancel">إلغاء</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tmpl-toggle">
+    <div class="space-y-4">
+      <div class="panel p-4">
+        <div class="text-sm text-slate-500">تبديل حالة التكامل</div>
+        <div class="text-sm mt-2">يمكنك إيقاف أو تفعيل التكامل بشكل فوري مع تسجيل الحدث في سجل التدقيق.</div>
+      </div>
+      <div class="modal-grid">
+        <div class="tag">آخر إيقاف: 12 يناير 2026</div>
+        <div class="tag">مدة الإيقاف المتوقعة: 2 ساعة</div>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button class="btn bg-slate-900 text-white" data-role="toggle-enable">تفعيل الآن</button>
+        <button class="btn bg-white text-slate-700 border border-slate-200" data-role="toggle-disable">إيقاف مؤقت</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tmpl-add">
+    <form class="space-y-4" data-form="add">
+      <div class="modal-grid">
+        <div>
+          <label class="text-sm text-slate-500">اسم التكامل</label>
+          <input data-field="name" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3" placeholder="مثال: Oracle Finance Connect">
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">نوع التكامل</label>
+          <select data-field="type" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3">
+            <option>مالي</option>
+            <option>موارد بشرية</option>
+            <option>مخزون</option>
+            <option>مشتريات</option>
+            <option>حكومي</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">الحالة</label>
+          <select data-field="status" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3">
+            <option>قيد الإعداد</option>
+            <option>غير مفعل</option>
+            <option>مفعل</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">الجهة المرتبطة</label>
+          <input data-field="entity" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3" placeholder="SAP / Oracle / Microsoft">
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">المسؤول</label>
+          <input data-field="owner" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3" placeholder="اسم المسؤول">
+        </div>
+      </div>
+      <div>
+        <label class="text-sm text-slate-500">ملاحظات تشغيلية</label>
+        <textarea data-field="notes" class="w-full mt-2 border border-slate-200 rounded-2xl px-3 py-3" rows="3" placeholder="تفاصيل الربط أو متطلبات الأمان"></textarea>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button type="button" class="btn bg-slate-900 text-white" data-role="save-add">إضافة التكامل</button>
+        <button type="button" class="btn bg-white text-slate-700 border border-slate-200" data-role="cancel">حفظ كمسودة</button>
+      </div>
+    </form>
+  </template>
+
+  <script>
+    const tableBody = document.getElementById('integrationTable');
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const typeFilter = document.getElementById('typeFilter');
+    const entityFilter = document.getElementById('entityFilter');
+    const sortSelect = document.getElementById('sortSelect');
+    const resultCount = document.getElementById('resultCount');
+    const totalCount = document.getElementById('totalCount');
+    const activeCount = document.getElementById('activeCount');
+    const inactiveCount = document.getElementById('inactiveCount');
+    const prepCount = document.getElementById('prepCount');
+
+    const modal = document.getElementById('actionModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalSubtitle = document.getElementById('modalSubtitle');
+    const modalBody = document.getElementById('modalBody');
+    const closeModal = document.getElementById('closeModal');
+
+    const actionTitles = {
+      view: 'عرض التكامل',
+      preview: 'معاينة التكامل',
+      edit: 'تعديل التكامل',
+      delete: 'حذف التكامل',
+      toggle: 'إيقاف / تفعيل',
+      add: 'إضافة تكامل جديد'
+    };
+
+    const statusConfig = {
+      active: { label: 'مفعل', className: 'bg-emerald-100 text-emerald-700', toggleIcon: 'fa-toggle-on' },
+      inactive: { label: 'غير مفعل', className: 'bg-rose-100 text-rose-700', toggleIcon: 'fa-toggle-off' },
+      prep: { label: 'قيد الإعداد', className: 'bg-amber-100 text-amber-700', toggleIcon: 'fa-toggle-off' }
+    };
+
+    const addButton = document.querySelector('[data-action="add"]');
+
+    const getRows = () => Array.from(tableBody.querySelectorAll('tr[data-id]'));
+
+    const statusKeyFromLabel = (label) => {
+      if (label === 'مفعل') return 'active';
+      if (label === 'غير مفعل') return 'inactive';
+      if (label === 'قيد الإعداد') return 'prep';
+      return 'prep';
+    };
+
+    const statusLabelFromKey = (key) => statusConfig[key]?.label || 'قيد الإعداد';
+
+    function updateCounts() {
+      const rows = getRows();
+      totalCount.textContent = rows.length;
+      const active = rows.filter(row => row.dataset.status === 'active').length;
+      const inactive = rows.filter(row => row.dataset.status === 'inactive').length;
+      const prep = rows.filter(row => row.dataset.status === 'prep').length;
+      activeCount.textContent = active;
+      inactiveCount.textContent = inactive;
+      prepCount.textContent = prep;
+    }
+
+    function applyFilters() {
+      const search = searchInput.value.trim().toLowerCase();
+      const status = statusFilter.value;
+      const type = typeFilter.value;
+      const entity = entityFilter.value;
+
+      let visibleCount = 0;
+      const rows = getRows();
+      rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        const matchesSearch = !search || text.includes(search);
+        const matchesStatus = !status || row.dataset.status === status;
+        const matchesType = !type || row.dataset.type === type;
+        const matchesEntity = !entity || row.dataset.entity === entity;
+
+        const isVisible = matchesSearch && matchesStatus && matchesType && matchesEntity;
+        row.style.display = isVisible ? '' : 'none';
+        if (isVisible) visibleCount += 1;
+      });
+
+      resultCount.textContent = visibleCount;
+    }
+
+    function sortRows() {
+      const rows = getRows();
+      const sortValue = sortSelect.value;
+      const sorted = [...rows].sort((a, b) => {
+        if (sortValue === 'status') {
+          return a.dataset.status.localeCompare(b.dataset.status, 'ar');
+        }
+        if (sortValue === 'updated') {
+          return b.dataset.updated.localeCompare(a.dataset.updated);
+        }
+        if (sortValue === 'added') {
+          return b.dataset.added.localeCompare(a.dataset.added);
+        }
+        return a.dataset.name.localeCompare(b.dataset.name, 'ar');
+      });
+
+      sorted.forEach(row => tableBody.appendChild(row));
+    }
+
+    let activeRow = null;
+
+    function formatDateLabel(date) {
+      return date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function formatDateISO(date) {
+      return date.toISOString().slice(0, 10);
+    }
+
+    function getEntityKey(value) {
+      const candidates = ['SAP', 'Oracle', 'Microsoft', 'Zoho', 'Odoo'];
+      const match = candidates.find(item => value.toLowerCase().includes(item.toLowerCase()));
+      return match || value;
+    }
+
+    function fillEditForm(row) {
+      if (!row) return;
+      const nameInput = modalBody.querySelector('[data-field="name"]');
+      const typeSelect = modalBody.querySelector('[data-field="type"]');
+      const entityInput = modalBody.querySelector('[data-field="entity"]');
+      const ownerInput = modalBody.querySelector('[data-field="owner"]');
+      const notesInput = modalBody.querySelector('[data-field="notes"]');
+
+      if (nameInput) nameInput.value = row.dataset.name || row.cells[0].innerText.trim();
+      if (typeSelect) typeSelect.value = row.dataset.type || row.cells[1].innerText.trim();
+      if (entityInput) entityInput.value = row.cells[2].innerText.trim();
+      if (ownerInput) ownerInput.value = row.dataset.owner || row.cells[6].innerText.trim();
+      if (notesInput) notesInput.value = row.cells[7].innerText.trim();
+    }
+
+    function saveEdit() {
+      if (!activeRow) return;
+      const nameInput = modalBody.querySelector('[data-field="name"]');
+      const typeSelect = modalBody.querySelector('[data-field="type"]');
+      const entityInput = modalBody.querySelector('[data-field="entity"]');
+      const ownerInput = modalBody.querySelector('[data-field="owner"]');
+      const notesInput = modalBody.querySelector('[data-field="notes"]');
+
+      const nameValue = nameInput ? nameInput.value.trim() : '';
+      const typeValue = typeSelect ? typeSelect.value.trim() : '';
+      const entityValue = entityInput ? entityInput.value.trim() : '';
+      const ownerValue = ownerInput ? ownerInput.value.trim() : '';
+      const notesValue = notesInput ? notesInput.value.trim() : '';
+
+      if (nameValue) {
+        activeRow.dataset.name = nameValue;
+        const nameCell = activeRow.cells[0].querySelector('.font-bold');
+        if (nameCell) nameCell.textContent = nameValue;
+      }
+      if (typeValue) {
+        activeRow.dataset.type = typeValue;
+        activeRow.cells[1].textContent = typeValue;
+      }
+      if (entityValue) {
+        activeRow.dataset.entity = getEntityKey(entityValue);
+        activeRow.cells[2].textContent = entityValue;
+      }
+      if (ownerValue) {
+        activeRow.dataset.owner = ownerValue;
+        activeRow.cells[6].textContent = ownerValue;
+      }
+      if (notesValue) {
+        activeRow.cells[7].textContent = notesValue;
+      }
+
+      const now = new Date();
+      activeRow.dataset.updated = formatDateISO(now);
+      activeRow.cells[5].textContent = formatDateLabel(now);
+
+      sortRows();
+      applyFilters();
+      closeModalHandler();
+    }
+
+    function bindModalActions(action) {
+      const cancelButton = modalBody.querySelector('[data-role="cancel"]');
+      if (cancelButton) {
+        cancelButton.addEventListener('click', closeModalHandler);
+      }
+      if (action === 'edit') {
+        const saveButton = modalBody.querySelector('[data-role="save-edit"]');
+        if (saveButton) saveButton.addEventListener('click', saveEdit);
+      }
+      if (action === 'add') {
+        const saveButton = modalBody.querySelector('[data-role="save-add"]');
+        if (saveButton) saveButton.addEventListener('click', saveAdd);
+      }
+      if (action === 'delete') {
+        const confirmButton = modalBody.querySelector('[data-role="confirm-delete"]');
+        if (confirmButton) confirmButton.addEventListener('click', confirmDelete);
+      }
+      if (action === 'toggle') {
+        const enableButton = modalBody.querySelector('[data-role="toggle-enable"]');
+        const disableButton = modalBody.querySelector('[data-role="toggle-disable"]');
+        if (enableButton) enableButton.addEventListener('click', () => toggleStatus('active'));
+        if (disableButton) disableButton.addEventListener('click', () => toggleStatus('inactive'));
+      }
+    }
+
+    function renderEmptyState() {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="9" class="text-center text-slate-500 py-8">لا توجد تكاملات مسجلة حتى الآن.</td>
+        </tr>
+      `;
+      resultCount.textContent = '0';
+      updateCounts();
+    }
+
+    function formatDateLabel(date) {
+      return date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function formatDateISO(date) {
+      return date.toISOString().slice(0, 10);
+    }
+
+    function getEntityKey(value) {
+      const candidates = ['SAP', 'Oracle', 'Microsoft', 'Zoho', 'Odoo'];
+      const match = candidates.find(item => value.toLowerCase().includes(item.toLowerCase()));
+      return match || value;
+    }
+
+    function buildRow(item) {
+      const statusKey = statusKeyFromLabel(item.status || 'قيد الإعداد');
+      const statusInfo = statusConfig[statusKey];
+      const createdAt = item.created_at ? new Date(item.created_at) : new Date();
+      const updatedAt = item.updated_at ? new Date(item.updated_at) : createdAt;
+
+      const row = document.createElement('tr');
+      row.dataset.id = item.id;
+      row.dataset.status = statusKey;
+      row.dataset.type = item.integration_type || '';
+      row.dataset.entity = getEntityKey(item.linked_entity || '');
+      row.dataset.name = item.integration_name || '';
+      row.dataset.added = formatDateISO(createdAt);
+      row.dataset.updated = formatDateISO(updatedAt);
+      row.dataset.owner = item.owner || '';
+
+      row.innerHTML = `
+        <td>
+          <div class="font-bold">${item.integration_name || ''}</div>
+          <div class="text-xs text-slate-500">رقم التكامل: ERP-${String(item.id).padStart(4, '0')}</div>
+        </td>
+        <td>${item.integration_type || ''}</td>
+        <td>${item.linked_entity || ''}</td>
+        <td>
+          <span class="status-pill ${statusInfo.className}">${statusInfo.label}</span>
+        </td>
+        <td>${formatDateLabel(createdAt)}</td>
+        <td>${formatDateLabel(updatedAt)}</td>
+        <td>${item.owner || ''}</td>
+        <td>${item.notes || ''}</td>
+        <td class="space-x-1 space-x-reverse">
+          <button class="action-btn" data-action="view" data-name="${item.integration_name || ''}"><i class="fas fa-eye"></i></button>
+          <button class="action-btn" data-action="preview" data-name="${item.integration_name || ''}"><i class="fas fa-laptop-code"></i></button>
+          <button class="action-btn" data-action="edit" data-name="${item.integration_name || ''}"><i class="fas fa-pen"></i></button>
+          <button class="action-btn" data-action="delete" data-name="${item.integration_name || ''}"><i class="fas fa-trash"></i></button>
+          <button class="action-btn" data-action="toggle" data-name="${item.integration_name || ''}"><i class="fas ${statusInfo.toggleIcon}"></i></button>
+        </td>
+      `;
+
+      return row;
+    }
+
+    function renderTable(items) {
+      if (!items.length) {
+        renderEmptyState();
+        return;
+      }
+      tableBody.innerHTML = '';
+      items.forEach(item => tableBody.appendChild(buildRow(item)));
+      updateCounts();
+      sortRows();
+      applyFilters();
+    }
+
+    async function loadIntegrations() {
+      try {
+        const response = await fetch('/api/hr/erp-integrations');
+        if (!response.ok) throw new Error('Failed to load integrations');
+        const data = await response.json();
+        renderTable(data || []);
+      } catch (error) {
+        renderEmptyState();
+      }
+    }
+
+    function updateRowStatus(row, statusKey) {
+      const statusInfo = statusConfig[statusKey] || statusConfig.prep;
+      row.dataset.status = statusKey;
+      const statusPill = row.querySelector('.status-pill');
+      if (statusPill) {
+        statusPill.className = `status-pill ${statusInfo.className}`;
+        statusPill.textContent = statusInfo.label;
+      }
+      const toggleIcon = row.querySelector('[data-action="toggle"] i');
+      if (toggleIcon) {
+        toggleIcon.className = `fas ${statusInfo.toggleIcon}`;
+      }
+    }
+
+    async function saveEdit() {
+      if (!activeRow) return;
+      const id = activeRow.dataset.id;
+      const nameInput = modalBody.querySelector('[data-field="name"]');
+      const typeSelect = modalBody.querySelector('[data-field="type"]');
+      const entityInput = modalBody.querySelector('[data-field="entity"]');
+      const ownerInput = modalBody.querySelector('[data-field="owner"]');
+      const notesInput = modalBody.querySelector('[data-field="notes"]');
+
+      const payload = {
+        integration_name: nameInput?.value.trim(),
+        integration_type: typeSelect?.value.trim(),
+        linked_entity: entityInput?.value.trim(),
+        owner: ownerInput?.value.trim(),
+        notes: notesInput?.value.trim()
+      };
+
+      try {
+        const response = await fetch(`/api/hr/erp-integrations/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('Failed to update integration');
+        const updated = await response.json();
+        activeRow.dataset.name = updated.integration_name || activeRow.dataset.name;
+        activeRow.dataset.type = updated.integration_type || activeRow.dataset.type;
+        activeRow.dataset.entity = getEntityKey(updated.linked_entity || activeRow.cells[2].textContent.trim());
+        activeRow.dataset.owner = updated.owner || activeRow.dataset.owner;
+        activeRow.cells[0].querySelector('.font-bold').textContent = updated.integration_name || '';
+        activeRow.cells[1].textContent = updated.integration_type || '';
+        activeRow.cells[2].textContent = updated.linked_entity || '';
+        activeRow.cells[6].textContent = updated.owner || '';
+        activeRow.cells[7].textContent = updated.notes || '';
+
+        const updatedAt = updated.updated_at ? new Date(updated.updated_at) : new Date();
+        activeRow.dataset.updated = formatDateISO(updatedAt);
+        activeRow.cells[5].textContent = formatDateLabel(updatedAt);
+
+        sortRows();
+        applyFilters();
+        closeModalHandler();
+      } catch (error) {
+        closeModalHandler();
+      }
+    }
+
+    async function saveAdd() {
+      const nameInput = modalBody.querySelector('[data-field="name"]');
+      const typeSelect = modalBody.querySelector('[data-field="type"]');
+      const statusSelect = modalBody.querySelector('[data-field="status"]');
+      const entityInput = modalBody.querySelector('[data-field="entity"]');
+      const ownerInput = modalBody.querySelector('[data-field="owner"]');
+      const notesInput = modalBody.querySelector('[data-field="notes"]');
+
+      const payload = {
+        integration_name: nameInput?.value.trim(),
+        integration_type: typeSelect?.value.trim(),
+        status: statusSelect?.value.trim(),
+        linked_entity: entityInput?.value.trim(),
+        owner: ownerInput?.value.trim(),
+        notes: notesInput?.value.trim()
+      };
+
+      try {
+        const response = await fetch('/api/hr/erp-integrations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('Failed to create integration');
+        const created = await response.json();
+        const newRow = buildRow(created);
+        const emptyRow = tableBody.querySelector('tr:not([data-id])');
+        if (emptyRow) tableBody.innerHTML = '';
+        tableBody.prepend(newRow);
+        updateCounts();
+        sortRows();
+        applyFilters();
+        closeModalHandler();
+      } catch (error) {
+        closeModalHandler();
+      }
+    }
+
+    async function confirmDelete() {
+      if (!activeRow) return;
+      const id = activeRow.dataset.id;
+      try {
+        const response = await fetch(`/api/hr/erp-integrations/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to delete integration');
+        activeRow.remove();
+        if (!getRows().length) renderEmptyState();
+        updateCounts();
+        applyFilters();
+        closeModalHandler();
+      } catch (error) {
+        closeModalHandler();
+      }
+    }
+
+    async function toggleStatus(nextKey) {
+      if (!activeRow) return;
+      const id = activeRow.dataset.id;
+      const nextLabel = statusLabelFromKey(nextKey);
+      try {
+        const response = await fetch(`/api/hr/erp-integrations/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextLabel })
+        });
+        if (!response.ok) throw new Error('Failed to update status');
+        const updated = await response.json();
+        const updatedKey = statusKeyFromLabel(updated.status || nextLabel);
+        updateRowStatus(activeRow, updatedKey);
+        const updatedAt = updated.updated_at ? new Date(updated.updated_at) : new Date();
+        activeRow.dataset.updated = formatDateISO(updatedAt);
+        activeRow.cells[5].textContent = formatDateLabel(updatedAt);
+        updateCounts();
+        applyFilters();
+        closeModalHandler();
+      } catch (error) {
+        closeModalHandler();
+      }
+    }
+
+    function openModal(action, name, row) {
+      modalTitle.textContent = actionTitles[action] || 'عملية';
+      modalSubtitle.textContent = name ? `التكامل: ${name}` : 'إدارة تكامل جديد.';
+      const template = document.getElementById(`tmpl-${action}`);
+      modalBody.innerHTML = '';
+      if (template) {
+        modalBody.appendChild(template.content.cloneNode(true));
+      }
+      activeRow = row || null;
+      if (action === 'edit') {
+        fillEditForm(activeRow);
+      }
+      bindModalActions(action);
+      modal.style.display = 'flex';
+    }
+
+    function closeModalHandler() {
+      modal.style.display = 'none';
+    }
+
+    loadIntegrations();
+
+    [searchInput, statusFilter, typeFilter, entityFilter].forEach(input => {
+      input.addEventListener('input', applyFilters);
+      input.addEventListener('change', applyFilters);
+    });
+
+    sortSelect.addEventListener('change', () => {
+      sortRows();
+      applyFilters();
+    });
+
+    document.getElementById('resetFilters').addEventListener('click', () => {
+      searchInput.value = '';
+      statusFilter.value = '';
+      typeFilter.value = '';
+      entityFilter.value = '';
+      sortSelect.value = 'name';
+      sortRows();
+      applyFilters();
+    });
+
+    tableBody.addEventListener('click', event => {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+      const action = button.dataset.action;
+      const row = button.closest('tr');
+      const name = row?.dataset.name || '';
+      openModal(action, name, row);
+    });
+
+    if (addButton) {
+      addButton.addEventListener('click', () => openModal('add', '', null));
+    }
+
+    closeModal.addEventListener('click', closeModalHandler);
+    modal.addEventListener('click', event => {
+      if (event.target === modal) {
+        closeModalHandler();
+      }
+    });
+  </script>
+</body>
+</html>

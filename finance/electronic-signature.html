@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧾 التوقيع الإلكتروني - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f9fafb; color: #0f172a; }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        .stat-pill { border-radius: 999px; box-shadow: 0 18px 30px rgba(15, 23, 42, 0.15); }
+        .stat-angled { border-radius: 28px 6px 28px 6px; }
+        .stat-rounded { border-radius: 28px; }
+        .stat-cut { border-radius: 6px 28px 6px 28px; }
+        .table-scroll { max-height: 560px; overflow: auto; }
+        .section-accent-sky { border-top: 4px solid #0ea5e9; }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .section-accent-amber { border-top: 4px solid #f59e0b; }
+        .section-accent-violet { border-top: 4px solid #8b5cf6; }
+        .section-accent-rose { border-top: 4px solid #f43f5e; }
+        .chip { padding: 6px 12px; border-radius: 999px; font-weight: 700; }
+    
+        .card-gradient {
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🧾 التوقيع الإلكتروني</h1>
+            <p class="text-lg text-slate-600">حوكمة التوقيع الرقمي وسجل الوثائق المعتمدة</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="downloadAllJSON()" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-code"></i>
+                تنزيل ملف بيانات شامل
+            </button>
+            <button onclick="downloadAllCSV()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-csv"></i>
+                تنزيل ملف جدولي شامل
+            </button>
+            <button onclick="printReport()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة التقرير
+            </button>
+        </div>
+
+        <!-- Manual Signature Form -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">➕ إضافة توقيع جديد</h2>
+                    <p class="text-slate-500 text-sm">حفظ التوقيع مباشرة في قاعدة البيانات مع سجل التدقيق</p>
+                </div>
+                <button onclick="document.getElementById('manualSignatureForm').reset()" class="bg-white text-emerald-700 border border-emerald-100 shadow-sm px-4 py-2 rounded-full font-bold hover:shadow-lg transition">مسح الحقول</button>
+            </div>
+            <form id="manualSignatureForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" onsubmit="return createManualSignature(event)">
+                <div>
+                    <label class="block text-sm text-slate-600 mb-1">نوع المستند</label>
+                    <select name="document_type" class="w-full border rounded-xl px-3 py-2">
+                        <option value="فاتورة">فاتورة</option>
+                        <option value="دفعة">دفعة</option>
+                        <option value="طلب موظف">طلب موظف</option>
+                        <option value="مستند عام">مستند عام</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-600 mb-1">رقم المستند</label>
+                    <input name="document_id" class="w-full border rounded-xl px-3 py-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-600 mb-1">صاحب المستند</label>
+                    <input name="owner_name" class="w-full border rounded-xl px-3 py-2" placeholder="اسم العميل أو الموظف">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-600 mb-1">حالة المستند</label>
+                    <input name="document_status" class="w-full border rounded-xl px-3 py-2" placeholder="مثل: قيد المعالجة">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-600 mb-1">اسم المستخدم المنفذ</label>
+                    <input name="user_name" class="w-full border rounded-xl px-3 py-2" placeholder="مسؤول التوقيع">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-600 mb-1">ملاحظات</label>
+                    <input name="notes" class="w-full border rounded-xl px-3 py-2" placeholder="تفاصيل إضافية">
+                </div>
+                <div class="lg:col-span-3 md:col-span-2 flex justify-end">
+                    <button type="submit" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-plus-circle"></i>
+                        حفظ التوقيع في القاعدة
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Signature Overview -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="stat-pill bg-gradient-to-br from-sky-500 to-blue-600 text-slate-900 p-6">
+                    <div class="flex justify-between mb-3"><span>إجمالي الوثائق</span><i class="fas fa-folder-open text-2xl opacity-70"></i></div>
+                    <div id="docsTotal" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-angled bg-gradient-to-br from-emerald-500 to-teal-600 text-slate-900 p-6">
+                    <div class="flex justify-between mb-3"><span>الموقعة</span><i class="fas fa-file-signature text-2xl opacity-70"></i></div>
+                    <div id="docsSigned" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-rounded bg-gradient-to-br from-amber-500 to-orange-600 text-slate-900 p-6">
+                    <div class="flex justify-between mb-3"><span>قيد الانتظار</span><i class="fas fa-hourglass-half text-2xl opacity-70"></i></div>
+                    <div id="docsPending" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-cut bg-gradient-to-br from-rose-500 to-pink-600 text-slate-900 p-6">
+                    <div class="flex justify-between mb-3"><span>التحقق المكتمل</span><i class="fas fa-shield-check text-2xl opacity-70"></i></div>
+                    <div id="docsVerified" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signature Policies -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">🛡️ خصائص فريدة للتوقيع الإلكتروني</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div class="stat-pill bg-emerald-50 p-4">بصمة توقيع لكل مستند</div>
+                <div class="stat-angled bg-sky-50 p-4">تحقق فوري متعدد الطبقات</div>
+                <div class="stat-rounded bg-indigo-50 p-4">سجل تدقيق زمني غير قابل للتعديل</div>
+                <div class="stat-cut bg-rose-50 p-4">توقيع آمن متعدد الجهات</div>
+                <div class="stat-pill bg-amber-50 p-4">تنبيهات فورية عند أي تغيير</div>
+                <div class="stat-angled bg-violet-50 p-4">تخزين إثبات التوقيع محليًا</div>
+            </div>
+        </div>
+
+        <!-- Signature Workflow -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-violet">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">🧭 دورة التوقيع والتحقق</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div class="stat-rounded bg-violet-50 p-4">إنشاء بصمة المستند</div>
+                <div class="stat-angled bg-emerald-50 p-4">تأكيد صاحب الصلاحية</div>
+                <div class="stat-pill bg-amber-50 p-4">إصدار شهادة التوقيع</div>
+                <div class="stat-cut bg-sky-50 p-4">تسجيل التحقق النهائي</div>
+            </div>
+        </div>
+
+        <!-- Documents Table -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-amber">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">📄 جدول الوثائق القابلة للتوقيع</h3>
+                <span id="docsCount" class="text-sm text-slate-500"></span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-amber-50 text-amber-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم المستند</th>
+                            <th class="px-3 py-2 text-right">النوع</th>
+                            <th class="px-3 py-2 text-right">العميل أو الموظف</th>
+                            <th class="px-3 py-2 text-right">القيمة</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">حالة التوقيع</th>
+                            <th class="px-3 py-2 text-right">آخر تحديث</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="docsTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="8" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Signature Log -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 section-accent-rose">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">🧾 سجل التوقيعات والتحقق</h3>
+                <span id="logCount" class="text-sm text-slate-500"></span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-rose-50 text-rose-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم السجل</th>
+                            <th class="px-3 py-2 text-right">رقم المستند</th>
+                            <th class="px-3 py-2 text-right">الإجراء</th>
+                            <th class="px-3 py-2 text-right">المستخدم</th>
+                            <th class="px-3 py-2 text-right">التاريخ</th>
+                            <th class="px-3 py-2 text-right">البصمة</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="7" class="px-4 py-12 text-center text-slate-500">لا توجد سجلات بعد</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        let invoices = [];
+        let payments = [];
+        let customers = [];
+        let requests = [];
+        let signaturesList = [];
+        let signaturesByKey = {};
+        let logEntries = [];
+        let documentsMap = {};
+
+        async function loadData() {
+            try {
+                const [invoicesRes, paymentsRes, customersRes, requestsRes, signaturesRes, logsRes] = await Promise.all([
+                    fetch(`${API_BASE}/finance/invoices`),
+                    fetch(`${API_BASE}/finance/payments`),
+                    fetch(`${API_BASE}/finance/customers`),
+                    fetch(`${API_BASE}/api/employee-requests`),
+                    fetch(`${API_BASE}/finance/electronic-signatures`),
+                    fetch(`${API_BASE}/finance/electronic-signature-logs`)
+                ]);
+
+                const [invoicesData, paymentsData, customersData, requestsData, signaturesData, logsData] = await Promise.all([
+                    invoicesRes.json(),
+                    paymentsRes.json(),
+                    customersRes.json(),
+                    requestsRes.json(),
+                    signaturesRes.json(),
+                    logsRes.json()
+                ]);
+
+                invoices = invoicesData.invoices || [];
+                payments = paymentsData.payments || [];
+                customers = customersData.customers || customersData.rows || customersData || [];
+                requests = Array.isArray(requestsData) ? requestsData : [];
+                signaturesList = signaturesData.signatures || [];
+                signaturesByKey = {};
+                signaturesList.forEach(sig => { signaturesByKey[sig.document_key] = sig; });
+                logEntries = logsData.logs || [];
+
+                renderStats();
+                renderTables();
+            } catch (error) {
+                console.error('خطأ في تحميل البيانات:', error);
+                renderStats();
+                renderTables();
+            }
+        }
+
+        function buildDocumentKey(type, id) { return `${type}_${id}`; }
+
+        function getDocumentKey(doc) {
+            return doc.key || buildDocumentKey(doc.type, doc.document_id);
+        }
+
+        function collectDocuments() {
+            documentsMap = {};
+            const docs = [];
+
+            invoices.forEach(i => {
+                const docKey = buildDocumentKey('فاتورة', i.invoice_id || i.id);
+                const doc = {
+                    key: docKey,
+                    document_id: i.invoice_id || i.id,
+                    type: 'فاتورة',
+                    owner: i.customer_name || i.customer_id,
+                    value: i.total_amount || i.amount,
+                    status: i.status,
+                    updated_at: i.updated_at || i.created_at
+                };
+                documentsMap[doc.key] = doc;
+                docs.push(doc);
+            });
+
+            payments.forEach(p => {
+                const docKey = buildDocumentKey('دفعة', p.payment_id || p.id);
+                const doc = {
+                    key: docKey,
+                    document_id: p.payment_id || p.id,
+                    type: 'دفعة',
+                    owner: p.customer_name || p.customer_id,
+                    value: p.payment_amount || p.amount,
+                    status: p.status || 'مكتمل',
+                    updated_at: p.payment_date || p.created_at
+                };
+                documentsMap[doc.key] = doc;
+                docs.push(doc);
+            });
+
+            requests.forEach(r => {
+                const docKey = buildDocumentKey('طلب موظف', r.id);
+                const doc = {
+                    key: docKey,
+                    document_id: r.id,
+                    type: 'طلب موظف',
+                    owner: r.employee_name || r.employee_id,
+                    value: 0,
+                    status: r.status,
+                    updated_at: r.updated_at || r.created_at
+                };
+                documentsMap[doc.key] = doc;
+                docs.push(doc);
+            });
+
+            return docs;
+        }
+
+        function renderStats() {
+            const documents = collectDocuments();
+            const total = documents.length;
+            const signed = documents.filter(d => signaturesByKey[getDocumentKey(d)] && signaturesByKey[getDocumentKey(d)].signature_status === 'موقع').length;
+            const verified = documents.filter(d => signaturesByKey[getDocumentKey(d)]?.verified).length;
+            const pending = total - signed;
+
+            document.getElementById('docsTotal').textContent = total;
+            document.getElementById('docsSigned').textContent = signed;
+            document.getElementById('docsPending').textContent = pending;
+            document.getElementById('docsVerified').textContent = verified;
+        }
+
+        function renderTables() {
+            const docs = collectDocuments();
+            const docsRows = docs.map(doc => {
+                const signature = signaturesByKey[getDocumentKey(doc)];
+                const signatureStatus = signature ? `${signature.signature_status}${signature.verified ? ' - موثق' : ''}` : 'غير موقع';
+                return `
+                    <tr class="hover:bg-amber-50">
+                        <td class="px-3 py-2">${sanitizeText(doc.document_id)}</td>
+                        <td class="px-3 py-2">${sanitizeText(doc.type)}</td>
+                        <td class="px-3 py-2">${sanitizeText(doc.owner)}</td>
+                        <td class="px-3 py-2">${formatMoney(doc.value)}</td>
+                        <td class="px-3 py-2">${translateStatus(doc.status)}</td>
+                        <td class="px-3 py-2">${signatureStatus}</td>
+                        <td class="px-3 py-2">${formatDateTime(doc.updated_at)}</td>
+                        <td class="px-3 py-2">
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="signDocument('${doc.key}')" class="bg-emerald-600 text-white px-2 py-1 rounded-lg text-xs font-bold">توقيع</button>
+                                <button onclick="verifySignature('${doc.key}')" class="bg-indigo-600 text-white px-2 py-1 rounded-lg text-xs font-bold">تحقق</button>
+                                <button onclick="viewSignature('${doc.key}')" class="bg-sky-600 text-white px-2 py-1 rounded-lg text-xs font-bold">معاينة</button>
+                                <button onclick="editSignature('${doc.key}')" class="bg-amber-500 text-white px-2 py-1 rounded-lg text-xs font-bold">تعديل</button>
+                                <button onclick="deleteSignature('${doc.key}')" class="bg-rose-600 text-white px-2 py-1 rounded-lg text-xs font-bold">حذف</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('docsTable').innerHTML = docsRows || `<tr><td colspan="8" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('docsCount').textContent = `عدد الصفوف: ${docs.length}`;
+
+            const logRows = logEntries.map(l => `
+                <tr class="hover:bg-rose-50">
+                    <td class="px-3 py-2">${l.log_id || l.id}</td>
+                    <td class="px-3 py-2">${sanitizeText(l.document_key || l.document_id)}</td>
+                    <td class="px-3 py-2">${sanitizeText(l.action)}</td>
+                    <td class="px-3 py-2">${sanitizeText(l.user_name || l.user)}</td>
+                    <td class="px-3 py-2">${formatDateTime(l.created_at || l.date)}</td>
+                    <td class="px-3 py-2">${sanitizeText(l.fingerprint)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="viewLog(${l.log_id || l.id})" class="bg-sky-600 text-white px-2 py-1 rounded-lg text-xs font-bold">معاينة</button>
+                            <button onclick="editLog(${l.log_id || l.id})" class="bg-amber-500 text-white px-2 py-1 rounded-lg text-xs font-bold">تعديل</button>
+                            <button onclick="deleteLog(${l.log_id || l.id})" class="bg-rose-600 text-white px-2 py-1 rounded-lg text-xs font-bold">حذف</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('logTable').innerHTML = logRows || `<tr><td colspan="7" class="px-4 py-12 text-center text-slate-500">لا توجد سجلات بعد</td></tr>`;
+            document.getElementById('logCount').textContent = `عدد السجلات: ${logEntries.length}`;
+        }
+
+        async function createManualSignature(event) {
+            event.preventDefault();
+            const form = event.target;
+            const payload = {
+                document_type: form.document_type.value,
+                document_id: form.document_id.value,
+                owner_name: form.owner_name.value,
+                document_status: form.document_status.value,
+                user_name: form.user_name.value || 'مسؤول التوقيع',
+                notes: form.notes.value
+            };
+            const res = await fetch(`${API_BASE}/finance/electronic-signatures/sign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                alert('تعذر حفظ التوقيع.');
+                return false;
+            }
+            await loadData();
+            form.reset();
+            alert('تم حفظ التوقيع في قاعدة البيانات.');
+            return false;
+        }
+
+        async function signDocument(key) {
+            const doc = documentsMap[key];
+            if (!doc) {
+                alert('المستند غير موجود.');
+                return;
+            }
+            const payload = {
+                document_type: doc.type,
+                document_id: doc.document_id,
+                owner_name: doc.owner,
+                document_status: doc.status,
+                user_name: 'مسؤول التوقيع'
+            };
+            const res = await fetch(`${API_BASE}/finance/electronic-signatures/sign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                alert('تعذر توقيع المستند.');
+                return;
+            }
+            await loadData();
+        }
+
+        async function verifySignature(key) {
+            const doc = documentsMap[key];
+            if (!doc) {
+                alert('المستند غير موجود.');
+                return;
+            }
+            const document_key = getDocumentKey(doc);
+            const res = await fetch(`${API_BASE}/finance/electronic-signatures/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ document_key, notes: 'تم التحقق' })
+            });
+            if (!res.ok) {
+                alert('تعذر التحقق من التوقيع.');
+                return;
+            }
+            await loadData();
+        }
+
+        function viewSignature(key) {
+            const signature = signaturesByKey[key];
+            const doc = documentsMap[key];
+            if (!signature && !doc) {
+                alert('لا توجد بيانات للمعاينة');
+                return;
+            }
+            const details = {
+                المستند: doc ? `${doc.type} ${doc.document_id}` : 'غير متوفر',
+                الحالة: signature ? signature.signature_status : 'غير موقع',
+                التحقق: signature ? (signature.verified ? 'موثق' : 'غير موثق') : '-',
+                المستخدم: signature?.user_name || 'غير محدد',
+                البصمة: signature?.fingerprint || '-',
+                ملاحظات: signature?.notes || '-',
+                تاريخ_التحديث: signature?.updated_at || '-' 
+            };
+            alert(JSON.stringify(details, null, 2));
+        }
+
+        async function editSignature(key) {
+            const signature = signaturesByKey[key];
+            if (!signature) {
+                alert('لا يوجد توقيع لتعديله');
+                return;
+            }
+            const newStatus = prompt('أدخل حالة التوقيع الجديدة', signature.signature_status || 'موقع');
+            const newNotes = prompt('أدخل ملاحظات إضافية', signature.notes || '');
+            if (newStatus === null && newNotes === null) return;
+            const res = await fetch(`${API_BASE}/finance/electronic-signatures/${signature.signature_id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ signature_status: newStatus || signature.signature_status, notes: newNotes || signature.notes })
+            });
+            if (!res.ok) {
+                alert('تعذر تعديل التوقيع.');
+                return;
+            }
+            await loadData();
+        }
+
+        async function deleteSignature(key) {
+            const signature = signaturesByKey[key];
+            if (!signature) {
+                alert('لا يوجد توقيع للحذف');
+                return;
+            }
+            if (!confirm('تأكيد حذف التوقيع؟')) return;
+            const res = await fetch(`${API_BASE}/finance/electronic-signatures/${signature.signature_id}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) {
+                alert('تعذر حذف التوقيع');
+                return;
+            }
+            await loadData();
+        }
+
+        function viewLog(logId) {
+            const log = logEntries.find(l => (l.log_id || l.id) === logId);
+            if (!log) {
+                alert('السجل غير موجود');
+                return;
+            }
+            alert(JSON.stringify(log, null, 2));
+        }
+
+        async function editLog(logId) {
+            const log = logEntries.find(l => (l.log_id || l.id) === logId);
+            if (!log) {
+                alert('السجل غير موجود');
+                return;
+            }
+            const newAction = prompt('الإجراء الجديد', log.action);
+            const newUser = prompt('اسم المستخدم', log.user_name || log.user || '');
+            if (newAction === null && newUser === null) return;
+            const res = await fetch(`${API_BASE}/finance/electronic-signature-logs/${logId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: newAction || log.action, user_name: newUser || log.user_name })
+            });
+            if (!res.ok) {
+                alert('تعذر تعديل السجل');
+                return;
+            }
+            await loadData();
+        }
+
+        async function deleteLog(logId) {
+            if (!confirm('تأكيد حذف السجل؟')) return;
+            const res = await fetch(`${API_BASE}/finance/electronic-signature-logs/${logId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                alert('تعذر حذف السجل');
+                return;
+            }
+            await loadData();
+        }
+
+        function downloadAllJSON() {
+            const payload = { invoices, payments, customers, requests, signatures: signaturesList, logs: logEntries };
+            downloadBlob(JSON.stringify(payload, null, 2), 'التوقيع-الالكتروني.json', 'application/json');
+        }
+
+        function downloadAllCSV() {
+            const rows = [];
+            rows.push(['الوثائق']);
+            rows.push(['رقم المستند','النوع','المالك','القيمة','الحالة','حالة التوقيع']);
+            collectDocuments().forEach(d => rows.push([
+                d.document_id,
+                d.type,
+                sanitizeText(d.owner),
+                d.value || 0,
+                translateStatus(d.status),
+                signaturesByKey[getDocumentKey(d)]?.signature_status || 'غير موقع'
+            ]));
+
+            rows.push([]);
+            rows.push(['سجل التوقيعات']);
+            rows.push(['رقم السجل','المعرف','الإجراء','المستخدم','التاريخ','البصمة']);
+            logEntries.forEach(l => rows.push([
+                l.log_id || l.id,
+                l.document_key || l.document_id,
+                l.action,
+                l.user_name || l.user,
+                l.created_at || l.date,
+                l.fingerprint
+            ]));
+
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            downloadBlob(csvContent, 'سجل-التوقيعات.csv', 'text/csv;charset=utf-8;');
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function translateStatus(value) {
+            const map = {
+                PENDING: 'قيد المعالجة',
+                APPROVED: 'معتمد',
+                REJECTED: 'مرفوض',
+                COMPLETED: 'مكتمل',
+                OVERDUE: 'متأخر'
+            };
+            return map[String(value || '').toUpperCase()] || sanitizeText(value) || 'غير محدد';
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function sanitizeText(value) {
+            if (value === null || value === undefined) return '-';
+            const text = typeof value === 'string' ? value : JSON.stringify(value);
+            const cleaned = text.replace(/[A-Za-z]+/g, '').replace(/\s{2,}/g, ' ').trim();
+            return cleaned || '-';
+        }
+
+        function refreshData() { loadData(); }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

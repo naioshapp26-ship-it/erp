@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💧 ملخص التدفقات النقدية - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f8fafc; /* bg-slate-50 */
+            color: #0f172a; /* text-slate-900 */
+        }
+        .stat-card {
+            transition: all 0.3s ease;
+            border-top-width: 4px;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .chart-container {
+            position: relative;
+            height: 320px;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">💧 ملخص التدفقات النقدية</h1>
+            <p class="text-slate-600">ملخص التدفقات حسب النوع والفترة المالية</p>
+        </div>
+
+        <div class="mb-6 flex gap-3 flex-wrap">
+            <button onclick="openSummaryModal('create')" class="bg-green-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-green-700 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-plus"></i>
+                إضافة سجل
+            </button>
+            <button onclick="downloadCSV()" class="bg-white border border-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-bold hover:bg-slate-50 hover:border-slate-300 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-csv text-green-600"></i>
+                تنزيل CSV
+            </button>
+            <button onclick="downloadJSON()" class="bg-white border border-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-bold hover:bg-slate-50 hover:border-slate-300 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-code text-blue-600"></i>
+                تنزيل JSON
+            </button>
+            <button onclick="printSummary()" class="bg-white border border-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-bold hover:bg-slate-50 hover:border-slate-300 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-print text-slate-600"></i>
+                طباعة
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card bg-white border-t-blue-500 rounded-lg p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-blue-50 text-blue-600">
+                        <i class="fas fa-arrow-down text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">إجمالي الداخل</span>
+                </div>
+                <div id="totalIn" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card bg-white border-t-red-500 rounded-lg p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-red-50 text-red-600">
+                        <i class="fas fa-arrow-up text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">إجمالي الخارج</span>
+                </div>
+                <div id="totalOut" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card bg-white border-t-green-500 rounded-lg p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-green-50 text-green-600">
+                        <i class="fas fa-wallet text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">صافي التدفق</span>
+                </div>
+                <div id="totalNet" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card bg-white border-t-purple-500 rounded-lg p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-purple-50 text-purple-600">
+                        <i class="fas fa-list text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">عدد السجلات</span>
+                </div>
+                <div id="rowCount" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">السنة المالية</label>
+                    <div class="relative">
+                        <select id="yearFilter" class="w-full appearance-none bg-white border border-slate-300 text-slate-700 py-2 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-slate-500" onchange="applyFilters()"></select>
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 text-slate-700">
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">الفترة</label>
+                    <div class="relative">
+                        <select id="periodFilter" class="w-full appearance-none bg-white border border-slate-300 text-slate-700 py-2 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-slate-500" onchange="applyFilters()">
+                            <option value="">الكل</option>
+                            <option value="Q1">الربع الأول</option>
+                            <option value="Q2">الربع الثاني</option>
+                            <option value="Q3">الربع الثالث</option>
+                            <option value="Q4">الربع الرابع</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 text-slate-700">
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">نوع التدفق</label>
+                    <div class="relative">
+                        <select id="typeFilter" class="w-full appearance-none bg-white border border-slate-300 text-slate-700 py-2 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-slate-500" onchange="applyFilters()">
+                            <option value="">الكل</option>
+                            <option value="operating">تشغيلي</option>
+                            <option value="investing">استثماري</option>
+                            <option value="financing">تمويلي</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 text-slate-700">
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">📊 مقارنة التدفقات</h3>
+                <div class="chart-container">
+                    <canvas id="summaryChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">ℹ️ ملخص سريع</h3>
+                <div id="infoPanel" class="space-y-4">
+                    <div class="animate-pulse text-slate-400">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-0">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 text-slate-700 text-sm font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="px-6 py-4 text-right">نوع التدفق</th>
+                                <th class="px-6 py-4 text-right">السنة</th>
+                                <th class="px-6 py-4 text-right">الفترة</th>
+                                <th class="px-6 py-4 text-right">الداخل</th>
+                                <th class="px-6 py-4 text-right">الخارج</th>
+                                <th class="px-6 py-4 text-right">الصافي</th>
+                                <th class="px-6 py-4 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTable" class="text-sm divide-y divide-slate-200 bg-white">
+                            <tr>
+                                <td colspan="7" class="px-6 py-12 text-center text-slate-500">
+                                    <i class="fas fa-spinner fa-spin text-3xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل الملخص...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-4 bg-slate-50 border-t border-slate-200 text-sm text-slate-600" id="tableCount"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Modal -->
+    <div id="summaryModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b">
+                <h3 id="summaryModalTitle" class="text-lg font-bold text-gray-800">إضافة سجل</h3>
+                <button onclick="closeSummaryModal()" class="text-slate-800 hover:text-red-600 font-bold">
+                    <i class="fas fa-xmark text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">نوع التدفق</label>
+                        <select id="flowType" class="w-full border rounded-lg px-3 py-2">
+                            <option value="operating">تشغيلي</option>
+                            <option value="investing">استثماري</option>
+                            <option value="financing">تمويلي</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">السنة المالية</label>
+                        <input id="fiscalYear" type="number" class="w-full border rounded-lg px-3 py-2" placeholder="2026">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الفترة</label>
+                        <select id="fiscalPeriod" class="w-full border rounded-lg px-3 py-2">
+                            <option value="1">الربع الأول</option>
+                            <option value="2">الربع الثاني</option>
+                            <option value="3">الربع الثالث</option>
+                            <option value="4">الربع الرابع</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الداخل</label>
+                        <input id="cashIn" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="0">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الخارج</label>
+                        <input id="cashOut" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الصافي (اختياري)</label>
+                        <input id="netCashflow" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="يحسب تلقائيًا">
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 border-t flex items-center justify-end gap-2">
+                <button onclick="closeSummaryModal()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                <button id="summaryModalSave" onclick="submitSummary()" class="px-4 py-2 rounded-lg bg-green-600 text-white">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        let allRows = [];
+        let chartInstance = null;
+        let summaryModalMode = 'create';
+        let editingSummaryKey = null;
+
+        async function loadSummary() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/cashflow-summary?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load cashflow summary');
+                }
+
+                allRows = data.rows || [];
+                renderSummary(data.summary || {});
+                renderFilters(allRows);
+                renderTable(allRows);
+                renderChart(allRows);
+                renderInfo(data.summary || {});
+            } catch (error) {
+                console.error('❌ خطأ في تحميل الملخص:', error);
+                document.getElementById('summaryTable').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل الملخص</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('totalIn').textContent = formatMoney(summary.total_in || 0);
+            document.getElementById('totalOut').textContent = formatMoney(summary.total_out || 0);
+            document.getElementById('totalNet').textContent = formatMoney(summary.total_net || 0);
+            document.getElementById('rowCount').textContent = summary.total_rows ?? '0';
+        }
+
+        function renderInfo(summary) {
+            document.getElementById('infoPanel').innerHTML = `
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <div class="p-2 bg-purple-50 rounded-full text-purple-600">
+                        <i class="fas fa-database text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500 font-medium">مصدر البيانات</div>
+                        <div class="font-bold text-slate-800">finance_cashflow (SUMMARY)</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <div class="p-2 bg-purple-50 rounded-full text-purple-600">
+                        <i class="fas fa-list text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500 font-medium">عدد السجلات</div>
+                        <div class="font-bold text-slate-800">${summary.total_rows ?? 0}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <div class="p-2 bg-purple-50 rounded-full text-purple-600">
+                        <i class="fas fa-wallet text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500 font-medium">صافي التدفق</div>
+                        <div class="font-bold text-slate-800">${formatMoney(summary.total_net || 0)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFilters(rows) {
+            const years = Array.from(new Set(rows.map(r => r.fiscal_year))).filter(Boolean).sort();
+            const yearSelect = document.getElementById('yearFilter');
+            yearSelect.innerHTML = '<option value="">الكل</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+        }
+
+
+        function renderTable(rows) {
+            const body = rows.map(r => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 text-slate-800 text-sm border-b border-slate-100">${translateType(r.flow_type)}</td>
+                    <td class="px-6 py-4 font-mono text-slate-600 text-sm border-b border-slate-100">${r.fiscal_year || '-'}</td>
+                    <td class="px-6 py-4 text-slate-700 text-sm border-b border-slate-100">${formatPeriod(r.fiscal_period)}</td>
+                    <td class="px-6 py-4 font-bold text-green-600 text-sm border-b border-slate-100">${formatMoney(r.cash_in)}</td>
+                    <td class="px-6 py-4 font-bold text-red-600 text-sm border-b border-slate-100">${formatMoney(r.cash_out)}</td>
+                    <td class="px-6 py-4 font-bold text-slate-800 text-sm border-b border-slate-100">${formatMoney(r.net_cashflow)}</td>
+                    <td class="px-6 py-4 text-slate-500 text-sm border-b border-slate-100">
+                        <div class="flex gap-2">
+                            <button onclick="openSummaryModal('view', '${r.flow_type}', ${r.fiscal_year}, ${r.fiscal_period})" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة">
+                                <i class="fas fa-eye text-lg"></i>
+                            </button>
+                            <button onclick="openSummaryModal('edit', '${r.flow_type}', ${r.fiscal_year}, ${r.fiscal_period})" class="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition shadow-md font-semibold" title="تعديل">
+                                <i class="fas fa-pen text-lg"></i>
+                            </button>
+                            <button onclick="deleteSummary('${r.flow_type}', ${r.fiscal_year}, ${r.fiscal_period})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف">
+                                <i class="fas fa-trash text-lg"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('summaryTable').innerHTML = body.length ? body : `
+                <tr>
+                    <td colspan="7" class="px-6 py-12 text-center text-slate-500">لا توجد بيانات</td>
+                </tr>
+            `;
+            document.getElementById('tableCount').textContent = `عدد الصفوف المعروضة: ${rows.length}`;
+        }
+
+        function renderChart(rows) {
+            const labels = rows.map(r => `${translateType(r.flow_type)} ${formatPeriod(r.fiscal_period)}`);
+            const net = rows.map(r => parseFloat(r.net_cashflow || 0));
+
+            const ctx = document.getElementById('summaryChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'صافي التدفق (ر.س)',
+                        data: net,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: value => value.toLocaleString('en-US') + ' SAR'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function applyFilters() {
+            const year = document.getElementById('yearFilter').value;
+            const period = document.getElementById('periodFilter').value;
+            const type = document.getElementById('typeFilter').value;
+
+            const filtered = allRows.filter(r => {
+                const matchesYear = !year || String(r.fiscal_year) === String(year);
+                const matchesPeriod = !period || `Q${r.fiscal_period}` === period;
+                const matchesType = !type || (r.flow_type || '').toLowerCase() === type;
+                return matchesYear && matchesPeriod && matchesType;
+            });
+
+            renderTable(filtered);
+            renderChart(filtered);
+
+            const summary = filtered.reduce((acc, r) => {
+                acc.total_in += parseFloat(r.cash_in || 0);
+                acc.total_out += parseFloat(r.cash_out || 0);
+                acc.total_net += parseFloat(r.net_cashflow || 0);
+                acc.total_rows += 1;
+                return acc;
+            }, { total_in: 0, total_out: 0, total_net: 0, total_rows: 0 });
+
+            renderSummary(summary);
+        }
+
+        function translateType(type) {
+            const map = {
+                'operating': 'تشغيلي',
+                'investing': 'استثماري',
+                'financing': 'تمويلي'
+            };
+            return map[(type || '').toLowerCase()] || (type || '-');
+        }
+
+        function formatPeriod(period) {
+            if (!period) return '-';
+            return `Q${period}`;
+        }
+
+        function openSummaryModal(mode, flowType = null, fiscalYear = null, fiscalPeriod = null) {
+            summaryModalMode = mode;
+            editingSummaryKey = { flowType, fiscalYear, fiscalPeriod };
+            const modal = document.getElementById('summaryModal');
+            const title = document.getElementById('summaryModalTitle');
+            const saveButton = document.getElementById('summaryModalSave');
+
+            title.textContent = mode === 'view' ? 'معاينة السجل' : mode === 'edit' ? 'تعديل السجل' : 'إضافة سجل';
+            saveButton.textContent = mode === 'edit' ? 'حفظ التعديل' : 'حفظ';
+            saveButton.classList.toggle('hidden', mode === 'view');
+
+            resetSummaryForm();
+            setSummaryFormDisabled(mode === 'view');
+
+            if (mode !== 'create' && flowType !== null) {
+                const row = allRows.find(r =>
+                    String(r.flow_type) === String(flowType) &&
+                    String(r.fiscal_year) === String(fiscalYear) &&
+                    String(r.fiscal_period) === String(fiscalPeriod)
+                );
+                if (row) fillSummaryForm(row);
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeSummaryModal() {
+            const modal = document.getElementById('summaryModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function resetSummaryForm() {
+            document.getElementById('flowType').value = 'operating';
+            document.getElementById('fiscalYear').value = '';
+            document.getElementById('fiscalPeriod').value = '1';
+            document.getElementById('cashIn').value = '';
+            document.getElementById('cashOut').value = '';
+            document.getElementById('netCashflow').value = '';
+        }
+
+        function fillSummaryForm(row) {
+            document.getElementById('flowType').value = (row.flow_type || 'operating').toLowerCase();
+            document.getElementById('fiscalYear').value = row.fiscal_year || '';
+            document.getElementById('fiscalPeriod').value = row.fiscal_period || '1';
+            document.getElementById('cashIn').value = row.cash_in || '';
+            document.getElementById('cashOut').value = row.cash_out || '';
+            document.getElementById('netCashflow').value = row.net_cashflow || '';
+        }
+
+        function setSummaryFormDisabled(disabled) {
+            ['flowType', 'fiscalYear', 'fiscalPeriod', 'cashIn', 'cashOut', 'netCashflow']
+                .forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.disabled = disabled;
+                });
+        }
+
+        async function submitSummary() {
+            const payload = {
+                entity_id: ENTITY_ID,
+                flow_type: document.getElementById('flowType').value,
+                fiscal_year: parseInt(document.getElementById('fiscalYear').value || 0, 10),
+                fiscal_period: parseInt(document.getElementById('fiscalPeriod').value || 0, 10),
+                cash_in: parseFloat(document.getElementById('cashIn').value || 0),
+                cash_out: parseFloat(document.getElementById('cashOut').value || 0),
+                net_cashflow: document.getElementById('netCashflow').value !== ''
+                    ? parseFloat(document.getElementById('netCashflow').value || 0)
+                    : null
+            };
+
+            if (!payload.fiscal_year || !payload.fiscal_period) {
+                alert('يرجى إدخال السنة والفترة');
+                return;
+            }
+
+            try {
+                const existing = allRows.find(r =>
+                    String(r.flow_type) === String(payload.flow_type) &&
+                    String(r.fiscal_year) === String(payload.fiscal_year) &&
+                    String(r.fiscal_period) === String(payload.fiscal_period)
+                );
+                const shouldUpdate = summaryModalMode === 'edit' || !!existing;
+                if (existing && summaryModalMode === 'create') {
+                    const confirmUpdate = confirm('هذا السجل موجود بالفعل. هل تريد تحديثه؟');
+                    if (!confirmUpdate) return;
+                }
+
+                const method = shouldUpdate ? 'PUT' : 'POST';
+                const res = await fetch(`${API_BASE}/finance/cashflow-summary`, {
+                    method,
+                    headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'تعذر حفظ السجل');
+                }
+
+                closeSummaryModal();
+                document.getElementById('yearFilter').value = '';
+                document.getElementById('periodFilter').value = '';
+                document.getElementById('typeFilter').value = '';
+                await loadSummary();
+                alert(shouldUpdate ? 'تم تحديث السجل بنجاح' : 'تم إضافة السجل بنجاح');
+            } catch (error) {
+                console.error('❌ خطأ في حفظ السجل:', error);
+                alert(error.message || 'تعذر حفظ السجل');
+            }
+        }
+
+        async function deleteSummary(flowType, fiscalYear, fiscalPeriod) {
+            if (!confirm('هل تريد حذف هذا السجل؟')) return;
+            const params = new URLSearchParams({
+                entity_id: ENTITY_ID,
+                flow_type: flowType,
+                fiscal_year: fiscalYear,
+                fiscal_period: fiscalPeriod
+            });
+            const res = await fetch(`${API_BASE}/finance/cashflow-summary?${params.toString()}`, {
+                method: 'DELETE',
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            });
+            if (res.ok) {
+                await loadSummary();
+            } else {
+                const data = await res.json();
+                alert(data.error || 'تعذر حذف السجل');
+            }
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function downloadCSV() {
+            if (!allRows.length) return;
+            const rows = [
+                ['نوع التدفق', 'السنة', 'الفترة', 'الداخل', 'الخارج', 'الصافي']
+            ];
+            allRows.forEach(r => {
+                rows.push([
+                    translateType(r.flow_type),
+                    r.fiscal_year,
+                    formatPeriod(r.fiscal_period),
+                    r.cash_in,
+                    r.cash_out,
+                    r.net_cashflow
+                ]);
+            });
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'cashflow-summary.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadJSON() {
+            if (!allRows.length) return;
+            const blob = new Blob([JSON.stringify(allRows, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'cashflow-summary.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printSummary() {
+            window.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadSummary);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

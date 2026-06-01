@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>دمج المرفقات - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- pdf-lib for client-side PDF merging & image-to-PDF -->
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <style>
+    :root {
+      --ink:       #0f172a;
+      --muted:     #64748b;
+      --indigo:    #6366f1;
+      --indigo-dk: #4f46e5;
+      --emerald:   #10b981;
+      --rose:      #f43f5e;
+      --sun:       #f59e0b;
+      --violet:    #7c3aed;
+      --line:      #e2e8f0;
+      --navy:      #0b1220;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 12%, rgba(99,102,241,0.18), transparent 40%),
+        radial-gradient(circle at 88% 15%, rgba(124,58,237,0.12), transparent 40%),
+        radial-gradient(circle at 50% 90%, rgba(15,23,42,0.06), transparent 50%),
+        linear-gradient(180deg, #eef2ff 0%, #f8fafc 50%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255,255,255,0.93);
+      border: 1px solid rgba(148,163,184,0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15,23,42,0.4);
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; font-weight: 800; border-radius: 999px;
+      padding: 10px 20px; transition: all 0.2s ease; border: 1px solid transparent;
+      cursor: pointer; font-family: 'Cairo', sans-serif; text-decoration: none;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px -18px rgba(15,23,42,0.4); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    /* ===== Hero ===== */
+    .merge-hero {
+      background:
+        radial-gradient(circle at 20% 30%, rgba(99,102,241,0.22) 0%, transparent 50%),
+        radial-gradient(circle at 85% 20%, rgba(124,58,237,0.18) 0%, transparent 45%),
+        linear-gradient(135deg, rgba(11,18,32,0.97) 0%, rgba(15,23,42,0.95) 60%, rgba(49,46,129,0.92) 100%);
+      border-radius: 28px;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .merge-hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(99,102,241,0.04) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(99,102,241,0.04) 0 1px, transparent 1px 40px);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(99,102,241,0.18); border: 1px solid rgba(99,102,241,0.35);
+      border-radius: 999px; padding: 6px 16px;
+      font-size: 13px; font-weight: 800; color: #a5b4fc;
+    }
+    .hero-pulse {
+      width: 10px; height: 10px; border-radius: 999px; background: #818cf8;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(129,140,248,0.5); }
+      50%      { opacity:.8; box-shadow:0 0 0 6px rgba(129,140,248,0); }
+    }
+    .scan-line {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(99,102,241,0.6), transparent);
+      animation: scanLine 3.5s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes scanLine {
+      0%   { transform: translateY(-100%); }
+      100% { transform: translateY(500%); }
+    }
+    .merge-orb {
+      width: 180px; height: 180px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(99,102,241,0.35), rgba(124,58,237,0.2), rgba(15,23,42,0.5));
+      border: 1px solid rgba(99,102,241,0.3);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      box-shadow: 0 0 60px rgba(99,102,241,0.2), inset 0 0 40px rgba(99,102,241,0.1);
+    }
+    .merge-orb::before { content:''; position:absolute; inset:-8px; border-radius:50%; border:1px solid rgba(99,102,241,0.15); }
+    .merge-orb::after  { content:''; position:absolute; inset:-20px; border-radius:50%; border:1px solid rgba(99,102,241,0.08); }
+
+    /* ===== Stat Cards ===== */
+    .stat-card {
+      border-radius: 22px; border: 1px solid var(--line);
+      background: #fff; padding: 18px 20px;
+      box-shadow: 0 8px 28px -16px rgba(15,23,42,0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px -20px rgba(15,23,42,0.3); }
+    .stat-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .stat-progress { height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .stat-progress-bar { height: 100%; border-radius: 999px; transition: width 1s ease; }
+
+    /* ===== Section label ===== */
+    .section-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25);
+      border-radius: 999px; padding: 5px 14px;
+      font-size: 12px; font-weight: 800; color: #4f46e5;
+    }
+
+    /* ===== Upload Drop Zone ===== */
+    .drop-zone {
+      border: 2px dashed rgba(99,102,241,0.4);
+      border-radius: 24px;
+      background: rgba(99,102,241,0.03);
+      transition: all 0.25s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: #6366f1;
+      background: rgba(99,102,241,0.07);
+      box-shadow: 0 0 0 6px rgba(99,102,241,0.08), inset 0 0 30px rgba(99,102,241,0.04);
+    }
+    .drop-zone.drag-over { transform: scale(1.01); }
+
+    /* ===== File List ===== */
+    .file-item {
+      display: flex; align-items: center; gap: 12px;
+      background: #fff; border: 1px solid var(--line);
+      border-radius: 16px; padding: 12px 14px;
+      box-shadow: 0 4px 14px -8px rgba(15,23,42,0.12);
+      transition: all 0.2s;
+      cursor: grab;
+      position: relative;
+    }
+    .file-item:active { cursor: grabbing; }
+    .file-item.drag-src { opacity: 0.4; transform: scale(0.97); }
+    .file-item.drag-target { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+    .file-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
+    .file-badge {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800;
+    }
+    .handle { color: #cbd5e1; font-size: 14px; cursor: grab; padding: 0 4px; }
+
+    /* ===== Progress Bar ===== */
+    .upload-progress {
+      height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden;
+      transition: opacity 0.3s;
+    }
+    .upload-progress-bar {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #6366f1, #7c3aed);
+      transition: width 0.4s ease;
+    }
+
+    /* ===== Loading Spinner ===== */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+
+    /* ===== Preview Area ===== */
+    .preview-area {
+      border: 1px solid var(--line); border-radius: 20px;
+      overflow: hidden; background: #f8fafc;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .preview-toolbar {
+      background: #fff; border-bottom: 1px solid var(--line);
+      padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+    }
+    .preview-dot { width: 12px; height: 12px; border-radius: 999px; }
+
+    /* ===== How-to Steps ===== */
+    .step-card {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 20px; background: #fff;
+      border: 1px solid var(--line); border-radius: 20px;
+      box-shadow: 0 4px 16px -8px rgba(15,23,42,0.12);
+      transition: transform 0.2s;
+    }
+    .step-card:hover { transform: translateX(-4px); }
+    .step-num {
+      width: 44px; height: 44px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; flex-shrink: 0;
+    }
+
+    /* ===== Feature Cards ===== */
+    .feature-card {
+      background: #fff; border: 1px solid var(--line);
+      border-radius: 22px; padding: 22px;
+      box-shadow: 0 8px 24px -16px rgba(15,23,42,0.15);
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 45px -20px rgba(15,23,42,0.3); }
+    .feature-icon {
+      width: 52px; height: 52px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center; font-size: 24px;
+    }
+
+    /* ===== Chip ===== */
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
+    }
+
+    /* ===== Toast ===== */
+    #am-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #0f172a; color: #fff; padding: 12px 28px; border-radius: 999px;
+      font-size: 14px; font-weight: 700; z-index: 200; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; white-space: nowrap;
+    }
+    #am-toast.show { opacity: 1; }
+    #am-toast.success { background: linear-gradient(135deg,#059669,#10b981); }
+    #am-toast.error   { background: linear-gradient(135deg,#dc2626,#ef4444); }
+
+    /* ===== Output Card ===== */
+    .output-card {
+      background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+      border: 2px solid rgba(99,102,241,0.25);
+      border-radius: 24px; padding: 28px;
+      box-shadow: 0 16px 40px -20px rgba(99,102,241,0.2);
+    }
+
+    /* ===== CTA section ===== */
+    .cta-section {
+      background: linear-gradient(135deg, #0b1220, #0f172a 50%, #1e1b4b);
+      border-radius: 28px; position: relative; overflow: hidden;
+    }
+    .cta-section::before {
+      content:''; position:absolute; inset:0;
+      background: radial-gradient(circle at 20% 50%, rgba(99,102,241,0.15), transparent 50%),
+                  radial-gradient(circle at 80% 30%, rgba(124,58,237,0.12), transparent 45%);
+      pointer-events:none;
+    }
+    .cta-section::after {
+      content:''; position:absolute; inset:0;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(99,102,241,0.03) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(99,102,241,0.03) 0 1px, transparent 1px 40px);
+      pointer-events:none;
+    }
+
+    /* ===== Rename modal ===== */
+    .rename-modal {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(15,23,42,0.65); backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .rename-modal.open { display: flex; }
+    .rename-box {
+      background: #fff; border-radius: 28px; width: 100%; max-width: 480px;
+      box-shadow: 0 40px 80px -20px rgba(15,23,42,0.5);
+    }
+    .form-label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
+    .form-input {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s;
+    }
+    .form-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+    .form-select {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none; background: #fff;
+      transition: border-color 0.2s; appearance: none; cursor: pointer;
+    }
+    .form-select:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+
+    @media (max-width: 768px) {
+      .merge-orb { width: 120px; height: 120px; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+  <!-- ============================================================
+       1. PAGE HEADER
+  ============================================================ -->
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <span class="chip bg-white text-slate-600 border border-slate-200 mb-2">
+        <i class="fas fa-paperclip text-indigo-500"></i>
+        دمج المرفقات
+      </span>
+    </div>
+    <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200 text-sm">
+      <i class="fas fa-arrow-right"></i>
+      العودة للموارد البشرية
+    </a>
+  </div>
+
+  <!-- ============================================================
+       2. HERO SECTION
+  ============================================================ -->
+  <div class="merge-hero p-8 md:p-12 mb-8">
+    <div class="scan-line"></div>
+    <div class="relative z-10">
+      <div class="flex flex-col lg:flex-row gap-10 items-center">
+        <div class="flex-1">
+          <div class="hero-badge mb-5">
+            <div class="hero-pulse"></div>
+            نظام دمج ذكي - تشغيل مباشر من المتصفح
+          </div>
+          <h1 class="text-4xl md:text-5xl font-extrabold mb-4 leading-tight">
+            📎 دمج المرفقات عند التحميل
+          </h1>
+          <p class="text-lg md:text-xl text-indigo-100 mb-6 leading-relaxed">
+            قم برفع ودمج ملفاتك بسهولة في ملف واحد — PDF وصور في ثوانٍ
+          </p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+            <div class="flex items-center gap-2 text-sm text-indigo-100">
+              <i class="fas fa-check-circle text-indigo-400 flex-shrink-0"></i>
+              دمج PDF
+            </div>
+            <div class="flex items-center gap-2 text-sm text-indigo-100">
+              <i class="fas fa-check-circle text-indigo-400 flex-shrink-0"></i>
+              صور ← PDF
+            </div>
+            <div class="flex items-center gap-2 text-sm text-indigo-100">
+              <i class="fas fa-check-circle text-indigo-400 flex-shrink-0"></i>
+              سحب وإفلات
+            </div>
+            <div class="flex items-center gap-2 text-sm text-indigo-100">
+              <i class="fas fa-check-circle text-indigo-400 flex-shrink-0"></i>
+              إعادة ترتيب
+            </div>
+            <div class="flex items-center gap-2 text-sm text-indigo-100">
+              <i class="fas fa-check-circle text-indigo-400 flex-shrink-0"></i>
+              خصوصية تامة
+            </div>
+            <div class="flex items-center gap-2 text-sm text-indigo-100">
+              <i class="fas fa-check-circle text-indigo-400 flex-shrink-0"></i>
+              تحميل فوري
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <a href="#tool-section" class="btn text-sm" style="background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-color:transparent; box-shadow:0 8px 24px -8px rgba(99,102,241,0.5);">
+              <i class="fas fa-upload"></i>
+              ابدأ الدمج الآن
+            </a>
+            <a href="#how-section" class="btn bg-white/10 text-white border-white/20 text-sm">
+              <i class="fas fa-info-circle"></i>
+              كيف يعمل؟
+            </a>
+          </div>
+        </div>
+        <!-- Merge Orb Visual -->
+        <div class="flex flex-col items-center gap-6 flex-shrink-0">
+          <div class="merge-orb">
+            <div style="text-align:center; position:relative; z-index:1;">
+              <div style="font-size:42px;">📎</div>
+              <div style="font-size:11px; font-weight:800; color:#a5b4fc; margin-top:4px;">MERGE</div>
+            </div>
+          </div>
+          <div class="flex gap-4 text-center">
+            <div>
+              <div class="text-2xl font-extrabold text-indigo-400" id="hero-files">0</div>
+              <div class="text-xs text-slate-400">ملف مرفوع</div>
+            </div>
+            <div style="width:1px; background:rgba(255,255,255,0.1);"></div>
+            <div>
+              <div class="text-2xl font-extrabold text-emerald-400" id="hero-merged">0</div>
+              <div class="text-xs text-slate-400">دمج منجز</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       3. STATS CARDS
+  ============================================================ -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(99,102,241,0.12); color:#4f46e5;">
+          <i class="fas fa-file-pdf"></i>
+        </div>
+        <span class="chip text-xs" style="background:rgba(99,102,241,0.12); color:#4f46e5;">مدعوم</span>
+      </div>
+      <div class="text-3xl font-extrabold mb-1">PDF</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">ملفات PDF</div>
+      <div class="text-xs text-slate-500 mb-3">دمج مباشر بدون فقدان جودة</div>
+      <div class="stat-progress">
+        <div class="stat-progress-bar" style="width:100%; background:linear-gradient(90deg,#6366f1,#4f46e5);"></div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(16,185,129,0.12); color:#047857;">
+          <i class="fas fa-image"></i>
+        </div>
+        <span class="chip text-xs" style="background:rgba(16,185,129,0.12); color:#047857;">مدعوم</span>
+      </div>
+      <div class="text-3xl font-extrabold mb-1">IMG</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">الصور JPG / PNG</div>
+      <div class="text-xs text-slate-500 mb-3">تحويل تلقائي إلى صفحات PDF</div>
+      <div class="stat-progress">
+        <div class="stat-progress-bar" style="width:100%; background:linear-gradient(90deg,#10b981,#34d399);"></div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(245,158,11,0.12); color:#b45309;">
+          <i class="fas fa-shield-alt"></i>
+        </div>
+        <span class="chip text-xs" style="background:rgba(245,158,11,0.12); color:#b45309;">آمن</span>
+      </div>
+      <div class="text-3xl font-extrabold mb-1">100%</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">خصوصية تامة</div>
+      <div class="text-xs text-slate-500 mb-3">لا يُرفع أي ملف للخوادم</div>
+      <div class="stat-progress">
+        <div class="stat-progress-bar" style="width:100%; background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(124,58,237,0.12); color:#6d28d9;">
+          <i class="fas fa-bolt"></i>
+        </div>
+        <span class="chip text-xs" style="background:rgba(124,58,237,0.12); color:#6d28d9;">سريع</span>
+      </div>
+      <div class="text-3xl font-extrabold mb-1">&lt;5ث</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">سرعة الدمج</div>
+      <div class="text-xs text-slate-500 mb-3">معالجة مباشرة في المتصفح</div>
+      <div class="stat-progress">
+        <div class="stat-progress-bar" style="width:95%; background:linear-gradient(90deg,#7c3aed,#8b5cf6);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       4. MAIN TOOL SECTION
+  ============================================================ -->
+  <div id="tool-section" class="glass p-6 md:p-8 mb-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="section-label"><i class="fas fa-tools"></i> منطقة الدمج</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-indigo-200"></div>
+    </div>
+
+    <!-- ── Upload Drop Zone ── -->
+    <div id="drop-zone" class="drop-zone p-10 text-center mb-6"
+         onclick="document.getElementById('file-input').click()">
+      <input type="file" id="file-input" multiple accept=".pdf,image/jpeg,image/png,image/jpg,.jpg,.jpeg,.png"
+             class="hidden" onchange="handleFileSelect(event)">
+      <div id="dz-idle">
+        <div class="text-6xl mb-4">☁️</div>
+        <p class="text-xl font-extrabold text-slate-700 mb-2">اسحب الملفات وأفلتها هنا</p>
+        <p class="text-sm text-slate-500 mb-5">أو انقر للاختيار من جهازك</p>
+        <button type="button" class="btn text-sm" style="background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-color:transparent;">
+          <i class="fas fa-upload"></i> رفع ملفات
+        </button>
+        <div class="mt-4 flex flex-wrap justify-center gap-2">
+          <span class="chip" style="background:rgba(239,68,68,0.1); color:#dc2626;">PDF</span>
+          <span class="chip" style="background:rgba(99,102,241,0.1); color:#4f46e5;">JPG</span>
+          <span class="chip" style="background:rgba(16,185,129,0.1); color:#059669;">PNG</span>
+        </div>
+      </div>
+      <div id="dz-loading" class="hidden">
+        <div class="spinner mx-auto mb-3" style="border-top-color:#6366f1; border-color:rgba(99,102,241,0.2);"></div>
+        <p class="text-sm font-bold text-indigo-600">جاري قراءة الملفات...</p>
+      </div>
+    </div>
+
+    <!-- ── Upload Progress ── -->
+    <div id="upload-progress-wrap" class="mb-6 hidden">
+      <div class="flex justify-between text-xs font-bold text-slate-500 mb-2">
+        <span>جاري المعالجة...</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="upload-progress">
+        <div id="progress-bar" class="upload-progress-bar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- ── File List ── -->
+    <div id="file-list-wrap" class="hidden mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="section-label text-xs"><i class="fas fa-list"></i> الملفات المرفوعة</span>
+          <span id="file-count-badge" class="chip text-xs" style="background:rgba(99,102,241,0.12); color:#4f46e5;">0 ملف</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="clearAllFiles()" class="btn text-xs bg-white border border-rose-200 text-rose-600">
+            <i class="fas fa-trash"></i> مسح الكل
+          </button>
+          <button onclick="document.getElementById('file-input').click()" class="btn text-xs bg-white border border-indigo-200 text-indigo-600">
+            <i class="fas fa-plus"></i> إضافة المزيد
+          </button>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 mb-3 flex items-center gap-1">
+        <i class="fas fa-grip-vertical"></i>
+        اسحب وأفلت لإعادة الترتيب
+      </p>
+      <div id="file-list" class="space-y-2"></div>
+
+      <!-- Total size indicator -->
+      <div class="mt-3 flex items-center gap-2 text-xs text-slate-500">
+        <i class="fas fa-info-circle text-indigo-400"></i>
+        إجمالي الحجم: <span id="total-size-label" class="font-bold text-slate-700">0 KB</span>
+        &nbsp;|&nbsp; عدد الصفحات المقدّرة: <span id="total-pages-label" class="font-bold text-slate-700">—</span>
+      </div>
+    </div>
+
+    <!-- ── Output Options ── -->
+    <div id="output-options" class="hidden grid sm:grid-cols-2 gap-4 mb-6">
+      <div>
+        <label class="form-label">اسم الملف الناتج</label>
+        <input id="output-filename" type="text" class="form-input" value="ملف-مدمج"
+               placeholder="ادخل اسم الملف الناتج" dir="rtl">
+      </div>
+      <div>
+        <label class="form-label">صيغة الإخراج</label>
+        <select id="output-format" class="form-select" dir="rtl">
+          <option value="pdf">PDF — ملف واحد مدمج</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ── Merge Button ── -->
+    <div id="merge-btn-wrap" class="hidden">
+      <button id="merge-btn" onclick="mergeFiles()" class="btn w-full py-4 text-base"
+              style="background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-radius:16px; box-shadow:0 12px 32px -12px rgba(99,102,241,0.5);">
+        <i class="fas fa-compress-alt"></i>
+        دمج الملفات في ملف واحد
+      </button>
+    </div>
+
+    <!-- ── Merge Loading ── -->
+    <div id="merge-loading" class="hidden text-center py-8">
+      <div class="inline-flex items-center gap-4 glass px-8 py-5">
+        <div class="spinner" style="border-top-color:#6366f1; border-color:rgba(99,102,241,0.2);"></div>
+        <div>
+          <p class="font-extrabold text-indigo-700 text-base" id="merge-status-text">جاري الدمج...</p>
+          <p class="text-xs text-slate-500 mt-1" id="merge-sub-text">يُرجى الانتظار</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       5. OUTPUT / RESULT SECTION
+  ============================================================ -->
+  <div id="result-section" class="output-card mb-8 hidden">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style="background:rgba(16,185,129,0.15);">
+        ✅
+      </div>
+      <div>
+        <p class="text-xl font-extrabold text-emerald-700">تم الدمج بنجاح!</p>
+        <p class="text-sm text-slate-500" id="result-info">ملفك جاهز للتحميل</p>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-area mb-5">
+      <div class="preview-toolbar">
+        <div class="preview-dot" style="background:#f87171;"></div>
+        <div class="preview-dot" style="background:#fbbf24;"></div>
+        <div class="preview-dot" style="background:#34d399;"></div>
+        <span class="text-xs text-slate-400 mr-2 font-bold">معاينة الملف المدمج</span>
+      </div>
+      <div class="p-4" style="min-height:220px; max-height:480px; overflow-y:auto;" id="preview-container">
+        <p class="text-center text-slate-400 text-sm mt-10">جاري تحميل المعاينة...</p>
+      </div>
+    </div>
+
+    <!-- Download + Actions -->
+    <div class="flex flex-wrap gap-3">
+      <button id="download-btn" onclick="downloadMerged()"
+              class="btn text-sm" style="background:linear-gradient(135deg,#059669,#10b981); color:#fff; border-color:transparent; box-shadow:0 8px 20px -8px rgba(16,185,129,0.4);">
+        <i class="fas fa-download"></i>
+        تحميل الملف المدمج
+      </button>
+      <button onclick="startOver()" class="btn text-sm bg-white border border-slate-200 text-slate-700">
+        <i class="fas fa-redo"></i>
+        بدء من جديد
+      </button>
+      <button onclick="openRenameModal()" class="btn text-sm bg-white border border-indigo-200 text-indigo-700">
+        <i class="fas fa-edit"></i>
+        إعادة تسمية
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       6. HOW IT WORKS
+  ============================================================ -->
+  <div id="how-section" class="mb-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="section-label"><i class="fas fa-route"></i> كيف يعمل</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-indigo-200"></div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div class="step-card">
+        <div class="step-num" style="background:rgba(99,102,241,0.12); color:#4f46e5;">1</div>
+        <div>
+          <h3 class="font-extrabold text-base mb-1">ارفع ملفاتك</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">اسحب وأفلت PDF أو صور JPG/PNG أو انقر لاختيارها من جهازك.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num" style="background:rgba(16,185,129,0.12); color:#059669;">2</div>
+        <div>
+          <h3 class="font-extrabold text-base mb-1">رتّب الملفات</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">اسحب الملفات لإعادة ترتيبها قبل الدمج كما تريد.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num" style="background:rgba(124,58,237,0.12); color:#6d28d9;">3</div>
+        <div>
+          <h3 class="font-extrabold text-base mb-1">اضغط "دمج"</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">يتم الدمج فوراً في المتصفح — لا يُرسل أي بيانات للخوادم.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num" style="background:rgba(245,158,11,0.12); color:#b45309;">4</div>
+        <div>
+          <h3 class="font-extrabold text-base mb-1">حمّل الناتج</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">استعرض المعاينة وحمّل ملف PDF المدمج مباشرةً.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       7. FEATURES SECTION
+  ============================================================ -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="section-label"><i class="fas fa-star"></i> المزايا</div>
+      <div class="flex-1 h-px bg-gradient-to-l from-transparent to-indigo-200"></div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="feature-card" style="border-top:3px solid #6366f1;">
+        <div class="feature-icon mb-3" style="background:rgba(99,102,241,0.12); color:#4f46e5;">
+          <i class="fas fa-lock"></i>
+        </div>
+        <h3 class="font-extrabold text-base mb-2">خصوصية كاملة</h3>
+        <p class="text-sm text-slate-500 leading-relaxed">جميع العمليات تتم داخل متصفحك فقط. لا يُرفع أي ملف لأي خادم.</p>
+      </div>
+      <div class="feature-card" style="border-top:3px solid #10b981;">
+        <div class="feature-icon mb-3" style="background:rgba(16,185,129,0.12); color:#047857;">
+          <i class="fas fa-image"></i>
+        </div>
+        <h3 class="font-extrabold text-base mb-2">تحويل الصور تلقائياً</h3>
+        <p class="text-sm text-slate-500 leading-relaxed">الصور (JPG/PNG) تتحول تلقائياً إلى صفحات PDF قبل الدمج.</p>
+      </div>
+      <div class="feature-card" style="border-top:3px solid #f59e0b;">
+        <div class="feature-icon mb-3" style="background:rgba(245,158,11,0.12); color:#b45309;">
+          <i class="fas fa-sort"></i>
+        </div>
+        <h3 class="font-extrabold text-base mb-2">إعادة الترتيب بسهولة</h3>
+        <p class="text-sm text-slate-500 leading-relaxed">اسحب وأفلت الملفات لترتيبها كما تريد قبل الدمج.</p>
+      </div>
+      <div class="feature-card" style="border-top:3px solid #7c3aed;">
+        <div class="feature-icon mb-3" style="background:rgba(124,58,237,0.12); color:#6d28d9;">
+          <i class="fas fa-eye"></i>
+        </div>
+        <h3 class="font-extrabold text-base mb-2">معاينة فورية</h3>
+        <p class="text-sm text-slate-500 leading-relaxed">استعرض الملف المدمج قبل تحميله للتأكد من النتيجة.</p>
+      </div>
+      <div class="feature-card" style="border-top:3px solid #f43f5e;">
+        <div class="feature-icon mb-3" style="background:rgba(244,63,94,0.12); color:#be123c;">
+          <i class="fas fa-file-signature"></i>
+        </div>
+        <h3 class="font-extrabold text-base mb-2">تسمية الملف الناتج</h3>
+        <p class="text-sm text-slate-500 leading-relaxed">اختر اسماً مخصصاً للملف المدمج قبل تحميله.</p>
+      </div>
+      <div class="feature-card" style="border-top:3px solid #0ea5e9;">
+        <div class="feature-icon mb-3" style="background:rgba(14,165,233,0.12); color:#0369a1;">
+          <i class="fas fa-infinity"></i>
+        </div>
+        <h3 class="font-extrabold text-base mb-2">بدون حدود</h3>
+        <p class="text-sm text-slate-500 leading-relaxed">ادمج عدداً غير محدود من الملفات في جلسة واحدة.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       8. CTA SECTION
+  ============================================================ -->
+  <div class="cta-section p-8 md:p-12 mb-8">
+    <div class="relative z-10 text-center">
+      <div class="text-5xl mb-4">📎</div>
+      <h2 class="text-3xl font-extrabold text-white mb-3">جاهز للدمج؟</h2>
+      <p class="text-indigo-200 mb-6 max-w-lg mx-auto">ارفع ملفاتك الآن وادمجها في ثوانٍ — مجاناً وبشكل كامل داخل متصفحك</p>
+      <a href="#tool-section"
+         class="btn text-base" style="background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-color:transparent; box-shadow:0 12px 30px -10px rgba(99,102,241,0.5);">
+        <i class="fas fa-upload"></i>
+        ابدأ الآن
+      </a>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ============================================================
+     RENAME MODAL
+============================================================ -->
+<div id="rename-modal" class="rename-modal">
+  <div class="rename-box p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-extrabold">تسمية الملف الناتج</h2>
+      <button onclick="closeRenameModal()" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+    </div>
+    <label class="form-label">اسم الملف (بدون امتداد)</label>
+    <input id="rename-input" type="text" class="form-input mb-5" dir="rtl" placeholder="ملف-مدمج">
+    <div class="flex gap-3">
+      <button onclick="applyRename()" class="btn flex-1 text-sm" style="background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff;">
+        <i class="fas fa-check"></i> تطبيق
+      </button>
+      <button onclick="closeRenameModal()" class="btn flex-1 text-sm bg-white border border-slate-200 text-slate-700">
+        إلغاء
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="am-toast"></div>
+
+<script>
+/* ============================================================
+   STATE
+============================================================ */
+let uploadedFiles = [];       // Array of { id, file, name, size, type }
+let mergedPdfBytes = null;    // Uint8Array of merged PDF
+let mergeCount = 0;
+let dragSrcId = null;
+
+/* ============================================================
+   DRAG & DROP ON DROP-ZONE
+============================================================ */
+const dropZone = document.getElementById('drop-zone');
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files);
+  processNewFiles(files);
+});
+
+/* ============================================================
+   FILE INPUT
+============================================================ */
+function handleFileSelect(event) {
+  const files = Array.from(event.target.files);
+  processNewFiles(files);
+  event.target.value = ''; // reset so same file can be re-added
+}
+
+async function processNewFiles(files) {
+  const allowed = files.filter(f => isAllowedType(f));
+  const rejected = files.filter(f => !isAllowedType(f));
+
+  if (rejected.length) {
+    showToast(`${rejected.length} ملف(ات) غير مدعومة تم تجاهلها`, 'error');
+  }
+  if (!allowed.length) return;
+
+  showProgress(true);
+  for (let i = 0; i < allowed.length; i++) {
+    const f = allowed[i];
+    const id = Date.now() + '_' + i;
+    uploadedFiles.push({ id, file: f, name: f.name, size: f.size, type: f.type });
+    updateProgress(((i + 1) / allowed.length) * 100);
+    await delay(60); // slight visual delay for progress feel
+  }
+
+  showProgress(false);
+  renderFileList();
+  updateHeroCount();
+  showToast(`تم إضافة ${allowed.length} ملف(ات) بنجاح`, 'success');
+}
+
+function isAllowedType(file) {
+  return file.type === 'application/pdf' ||
+         file.type === 'image/jpeg' ||
+         file.type === 'image/jpg' ||
+         file.type === 'image/png';
+}
+
+/* ============================================================
+   RENDER FILE LIST
+============================================================ */
+function renderFileList() {
+  const wrap = document.getElementById('file-list-wrap');
+  const list = document.getElementById('file-list');
+  const outputOpts = document.getElementById('output-options');
+  const mergeWrap = document.getElementById('merge-btn-wrap');
+  const countBadge = document.getElementById('file-count-badge');
+  const totalSize = document.getElementById('total-size-label');
+  const totalPages = document.getElementById('total-pages-label');
+
+  if (uploadedFiles.length === 0) {
+    wrap.classList.add('hidden');
+    outputOpts.classList.add('hidden');
+    mergeWrap.classList.add('hidden');
+    hideResult();
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+  outputOpts.classList.remove('hidden');
+  mergeWrap.classList.remove('hidden');
+
+  countBadge.textContent = uploadedFiles.length + ' ملف';
+
+  let total = uploadedFiles.reduce((s, f) => s + f.size, 0);
+  totalSize.textContent = formatSize(total);
+  totalPages.textContent = uploadedFiles.length + ' صفحة على الأقل';
+
+  list.innerHTML = uploadedFiles.map((f, idx) => `
+    <div class="file-item" id="item-${f.id}"
+         draggable="true"
+         ondragstart="onFileDragStart(event,'${f.id}')"
+         ondragover="onFileDragOver(event,'${f.id}')"
+         ondrop="onFileDrop(event,'${f.id}')"
+         ondragend="onFileDragEnd(event)">
+      <span class="handle"><i class="fas fa-grip-vertical"></i></span>
+      <div class="file-icon" style="${fileIconStyle(f.type)}">
+        ${fileIconHtml(f.type)}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-bold text-sm truncate" title="${esc(f.name)}">${esc(f.name)}</p>
+        <div class="flex flex-wrap items-center gap-2 mt-1">
+          <span class="file-badge" style="${typeBadgeStyle(f.type)}">${typeBadgeLabel(f.type)}</span>
+          <span class="text-xs text-slate-400">${formatSize(f.size)}</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button onclick="moveFile('${f.id}',-1)" title="لأعلى" class="btn text-xs px-2 py-1 bg-white border border-slate-200 text-slate-500" ${idx===0?'disabled':''}>
+          <i class="fas fa-chevron-up"></i>
+        </button>
+        <button onclick="moveFile('${f.id}',1)" title="لأسفل" class="btn text-xs px-2 py-1 bg-white border border-slate-200 text-slate-500" ${idx===uploadedFiles.length-1?'disabled':''}>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <button onclick="removeFile('${f.id}')" title="حذف" class="btn text-xs px-2 py-1 bg-white border border-rose-200 text-rose-500">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ── File item drag-reorder ── */
+function onFileDragStart(e, id) {
+  dragSrcId = id;
+  setTimeout(() => {
+    const el = document.getElementById('item-' + id);
+    if (el) el.classList.add('drag-src');
+  }, 0);
+}
+function onFileDragOver(e, id) {
+  e.preventDefault();
+  document.querySelectorAll('.file-item').forEach(el => el.classList.remove('drag-target'));
+  if (id !== dragSrcId) {
+    const el = document.getElementById('item-' + id);
+    if (el) el.classList.add('drag-target');
+  }
+}
+function onFileDrop(e, targetId) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (dragSrcId === targetId) return;
+  const srcIdx = uploadedFiles.findIndex(f => f.id === dragSrcId);
+  const tgtIdx = uploadedFiles.findIndex(f => f.id === targetId);
+  if (srcIdx < 0 || tgtIdx < 0) return;
+  const [moved] = uploadedFiles.splice(srcIdx, 1);
+  uploadedFiles.splice(tgtIdx, 0, moved);
+  renderFileList();
+}
+function onFileDragEnd(e) {
+  document.querySelectorAll('.file-item').forEach(el => {
+    el.classList.remove('drag-src', 'drag-target');
+  });
+  dragSrcId = null;
+}
+
+/* ── Move with arrows ── */
+function moveFile(id, dir) {
+  const idx = uploadedFiles.findIndex(f => f.id === id);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= uploadedFiles.length) return;
+  [uploadedFiles[idx], uploadedFiles[newIdx]] = [uploadedFiles[newIdx], uploadedFiles[idx]];
+  renderFileList();
+}
+
+function removeFile(id) {
+  uploadedFiles = uploadedFiles.filter(f => f.id !== id);
+  renderFileList();
+  updateHeroCount();
+  if (uploadedFiles.length === 0) hideResult();
+}
+
+function clearAllFiles() {
+  uploadedFiles = [];
+  mergedPdfBytes = null;
+  renderFileList();
+  updateHeroCount();
+  hideResult();
+}
+
+/* ============================================================
+   MERGE CORE (Client-side via pdf-lib)
+============================================================ */
+async function mergeFiles() {
+  if (uploadedFiles.length < 2) {
+    showToast('ارفع ملفين على الأقل للدمج', 'error');
+    return;
+  }
+
+  showMergeLoading(true, 'جاري تهيئة عملية الدمج...');
+  document.getElementById('merge-btn-wrap').classList.add('hidden');
+  hideResult();
+
+  try {
+    const { PDFDocument } = PDFLib;
+    const mergedPdf = await PDFDocument.create();
+
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const f = uploadedFiles[i];
+      updateMergeStatus(
+        `جاري معالجة الملف ${i + 1} من ${uploadedFiles.length}`,
+        f.name
+      );
+
+      const bytes = await readFileAsArrayBuffer(f.file);
+
+      if (f.type === 'application/pdf') {
+        const srcDoc = await PDFDocument.load(bytes);
+        const pages  = await mergedPdf.copyPages(srcDoc, srcDoc.getPageIndices());
+        pages.forEach(p => mergedPdf.addPage(p));
+      } else {
+        // Image → embed as PDF page
+        let embeddedImg;
+        if (f.type === 'image/png') {
+          embeddedImg = await mergedPdf.embedPng(bytes);
+        } else {
+          embeddedImg = await mergedPdf.embedJpg(bytes);
+        }
+        const { width, height } = embeddedImg.scale(1);
+        const page = mergedPdf.addPage([width, height]);
+        page.drawImage(embeddedImg, { x: 0, y: 0, width, height });
+      }
+    }
+
+    updateMergeStatus('جاري توليد الملف النهائي...', '');
+    mergedPdfBytes = await mergedPdf.save();
+    mergeCount++;
+
+    showMergeLoading(false);
+    document.getElementById('merge-btn-wrap').classList.remove('hidden');
+    showResult(mergedPdf.getPageCount());
+    updateHeroCount();
+    showToast('تم الدمج بنجاح! 🎉', 'success');
+
+  } catch (err) {
+    console.error('Merge error:', err);
+    showMergeLoading(false);
+    document.getElementById('merge-btn-wrap').classList.remove('hidden');
+    showToast('حدث خطأ أثناء الدمج: ' + (err.message || 'خطأ غير معروف'), 'error');
+  }
+}
+
+/* ============================================================
+   RESULT & DOWNLOAD
+============================================================ */
+function showResult(pageCount) {
+  const section = document.getElementById('result-section');
+  const info    = document.getElementById('result-info');
+  const preview = document.getElementById('preview-container');
+
+  info.textContent = `${uploadedFiles.length} ملف ← ${pageCount} صفحة — ${formatSize(mergedPdfBytes.byteLength)}`;
+
+  // Embed the merged PDF in an iframe for preview
+  const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+  const url  = URL.createObjectURL(blob);
+  preview.innerHTML = `
+    <iframe src="${url}" style="width:100%; height:420px; border:none; border-radius:12px;"
+            title="معاينة الملف المدمج"></iframe>
+  `;
+
+  section.classList.remove('hidden');
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function hideResult() {
+  document.getElementById('result-section').classList.add('hidden');
+  document.getElementById('preview-container').innerHTML = '';
+}
+
+function downloadMerged() {
+  if (!mergedPdfBytes) return;
+  const name = (document.getElementById('output-filename').value.trim() || 'ملف-مدمج') + '.pdf';
+  const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+  showToast('بدأ التحميل بنجاح ✓', 'success');
+}
+
+function startOver() {
+  clearAllFiles();
+  mergedPdfBytes = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── Rename Modal ── */
+function openRenameModal() {
+  document.getElementById('rename-input').value =
+    document.getElementById('output-filename').value;
+  document.getElementById('rename-modal').classList.add('open');
+}
+function closeRenameModal() {
+  document.getElementById('rename-modal').classList.remove('open');
+}
+function applyRename() {
+  const v = document.getElementById('rename-input').value.trim();
+  if (v) document.getElementById('output-filename').value = v;
+  closeRenameModal();
+  showToast('تم تغيير الاسم', 'success');
+}
+
+/* ============================================================
+   UI HELPERS
+============================================================ */
+function showProgress(show) {
+  const wrap = document.getElementById('upload-progress-wrap');
+  wrap.classList.toggle('hidden', !show);
+}
+function updateProgress(pct) {
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = Math.round(pct) + '%';
+}
+function showMergeLoading(show, msg, sub) {
+  document.getElementById('merge-loading').classList.toggle('hidden', !show);
+  if (msg) document.getElementById('merge-status-text').textContent = msg;
+  if (sub !== undefined) document.getElementById('merge-sub-text').textContent = sub;
+}
+function updateMergeStatus(msg, sub) {
+  document.getElementById('merge-status-text').textContent = msg;
+  document.getElementById('merge-sub-text').textContent = sub || '';
+}
+
+function updateHeroCount() {
+  document.getElementById('hero-files').textContent = uploadedFiles.length;
+  document.getElementById('hero-merged').textContent = mergeCount;
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('am-toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type || '');
+  setTimeout(() => { t.className = t.className.replace('show','').trim(); }, 3000);
+}
+
+/* ── File type helpers ── */
+function fileIconStyle(type) {
+  if (type === 'application/pdf') return 'background:rgba(239,68,68,0.12); color:#dc2626;';
+  if (type === 'image/png')       return 'background:rgba(99,102,241,0.12); color:#4f46e5;';
+  return 'background:rgba(16,185,129,0.12); color:#059669;';
+}
+function fileIconHtml(type) {
+  if (type === 'application/pdf') return '<i class="fas fa-file-pdf"></i>';
+  return '<i class="fas fa-file-image"></i>';
+}
+function typeBadgeStyle(type) {
+  if (type === 'application/pdf') return 'background:rgba(239,68,68,0.1); color:#dc2626;';
+  if (type === 'image/png')       return 'background:rgba(99,102,241,0.1); color:#4f46e5;';
+  return 'background:rgba(16,185,129,0.1); color:#059669;';
+}
+function typeBadgeLabel(type) {
+  if (type === 'application/pdf') return 'PDF';
+  if (type === 'image/png')       return 'PNG';
+  return 'JPG';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024)       return bytes + ' B';
+  if (bytes < 1048576)    return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(2) + ' MB';
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function readFileAsArrayBuffer(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* ============================================================
+   ANIMATED COUNTERS (on load)
+============================================================ */
+function animateCounters() {
+  document.querySelectorAll('.counter[data-target]').forEach(el => {
+    const target = parseInt(el.dataset.target);
+    const suffix = el.dataset.suffix || '';
+    let cur = 0;
+    const step = Math.max(1, Math.floor(target / 60));
+    const tick = setInterval(() => {
+      cur = Math.min(cur + step, target);
+      el.textContent = cur.toLocaleString('ar-EG') + suffix;
+      if (cur >= target) clearInterval(tick);
+    }, 20);
+  });
+}
+document.addEventListener('DOMContentLoaded', animateCounters);
+</script>
+</body>
+</html>

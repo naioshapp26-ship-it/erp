@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📘 أرصدة الحسابات - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f8fafc; /* bg-slate-50 */
+            color: #0f172a; /* text-slate-900 */
+        }
+        .stat-card {
+            transition: all 0.3s ease;
+            border-top-width: 4px;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+        .table-scroll {
+            max-height: 520px;
+            overflow: auto;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">📘 أرصدة الحسابات</h1>
+            <p class="text-slate-600">تفاصيل أرصدة الحسابات مع التحليل حسب النوع</p>
+        </div>
+
+        <div class="mb-6 flex gap-3 flex-wrap">
+            <button onclick="openAccountModal('add')" class="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-plus-circle"></i>
+                إضافة حساب
+            </button>
+            <button onclick="downloadCSV()" class="bg-white border border-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-bold hover:bg-slate-50 hover:border-slate-300 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-csv text-green-600"></i>
+                تنزيل CSV
+            </button>
+            <button onclick="downloadJSON()" class="bg-white border border-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-bold hover:bg-slate-50 hover:border-slate-300 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-code text-blue-600"></i>
+                تنزيل JSON
+            </button>
+            <button onclick="printReport()" class="bg-white border border-slate-200 text-slate-700 px-6 py-2.5 rounded-lg font-bold hover:bg-slate-50 hover:border-slate-300 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-print text-slate-600"></i>
+                طباعة
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card bg-white border-t-blue-500 rounded-lg p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-blue-50 text-blue-600">
+                        <i class="fas fa-list text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">عدد الحسابات</span>
+                </div>
+                <div id="totalAccounts" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card bg-white border-t-red-500 rounded-lg p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-red-50 text-red-600">
+                        <i class="fas fa-arrow-down text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">إجمالي المدين</span>
+                </div>
+                <div id="totalDebit" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card bg-white border-t-green-500 rounded-lg p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-green-50 text-green-600">
+                        <i class="fas fa-arrow-up text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">إجمالي الدائن</span>
+                </div>
+                <div id="totalCredit" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card bg-white border-t-purple-500 rounded-lg p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-purple-50 text-purple-600">
+                        <i class="fas fa-wallet text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">إجمالي الرصيد</span>
+                </div>
+                <div id="totalBalance" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">نوع الحساب</label>
+                    <input id="accountType" type="text" placeholder="asset" class="w-full bg-white border border-slate-300 text-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">بحث بالاسم أو الكود</label>
+                    <input id="searchText" type="text" placeholder="1100" class="w-full bg-white border border-slate-300 text-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent" oninput="filterLocal()">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">📊 الرصيد حسب النوع</h3>
+                <div class="chart-container">
+                    <canvas id="typeChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">💡 ملخص سريع</h3>
+                <div id="infoPanel" class="space-y-4">
+                    <div class="animate-pulse text-slate-400">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-0">
+                <div class="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+                    <h3 class="text-lg font-bold text-slate-800">📋 جدول الأرصدة</h3>
+                    <span id="rowsCount" class="text-sm text-slate-600"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 text-slate-700 text-xs font-semibold">
+                            <tr>
+                                <th class="px-3 py-3 text-right">account_id</th>
+                                <th class="px-3 py-3 text-right">account_code</th>
+                                <th class="px-3 py-3 text-right">account_name_ar</th>
+                                <th class="px-3 py-3 text-right">account_type</th>
+                                <th class="px-3 py-3 text-right">entity_type</th>
+                                <th class="px-3 py-3 text-right">entity_id</th>
+                                <th class="px-3 py-3 text-right">total_debit</th>
+                                <th class="px-3 py-3 text-right">total_credit</th>
+                                <th class="px-3 py-3 text-right">balance</th>
+                                <th class="px-3 py-3 text-right">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="balancesTable" class="text-xs divide-y divide-slate-200 bg-white">
+                            <tr>
+                                <td colspan="10" class="px-4 py-12 text-center text-slate-500">
+                                    <i class="fas fa-spinner fa-spin text-3xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل البيانات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        let rows = [];
+        let filteredRows = [];
+        let typeChartInstance = null;
+        let currentAccountId = null;
+        let currentMode = 'add';
+
+        async function loadReport() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/account-balances?entity_id=${ENTITY_ID}`);
+                const data = await response.json();
+
+                if (!data.success) throw new Error(data.error || 'Failed to load report');
+
+                rows = data.rows || [];
+                filteredRows = rows;
+                renderSummary(data.summary || {});
+                renderTable(filteredRows);
+                renderChart(data.summary || {});
+                renderInfo(data.summary || {});
+            } catch (error) {
+                console.error('❌ خطأ في تحميل التقرير:', error);
+                document.getElementById('balancesTable').innerHTML = `
+                    <tr>
+                        <td colspan="10" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل بيانات الأرصدة</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function applyFilters() {
+            const params = new URLSearchParams({ entity_id: ENTITY_ID });
+            const accountType = document.getElementById('accountType').value;
+            if (accountType) params.append('account_type', accountType);
+
+            fetch(`${API_BASE}/finance/account-balances?${params.toString()}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Failed to load report');
+                    rows = data.rows || [];
+                    filteredRows = rows;
+                    renderSummary(data.summary || {});
+                    renderTable(filteredRows);
+                    renderChart(data.summary || {});
+                    renderInfo(data.summary || {});
+                })
+                .catch(err => console.error('❌', err));
+        }
+
+        function filterLocal() {
+            const search = document.getElementById('searchText').value.trim().toLowerCase();
+            if (!search) {
+                filteredRows = rows;
+            } else {
+                filteredRows = rows.filter(r =>
+                    String(r.account_code || '').toLowerCase().includes(search) ||
+                    String(r.account_name_ar || '').toLowerCase().includes(search)
+                );
+            }
+            renderTable(filteredRows);
+            document.getElementById('rowsCount').textContent = `عدد الصفوف: ${filteredRows.length}`;
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('totalAccounts').textContent = summary.total_accounts ?? 0;
+            document.getElementById('totalDebit').textContent = formatMoney(summary.total_debit || 0);
+            document.getElementById('totalCredit').textContent = formatMoney(summary.total_credit || 0);
+            document.getElementById('totalBalance').textContent = formatMoney(summary.total_balance || 0);
+        }
+
+        function renderTable(rowsData) {
+            const body = rowsData.map(r => `
+                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                    <td class="px-3 py-3 font-medium text-slate-900">${r.account_id ?? '-'}</td>
+                    <td class="px-3 py-3 text-slate-700 font-mono text-xs">${r.account_code ?? '-'}</td>
+                    <td class="px-3 py-3 text-slate-700">${r.account_name_ar ?? '-'}</td>
+                    <td class="px-3 py-3 text-slate-500 text-xs">${r.account_type ?? '-'}</td>
+                    <td class="px-3 py-3 text-slate-500 text-xs">${r.entity_type ?? '-'}</td>
+                    <td class="px-3 py-3 text-slate-500 text-xs">${r.entity_id ?? '-'}</td>
+                    <td class="px-3 py-3 font-semibold text-emerald-600">${formatMoney(r.total_debit)}</td>
+                    <td class="px-3 py-3 font-semibold text-rose-600">${formatMoney(r.total_credit)}</td>
+                    <td class="px-3 py-3 font-bold text-slate-800" dir="ltr">${formatMoney(r.balance)}</td>
+                    <td class="px-3 py-3">
+                        <div class="flex items-center gap-2">
+                            <button onclick="openAccountModal('view', ${r.account_id})" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition" title="معاينة">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="openAccountModal('edit', ${r.account_id})" class="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="تعديل">
+                                <i class="fas fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="deleteAccount(${r.account_id})" class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('balancesTable').innerHTML = body.length ? body : `
+                <tr>
+                    <td colspan="10" class="px-6 py-12 text-center text-slate-500">
+                        لا توجد بيانات حالياً. يمكنك الضغط على زر "إضافة حساب".
+                    </td>
+                </tr>
+            `;
+            document.getElementById('rowsCount').textContent = `عدد الصفوف: ${rowsData.length}`;
+        }
+
+        function renderChart(summary) {
+            const dataByType = summary.by_type || {};
+            const labels = Object.keys(dataByType);
+            const values = labels.map(k => dataByType[k]);
+
+            const ctx = document.getElementById('typeChart').getContext('2d');
+            if (typeChartInstance) typeChartInstance.destroy();
+            typeChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.length ? labels : ['لا يوجد'],
+                    datasets: [{
+                        label: 'الرصيد',
+                        data: values.length ? values : [0],
+                        backgroundColor: 'rgba(99, 102, 241, 0.6)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderInfo(summary) {
+            document.getElementById('infoPanel').innerHTML = `
+                <div class="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                    <div class="p-3 bg-white rounded-full shadow-sm text-blue-600">
+                         <i class="fas fa-book text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm text-slate-500 font-medium">عدد الحسابات</div>
+                        <div class="text-lg font-bold text-slate-800">${summary.total_accounts ?? 0}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                     <div class="p-3 bg-white rounded-full shadow-sm text-purple-600">
+                        <i class="fas fa-wallet text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm text-slate-500 font-medium">إجمالي الرصيد</div>
+                        <div class="text-lg font-bold text-slate-800">${formatMoney(summary.total_balance || 0)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function downloadCSV() {
+            const csvRows = [[
+                'account_id','account_code','account_name_ar','account_type','entity_type','entity_id','total_debit','total_credit','balance'
+            ]];
+            filteredRows.forEach(r => csvRows.push([
+                r.account_id, r.account_code, r.account_name_ar, r.account_type, r.entity_type, r.entity_id,
+                r.total_debit, r.total_credit, r.balance
+            ]));
+            const csvContent = csvRows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'account-balances.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadJSON() {
+            const blob = new Blob([JSON.stringify(filteredRows, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'account-balances.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function openAccountModal(mode, accountId = null) {
+            currentMode = mode;
+            currentAccountId = accountId;
+            const modal = document.getElementById('accountModal');
+            const title = document.getElementById('accountModalTitle');
+            const saveBtn = document.getElementById('accountSaveBtn');
+
+            const isView = mode === 'view';
+            title.textContent = mode === 'add' ? 'إضافة حساب جديد' : mode === 'edit' ? 'تعديل حساب' : 'معاينة حساب';
+            saveBtn.classList.toggle('hidden', isView);
+
+            clearAccountForm();
+
+            if (accountId) {
+                fetch(`${API_BASE}/finance/chart-of-accounts/${accountId}?entity_id=${ENTITY_ID}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.success) throw new Error(data.error || 'تعذر جلب بيانات الحساب');
+                        fillAccountForm(data.account);
+                        setFormDisabled(isView);
+                        modal.classList.remove('hidden');
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert('تعذر جلب بيانات الحساب');
+                    });
+            } else {
+                setFormDisabled(isView);
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeAccountModal() {
+            document.getElementById('accountModal').classList.add('hidden');
+        }
+
+        function setFormDisabled(isDisabled) {
+            document.querySelectorAll('#accountForm input, #accountForm select, #accountForm textarea').forEach(el => {
+                el.disabled = isDisabled;
+                el.classList.toggle('bg-slate-100', isDisabled);
+            });
+        }
+
+        function clearAccountForm() {
+            document.getElementById('account_code').value = '';
+            document.getElementById('account_name_ar').value = '';
+            document.getElementById('account_name_en').value = '';
+            document.getElementById('account_type').value = 'ASSET';
+            document.getElementById('normal_balance').value = 'DEBIT';
+            document.getElementById('is_active').checked = true;
+            document.getElementById('is_header').checked = false;
+            document.getElementById('description').value = '';
+            document.getElementById('notes').value = '';
+        }
+
+        function fillAccountForm(account) {
+            document.getElementById('account_code').value = account.account_code || '';
+            document.getElementById('account_name_ar').value = account.account_name_ar || '';
+            document.getElementById('account_name_en').value = account.account_name_en || '';
+            document.getElementById('account_type').value = account.account_type || 'ASSET';
+            document.getElementById('normal_balance').value = account.normal_balance || (['ASSET', 'EXPENSE'].includes(String(account.account_type || 'ASSET').toUpperCase()) ? 'DEBIT' : 'CREDIT');
+            document.getElementById('is_active').checked = account.is_active !== false;
+            document.getElementById('is_header').checked = account.is_header === true;
+            document.getElementById('description').value = account.description || '';
+            document.getElementById('notes').value = account.notes || '';
+        }
+
+        function syncNormalBalance() {
+            const type = document.getElementById('account_type').value;
+            document.getElementById('normal_balance').value = ['ASSET', 'EXPENSE'].includes(type) ? 'DEBIT' : 'CREDIT';
+        }
+
+        async function saveAccount() {
+            const payload = {
+                entity_id: ENTITY_ID,
+                account_code: document.getElementById('account_code').value.trim(),
+                account_name_ar: document.getElementById('account_name_ar').value.trim(),
+                account_name_en: document.getElementById('account_name_en').value.trim(),
+                account_type: document.getElementById('account_type').value,
+                normal_balance: document.getElementById('normal_balance').value,
+                is_active: document.getElementById('is_active').checked,
+                is_header: document.getElementById('is_header').checked,
+                description: document.getElementById('description').value.trim(),
+                notes: document.getElementById('notes').value.trim()
+            };
+
+            if (!payload.account_code || !payload.account_name_ar || !payload.account_type) {
+                alert('يرجى ملء الحقول الأساسية');
+                return;
+            }
+
+            try {
+                const url = currentMode === 'edit'
+                    ? `${API_BASE}/finance/chart-of-accounts/${currentAccountId}`
+                    : `${API_BASE}/finance/chart-of-accounts`;
+
+                const method = currentMode === 'edit' ? 'PUT' : 'POST';
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر حفظ الحساب');
+                closeAccountModal();
+                await loadReport();
+            } catch (error) {
+                console.error(error);
+                alert(error.message || 'تعذر حفظ الحساب');
+            }
+        }
+
+        async function deleteAccount(accountId) {
+            if (!confirm('هل تريد حذف هذا الحساب؟')) return;
+            try {
+                const response = await fetch(`${API_BASE}/finance/chart-of-accounts/${accountId}?entity_id=${ENTITY_ID}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر حذف الحساب');
+                await loadReport();
+            } catch (error) {
+                console.error(error);
+                alert(error.message || 'تعذر حذف الحساب');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadReport);
+    </script>
+
+    <div id="accountModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50 flex">
+        <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg border border-slate-200">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                <h3 id="accountModalTitle" class="text-lg font-bold text-slate-800">إضافة حساب جديد</h3>
+                <button onclick="closeAccountModal()" class="text-slate-500 hover:text-slate-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="px-6 py-4">
+                <form id="accountForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">كود الحساب</label>
+                        <input id="account_code" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">اسم الحساب (عربي)</label>
+                        <input id="account_name_ar" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">اسم الحساب (English)</label>
+                        <input id="account_name_en" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">نوع الحساب</label>
+                        <select id="account_type" class="w-full border border-slate-300 rounded-lg px-3 py-2" onchange="syncNormalBalance()">
+                            <option value="ASSET">أصول</option>
+                            <option value="LIABILITY">التزامات</option>
+                            <option value="EQUITY">حقوق ملكية</option>
+                            <option value="REVENUE">إيرادات</option>
+                            <option value="EXPENSE">مصروفات</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">الرصيد الطبيعي</label>
+                        <select id="normal_balance" class="w-full border border-slate-300 rounded-lg px-3 py-2">
+                            <option value="DEBIT">مدين</option>
+                            <option value="CREDIT">دائن</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                            <input id="is_active" type="checkbox" class="rounded" />
+                            نشط
+                        </label>
+                        <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                            <input id="is_header" type="checkbox" class="rounded" />
+                            حساب تجميعي
+                        </label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">الوصف</label>
+                        <textarea id="description" class="w-full border border-slate-300 rounded-lg px-3 py-2" rows="2"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">ملاحظات</label>
+                        <textarea id="notes" class="w-full border border-slate-300 rounded-lg px-3 py-2" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                <button onclick="closeAccountModal()" class="px-5 py-2 rounded-lg border border-slate-300 text-slate-700">إلغاء</button>
+                <button id="accountSaveBtn" onclick="saveAccount()" class="px-5 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">حفظ</button>
+            </div>
+        </div>
+    </div>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

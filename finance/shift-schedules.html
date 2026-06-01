@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📅 جداول ونوبات العمل - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --sky: #0ea5e9;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --sun: #f59e0b;
+      --paper: #f8fafc;
+      --card: #ffffff;
+      --line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(14, 165, 233, 0.16), transparent 40%),
+        radial-gradient(circle at 86% 10%, rgba(245, 158, 11, 0.14), transparent 38%),
+        linear-gradient(180deg, #fefce8 0%, #f8fafc 45%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 26px;
+      box-shadow: 0 20px 50px -30px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+
+    .input:focus {
+      outline: 2px solid var(--sky);
+      border-color: transparent;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .table-scroll {
+      max-height: 520px;
+      overflow: auto;
+    }
+
+    .table-scroll thead th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      z-index: 2;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: 16px;
+    }
+
+    .modal-card {
+      width: min(900px, 96vw);
+      max-height: 90vh;
+      overflow: auto;
+      border-radius: 26px;
+    }
+
+    .day-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+    }
+
+    .day-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px dashed #e2e8f0;
+      padding: 8px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.35s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">لوحة تنظيم النوبات</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">📅 جداول ونوبات العمل</h1>
+        <p class="text-slate-600">متابعة أيام العمل ونوع الشيفت والإجازات لكل موظف مع إدارة كاملة.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <a href="/finance/hr-portal-workflows.html" class="btn bg-slate-900 text-white">
+          <i class="fas fa-diagram-project"></i>
+          بوابة الطلبات
+        </a>
+      </div>
+    </div>
+
+    <div id="toast" class="hidden fixed top-4 left-1/2 -translate-x-1/2 bg-white text-slate-800 px-5 py-3 rounded-full shadow-xl border border-slate-200 z-50"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">إجمالي الجداول</div>
+        <div id="statTotal" class="text-3xl font-extrabold">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">نشط</div>
+        <div id="statActive" class="text-3xl font-extrabold text-emerald-600">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">غير نشط</div>
+        <div id="statInactive" class="text-3xl font-extrabold text-rose-600">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">إجمالي الموظفين</div>
+        <div id="statEmployees" class="text-3xl font-extrabold text-slate-800">0</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[1.1fr,1.6fr] gap-6">
+      <form id="scheduleForm" class="glass p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold">إضافة جدول جديد</h2>
+            <p class="text-sm text-slate-500">إدخال أيام العمل ونوع الشيفت لكل موظف.</p>
+          </div>
+          <span class="chip bg-amber-100 text-amber-700">جديد</span>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="employeeName">اسم الموظف</label>
+          <input id="employeeName" class="input" placeholder="مثال: أحمد العتيبي" required>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="employeeId">رقم الموظف</label>
+          <input id="employeeId" class="input" placeholder="EMP-1001">
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="department">القسم</label>
+          <input id="department" class="input" placeholder="الموارد البشرية">
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500">أيام العمل</label>
+          <div id="workDays" class="day-grid"></div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500">الإجازات</label>
+          <div id="offDays" class="day-grid"></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="shiftType">نوع الشيفت</label>
+            <select id="shiftType" class="input">
+              <option value="">اختر نوع الشيفت</option>
+              <option value="صباحي">صباحي</option>
+              <option value="مسائي">مسائي</option>
+              <option value="ليلي">ليلي</option>
+              <option value="مرن">مرن</option>
+            </select>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="scheduleStatus">الحالة</label>
+            <select id="scheduleStatus" class="input">
+              <option value="active">نشط</option>
+              <option value="inactive">غير نشط</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="shiftStart">بداية الشيفت</label>
+            <input id="shiftStart" type="time" class="input">
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="shiftEnd">نهاية الشيفت</label>
+            <input id="shiftEnd" type="time" class="input">
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="scheduleNotes">ملاحظات</label>
+          <textarea id="scheduleNotes" class="input" rows="3" placeholder="ملاحظات إضافية"></textarea>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" class="btn bg-sky-700 text-white">
+            <i class="fas fa-plus"></i>
+            إضافة الجدول
+          </button>
+          <button type="button" id="resetForm" class="btn bg-white text-slate-700 border border-slate-200">
+            <i class="fas fa-rotate-left"></i>
+            إعادة تعيين
+          </button>
+        </div>
+      </form>
+
+      <div class="glass p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-xl font-bold">جداول الموظفين</h2>
+            <p class="text-sm text-slate-500">عرض سريع لكل الموظفين ونوباتهم.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-3 py-2">
+              <i class="fas fa-filter text-slate-400"></i>
+              <select id="statusFilter" class="bg-transparent text-sm focus:outline-none">
+                <option value="all">الكل</option>
+                <option value="active">نشط</option>
+                <option value="inactive">غير نشط</option>
+              </select>
+            </div>
+            <button id="resetFilter" class="btn bg-white text-slate-700 border border-slate-200">
+              <i class="fas fa-eraser"></i>
+              تصفير الفلاتر
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="flex gap-2">
+            <input id="searchInput" class="input" placeholder="بحث بالاسم أو الرقم أو القسم">
+            <button id="searchBtn" class="btn bg-slate-900 text-white">
+              <i class="fas fa-search"></i>
+              بحث
+            </button>
+          </div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="min-w-full text-sm">
+            <thead class="text-slate-600">
+              <tr>
+                <th class="px-4 py-3 text-right">الموظف</th>
+                <th class="px-4 py-3 text-right">أيام العمل</th>
+                <th class="px-4 py-3 text-right">نوع الشيفت</th>
+                <th class="px-4 py-3 text-right">الإجازات</th>
+                <th class="px-4 py-3 text-right">الحالة</th>
+                <th class="px-4 py-3 text-right">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="schedulesTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-10 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <span class="chip bg-white text-slate-700 border border-slate-200">إدارة الإجازات</span>
+          <h2 class="text-2xl font-bold mt-2">🌿 إدارة الإجازات والرصيد</h2>
+          <p class="text-sm text-slate-500">رصيد الموظفين، سجل الإجازات، والطلبات القادمة.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[1.05fr,1.65fr] gap-6">
+        <form id="leaveBalanceForm" class="glass p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-bold">إضافة/تحديث رصيد إجازة</h3>
+              <p class="text-sm text-slate-500">حفظ رصيد الإجازات لكل موظف.</p>
+            </div>
+            <span class="chip bg-emerald-100 text-emerald-700">رصيد</span>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="leaveEmployeeName">اسم الموظف</label>
+            <input id="leaveEmployeeName" class="input" placeholder="مثال: أحمد العتيبي" required>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="leaveEmployeeId">رقم الموظف</label>
+              <input id="leaveEmployeeId" class="input" placeholder="EMP-1001">
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="leaveDepartment">القسم</label>
+              <input id="leaveDepartment" class="input" placeholder="الموارد البشرية">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="leaveYear">السنة</label>
+              <input id="leaveYear" type="number" class="input" value="2026">
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="leaveAnnual">رصيد سنوي</label>
+              <input id="leaveAnnual" type="number" class="input" value="0">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="leaveUsed">مستخدم</label>
+              <input id="leaveUsed" type="number" class="input" value="0">
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="leavePending">قيد المراجعة</label>
+              <input id="leavePending" type="number" class="input" value="0">
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="leaveCarry">مرحّل</label>
+              <input id="leaveCarry" type="number" class="input" value="0">
+            </div>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="leaveNotes">ملاحظات</label>
+            <textarea id="leaveNotes" class="input" rows="3" placeholder="تفاصيل إضافية"></textarea>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="submit" class="btn bg-emerald-600 text-white">
+              <i class="fas fa-floppy-disk"></i>
+              حفظ الرصيد
+            </button>
+            <button type="button" id="resetLeaveBalance" class="btn bg-white text-slate-700 border border-slate-200">
+              <i class="fas fa-rotate-left"></i>
+              مسح الحقول
+            </button>
+          </div>
+        </form>
+
+        <div class="glass p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 class="text-lg font-bold">أرصدة الإجازات الحالية</h3>
+              <p class="text-sm text-slate-500">عرض الرصيد المتاح لكل موظف.</p>
+            </div>
+            <button id="refreshLeaveBalances" class="btn bg-white text-slate-700 border border-slate-200">
+              <i class="fas fa-rotate"></i>
+              تحديث
+            </button>
+          </div>
+          <div class="table-scroll">
+            <table class="min-w-full text-sm">
+              <thead class="text-slate-600">
+                <tr>
+                  <th class="px-4 py-3 text-right">الموظف</th>
+                  <th class="px-4 py-3 text-right">الرصيد</th>
+                  <th class="px-4 py-3 text-right">مستخدم</th>
+                  <th class="px-4 py-3 text-right">قيد المراجعة</th>
+                  <th class="px-4 py-3 text-right">السنة</th>
+                  <th class="px-4 py-3 text-right">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="leaveBalancesTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[1.05fr,1.65fr] gap-6">
+        <form id="leaveRequestForm" class="glass p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-bold">تسجيل طلب إجازة</h3>
+              <p class="text-sm text-slate-500">حفظ طلب جديد وإرساله للمراجعة.</p>
+            </div>
+            <span class="chip bg-sky-100 text-sky-700">طلب جديد</span>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="requestEmployeeName">اسم الموظف</label>
+            <input id="requestEmployeeName" class="input" placeholder="مثال: سارة المطيري" required>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="requestEmployeeId">رقم الموظف</label>
+              <input id="requestEmployeeId" class="input" placeholder="EMP-204">
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="requestDepartment">القسم</label>
+              <input id="requestDepartment" class="input" placeholder="المالية">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="requestLeaveType">نوع الإجازة</label>
+              <select id="requestLeaveType" class="input">
+                <option value="">اختر النوع</option>
+                <option value="سنوية">سنوية</option>
+                <option value="مرضية">مرضية</option>
+                <option value="اضطرارية">اضطرارية</option>
+                <option value="بدون راتب">بدون راتب</option>
+              </select>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="requestDays">عدد الأيام</label>
+              <input id="requestDays" type="number" class="input" placeholder="يُحسب تلقائيا" readonly>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="requestStart">بداية الإجازة</label>
+              <input id="requestStart" type="date" class="input" required>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm text-slate-500" for="requestEnd">نهاية الإجازة</label>
+              <input id="requestEnd" type="date" class="input" required>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="requestReason">سبب الإجازة</label>
+            <textarea id="requestReason" class="input" rows="3" placeholder="تفاصيل مختصرة"></textarea>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="submitLeaveRequest" class="btn bg-sky-700 text-white" onclick="submitLeaveRequest()">
+              <i class="fas fa-paper-plane"></i>
+              إرسال الطلب
+            </button>
+            <button type="button" id="resetLeaveRequest" class="btn bg-white text-slate-700 border border-slate-200">
+              <i class="fas fa-rotate-left"></i>
+              مسح الحقول
+            </button>
+          </div>
+        </form>
+
+        <div class="glass p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 class="text-lg font-bold">طلبات الإجازة قيد المراجعة</h3>
+              <p class="text-sm text-slate-500">اعتماد أو رفض الطلبات بسهولة.</p>
+            </div>
+            <button id="refreshLeaveRequests" class="btn bg-white text-slate-700 border border-slate-200">
+              <i class="fas fa-rotate"></i>
+              تحديث
+            </button>
+          </div>
+          <div class="table-scroll">
+            <table class="min-w-full text-sm">
+              <thead class="text-slate-600">
+                <tr>
+                  <th class="px-4 py-3 text-right">الموظف</th>
+                  <th class="px-4 py-3 text-right">الفترة</th>
+                  <th class="px-4 py-3 text-right">النوع</th>
+                  <th class="px-4 py-3 text-right">الأيام</th>
+                  <th class="px-4 py-3 text-right">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="pendingLeaveTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass p-5">
+          <div class="mb-4">
+            <h3 class="text-lg font-bold">الإجازات القادمة للفريق</h3>
+            <p class="text-sm text-slate-500">عرض منسق للإجازات المعتمدة القادمة.</p>
+          </div>
+          <div class="table-scroll">
+            <table class="min-w-full text-sm">
+              <thead class="text-slate-600">
+                <tr>
+                  <th class="px-4 py-3 text-right">الموظف</th>
+                  <th class="px-4 py-3 text-right">الفترة</th>
+                  <th class="px-4 py-3 text-right">النوع</th>
+                  <th class="px-4 py-3 text-right">الأيام</th>
+                </tr>
+              </thead>
+              <tbody id="upcomingLeaveTable"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="glass p-5">
+          <div class="mb-4">
+            <h3 class="text-lg font-bold">سجل الإجازات السابقة</h3>
+            <p class="text-sm text-slate-500">كل الإجازات المعتمدة مسبقا.</p>
+          </div>
+          <div class="table-scroll">
+            <table class="min-w-full text-sm">
+              <thead class="text-slate-600">
+                <tr>
+                  <th class="px-4 py-3 text-right">الموظف</th>
+                  <th class="px-4 py-3 text-right">الفترة</th>
+                  <th class="px-4 py-3 text-right">النوع</th>
+                  <th class="px-4 py-3 text-right">الأيام</th>
+                  <th class="px-4 py-3 text-right">القرار</th>
+                </tr>
+              </thead>
+              <tbody id="historyLeaveTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="viewModal" class="modal-backdrop hidden">
+    <div class="glass modal-card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-2xl font-bold">تفاصيل الجدول</h3>
+          <p class="text-sm text-slate-500">عرض كامل بيانات الجدول.</p>
+        </div>
+        <button id="closeView" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-xmark"></i>
+          إغلاق
+        </button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="viewDetails"></div>
+    </div>
+  </div>
+
+  <div id="editModal" class="modal-backdrop hidden">
+    <div class="glass modal-card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-2xl font-bold">تعديل الجدول</h3>
+          <p class="text-sm text-slate-500">تحديث أيام العمل ونوبات الموظف.</p>
+        </div>
+        <button id="closeEdit" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-xmark"></i>
+          إغلاق
+        </button>
+      </div>
+      <form id="editForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input type="hidden" id="editId">
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editName">اسم الموظف</label>
+          <input id="editName" class="input" required>
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editEmployeeId">رقم الموظف</label>
+          <input id="editEmployeeId" class="input">
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editDepartment">القسم</label>
+          <input id="editDepartment" class="input">
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editShiftType">نوع الشيفت</label>
+          <select id="editShiftType" class="input">
+            <option value="">غير محدد</option>
+            <option value="صباحي">صباحي</option>
+            <option value="مسائي">مسائي</option>
+            <option value="ليلي">ليلي</option>
+            <option value="مرن">مرن</option>
+          </select>
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editStatus">الحالة</label>
+          <select id="editStatus" class="input">
+            <option value="active">نشط</option>
+            <option value="inactive">غير نشط</option>
+          </select>
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editShiftStart">بداية الشيفت</label>
+          <input id="editShiftStart" type="time" class="input">
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editShiftEnd">نهاية الشيفت</label>
+          <input id="editShiftEnd" type="time" class="input">
+        </div>
+        <div class="space-y-2 md:col-span-2">
+          <label class="text-sm text-slate-500">أيام العمل</label>
+          <div id="editWorkDays" class="day-grid"></div>
+        </div>
+        <div class="space-y-2 md:col-span-2">
+          <label class="text-sm text-slate-500">الإجازات</label>
+          <div id="editOffDays" class="day-grid"></div>
+        </div>
+        <div class="space-y-2 md:col-span-2">
+          <label class="text-sm text-slate-500" for="editNotes">ملاحظات</label>
+          <textarea id="editNotes" class="input" rows="3"></textarea>
+        </div>
+        <div class="md:col-span-2 flex flex-wrap gap-2 justify-end">
+          <button type="button" id="saveEdit" class="btn bg-sky-700 text-white">
+            <i class="fas fa-save"></i>
+            حفظ التعديلات
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="deleteModal" class="modal-backdrop hidden">
+    <div class="glass modal-card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-2xl font-bold">حذف الجدول</h3>
+          <p class="text-sm text-slate-500">هل أنت متأكد من حذف هذا الجدول؟</p>
+        </div>
+        <button id="closeDelete" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-xmark"></i>
+          إغلاق
+        </button>
+      </div>
+      <div class="text-sm text-slate-600" id="deleteRecord"></div>
+      <div class="flex flex-wrap gap-2 justify-end mt-4">
+        <button id="confirmDelete" class="btn bg-rose-600 text-white">
+          <i class="fas fa-trash"></i>
+          تأكيد الحذف
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="leaveBalanceModal" class="modal-backdrop hidden">
+    <div class="glass modal-card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-2xl font-bold">تعديل رصيد الإجازة</h3>
+          <p class="text-sm text-slate-500">تحديث رصيد الموظف مباشرة.</p>
+        </div>
+        <button id="closeLeaveBalance" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-xmark"></i>
+          إغلاق
+        </button>
+      </div>
+      <form id="editLeaveBalanceForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input type="hidden" id="editLeaveBalanceId">
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editLeaveName">اسم الموظف</label>
+          <input id="editLeaveName" class="input" required>
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editLeaveEmployeeId">رقم الموظف</label>
+          <input id="editLeaveEmployeeId" class="input">
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editLeaveDepartment">القسم</label>
+          <input id="editLeaveDepartment" class="input">
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editLeaveYear">السنة</label>
+          <input id="editLeaveYear" type="number" class="input">
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editLeaveAnnual">الرصيد السنوي</label>
+          <input id="editLeaveAnnual" type="number" class="input">
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editLeaveUsed">المستخدم</label>
+          <input id="editLeaveUsed" type="number" class="input">
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editLeavePending">قيد المراجعة</label>
+          <input id="editLeavePending" type="number" class="input">
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="editLeaveCarry">المرحّل</label>
+          <input id="editLeaveCarry" type="number" class="input">
+        </div>
+        <div class="space-y-2 md:col-span-2">
+          <label class="text-sm text-slate-500" for="editLeaveNotes">ملاحظات</label>
+          <textarea id="editLeaveNotes" class="input" rows="3"></textarea>
+        </div>
+        <div class="md:col-span-2 flex flex-wrap gap-2 justify-end">
+          <button type="button" id="saveLeaveBalance" class="btn bg-emerald-600 text-white">
+            <i class="fas fa-save"></i>
+            حفظ التعديلات
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="leaveDecisionModal" class="modal-backdrop hidden">
+    <div class="glass modal-card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-2xl font-bold">مراجعة طلب الإجازة</h3>
+          <p class="text-sm text-slate-500">تحديد قبول أو رفض مع السبب.</p>
+        </div>
+        <button id="closeLeaveDecision" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-xmark"></i>
+          إغلاق
+        </button>
+      </div>
+      <form id="leaveDecisionForm" class="space-y-4">
+        <input type="hidden" id="decisionRequestId">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="decisionStatus">القرار</label>
+            <select id="decisionStatus" class="input">
+              <option value="approved">قبول</option>
+              <option value="rejected">رفض</option>
+            </select>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm text-slate-500" for="decisionReviewer">المراجع</label>
+            <input id="decisionReviewer" class="input" placeholder="اسم المراجع">
+          </div>
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm text-slate-500" for="decisionReason">سبب القرار</label>
+          <textarea id="decisionReason" class="input" rows="3" placeholder="اكتب سبب القبول أو الرفض"></textarea>
+        </div>
+        <div class="flex flex-wrap gap-2 justify-end">
+          <button type="button" id="submitLeaveDecision" class="btn bg-sky-700 text-white">
+            <i class="fas fa-check"></i>
+            اعتماد القرار
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const dayLabels = ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
+    let schedules = [];
+    let searchQuery = '';
+    let statusFilter = 'all';
+    let leaveBalances = [];
+    let leaveRequests = [];
+
+    const elements = {
+      table: document.getElementById('schedulesTable'),
+      stats: {
+        total: document.getElementById('statTotal'),
+        active: document.getElementById('statActive'),
+        inactive: document.getElementById('statInactive'),
+        employees: document.getElementById('statEmployees')
+      },
+      toast: document.getElementById('toast'),
+      form: document.getElementById('scheduleForm')
+    };
+
+    const modals = {
+      view: document.getElementById('viewModal'),
+      edit: document.getElementById('editModal'),
+      delete: document.getElementById('deleteModal')
+    };
+
+    const leaveElements = {
+      balanceForm: document.getElementById('leaveBalanceForm'),
+      balanceTable: document.getElementById('leaveBalancesTable'),
+      requestForm: document.getElementById('leaveRequestForm'),
+      pendingTable: document.getElementById('pendingLeaveTable'),
+      upcomingTable: document.getElementById('upcomingLeaveTable'),
+      historyTable: document.getElementById('historyLeaveTable')
+    };
+
+    const leaveModals = {
+      balance: document.getElementById('leaveBalanceModal'),
+      decision: document.getElementById('leaveDecisionModal')
+    };
+
+    const leaveBalanceFields = {
+      id: document.getElementById('editLeaveBalanceId'),
+      name: document.getElementById('editLeaveName'),
+      employeeId: document.getElementById('editLeaveEmployeeId'),
+      department: document.getElementById('editLeaveDepartment'),
+      year: document.getElementById('editLeaveYear'),
+      annual: document.getElementById('editLeaveAnnual'),
+      used: document.getElementById('editLeaveUsed'),
+      pending: document.getElementById('editLeavePending'),
+      carry: document.getElementById('editLeaveCarry'),
+      notes: document.getElementById('editLeaveNotes')
+    };
+
+    const editFields = {
+      id: document.getElementById('editId'),
+      name: document.getElementById('editName'),
+      employeeId: document.getElementById('editEmployeeId'),
+      department: document.getElementById('editDepartment'),
+      shiftType: document.getElementById('editShiftType'),
+      status: document.getElementById('editStatus'),
+      shiftStart: document.getElementById('editShiftStart'),
+      shiftEnd: document.getElementById('editShiftEnd'),
+      notes: document.getElementById('editNotes')
+    };
+
+    let currentDeleteId = null;
+
+    const statusMeta = {
+      active: { label: 'نشط', className: 'bg-emerald-100 text-emerald-700' },
+      inactive: { label: 'غير نشط', className: 'bg-rose-100 text-rose-700' }
+    };
+
+    const leaveStatusMeta = {
+      pending: { label: 'قيد المراجعة', className: 'bg-amber-100 text-amber-700' },
+      approved: { label: 'معتمد', className: 'bg-emerald-100 text-emerald-700' },
+      rejected: { label: 'مرفوض', className: 'bg-rose-100 text-rose-700' }
+    };
+
+    const formatDate = (value) => {
+      if (!value) return '—';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toISOString().slice(0, 10);
+    };
+
+    const computeLeaveDays = (start, end) => {
+      if (!start || !end) return null;
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
+      const diffMs = endDate.getTime() - startDate.getTime();
+      if (diffMs < 0) return null;
+      return Math.floor(diffMs / 86400000) + 1;
+    };
+
+    const showToast = (message) => {
+      elements.toast.textContent = message;
+      elements.toast.classList.remove('hidden');
+      setTimeout(() => elements.toast.classList.add('hidden'), 2200);
+    };
+
+    const apiRequest = async (url, options = {}) => {
+      const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      });
+
+      if (!response.ok) {
+        let message = 'تعذر تنفيذ العملية';
+        try {
+          const payload = await response.json();
+          message = payload.error || message;
+        } catch (error) {
+          message = response.statusText || message;
+        }
+        throw new Error(message);
+      }
+
+      if (response.status === 204) return null;
+      return response.json();
+    };
+
+    const renderDayCheckboxes = (containerId) => {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      dayLabels.forEach((day) => {
+        container.insertAdjacentHTML('beforeend', `
+          <label class="day-chip">
+            <input type="checkbox" value="${day}" class="accent-sky-500">
+            ${day}
+          </label>
+        `);
+      });
+    };
+
+    const getSelectedDays = (containerId) => {
+      return Array.from(document.getElementById(containerId).querySelectorAll('input[type="checkbox"]:checked'))
+        .map((input) => input.value);
+    };
+
+    const setSelectedDays = (containerId, values) => {
+      const normalized = new Set(values || []);
+      document.getElementById(containerId)
+        .querySelectorAll('input[type="checkbox"]')
+        .forEach((input) => {
+          input.checked = normalized.has(input.value);
+        });
+    };
+
+    const loadSchedules = async () => {
+      try {
+        schedules = await apiRequest('/api/shift-schedules');
+        updateStats();
+        renderTable();
+      } catch (error) {
+        showToast(error.message);
+      }
+    };
+
+    const updateStats = () => {
+      const total = schedules.length;
+      const active = schedules.filter((item) => item.status === 'active').length;
+      const inactive = schedules.filter((item) => item.status === 'inactive').length;
+      const employees = new Set(schedules.map((item) => item.employee_id || item.employee_name)).size;
+      elements.stats.total.textContent = total;
+      elements.stats.active.textContent = active;
+      elements.stats.inactive.textContent = inactive;
+      elements.stats.employees.textContent = employees;
+    };
+
+    const renderTable = () => {
+      elements.table.innerHTML = '';
+      const filtered = schedules.filter((item) => {
+        const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+        const query = searchQuery.trim();
+        const matchesQuery =
+          !query ||
+          (item.employee_name || '').includes(query) ||
+          (item.employee_id || '').includes(query) ||
+          (item.department || '').includes(query);
+        return matchesStatus && matchesQuery;
+      });
+
+      if (!filtered.length) {
+        elements.table.innerHTML = `
+          <tr>
+            <td colspan="6" class="px-4 py-6 text-center text-slate-500">
+              لا توجد جداول مطابقة حالياً.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach((item) => {
+        const status = statusMeta[item.status] || statusMeta.active;
+        const workDays = (item.work_days || []).join('، ') || '—';
+        const offDays = (item.off_days || []).join('، ') || '—';
+        const shiftType = item.shift_type || '—';
+        const shiftTime = item.shift_start || item.shift_end
+          ? `${item.shift_start || '—'} - ${item.shift_end || '—'}`
+          : '—';
+
+        elements.table.insertAdjacentHTML('beforeend', `
+          <tr class="border-b border-slate-100 fade-in">
+            <td class="px-4 py-3">
+              <div class="font-bold">${item.employee_name || '—'}</div>
+              <div class="text-xs text-slate-500">${item.employee_id || '—'} | ${item.department || '—'}</div>
+            </td>
+            <td class="px-4 py-3">
+              <div>${workDays}</div>
+              <div class="text-xs text-slate-500">${shiftTime}</div>
+            </td>
+            <td class="px-4 py-3">${shiftType}</td>
+            <td class="px-4 py-3">${offDays}</td>
+            <td class="px-4 py-3"><span class="chip ${status.className}">${status.label}</span></td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-2">
+                <button class="btn bg-white text-slate-700 border border-slate-200" onclick="openViewModal(${item.id})">
+                  <i class="fas fa-eye"></i>
+                  عرض
+                </button>
+                <button class="btn bg-sky-700 text-white" onclick="openEditModal(${item.id})">
+                  <i class="fas fa-pen"></i>
+                  تعديل
+                </button>
+                <button class="btn bg-white text-rose-600 border border-rose-200" onclick="openDeleteModal(${item.id})">
+                  <i class="fas fa-trash"></i>
+                  حذف
+                </button>
+              </div>
+            </td>
+          </tr>
+        `);
+      });
+    };
+
+    const getScheduleById = (id) => schedules.find((item) => item.id === id);
+
+    const openViewModal = (id) => {
+      const schedule = getScheduleById(id);
+      if (!schedule) return;
+      const details = {
+        'اسم الموظف': schedule.employee_name || '—',
+        'رقم الموظف': schedule.employee_id || '—',
+        'القسم': schedule.department || '—',
+        'أيام العمل': (schedule.work_days || []).join('، ') || '—',
+        'الإجازات': (schedule.off_days || []).join('، ') || '—',
+        'نوع الشيفت': schedule.shift_type || '—',
+        'بداية الشيفت': schedule.shift_start || '—',
+        'نهاية الشيفت': schedule.shift_end || '—',
+        'الحالة': statusMeta[schedule.status]?.label || '—',
+        'ملاحظات': schedule.notes || '—'
+      };
+
+      const container = document.getElementById('viewDetails');
+      container.innerHTML = '';
+      Object.entries(details).forEach(([label, value]) => {
+        container.insertAdjacentHTML('beforeend', `
+          <div class="glass p-4">
+            <div class="text-xs text-slate-500 mb-1">${label}</div>
+            <div class="font-semibold text-slate-800">${value}</div>
+          </div>
+        `);
+      });
+
+      modals.view.classList.remove('hidden');
+    };
+
+    const openEditModal = (id) => {
+      const schedule = getScheduleById(id);
+      if (!schedule) return;
+      editFields.id.value = schedule.id;
+      editFields.name.value = schedule.employee_name || '';
+      editFields.employeeId.value = schedule.employee_id || '';
+      editFields.department.value = schedule.department || '';
+      editFields.shiftType.value = schedule.shift_type || '';
+      editFields.status.value = schedule.status || 'active';
+      editFields.shiftStart.value = schedule.shift_start || '';
+      editFields.shiftEnd.value = schedule.shift_end || '';
+      editFields.notes.value = schedule.notes || '';
+      setSelectedDays('editWorkDays', schedule.work_days || []);
+      setSelectedDays('editOffDays', schedule.off_days || []);
+      modals.edit.classList.remove('hidden');
+    };
+
+    const openDeleteModal = (id) => {
+      const schedule = getScheduleById(id);
+      if (!schedule) return;
+      currentDeleteId = id;
+      document.getElementById('deleteRecord').textContent = `سيتم حذف جدول ${schedule.employee_name || '—'}.`;
+      modals.delete.classList.remove('hidden');
+    };
+
+    const closeViewModal = () => modals.view.classList.add('hidden');
+    const closeEditModal = () => modals.edit.classList.add('hidden');
+    const closeDeleteModal = () => {
+      modals.delete.classList.add('hidden');
+      currentDeleteId = null;
+    };
+
+    elements.form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = {
+        employee_name: document.getElementById('employeeName').value.trim(),
+        employee_id: document.getElementById('employeeId').value.trim() || null,
+        department: document.getElementById('department').value.trim() || null,
+        work_days: getSelectedDays('workDays'),
+        off_days: getSelectedDays('offDays'),
+        shift_type: document.getElementById('shiftType').value || null,
+        shift_start: document.getElementById('shiftStart').value || null,
+        shift_end: document.getElementById('shiftEnd').value || null,
+        status: document.getElementById('scheduleStatus').value,
+        notes: document.getElementById('scheduleNotes').value.trim() || null
+      };
+
+      if (!payload.work_days.length) {
+        showToast('يرجى اختيار أيام العمل');
+        return;
+      }
+
+      try {
+        await apiRequest('/api/shift-schedules', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        elements.form.reset();
+        setSelectedDays('workDays', []);
+        setSelectedDays('offDays', []);
+        showToast('تم إضافة الجدول بنجاح');
+        await loadSchedules();
+      } catch (error) {
+        showToast(error.message);
+      }
+    });
+
+    document.getElementById('resetForm').addEventListener('click', () => {
+      elements.form.reset();
+      setSelectedDays('workDays', []);
+      setSelectedDays('offDays', []);
+    });
+
+    document.getElementById('searchBtn').addEventListener('click', () => {
+      searchQuery = document.getElementById('searchInput').value.trim();
+      renderTable();
+    });
+
+    document.getElementById('statusFilter').addEventListener('change', (event) => {
+      statusFilter = event.target.value;
+      renderTable();
+    });
+
+    document.getElementById('resetFilter').addEventListener('click', () => {
+      searchQuery = '';
+      statusFilter = 'all';
+      document.getElementById('searchInput').value = '';
+      document.getElementById('statusFilter').value = 'all';
+      renderTable();
+    });
+
+    document.getElementById('closeView').addEventListener('click', closeViewModal);
+    document.getElementById('closeEdit').addEventListener('click', closeEditModal);
+    document.getElementById('closeDelete').addEventListener('click', closeDeleteModal);
+
+    document.getElementById('saveEdit').addEventListener('click', async () => {
+      const payload = {
+        employee_name: editFields.name.value.trim(),
+        employee_id: editFields.employeeId.value.trim() || null,
+        department: editFields.department.value.trim() || null,
+        work_days: getSelectedDays('editWorkDays'),
+        off_days: getSelectedDays('editOffDays'),
+        shift_type: editFields.shiftType.value || null,
+        shift_start: editFields.shiftStart.value || null,
+        shift_end: editFields.shiftEnd.value || null,
+        status: editFields.status.value,
+        notes: editFields.notes.value.trim() || null
+      };
+
+      if (!payload.work_days.length) {
+        showToast('يرجى اختيار أيام العمل');
+        return;
+      }
+
+      try {
+        await apiRequest(`/api/shift-schedules/${editFields.id.value}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+        showToast('تم تحديث الجدول بنجاح');
+        closeEditModal();
+        await loadSchedules();
+      } catch (error) {
+        showToast(error.message);
+      }
+    });
+
+    document.getElementById('confirmDelete').addEventListener('click', async () => {
+      if (!currentDeleteId) return;
+      try {
+        await apiRequest(`/api/shift-schedules/${currentDeleteId}`, { method: 'DELETE' });
+        showToast('تم حذف الجدول بنجاح');
+        closeDeleteModal();
+        await loadSchedules();
+      } catch (error) {
+        showToast(error.message);
+      }
+    });
+
+    const getLeaveBalanceById = (id) => leaveBalances.find((item) => item.id === id);
+
+    const renderLeaveBalances = () => {
+      leaveElements.balanceTable.innerHTML = '';
+      if (!leaveBalances.length) {
+        leaveElements.balanceTable.innerHTML = `
+          <tr>
+            <td colspan="6" class="px-4 py-6 text-center text-slate-500">
+              لا توجد أرصدة مسجلة حالياً.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      leaveBalances.forEach((item) => {
+        const total = (item.annual_days || 0) + (item.carry_over || 0);
+        leaveElements.balanceTable.insertAdjacentHTML('beforeend', `
+          <tr class="border-b border-slate-100 fade-in">
+            <td class="px-4 py-3">
+              <div class="font-bold">${item.employee_name || '—'}</div>
+              <div class="text-xs text-slate-500">${item.employee_id || '—'} | ${item.department || '—'}</div>
+            </td>
+            <td class="px-4 py-3">${total}</td>
+            <td class="px-4 py-3">${item.used_days ?? 0}</td>
+            <td class="px-4 py-3">${item.pending_days ?? 0}</td>
+            <td class="px-4 py-3">${item.year || '—'}</td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-2">
+                <button class="btn bg-emerald-600 text-white" onclick="openLeaveBalanceModal(${item.id})">
+                  <i class="fas fa-pen"></i>
+                  تعديل
+                </button>
+                <button class="btn bg-white text-rose-600 border border-rose-200" onclick="deleteLeaveBalance(${item.id})">
+                  <i class="fas fa-trash"></i>
+                  حذف
+                </button>
+              </div>
+            </td>
+          </tr>
+        `);
+      });
+    };
+
+    const renderLeaveRequests = () => {
+      leaveElements.pendingTable.innerHTML = '';
+      leaveElements.upcomingTable.innerHTML = '';
+      leaveElements.historyTable.innerHTML = '';
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const pendingList = leaveRequests.filter((item) => item.status === 'pending');
+      const upcomingList = leaveRequests.filter((item) => {
+        if (item.status !== 'approved') return false;
+        const start = new Date(item.start_date);
+        return !Number.isNaN(start.getTime()) && start >= today;
+      });
+      const historyList = leaveRequests.filter((item) => {
+        if (item.status !== 'approved') return false;
+        const end = new Date(item.end_date);
+        return !Number.isNaN(end.getTime()) && end < today;
+      });
+
+      if (!pendingList.length) {
+        leaveElements.pendingTable.innerHTML = `
+          <tr>
+            <td colspan="5" class="px-4 py-6 text-center text-slate-500">
+              لا توجد طلبات قيد المراجعة.
+            </td>
+          </tr>
+        `;
+      } else {
+        pendingList.forEach((item) => {
+          leaveElements.pendingTable.insertAdjacentHTML('beforeend', `
+            <tr class="border-b border-slate-100 fade-in">
+              <td class="px-4 py-3">
+                <div class="font-bold">${item.employee_name || '—'}</div>
+                <div class="text-xs text-slate-500">${item.employee_id || '—'} | ${item.department || '—'}</div>
+              </td>
+              <td class="px-4 py-3">${formatDate(item.start_date)} - ${formatDate(item.end_date)}</td>
+              <td class="px-4 py-3">${item.leave_type || '—'}</td>
+              <td class="px-4 py-3">${item.days_count || '—'}</td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-2">
+                  <button class="btn bg-emerald-600 text-white" onclick="openLeaveDecisionModal(${item.id}, 'approved')">
+                    <i class="fas fa-check"></i>
+                    قبول
+                  </button>
+                  <button class="btn bg-rose-600 text-white" onclick="openLeaveDecisionModal(${item.id}, 'rejected')">
+                    <i class="fas fa-xmark"></i>
+                    رفض
+                  </button>
+                  <button class="btn bg-white text-slate-700 border border-slate-200" onclick="deleteLeaveRequest(${item.id})">
+                    <i class="fas fa-trash"></i>
+                    حذف
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `);
+        });
+      }
+
+      if (!upcomingList.length) {
+        leaveElements.upcomingTable.innerHTML = `
+          <tr>
+            <td colspan="4" class="px-4 py-6 text-center text-slate-500">
+              لا توجد إجازات قادمة حالياً.
+            </td>
+          </tr>
+        `;
+      } else {
+        upcomingList.forEach((item) => {
+          leaveElements.upcomingTable.insertAdjacentHTML('beforeend', `
+            <tr class="border-b border-slate-100 fade-in">
+              <td class="px-4 py-3">
+                <div class="font-bold">${item.employee_name || '—'}</div>
+                <div class="text-xs text-slate-500">${item.department || '—'}</div>
+              </td>
+              <td class="px-4 py-3">${formatDate(item.start_date)} - ${formatDate(item.end_date)}</td>
+              <td class="px-4 py-3">${item.leave_type || '—'}</td>
+              <td class="px-4 py-3">${item.days_count || '—'}</td>
+            </tr>
+          `);
+        });
+      }
+
+      if (!historyList.length) {
+        leaveElements.historyTable.innerHTML = `
+          <tr>
+            <td colspan="5" class="px-4 py-6 text-center text-slate-500">
+              لا توجد إجازات سابقة.
+            </td>
+          </tr>
+        `;
+      } else {
+        historyList.forEach((item) => {
+          const status = leaveStatusMeta[item.status] || leaveStatusMeta.approved;
+          leaveElements.historyTable.insertAdjacentHTML('beforeend', `
+            <tr class="border-b border-slate-100 fade-in">
+              <td class="px-4 py-3">
+                <div class="font-bold">${item.employee_name || '—'}</div>
+                <div class="text-xs text-slate-500">${item.department || '—'}</div>
+              </td>
+              <td class="px-4 py-3">${formatDate(item.start_date)} - ${formatDate(item.end_date)}</td>
+              <td class="px-4 py-3">${item.leave_type || '—'}</td>
+              <td class="px-4 py-3">${item.days_count || '—'}</td>
+              <td class="px-4 py-3"><span class="chip ${status.className}">${status.label}</span></td>
+            </tr>
+          `);
+        });
+      }
+    };
+
+    const loadLeaveBalances = async () => {
+      try {
+        leaveBalances = await apiRequest('/api/leave-balances');
+        renderLeaveBalances();
+      } catch (error) {
+        showToast(error.message);
+      }
+    };
+
+    const loadLeaveRequests = async () => {
+      try {
+        leaveRequests = await apiRequest('/api/leave-requests');
+        renderLeaveRequests();
+      } catch (error) {
+        showToast(error.message);
+      }
+    };
+
+    const openLeaveBalanceModal = (id) => {
+      const balance = getLeaveBalanceById(id);
+      if (!balance) return;
+      leaveBalanceFields.id.value = balance.id;
+      leaveBalanceFields.name.value = balance.employee_name || '';
+      leaveBalanceFields.employeeId.value = balance.employee_id || '';
+      leaveBalanceFields.department.value = balance.department || '';
+      leaveBalanceFields.year.value = balance.year || new Date().getFullYear();
+      leaveBalanceFields.annual.value = balance.annual_days ?? 0;
+      leaveBalanceFields.used.value = balance.used_days ?? 0;
+      leaveBalanceFields.pending.value = balance.pending_days ?? 0;
+      leaveBalanceFields.carry.value = balance.carry_over ?? 0;
+      leaveBalanceFields.notes.value = balance.notes || '';
+      leaveModals.balance.classList.remove('hidden');
+    };
+
+    const closeLeaveBalanceModal = () => {
+      leaveModals.balance.classList.add('hidden');
+    };
+
+    const openLeaveDecisionModal = (id, status) => {
+      document.getElementById('decisionRequestId').value = id;
+      document.getElementById('decisionStatus').value = status || 'approved';
+      document.getElementById('decisionReason').value = '';
+      document.getElementById('decisionReviewer').value = '';
+      leaveModals.decision.classList.remove('hidden');
+    };
+
+    const closeLeaveDecisionModal = () => {
+      leaveModals.decision.classList.add('hidden');
+    };
+
+    const deleteLeaveBalance = async (id) => {
+      if (!confirm('هل تريد حذف رصيد الإجازة؟')) return;
+      try {
+        await apiRequest(`/api/leave-balances/${id}`, { method: 'DELETE' });
+        showToast('تم حذف الرصيد بنجاح');
+        await loadLeaveBalances();
+      } catch (error) {
+        showToast(error.message);
+      }
+    };
+
+    const deleteLeaveRequest = async (id) => {
+      if (!confirm('هل تريد حذف طلب الإجازة؟')) return;
+      try {
+        await apiRequest(`/api/leave-requests/${id}`, { method: 'DELETE' });
+        showToast('تم حذف الطلب بنجاح');
+        await loadLeaveRequests();
+        await loadLeaveBalances();
+      } catch (error) {
+        showToast(error.message);
+      }
+    };
+
+    leaveElements.balanceForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = {
+        employee_name: document.getElementById('leaveEmployeeName').value.trim(),
+        employee_id: document.getElementById('leaveEmployeeId').value.trim() || null,
+        department: document.getElementById('leaveDepartment').value.trim() || null,
+        year: Number(document.getElementById('leaveYear').value) || new Date().getFullYear(),
+        annual_days: Number(document.getElementById('leaveAnnual').value) || 0,
+        used_days: Number(document.getElementById('leaveUsed').value) || 0,
+        pending_days: Number(document.getElementById('leavePending').value) || 0,
+        carry_over: Number(document.getElementById('leaveCarry').value) || 0,
+        notes: document.getElementById('leaveNotes').value.trim() || null
+      };
+
+      try {
+        await apiRequest('/api/leave-balances', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        leaveElements.balanceForm.reset();
+        showToast('تم حفظ الرصيد بنجاح');
+        await loadLeaveBalances();
+      } catch (error) {
+        showToast(error.message);
+      }
+    });
+
+    document.getElementById('resetLeaveBalance').addEventListener('click', () => {
+      leaveElements.balanceForm.reset();
+    });
+
+    document.getElementById('saveLeaveBalance').addEventListener('click', async () => {
+      const payload = {
+        employee_name: leaveBalanceFields.name.value.trim(),
+        employee_id: leaveBalanceFields.employeeId.value.trim() || null,
+        department: leaveBalanceFields.department.value.trim() || null,
+        year: Number(leaveBalanceFields.year.value) || new Date().getFullYear(),
+        annual_days: Number(leaveBalanceFields.annual.value) || 0,
+        used_days: Number(leaveBalanceFields.used.value) || 0,
+        pending_days: Number(leaveBalanceFields.pending.value) || 0,
+        carry_over: Number(leaveBalanceFields.carry.value) || 0,
+        notes: leaveBalanceFields.notes.value.trim() || null
+      };
+
+      try {
+        await apiRequest(`/api/leave-balances/${leaveBalanceFields.id.value}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+        showToast('تم تحديث الرصيد بنجاح');
+        closeLeaveBalanceModal();
+        await loadLeaveBalances();
+      } catch (error) {
+        showToast(error.message);
+      }
+    });
+
+    const updateLeaveDaysField = () => {
+      const start = document.getElementById('requestStart').value;
+      const end = document.getElementById('requestEnd').value;
+      const days = computeLeaveDays(start, end);
+      document.getElementById('requestDays').value = days || '';
+    };
+
+    const submitLeaveRequest = async () => {
+      const start = document.getElementById('requestStart').value;
+      const end = document.getElementById('requestEnd').value;
+      const computedDays = computeLeaveDays(start, end);
+
+      if (!start || !end) {
+        showToast('يرجى تحديد تاريخ البداية والنهاية');
+        return;
+      }
+
+      if (!computedDays) {
+        showToast('تحقق من تاريخ بداية الإجازة ونهايتها');
+        return;
+      }
+
+      const payload = {
+        employee_name: document.getElementById('requestEmployeeName').value.trim(),
+        employee_id: document.getElementById('requestEmployeeId').value.trim() || null,
+        department: document.getElementById('requestDepartment').value.trim() || null,
+        leave_type: document.getElementById('requestLeaveType').value || null,
+        start_date: start,
+        end_date: end,
+        days_count: computedDays,
+        reason: document.getElementById('requestReason').value.trim() || null
+      };
+
+      try {
+        await apiRequest('/api/leave-requests', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        leaveElements.requestForm.reset();
+        updateLeaveDaysField();
+        showToast('تم إرسال طلب الإجازة');
+        await loadLeaveRequests();
+        await loadLeaveBalances();
+      } catch (error) {
+        showToast(error.message);
+      }
+    };
+
+    leaveElements.requestForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!leaveElements.requestForm.reportValidity()) return;
+      submitLeaveRequest();
+    });
+
+    document.getElementById('submitLeaveRequest').addEventListener('click', () => {
+      if (!leaveElements.requestForm.reportValidity()) return;
+      submitLeaveRequest();
+    });
+
+    window.submitLeaveRequest = submitLeaveRequest;
+
+    document.getElementById('requestStart').addEventListener('change', updateLeaveDaysField);
+    document.getElementById('requestEnd').addEventListener('change', updateLeaveDaysField);
+
+    document.getElementById('resetLeaveRequest').addEventListener('click', () => {
+      leaveElements.requestForm.reset();
+    });
+
+    document.getElementById('submitLeaveDecision').addEventListener('click', async () => {
+      const requestId = document.getElementById('decisionRequestId').value;
+      const payload = {
+        status: document.getElementById('decisionStatus').value,
+        decision_reason: document.getElementById('decisionReason').value.trim() || null,
+        reviewed_by: document.getElementById('decisionReviewer').value.trim() || null
+      };
+
+      if (!requestId) return;
+
+      try {
+        await apiRequest(`/api/leave-requests/${requestId}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+        showToast('تم تحديث حالة الطلب');
+        closeLeaveDecisionModal();
+        await loadLeaveRequests();
+        await loadLeaveBalances();
+      } catch (error) {
+        showToast(error.message);
+      }
+    });
+
+    document.getElementById('refreshLeaveBalances').addEventListener('click', loadLeaveBalances);
+    document.getElementById('refreshLeaveRequests').addEventListener('click', loadLeaveRequests);
+    document.getElementById('closeLeaveBalance').addEventListener('click', closeLeaveBalanceModal);
+    document.getElementById('closeLeaveDecision').addEventListener('click', closeLeaveDecisionModal);
+
+    window.openLeaveBalanceModal = openLeaveBalanceModal;
+    window.openLeaveDecisionModal = openLeaveDecisionModal;
+    window.deleteLeaveBalance = deleteLeaveBalance;
+    window.deleteLeaveRequest = deleteLeaveRequest;
+
+    window.openViewModal = openViewModal;
+    window.openEditModal = openEditModal;
+    window.openDeleteModal = openDeleteModal;
+
+    renderDayCheckboxes('workDays');
+    renderDayCheckboxes('offDays');
+    renderDayCheckboxes('editWorkDays');
+    renderDayCheckboxes('editOffDays');
+    loadSchedules();
+    loadLeaveBalances();
+    loadLeaveRequests();
+  </script>
+</body>
+</html>

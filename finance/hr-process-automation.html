@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚙️ أتمتة الإجراءات إلكترونيًا</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0b1220;
+      --muted: #6b7280;
+      --blue: #1d4ed8;
+      --cyan: #0891b2;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --line: #e5e7eb;
+      --card: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 18%, rgba(29, 78, 216, 0.16), transparent 46%),
+        radial-gradient(circle at 88% 16%, rgba(8, 145, 178, 0.18), transparent 42%),
+        linear-gradient(180deg, #f1f5ff 0%, #f8fafc 48%, #e0f2fe 100%);
+      min-height: 100vh;
+      padding: 0; margin: 0;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 22px;
+      box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    /* ─── Top Bar ─── */
+    .top-bar {
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 1px solid #e5e7eb;
+      backdrop-filter: blur(12px);
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+      position: sticky; top: 0; z-index: 40;
+      box-shadow: 0 1px 4px rgba(15,23,42,0.06);
+    }
+
+    .top-bar-left { display: flex; align-items: center; gap: 14px; }
+    .top-bar-icon {
+      width: 44px; height: 44px;
+      background: #0f172a;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 18px;
+    }
+    .top-bar-title { color: #0b1220; font-size: 18px; font-weight: 800; line-height: 1.2; }
+    .top-bar-sub  { color: #6b7280; font-size: 12px; font-weight: 600; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; font-weight: 800; border-radius: 999px;
+      padding: 10px 18px; transition: all 0.2s ease;
+      border: 1px solid transparent; cursor: pointer;
+      font-family: 'Cairo', sans-serif; font-size: 13px;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px -18px rgba(15,23,42,0.4); }
+    .btn-primary { background: #0f172a; color: white; }
+    .btn-primary:hover { background: #1e293b; }
+    .btn-outline { background: white; color: #374151; border-color: #e5e7eb; }
+    .btn-outline:hover { background: #f9fafb; }
+
+    /* ─── Main Layout ─── */
+    .main-wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    /* ─── Stats Cards ─── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 500px) { .stats-grid { grid-template-columns: 1fr; } }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 16px 18px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -20px rgba(15,23,42,0.2); }
+    .stat-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; margin-bottom: 10px;
+    }
+    .stat-label { font-size: 12px; color: #6b7280; font-weight: 700; margin-bottom: 4px; }
+    .stat-value { font-size: 26px; font-weight: 900; color: #0b1220; line-height: 1.1; }
+    .stat-sub   { font-size: 11px; color: #9ca3af; margin-top: 4px; font-weight: 600; }
+
+    /* ─── Panel Card ─── */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 18px 40px -30px rgba(15,23,42,0.25);
+    }
+    .panel-header {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    }
+    .panel-title { color: #0b1220; font-size: 16px; font-weight: 800; }
+    .panel-sub   { color: #6b7280; font-size: 12px; font-weight: 600; margin-top: 2px; }
+
+    /* ─── Toolbar ─── */
+    .toolbar {
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+      background: #f9fafb;
+    }
+    .search-wrap { position: relative; flex: 1; min-width: 200px; }
+    .search-wrap i { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+    .search-input {
+      width: 100%; background: white;
+      border: 1px solid #e5e7eb; border-radius: 999px;
+      padding: 9px 42px 9px 16px;
+      color: #0b1220; font-family: 'Cairo', sans-serif; font-size: 13px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .search-input::placeholder { color: #9ca3af; }
+    .search-input:focus { border-color: #1d4ed8; }
+    .filter-select {
+      background: white; border: 1px solid #e5e7eb;
+      border-radius: 999px; padding: 9px 14px;
+      color: #374151; font-family: 'Cairo', sans-serif; font-size: 13px;
+      outline: none; cursor: pointer;
+    }
+
+    /* ─── Table ─── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    thead tr { background: #f8fafc; }
+    thead th {
+      padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 800;
+      color: #6b7280; white-space: nowrap;
+      border-bottom: 1px solid var(--line);
+    }
+    tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.15s; }
+    tbody tr:hover { background: #f9fafb; }
+    tbody td { padding: 13px 16px; font-size: 13px; color: #374151; font-weight: 600; white-space: nowrap; }
+    tbody td.name-cell { color: #0b1220; font-weight: 800; max-width: 200px; white-space: normal; }
+
+    /* ─── Badges ─── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 12px; border-radius: 999px;
+      font-size: 12px; font-weight: 700;
+    }
+    .badge-green  { background: #d1fae5; color: #065f46; }
+    .badge-red    { background: #fee2e2; color: #991b1b; }
+    .badge-amber  { background: #fef3c7; color: #92400e; }
+    .badge-sky    { background: #e0f2fe; color: #075985; }
+    .badge-slate  { background: #f1f5f9; color: #475569; }
+
+    /* ─── Action Buttons ─── */
+    .action-btns { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    .action-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 800;
+      border: 1px solid #e5e7eb; cursor: pointer; transition: all 0.15s;
+      font-family: 'Cairo', sans-serif; white-space: nowrap;
+      background: white; color: #374151;
+    }
+    .action-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px -6px rgba(15,23,42,0.2); }
+    .ab-view   { color: #0369a1; border-color: #bae6fd; background: #f0f9ff; }
+    .ab-edit   { color: #92400e; border-color: #fde68a; background: #fffbeb; }
+    .ab-delete { color: #991b1b; border-color: #fecaca; background: #fff5f5; }
+    .ab-run    { color: #065f46; border-color: #a7f3d0; background: #ecfdf5; }
+    .ab-stop   { color: #9a3412; border-color: #fed7aa; background: #fff7ed; }
+    .ab-view:hover   { background: #e0f2fe; }
+    .ab-edit:hover   { background: #fef9c3; }
+    .ab-delete:hover { background: #fee2e2; }
+    .ab-run:hover    { background: #d1fae5; }
+    .ab-stop:hover   { background: #ffedd5; }
+
+    /* ─── Empty State ─── */
+    .empty-state { padding: 60px 20px; text-align: center; display: none; }
+    .empty-icon {
+      width: 64px; height: 64px; border-radius: 18px;
+      background: #f1f5f9; border: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px; font-size: 28px; color: #94a3b8;
+    }
+    .empty-title { color: #0b1220; font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+    .empty-sub   { color: #6b7280; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
+
+    /* ─── Modal ─── */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px; z-index: 60;
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal-card {
+      width: 100%; max-width: 680px;
+      background: white; border: 1px solid #e5e7eb;
+      border-radius: 22px; padding: 0;
+      box-shadow: 0 25px 60px -30px rgba(15,23,42,0.45);
+      max-height: 90vh; overflow-y: auto;
+    }
+    .modal-card::-webkit-scrollbar { width: 5px; }
+    .modal-card::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+    .modal-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; background: white; z-index: 1;
+    }
+    .modal-title { color: #0b1220; font-size: 16px; font-weight: 800; }
+    .modal-close {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: #f9fafb; border: 1px solid #e5e7eb;
+      color: #6b7280; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .modal-close:hover { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .modal-body { padding: 20px 24px; }
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid #e5e7eb;
+      display: flex; align-items: center; justify-content: flex-start; gap: 10px; flex-wrap: wrap;
+    }
+
+    /* ─── Form Fields ─── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
+    .form-field { display: flex; flex-direction: column; gap: 6px; }
+    .form-field.full { grid-column: 1 / -1; }
+    .form-label { font-size: 12px; color: #6b7280; font-weight: 700; }
+    .form-label span { color: #ef4444; margin-right: 2px; }
+    .form-input, .form-select, .form-textarea {
+      background: white; border: 1px solid #e5e7eb;
+      border-radius: 10px; padding: 10px 13px;
+      color: #0b1220; font-family: 'Cairo', sans-serif; font-size: 13px;
+      outline: none; transition: border-color 0.2s; width: 100%;
+    }
+    .form-input[disabled], .form-select[disabled], .form-textarea[disabled] { opacity: 0.6; cursor: not-allowed; }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: #1d4ed8; }
+    .form-textarea { resize: vertical; min-height: 80px; }
+
+    /* ─── Steps Builder ─── */
+    .steps-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+    .step-item {
+      display: flex; align-items: center; gap: 8px;
+      background: #f8fafc; border: 1px solid #e5e7eb;
+      border-radius: 10px; padding: 8px 12px;
+    }
+    .step-num {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: #1d4ed8; color: white;
+      font-size: 11px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .step-name-input {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: #0b1220; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 600;
+    }
+    .step-name-input::placeholder { color: #9ca3af; }
+    .step-name-input[disabled] { cursor: not-allowed; }
+    .step-remove-btn {
+      width: 24px; height: 24px; border-radius: 6px;
+      background: #fff0f0; border: 1px solid #fecaca;
+      color: #ef4444; font-size: 11px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .step-remove-btn:hover { background: #fee2e2; }
+    .add-step-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 999px;
+      background: #eff6ff; border: 1px dashed #93c5fd;
+      color: #1d4ed8; font-size: 12px; font-weight: 800;
+      cursor: pointer; transition: all 0.2s; margin-top: 6px;
+      font-family: 'Cairo', sans-serif;
+    }
+    .add-step-btn:hover { background: #dbeafe; }
+
+    /* ─── Details View ─── */
+    .detail-section { margin-bottom: 18px; }
+    .detail-section-title {
+      font-size: 12px; color: #1d4ed8; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .detail-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .detail-key { color: #6b7280; font-size: 12px; font-weight: 700; min-width: 130px; }
+    .detail-val { color: #374151; font-size: 13px; font-weight: 600; flex: 1; }
+
+    /* ─── Steps Timeline ─── */
+    .steps-timeline { display: flex; flex-direction: column; }
+    .step-tl-item { display: flex; gap: 12px; position: relative; }
+    .step-tl-item:not(:last-child)::before {
+      content: ''; position: absolute;
+      right: 15px; top: 36px;
+      width: 2px; height: calc(100% - 12px);
+      background: #bfdbfe;
+    }
+    .step-tl-circle {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #1d4ed8; color: white;
+      font-size: 12px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 4px;
+    }
+    .step-tl-content {
+      flex: 1; background: #f8fafc; border: 1px solid #e5e7eb;
+      border-radius: 10px; padding: 10px 14px; margin-bottom: 8px;
+    }
+    .step-tl-title { color: #0b1220; font-size: 13px; font-weight: 700; }
+    .step-tl-status { font-size: 11px; font-weight: 700; color: #059669; margin-top: 3px; }
+
+    /* ─── Confirm Modal ─── */
+    .confirm-card {
+      width: 100%; max-width: 420px;
+      background: white; border: 1px solid #e5e7eb;
+      border-radius: 18px; padding: 28px; text-align: center;
+      box-shadow: 0 25px 60px -30px rgba(15,23,42,0.45);
+    }
+    .confirm-icon {
+      width: 56px; height: 56px; border-radius: 14px;
+      background: #fee2e2; border: 1px solid #fecaca;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px; font-size: 24px; color: #ef4444;
+    }
+    .confirm-title { color: #0b1220; font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+    .confirm-sub   { color: #6b7280; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
+    .confirm-btns  { display: flex; gap: 10px; justify-content: center; }
+
+    /* ─── Toast ─── */
+    #toast {
+      position: fixed; bottom: 24px; left: 24px;
+      background: #0f172a; color: white;
+      padding: 12px 18px; border-radius: 12px;
+      font-size: 13px; font-weight: 700; z-index: 99;
+      display: none; align-items: center; gap: 8px;
+      box-shadow: 0 18px 30px -18px rgba(15,23,42,0.6);
+    }
+    #toast.show { display: flex; }
+
+    /* ─── Misc ─── */
+    .loading-row td { text-align: center; padding: 30px; color: #9ca3af; }
+    .spinner {
+      display: inline-block; width: 20px; height: 20px;
+      border: 2px solid #e5e7eb; border-top-color: #1d4ed8;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .divider { height: 1px; background: #e5e7eb; margin: 14px 0; }
+
+    @media (max-width: 640px) {
+      .top-bar { padding: 10px 14px; }
+      .main-wrap { padding: 14px 12px 40px; }
+      .panel-header { padding: 14px 16px; }
+      .toolbar { padding: 10px 14px; }
+      .modal-body { padding: 16px; }
+      .modal-header, .modal-footer { padding: 14px 16px; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+
+  <!-- ═══ TOP BAR ═══ -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="top-bar-icon"><i class="fas fa-cogs"></i></div>
+      <div>
+        <div class="top-bar-title">⚙️ أتمتة الإجراءات إلكترونيًا</div>
+        <div class="top-bar-sub">إدارة وتنفيذ العمليات بشكل ذكي وتلقائي</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <a href="/hr" class="btn btn-outline">
+        <i class="fas fa-arrow-right"></i>
+        الموارد البشرية
+      </a>
+      <button id="addWorkflowBtn" class="btn btn-primary">
+        <i class="fas fa-plus"></i>
+        إضافة عملية جديدة
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <div class="main-wrap">
+
+    <!-- ─── Stats Cards ─── -->
+    <div class="stats-grid">
+      <div class="stat-card glass">
+        <div class="stat-icon" style="background:#eff6ff;color:#1d4ed8;">
+          <i class="fas fa-project-diagram"></i>
+        </div>
+        <div class="stat-label">عدد العمليات</div>
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-sub">إجمالي العمليات المضافة</div>
+      </div>
+      <div class="stat-card glass">
+        <div class="stat-icon" style="background:#ecfdf5;color:#059669;">
+          <i class="fas fa-play-circle"></i>
+        </div>
+        <div class="stat-label">العمليات النشطة</div>
+        <div class="stat-value" id="statActive">0</div>
+        <div class="stat-sub">تعمل حالياً بشكل تلقائي</div>
+      </div>
+      <div class="stat-card glass">
+        <div class="stat-icon" style="background:#fffbeb;color:#b45309;">
+          <i class="fas fa-pause-circle"></i>
+        </div>
+        <div class="stat-label">العمليات المتوقفة</div>
+        <div class="stat-value" id="statStopped">0</div>
+        <div class="stat-sub">تحتاج إعادة تفعيل</div>
+      </div>
+      <div class="stat-card glass">
+        <div class="stat-icon" style="background:#f0f9ff;color:#0369a1;">
+          <i class="fas fa-bolt"></i>
+        </div>
+        <div class="stat-label">التنفيذات اليوم</div>
+        <div class="stat-value" id="statToday">0</div>
+        <div class="stat-sub">عمليات نُفِّذت اليوم</div>
+      </div>
+    </div>
+
+    <!-- ─── Workflows Panel ─── -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">سجل العمليات الآلية</div>
+          <div class="panel-sub">إدارة وتشغيل وتعديل جميع مسارات الأتمتة</div>
+        </div>
+        <button id="addWorkflowBtn2" class="btn btn-primary">
+          <i class="fas fa-plus"></i>
+          إضافة عملية
+        </button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search-wrap">
+          <i class="fas fa-search"></i>
+          <input id="searchInput" type="text" class="search-input" placeholder="بحث باسم العملية أو القسم...">
+        </div>
+        <select id="filterStatus" class="filter-select">
+          <option value="">كل الحالات</option>
+          <option value="نشط">نشط</option>
+          <option value="متوقف">متوقف</option>
+          <option value="قيد التنفيذ">قيد التنفيذ</option>
+        </select>
+        <select id="filterType" class="filter-select">
+          <option value="">كل الأنواع</option>
+          <option value="اعتماد إداري">اعتماد إداري</option>
+          <option value="طلب خدمة">طلب خدمة</option>
+          <option value="تشغيل يومي">تشغيل يومي</option>
+          <option value="متابعة امتثال">متابعة امتثال</option>
+          <option value="إجراء مالي">إجراء مالي</option>
+          <option value="مبيعات">مبيعات</option>
+          <option value="متابعة">متابعة</option>
+          <option value="خدمة عملاء">خدمة عملاء</option>
+        </select>
+        <select id="filterSort" class="filter-select">
+          <option value="date-desc">الأحدث أولاً</option>
+          <option value="date-asc">الأقدم أولاً</option>
+          <option value="name-asc">أبجدياً أ-ي</option>
+          <option value="steps-desc">أكثر خطوات</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>اسم العملية</th>
+              <th>النوع</th>
+              <th>الحالة</th>
+              <th>عدد الخطوات</th>
+              <th>المسؤول</th>
+              <th>آخر تشغيل</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="workflowTable">
+            <tr class="loading-row">
+              <td colspan="8">
+                <span class="spinner"></span>
+                <span style="margin-right:8px;color:#64748b;">جاري تحميل البيانات...</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div id="emptyState" class="empty-state">
+          <div class="empty-icon"><i class="fas fa-cogs"></i></div>
+          <div class="empty-title">لا توجد عمليات حالياً</div>
+          <div class="empty-sub">ابدأ بإضافة أول عملية آلية لمؤسستك</div>
+          <button id="addWorkflowEmpty" class="btn btn-primary">
+            <i class="fas fa-plus"></i>
+            إضافة عملية جديدة
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ADD / EDIT MODAL ═══ -->
+  <div id="formModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="formModalTitle">إضافة عملية جديدة</div>
+        <button class="modal-close" id="formModalClose"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="workflowForm" novalidate>
+          <div class="form-grid">
+            <div class="form-field full">
+              <label class="form-label">اسم العملية <span>*</span></label>
+              <input id="fTitle" type="text" class="form-input" placeholder="مثال: أتمتة اعتماد الإجازات" required>
+            </div>
+            <div class="form-field full">
+              <label class="form-label">الوصف</label>
+              <textarea id="fNotes" class="form-textarea" placeholder="وصف تفصيلي للعملية وهدفها..."></textarea>
+            </div>
+            <div class="form-field">
+              <label class="form-label">نوع العملية <span>*</span></label>
+              <select id="fType" class="form-select" required>
+                <option value="">اختر النوع</option>
+                <option value="اعتماد إداري">اعتماد إداري</option>
+                <option value="طلب خدمة">طلب خدمة</option>
+                <option value="تشغيل يومي">تشغيل يومي</option>
+                <option value="متابعة امتثال">متابعة امتثال</option>
+                <option value="إجراء مالي">إجراء مالي</option>
+                <option value="مبيعات">مبيعات</option>
+                <option value="متابعة">متابعة</option>
+                <option value="خدمة عملاء">خدمة عملاء</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">الحالة</label>
+              <select id="fStatus" class="form-select">
+                <option value="نشط">نشط</option>
+                <option value="متوقف">متوقف</option>
+                <option value="قيد التنفيذ">قيد التنفيذ</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">القسم / الجهة</label>
+              <input id="fDepartment" type="text" class="form-input" placeholder="مثال: الموارد البشرية">
+            </div>
+            <div class="form-field">
+              <label class="form-label">المسؤول عن التنفيذ</label>
+              <input id="fOwner" type="text" class="form-input" placeholder="اسم المسؤول">
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="form-field full" style="margin-top:0;">
+            <label class="form-label">
+              <i class="fas fa-list-ol" style="color:#f87171;margin-left:5px;"></i>
+              خطوات العملية
+            </label>
+            <div id="stepsList" class="steps-list"></div>
+            <button type="button" id="addStepBtn" class="add-step-btn">
+              <i class="fas fa-plus"></i>
+              إضافة خطوة
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button id="saveWorkflowBtn" class="btn btn-primary">
+          <i class="fas fa-save"></i>
+          حفظ العملية
+        </button>
+        <button id="formModalCancel" class="btn btn-outline">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DETAILS MODAL ═══ -->
+  <div id="detailsModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fas fa-eye" style="color:#38bdf8;margin-left:6px;"></i>
+          تفاصيل العملية
+        </div>
+        <button class="modal-close" id="detailsModalClose"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" id="detailsContent">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button id="detailsEditBtn" class="btn btn-primary"><i class="fas fa-pencil-alt"></i> تعديل</button>
+        <button id="detailsCloseBtn" class="btn btn-outline">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CONFIRM DELETE MODAL ═══ -->
+  <div id="confirmModal" class="modal-backdrop">
+    <div class="confirm-card">
+      <div class="confirm-icon"><i class="fas fa-trash-alt"></i></div>
+      <div class="confirm-title">تأكيد الحذف</div>
+      <div class="confirm-sub" id="confirmText">هل أنت متأكد من حذف هذه العملية؟ لا يمكن التراجع عن هذا الإجراء.</div>
+      <div class="confirm-btns">
+        <button id="confirmDeleteBtn" class="btn" style="background:#ef4444;color:white;"><i class="fas fa-trash-alt"></i> حذف</button>
+        <button id="confirmCancelBtn" class="btn btn-outline">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TOAST ═══ -->
+  <div id="toast">
+    <i id="toastIcon" class="fas fa-check-circle" style="color:#34d399;"></i>
+    <span id="toastMsg"></span>
+  </div>
+
+  <script>
+    const API = '/api/hr/modules/process-automation/records';
+
+    const state = {
+      records: [],
+      filtered: [],
+      editRecord: null,
+      deleteRecord: null,
+      viewRecord: null
+    };
+
+    /* ── DOM refs ── */
+    const $ = (id) => document.getElementById(id);
+
+    const workflowTable   = $('workflowTable');
+    const emptyState      = $('emptyState');
+    const statTotal       = $('statTotal');
+    const statActive      = $('statActive');
+    const statStopped     = $('statStopped');
+    const statToday       = $('statToday');
+    const searchInput     = $('searchInput');
+    const filterStatus    = $('filterStatus');
+    const filterType      = $('filterType');
+    const filterSort      = $('filterSort');
+    const formModal       = $('formModal');
+    const formModalTitle  = $('formModalTitle');
+    const detailsModal    = $('detailsModal');
+    const confirmModal    = $('confirmModal');
+    const detailsContent  = $('detailsContent');
+    const stepsList       = $('stepsList');
+
+    /* ─────────── HELPERS ─────────── */
+
+    const formatDate = (val) => {
+      if (!val) return '-';
+      try {
+        const d = new Date(val);
+        if (isNaN(d)) return val;
+        return d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+      } catch { return val; }
+    };
+
+    const isToday = (val) => {
+      if (!val) return false;
+      const d = new Date(val);
+      const n = new Date();
+      return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+    };
+
+    const parseSteps = (keywords) => {
+      try {
+        if (!keywords) return [];
+        const parsed = JSON.parse(keywords);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch { return []; }
+    };
+
+    const stepsToKeywords = () => {
+      const inputs = stepsList.querySelectorAll('.step-name-input');
+      const steps = [...inputs].map((inp, i) => ({ num: i + 1, name: inp.value.trim() })).filter(s => s.name);
+      return steps.length ? JSON.stringify(steps) : '';
+    };
+
+    const statusBadge = (status) => {
+      if (status === 'نشط')        return `<span class="badge badge-green"><i class="fas fa-circle" style="font-size:7px;"></i> نشط</span>`;
+      if (status === 'متوقف')      return `<span class="badge badge-red"><i class="fas fa-circle" style="font-size:7px;"></i> متوقف</span>`;
+      if (status === 'قيد التنفيذ') return `<span class="badge badge-amber"><i class="fas fa-circle" style="font-size:7px;"></i> قيد التنفيذ</span>`;
+      return `<span class="badge badge-slate">${status || '-'}</span>`;
+    };
+
+
+    const typeBadge = (type) => {
+      const map = {
+        'اعتماد إداري': 'badge-sky',
+        'طلب خدمة': 'badge-amber',
+        'تشغيل يومي': 'badge-green',
+        'متابعة امتثال': 'badge-slate',
+        'إجراء مالي': 'badge-red',
+        'مبيعات': 'badge-sky',
+        'متابعة': 'badge-amber',
+        'خدمة عملاء': 'badge-green'
+      };
+      const cls = map[type] || 'badge-slate';
+      return `<span class="badge ${cls}">${type || '-'}</span>`;
+    };
+
+    const showToast = (msg, type = 'success') => {
+      const el = $('toast');
+      const ic = $('toastIcon');
+      $('toastMsg').textContent = msg;
+      el.className = 'show';
+      ic.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+      ic.style.color = type === 'success' ? '#10b981' : '#ef4444';
+      setTimeout(() => { el.className = ''; }, 3000);
+    };
+
+    /* ─────────── STATS ─────────── */
+    const updateStats = () => {
+      const total   = state.records.length;
+      const active  = state.records.filter(r => r.status === 'نشط').length;
+      const stopped = state.records.filter(r => r.status === 'متوقف').length;
+      const today   = state.records.filter(r => isToday(r.updated_at) || isToday(r.created_at)).length;
+      statTotal.textContent   = total;
+      statActive.textContent  = active;
+      statStopped.textContent = stopped;
+      statToday.textContent   = today;
+    };
+
+    /* ─────────── FILTER & SORT ─────────── */
+    const applyFilters = () => {
+      const search = searchInput.value.trim().toLowerCase();
+      const status = filterStatus.value;
+      const type   = filterType.value;
+      const sort   = filterSort.value;
+
+      let rows = state.records.filter(r => {
+        const searchStr = `${r.title || ''} ${r.department || ''} ${r.owner || ''} ${r.procedure_type || ''}`.toLowerCase();
+        const matchSearch = !search || searchStr.includes(search);
+        const matchStatus = !status || r.status === status;
+        const matchType   = !type   || r.procedure_type === type;
+        return matchSearch && matchStatus && matchType;
+      });
+
+      rows.sort((a, b) => {
+        if (sort === 'date-asc')   return new Date(a.created_at) - new Date(b.created_at);
+        if (sort === 'name-asc')   return (a.title || '').localeCompare(b.title || '');
+        if (sort === 'steps-desc') return (b.steps_count || 0) - (a.steps_count || 0);
+        return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
+      });
+
+      state.filtered = rows;
+      renderTable();
+    };
+
+    /* ─────────── RENDER TABLE ─────────── */
+    const renderTable = () => {
+      if (!state.filtered.length) {
+        workflowTable.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      workflowTable.innerHTML = state.filtered.map((r, idx) => {
+        const steps = parseSteps(r.keywords);
+        const stepsCount = r.steps_count || steps.length || 0;
+        const isActive  = r.status === 'نشط' || r.status === 'قيد التنفيذ';
+        const runBtn  = isActive
+          ? `<button class="action-btn ab-stop" data-action="stop" data-id="${r.id}"><i class="fas fa-pause"></i> إيقاف</button>`
+          : `<button class="action-btn ab-run" data-action="run" data-id="${r.id}"><i class="fas fa-play"></i> تشغيل</button>`;
+
+        return `<tr data-id="${r.id}">
+          <td style="color:#475569;font-size:12px;">${idx + 1}</td>
+          <td class="name-cell">${r.title || '-'}</td>
+          <td>${typeBadge(r.procedure_type)}</td>
+          <td>${statusBadge(r.status)}</td>
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:5px;color:#94a3b8;">
+              <i class="fas fa-list-ol" style="color:#f87171;font-size:11px;"></i>
+              ${stepsCount} خطوة
+            </span>
+          </td>
+          <td>${r.owner || '-'}</td>
+          <td style="color:#64748b;font-size:12px;">${formatDate(r.updated_at || r.created_at)}</td>
+          <td>
+            <div class="action-btns">
+              <button class="action-btn ab-view" data-action="view" data-id="${r.id}"><i class="fas fa-eye"></i> عرض</button>
+              <button class="action-btn ab-edit" data-action="edit" data-id="${r.id}"><i class="fas fa-pencil-alt"></i> تعديل</button>
+              ${runBtn}
+              <button class="action-btn ab-delete" data-action="delete" data-id="${r.id}"><i class="fas fa-trash-alt"></i> حذف</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    };
+
+    /* ─────────── LOAD DATA ─────────── */
+    const loadRecords = async () => {
+      try {
+        const res = await fetch(API);
+        if (!res.ok) throw new Error('Network error');
+        const data = await res.json();
+        state.records = Array.isArray(data) ? data : (data.records || []);
+        updateStats();
+        applyFilters();
+      } catch (err) {
+        console.error('Failed to load workflows:', err);
+        workflowTable.innerHTML = `<tr class="loading-row"><td colspan="8" style="color:#f87171;">تعذّر تحميل البيانات. يرجى المحاولة مرة أخرى.</td></tr>`;
+      }
+    };
+
+    /* ─────────── STEPS BUILDER ─────────── */
+    const addStepRow = (name = '', disabled = false) => {
+      const idx = stepsList.children.length + 1;
+      const div = document.createElement('div');
+      div.className = 'step-item';
+      div.innerHTML = `
+        <div class="step-num">${idx}</div>
+        <input class="step-name-input" type="text" placeholder="اسم الخطوة..." value="${name}" ${disabled ? 'disabled' : ''}>
+        ${!disabled ? `<button type="button" class="step-remove-btn"><i class="fas fa-times"></i></button>` : ''}
+      `;
+      if (!disabled) {
+        div.querySelector('.step-remove-btn').addEventListener('click', () => {
+          div.remove();
+          renumberSteps();
+        });
+      }
+      stepsList.appendChild(div);
+    };
+
+    const renumberSteps = () => {
+      stepsList.querySelectorAll('.step-num').forEach((el, i) => { el.textContent = i + 1; });
+    };
+
+    $('addStepBtn').addEventListener('click', () => addStepRow());
+
+    /* ─────────── OPEN FORM MODAL ─────────── */
+    const openFormModal = (record = null) => {
+      state.editRecord = record;
+      formModalTitle.textContent = record ? 'تعديل العملية' : 'إضافة عملية جديدة';
+
+      $('fTitle').value      = record?.title      || '';
+      $('fNotes').value      = record?.notes       || '';
+      $('fType').value       = record?.procedure_type || '';
+      $('fStatus').value     = record?.status      || 'نشط';
+      $('fDepartment').value = record?.department  || '';
+      $('fOwner').value      = record?.owner       || '';
+
+      // Populate steps
+      stepsList.innerHTML = '';
+      const steps = parseSteps(record?.keywords);
+      if (steps.length) {
+        steps.forEach(s => addStepRow(s.name || s));
+      } else if (record?.steps_count) {
+        for (let i = 0; i < record.steps_count; i++) addStepRow();
+      }
+
+      formModal.classList.add('active');
+      $('fTitle').focus();
+    };
+
+    const closeFormModal = () => {
+      formModal.classList.remove('active');
+      $('workflowForm').reset();
+      stepsList.innerHTML = '';
+      state.editRecord = null;
+    };
+
+    /* ─────────── SAVE WORKFLOW ─────────── */
+    $('saveWorkflowBtn').addEventListener('click', async () => {
+      const title = $('fTitle').value.trim();
+      const type  = $('fType').value;
+
+      if (!title) { showToast('يرجى إدخال اسم العملية', 'error'); $('fTitle').focus(); return; }
+      if (!type)  { showToast('يرجى اختيار نوع العملية', 'error'); $('fType').focus(); return; }
+
+      const steps = parseStepsFromUI();
+      const keywords = steps.length ? JSON.stringify(steps) : '';
+
+      const payload = {
+        title,
+        notes:          $('fNotes').value.trim() || null,
+        procedure_type: type,
+        status:         $('fStatus').value || 'نشط',
+        department:     $('fDepartment').value.trim() || null,
+        owner:          $('fOwner').value.trim() || null,
+        steps_count:    steps.length || null,
+        keywords:       keywords || null
+      };
+
+      try {
+        const isEdit = !!state.editRecord;
+        const url    = isEdit ? `${API}/${state.editRecord.id}` : API;
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Save failed'); }
+        await loadRecords();
+        closeFormModal();
+        showToast(isEdit ? 'تم تحديث العملية بنجاح' : 'تمت إضافة العملية بنجاح', 'success');
+      } catch (err) {
+        showToast(err.message || 'حدث خطأ أثناء الحفظ', 'error');
+      }
+    });
+
+    const parseStepsFromUI = () => {
+      const inputs = stepsList.querySelectorAll('.step-name-input');
+      return [...inputs]
+        .map((inp, i) => ({ num: i + 1, name: inp.value.trim() }))
+        .filter(s => s.name);
+    };
+
+    /* ─────────── DETAILS MODAL ─────────── */
+    const openDetailsModal = (record) => {
+      state.viewRecord = record;
+      const steps = parseSteps(record.keywords);
+      const stepsCount = record.steps_count || steps.length || 0;
+
+      let stepsHtml = '';
+      if (steps.length) {
+        stepsHtml = `<div class="steps-timeline">` +
+          steps.map((s, i) => `
+            <div class="step-tl-item">
+              <div class="step-tl-circle">${i + 1}</div>
+              <div class="step-tl-content">
+                <div class="step-tl-title">${s.name || s}</div>
+                <div class="step-tl-status"><i class="fas fa-check-circle" style="margin-left:4px;"></i> جاهزة للتنفيذ</div>
+              </div>
+            </div>`
+          ).join('') +
+        `</div>`;
+      } else if (stepsCount > 0) {
+        stepsHtml = `<div class="steps-timeline">` +
+          Array.from({ length: stepsCount }, (_, i) => `
+            <div class="step-tl-item">
+              <div class="step-tl-circle">${i + 1}</div>
+              <div class="step-tl-content">
+                <div class="step-tl-title">الخطوة ${i + 1}</div>
+                <div class="step-tl-status"><i class="fas fa-check-circle" style="margin-left:4px;"></i> جاهزة للتنفيذ</div>
+              </div>
+            </div>`
+          ).join('') +
+        `</div>`;
+      } else {
+        stepsHtml = `<div style="color:#475569;font-size:13px;padding:10px 0;">لم يتم تحديد خطوات لهذه العملية.</div>`;
+      }
+
+      detailsContent.innerHTML = `
+        <div class="detail-section">
+          <div class="detail-section-title"><i class="fas fa-info-circle"></i> معلومات العملية</div>
+          <div class="detail-row"><div class="detail-key">اسم العملية</div><div class="detail-val" style="color:white;font-weight:800;">${record.title || '-'}</div></div>
+          <div class="detail-row"><div class="detail-key">النوع</div><div class="detail-val">${typeBadge(record.procedure_type)}</div></div>
+          <div class="detail-row"><div class="detail-key">الحالة</div><div class="detail-val">${statusBadge(record.status)}</div></div>
+          <div class="detail-row"><div class="detail-key">القسم</div><div class="detail-val">${record.department || '-'}</div></div>
+          <div class="detail-row"><div class="detail-key">المسؤول</div><div class="detail-val">${record.owner || '-'}</div></div>
+          <div class="detail-row"><div class="detail-key">عدد الخطوات</div><div class="detail-val">${stepsCount} خطوة</div></div>
+          <div class="detail-row"><div class="detail-key">آخر تحديث</div><div class="detail-val">${formatDate(record.updated_at || record.created_at)}</div></div>
+          ${record.notes ? `<div class="detail-row"><div class="detail-key">الوصف</div><div class="detail-val">${record.notes}</div></div>` : ''}
+        </div>
+        <div class="divider"></div>
+        <div class="detail-section">
+          <div class="detail-section-title"><i class="fas fa-list-ol"></i> تسلسل خطوات العملية</div>
+          ${stepsHtml}
+        </div>`;
+
+      $('detailsEditBtn').onclick = () => {
+        closeDetailsModal();
+        openFormModal(record);
+      };
+
+      detailsModal.classList.add('active');
+    };
+
+    const closeDetailsModal = () => {
+      detailsModal.classList.remove('active');
+      state.viewRecord = null;
+    };
+
+    /* ─────────── RUN / STOP ─────────── */
+    const toggleWorkflowStatus = async (id, action) => {
+      const record = state.records.find(r => r.id === id);
+      if (!record) return;
+      const newStatus = action === 'run' ? 'نشط' : 'متوقف';
+      try {
+        const res = await fetch(`${API}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...record, status: newStatus })
+        });
+        if (!res.ok) throw new Error('Failed to update');
+        await loadRecords();
+        showToast(action === 'run' ? 'تم تشغيل العملية بنجاح' : 'تم إيقاف العملية', 'success');
+      } catch {
+        showToast('تعذّر تحديث الحالة', 'error');
+      }
+    };
+
+    /* ─────────── DELETE ─────────── */
+    const openConfirmDelete = (record) => {
+      state.deleteRecord = record;
+      $('confirmText').textContent = `هل أنت متأكد من حذف العملية "${record.title}"؟ لا يمكن التراجع عن هذا الإجراء.`;
+      confirmModal.classList.add('active');
+    };
+
+    $('confirmDeleteBtn').addEventListener('click', async () => {
+      if (!state.deleteRecord) return;
+      try {
+        const res = await fetch(`${API}/${state.deleteRecord.id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Delete failed');
+        state.deleteRecord = null;
+        confirmModal.classList.remove('active');
+        await loadRecords();
+        showToast('تم حذف العملية بنجاح', 'success');
+      } catch {
+        showToast('تعذّر حذف العملية', 'error');
+      }
+    });
+
+    /* ─────────── TABLE CLICK DELEGATION ─────────── */
+    workflowTable.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = parseInt(btn.dataset.id, 10);
+      const record = state.records.find(r => r.id === id);
+      if (!record) return;
+
+      if (action === 'view')   openDetailsModal(record);
+      if (action === 'edit')   openFormModal(record);
+      if (action === 'delete') openConfirmDelete(record);
+      if (action === 'run')    toggleWorkflowStatus(id, 'run');
+      if (action === 'stop')   toggleWorkflowStatus(id, 'stop');
+    });
+
+    /* ─────────── MODAL CLOSE HANDLERS ─────────── */
+    $('formModalClose').addEventListener('click',   closeFormModal);
+    $('formModalCancel').addEventListener('click',  closeFormModal);
+    $('detailsModalClose').addEventListener('click', closeDetailsModal);
+    $('detailsCloseBtn').addEventListener('click',  closeDetailsModal);
+    $('detailsEditBtn') .addEventListener('click',  () => { closeDetailsModal(); openFormModal(state.viewRecord); });
+    $('confirmCancelBtn').addEventListener('click', () => {
+      confirmModal.classList.remove('active');
+      state.deleteRecord = null;
+    });
+
+    // Close on backdrop click
+    [formModal, detailsModal, confirmModal].forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('active');
+      });
+    });
+
+    /* ─────────── ADD BUTTONS ─────────── */
+    $('addWorkflowBtn').addEventListener('click',   () => openFormModal());
+    $('addWorkflowBtn2').addEventListener('click',  () => openFormModal());
+    $('addWorkflowEmpty').addEventListener('click', () => openFormModal());
+
+    /* ─────────── FILTERS ─────────── */
+    searchInput.addEventListener('input',   applyFilters);
+    filterStatus.addEventListener('change', applyFilters);
+    filterType.addEventListener('change',   applyFilters);
+    filterSort.addEventListener('change',   applyFilters);
+
+    /* ─────────── KEYBOARD ESC ─────────── */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeFormModal();
+        closeDetailsModal();
+        confirmModal.classList.remove('active');
+      }
+    });
+
+    /* ─────────── INIT ─────────── */
+    loadRecords();
+  </script>
+</body>
+</html>

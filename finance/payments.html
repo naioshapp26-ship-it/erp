@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💳 المدفوعات - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f9fafb;
+            color: #1e293b;
+        }
+        .stat-card {
+            transition: all 0.3s ease;
+            background: white;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .action-btn {
+            color: #0f172a !important;
+        }
+        .action-btn i {
+            color: #0f172a !important;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">💳 المدفوعات (Payments)</h1>
+            <p class="text-slate-600">عرض جميع المدفوعات وربطها بالعملاء</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mb-6 flex gap-3 flex-wrap">
+            <button onclick="openPaymentModal('create')" class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-plus"></i>
+                إضافة مدفوعة
+            </button>
+            <button onclick="downloadCSV()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-csv text-green-600"></i>
+                تنزيل CSV
+            </button>
+            <button onclick="downloadJSON()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-file-code text-blue-600"></i>
+                تنزيل JSON
+            </button>
+            <button onclick="printPayments()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
+                <i class="fas fa-print text-slate-600"></i>
+                طباعة
+            </button>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card p-6 rounded-xl border-t-4 border-green-500 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 mb-1">إجمالي المدفوعات</p>
+                        <h3 id="totalPayments" class="text-2xl font-bold text-slate-800">
+                             <div class="animate-pulse h-8 w-24 bg-slate-200 rounded"></div>
+                        </h3>
+                    </div>
+                    <div class="p-3 bg-green-50 rounded-lg">
+                        <i class="fas fa-coins text-xl text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-6 rounded-xl border-t-4 border-blue-500 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 mb-1">عدد العمليات</p>
+                        <h3 id="paymentCount" class="text-2xl font-bold text-slate-800">
+                             <div class="animate-pulse h-8 w-24 bg-slate-200 rounded"></div>
+                        </h3>
+                    </div>
+                    <div class="p-3 bg-blue-50 rounded-lg">
+                        <i class="fas fa-list text-xl text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-6 rounded-xl border-t-4 border-purple-500 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 mb-1">عدد العملاء</p>
+                        <h3 id="customerCount" class="text-2xl font-bold text-slate-800">
+                             <div class="animate-pulse h-8 w-24 bg-slate-200 rounded"></div>
+                        </h3>
+                    </div>
+                    <div class="p-3 bg-purple-50 rounded-lg">
+                        <i class="fas fa-user text-xl text-purple-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card p-6 rounded-xl border-t-4 border-orange-500 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 mb-1">حالة العمليات</p>
+                        <h3 id="statusSummary" class="text-xl font-bold text-slate-800">
+                             <div class="animate-pulse h-8 w-24 bg-slate-200 rounded"></div>
+                        </h3>
+                    </div>
+                    <div class="p-3 bg-orange-50 rounded-lg">
+                        <i class="fas fa-check-circle text-xl text-orange-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">بحث</label>
+                    <input id="searchInput" type="text" placeholder="ابحث برقم العملية أو العميل" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">طريقة الدفع</label>
+                    <select id="methodFilter" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                        <option value="CASH">نقدي</option>
+                        <option value="BANK">تحويل بنكي</option>
+                        <option value="CARD">بطاقة</option>
+                        <option value="CHECK">شيك</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">الحالة</label>
+                    <select id="statusFilter" class="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none" onchange="applyFilters()">
+                        <option value="">الكل</option>
+                        <option value="COMPLETED">مكتملة</option>
+                        <option value="PENDING">معلقة</option>
+                        <option value="FAILED">فاشلة</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payments Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-0">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 text-slate-600 text-sm border-b border-slate-200">
+                            <tr>
+                                <th class="px-4 py-3 text-right">رقم العملية</th>
+                                <th class="px-4 py-3 text-right">التاريخ</th>
+                                <th class="px-4 py-3 text-right">العميل</th>
+                                <th class="px-4 py-3 text-right">المبلغ</th>
+                                <th class="px-4 py-3 text-right">طريقة الدفع</th>
+                                <th class="px-4 py-3 text-right">نوع الدفع</th>
+                                <th class="px-4 py-3 text-right">الحالة</th>
+                                <th class="px-4 py-3 text-right">ملاحظات</th>
+                                <th class="px-4 py-3 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paymentsTable" class="text-sm divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="9" class="px-4 py-12 text-center text-slate-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل المدفوعات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-4 border-t border-slate-200 text-sm text-slate-600" id="tableCount"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b">
+                <h3 id="paymentModalTitle" class="text-lg font-bold text-gray-800">إضافة مدفوعة</h3>
+                <button onclick="closePaymentModal()" class="text-gray-400 hover:text-gray-700">
+                    <i class="fas fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">رقم العملية</label>
+                        <input id="paymentNumber" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="مثال: PAY-2026-0001">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">التاريخ</label>
+                        <input id="paymentDate" type="date" class="w-full border rounded-lg px-3 py-2">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">العميل</label>
+                        <input id="customerId" type="number" class="w-full border rounded-lg px-3 py-2" placeholder="رقم العميل">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">اسم العميل</label>
+                        <input id="customerName" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم العميل">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">المبلغ</label>
+                        <input id="paymentAmount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">طريقة الدفع</label>
+                        <select id="paymentMethod" class="w-full border rounded-lg px-3 py-2">
+                            <option value="CASH">نقدي</option>
+                            <option value="BANK">تحويل بنكي</option>
+                            <option value="CARD">بطاقة</option>
+                            <option value="CHECK">شيك</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">نوع الدفع</label>
+                        <select id="paymentType" class="w-full border rounded-lg px-3 py-2">
+                            <option value="FULL">كامل</option>
+                            <option value="PARTIAL">جزئي</option>
+                            <option value="ADVANCE">دفعة مقدمة</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">البنك</label>
+                        <input id="bankName" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اختياري">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">رقم الشيك</label>
+                        <input id="checkNumber" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اختياري">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">مرجع التحويل</label>
+                        <input id="transactionRef" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اختياري">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">الحالة</label>
+                        <select id="paymentStatus" class="w-full border rounded-lg px-3 py-2">
+                            <option value="COMPLETED">مكتملة</option>
+                            <option value="PENDING">معلقة</option>
+                            <option value="FAILED">فاشلة</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">ملاحظات</label>
+                        <input id="paymentNotes" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اختياري">
+                    </div>
+                </div>
+                <div class="border-t border-slate-200 pt-4">
+                    <h4 class="text-sm font-bold text-slate-800 mb-3">بيانات العنوان</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم الشارع</label>
+                            <input id="paymentStreetName" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم الشارع">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">الرمز البريدي</label>
+                            <input id="paymentPostalCode" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز البريدي">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">رقم المبنى</label>
+                            <input id="paymentBuildingNumber" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="رقم المبنى">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم المدينة</label>
+                            <input id="paymentCity" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المدينة">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">اسم المنطقة</label>
+                            <input id="paymentDistrict" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المنطقة">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">الرمز الوطني</label>
+                            <input id="paymentNationalAddress" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز الوطني">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm text-slate-700 mb-1">العنوان المختصر</label>
+                            <input id="paymentShortAddress" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="العنوان المختصر">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 border-t flex items-center justify-end gap-2">
+                <button onclick="closePaymentModal()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                <button id="paymentModalSave" onclick="submitPayment()" class="px-4 py-2 rounded-lg bg-green-600 text-white">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Use live API host when the page is served from a different origin (e.g., static hosting)
+        const API_BASE = (window.API_BASE || '').trim() ||
+            (window.location.origin && window.location.origin.startsWith('http')
+                ? window.location.origin
+                : '');
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        let allPayments = [];
+        let paymentModalMode = 'create';
+        let editingPaymentId = null;
+
+        async function parseJsonResponse(response) {
+            const contentType = response.headers.get('content-type') || '';
+            const text = await response.text();
+
+            if (!contentType.includes('application/json')) {
+                const snippet = text.trim().slice(0, 160);
+                const target = response.url || 'unknown url';
+                throw new Error(
+                    `Unexpected response (HTTP ${response.status}, ${contentType || 'no content-type'}) from ${target}. ` +
+                    `${snippet || 'No JSON received.'}`
+                );
+            }
+
+            return text ? JSON.parse(text) : {};
+        }
+
+        async function loadPayments() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/payments?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+
+                const data = await parseJsonResponse(response);
+
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load payments');
+                }
+
+                allPayments = data.payments || [];
+                renderSummary(data.summary || {});
+                renderTable(allPayments);
+            } catch (error) {
+                console.error('❌ خطأ في تحميل المدفوعات:', error);
+                document.getElementById('paymentsTable').innerHTML = `
+                    <tr>
+                        <td colspan="9" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل المدفوعات</div>
+                            <div class="mt-2 text-sm text-slate-500">${error.message || 'يرجى التحقق من الخادم'}</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('totalPayments').textContent = formatMoney(summary.total_amount || 0);
+            document.getElementById('paymentCount').textContent = summary.total_payments ?? '0';
+            document.getElementById('customerCount').textContent = summary.unique_customers ?? '0';
+            document.getElementById('statusSummary').textContent = summary.status_label || '—';
+        }
+
+        function renderTable(payments) {
+            const rows = payments.map(p => {
+                const statusBadge = getStatusBadge(p.status);
+                return `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                        <td class="px-4 py-3 font-mono text-slate-600">${p.payment_number || '-'}</td>
+                        <td class="px-4 py-3 text-slate-600">${formatDate(p.payment_date)}</td>
+                        <td class="px-4 py-3 font-medium text-slate-900">${p.customer_name || '-'}</td>
+                        <td class="px-4 py-3 font-bold text-green-600">${formatMoney(p.payment_amount)}</td>
+                        <td class="px-4 py-3">${translateMethod(p.payment_method)}</td>
+                        <td class="px-4 py-3">${translateType(p.payment_type)}</td>
+                        <td class="px-4 py-3">${statusBadge}</td>
+                        <td class="px-4 py-3 text-slate-500">${p.notes || '-'}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex gap-2">
+                                <button onclick="openPaymentModal('view', ${p.payment_id})" class="action-btn p-2 hover:bg-slate-100 rounded-lg transition" title="معاينة">
+                                    <i class="fas fa-eye" style="color: #0f172a;"></i>
+                                </button>
+                                <button onclick="openPaymentModal('edit', ${p.payment_id})" class="action-btn p-2 hover:bg-slate-100 rounded-lg transition" title="تعديل">
+                                    <i class="fas fa-pen" style="color: #0f172a;"></i>
+                                </button>
+                                <button onclick="deletePayment(${p.payment_id})" class="action-btn p-2 hover:bg-slate-100 rounded-lg transition" title="حذف">
+                                    <i class="fas fa-trash" style="color: #0f172a;"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('paymentsTable').innerHTML = rows.length ? rows : `
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-slate-500">
+                        لا توجد مدفوعات
+                    </td>
+                </tr>
+            `;
+
+            document.getElementById('tableCount').textContent = `عدد الصفوف المعروضة: ${payments.length}`;
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            const method = document.getElementById('methodFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            const filtered = allPayments.filter(p => {
+                const matchesSearch = !search ||
+                    (p.payment_number || '').toLowerCase().includes(search) ||
+                    (p.customer_name || '').toLowerCase().includes(search);
+
+                const matchesMethod = !method || (p.payment_method || '').toUpperCase() === method;
+                const matchesStatus = !status || (p.status || '').toUpperCase() === status;
+
+                return matchesSearch && matchesMethod && matchesStatus;
+            });
+
+            renderTable(filtered);
+        }
+
+        function translateMethod(method) {
+            const map = {
+                'CASH': 'نقدي',
+                'BANK': 'تحويل بنكي',
+                'CARD': 'بطاقة',
+                'CHECK': 'شيك'
+            };
+            return map[(method || '').toUpperCase()] || (method || '-');
+        }
+
+        function translateType(type) {
+            const map = {
+                'FULL': 'كامل',
+                'PARTIAL': 'جزئي',
+                'ADVANCE': 'دفعة مقدمة'
+            };
+            return map[(type || '').toUpperCase()] || (type || '-');
+        }
+
+        function getStatusBadge(status) {
+            const s = (status || '').toUpperCase();
+            if (s === 'COMPLETED' || s === 'PAID') {
+                return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">مكتملة</span>';
+            }
+            if (s === 'PENDING') {
+                return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">معلقة</span>';
+            }
+            if (s === 'FAILED') {
+                return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">فاشلة</span>';
+            }
+            return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">غير محدد</span>';
+        }
+
+        function openPaymentModal(mode, paymentId = null) {
+            paymentModalMode = mode;
+            editingPaymentId = paymentId;
+
+            const modal = document.getElementById('paymentModal');
+            const title = document.getElementById('paymentModalTitle');
+            const saveButton = document.getElementById('paymentModalSave');
+
+            title.textContent = mode === 'view' ? 'معاينة المدفوعة' : mode === 'edit' ? 'تعديل المدفوعة' : 'إضافة مدفوعة';
+            saveButton.textContent = mode === 'edit' ? 'حفظ التعديل' : 'حفظ';
+            saveButton.classList.toggle('hidden', mode === 'view');
+
+            resetPaymentForm();
+            setPaymentFormDisabled(mode === 'view');
+
+            if (mode !== 'create' && paymentId) {
+                const payment = allPayments.find(p => p.payment_id === paymentId);
+                if (payment) fillPaymentForm(payment);
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closePaymentModal() {
+            const modal = document.getElementById('paymentModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function resetPaymentForm() {
+            document.getElementById('paymentNumber').value = '';
+            document.getElementById('paymentDate').value = '';
+            document.getElementById('customerId').value = '';
+            document.getElementById('customerName').value = '';
+            document.getElementById('paymentAmount').value = '';
+            document.getElementById('paymentMethod').value = 'CASH';
+            document.getElementById('paymentType').value = 'FULL';
+            document.getElementById('bankName').value = '';
+            document.getElementById('checkNumber').value = '';
+            document.getElementById('transactionRef').value = '';
+            document.getElementById('paymentStatus').value = 'COMPLETED';
+            document.getElementById('paymentNotes').value = '';
+            document.getElementById('paymentStreetName').value = '';
+            document.getElementById('paymentPostalCode').value = '';
+            document.getElementById('paymentBuildingNumber').value = '';
+            document.getElementById('paymentCity').value = '';
+            document.getElementById('paymentDistrict').value = '';
+            document.getElementById('paymentNationalAddress').value = '';
+            document.getElementById('paymentShortAddress').value = '';
+        }
+
+        function fillPaymentForm(payment) {
+            document.getElementById('paymentNumber').value = payment.payment_number || '';
+            document.getElementById('paymentDate').value = (payment.payment_date || '').slice(0, 10);
+            document.getElementById('customerId').value = payment.customer_id || '';
+            document.getElementById('customerName').value = payment.customer_name || '';
+            document.getElementById('paymentAmount').value = payment.payment_amount || 0;
+            document.getElementById('paymentMethod').value = (payment.payment_method || 'CASH').toUpperCase();
+            document.getElementById('paymentType').value = (payment.payment_type || 'FULL').toUpperCase();
+            document.getElementById('bankName').value = payment.bank_name || '';
+            document.getElementById('checkNumber').value = payment.check_number || '';
+            document.getElementById('transactionRef').value = payment.transaction_reference || '';
+            document.getElementById('paymentStatus').value = (payment.status || 'COMPLETED').toUpperCase();
+            document.getElementById('paymentNotes').value = payment.notes || '';
+            document.getElementById('paymentStreetName').value = payment.street_name || '';
+            document.getElementById('paymentPostalCode').value = payment.postal_code || '';
+            document.getElementById('paymentBuildingNumber').value = payment.building_number || '';
+            document.getElementById('paymentCity').value = payment.city || '';
+            document.getElementById('paymentDistrict').value = payment.district || '';
+            document.getElementById('paymentNationalAddress').value = payment.national_address_number || '';
+            document.getElementById('paymentShortAddress').value = payment.short_address || '';
+        }
+
+        function setPaymentFormDisabled(disabled) {
+            [
+                'paymentNumber',
+                'paymentDate',
+                'customerId',
+                'customerName',
+                'paymentAmount',
+                'paymentMethod',
+                'paymentType',
+                'bankName',
+                'checkNumber',
+                'transactionRef',
+                'paymentStatus',
+                'paymentNotes',
+                'paymentStreetName',
+                'paymentPostalCode',
+                'paymentBuildingNumber',
+                'paymentCity',
+                'paymentDistrict',
+                'paymentNationalAddress',
+                'paymentShortAddress'
+            ].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = disabled;
+            });
+        }
+
+        async function submitPayment() {
+            const payload = {
+                entity_id: ENTITY_ID,
+                payment_number: document.getElementById('paymentNumber').value.trim(),
+                payment_date: document.getElementById('paymentDate').value,
+                customer_id: parseInt(document.getElementById('customerId').value || 0, 10),
+                customer_name: document.getElementById('customerName').value.trim(),
+                payment_amount: parseFloat(document.getElementById('paymentAmount').value || 0),
+                payment_method: document.getElementById('paymentMethod').value,
+                payment_type: document.getElementById('paymentType').value,
+                bank_name: document.getElementById('bankName').value.trim(),
+                check_number: document.getElementById('checkNumber').value.trim(),
+                transaction_reference: document.getElementById('transactionRef').value.trim(),
+                status: document.getElementById('paymentStatus').value,
+                notes: document.getElementById('paymentNotes').value.trim(),
+                street_name: document.getElementById('paymentStreetName').value.trim(),
+                postal_code: document.getElementById('paymentPostalCode').value.trim(),
+                building_number: document.getElementById('paymentBuildingNumber').value.trim(),
+                city: document.getElementById('paymentCity').value.trim(),
+                district: document.getElementById('paymentDistrict').value.trim(),
+                national_address_number: document.getElementById('paymentNationalAddress').value.trim(),
+                short_address: document.getElementById('paymentShortAddress').value.trim()
+            };
+
+            if (!payload.payment_date || !payload.customer_id || !payload.payment_amount) {
+                alert('يرجى إدخال التاريخ والعميل والمبلغ');
+                return;
+            }
+
+            try {
+                const url = paymentModalMode === 'edit'
+                    ? `${API_BASE}/finance/payments/${editingPaymentId}`
+                    : `${API_BASE}/finance/payments`;
+                const method = paymentModalMode === 'edit' ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await parseJsonResponse(res);
+                if (!res.ok) {
+                    throw new Error(data.error || `HTTP ${res.status}`);
+                }
+                if (!data.success) {
+                    throw new Error(data.error || 'تعذر حفظ المدفوعة');
+                }
+
+                closePaymentModal();
+                await loadPayments();
+            } catch (error) {
+                console.error('❌ خطأ في حفظ المدفوعة:', error);
+                alert(error.message || 'تعذر حفظ المدفوعة');
+            }
+        }
+
+        async function deletePayment(paymentId) {
+            if (!confirm('هل تريد حذف هذه المدفوعة؟')) return;
+            const res = await fetch(`${API_BASE}/finance/payments/${paymentId}`, {
+                method: 'DELETE',
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            });
+            const data = await parseJsonResponse(res);
+            if (!res.ok) {
+                alert(data.error || `تعذر حذف المدفوعة (HTTP ${res.status})`);
+                return;
+            }
+            await loadPayments();
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            const d = new Date(value);
+            return d.toLocaleDateString('en-US');
+        }
+
+        function downloadCSV() {
+            if (!allPayments.length) return;
+            const rows = [
+                ['رقم العملية', 'التاريخ', 'العميل', 'المبلغ', 'طريقة الدفع', 'نوع الدفع', 'الحالة', 'ملاحظات']
+            ];
+
+            allPayments.forEach(p => {
+                rows.push([
+                    p.payment_number,
+                    p.payment_date,
+                    p.customer_name,
+                    p.payment_amount,
+                    translateMethod(p.payment_method),
+                    translateType(p.payment_type),
+                    p.status,
+                    p.notes
+                ]);
+            });
+
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'payments.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadJSON() {
+            if (!allPayments.length) return;
+            const blob = new Blob([JSON.stringify(allPayments, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'payments.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printPayments() {
+            window.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadPayments);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

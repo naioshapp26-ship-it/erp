@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧾 المصروفات والموردون - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb; /* Slate-50 */
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
+            backdrop-filter: blur(10px);
+        }
+        .stat-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+        .table-scroll {
+            max-height: 520px;
+            overflow: auto;
+        }
+        .json-pill {
+            max-width: 240px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .section-accent-emerald {
+            border-top: 4px solid #10b981;
+        }
+        .section-accent-indigo {
+            border-top: 4px solid #6366f1;
+        }
+        .section-accent-amber {
+            border-top: 4px solid #f59e0b;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🧾 المصروفات والموردون</h1>
+            <p class="text-lg opacity-90">عرض شامل للمصروفات وربطها بالموردين</p>
+        </div>
+
+        <div class="mb-6 flex gap-3 flex-wrap">
+            <button onclick="downloadCSV()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-blue-500 group">
+                <i class="fas fa-file-csv text-xl text-blue-600 group-hover:text-blue-700 transition"></i>
+                تنزيل CSV
+            </button>
+            <button onclick="downloadJSON()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-purple-500 group">
+                <i class="fas fa-file-code text-xl text-purple-600 group-hover:text-purple-700 transition"></i>
+                تنزيل JSON
+            </button>
+            <button onclick="printReport()" class="bg-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print text-xl text-gray-600 group-hover:text-gray-700 transition"></i>
+                طباعة
+            </button>
+            <button onclick="refreshData()" class="bg-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="openAddExpense()" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus"></i>
+                إضافة مصروف
+            </button>
+                <button onclick="openAddVendor()" class="bg-white text-slate-900 px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2 border border-slate-300" style="color: #0f172a !important; border-color: #0f172a !important; background: #ffffff !important;">
+                <i class="fas fa-building"></i>
+                إضافة مورد
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-receipt text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">عدد المصروفات</span>
+                </div>
+                <div id="totalExpenses" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-coins text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المبلغ</span>
+                </div>
+                <div id="totalAmount" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-rose-500 to-red-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-receipt text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي الضريبة</span>
+                </div>
+                <div id="totalTax" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-building text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">عدد الموردين</span>
+                </div>
+                <div id="totalVendors" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h3 class="text-lg font-bold text-gray-800">🔎 فلاتر البحث</h3>
+                <button onclick="resetFilters()" class="text-sm text-emerald-700 hover:text-emerald-900 font-semibold">إعادة ضبط الفلاتر</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">رقم المصروف</label>
+                    <input id="expenseNumber" type="text" placeholder="EXP-0001" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">اسم المورد</label>
+                    <input id="vendorName" type="text" placeholder="اسم المورد" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">الفئة</label>
+                    <input id="expenseCategory" type="text" placeholder="سفر / تشغيل" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">النوع</label>
+                    <input id="expenseType" type="text" placeholder="تشغيلي / رأسمالي" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">الحالة</label>
+                    <input id="status" type="text" placeholder="معتمد" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">رقم الفاتورة</label>
+                    <input id="invoiceNumber" type="text" placeholder="INV-0001" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">من تاريخ</label>
+                    <input id="fromDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">إلى تاريخ</label>
+                    <input id="toDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" onchange="applyFilters()">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card-gradient rounded-2xl shadow-2xl p-6 section-accent-indigo">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📊 التوزيع حسب الفئة</h3>
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+            <div class="card-gradient rounded-2xl shadow-2xl p-6 section-accent-amber">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📈 حالات المصروفات</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">💡 ملخص سريع</h3>
+            <div id="infoPanel" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="animate-pulse text-gray-500">جاري التحميل...</div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl overflow-hidden mb-8 section-accent-emerald">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">📋 جدول المصروفات</h3>
+                    <span id="expensesCount" class="text-sm text-gray-600"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-3 py-2 text-right">معرّف المصروف</th>
+                                <th class="px-3 py-2 text-right">رقم المصروف</th>
+                                <th class="px-3 py-2 text-right">تاريخ المصروف</th>
+                                <th class="px-3 py-2 text-right">فئة المصروف</th>
+                                <th class="px-3 py-2 text-right">نوع المصروف</th>
+                                <th class="px-3 py-2 text-right">رقم المورد</th>
+                                <th class="px-3 py-2 text-right">اسم المورد</th>
+                                <th class="px-3 py-2 text-right">المبلغ</th>
+                                <th class="px-3 py-2 text-right">الضريبة</th>
+                                <th class="px-3 py-2 text-right">الإجمالي</th>
+                                <th class="px-3 py-2 text-right">الحالة</th>
+                                <th class="px-3 py-2 text-right">نوع الكيان</th>
+                                <th class="px-3 py-2 text-right">معرّف الكيان</th>
+                                <th class="px-3 py-2 text-right">الفرع</th>
+                                <th class="px-3 py-2 text-right">الحاضنة</th>
+                                <th class="px-3 py-2 text-right">المنصة</th>
+                                <th class="px-3 py-2 text-right">قيد اليومية</th>
+                                <th class="px-3 py-2 text-right">رقم الفاتورة</th>
+                                <th class="px-3 py-2 text-right">الإيصال</th>
+                                <th class="px-3 py-2 text-right">المرفقات</th>
+                                <th class="px-3 py-2 text-right">الوصف</th>
+                                <th class="px-3 py-2 text-right">ملاحظات</th>
+                                <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                                <th class="px-3 py-2 text-right">آخر تحديث</th>
+                                <th class="px-3 py-2 text-right">منشأ بواسطة</th>
+                                <th class="px-3 py-2 text-right">مُعتمد بواسطة</th>
+                                <th class="px-3 py-2 text-right">تاريخ الاعتماد</th>
+                                <th class="px-3 py-2 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expensesTable" class="text-xs divide-y divide-gray-100">
+                            <tr>
+                                <td colspan="28" class="px-4 py-12 text-center text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل البيانات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl overflow-hidden section-accent-indigo">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">🏢 جدول الموردين</h3>
+                    <span id="vendorsCount" class="text-sm text-gray-600"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-3 py-2 text-right">معرّف المورد</th>
+                                <th class="px-3 py-2 text-right">كود المورد</th>
+                                <th class="px-3 py-2 text-right">اسم المورد (عربي)</th>
+                                <th class="px-3 py-2 text-right">اسم المورد (إنجليزي)</th>
+                                <th class="px-3 py-2 text-right">نوع المورد</th>
+                                <th class="px-3 py-2 text-right">البريد الإلكتروني</th>
+                                <th class="px-3 py-2 text-right">الهاتف</th>
+                                <th class="px-3 py-2 text-right">الجوال</th>
+                                <th class="px-3 py-2 text-right">العنوان</th>
+                                <th class="px-3 py-2 text-right">المدينة</th>
+                                <th class="px-3 py-2 text-right">الدولة</th>
+                                <th class="px-3 py-2 text-right">الرقم الضريبي</th>
+                                <th class="px-3 py-2 text-right">السجل التجاري</th>
+                                <th class="px-3 py-2 text-right">شروط الدفع</th>
+                                <th class="px-3 py-2 text-right">أيام السداد</th>
+                                <th class="px-3 py-2 text-right">نوع الكيان</th>
+                                <th class="px-3 py-2 text-right">معرّف الكيان</th>
+                                <th class="px-3 py-2 text-right">نشط</th>
+                                <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                                <th class="px-3 py-2 text-right">آخر تحديث</th>
+                                <th class="px-3 py-2 text-right">منشأ بواسطة</th>
+                                <th class="px-3 py-2 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vendorsTable" class="text-xs divide-y divide-gray-100">
+                            <tr>
+                                <td colspan="22" class="px-4 py-12 text-center text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل البيانات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+            const API_BASE = window.location.origin;
+            const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+            const DEFAULT_BRANCH_ID = 'BR001';
+            const DEFAULT_INCUBATOR_ID = 'INC01';
+            const EXPENSE_STATUS_LABELS = {
+                approved: 'معتمد',
+                pending: 'قيد المراجعة',
+                rejected: 'مرفوض',
+                paid: 'مدفوع',
+                draft: 'مسودة'
+            };
+            const EXPENSE_CATEGORY_LABELS = {
+                travel: 'سفر',
+                utilities: 'مرافق',
+                marketing: 'تسويق',
+                operations: 'تشغيل',
+                logistics: 'لوجستيات',
+                maintenance: 'صيانة',
+                rent: 'إيجار',
+                it: 'تقنية معلومات',
+                services: 'خدمات',
+                supplies: 'مستلزمات'
+            };
+            const EXPENSE_TYPE_LABELS = {
+                operational: 'تشغيلي',
+                capital: 'رأسمالي',
+                administrative: 'إداري',
+                marketing: 'تسويق',
+                utility: 'مرافق',
+                logistics: 'لوجستيات'
+            };
+            let expenses = [];
+            let vendors = [];
+            let categoryChartInstance = null;
+            let statusChartInstance = null;
+
+            async function loadReport() {
+                try {
+                    const response = await fetch(`${API_BASE}/finance/expenses?entity_id=${ENTITY_ID}`, {
+                        headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                    });
+                    const data = await response.json();
+
+                    if (!data.success) throw new Error(data.error || 'تعذر تحميل التقرير');
+
+                    expenses = data.expenses || [];
+                    vendors = data.vendors || [];
+
+                    renderSummary(data.summary || {});
+                    renderExpensesTable(expenses);
+                    renderVendorsTable(vendors);
+                    renderCharts(data.summary || {});
+                    renderInfo(data.summary || {});
+                } catch (error) {
+                    console.error('❌ خطأ في تحميل التقرير:', error);
+                    document.getElementById('expensesTable').innerHTML = `
+                        <tr>
+                            <td colspan="28" class="px-4 py-12 text-center text-red-500">
+                                <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                                <div>فشل تحميل بيانات المصروفات</div>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+
+            function applyFilters() {
+                const params = new URLSearchParams({ entity_id: ENTITY_ID });
+                const expenseNumber = document.getElementById('expenseNumber').value;
+                const vendorName = document.getElementById('vendorName').value;
+                const expenseCategory = document.getElementById('expenseCategory').value;
+                const expenseType = document.getElementById('expenseType').value;
+                const status = document.getElementById('status').value;
+                const invoiceNumber = document.getElementById('invoiceNumber').value;
+                const fromDate = document.getElementById('fromDate').value;
+                const toDate = document.getElementById('toDate').value;
+
+                if (expenseNumber) params.append('expense_number', expenseNumber);
+                if (vendorName) params.append('vendor_name', vendorName);
+                if (expenseCategory) params.append('expense_category', expenseCategory);
+                if (expenseType) params.append('expense_type', expenseType);
+                if (status) params.append('status', status);
+                if (invoiceNumber) params.append('invoice_number', invoiceNumber);
+                if (fromDate) params.append('from_date', fromDate);
+                if (toDate) params.append('to_date', toDate);
+
+                fetch(`${API_BASE}/finance/expenses?${params.toString()}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.success) throw new Error(data.error || 'تعذر تحميل التقرير');
+                        expenses = data.expenses || [];
+                        vendors = data.vendors || [];
+                        renderSummary(data.summary || {});
+                        renderExpensesTable(expenses);
+                        renderVendorsTable(vendors);
+                        renderCharts(data.summary || {});
+                        renderInfo(data.summary || {});
+                    })
+                    .catch(err => console.error('❌', err));
+            }
+
+            function resetFilters() {
+                document.getElementById('expenseNumber').value = '';
+                document.getElementById('vendorName').value = '';
+                document.getElementById('expenseCategory').value = '';
+                document.getElementById('expenseType').value = '';
+                document.getElementById('status').value = '';
+                document.getElementById('invoiceNumber').value = '';
+                document.getElementById('fromDate').value = '';
+                document.getElementById('toDate').value = '';
+                applyFilters();
+            }
+
+            function renderSummary(summary) {
+                document.getElementById('totalExpenses').textContent = summary.total_expenses ?? 0;
+                document.getElementById('totalAmount').textContent = formatMoney(summary.total_amount || 0);
+                document.getElementById('totalTax').textContent = formatMoney(summary.total_tax || 0);
+                document.getElementById('totalVendors').textContent = summary.total_vendors ?? 0;
+            }
+
+            function renderExpensesTable(rows) {
+                const body = rows.map(r => `
+                    <tr class="hover:bg-emerald-50">
+                        <td class="px-3 py-2">${r.expense_id ?? '-'}</td>
+                        <td class="px-3 py-2">${r.expense_number ?? '-'}</td>
+                        <td class="px-3 py-2">${formatDate(r.expense_date)}</td>
+                        <td class="px-3 py-2">${translateExpenseCategory(r.expense_category)}</td>
+                        <td class="px-3 py-2">${translateExpenseType(r.expense_type)}</td>
+                        <td class="px-3 py-2">${r.vendor_id ?? '-'}</td>
+                        <td class="px-3 py-2">${r.vendor_name ?? '-'}</td>
+                        <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(r.amount)}</td>
+                        <td class="px-3 py-2">${formatMoney(r.tax_amount)}</td>
+                        <td class="px-3 py-2">${formatMoney(r.total_amount)}</td>
+                        <td class="px-3 py-2">${translateExpenseStatus(r.status)}</td>
+                        <td class="px-3 py-2">${r.entity_type ?? '-'}</td>
+                        <td class="px-3 py-2">${r.entity_id ?? '-'}</td>
+                        <td class="px-3 py-2">${r.branch_id ?? '-'}</td>
+                        <td class="px-3 py-2">${r.incubator_id ?? '-'}</td>
+                        <td class="px-3 py-2">${r.platform_id ?? '-'}</td>
+                        <td class="px-3 py-2">${r.journal_entry_id ?? '-'}</td>
+                        <td class="px-3 py-2">${r.invoice_number ?? '-'}</td>
+                        <td class="px-3 py-2">${r.receipt_file ?? '-'}</td>
+                        <td class="px-3 py-2"><div class="json-pill">${renderJson(r.attachments)}</div></td>
+                        <td class="px-3 py-2">${r.description ?? '-'}</td>
+                        <td class="px-3 py-2">${r.notes ?? '-'}</td>
+                        <td class="px-3 py-2">${formatDateTime(r.created_at)}</td>
+                        <td class="px-3 py-2">${formatDateTime(r.updated_at)}</td>
+                        <td class="px-3 py-2">${r.created_by ?? '-'}</td>
+                        <td class="px-3 py-2">${r.approved_by ?? '-'}</td>
+                        <td class="px-3 py-2">${formatDateTime(r.approved_at)}</td>
+                        <td class="px-3 py-2">
+                            <div class="flex gap-2">
+                                <button onclick="openViewExpense(${r.expense_id})" class="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة">
+                                    <i class="fas fa-eye text-lg"></i>
+                                </button>
+                                <button onclick="openEditExpense(${r.expense_id})" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="تعديل">
+                                    <i class="fas fa-pen text-lg"></i>
+                                </button>
+                                <button onclick="deleteExpense(${r.expense_id})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف">
+                                    <i class="fas fa-trash text-lg"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+
+                document.getElementById('expensesTable').innerHTML = body.length ? body : `
+                    <tr>
+                        <td colspan="28" class="px-4 py-12 text-center text-gray-500">لا توجد بيانات</td>
+                    </tr>
+                `;
+                document.getElementById('expensesCount').textContent = `عدد الصفوف: ${rows.length}`;
+            }
+
+            function renderVendorsTable(rows) {
+                const body = rows.map(r => `
+                    <tr class="hover:bg-indigo-50">
+                        <td class="px-3 py-2">${r.vendor_id ?? '-'}</td>
+                        <td class="px-3 py-2">${r.vendor_code ?? '-'}</td>
+                        <td class="px-3 py-2">${r.vendor_name_ar ?? '-'}</td>
+                        <td class="px-3 py-2">${r.vendor_name_en ?? '-'}</td>
+                        <td class="px-3 py-2">${r.vendor_type ?? '-'}</td>
+                        <td class="px-3 py-2">${r.email ?? '-'}</td>
+                        <td class="px-3 py-2">${r.phone ?? '-'}</td>
+                        <td class="px-3 py-2">${r.mobile ?? '-'}</td>
+                        <td class="px-3 py-2">${r.address ?? '-'}</td>
+                        <td class="px-3 py-2">${r.city ?? '-'}</td>
+                        <td class="px-3 py-2">${r.country ?? '-'}</td>
+                        <td class="px-3 py-2">${r.tax_number ?? '-'}</td>
+                        <td class="px-3 py-2">${r.commercial_registration ?? '-'}</td>
+                        <td class="px-3 py-2">${r.payment_terms ?? '-'}</td>
+                        <td class="px-3 py-2">${r.payment_term_days ?? '-'}</td>
+                        <td class="px-3 py-2">${r.entity_type ?? '-'}</td>
+                        <td class="px-3 py-2">${r.entity_id ?? '-'}</td>
+                        <td class="px-3 py-2">${r.is_active === true ? 'نعم' : r.is_active === false ? 'لا' : '-'}</td>
+                        <td class="px-3 py-2">${formatDateTime(r.created_at)}</td>
+                        <td class="px-3 py-2">${formatDateTime(r.updated_at)}</td>
+                        <td class="px-3 py-2">${r.created_by ?? '-'}</td>
+                        <td class="px-3 py-2">
+                            <div class="flex gap-2">
+                                <button onclick="openViewVendor(${r.vendor_id})" class="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة">
+                                    <i class="fas fa-eye text-lg"></i>
+                                </button>
+                                <button onclick="openEditVendor(${r.vendor_id})" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="تعديل">
+                                    <i class="fas fa-pen text-lg"></i>
+                                </button>
+                                <button onclick="deleteVendor(${r.vendor_id})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف">
+                                    <i class="fas fa-trash text-lg"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+
+                document.getElementById('vendorsTable').innerHTML = body.length ? body : `
+                    <tr>
+                        <td colspan="22" class="px-4 py-12 text-center text-gray-500">لا توجد بيانات</td>
+                    </tr>
+                `;
+                document.getElementById('vendorsCount').textContent = `عدد الصفوف: ${rows.length}`;
+            }
+
+            function translateExpenseStatus(value) {
+                if (!value) return '-';
+                const key = value.toLowerCase();
+                return EXPENSE_STATUS_LABELS[key] || value;
+            }
+
+            function translateExpenseCategory(value) {
+                if (!value) return '-';
+                const key = value.toLowerCase();
+                return EXPENSE_CATEGORY_LABELS[key] || value;
+            }
+
+            function translateExpenseType(value) {
+                if (!value) return '-';
+                const key = value.toLowerCase();
+                return EXPENSE_TYPE_LABELS[key] || value;
+            }
+
+            function openAddExpense() {
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-6">
+                        <div class="p-5 border-b flex items-center justify-between">
+                            <h3 class="font-bold text-lg">إضافة مصروف</h3>
+                            <button onclick="this.closest('.fixed').remove()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+                        </div>
+                        <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <label class="block mb-1 text-gray-600">رقم المصروف</label>
+                                <input id="add-expense-number" type="text" class="w-full border rounded-lg px-3 py-2" value="مصروف-${Date.now()}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">تاريخ المصروف</label>
+                                <input id="add-expense-date" type="date" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">فئة المصروف</label>
+                                <input id="add-expense-category" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="سفر / تشغيل / صيانة">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">نوع المصروف</label>
+                                <input id="add-expense-type" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="تشغيلي / رأسمالي">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">رقم المورد</label>
+                                <input id="add-expense-vendor-id" type="number" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">اسم المورد</label>
+                                <input id="add-expense-vendor-name" type="text" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">المبلغ</label>
+                                <input id="add-expense-amount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الضريبة</label>
+                                <input id="add-expense-tax" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" value="0">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الحالة</label>
+                                <input id="add-expense-status" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="معتمد / قيد المراجعة">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">رقم الفاتورة</label>
+                                <input id="add-expense-invoice" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="فاتورة-0001">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الفرع</label>
+                                <input id="add-expense-branch" type="text" class="w-full border rounded-lg px-3 py-2" value="${DEFAULT_BRANCH_ID}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الحاضنة</label>
+                                <input id="add-expense-incubator" type="text" class="w-full border rounded-lg px-3 py-2" value="${DEFAULT_INCUBATOR_ID}">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block mb-1 text-gray-600">الوصف</label>
+                                <textarea id="add-expense-description" class="w-full border rounded-lg px-3 py-2" rows="2"></textarea>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block mb-1 text-gray-600">ملاحظات</label>
+                                <textarea id="add-expense-notes" class="w-full border rounded-lg px-3 py-2" rows="2"></textarea>
+                            </div>
+                            <div class="md:col-span-2 border-t border-slate-200 pt-3">
+                                <div class="text-sm font-semibold text-gray-700 mb-2">بيانات العنوان</div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم الشارع</label>
+                                        <input id="add-expense-street" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم الشارع">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">الرمز البريدي</label>
+                                        <input id="add-expense-postal" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز البريدي">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">رقم المبنى</label>
+                                        <input id="add-expense-building" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="رقم المبنى">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم المدينة</label>
+                                        <input id="add-expense-city" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المدينة">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم المنطقة</label>
+                                        <input id="add-expense-district" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المنطقة">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">الرمز الوطني</label>
+                                        <input id="add-expense-national" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز الوطني">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">العنوان المختصر</label>
+                                        <input id="add-expense-short" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="العنوان المختصر">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-5 border-t flex items-center justify-end gap-2">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                            <button onclick="submitAddExpense()" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">حفظ</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            function openViewExpense(expenseId) {
+                const expense = expenses.find(e => e.expense_id === expenseId);
+                if (!expense) return;
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+                const details = [
+                    ['رقم المصروف', expense.expense_number],
+                    ['تاريخ المصروف', formatDate(expense.expense_date)],
+                    ['فئة المصروف', translateExpenseCategory(expense.expense_category)],
+                    ['نوع المصروف', translateExpenseType(expense.expense_type)],
+                    ['المورد', expense.vendor_name || expense.vendor_id],
+                    ['المبلغ', formatMoney(expense.amount)],
+                    ['الضريبة', formatMoney(expense.tax_amount)],
+                    ['الإجمالي', formatMoney(expense.total_amount)],
+                    ['الحالة', translateExpenseStatus(expense.status)],
+                    ['رقم الفاتورة', expense.invoice_number],
+                    ['الوصف', expense.description],
+                    ['ملاحظات', expense.notes]
+                ];
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl my-6">
+                        <div class="p-5 border-b flex items-center justify-between">
+                            <h3 class="font-bold text-lg">تفاصيل المصروف</h3>
+                            <button onclick="this.closest('.fixed').remove()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+                        </div>
+                        <div class="p-5 space-y-2 text-sm">
+                            ${details.map(([label, value]) => `
+                                <div class="flex items-center justify-between border-b pb-2">
+                                    <span class="font-semibold text-gray-700">${label}</span>
+                                    <span class="text-gray-900">${value ?? '-'}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            async function submitAddExpense() {
+                const payload = {
+                    expense_number: document.getElementById('add-expense-number').value,
+                    expense_date: document.getElementById('add-expense-date').value,
+                    expense_category: document.getElementById('add-expense-category').value,
+                    expense_type: document.getElementById('add-expense-type').value,
+                    vendor_id: Number(document.getElementById('add-expense-vendor-id').value),
+                    vendor_name: document.getElementById('add-expense-vendor-name').value,
+                    amount: parseFloat(document.getElementById('add-expense-amount').value || 0),
+                    tax_amount: parseFloat(document.getElementById('add-expense-tax').value || 0),
+                    status: document.getElementById('add-expense-status').value,
+                    invoice_number: document.getElementById('add-expense-invoice').value,
+                    branch_id: document.getElementById('add-expense-branch').value,
+                    incubator_id: document.getElementById('add-expense-incubator').value,
+                    entity_type: 'HQ',
+                    entity_id: ENTITY_ID,
+                    description: document.getElementById('add-expense-description').value,
+                    notes: document.getElementById('add-expense-notes').value,
+                    street_name: document.getElementById('add-expense-street').value,
+                    postal_code: document.getElementById('add-expense-postal').value,
+                    building_number: document.getElementById('add-expense-building').value,
+                    city: document.getElementById('add-expense-city').value,
+                    district: document.getElementById('add-expense-district').value,
+                    national_address_number: document.getElementById('add-expense-national').value,
+                    short_address: document.getElementById('add-expense-short').value,
+                    created_by: 'لوحة التحكم'
+                };
+
+                const res = await fetch(`${API_BASE}/finance/expenses`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    document.querySelector('.fixed')?.remove();
+                    await loadReport();
+                } else {
+                    alert('تعذر إضافة المصروف');
+                }
+            }
+
+            function openEditExpense(expenseId) {
+                const expense = expenses.find(e => e.expense_id === expenseId);
+                if (!expense) return;
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-6">
+                        <div class="p-5 border-b flex items-center justify-between">
+                            <h3 class="font-bold text-lg">تعديل المصروف ${expense.expense_number || ''}</h3>
+                            <button onclick="this.closest('.fixed').remove()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+                        </div>
+                        <div class="p-5 space-y-4 text-sm">
+                            <div>
+                                <label class="block mb-1 text-gray-600">تاريخ المصروف</label>
+                                <input id="edit-expense-date" type="date" class="w-full border rounded-lg px-3 py-2" value="${(expense.expense_date || '').slice(0,10)}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">المبلغ</label>
+                                <input id="edit-expense-amount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" value="${expense.amount || 0}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الضريبة</label>
+                                <input id="edit-expense-tax" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" value="${expense.tax_amount || 0}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الحالة</label>
+                                <input id="edit-expense-status" type="text" class="w-full border rounded-lg px-3 py-2" value="${expense.status || ''}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">ملاحظات</label>
+                                <textarea id="edit-expense-notes" class="w-full border rounded-lg px-3 py-2" rows="3">${expense.notes || ''}</textarea>
+                            </div>
+                            <div class="border-t border-slate-200 pt-3">
+                                <div class="text-sm font-semibold text-gray-700 mb-2">بيانات العنوان</div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم الشارع</label>
+                                        <input id="edit-expense-street" type="text" class="w-full border rounded-lg px-3 py-2" value="${expense.street_name || ''}">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">الرمز البريدي</label>
+                                        <input id="edit-expense-postal" type="text" class="w-full border rounded-lg px-3 py-2" value="${expense.postal_code || ''}">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">رقم المبنى</label>
+                                        <input id="edit-expense-building" type="text" class="w-full border rounded-lg px-3 py-2" value="${expense.building_number || ''}">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم المدينة</label>
+                                        <input id="edit-expense-city" type="text" class="w-full border rounded-lg px-3 py-2" value="${expense.city || ''}">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم المنطقة</label>
+                                        <input id="edit-expense-district" type="text" class="w-full border rounded-lg px-3 py-2" value="${expense.district || ''}">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">الرمز الوطني</label>
+                                        <input id="edit-expense-national" type="text" class="w-full border rounded-lg px-3 py-2" value="${expense.national_address_number || ''}">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">العنوان المختصر</label>
+                                        <input id="edit-expense-short" type="text" class="w-full border rounded-lg px-3 py-2" value="${expense.short_address || ''}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-5 border-t flex items-center justify-end gap-2">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                            <button onclick="submitEditExpense(${expenseId})" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">حفظ</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            async function submitEditExpense(expenseId) {
+                const payload = {
+                    expense_date: document.getElementById('edit-expense-date').value,
+                    amount: parseFloat(document.getElementById('edit-expense-amount').value || 0),
+                    tax_amount: parseFloat(document.getElementById('edit-expense-tax').value || 0),
+                    status: document.getElementById('edit-expense-status').value,
+                    notes: document.getElementById('edit-expense-notes').value,
+                    street_name: document.getElementById('edit-expense-street').value,
+                    postal_code: document.getElementById('edit-expense-postal').value,
+                    building_number: document.getElementById('edit-expense-building').value,
+                    city: document.getElementById('edit-expense-city').value,
+                    district: document.getElementById('edit-expense-district').value,
+                    national_address_number: document.getElementById('edit-expense-national').value,
+                    short_address: document.getElementById('edit-expense-short').value
+                };
+                const res = await fetch(`${API_BASE}/finance/expenses/${expenseId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    document.querySelector('.fixed')?.remove();
+                    await loadReport();
+                } else {
+                    alert('تعذر تحديث المصروف');
+                }
+            }
+
+            async function deleteExpense(expenseId) {
+                if (!confirm('هل تريد حذف هذا المصروف؟')) return;
+                const res = await fetch(`${API_BASE}/finance/expenses/${expenseId}`, {
+                    method: 'DELETE',
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                if (res.ok) {
+                    await loadReport();
+                } else {
+                    alert('تعذر حذف المصروف');
+                }
+            }
+
+            function openAddVendor() {
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-6">
+                        <div class="p-5 border-b flex items-center justify-between">
+                            <h3 class="font-bold text-lg">إضافة مورد</h3>
+                            <button onclick="this.closest('.fixed').remove()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+                        </div>
+                        <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <label class="block mb-1 text-gray-600">كود المورد</label>
+                                <input id="add-vendor-code" type="text" class="w-full border rounded-lg px-3 py-2" value="مورد-${Date.now()}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">اسم المورد (عربي)</label>
+                                <input id="add-vendor-name-ar" type="text" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">اسم المورد (إنجليزي)</label>
+                                <input id="add-vendor-name-en" type="text" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">نوع المورد</label>
+                                <input id="add-vendor-type" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="خدمات / توريد">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">البريد الإلكتروني</label>
+                                <input id="add-vendor-email" type="email" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الهاتف</label>
+                                <input id="add-vendor-phone" type="text" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الجوال</label>
+                                <input id="add-vendor-mobile" type="text" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">العنوان</label>
+                                <input id="add-vendor-address" type="text" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div class="md:col-span-2 border-t border-slate-200 pt-3">
+                                <div class="text-sm font-semibold text-gray-700 mb-2">بيانات العنوان</div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم الشارع</label>
+                                        <input id="add-vendor-street" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم الشارع">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">الرمز البريدي</label>
+                                        <input id="add-vendor-postal" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز البريدي">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">رقم المبنى</label>
+                                        <input id="add-vendor-building" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="رقم المبنى">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم المدينة</label>
+                                        <input id="add-vendor-city" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المدينة">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم المنطقة</label>
+                                        <input id="add-vendor-district" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المنطقة">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">الرمز الوطني</label>
+                                        <input id="add-vendor-national" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز الوطني">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">العنوان المختصر</label>
+                                        <input id="add-vendor-short" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="العنوان المختصر">
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الرقم الضريبي</label>
+                                <input id="add-vendor-tax" type="text" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">السجل التجاري</label>
+                                <input id="add-vendor-cr" type="text" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">شروط الدفع</label>
+                                <input id="add-vendor-terms" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="صافي 30 يوم">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">أيام السداد</label>
+                                <input id="add-vendor-term-days" type="number" class="w-full border rounded-lg px-3 py-2" value="30">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الحالة</label>
+                                <input id="add-vendor-active" type="text" class="w-full border rounded-lg px-3 py-2" value="نعم">
+                            </div>
+                        </div>
+                        <div class="p-5 border-t flex items-center justify-end gap-2">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                            <button onclick="submitAddVendor()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white">حفظ</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            function openViewVendor(vendorId) {
+                const vendor = vendors.find(v => v.vendor_id === vendorId);
+                if (!vendor) return;
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+                const details = [
+                    ['اسم المورد', vendor.vendor_name_ar || vendor.vendor_name_en],
+                    ['كود المورد', vendor.vendor_code],
+                    ['نوع المورد', vendor.vendor_type],
+                    ['البريد الإلكتروني', vendor.email],
+                    ['الهاتف', vendor.phone],
+                    ['الجوال', vendor.mobile],
+                    ['العنوان', vendor.address],
+                    ['المدينة', vendor.city],
+                    ['اسم الشارع', vendor.street_name],
+                    ['الرمز البريدي', vendor.postal_code],
+                    ['رقم المبنى', vendor.building_number],
+                    ['اسم المنطقة', vendor.district],
+                    ['الرمز الوطني', vendor.national_address_number],
+                    ['العنوان المختصر', vendor.short_address],
+                    ['الرقم الضريبي', vendor.tax_number],
+                    ['السجل التجاري', vendor.commercial_registration],
+                    ['شروط الدفع', vendor.payment_terms],
+                    ['أيام السداد', vendor.payment_term_days],
+                    ['نشط', vendor.is_active === true ? 'نعم' : vendor.is_active === false ? 'لا' : '-']
+                ];
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl my-6">
+                        <div class="p-5 border-b flex items-center justify-between">
+                            <h3 class="font-bold text-lg">تفاصيل المورد</h3>
+                            <button onclick="this.closest('.fixed').remove()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+                        </div>
+                        <div class="p-5 space-y-2 text-sm">
+                            ${details.map(([label, value]) => `
+                                <div class="flex items-center justify-between border-b pb-2">
+                                    <span class="font-semibold text-gray-700">${label}</span>
+                                    <span class="text-gray-900">${value ?? '-'}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            async function submitAddVendor() {
+                const payload = {
+                    vendor_code: document.getElementById('add-vendor-code').value,
+                    vendor_name_ar: document.getElementById('add-vendor-name-ar').value,
+                    vendor_name_en: document.getElementById('add-vendor-name-en').value,
+                    vendor_type: document.getElementById('add-vendor-type').value,
+                    email: document.getElementById('add-vendor-email').value,
+                    phone: document.getElementById('add-vendor-phone').value,
+                    mobile: document.getElementById('add-vendor-mobile').value,
+                    city: document.getElementById('add-vendor-city').value,
+                    address: document.getElementById('add-vendor-address').value,
+                    street_name: document.getElementById('add-vendor-street').value,
+                    postal_code: document.getElementById('add-vendor-postal').value,
+                    building_number: document.getElementById('add-vendor-building').value,
+                    district: document.getElementById('add-vendor-district').value,
+                    national_address_number: document.getElementById('add-vendor-national').value,
+                    short_address: document.getElementById('add-vendor-short').value,
+                    tax_number: document.getElementById('add-vendor-tax').value,
+                    commercial_registration: document.getElementById('add-vendor-cr').value,
+                    payment_terms: document.getElementById('add-vendor-terms').value,
+                    payment_term_days: Number(document.getElementById('add-vendor-term-days').value || 0),
+                    is_active: document.getElementById('add-vendor-active').value,
+                    entity_type: 'HQ',
+                    entity_id: ENTITY_ID,
+                    created_by: 'لوحة التحكم'
+                };
+
+                const res = await fetch(`${API_BASE}/finance/vendors`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    document.querySelector('.fixed')?.remove();
+                    await loadReport();
+                } else {
+                    alert('تعذر إضافة المورد');
+                }
+            }
+
+            function openEditVendor(vendorId) {
+                const vendor = vendors.find(v => v.vendor_id === vendorId);
+                if (!vendor) return;
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-6">
+                        <div class="p-5 border-b flex items-center justify-between">
+                            <h3 class="font-bold text-lg">تعديل المورد ${vendor.vendor_name_ar || ''}</h3>
+                            <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="p-5 space-y-4 text-sm">
+                            <div>
+                                <label class="block mb-1 text-gray-600">اسم المورد (عربي)</label>
+                                <input id="edit-vendor-name" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.vendor_name_ar || ''}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">البريد الإلكتروني</label>
+                                <input id="edit-vendor-email" type="email" class="w-full border rounded-lg px-3 py-2" value="${vendor.email || ''}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الهاتف</label>
+                                <input id="edit-vendor-phone" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.phone || ''}">
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">العنوان</label>
+                                <input id="edit-vendor-address" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.address || ''}">
+                            </div>
+                            <div class="border-t border-slate-200 pt-3">
+                                <div class="text-sm font-semibold text-gray-700 mb-2">بيانات العنوان</div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم الشارع</label>
+                                        <input id="edit-vendor-street" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.street_name || ''}">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">الرمز البريدي</label>
+                                        <input id="edit-vendor-postal" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.postal_code || ''}">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">رقم المبنى</label>
+                                        <input id="edit-vendor-building" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.building_number || ''}">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم المدينة</label>
+                                        <input id="edit-vendor-city" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.city || ''}">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">اسم المنطقة</label>
+                                        <input id="edit-vendor-district" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.district || ''}">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">الرمز الوطني</label>
+                                        <input id="edit-vendor-national" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.national_address_number || ''}">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                    <div>
+                                        <label class="block mb-1 text-gray-600">العنوان المختصر</label>
+                                        <input id="edit-vendor-short" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.short_address || ''}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block mb-1 text-gray-600">الحالة</label>
+                                <input id="edit-vendor-active" type="text" class="w-full border rounded-lg px-3 py-2" value="${vendor.is_active === true ? 'نعم' : vendor.is_active === false ? 'لا' : ''}">
+                            </div>
+                        </div>
+                        <div class="p-5 border-t flex items-center justify-end gap-2">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                            <button onclick="submitEditVendor(${vendorId})" class="px-4 py-2 rounded-lg bg-indigo-600 text-white">حفظ</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            async function submitEditVendor(vendorId) {
+                const payload = {
+                    vendor_name_ar: document.getElementById('edit-vendor-name').value,
+                    email: document.getElementById('edit-vendor-email').value,
+                    phone: document.getElementById('edit-vendor-phone').value,
+                    is_active: document.getElementById('edit-vendor-active').value,
+                    address: document.getElementById('edit-vendor-address').value,
+                    street_name: document.getElementById('edit-vendor-street').value,
+                    postal_code: document.getElementById('edit-vendor-postal').value,
+                    building_number: document.getElementById('edit-vendor-building').value,
+                    city: document.getElementById('edit-vendor-city').value,
+                    district: document.getElementById('edit-vendor-district').value,
+                    national_address_number: document.getElementById('edit-vendor-national').value,
+                    short_address: document.getElementById('edit-vendor-short').value
+                };
+                const res = await fetch(`${API_BASE}/finance/vendors/${vendorId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    document.querySelector('.fixed')?.remove();
+                    await loadReport();
+                } else {
+                    alert('تعذر تحديث المورد');
+                }
+            }
+
+            async function deleteVendor(vendorId) {
+                if (!confirm('هل تريد حذف هذا المورد؟')) return;
+                const res = await fetch(`${API_BASE}/finance/vendors/${vendorId}`, {
+                    method: 'DELETE',
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                if (res.ok) {
+                    await loadReport();
+                } else {
+                    let message = 'تعذر حذف المورد';
+                    try {
+                        const data = await res.json();
+                        if (data && data.error) message = data.error;
+                    } catch (e) {
+                        // ignore parse errors
+                    }
+                    alert(message);
+                }
+            }
+
+            function renderCharts(summary) {
+                const catData = summary.by_category || {};
+                const catKeys = Object.keys(catData);
+                const catLabels = catKeys.map(k => translateExpenseCategory(k));
+                const catValues = catKeys.map(k => catData[k]);
+
+                const catCtx = document.getElementById('categoryChart').getContext('2d');
+                if (categoryChartInstance) categoryChartInstance.destroy();
+                categoryChartInstance = new Chart(catCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: catLabels.length ? catLabels : ['لا يوجد'],
+                        datasets: [{
+                            label: 'إجمالي المصروفات',
+                            data: catValues.length ? catValues : [0],
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)'
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+
+                const statusData = summary.by_status || {};
+                const statusKeys = Object.keys(statusData);
+                const statusLabels = statusKeys.map(k => translateExpenseStatus(k));
+                const statusValues = statusKeys.map(k => statusData[k]);
+
+                const statusCtx = document.getElementById('statusChart').getContext('2d');
+                if (statusChartInstance) statusChartInstance.destroy();
+                statusChartInstance = new Chart(statusCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: statusLabels.length ? statusLabels : ['لا يوجد'],
+                        datasets: [{
+                            data: statusValues.length ? statusValues : [1],
+                            backgroundColor: ['#06b6d4', '#f59e0b', '#ef4444', '#8b5cf6']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            function renderInfo(summary) {
+                document.getElementById('infoPanel').innerHTML = `
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <i class="fas fa-warehouse text-emerald-600 text-xl"></i>
+                        <div>
+                            <div class="text-sm text-gray-600">عدد الموردين النشطين</div>
+                            <div class="font-bold">${summary.active_vendors ?? 0}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <i class="fas fa-building text-emerald-600 text-xl"></i>
+                        <div>
+                            <div class="text-sm text-gray-600">إجمالي الموردين</div>
+                            <div class="font-bold">${summary.total_vendors ?? 0}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <i class="fas fa-database text-emerald-600 text-xl"></i>
+                        <div>
+                            <div class="text-sm text-gray-600">الكيان</div>
+                            <div class="font-bold">${summary.entity_id ?? '-'}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <i class="fas fa-clock text-emerald-600 text-xl"></i>
+                        <div>
+                            <div class="text-sm text-gray-600">آخر تحديث</div>
+                            <div class="font-bold">${summary.generated_at ? formatDateTime(summary.generated_at) : '-'}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function renderJson(value) {
+                if (!value) return '-';
+                try {
+                    return JSON.stringify(value);
+                } catch (e) {
+                    return String(value);
+                }
+            }
+
+            function formatMoney(value) {
+                const num = parseFloat(value || 0);
+                return num.toLocaleString('en-US') + ' SAR';
+            }
+
+            function formatDate(value) {
+                if (!value) return '-';
+                return new Date(value).toLocaleDateString('en-US');
+            }
+
+            function formatDateTime(value) {
+                if (!value) return '-';
+                return new Date(value).toLocaleString('en-US');
+            }
+
+            function downloadCSV() {
+                const rows = [
+                    ['جدول المصروفات'],
+                    ['معرّف المصروف','رقم المصروف','تاريخ المصروف','فئة المصروف','نوع المصروف','رقم المورد','اسم المورد','المبلغ','الضريبة','الإجمالي','حالة المصروف','نوع الكيان','معرّف الكيان','الفرع','الحاضنة','المنصة','قيد اليومية','رقم الفاتورة','الإيصال','المرفقات','الوصف','ملاحظات','تاريخ الإنشاء','آخر تحديث','منشأ بواسطة','مُعتمد بواسطة','تاريخ الاعتماد']
+                ];
+                expenses.forEach(e => rows.push([
+                    e.expense_id, e.expense_number, e.expense_date, translateExpenseCategory(e.expense_category), translateExpenseType(e.expense_type), e.vendor_id,
+                    e.vendor_name, e.amount, e.tax_amount, e.total_amount, translateExpenseStatus(e.status), e.entity_type, e.entity_id,
+                    e.branch_id, e.incubator_id, e.platform_id, e.journal_entry_id, e.invoice_number, e.receipt_file,
+                    JSON.stringify(e.attachments || {}), e.description, e.notes, e.created_at, e.updated_at,
+                    e.created_by, e.approved_by, e.approved_at
+                ]));
+
+                rows.push([]);
+                rows.push(['جدول الموردين']);
+                rows.push(['معرّف المورد','كود المورد','اسم المورد (عربي)','اسم المورد (إنجليزي)','نوع المورد','البريد الإلكتروني','الهاتف','الجوال','العنوان','المدينة','الدولة','الرقم الضريبي','السجل التجاري','شروط الدفع','أيام السداد','نوع الكيان','معرّف الكيان','نشط','تاريخ الإنشاء','آخر تحديث','منشأ بواسطة']);
+                vendors.forEach(v => rows.push([
+                    v.vendor_id, v.vendor_code, v.vendor_name_ar, v.vendor_name_en, v.vendor_type, v.email, v.phone,
+                    v.mobile, v.address, v.city, v.country, v.tax_number, v.commercial_registration, v.payment_terms,
+                    v.payment_term_days, v.entity_type, v.entity_id, v.is_active, v.created_at, v.updated_at,
+                    v.created_by
+                ]));
+
+                const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'تقرير-المصروفات-والموردين.csv';
+                link.click();
+                URL.revokeObjectURL(url);
+            }
+
+            function downloadJSON() {
+                const payload = { expenses, vendors };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'تقرير-المصروفات-والموردين.json';
+                link.click();
+                URL.revokeObjectURL(url);
+            }
+
+            function printReport() {
+                window.print();
+            }
+
+            function refreshData() {
+                loadReport();
+            }
+
+            document.addEventListener('DOMContentLoaded', loadReport);
+        </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

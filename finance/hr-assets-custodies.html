@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>&#128230; إدارة العهد والأصول - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink:        #0f172a;
+      --muted:      #64748b;
+      --primary:    #f59e0b;
+      --primary-dk: #d97706;
+      --rose:       #f43f5e;
+      --sun:        #f59e0b;
+      --line:       #e2e8f0;
+      --navy:       #0b1220;
+      --glass-bg:   rgba(255,255,255,0.93);
+    }
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 12%, rgba(245,158,11,0.15), transparent 40%),
+        radial-gradient(circle at 88% 15%, rgba(217,119,6,0.1), transparent 40%),
+        radial-gradient(circle at 50% 90%, rgba(15,23,42,0.05), transparent 50%),
+        linear-gradient(180deg, #fffbeb 0%, #f8fafc 50%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+    .glass {
+      background: var(--glass-bg);
+      border: 1px solid rgba(148,163,184,0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15,23,42,0.4);
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; font-weight: 800; border-radius: 999px;
+      padding: 10px 20px; transition: all 0.2s ease; border: 1px solid transparent;
+      cursor: pointer; font-family: 'Cairo', sans-serif; text-decoration: none;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px -18px rgba(15,23,42,0.4); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    /* ===== Hero ===== */
+    .page-hero {
+      background:
+        radial-gradient(circle at 20% 30%, rgba(245,158,11,0.28) 0%, transparent 50%),
+        radial-gradient(circle at 85% 20%, rgba(217,119,6,0.18) 0%, transparent 45%),
+        linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(15,23,42,0.98) 30%, rgba(15,23,42,0.95) 100%);
+      border-radius: 28px;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .page-hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(245,158,11,0.05) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(245,158,11,0.05) 0 1px, transparent 1px 40px);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.4);
+      border-radius: 999px; padding: 6px 16px;
+      font-size: 13px; font-weight: 800; color: #fcd34d;
+    }
+    .hero-pulse {
+      width: 10px; height: 10px; border-radius: 999px; background: #fbbf24;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(251,191,36,0.5); }
+      50%      { opacity:.8; box-shadow:0 0 0 6px rgba(251,191,36,0); }
+    }
+    .scan-line {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(245,158,11,0.6), transparent);
+      animation: scanLine 3.5s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes scanLine {
+      0%   { transform: translateY(-100%); }
+      100% { transform: translateY(500%); }
+    }
+    .hero-orb {
+      width: 180px; height: 180px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(245,158,11,0.4), rgba(217,119,6,0.2), rgba(15,23,42,0.5));
+      border: 1px solid rgba(245,158,11,0.3);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      box-shadow: 0 0 60px rgba(245,158,11,0.2), inset 0 0 40px rgba(245,158,11,0.1);
+    }
+    .hero-orb::before { content:''; position:absolute; inset:-8px; border-radius:50%; border:1px solid rgba(245,158,11,0.15); }
+    .hero-orb::after  { content:''; position:absolute; inset:-20px; border-radius:50%; border:1px solid rgba(245,158,11,0.08); }
+    .hero-counter-box {
+      text-align: center;
+    }
+
+    /* ===== Stat Cards ===== */
+    .stat-card {
+      border-radius: 22px; border: 1px solid var(--line);
+      background: #fff; padding: 18px 20px;
+      box-shadow: 0 8px 28px -16px rgba(15,23,42,0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px -20px rgba(15,23,42,0.3); }
+    .stat-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .stat-progress { height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .stat-progress-bar { height: 100%; border-radius: 999px; transition: width 1s ease; }
+
+    /* ===== Section label ===== */
+    .section-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);
+      border-radius: 999px; padding: 5px 14px;
+      font-size: 12px; font-weight: 800; color: #d97706;
+    }
+
+    /* ===== Table shell ===== */
+    .table-shell {
+      border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fff;
+    }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table thead tr { background: #fffbeb; }
+    .data-table thead th {
+      padding: 12px 16px; font-size: 12px; font-weight: 800; color: var(--muted);
+      text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 2;
+    }
+    .data-table tbody tr { border-bottom: 1px solid var(--line); transition: background 0.15s; }
+    .data-table tbody tr:last-child { border-bottom: none; }
+    .data-table tbody tr:hover { background: #fffbeb; }
+    .data-table tbody td { padding: 12px 16px; font-size: 13px; vertical-align: middle; }
+    .table-scroll { max-height: 520px; overflow: auto; }
+
+    /* ===== Status pill ===== */
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 999px; font-weight: 700; font-size: 12px;
+    }
+
+    /* ===== Step cards ===== */
+    .step-card {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 20px; background: #fff;
+      border: 1px solid var(--line); border-radius: 20px;
+      box-shadow: 0 4px 16px -8px rgba(15,23,42,0.12);
+      transition: transform 0.2s;
+    }
+    .step-card:hover { transform: translateX(-4px); }
+    .step-num {
+      width: 44px; height: 44px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; flex-shrink: 0;
+      background: rgba(245,158,11,0.15); color: #d97706;
+    }
+
+    /* ===== Feature Cards ===== */
+    .feature-card {
+      background: #fff; border: 1px solid var(--line);
+      border-radius: 22px; padding: 22px;
+      box-shadow: 0 8px 24px -16px rgba(15,23,42,0.15);
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 45px -20px rgba(15,23,42,0.3); }
+    .feature-icon {
+      width: 52px; height: 52px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center; font-size: 24px;
+    }
+
+    /* ===== Chip ===== */
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
+    }
+
+    /* ===== Filter panel ===== */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
+    .form-input {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s;
+      background: #fff; box-sizing: border-box;
+    }
+    .form-input:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.12); }
+    .form-select {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none; background: #fff;
+      transition: border-color 0.2s; appearance: none; cursor: pointer; box-sizing: border-box;
+    }
+    .form-select:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.12); }
+    .req-star { color: #f43f5e; margin-right: 2px; }
+    .field-error { color: #f43f5e; font-size: 12px; font-weight: 700; margin-top: 4px; }
+
+    /* ===== Tabs ===== */
+    .tab-btn {
+      padding: 8px 18px; border-radius: 999px; font-size: 13px; font-weight: 800;
+      border: 1px solid var(--line); background: #fff; cursor: pointer;
+      font-family: 'Cairo', sans-serif; transition: all 0.2s; color: var(--muted);
+    }
+    .tab-btn:hover { border-color: #f59e0b; color: #d97706; }
+    .tab-btn.active-tab { background: #f59e0b; color: #fff; border-color: #f59e0b; }
+
+    /* ===== CTA section ===== */
+    .cta-section {
+      background: linear-gradient(135deg, #0b1220, #0f172a 50%, #78350f);
+      border-radius: 28px; position: relative; overflow: hidden;
+    }
+    .cta-section::before {
+      content:''; position:absolute; inset:0;
+      background: radial-gradient(circle at 20% 50%, rgba(245,158,11,0.15), transparent 50%),
+                  radial-gradient(circle at 80% 30%, rgba(217,119,6,0.12), transparent 45%);
+      pointer-events:none;
+    }
+    .cta-section::after {
+      content:''; position:absolute; inset:0;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(245,158,11,0.03) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(245,158,11,0.03) 0 1px, transparent 1px 40px);
+      pointer-events:none;
+    }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(15,23,42,0.65); backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 28px; width: 100%; max-width: 600px;
+      box-shadow: 0 40px 80px -20px rgba(15,23,42,0.5);
+      max-height: 92vh; overflow-y: auto;
+    }
+    .modal-box.narrow { max-width: 420px; }
+    .modal-header { padding: 24px 24px 16px; border-bottom: 1px solid var(--line); }
+    .modal-body   { padding: 20px 24px; }
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid #f1f5f9;
+      background: #f8fafc; border-radius: 0 0 28px 28px;
+      display: flex; justify-content: flex-end; gap: 10px;
+    }
+
+    /* ===== Toast ===== */
+    #ac-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #0f172a; color: #fff; padding: 12px 28px; border-radius: 999px;
+      font-size: 14px; font-weight: 700; z-index: 200; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; white-space: nowrap;
+    }
+    #ac-toast.show { opacity: 1; }
+
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    #viewAssetDetails { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+    @media (max-width: 768px) {
+      .hero-orb { width: 120px; height: 120px; }
+      #viewAssetDetails { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+  <!-- 1. PAGE NAV -->
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <span class="chip bg-amber-50 text-amber-700 border border-amber-200">
+        <i class="fas fa-box text-amber-500"></i>
+        إدارة العهد والأصول
+      </span>
+    </div>
+    <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200 text-sm">
+      <i class="fas fa-arrow-right"></i>
+      العودة للموارد البشرية
+    </a>
+  </div>
+
+  <!-- 2. HERO -->
+  <div class="page-hero p-8 md:p-12 mb-8">
+    <div class="scan-line"></div>
+    <div class="relative z-10">
+      <div class="flex flex-col lg:flex-row gap-10 items-center">
+        <div class="flex-1">
+          <div class="hero-badge mb-5">
+            <div class="hero-pulse"></div>
+            &#128230; نظام إدارة الأصول — مباشر
+          </div>
+          <h1 class="text-4xl md:text-5xl font-extrabold mb-4 leading-tight">
+            &#128230; إدارة العهد والأصول
+          </h1>
+          <p class="text-lg md:text-xl mb-6 leading-relaxed" style="color:#fcd34d;">
+            تتبع وإدارة جميع أصول الشركة والعهد المسلمة للموظفين بسهولة وشفافية.
+          </p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+            <div class="flex items-center gap-2 text-sm" style="color:#fcd34d;"><i class="fas fa-check-circle flex-shrink-0" style="color:#fbbf24;"></i> تسجيل الأصول</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fcd34d;"><i class="fas fa-check-circle flex-shrink-0" style="color:#fbbf24;"></i> تتبع الحالة</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fcd34d;"><i class="fas fa-check-circle flex-shrink-0" style="color:#fbbf24;"></i> إدارة العهد</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fcd34d;"><i class="fas fa-check-circle flex-shrink-0" style="color:#fbbf24;"></i> طلبات الصيانة</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fcd34d;"><i class="fas fa-check-circle flex-shrink-0" style="color:#fbbf24;"></i> بحث متقدم</div>
+            <div class="flex items-center gap-2 text-sm" style="color:#fcd34d;"><i class="fas fa-check-circle flex-shrink-0" style="color:#fbbf24;"></i> تقارير فورية</div>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button id="addAssetBtn" class="btn text-sm"
+              style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border-color:transparent;box-shadow:0 8px 24px -8px rgba(245,158,11,0.5);">
+              <i class="fas fa-plus"></i> إضافة أصل جديد
+            </button>
+            <button id="assignCustodyBtn" class="btn text-white text-sm"
+              style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);">
+              <i class="fas fa-handshake"></i> تسليم عهدة
+            </button>
+          </div>
+        </div>
+        <div class="flex flex-col items-center gap-6 flex-shrink-0">
+          <div class="hero-orb">
+            <div style="text-align:center;position:relative;z-index:1;">
+              <span style="font-size:42px;">&#128230;</span>
+              <div style="font-size:11px;font-weight:800;color:#fcd34d;margin-top:4px;">ASSETS</div>
+            </div>
+          </div>
+          <div class="flex gap-4 text-center">
+            <div class="hero-counter-box">
+              <div class="text-2xl font-extrabold" style="color:#fbbf24;" id="heroTotalAssets">0</div>
+              <div class="text-xs text-slate-400">إجمالي الأصول</div>
+            </div>
+            <div style="width:1px;background:rgba(255,255,255,0.1);"></div>
+            <div class="hero-counter-box">
+              <div class="text-2xl font-extrabold" style="color:#a78bfa;" id="heroCustodies">0</div>
+              <div class="text-xs text-slate-400">عهد مسلمة</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. STAT CARDS -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+    <!-- إجمالي الأصول -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(245,158,11,0.12);color:#d97706;">&#128230;</div>
+        <span class="chip text-xs" style="background:rgba(245,158,11,0.12);color:#d97706;">الكل</span>
+      </div>
+      <div id="statTotal" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">إجمالي الأصول</div>
+      <div class="text-xs text-slate-500 mb-3">جميع الأصول المسجلة</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressTotal" style="width:100%;background:linear-gradient(90deg,#f59e0b,#d97706);"></div></div>
+    </div>
+    <!-- قيد الاستخدام -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(14,165,233,0.12);color:#0284c7;">&#128188;</div>
+        <span class="chip text-xs" style="background:rgba(14,165,233,0.12);color:#0284c7;">مستخدم</span>
+      </div>
+      <div id="statInUse" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">قيد الاستخدام</div>
+      <div class="text-xs text-slate-500 mb-3">أصول في الاستخدام الفعلي</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressInUse" style="width:0%;background:linear-gradient(90deg,#0ea5e9,#0284c7);"></div></div>
+    </div>
+    <!-- متاح -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(16,185,129,0.12);color:#047857;">&#9989;</div>
+        <span class="chip text-xs" style="background:rgba(16,185,129,0.12);color:#047857;">متاح</span>
+      </div>
+      <div id="statAvailable" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">متاح</div>
+      <div class="text-xs text-slate-500 mb-3">أصول جاهزة للتخصيص</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressAvailable" style="width:0%;background:linear-gradient(90deg,#10b981,#34d399);"></div></div>
+    </div>
+    <!-- تحت الصيانة -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(245,158,11,0.12);color:#b45309;">&#128295;</div>
+        <span class="chip text-xs" style="background:rgba(245,158,11,0.12);color:#b45309;">صيانة</span>
+      </div>
+      <div id="statMaintenance" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">تحت الصيانة</div>
+      <div class="text-xs text-slate-500 mb-3">أصول في دورة الصيانة</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressMaintenance" style="width:0%;background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div></div>
+    </div>
+    <!-- عهد مسلمة -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="stat-icon" style="background:rgba(139,92,246,0.12);color:#7c3aed;">&#129309;</div>
+        <span class="chip text-xs" style="background:rgba(139,92,246,0.12);color:#7c3aed;">عهد</span>
+      </div>
+      <div id="statCustodies" class="text-3xl font-extrabold mb-1">0</div>
+      <div class="text-sm font-bold text-slate-700 mb-1">عهد مسلمة</div>
+      <div class="text-xs text-slate-500 mb-3">عهد مسلمة للموظفين</div>
+      <div class="stat-progress"><div class="stat-progress-bar" id="progressCustodies" style="width:0%;background:linear-gradient(90deg,#8b5cf6,#a78bfa);"></div></div>
+    </div>
+  </div>
+
+  <!-- 4. TABS -->
+  <div class="flex flex-wrap gap-2 mb-6">
+    <button class="tab-btn active-tab" data-tab="all"><i class="fas fa-th-large text-xs"></i> الكل</button>
+    <button class="tab-btn" data-tab="registry"><i class="fas fa-list text-xs"></i> السجل</button>
+    <button class="tab-btn" data-tab="warehouse"><i class="fas fa-warehouse text-xs"></i> المستودع</button>
+    <button class="tab-btn" data-tab="classifications"><i class="fas fa-tags text-xs"></i> التصنيفات</button>
+    <button class="tab-btn" data-tab="custodies"><i class="fas fa-handshake text-xs"></i> العهد</button>
+    <button class="tab-btn" data-tab="maintenance"><i class="fas fa-tools text-xs"></i> الصيانة</button>
+  </div>
+
+  <!-- 5. SEARCH & FILTER -->
+  <div class="glass p-6 mb-8">
+    <div class="mb-4">
+      <span class="section-label"><i class="fas fa-search"></i> البحث والتصفية</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+      <div class="lg:col-span-2">
+        <label class="form-label">&#128269; بحث</label>
+        <input id="searchInput" type="text" class="form-input" placeholder="بحث باسم الأصل أو الكود...">
+      </div>
+      <div>
+        <label class="form-label">الحالة</label>
+        <select id="statusFilter" class="form-select">
+          <option value="all">جميع الحالات</option>
+          <option value="متاح">متاح</option>
+          <option value="مستخدم">مستخدم</option>
+          <option value="صيانة">صيانة</option>
+          <option value="تالف">تالف</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">النوع</label>
+        <select id="typeFilter" class="form-select">
+          <option value="all">جميع الأنواع</option>
+          <option value="لابتوب">لابتوب</option>
+          <option value="سيارة">سيارة</option>
+          <option value="جهاز">جهاز</option>
+          <option value="أثاث">أثاث</option>
+          <option value="أخرى">أخرى</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-3 mt-4">
+      <button id="searchBtn" class="btn text-sm text-white" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+        <i class="fas fa-search"></i> بحث
+      </button>
+      <button id="resetSearch" class="btn bg-white text-slate-700 border border-slate-200 text-sm">
+        <i class="fas fa-times"></i> مسح
+      </button>
+      <button onclick="window.print()" class="btn bg-white text-slate-700 border border-slate-200 text-sm">
+        <i class="fas fa-print"></i> طباعة
+      </button>
+    </div>
+  </div>
+
+  <!-- 6. ASSETS TABLE -->
+  <div id="assetsSection" class="mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <span class="section-label"><i class="fas fa-box"></i> سجل الأصول</span>
+    </div>
+    <div class="table-shell">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>اسم الأصل</th>
+              <th>الكود/الرقم</th>
+              <th>النوع</th>
+              <th>الحالة</th>
+              <th>الموقع</th>
+              <th>تاريخ الإضافة</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="assetsBody">
+            <tr><td colspan="7" class="px-4 py-12 text-center">
+              <div class="text-4xl mb-3">&#128230;</div>
+              <div class="font-bold text-slate-600">لا يوجد أصول حالياً</div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. CUSTODIES TABLE -->
+  <div id="custodiesSection" class="mb-8 hidden">
+    <div class="flex items-center justify-between mb-4">
+      <span class="section-label"><i class="fas fa-handshake"></i> سجل العهد</span>
+    </div>
+    <div class="table-shell">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>الموظف</th>
+              <th>الأصل المسلم</th>
+              <th>تاريخ التسليم</th>
+              <th>الحالة</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="custodiesBody">
+            <tr><td colspan="5" class="px-4 py-12 text-center">
+              <div class="text-4xl mb-3">&#129309;</div>
+              <div class="font-bold text-slate-600">لا توجد عهد مسلمة حالياً</div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. MAINTENANCE TABLE -->
+  <div id="maintenanceSection" class="mb-8 hidden">
+    <div class="flex items-center justify-between mb-4">
+      <span class="section-label"><i class="fas fa-tools"></i> طلبات الصيانة</span>
+      <button id="addMaintenanceBtn" class="btn text-sm text-white" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+        <i class="fas fa-plus"></i> إضافة صيانة
+      </button>
+    </div>
+    <div class="table-shell">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>الأصل</th>
+              <th>نوع الصيانة</th>
+              <th>الحالة</th>
+              <th>تاريخ الطلب</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="maintenanceBody">
+            <tr><td colspan="5" class="px-4 py-12 text-center">
+              <div class="text-4xl mb-3">&#128295;</div>
+              <div class="font-bold text-slate-600">لا توجد طلبات صيانة حالياً</div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. HOW IT WORKS -->
+  <div class="mb-12">
+    <div class="text-center mb-8">
+      <span class="section-label mb-4 inline-flex"><i class="fas fa-list-ol"></i> كيف يعمل النظام</span>
+      <h2 class="text-2xl font-extrabold mt-4">خطوات إدارة الأصول</h2>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div>
+          <div class="font-extrabold text-slate-800 mb-1">تسجيل الأصل</div>
+          <div class="text-sm text-slate-500">أدخل بيانات الأصل كاملة بما فيها الكود والنوع والقيمة.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div>
+          <div class="font-extrabold text-slate-800 mb-1">تخصيص العهدة</div>
+          <div class="text-sm text-slate-500">سلّم الأصل للموظف المعني مع توثيق تاريخ التسليم.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div>
+          <div class="font-extrabold text-slate-800 mb-1">متابعة الحالة</div>
+          <div class="text-sm text-slate-500">تابع حالة كل أصل بين متاح ومستخدم وصيانة وتالف.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">4</div>
+        <div>
+          <div class="font-extrabold text-slate-800 mb-1">الاسترجاع والتوثيق</div>
+          <div class="text-sm text-slate-500">استرجع الأصل من الموظف وحدّث سجل العهود تلقائياً.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. FEATURE CARDS -->
+  <div class="mb-12">
+    <div class="text-center mb-8">
+      <span class="section-label mb-4 inline-flex"><i class="fas fa-star"></i> مميزات النظام</span>
+      <h2 class="text-2xl font-extrabold mt-4">كل ما تحتاجه لإدارة أصولك</h2>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(245,158,11,0.12);color:#d97706;">&#128230;</div>
+        <h3 class="font-extrabold text-slate-800 mb-2">إدارة السجل</h3>
+        <p class="text-sm text-slate-500">سجّل جميع أصول الشركة مع بياناتها الكاملة من كود وقيمة وتاريخ شراء.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(139,92,246,0.12);color:#7c3aed;">&#129309;</div>
+        <h3 class="font-extrabold text-slate-800 mb-2">تتبع العهد</h3>
+        <p class="text-sm text-slate-500">وثّق تسليم الأصول للموظفين وتابع كل عهدة مسلمة بسهولة.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(245,158,11,0.12);color:#b45309;">&#128295;</div>
+        <h3 class="font-extrabold text-slate-800 mb-2">طلبات الصيانة</h3>
+        <p class="text-sm text-slate-500">أنشئ طلبات صيانة وتابع حالتها حتى الإغلاق.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(16,185,129,0.12);color:#047857;">&#128204;</div>
+        <h3 class="font-extrabold text-slate-800 mb-2">تصنيف الأصول</h3>
+        <p class="text-sm text-slate-500">صنّف الأصول حسب النوع: لابتوب، سيارة، جهاز، أثاث وغيرها.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(14,165,233,0.12);color:#0284c7;">&#128269;</div>
+        <h3 class="font-extrabold text-slate-800 mb-2">بحث متقدم</h3>
+        <p class="text-sm text-slate-500">ابحث بالاسم أو الكود وصفّ حسب الحالة والنوع للعثور على أي أصل.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon mb-4" style="background:rgba(244,63,94,0.12);color:#be123c;">&#128202;</div>
+        <h3 class="font-extrabold text-slate-800 mb-2">تقارير فورية</h3>
+        <p class="text-sm text-slate-500">إحصائيات فورية: إجمالي الأصول، المستخدمة، المتاحة، وعهد مسلمة.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 11. CTA SECTION -->
+  <div class="cta-section p-10 md:p-16 text-center mb-8">
+    <div class="relative z-10">
+      <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-4">جاهز لإدارة أصولك؟</h2>
+      <p class="text-lg mb-8" style="color:#fcd34d;">ابدأ بإضافة أصول الشركة الآن وابنِ سجلاً شاملاً.</p>
+      <button id="addAssetBtnCTA" class="btn text-sm"
+        style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 8px 24px -8px rgba(245,158,11,0.5);">
+        <i class="fas fa-plus"></i> إضافة أصل جديد
+      </button>
+    </div>
+  </div>
+
+</div><!-- end container -->
+
+<!-- ======================== MODALS ======================== -->
+
+<!-- Add/Edit Asset Modal -->
+<div id="assetModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header flex items-center justify-between">
+      <h3 id="assetModalTitle" class="text-xl font-extrabold text-slate-800">إضافة أصل جديد</h3>
+      <button id="closeAssetModal" class="btn bg-slate-100 text-slate-600 border-0 text-sm py-2 px-3">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div id="assetModalBody" class="modal-body">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="form-group">
+          <label class="form-label">اسم الأصل <span class="req-star">*</span></label>
+          <input id="f_asset_name" type="text" class="form-input" placeholder="مثال: لابتوب HP EliteBook">
+          <div class="field-error" id="f_asset_name_err" style="display:none"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">كود الأصل <span class="req-star">*</span></label>
+          <input id="f_asset_code" type="text" class="form-input" placeholder="مثال: AST-2024-001">
+          <div class="field-error" id="f_asset_code_err" style="display:none"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">النوع <span class="req-star">*</span></label>
+          <select id="f_asset_type" class="form-select">
+            <option value="">اختر النوع</option>
+            <option value="لابتوب">لابتوب</option>
+            <option value="سيارة">سيارة</option>
+            <option value="جهاز">جهاز</option>
+            <option value="أثاث">أثاث</option>
+            <option value="أخرى">أخرى</option>
+          </select>
+          <div class="field-error" id="f_asset_type_err" style="display:none"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">الحالة <span class="req-star">*</span></label>
+          <select id="f_asset_status" class="form-select">
+            <option value="">اختر الحالة</option>
+            <option value="متاح">متاح</option>
+            <option value="مستخدم">مستخدم</option>
+            <option value="صيانة">صيانة</option>
+            <option value="تالف">تالف</option>
+          </select>
+          <div class="field-error" id="f_asset_status_err" style="display:none"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">الموقع</label>
+          <input id="f_asset_location" type="text" class="form-input" placeholder="مثال: المكتب الرئيسي">
+        </div>
+        <div class="form-group">
+          <label class="form-label">القيمة (ريال)</label>
+          <input id="f_asset_value" type="number" class="form-input" placeholder="0.00" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">تاريخ الشراء</label>
+          <input id="f_asset_purchase_date" type="date" class="form-input">
+        </div>
+        <div class="form-group sm:col-span-2">
+          <label class="form-label">ملاحظات</label>
+          <textarea id="f_asset_notes" class="form-input" rows="3" placeholder="أي ملاحظات إضافية..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="closeAssetModal2" class="btn bg-white text-slate-700 border border-slate-200 text-sm"
+        onclick="document.getElementById('assetModal').classList.remove('open')">إلغاء</button>
+      <button id="saveAssetBtn" class="btn text-sm text-white" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+        <i class="fas fa-save"></i> حفظ
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Custody Modal -->
+<div id="assignModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header flex items-center justify-between">
+      <h3 class="text-xl font-extrabold text-slate-800">&#129309; تسليم عهدة</h3>
+      <button id="closeAssignModal" class="btn bg-slate-100 text-slate-600 border-0 text-sm py-2 px-3">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="form-group sm:col-span-2">
+          <label class="form-label">اسم الموظف <span class="req-star">*</span></label>
+          <input id="f_employee_name" type="text" class="form-input" placeholder="أدخل اسم الموظف">
+          <div class="field-error" id="f_employee_name_err" style="display:none"></div>
+        </div>
+        <div class="form-group sm:col-span-2">
+          <label class="form-label">الأصل المراد تسليمه <span class="req-star">*</span></label>
+          <select id="f_assign_asset" class="form-select">
+            <option value="">اختر الأصل</option>
+          </select>
+          <div class="field-error" id="f_assign_asset_err" style="display:none"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">تاريخ التسليم <span class="req-star">*</span></label>
+          <input id="f_assign_date" type="date" class="form-input">
+          <div class="field-error" id="f_assign_date_err" style="display:none"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ملاحظات</label>
+          <input id="f_assign_notes" type="text" class="form-input" placeholder="ملاحظات التسليم">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn bg-white text-slate-700 border border-slate-200 text-sm"
+        onclick="document.getElementById('assignModal').classList.remove('open')">إلغاء</button>
+      <button id="confirmAssignBtn" class="btn text-sm text-white" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);">
+        <i class="fas fa-handshake"></i> تأكيد التسليم
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- View Asset Modal -->
+<div id="viewAssetModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header flex items-center justify-between">
+      <h3 class="text-xl font-extrabold text-slate-800">&#128230; تفاصيل الأصل</h3>
+      <button id="closeViewModal" class="btn bg-slate-100 text-slate-600 border-0 text-sm py-2 px-3">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="viewAssetDetails"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn bg-white text-slate-700 border border-slate-200 text-sm"
+        onclick="document.getElementById('viewAssetModal').classList.remove('open')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- Maintenance Modal -->
+<div id="maintenanceModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header flex items-center justify-between">
+      <h3 class="text-xl font-extrabold text-slate-800">&#128295; إضافة طلب صيانة</h3>
+      <button id="closeMaintenanceModal" class="btn bg-slate-100 text-slate-600 border-0 text-sm py-2 px-3">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="form-group sm:col-span-2">
+          <label class="form-label">الأصل <span class="req-star">*</span></label>
+          <select id="f_maint_asset" class="form-select">
+            <option value="">اختر الأصل</option>
+          </select>
+          <div class="field-error" id="f_maint_asset_err" style="display:none"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">نوع الصيانة <span class="req-star">*</span></label>
+          <select id="f_maint_type" class="form-select">
+            <option value="">اختر نوع الصيانة</option>
+            <option value="صيانة دورية">صيانة دورية</option>
+            <option value="إصلاح">إصلاح</option>
+            <option value="استبدال قطعة">استبدال قطعة</option>
+          </select>
+          <div class="field-error" id="f_maint_type_err" style="display:none"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">تاريخ الطلب</label>
+          <input id="f_maint_date" type="date" class="form-input">
+        </div>
+        <div class="form-group sm:col-span-2">
+          <label class="form-label">الوصف</label>
+          <textarea id="f_maint_desc" class="form-input" rows="3" placeholder="وصف مشكلة الصيانة..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn bg-white text-slate-700 border border-slate-200 text-sm"
+        onclick="document.getElementById('maintenanceModal').classList.remove('open')">إلغاء</button>
+      <button id="saveMaintenanceBtn" class="btn text-sm text-white" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+        <i class="fas fa-save"></i> حفظ
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div id="deleteModal" class="modal-overlay">
+  <div class="modal-box narrow">
+    <div class="modal-header flex items-center justify-between">
+      <h3 class="text-xl font-extrabold text-slate-800">&#128465; تأكيد الحذف</h3>
+      <button class="btn bg-slate-100 text-slate-600 border-0 text-sm py-2 px-3"
+        onclick="document.getElementById('deleteModal').classList.remove('open')">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="text-center py-4">
+        <div class="text-5xl mb-4">&#9888;&#65039;</div>
+        <p class="text-slate-700 font-semibold">هل أنت متأكد من حذف هذا الأصل؟</p>
+        <p class="text-sm text-slate-500 mt-2">لا يمكن التراجع عن هذا الإجراء.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="cancelDeleteBtn" class="btn bg-white text-slate-700 border border-slate-200 text-sm">إلغاء</button>
+      <button id="confirmDeleteBtn" class="btn text-sm text-white" style="background:linear-gradient(135deg,#f43f5e,#e11d48);">
+        <i class="fas fa-trash"></i> حذف
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="ac-toast"></div>
+
+<!-- ======================== JAVASCRIPT ======================== -->
+<script>
+const HTML_ESCAPE_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const sanitize = (t) => {
+  if (t === null || t === undefined) return '';
+  return String(t).replace(/[&<>"']/g, c => HTML_ESCAPE_MAP[c]);
+};
+
+let assets = [];
+let custodies = [];
+let maintenanceReqs = [];
+let activeTab = 'all';
+let searchQuery = '';
+let statusFilter = 'all';
+let typeFilter = 'all';
+let editingAssetId = null;
+let deletingAssetId = null;
+
+const LS_ASSETS = 'ac_assets';
+const LS_CUSTODIES = 'ac_custodies';
+const LS_MAINTENANCE = 'ac_maintenance';
+
+const setProgress = (id, val) => {
+  const el = document.getElementById(id);
+  if (el) el.style.width = Math.min(val, 100) + '%';
+};
+
+const loadData = async () => {
+  const localAssets = JSON.parse(localStorage.getItem(LS_ASSETS) || '[]');
+  try {
+    const [registry, classifications] = await Promise.all([
+      fetch('/api/hr/assets/registry').then(r => r.json()).catch(() => []),
+      fetch('/api/hr/assets/classifications').then(r => r.json()).catch(() => [])
+    ]);
+    const apiAssets = [
+      ...(Array.isArray(registry) ? registry : []).map(r => ({
+        id: 'REG-' + (r.serial_number || r.id),
+        name: r.asset_name || r.serial_number || 'أصل',
+        code: r.serial_number || '',
+        type: 'أخرى',
+        status: r.status || 'متاح',
+        location: r.location || '—',
+        value: '',
+        purchaseDate: '',
+        notes: r.notes || '',
+        source: 'api'
+      })),
+      ...(Array.isArray(classifications) ? classifications : []).map(c => ({
+        id: 'CLS-' + (c.serial_number || c.id),
+        name: c.item_name_ar || c.item_name_en || c.serial_number || 'صنف',
+        code: c.serial_number || '',
+        type: c.asset_type_ar || 'أخرى',
+        status: c.status || 'متاح',
+        location: c.location || '—',
+        value: '',
+        purchaseDate: '',
+        notes: c.notes || '',
+        source: 'api'
+      }))
+    ];
+    const localIds = new Set(localAssets.map(a => a.id));
+    assets = [...localAssets, ...apiAssets.filter(a => !localIds.has(a.id))];
+  } catch (e) {
+    assets = localAssets;
+  }
+  custodies = JSON.parse(localStorage.getItem(LS_CUSTODIES) || '[]');
+  maintenanceReqs = JSON.parse(localStorage.getItem(LS_MAINTENANCE) || '[]');
+  updateStats();
+  renderAssets();
+  renderCustodies();
+  renderMaintenance();
+  populateAssetSelects();
+};
+
+const saveLocalAssets = () => {
+  const localOnly = assets.filter(a => a.source !== 'api');
+  localStorage.setItem(LS_ASSETS, JSON.stringify(localOnly));
+};
+
+const updateStats = () => {
+  const total = assets.length;
+  const inUse = assets.filter(a => a.status === 'مستخدم').length;
+  const available = assets.filter(a => a.status === 'متاح').length;
+  const maintenance = assets.filter(a => a.status === 'صيانة').length;
+  const custodiesCount = custodies.length;
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setText('statTotal', total);
+  setText('statInUse', inUse);
+  setText('statAvailable', available);
+  setText('statMaintenance', maintenance);
+  setText('statCustodies', custodiesCount);
+  setText('heroTotalAssets', total);
+  setText('heroCustodies', custodiesCount);
+  setProgress('progressInUse', total ? (inUse / total) * 100 : 0);
+  setProgress('progressAvailable', total ? (available / total) * 100 : 0);
+  setProgress('progressMaintenance', total ? (maintenance / total) * 100 : 0);
+  setProgress('progressCustodies', total ? (custodiesCount / total) * 100 : 0);
+};
+
+const statusColors = {
+  'متاح': 'bg-emerald-100 text-emerald-700',
+  'مستخدم': 'bg-sky-100 text-sky-700',
+  'صيانة': 'bg-amber-100 text-amber-700',
+  'تالف': 'bg-rose-100 text-rose-700'
+};
+
+const renderAssets = () => {
+  const tbody = document.getElementById('assetsBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const filtered = assets.filter(a => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchQ = !q || a.name.toLowerCase().includes(q) || (a.code || '').toLowerCase().includes(q);
+    const matchStatus = statusFilter === 'all' || a.status === statusFilter;
+    const matchType = typeFilter === 'all' || a.type === typeFilter;
+    return matchQ && matchStatus && matchType;
+  });
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-12 text-center"><div class="text-4xl mb-3">&#128230;</div><div class="font-bold text-slate-600">لا يوجد أصول مطابقة</div></td></tr>`;
+    return;
+  }
+  filtered.forEach(a => {
+    const statusCls = statusColors[a.status] || 'bg-slate-100 text-slate-700';
+    const tr = document.createElement('tr');
+    tr.className = 'fade-in';
+    tr.innerHTML = `
+      <td class="px-4 py-3">
+        <div class="font-bold">${sanitize(a.name)}</div>
+        <div class="text-xs text-slate-400">${sanitize(a.notes ? a.notes.substring(0, 40) : '')}</div>
+      </td>
+      <td class="px-4 py-3 font-mono text-xs">${sanitize(a.code)}</td>
+      <td class="px-4 py-3">${sanitize(a.type)}</td>
+      <td class="px-4 py-3"><span class="chip ${statusCls}">${sanitize(a.status)}</span></td>
+      <td class="px-4 py-3">${sanitize(a.location)}</td>
+      <td class="px-4 py-3 text-xs">${sanitize(a.purchaseDate || '—')}</td>
+      <td class="px-4 py-3">
+        <div class="flex flex-wrap gap-1">
+          <button class="btn bg-white text-slate-700 border border-slate-200 text-xs py-1 px-2" data-action="view" data-id="${sanitize(a.id)}"><i class="fas fa-eye"></i> عرض</button>
+          <button class="btn text-white text-xs py-1 px-2" style="background:#f59e0b;" data-action="edit" data-id="${sanitize(a.id)}"><i class="fas fa-pen"></i> تعديل</button>
+          <button class="btn text-white text-xs py-1 px-2" style="background:#8b5cf6;" data-action="assign" data-id="${sanitize(a.id)}"><i class="fas fa-handshake"></i> تسليم</button>
+          <button class="btn text-white text-xs py-1 px-2" style="background:#f43f5e;" data-action="delete" data-id="${sanitize(a.id)}"><i class="fas fa-trash"></i> حذف</button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+};
+
+const renderCustodies = () => {
+  const tbody = document.getElementById('custodiesBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (!custodies.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-12 text-center"><div class="text-4xl mb-3">&#129309;</div><div class="font-bold text-slate-600">لا توجد عهد مسلمة</div></td></tr>`;
+    return;
+  }
+  custodies.forEach((c, idx) => {
+    const tr = document.createElement('tr');
+    tr.className = 'fade-in';
+    tr.innerHTML = `
+      <td class="px-4 py-3 font-bold">${sanitize(c.employeeName)}</td>
+      <td class="px-4 py-3">${sanitize(c.assetName)}</td>
+      <td class="px-4 py-3 text-xs">${sanitize(c.assignDate)}</td>
+      <td class="px-4 py-3"><span class="chip bg-violet-100 text-violet-700">مسلمة</span></td>
+      <td class="px-4 py-3">
+        <button class="btn text-white text-xs py-1 px-2" style="background:#f43f5e;" data-action="return" data-idx="${idx}"><i class="fas fa-undo"></i> استرجاع</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+};
+
+const renderMaintenance = () => {
+  const tbody = document.getElementById('maintenanceBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (!maintenanceReqs.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-12 text-center"><div class="text-4xl mb-3">&#128295;</div><div class="font-bold text-slate-600">لا توجد طلبات صيانة</div></td></tr>`;
+    return;
+  }
+  maintenanceReqs.forEach((m, idx) => {
+    const tr = document.createElement('tr');
+    tr.className = 'fade-in';
+    tr.innerHTML = `
+      <td class="px-4 py-3 font-bold">${sanitize(m.assetName)}</td>
+      <td class="px-4 py-3">${sanitize(m.type)}</td>
+      <td class="px-4 py-3"><span class="chip bg-amber-100 text-amber-700">قيد المعالجة</span></td>
+      <td class="px-4 py-3 text-xs">${sanitize(m.date)}</td>
+      <td class="px-4 py-3">
+        <button class="btn text-white text-xs py-1 px-2" style="background:#f43f5e;" data-action="del-maint" data-idx="${idx}"><i class="fas fa-trash"></i></button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+};
+
+const switchTab = (tab) => {
+  activeTab = tab;
+  const sections = {
+    all: ['assetsSection', 'custodiesSection', 'maintenanceSection'],
+    registry: ['assetsSection'],
+    warehouse: ['assetsSection'],
+    classifications: ['assetsSection'],
+    custodies: ['custodiesSection'],
+    maintenance: ['maintenanceSection']
+  };
+  const show = sections[tab] || ['assetsSection'];
+  ['assetsSection', 'custodiesSection', 'maintenanceSection'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !show.includes(id));
+  });
+  document.querySelectorAll('[data-tab]').forEach(btn => {
+    btn.classList.toggle('active-tab', btn.dataset.tab === tab);
+  });
+};
+
+const populateAssetSelects = () => {
+  ['f_assign_asset', 'f_maint_asset'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">اختر الأصل</option>';
+    assets.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = `${a.name} (${a.code})`;
+      sel.appendChild(opt);
+    });
+  });
+};
+
+const showToast = (msg, isError = false) => {
+  const t = document.getElementById('ac-toast');
+  t.textContent = msg;
+  t.style.background = isError ? '#f43f5e' : '#1e293b';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+};
+
+const openModal = (id) => document.getElementById(id).classList.add('open');
+const closeModal = (id) => document.getElementById(id).classList.remove('open');
+
+const validateFields = (fields) => {
+  let valid = true;
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    const err = document.getElementById(id + '_err');
+    if (!el) return;
+    if (!el.value.trim()) {
+      if (err) { err.textContent = 'هذا الحقل مطلوب'; err.style.display = 'block'; }
+      el.style.borderColor = '#f43f5e';
+      valid = false;
+    } else {
+      if (err) err.style.display = 'none';
+      el.style.borderColor = '';
+    }
+  });
+  return valid;
+};
+
+const openAddAssetModal = () => {
+  editingAssetId = null;
+  document.getElementById('assetModalTitle').textContent = 'إضافة أصل جديد';
+  ['f_asset_name', 'f_asset_code', 'f_asset_location', 'f_asset_notes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['f_asset_type', 'f_asset_status'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.selectedIndex = 0;
+  });
+  ['f_asset_value', 'f_asset_purchase_date'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  openModal('assetModal');
+};
+
+const openEditAssetModal = (id) => {
+  const a = assets.find(x => x.id === id);
+  if (!a) return;
+  editingAssetId = id;
+  document.getElementById('assetModalTitle').textContent = 'تعديل الأصل';
+  const set = (fid, val) => { const el = document.getElementById(fid); if (el) el.value = val || ''; };
+  set('f_asset_name', a.name); set('f_asset_code', a.code);
+  set('f_asset_type', a.type); set('f_asset_status', a.status);
+  set('f_asset_location', a.location); set('f_asset_value', a.value);
+  set('f_asset_purchase_date', a.purchaseDate); set('f_asset_notes', a.notes);
+  openModal('assetModal');
+};
+
+const saveAsset = () => {
+  if (!validateFields(['f_asset_name', 'f_asset_code', 'f_asset_type', 'f_asset_status'])) return;
+  const a = {
+    id: editingAssetId || ('LOCAL-' + Date.now()),
+    name: document.getElementById('f_asset_name').value.trim(),
+    code: document.getElementById('f_asset_code').value.trim(),
+    type: document.getElementById('f_asset_type').value,
+    status: document.getElementById('f_asset_status').value,
+    location: document.getElementById('f_asset_location').value.trim(),
+    value: document.getElementById('f_asset_value').value.trim(),
+    purchaseDate: document.getElementById('f_asset_purchase_date').value,
+    notes: document.getElementById('f_asset_notes').value.trim(),
+    source: 'local'
+  };
+  if (editingAssetId) {
+    const idx = assets.findIndex(x => x.id === editingAssetId);
+    if (idx !== -1) assets[idx] = a;
+  } else {
+    assets.unshift(a);
+  }
+  saveLocalAssets();
+  closeModal('assetModal');
+  updateStats();
+  renderAssets();
+  populateAssetSelects();
+  showToast(editingAssetId ? 'تم تحديث الأصل بنجاح' : 'تمت إضافة الأصل بنجاح');
+};
+
+const confirmDelete = () => {
+  if (!deletingAssetId) return;
+  assets = assets.filter(a => a.id !== deletingAssetId);
+  saveLocalAssets();
+  deletingAssetId = null;
+  closeModal('deleteModal');
+  updateStats();
+  renderAssets();
+  populateAssetSelects();
+  showToast('تم حذف الأصل بنجاح');
+};
+
+const openViewModal = (id) => {
+  const a = assets.find(x => x.id === id);
+  if (!a) return;
+  const details = {
+    'اسم الأصل': a.name,
+    'كود الأصل': a.code,
+    'النوع': a.type,
+    'الحالة': a.status,
+    'الموقع': a.location || '—',
+    'القيمة': a.value ? a.value + ' ريال' : '—',
+    'تاريخ الشراء': a.purchaseDate || '—',
+    'ملاحظات': a.notes || '—'
+  };
+  const container = document.getElementById('viewAssetDetails');
+  container.innerHTML = '';
+  Object.entries(details).forEach(([label, value]) => {
+    const div = document.createElement('div');
+    div.className = 'glass p-4';
+    const lbl = document.createElement('div');
+    lbl.className = 'text-xs text-slate-500 mb-1';
+    lbl.textContent = label;
+    const val = document.createElement('div');
+    val.className = 'font-semibold text-slate-800';
+    val.textContent = value;
+    div.appendChild(lbl);
+    div.appendChild(val);
+    container.appendChild(div);
+  });
+  openModal('viewAssetModal');
+};
+
+const saveCustody = () => {
+  if (!validateFields(['f_employee_name', 'f_assign_asset', 'f_assign_date'])) return;
+  const assetId = document.getElementById('f_assign_asset').value;
+  const asset = assets.find(a => a.id === assetId);
+  const c = {
+    id: 'CUS-' + Date.now(),
+    employeeName: document.getElementById('f_employee_name').value.trim(),
+    assetId,
+    assetName: asset ? asset.name : assetId,
+    assetCode: asset ? asset.code : '',
+    assignDate: document.getElementById('f_assign_date').value,
+    notes: document.getElementById('f_assign_notes').value.trim()
+  };
+  custodies.unshift(c);
+  localStorage.setItem(LS_CUSTODIES, JSON.stringify(custodies));
+  if (asset) { asset.status = 'مستخدم'; saveLocalAssets(); }
+  closeModal('assignModal');
+  updateStats();
+  renderAssets();
+  renderCustodies();
+  showToast('تم تسليم العهدة بنجاح');
+};
+
+const returnCustody = (idx) => {
+  const c = custodies[idx];
+  if (c) {
+    const asset = assets.find(a => a.id === c.assetId);
+    if (asset) { asset.status = 'متاح'; saveLocalAssets(); }
+  }
+  custodies.splice(idx, 1);
+  localStorage.setItem(LS_CUSTODIES, JSON.stringify(custodies));
+  updateStats();
+  renderAssets();
+  renderCustodies();
+  showToast('تم استرجاع العهدة بنجاح');
+};
+
+const saveMaintenance = () => {
+  if (!validateFields(['f_maint_asset', 'f_maint_type'])) return;
+  const assetId = document.getElementById('f_maint_asset').value;
+  const asset = assets.find(a => a.id === assetId);
+  const m = {
+    id: 'MNT-' + Date.now(),
+    assetId,
+    assetName: asset ? asset.name : assetId,
+    type: document.getElementById('f_maint_type').value,
+    desc: document.getElementById('f_maint_desc').value.trim(),
+    date: document.getElementById('f_maint_date').value || new Date().toISOString().split('T')[0],
+    status: 'قيد المعالجة'
+  };
+  maintenanceReqs.unshift(m);
+  localStorage.setItem(LS_MAINTENANCE, JSON.stringify(maintenanceReqs));
+  if (asset && asset.status !== 'صيانة') { asset.status = 'صيانة'; saveLocalAssets(); }
+  closeModal('maintenanceModal');
+  updateStats();
+  renderAssets();
+  renderMaintenance();
+  showToast('تم إضافة طلب الصيانة بنجاح');
+};
+
+// Event delegation
+document.getElementById('assetsBody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  switch (btn.dataset.action) {
+    case 'view': openViewModal(id); break;
+    case 'edit': openEditAssetModal(id); break;
+    case 'assign':
+      populateAssetSelects();
+      document.getElementById('f_assign_asset').value = id;
+      openModal('assignModal');
+      break;
+    case 'delete':
+      deletingAssetId = id;
+      openModal('deleteModal');
+      break;
+  }
+});
+
+document.getElementById('custodiesBody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="return"]');
+  if (!btn) return;
+  returnCustody(parseInt(btn.dataset.idx));
+});
+
+document.getElementById('maintenanceBody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action="del-maint"]');
+  if (!btn) return;
+  maintenanceReqs.splice(parseInt(btn.dataset.idx), 1);
+  localStorage.setItem(LS_MAINTENANCE, JSON.stringify(maintenanceReqs));
+  renderMaintenance();
+  showToast('تم حذف طلب الصيانة');
+});
+
+// Search / filter
+const doSearch = () => {
+  searchQuery = document.getElementById('searchInput').value.trim();
+  renderAssets();
+};
+document.getElementById('searchBtn').addEventListener('click', doSearch);
+document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+document.getElementById('statusFilter').addEventListener('change', e => { statusFilter = e.target.value; renderAssets(); });
+document.getElementById('typeFilter').addEventListener('change', e => { typeFilter = e.target.value; renderAssets(); });
+document.getElementById('resetSearch').addEventListener('click', () => {
+  searchQuery = ''; statusFilter = 'all'; typeFilter = 'all';
+  document.getElementById('searchInput').value = '';
+  document.getElementById('statusFilter').value = 'all';
+  document.getElementById('typeFilter').value = 'all';
+  renderAssets();
+});
+
+// Tabs
+document.querySelectorAll('[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// Modal buttons
+document.getElementById('saveAssetBtn').addEventListener('click', saveAsset);
+document.getElementById('closeAssetModal').addEventListener('click', () => closeModal('assetModal'));
+document.getElementById('confirmAssignBtn').addEventListener('click', saveCustody);
+document.getElementById('closeAssignModal').addEventListener('click', () => closeModal('assignModal'));
+document.getElementById('closeMaintenanceModal').addEventListener('click', () => closeModal('maintenanceModal'));
+document.getElementById('saveMaintenanceBtn').addEventListener('click', saveMaintenance);
+document.getElementById('cancelDeleteBtn').addEventListener('click', () => closeModal('deleteModal'));
+document.getElementById('confirmDeleteBtn').addEventListener('click', confirmDelete);
+document.getElementById('closeViewModal').addEventListener('click', () => closeModal('viewAssetModal'));
+
+// Backdrop close
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+// CTA buttons
+document.getElementById('addAssetBtn').addEventListener('click', openAddAssetModal);
+document.getElementById('addAssetBtnCTA').addEventListener('click', openAddAssetModal);
+document.getElementById('assignCustodyBtn').addEventListener('click', () => openModal('assignModal'));
+const addMaintBtn = document.getElementById('addMaintenanceBtn');
+if (addMaintBtn) addMaintBtn.addEventListener('click', () => { populateAssetSelects(); openModal('maintenanceModal'); });
+
+// Init
+loadData();
+switchTab('all');
+</script>
+</body>
+</html>

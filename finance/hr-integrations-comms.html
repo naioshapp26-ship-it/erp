@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📨 تكاملات البريد والتنبيهات - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --sky: #0ea5e9;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --sun: #f59e0b;
+      --violet: #6366f1;
+      --teal: #14b8a6;
+      --slate: #0f172a;
+      --paper: #f8fafc;
+      --card: #ffffff;
+      --line: #e2e8f0;
+      --shadow: 0 24px 60px -40px rgba(15, 23, 42, 0.55);
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(245, 158, 11, 0.18), transparent 42%),
+        radial-gradient(circle at 86% 8%, rgba(14, 165, 233, 0.14), transparent 40%),
+        radial-gradient(circle at 30% 80%, rgba(99, 102, 241, 0.15), transparent 45%),
+        linear-gradient(180deg, #fff7ed 0%, #f8fafc 55%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .btn-soft {
+      background: #fff;
+      border-color: var(--line);
+      color: var(--slate);
+    }
+
+    .btn-dark {
+      background: var(--slate);
+      color: #fff;
+    }
+
+    .btn-primary {
+      background: linear-gradient(120deg, #0ea5e9, #22d3ee);
+      color: #fff;
+    }
+
+    .btn-rose {
+      background: #fff1f2;
+      color: #be123c;
+      border-color: #fecdd3;
+    }
+
+    .tag {
+      border-radius: 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .card-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .metric {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 14px 16px;
+    }
+
+    .metric .value {
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.3;
+      color: var(--slate);
+    }
+
+    .metric .value.compact {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .metric .value.note {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.5), transparent);
+      margin: 18px 0;
+    }
+
+    .table-head {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+
+    .status-pill i {
+      font-size: 10px;
+    }
+
+    .action-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+      gap: 8px;
+    }
+
+    .action-group .btn {
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .metric .value,
+    .text-lg,
+    .text-xl {
+      letter-spacing: 0.2px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.2s ease;
+      z-index: 50;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .drawer {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 40;
+    }
+
+    .drawer.active {
+      display: flex;
+    }
+
+    .drawer-panel {
+      max-width: 640px;
+      width: 100%;
+      background: #fff;
+      border-radius: 26px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .alert {
+      border-radius: 18px;
+      padding: 12px 16px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .alert-warning {
+      background: #fff7ed;
+      color: #c2410c;
+      border-color: #fed7aa;
+    }
+
+    .alert-error {
+      background: #fff1f2;
+      color: #be123c;
+      border-color: #fecdd3;
+    }
+
+    .alert-success {
+      background: #ecfdf5;
+      color: #047857;
+      border-color: #a7f3d0;
+    }
+
+    .chart-wrap {
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      padding: 16px;
+    }
+
+    .chart svg {
+      width: 100%;
+      height: 160px;
+    }
+
+    .filter-row input,
+    .filter-row select,
+    .filter-row textarea {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      width: 100%;
+      font-weight: 600;
+    }
+
+    .form-card {
+      background: #fff;
+      border-radius: 20px;
+      border: 1px dashed rgba(148, 163, 184, 0.6);
+      padding: 16px;
+    }
+
+    .pulse {
+      position: relative;
+    }
+
+    .pulse::after {
+      content: '';
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 10px;
+      height: 10px;
+      background: #f43f5e;
+      border-radius: 999px;
+      animation: pulse 1.6s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.8); opacity: 0.6; }
+      70% { transform: scale(1.8); opacity: 0; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">تكاملات البريد والتنبيهات</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">📨 لوحة تكاملات البريد والتنبيهات</h1>
+        <p class="text-slate-600">إدارة مزودي البريد، سياسات التنبيه، ومراقبة جودة الإرسال في الوقت الحقيقي.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn btn-soft">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <a href="/hr/operations" class="btn btn-dark">
+          <i class="fas fa-diagram-project"></i>
+          بوابة العمليات
+        </a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">حالة القنوات</div>
+        <div class="text-2xl font-extrabold mt-2" id="channelStatus">متصل 0/0</div>
+        <p class="text-sm text-slate-500 mt-2" id="lastSendTime">آخر إرسال: -</p>
+        <div class="flex flex-wrap gap-2 mt-4" id="channelTags"></div>
+      </div>
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">إحصائيات الإرسال</div>
+        <div class="grid grid-cols-2 gap-3 mt-3 text-sm" id="messageStats"></div>
+      </div>
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">مؤشرات التنبيه</div>
+        <div class="space-y-3 mt-3 text-sm" id="notificationStats"></div>
+      </div>
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">مؤشر الأعطال</div>
+        <div class="text-2xl font-extrabold mt-2" id="errorPulse">مستقر</div>
+        <p class="text-sm text-slate-500 mt-2" id="errorSummary">لا توجد أعطال متكررة.</p>
+        <div class="mt-4" id="errorBanner"></div>
+      </div>
+    </div>
+
+    <div class="glass p-6 mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold">تصفية البيانات ومراقبة الإرسال</h2>
+          <p class="text-sm text-slate-500">تحكم كامل في الفترة الزمنية وتفاصيل الأداء.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn btn-soft" id="resetFilter">
+            <i class="fas fa-rotate"></i>
+            إعادة الضبط
+          </button>
+          <button class="btn btn-primary" id="applyFilter">
+            <i class="fas fa-filter"></i>
+            تطبيق التصفية
+          </button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 filter-row">
+        <div>
+          <label class="text-sm text-slate-500">من تاريخ</label>
+          <input type="date" id="startDate">
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">إلى تاريخ</label>
+          <input type="date" id="endDate">
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">نطاق العرض</label>
+          <select id="rangePreset">
+            <option value="7">آخر 7 أيام</option>
+            <option value="14">آخر 14 يوم</option>
+            <option value="30" selected>آخر 30 يوم</option>
+          </select>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="chart-wrap">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="text-sm text-slate-500">عدد الرسائل خلال الفترة</div>
+            <div class="text-xl font-extrabold" id="chartTotal">0 رسالة</div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span class="status-pill"><i class="fas fa-circle text-emerald-500"></i> ناجح</span>
+            <span class="status-pill"><i class="fas fa-circle text-rose-500"></i> فاشل</span>
+          </div>
+        </div>
+        <div class="chart mt-4" id="messagesChart"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div class="lg:col-span-2 glass p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-xl font-bold">تكاملات البريد</h2>
+            <p class="text-sm text-slate-500">إدارة مزودي البريد، ومتابعة الإرسال والاختبارات.</p>
+          </div>
+          <button class="btn btn-primary" id="openAddProvider">
+            <i class="fas fa-plus"></i>
+            إضافة مزود بريد
+          </button>
+        </div>
+        <div class="space-y-4" id="providersList"></div>
+      </div>
+      <div class="glass p-6">
+        <h3 class="text-lg font-bold">إضافة مزود جديد</h3>
+        <p class="text-sm text-slate-500">أضف مزود بريد جديد وابدأ الإرسال مباشرة.</p>
+        <div class="form-card mt-4 filter-row" id="providerForm">
+          <div class="grid grid-cols-1 gap-3">
+            <div>
+              <label class="text-sm text-slate-500">اسم المزود</label>
+              <input type="text" id="providerName" placeholder="مثال: SendGrid - العمليات">
+            </div>
+            <div>
+              <label class="text-sm text-slate-500">النوع</label>
+              <select id="providerType">
+                <option value="SMTP">SMTP</option>
+                <option value="API">API</option>
+                <option value="Hybrid">Hybrid</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm text-slate-500">عنوان الإرسال</label>
+              <input type="email" id="providerFrom" placeholder="ops@nayosh.io">
+            </div>
+            <div>
+              <label class="text-sm text-slate-500">ملاحظات</label>
+              <textarea id="providerNotes" rows="3" placeholder="سياسة الارتداد، عدد الدومينات..."></textarea>
+            </div>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button class="btn btn-primary w-full" id="submitProvider">
+              <i class="fas fa-cloud-arrow-up"></i>
+              حفظ وتفعيل
+            </button>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <h4 class="text-sm font-bold text-slate-500 mb-2">سجل أخطاء مختصر</h4>
+          <div class="space-y-2 text-sm" id="providerErrors"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div class="lg:col-span-2 glass p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-xl font-bold">التنبيهات والرسائل الآلية</h2>
+            <p class="text-sm text-slate-500">تحكم في القواعد، القنوات، والفئات المستهدفة.</p>
+          </div>
+          <button class="btn btn-dark" id="openAddNotification">
+            <i class="fas fa-bell"></i>
+            إنشاء تنبيه جديد
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-4">
+          <span class="status-pill"><i class="fas fa-envelope text-sky-500"></i> بريد</span>
+          <span class="status-pill"><i class="fas fa-message text-emerald-500"></i> إشعارات داخلية</span>
+          <span class="status-pill"><i class="fas fa-bolt text-amber-500"></i> تنبيهات فورية</span>
+        </div>
+        <div class="space-y-4" id="notificationsList"></div>
+      </div>
+      <div class="glass p-6">
+        <h3 class="text-lg font-bold">إعداد تنبيه جديد</h3>
+        <p class="text-sm text-slate-500">حدد الحدث والقنوات والفئة المستهدفة.</p>
+        <div class="form-card mt-4 filter-row" id="notificationForm">
+          <div class="grid grid-cols-1 gap-3">
+            <div>
+              <label class="text-sm text-slate-500">اسم التنبيه</label>
+              <input type="text" id="notificationName" placeholder="مثال: إشعار طلب جديد">
+            </div>
+            <div>
+              <label class="text-sm text-slate-500">وقت الإرسال</label>
+              <select id="notificationTrigger">
+                <option value="عند تسجيل مستخدم">عند تسجيل مستخدم</option>
+                <option value="عند دفع">عند دفع</option>
+                <option value="عند تعديل">عند تعديل</option>
+                <option value="عند حذف">عند حذف</option>
+                <option value="عند تأخر مهمة">عند تأخر مهمة</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm text-slate-500">الفئة المستهدفة</label>
+              <select id="notificationAudience">
+                <option value="مستخدمين">مستخدمين</option>
+                <option value="إدارة">إدارة</option>
+                <option value="وكلاء">وكلاء</option>
+                <option value="الجميع">الجميع</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm text-slate-500">القنوات</label>
+              <select id="notificationChannel">
+                <option value="بريد + إشعار داخلي">بريد + إشعار داخلي</option>
+                <option value="تنبيه فوري">تنبيه فوري</option>
+                <option value="بريد فقط">بريد فقط</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button class="btn btn-dark w-full" id="submitNotification">
+              <i class="fas fa-bell"></i>
+              حفظ التنبيه
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">سجل النشاط والمراجعة</h2>
+          <p class="text-sm text-slate-500">كل عملية يتم تنفيذها تظهر هنا فوراً.</p>
+        </div>
+        <span class="status-pill"><i class="fas fa-shield-check text-emerald-500"></i> مراقبة مباشرة</span>
+      </div>
+      <div class="space-y-3" id="activityLog"></div>
+    </div>
+  </div>
+
+  <div class="drawer" id="detailsDrawer">
+    <div class="drawer-panel">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold" id="drawerTitle">تفاصيل العنصر</h3>
+        <button class="btn btn-soft" id="closeDrawer"><i class="fas fa-xmark"></i> إغلاق</button>
+      </div>
+      <div class="divider"></div>
+      <div id="drawerContent" class="text-sm text-slate-600"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const providers = [
+      {
+        id: 1,
+        name: 'SendGrid - العمليات',
+        type: 'API',
+        status: 'مفعل',
+        sent: 2384,
+        lastSent: '2026-02-21 09:18',
+        connection: 'ناجح',
+        errors: ['ارتفاع ارتدادات البريد إلى 1.2% خلال آخر 24 ساعة'],
+        from: 'ops@nayosh.io',
+        notes: 'دومين العمليات + قوالب الموارد البشرية'
+      },
+      {
+        id: 2,
+        name: 'SMTP - الموارد البشرية',
+        type: 'SMTP',
+        status: 'غير مفعل',
+        sent: 119,
+        lastSent: '2026-02-18 14:42',
+        connection: 'غير مختبر',
+        errors: [],
+        from: 'hr@nayosh.io',
+        notes: 'مزود احتياطي عند الضغط العالي'
+      },
+      {
+        id: 3,
+        name: 'Mailgun - الفوترة',
+        type: 'API',
+        status: 'مفعل',
+        sent: 984,
+        lastSent: '2026-02-21 08:52',
+        connection: 'فشل',
+        errors: ['فشل مصادقة API خلال آخر محاولة', 'تأخر تسليم فوق 9 ثواني'],
+        from: 'billing@nayosh.io',
+        notes: 'يحتاج تحديث المفاتيح'
+      }
+    ];
+
+    const notifications = [
+      {
+        id: 1,
+        name: 'إشعار تسجيل موظف جديد',
+        trigger: 'عند تسجيل مستخدم',
+        audience: 'إدارة',
+        channel: 'بريد + إشعار داخلي',
+        status: 'مفعل',
+        sent: 132,
+        lastTriggered: '2026-02-21 08:40',
+        notes: 'يرسل تقرير الموظف الكامل'
+      },
+      {
+        id: 2,
+        name: 'تنبيه فاتورة مدفوعة',
+        trigger: 'عند دفع',
+        audience: 'مستخدمين',
+        channel: 'تنبيه فوري',
+        status: 'مفعل',
+        sent: 410,
+        lastTriggered: '2026-02-21 09:02',
+        notes: 'يشمل رابط الإيصال'
+      },
+      {
+        id: 3,
+        name: 'تنبيه تعديل بيانات حرجة',
+        trigger: 'عند تعديل',
+        audience: 'الجميع',
+        channel: 'بريد فقط',
+        status: 'غير مفعل',
+        sent: 36,
+        lastTriggered: '2026-02-15 11:22',
+        notes: 'متوقف مؤقتاً للمراجعة'
+      }
+    ];
+
+    const messageHistory = [
+      { date: '2026-02-12', success: 180, failed: 4 },
+      { date: '2026-02-13', success: 210, failed: 2 },
+      { date: '2026-02-14', success: 196, failed: 6 },
+      { date: '2026-02-15', success: 240, failed: 5 },
+      { date: '2026-02-16', success: 260, failed: 3 },
+      { date: '2026-02-17', success: 225, failed: 8 },
+      { date: '2026-02-18', success: 312, failed: 2 },
+      { date: '2026-02-19', success: 298, failed: 7 },
+      { date: '2026-02-20', success: 354, failed: 4 },
+      { date: '2026-02-21', success: 402, failed: 5 }
+    ];
+
+    const activity = [
+      { time: '2026-02-21 09:20', text: 'تم اختبار مزود SendGrid وإرسال رسالة تجريبية بنجاح.' },
+      { time: '2026-02-21 09:05', text: 'تم تفعيل تنبيه "فاتورة مدفوعة" بعد مراجعة القنوات.' },
+      { time: '2026-02-21 08:50', text: 'سجل النظام خطأ مصادقة API في مزود Mailgun.' },
+      { time: '2026-02-20 18:22', text: 'تم تحديث قالب إشعار تسجيل موظف جديد.' }
+    ];
+
+    const channelTags = ['Email', 'In-App', 'Push'];
+
+    const toast = document.getElementById('toast');
+    const drawer = document.getElementById('detailsDrawer');
+    const drawerTitle = document.getElementById('drawerTitle');
+    const drawerContent = document.getElementById('drawerContent');
+
+    const formatNumber = (value) => value.toLocaleString('en-US');
+
+    const showToast = (message, type = 'success') => {
+      toast.textContent = message;
+      toast.classList.add('show');
+      toast.style.background = type === 'error' ? '#be123c' : '#0f172a';
+      setTimeout(() => toast.classList.remove('show'), 2200);
+    };
+
+    const addActivity = (text) => {
+      const now = new Date();
+      const stamp = now.toISOString().slice(0, 16).replace('T', ' ');
+      activity.unshift({ time: stamp, text });
+      renderActivity();
+    };
+
+    const renderChannelSummary = () => {
+      const activeCount = providers.filter((item) => item.status === 'مفعل').length;
+      const totalCount = providers.length;
+      document.getElementById('channelStatus').textContent = `متصل ${activeCount}/${totalCount}`;
+      const lastSent = providers
+        .map((item) => item.lastSent)
+        .filter(Boolean)
+        .sort()
+        .reverse()[0];
+      document.getElementById('lastSendTime').textContent = lastSent ? `آخر إرسال: ${lastSent}` : 'آخر إرسال: -';
+      document.getElementById('channelTags').innerHTML = channelTags
+        .map((tag) => `<span class="chip bg-slate-100 text-slate-700">${tag}</span>`)
+        .join('');
+    };
+
+    const renderStats = (filteredHistory) => {
+      const today = filteredHistory[filteredHistory.length - 1];
+      const totalSuccess = filteredHistory.reduce((sum, item) => sum + item.success, 0);
+      const totalFailed = filteredHistory.reduce((sum, item) => sum + item.failed, 0);
+      const successRate = totalSuccess + totalFailed > 0
+        ? Math.round((totalSuccess / (totalSuccess + totalFailed)) * 100)
+        : 0;
+      const activeNotifications = notifications.filter((item) => item.status === 'مفعل').length;
+      const disabledNotifications = notifications.length - activeNotifications;
+
+      document.getElementById('messageStats').innerHTML = `
+        <div class="metric">
+          <div class="text-slate-500">رسائل اليوم</div>
+          <div class="value text-emerald-600">${today ? formatNumber(today.success + today.failed) : 0}</div>
+        </div>
+        <div class="metric">
+          <div class="text-slate-500">هذا الأسبوع</div>
+          <div class="value text-sky-600">${formatNumber(totalSuccess + totalFailed)}</div>
+        </div>
+        <div class="metric">
+          <div class="text-slate-500">هذا الشهر</div>
+          <div class="value text-amber-600">${formatNumber(totalSuccess + totalFailed + 820)}</div>
+        </div>
+        <div class="metric">
+          <div class="text-slate-500">معدل نجاح الإرسال</div>
+          <div class="value text-slate-900">${successRate}%</div>
+        </div>
+      `;
+
+      document.getElementById('notificationStats').innerHTML = `
+        <div class="metric">
+          <div class="text-slate-500">تنبيهات نشطة</div>
+          <div class="value text-emerald-600">${activeNotifications}</div>
+        </div>
+        <div class="metric">
+          <div class="text-slate-500">تنبيهات معطلة</div>
+          <div class="value text-rose-600">${disabledNotifications}</div>
+        </div>
+      `;
+    };
+
+    const renderErrorPulse = () => {
+      const errorProviders = providers.filter((item) => item.errors.length > 0);
+      const totalErrors = errorProviders.reduce((sum, item) => sum + item.errors.length, 0);
+      const hasCritical = totalErrors >= 3;
+      const pulse = document.getElementById('errorPulse');
+      const summary = document.getElementById('errorSummary');
+      const banner = document.getElementById('errorBanner');
+      pulse.textContent = hasCritical ? 'متابعة عاجلة' : 'مستقر';
+      pulse.className = hasCritical ? 'text-2xl font-extrabold mt-2 pulse' : 'text-2xl font-extrabold mt-2';
+      summary.textContent = hasCritical
+        ? `تم رصد ${totalErrors} أخطاء متكررة خلال آخر 24 ساعة.`
+        : 'لا توجد أعطال متكررة.';
+      banner.innerHTML = hasCritical
+        ? `<div class="alert alert-warning">يرجى مراجعة سجل الأخطاء ونتائج الاختبار الفوري.</div>`
+        : `<div class="alert alert-success">مستوى المخاطر منخفض ويمكن المتابعة بشكل طبيعي.</div>`;
+    };
+
+    const renderProviderErrors = () => {
+      const container = document.getElementById('providerErrors');
+      const errors = providers.flatMap((item) => item.errors.map((err) => ({ name: item.name, err })));
+      container.innerHTML = errors.length
+        ? errors.slice(0, 6).map((item) => `
+            <div class="alert alert-error">
+              <div class="font-bold">${item.name}</div>
+              <div>${item.err}</div>
+            </div>
+          `).join('')
+        : '<div class="alert alert-success">لا توجد أخطاء مرصودة حالياً.</div>';
+    };
+
+    const renderProviders = () => {
+      const list = document.getElementById('providersList');
+      list.innerHTML = providers.map((item) => {
+        const statusClass = item.status === 'مفعل' ? 'text-emerald-600' : 'text-rose-600';
+        const connectionColor = item.connection === 'ناجح' ? 'text-emerald-600' : item.connection === 'فشل' ? 'text-rose-600' : 'text-amber-600';
+        return `
+          <div class="bg-white border border-slate-200 rounded-3xl p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="text-lg font-bold">${item.name}</div>
+                <div class="text-sm text-slate-500">${item.type} • ${item.from}</div>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <span class="status-pill ${statusClass}"><i class="fas fa-circle"></i>${item.status}</span>
+                <span class="status-pill ${connectionColor}"><i class="fas fa-signal"></i>${item.connection}</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-sm">
+              <div class="metric">
+                <div class="text-slate-500">عدد الرسائل</div>
+                <div class="value">${formatNumber(item.sent)}</div>
+              </div>
+              <div class="metric">
+                <div class="text-slate-500">آخر إرسال</div>
+                <div class="value compact">${item.lastSent || '-'}</div>
+              </div>
+              <div class="metric">
+                <div class="text-slate-500">آخر ملاحظة</div>
+                <div class="value note">${item.notes}</div>
+              </div>
+            </div>
+            <div class="mt-3 text-sm text-slate-500">
+              سجل مختصر للأخطاء: ${item.errors.length ? item.errors[0] : 'لا توجد أخطاء مرصودة.'}
+            </div>
+            <div class="action-group mt-4">
+              <button class="btn btn-soft" data-action="add" data-type="provider" data-id="${item.id}">إضافة</button>
+              <button class="btn btn-soft" data-action="edit" data-type="provider" data-id="${item.id}">تعديل</button>
+              <button class="btn btn-soft" data-action="view" data-type="provider" data-id="${item.id}">عرض التفاصيل</button>
+              <button class="btn btn-soft" data-action="preview" data-type="provider" data-id="${item.id}">معاينة</button>
+              <button class="btn btn-soft" data-action="toggle" data-type="provider" data-id="${item.id}">${item.status === 'مفعل' ? 'إيقاف' : 'تفعيل'}</button>
+              <button class="btn btn-primary" data-action="test" data-type="provider" data-id="${item.id}">اختبار</button>
+              <button class="btn btn-rose" data-action="delete" data-type="provider" data-id="${item.id}">حذف</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    const renderNotifications = () => {
+      const list = document.getElementById('notificationsList');
+      list.innerHTML = notifications.map((item) => {
+        const statusClass = item.status === 'مفعل' ? 'text-emerald-600' : 'text-rose-600';
+        return `
+          <div class="bg-white border border-slate-200 rounded-3xl p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="text-lg font-bold">${item.name}</div>
+                <div class="text-sm text-slate-500">${item.trigger} • ${item.audience}</div>
+              </div>
+              <span class="status-pill ${statusClass}"><i class="fas fa-circle"></i>${item.status}</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-sm">
+              <div class="metric">
+                <div class="text-slate-500">القناة</div>
+                <div class="value compact">${item.channel}</div>
+              </div>
+              <div class="metric">
+                <div class="text-slate-500">عدد مرات الإرسال</div>
+                <div class="value">${formatNumber(item.sent)}</div>
+              </div>
+              <div class="metric">
+                <div class="text-slate-500">آخر تفعيل</div>
+                <div class="value compact">${item.lastTriggered || '-'}</div>
+              </div>
+            </div>
+            <div class="mt-3 text-sm text-slate-500">ملاحظات: ${item.notes}</div>
+            <div class="action-group mt-4">
+              <button class="btn btn-soft" data-action="add" data-type="notification" data-id="${item.id}">إضافة</button>
+              <button class="btn btn-soft" data-action="edit" data-type="notification" data-id="${item.id}">تعديل</button>
+              <button class="btn btn-soft" data-action="view" data-type="notification" data-id="${item.id}">عرض التفاصيل</button>
+              <button class="btn btn-soft" data-action="preview" data-type="notification" data-id="${item.id}">معاينة</button>
+              <button class="btn btn-soft" data-action="toggle" data-type="notification" data-id="${item.id}">${item.status === 'مفعل' ? 'إيقاف' : 'تفعيل'}</button>
+              <button class="btn btn-primary" data-action="test" data-type="notification" data-id="${item.id}">اختبار</button>
+              <button class="btn btn-rose" data-action="delete" data-type="notification" data-id="${item.id}">حذف</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    const renderActivity = () => {
+      const list = document.getElementById('activityLog');
+      list.innerHTML = activity.slice(0, 12).map((item) => `
+        <div class="bg-white border border-slate-200 rounded-2xl p-4">
+          <div class="text-sm text-slate-500">${item.time}</div>
+          <div class="font-bold">${item.text}</div>
+        </div>
+      `).join('');
+    };
+
+    const buildChartPath = (points, height) => {
+      if (!points.length) return '';
+      const maxValue = Math.max(...points.map((point) => point.value), 1);
+      const step = 100 / (points.length - 1 || 1);
+      return points.map((point, index) => {
+        const x = index * step;
+        const y = height - (point.value / maxValue) * height;
+        return `${x},${y}`;
+      }).join(' ');
+    };
+
+    const renderChart = (filteredHistory) => {
+      const total = filteredHistory.reduce((sum, item) => sum + item.success + item.failed, 0);
+      document.getElementById('chartTotal').textContent = `${formatNumber(total)} رسالة`;
+      const successPoints = filteredHistory.map((item) => ({ value: item.success }));
+      const failedPoints = filteredHistory.map((item) => ({ value: item.failed }));
+      const height = 140;
+      const successPath = buildChartPath(successPoints, height);
+      const failedPath = buildChartPath(failedPoints, height);
+      document.getElementById('messagesChart').innerHTML = `
+        <svg viewBox="0 0 100 ${height}" preserveAspectRatio="none">
+          <polyline fill="none" stroke="#10b981" stroke-width="2" points="${successPath}" />
+          <polyline fill="none" stroke="#f43f5e" stroke-width="2" points="${failedPath}" />
+        </svg>
+      `;
+    };
+
+    const filterHistory = () => {
+      const preset = parseInt(document.getElementById('rangePreset').value, 10);
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      let data = messageHistory.slice();
+      if (startDate || endDate) {
+        data = data.filter((item) => {
+          const value = new Date(item.date).getTime();
+          const start = startDate ? new Date(startDate).getTime() : -Infinity;
+          const end = endDate ? new Date(endDate).getTime() : Infinity;
+          return value >= start && value <= end;
+        });
+      } else {
+        data = data.slice(-preset);
+      }
+      return data;
+    };
+
+    const applyFilter = () => {
+      const filtered = filterHistory();
+      if (!filtered.length) {
+        showToast('لا توجد بيانات في هذا النطاق الزمني.', 'error');
+        return;
+      }
+      renderStats(filtered);
+      renderChart(filtered);
+      addActivity('تم تطبيق تصفية البيانات على لوحة الرسائل.');
+    };
+
+    const openDrawer = (title, content) => {
+      drawerTitle.textContent = title;
+      drawerContent.innerHTML = content;
+      drawer.classList.add('active');
+    };
+
+    document.getElementById('closeDrawer').addEventListener('click', () => {
+      drawer.classList.remove('active');
+    });
+
+    document.getElementById('applyFilter').addEventListener('click', applyFilter);
+    document.getElementById('resetFilter').addEventListener('click', () => {
+      document.getElementById('startDate').value = '';
+      document.getElementById('endDate').value = '';
+      document.getElementById('rangePreset').value = '30';
+      const filtered = filterHistory();
+      renderStats(filtered);
+      renderChart(filtered);
+      addActivity('تم إعادة ضبط التصفية إلى آخر 30 يوم.');
+    });
+
+    document.getElementById('submitProvider').addEventListener('click', () => {
+      const name = document.getElementById('providerName').value.trim();
+      const type = document.getElementById('providerType').value;
+      const from = document.getElementById('providerFrom').value.trim();
+      const notes = document.getElementById('providerNotes').value.trim();
+
+      if (!name || !from) {
+        showToast('يرجى إدخال اسم المزود وعنوان الإرسال.', 'error');
+        return;
+      }
+
+      providers.unshift({
+        id: Date.now(),
+        name,
+        type,
+        status: 'مفعل',
+        sent: 0,
+        lastSent: '-',
+        connection: 'غير مختبر',
+        errors: [],
+        from,
+        notes: notes || 'لا توجد ملاحظات.'
+      });
+
+      document.getElementById('providerName').value = '';
+      document.getElementById('providerFrom').value = '';
+      document.getElementById('providerNotes').value = '';
+
+      renderProviders();
+      renderProviderErrors();
+      renderChannelSummary();
+      addActivity(`تمت إضافة مزود بريد جديد: ${name}.`);
+      showToast('تمت إضافة المزود وتفعيله بنجاح.');
+    });
+
+    document.getElementById('submitNotification').addEventListener('click', () => {
+      const name = document.getElementById('notificationName').value.trim();
+      const trigger = document.getElementById('notificationTrigger').value;
+      const audience = document.getElementById('notificationAudience').value;
+      const channel = document.getElementById('notificationChannel').value;
+
+      if (!name) {
+        showToast('يرجى إدخال اسم التنبيه.', 'error');
+        return;
+      }
+
+      notifications.unshift({
+        id: Date.now(),
+        name,
+        trigger,
+        audience,
+        channel,
+        status: 'مفعل',
+        sent: 0,
+        lastTriggered: '-',
+        notes: 'تم إنشاؤه حديثاً من لوحة التكاملات.'
+      });
+
+      document.getElementById('notificationName').value = '';
+
+      renderNotifications();
+      renderStats(filterHistory());
+      addActivity(`تم إنشاء تنبيه جديد: ${name}.`);
+      showToast('تم حفظ التنبيه بنجاح.');
+    });
+
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+      const action = button.dataset.action;
+      const type = button.dataset.type;
+      const id = parseInt(button.dataset.id, 10);
+      const collection = type === 'provider' ? providers : notifications;
+      const item = collection.find((entry) => entry.id === id);
+      if (!item) return;
+
+      if (action === 'view') {
+        openDrawer(`تفاصيل ${item.name}`, `
+          <div class="space-y-2">
+            <div><strong>الحالة:</strong> ${item.status}</div>
+            <div><strong>آخر نشاط:</strong> ${type === 'provider' ? item.lastSent : item.lastTriggered}</div>
+            <div><strong>القناة:</strong> ${type === 'provider' ? item.type : item.channel}</div>
+            <div><strong>الملاحظات:</strong> ${item.notes}</div>
+          </div>
+        `);
+        return;
+      }
+
+      if (action === 'preview') {
+        openDrawer(`معاينة ${item.name}`, `
+          <div class="tag">
+            <div class="font-bold">${item.name}</div>
+            <p class="text-sm text-slate-500">هذه معاينة آمنة للنص التجريبي قبل الإرسال.</p>
+            <div class="mt-2">تم إعداد المحتوى حسب القالب الحالي مع ترويسة النظام.</div>
+          </div>
+        `);
+        return;
+      }
+
+      if (action === 'toggle') {
+        item.status = item.status === 'مفعل' ? 'غير مفعل' : 'مفعل';
+        addActivity(`تم ${item.status === 'مفعل' ? 'تفعيل' : 'إيقاف'} ${type === 'provider' ? 'مزود' : 'تنبيه'}: ${item.name}.`);
+      }
+
+      if (action === 'test') {
+        if (type === 'provider') {
+          item.sent += 1;
+          item.lastSent = new Date().toISOString().slice(0, 16).replace('T', ' ');
+          item.connection = Math.random() > 0.2 ? 'ناجح' : 'فشل';
+          if (item.connection === 'فشل') {
+            item.errors.unshift('فشل إرسال رسالة تجريبية بسبب انتهاء صلاحية المفتاح.');
+          }
+          addActivity(`تم اختبار مزود البريد ${item.name}.`);
+        } else {
+          item.sent += 1;
+          item.lastTriggered = new Date().toISOString().slice(0, 16).replace('T', ' ');
+          addActivity(`تم اختبار تنبيه ${item.name} وإرساله للقناة المحددة.`);
+        }
+        showToast('تم تنفيذ الاختبار وتسجيل النتيجة.');
+      }
+
+      if (action === 'edit') {
+        openDrawer(`تعديل ${item.name}`, `
+          <div class="alert alert-warning">هذه معاينة للتعديل السريع. لنسخة كاملة استخدم صفحة الإعدادات المتقدمة.</div>
+        `);
+        addActivity(`تم فتح نافذة تعديل ${item.name}.`);
+      }
+
+      if (action === 'add') {
+        const duplicate = { ...item, id: Date.now(), name: `${item.name} (نسخة)` };
+        collection.unshift(duplicate);
+        addActivity(`تمت إضافة نسخة جديدة من ${item.name}.`);
+        showToast('تمت إضافة نسخة جديدة.', 'success');
+      }
+
+      if (action === 'delete') {
+        const index = collection.findIndex((entry) => entry.id === id);
+        collection.splice(index, 1);
+        addActivity(`تم حذف ${type === 'provider' ? 'مزود' : 'تنبيه'}: ${item.name}.`);
+        showToast('تم الحذف بنجاح.', 'success');
+      }
+
+      renderProviders();
+      renderNotifications();
+      renderProviderErrors();
+      renderChannelSummary();
+      renderStats(filterHistory());
+      renderErrorPulse();
+    });
+
+    const init = () => {
+      const filtered = filterHistory();
+      renderChannelSummary();
+      renderProviders();
+      renderProviderErrors();
+      renderNotifications();
+      renderActivity();
+      renderStats(filtered);
+      renderChart(filtered);
+      renderErrorPulse();
+    };
+
+    init();
+  </script>
+</body>
+</html>

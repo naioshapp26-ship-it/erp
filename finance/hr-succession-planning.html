@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام تخطيط التعاقب الإداري</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --navy: #0b1220;
+      --emerald: #10b981;
+      --sky: #0ea5e9;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 15%, rgba(14, 165, 233, 0.18), transparent 42%),
+        radial-gradient(circle at 90% 10%, rgba(245, 158, 11, 0.16), transparent 40%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 14px 16px;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .table-row {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table-row:last-child {
+      border-bottom: none;
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 60;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #fff;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      box-shadow: 0 24px 50px -30px rgba(15, 23, 42, 0.45);
+      width: min(900px, 95vw);
+      max-height: 90vh;
+      overflow: auto;
+    }
+
+    .field-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+
+    .action-btn {
+      border: 1px solid var(--line);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">التعاقب الإداري</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">نظام تخطيط التعاقب الإداري</h1>
+        <p class="text-slate-600">تأمين البدائل القيادية وتحليل الجاهزية للوظائف الحساسة.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="addPlanBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد المناصب القيادية</div>
+        <div id="totalRoles" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">إجمالي المناصب المدرجة</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد البدائل الجاهزة</div>
+        <div id="readySuccessors" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-emerald-600 mt-1">جاهز لتسلم الدور</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد البدائل قيد التطوير</div>
+        <div id="developingSuccessors" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-amber-600 mt-1">برامج جاهزية نشطة</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">مناصب بدون بديل</div>
+        <div id="noSuccessor" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-rose-600 mt-1">تحتاج إسناد عاجل</div>
+      </div>
+    </div>
+
+    <div class="glass p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">خطة التعاقب حسب المنصب</h2>
+          <p class="text-sm text-slate-500">تحديد البدائل وخطط التطوير لكل منصب قيادي.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث بالمنصب أو الموظف" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-64">
+          </div>
+          <select id="readinessFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل الجاهزية</option>
+            <option value="جاهز الآن">جاهز الآن</option>
+            <option value="خلال 6-12 شهر">خلال 6-12 شهر</option>
+            <option value="خلال 12-24 شهر">خلال 12-24 شهر</option>
+            <option value="غير متوفر">غير متوفر</option>
+          </select>
+          <select id="sortSelect" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="review_desc">الأحدث مراجعة</option>
+            <option value="role_asc">المنصب (أ-ي)</option>
+            <option value="readiness_asc">الجاهزية (الأعلى أولا)</option>
+            <option value="status_asc">حالة التعاقب</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4">
+        <div class="grid grid-cols-8 gap-4 bg-slate-50 text-xs font-bold text-slate-500 px-4 py-3">
+          <div>المنصب القيادي</div>
+          <div>الشاغل الحالي</div>
+          <div>البديل المقترح</div>
+          <div>جاهزية البديل</div>
+          <div>خطة التطوير المطلوبة</div>
+          <div>تاريخ المراجعة</div>
+          <div>حالة التعاقب</div>
+          <div>الإجراءات</div>
+        </div>
+        <div id="tableBody" class="text-sm"></div>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة لبحثك.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="planModal" class="modal">
+    <div class="modal-card">
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <div class="text-xs text-slate-500">التعاقب الإداري</div>
+          <h3 id="planModalTitle" class="text-xl font-extrabold mt-1">إضافة خطة تعاقب</h3>
+        </div>
+        <button id="planModalClose" class="text-slate-400 hover:text-rose-500">
+          <i class="fas fa-times text-2xl"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="field-label">اسم المنصب الوظيفي</label>
+            <input id="roleTitleInput" type="text" class="w-full border border-slate-200 rounded-xl px-4 py-3" placeholder="مثال: مدير العمليات">
+          </div>
+          <div>
+            <label class="field-label">شاغل المنصب الحالي</label>
+            <input id="incumbentInput" type="text" class="w-full border border-slate-200 rounded-xl px-4 py-3" placeholder="مثال: فيصل العتيبي">
+          </div>
+          <div>
+            <label class="field-label">البديل المقترح</label>
+            <input id="successorInput" type="text" class="w-full border border-slate-200 rounded-xl px-4 py-3" placeholder="مثال: نوف الحربي">
+          </div>
+          <div>
+            <label class="field-label">مستوى جاهزية البديل</label>
+            <select id="readinessInput" class="w-full border border-slate-200 rounded-xl px-4 py-3">
+              <option value="جاهز الآن">جاهز الآن</option>
+              <option value="خلال 6-12 شهر">خلال 6-12 شهر</option>
+              <option value="خلال 12-24 شهر">خلال 12-24 شهر</option>
+              <option value="غير متوفر">غير متوفر</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">تاريخ المراجعة</label>
+            <input id="reviewDateInput" type="date" class="w-full border border-slate-200 rounded-xl px-4 py-3">
+          </div>
+          <div>
+            <label class="field-label">حالة التعاقب</label>
+            <select id="successionStatusInput" class="w-full border border-slate-200 rounded-xl px-4 py-3">
+              <option value="جاهز">جاهز</option>
+              <option value="قيد التطوير">قيد التطوير</option>
+              <option value="غير متوفر">غير متوفر</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="field-label">خطة التطوير المطلوبة</label>
+          <textarea id="developmentPlanInput" rows="3" class="w-full border border-slate-200 rounded-xl px-4 py-3" placeholder="تفاصيل خطة التطوير المطلوبة..."></textarea>
+        </div>
+      </div>
+      <div class="p-6 border-t border-slate-100 bg-slate-50 flex flex-wrap justify-end gap-3">
+        <button id="planModalCancel" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+        <button id="savePlanBtn" class="btn bg-slate-900 text-white">حفظ</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="detailModal" class="modal">
+    <div class="modal-card">
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <div class="text-xs text-slate-500">التعاقب الإداري</div>
+          <h3 id="detailTitle" class="text-xl font-extrabold mt-1">تفاصيل الخطة</h3>
+        </div>
+        <button id="detailClose" class="text-slate-400 hover:text-rose-500">
+          <i class="fas fa-times text-2xl"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-4 text-sm">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="glass p-4">
+            <div class="text-xs text-slate-500">المنصب القيادي</div>
+            <div id="detailRole" class="text-lg font-extrabold mt-2"></div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-500">شاغل المنصب الحالي</div>
+            <div id="detailIncumbent" class="text-lg font-extrabold mt-2"></div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-500">البديل المقترح</div>
+            <div id="detailSuccessor" class="text-lg font-extrabold mt-2"></div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-500">جاهزية البديل</div>
+            <div id="detailReadiness" class="text-lg font-extrabold mt-2"></div>
+          </div>
+        </div>
+        <div class="glass p-4">
+          <div class="text-xs text-slate-500">خطة التطوير المطلوبة</div>
+          <div id="detailDevelopment" class="text-slate-700 mt-2"></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="glass p-4">
+            <div class="text-xs text-slate-500">تاريخ المراجعة</div>
+            <div id="detailReview" class="text-lg font-extrabold mt-2"></div>
+          </div>
+          <div class="glass p-4">
+            <div class="text-xs text-slate-500">حالة التعاقب</div>
+            <div id="detailStatus" class="text-lg font-extrabold mt-2"></div>
+          </div>
+        </div>
+      </div>
+      <div class="p-6 border-t border-slate-100 bg-slate-50 flex flex-wrap justify-end gap-3">
+        <button id="detailEdit" class="btn bg-white text-slate-700 border border-slate-200">تعديل</button>
+        <button id="detailCloseBtn" class="btn bg-slate-900 text-white">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-xl text-sm font-bold"></div>
+
+  <script>
+    const apiBase = '/api/hr/succession-plans';
+
+    const elements = {
+      totalRoles: document.getElementById('totalRoles'),
+      readySuccessors: document.getElementById('readySuccessors'),
+      developingSuccessors: document.getElementById('developingSuccessors'),
+      noSuccessor: document.getElementById('noSuccessor'),
+      searchInput: document.getElementById('searchInput'),
+      readinessFilter: document.getElementById('readinessFilter'),
+      sortSelect: document.getElementById('sortSelect'),
+      tableBody: document.getElementById('tableBody'),
+      emptyState: document.getElementById('emptyState'),
+      addPlanBtn: document.getElementById('addPlanBtn'),
+      planModal: document.getElementById('planModal'),
+      planModalTitle: document.getElementById('planModalTitle'),
+      planModalClose: document.getElementById('planModalClose'),
+      planModalCancel: document.getElementById('planModalCancel'),
+      savePlanBtn: document.getElementById('savePlanBtn'),
+      roleTitleInput: document.getElementById('roleTitleInput'),
+      incumbentInput: document.getElementById('incumbentInput'),
+      successorInput: document.getElementById('successorInput'),
+      readinessInput: document.getElementById('readinessInput'),
+      reviewDateInput: document.getElementById('reviewDateInput'),
+      successionStatusInput: document.getElementById('successionStatusInput'),
+      developmentPlanInput: document.getElementById('developmentPlanInput'),
+      detailModal: document.getElementById('detailModal'),
+      detailTitle: document.getElementById('detailTitle'),
+      detailRole: document.getElementById('detailRole'),
+      detailIncumbent: document.getElementById('detailIncumbent'),
+      detailSuccessor: document.getElementById('detailSuccessor'),
+      detailReadiness: document.getElementById('detailReadiness'),
+      detailDevelopment: document.getElementById('detailDevelopment'),
+      detailReview: document.getElementById('detailReview'),
+      detailStatus: document.getElementById('detailStatus'),
+      detailClose: document.getElementById('detailClose'),
+      detailCloseBtn: document.getElementById('detailCloseBtn'),
+      detailEdit: document.getElementById('detailEdit'),
+      toast: document.getElementById('toast')
+    };
+
+    let plans = [];
+    let currentMode = 'add';
+    let currentEditId = null;
+    let currentDetailId = null;
+
+    const readinessOrder = {
+      'جاهز الآن': 1,
+      'خلال 6-12 شهر': 2,
+      'خلال 12-24 شهر': 3,
+      'غير متوفر': 4
+    };
+
+    const statusBadgeClass = (status) => {
+      switch (status) {
+        case 'جاهز':
+          return 'bg-emerald-100 text-emerald-700';
+        case 'قيد التطوير':
+          return 'bg-amber-100 text-amber-700';
+        case 'غير متوفر':
+          return 'bg-rose-100 text-rose-700';
+        default:
+          return 'bg-slate-100 text-slate-700';
+      }
+    };
+
+    const readinessClass = (readiness) => {
+      switch (readiness) {
+        case 'جاهز الآن':
+          return 'text-emerald-600 font-bold';
+        case 'خلال 6-12 شهر':
+          return 'text-amber-600 font-bold';
+        case 'خلال 12-24 شهر':
+          return 'text-sky-600 font-bold';
+        default:
+          return 'text-rose-600 font-bold';
+      }
+    };
+
+    const formatNumber = (value) => new Intl.NumberFormat('en-US').format(Number(value || 0));
+
+    const showToast = (message, isError = false) => {
+      elements.toast.textContent = message;
+      elements.toast.classList.remove('hidden');
+      elements.toast.classList.toggle('bg-rose-600', isError);
+      elements.toast.classList.toggle('bg-slate-900', !isError);
+      setTimeout(() => elements.toast.classList.add('hidden'), 2600);
+    };
+
+    const fetchPlans = async () => {
+      const response = await fetch(apiBase);
+      if (!response.ok) {
+        throw new Error('تعذر تحميل البيانات');
+      }
+      return response.json();
+    };
+
+    const createPlan = async (payload) => {
+      const response = await fetch(apiBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'تعذر إنشاء الخطة');
+      }
+      return response.json();
+    };
+
+    const updatePlan = async (id, payload) => {
+      const response = await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'تعذر تحديث الخطة');
+      }
+      return response.json();
+    };
+
+    const deletePlan = async (id) => {
+      const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'تعذر حذف الخطة');
+      }
+      return response.json();
+    };
+
+    const updateSummary = () => {
+      const total = plans.length;
+      const ready = plans.filter(plan => plan.succession_status === 'جاهز').length;
+      const developing = plans.filter(plan => plan.succession_status === 'قيد التطوير').length;
+      const noSuccessor = plans.filter(plan => !plan.successor_name || plan.succession_status === 'غير متوفر').length;
+
+      elements.totalRoles.textContent = formatNumber(total);
+      elements.readySuccessors.textContent = formatNumber(ready);
+      elements.developingSuccessors.textContent = formatNumber(developing);
+      elements.noSuccessor.textContent = formatNumber(noSuccessor);
+    };
+
+    const getFilteredPlans = () => {
+      const searchValue = elements.searchInput.value.trim().toLowerCase();
+      const readinessValue = elements.readinessFilter.value;
+
+      let filtered = plans.filter((plan) => {
+        const searchText = `${plan.role_title} ${plan.incumbent_name} ${plan.successor_name || ''}`.toLowerCase();
+        const matchesSearch = searchText.includes(searchValue);
+        const matchesReadiness = readinessValue === 'all' || plan.readiness_level === readinessValue;
+        return matchesSearch && matchesReadiness;
+      });
+
+      const sortValue = elements.sortSelect.value;
+      filtered = filtered.sort((a, b) => {
+        switch (sortValue) {
+          case 'role_asc':
+            return a.role_title.localeCompare(b.role_title, 'ar');
+          case 'readiness_asc':
+            return (readinessOrder[a.readiness_level] || 99) - (readinessOrder[b.readiness_level] || 99);
+          case 'status_asc':
+            return String(a.succession_status || '').localeCompare(String(b.succession_status || ''), 'ar');
+          case 'review_desc':
+          default:
+            return String(b.review_date || '').localeCompare(String(a.review_date || ''));
+        }
+      });
+
+      return filtered;
+    };
+
+    const renderTable = () => {
+      const filtered = getFilteredPlans();
+      elements.tableBody.innerHTML = '';
+
+      if (!filtered.length) {
+        elements.emptyState.style.display = 'block';
+        return;
+      }
+      elements.emptyState.style.display = 'none';
+
+      filtered.forEach((plan) => {
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-8 gap-4 px-4 py-3 table-row items-center';
+        row.innerHTML = `
+          <div class="font-bold text-slate-800">${plan.role_title}</div>
+          <div>${plan.incumbent_name}</div>
+          <div>${plan.successor_name || 'غير متوفر'}</div>
+          <div class="${readinessClass(plan.readiness_level)}">${plan.readiness_level || 'غير متوفر'}</div>
+          <div class="text-slate-600">${plan.development_plan || 'لا توجد خطة بعد'}</div>
+          <div>${plan.review_date || '-'}</div>
+          <div><span class="badge ${statusBadgeClass(plan.succession_status)}">${plan.succession_status || 'غير محدد'}</span></div>
+          <div class="flex flex-wrap gap-2">
+            <button class="action-btn" data-action="view" data-id="${plan.id}">عرض</button>
+            <button class="action-btn" data-action="preview" data-id="${plan.id}">معاينة</button>
+            <button class="action-btn" data-action="edit" data-id="${plan.id}">تعديل</button>
+            <button class="action-btn text-rose-600" data-action="delete" data-id="${plan.id}">حذف</button>
+          </div>
+        `;
+        elements.tableBody.appendChild(row);
+      });
+    };
+
+    const openPlanModal = (mode, plan = {}) => {
+      currentMode = mode;
+      currentEditId = plan.id || null;
+      elements.planModalTitle.textContent = mode === 'edit' ? 'تعديل خطة التعاقب' : 'إضافة خطة تعاقب';
+      elements.roleTitleInput.value = plan.role_title || '';
+      elements.incumbentInput.value = plan.incumbent_name || '';
+      elements.successorInput.value = plan.successor_name || '';
+      elements.readinessInput.value = plan.readiness_level || 'جاهز الآن';
+      elements.reviewDateInput.value = plan.review_date || '';
+      elements.successionStatusInput.value = plan.succession_status || 'قيد التطوير';
+      elements.developmentPlanInput.value = plan.development_plan || '';
+      syncSuccessorState();
+      elements.planModal.classList.add('open');
+    };
+
+    const closePlanModal = () => {
+      elements.planModal.classList.remove('open');
+    };
+
+    const openDetailModal = (mode, plan) => {
+      currentDetailId = plan.id;
+      elements.detailTitle.textContent = mode === 'preview' ? 'معاينة خطة التعاقب' : 'تفاصيل خطة التعاقب';
+      elements.detailRole.textContent = plan.role_title || '-';
+      elements.detailIncumbent.textContent = plan.incumbent_name || '-';
+      elements.detailSuccessor.textContent = plan.successor_name || 'غير متوفر';
+      elements.detailReadiness.textContent = plan.readiness_level || 'غير متوفر';
+      elements.detailDevelopment.textContent = plan.development_plan || 'لا توجد خطة بعد';
+      elements.detailReview.textContent = plan.review_date || '-';
+      elements.detailStatus.textContent = plan.succession_status || 'غير محدد';
+      elements.detailModal.classList.add('open');
+    };
+
+    const closeDetailModal = () => {
+      elements.detailModal.classList.remove('open');
+    };
+
+    const syncSuccessorState = () => {
+      const statusValue = elements.successionStatusInput.value;
+      if (statusValue === 'غير متوفر') {
+        elements.successorInput.value = '';
+        elements.successorInput.disabled = true;
+        elements.readinessInput.value = 'غير متوفر';
+        elements.readinessInput.disabled = true;
+      } else {
+        elements.successorInput.disabled = false;
+        elements.readinessInput.disabled = false;
+      }
+    };
+
+    const getPayload = () => ({
+      role_title: elements.roleTitleInput.value.trim(),
+      incumbent_name: elements.incumbentInput.value.trim(),
+      successor_name: elements.successorInput.value.trim() || null,
+      readiness_level: elements.readinessInput.value,
+      development_plan: elements.developmentPlanInput.value.trim(),
+      review_date: elements.reviewDateInput.value || null,
+      succession_status: elements.successionStatusInput.value
+    });
+
+    const refreshData = async () => {
+      try {
+        plans = await fetchPlans();
+        updateSummary();
+        renderTable();
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    };
+
+    elements.addPlanBtn.addEventListener('click', () => openPlanModal('add'));
+    elements.planModalClose.addEventListener('click', closePlanModal);
+    elements.planModalCancel.addEventListener('click', closePlanModal);
+    elements.successionStatusInput.addEventListener('change', syncSuccessorState);
+    elements.savePlanBtn.addEventListener('click', async () => {
+      const payload = getPayload();
+      if (!payload.role_title || !payload.incumbent_name) {
+        showToast('يرجى إدخال اسم المنصب وشاغله الحالي', true);
+        return;
+      }
+
+      try {
+        if (currentMode === 'edit' && currentEditId) {
+          const updated = await updatePlan(currentEditId, payload);
+          plans = plans.map(plan => (plan.id === updated.id ? updated : plan));
+          showToast('تم تحديث الخطة بنجاح');
+        } else {
+          const created = await createPlan(payload);
+          plans = [created, ...plans];
+          showToast('تم إضافة الخطة بنجاح');
+        }
+        updateSummary();
+        renderTable();
+        closePlanModal();
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
+
+    elements.detailClose.addEventListener('click', closeDetailModal);
+    elements.detailCloseBtn.addEventListener('click', closeDetailModal);
+    elements.detailEdit.addEventListener('click', () => {
+      const plan = plans.find(item => item.id === currentDetailId);
+      if (plan) {
+        closeDetailModal();
+        openPlanModal('edit', plan);
+      }
+    });
+
+    elements.searchInput.addEventListener('input', renderTable);
+    elements.readinessFilter.addEventListener('change', renderTable);
+    elements.sortSelect.addEventListener('change', renderTable);
+
+    elements.tableBody.addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const action = button.dataset.action;
+      const id = Number(button.dataset.id);
+      const plan = plans.find(item => item.id === id);
+      if (!plan) return;
+
+      if (action === 'view' || action === 'preview') {
+        openDetailModal(action, plan);
+        return;
+      }
+
+      if (action === 'edit') {
+        openPlanModal('edit', plan);
+        return;
+      }
+
+      if (action === 'delete') {
+        const confirmed = confirm('هل أنت متأكد من حذف خطة التعاقب؟');
+        if (!confirmed) return;
+        try {
+          await deletePlan(id);
+          plans = plans.filter(item => item.id !== id);
+          updateSummary();
+          renderTable();
+          showToast('تم حذف الخطة بنجاح');
+        } catch (error) {
+          showToast(error.message, true);
+        }
+      }
+    });
+
+    refreshData();
+  </script>
+</body>
+</html>

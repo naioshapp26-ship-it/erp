@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار Dashboard - حاضنة السلامة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 p-8">
+    <div class="max-w-7xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h1 class="text-3xl font-bold text-slate-800 mb-4">🧪 اختبار Dashboard - حاضنة السلامة</h1>
+            <p class="text-slate-600 mb-4">هذا اختبار بسيط لعرض بيانات Dashboard للحاضنة</p>
+            
+            <div class="flex gap-4 mb-4">
+                <button onclick="testDashboard()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                    <i class="fas fa-play"></i> تحميل Dashboard
+                </button>
+                <button onclick="clearResults()" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-eraser"></i> مسح النتائج
+                </button>
+            </div>
+
+            <div id="status" class="mb-4"></div>
+        </div>
+
+        <div id="dashboard-content"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const colors = {
+                info: 'bg-blue-100 text-blue-800 border-blue-300',
+                success: 'bg-green-100 text-green-800 border-green-300',
+                error: 'bg-red-100 text-red-800 border-red-300',
+                loading: 'bg-yellow-100 text-yellow-800 border-yellow-300'
+            };
+            statusDiv.innerHTML = `
+                <div class="border-r-4 p-4 rounded-lg ${colors[type] || colors.info}">
+                    ${type === 'loading' ? '<i class="fas fa-spinner fa-spin"></i>' : ''} ${message}
+                </div>
+            `;
+        }
+
+        function clearResults() {
+            document.getElementById('dashboard-content').innerHTML = '';
+            document.getElementById('status').innerHTML = '';
+        }
+
+        async function testDashboard() {
+            const entityId = 'INC03';
+            
+            try {
+                showStatus('جاري التحميل...', 'loading');
+                
+                // Step 1: Get dashboard type
+                console.log('Step 1: Getting dashboard type...');
+                const typeResponse = await fetch(`${API_URL}/dashboard/type?entity_id=${entityId}`, {
+                    headers: {
+                        'x-entity-type': 'INCUBATOR',
+                        'x-entity-id': entityId
+                    }
+                });
+                
+                if (!typeResponse.ok) {
+                    throw new Error(`فشل تحديد نوع Dashboard: ${typeResponse.status}`);
+                }
+                
+                const typeData = await typeResponse.json();
+                console.log('Dashboard Type:', typeData);
+                
+                // Step 2: Get incubator data
+                console.log('Step 2: Getting incubator data...');
+                const dataResponse = await fetch(`${API_URL}/dashboard/incubator?entity_id=${entityId}`, {
+                    headers: {
+                        'x-entity-type': 'INCUBATOR',
+                        'x-entity-id': entityId
+                    }
+                });
+                
+                if (!dataResponse.ok) {
+                    throw new Error(`فشل تحميل بيانات الحاضنة: ${dataResponse.status}`);
+                }
+                
+                const data = await dataResponse.json();
+                console.log('Incubator Data:', data);
+                
+                showStatus('✅ تم تحميل البيانات بنجاح!', 'success');
+                renderDashboard(data);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`❌ خطأ: ${error.message}`, 'error');
+            }
+        }
+
+        function renderDashboard(data) {
+            const stats = data.statistics || {};
+            const content = document.getElementById('dashboard-content');
+            
+            content.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+                            <i class="fas fa-seedling text-2xl text-orange-600"></i>
+                        </div>
+                        لوحة الحاضنة - حاضنة السلامة
+                    </h2>
+                    
+                    <!-- Statistics Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-blue-50 p-4 rounded-lg border-r-4 border-blue-600">
+                            <div class="text-sm text-blue-600 mb-1">إجمالي المستفيدين</div>
+                            <div class="text-3xl font-bold text-blue-800">${stats.total_beneficiaries || 0}</div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg border-r-4 border-green-600">
+                            <div class="text-sm text-green-600 mb-1">البرامج النشطة</div>
+                            <div class="text-3xl font-bold text-green-800">${stats.total_programs || 0}</div>
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-lg border-r-4 border-purple-600">
+                            <div class="text-sm text-purple-600 mb-1">الجلسات المنعقدة</div>
+                            <div class="text-3xl font-bold text-purple-800">${stats.total_sessions || 0}</div>
+                        </div>
+                        <div class="bg-orange-50 p-4 rounded-lg border-r-4 border-orange-600">
+                            <div class="text-sm text-orange-600 mb-1">نسبة الإنجاز</div>
+                            <div class="text-3xl font-bold text-orange-800">${Math.round(stats.overall_completion_rate || 0)}%</div>
+                        </div>
+                    </div>
+
+                    <!-- Beneficiaries -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-users text-blue-600"></i> المستفيدين (${data.beneficiaries?.length || 0})
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${data.beneficiaries && data.beneficiaries.length > 0 ? 
+                                data.beneficiaries.map(b => `
+                                    <div class="border border-slate-200 rounded-lg p-4 hover:shadow-md transition">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div>
+                                                <h4 class="font-bold text-slate-800">${b.name}</h4>
+                                                <p class="text-sm text-slate-500">${b.email}</p>
+                                            </div>
+                                            <span class="bg-orange-100 text-orange-600 text-xs px-2 py-1 rounded-full font-bold">
+                                                ${Math.round(b.avg_completion || 0)}% مكتمل
+                                            </span>
+                                        </div>
+                                        <div class="flex gap-4 text-xs text-slate-600">
+                                            <span><i class="fas fa-book-open text-blue-500"></i> ${b.enrollment_count} تسجيل</span>
+                                            <span><i class="fas fa-calendar text-green-500"></i> ${b.sessions_attended} جلسة</span>
+                                        </div>
+                                    </div>
+                                `).join('') 
+                                : '<p class="text-slate-400 text-center py-8">لا يوجد مستفيدين</p>'
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Programs -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-graduation-cap text-green-600"></i> البرامج التدريبية (${data.programs?.length || 0})
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${data.programs && data.programs.length > 0 ? 
+                                data.programs.map(p => `
+                                    <div class="border border-slate-200 rounded-lg p-4 hover:shadow-md transition">
+                                        <h4 class="font-bold text-slate-800 mb-2">${p.name}</h4>
+                                        <p class="text-sm text-slate-600 mb-3">${p.description || ''}</p>
+                                        <div class="flex gap-4 text-xs text-slate-600">
+                                            <span><i class="fas fa-users text-blue-500"></i> ${p.total_beneficiaries} مستفيد</span>
+                                            <span><i class="fas fa-calendar text-purple-500"></i> ${p.total_sessions} جلسة</span>
+                                            <span><i class="fas fa-percent text-green-500"></i> ${Math.round(p.avg_completion_rate || 0)}%</span>
+                                        </div>
+                                    </div>
+                                `).join('') 
+                                : '<p class="text-slate-400 text-center py-8">لا توجد برامج</p>'
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Recent Sessions -->
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-calendar-alt text-purple-600"></i> الجلسات الأخيرة (${data.recent_sessions?.length || 0})
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${data.recent_sessions && data.recent_sessions.length > 0 ? 
+                                data.recent_sessions.map(s => `
+                                    <div class="border border-slate-200 rounded-lg p-4 hover:shadow-md transition">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h4 class="font-bold text-slate-800">${s.program_name}</h4>
+                                            <span class="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-full">
+                                                ${new Date(s.start_date).toLocaleDateString('ar-SA')}
+                                            </span>
+                                        </div>
+                                        <p class="text-sm text-slate-600 mb-2">${s.location || 'موقع غير محدد'}</p>
+                                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                                            <i class="fas fa-user-friends"></i> ${s.attendees_count} حضور
+                                        </div>
+                                    </div>
+                                `).join('') 
+                                : '<p class="text-slate-400 text-center py-8">لا توجد جلسات</p>'
+                            }
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Auto-load on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded, ready to test!');
+            showStatus('اضغط على "تحميل Dashboard" للبدء', 'info');
+        });
+    </script>
+</body>
+</html>

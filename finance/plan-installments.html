@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📆 أقساط خطط السداد - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb; /* Slate-50 */
+            min-height: 100vh;
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
+            backdrop-filter: blur(10px);
+        }
+        .stat-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+        .table-scroll {
+            max-height: 520px;
+            overflow: auto;
+        }
+        .section-accent-indigo {
+            border-top: 4px solid #6366f1;
+        }
+        .section-accent-teal {
+            border-top: 4px solid #14b8a6;
+        }
+        .section-accent-amber {
+            border-top: 4px solid #f59e0b;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">📆 أقساط خطط السداد</h1>
+            <p class="text-lg opacity-90">تفاصيل الأقساط وربطها بخطط السداد والمدفوعات</p>
+        </div>
+
+        <div class="mb-6 flex gap-3 flex-wrap">
+            <button onclick="downloadCSV()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-blue-500 group">
+                <i class="fas fa-file-csv text-xl text-blue-600 group-hover:text-blue-700 transition"></i>
+                تنزيل CSV
+            </button>
+            <button onclick="downloadJSON()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-purple-500 group">
+                <i class="fas fa-file-code"></i>
+                تنزيل JSON
+            </button>
+            <button onclick="printReport()" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة
+            </button>
+            <button onclick="refreshData()" class="bg-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="openInstallmentModal('create')" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus"></i>
+                إضافة قسط
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-list text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">عدد الأقساط</span>
+                </div>
+                <div id="totalInstallments" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-purple-500 to-fuchsia-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-coins text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المبلغ</span>
+                </div>
+                <div id="totalAmount" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-hand-holding-dollar text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المدفوع</span>
+                </div>
+                <div id="totalPaid" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-violet-500 to-purple-700 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-hourglass-half text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المتبقي</span>
+                </div>
+                <div id="totalRemaining" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h3 class="text-lg font-bold text-gray-800">🔎 فلاتر البحث</h3>
+                <button onclick="resetFilters()" class="text-sm text-indigo-700 hover:text-indigo-900 font-semibold">إعادة ضبط الفلاتر</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">حالة القسط</label>
+                    <input id="status" type="text" placeholder="paid" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">حالة الخطة</label>
+                    <input id="planStatus" type="text" placeholder="active" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">رقم الخطة</label>
+                    <input id="planNumber" type="text" placeholder="PLAN-0001" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">اسم العميل</label>
+                    <input id="customerName" type="text" placeholder="اسم العميل" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">رقم الفاتورة</label>
+                    <input id="invoiceNumber" type="text" placeholder="INV-0001" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">من تاريخ الاستحقاق</label>
+                    <input id="fromDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">إلى تاريخ الاستحقاق</label>
+                    <input id="toDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none" onchange="applyFilters()">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card-gradient rounded-2xl shadow-2xl p-6 section-accent-teal">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📊 توزيع الحالات</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            <div class="card-gradient rounded-2xl shadow-2xl p-6 section-accent-amber">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">💡 ملخص سريع</h3>
+                <div id="infoPanel" class="space-y-4">
+                    <div class="animate-pulse text-gray-500">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl overflow-hidden section-accent-indigo">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">📋 جدول الأقساط</h3>
+                    <span id="rowsCount" class="text-sm text-gray-600"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full">
+                        <thead class="bg-indigo-50 text-indigo-700 text-xs">
+                            <tr>
+                                <th class="px-3 py-2 text-right">installment_id</th>
+                                <th class="px-3 py-2 text-right">plan_id</th>
+                                <th class="px-3 py-2 text-right">plan_number</th>
+                                <th class="px-3 py-2 text-right">installment_number</th>
+                                <th class="px-3 py-2 text-right">due_date</th>
+                                <th class="px-3 py-2 text-right">amount</th>
+                                <th class="px-3 py-2 text-right">paid_amount</th>
+                                <th class="px-3 py-2 text-right">status</th>
+                                <th class="px-3 py-2 text-right">paid_date</th>
+                                <th class="px-3 py-2 text-right">payment_id</th>
+                                <th class="px-3 py-2 text-right">payment_number</th>
+                                <th class="px-3 py-2 text-right">payment_date</th>
+                                <th class="px-3 py-2 text-right">payment_amount</th>
+                                <th class="px-3 py-2 text-right">payment_method</th>
+                                <th class="px-3 py-2 text-right">payment_type</th>
+                                <th class="px-3 py-2 text-right">payment_status</th>
+                                <th class="px-3 py-2 text-right">customer_id</th>
+                                <th class="px-3 py-2 text-right">customer_name_ar</th>
+                                <th class="px-3 py-2 text-right">customer_name_en</th>
+                                <th class="px-3 py-2 text-right">customer_code</th>
+                                <th class="px-3 py-2 text-right">customer_type</th>
+                                <th class="px-3 py-2 text-right">invoice_id</th>
+                                <th class="px-3 py-2 text-right">invoice_number</th>
+                                <th class="px-3 py-2 text-right">invoice_date</th>
+                                <th class="px-3 py-2 text-right">invoice_status</th>
+                                <th class="px-3 py-2 text-right">invoice_payment_status</th>
+                                <th class="px-3 py-2 text-right">plan_status</th>
+                                <th class="px-3 py-2 text-right">plan_total_amount</th>
+                                <th class="px-3 py-2 text-right">plan_paid_amount</th>
+                                <th class="px-3 py-2 text-right">plan_remaining_amount</th>
+                                <th class="px-3 py-2 text-right">number_of_installments</th>
+                                <th class="px-3 py-2 text-right">plan_installment_amount</th>
+                                <th class="px-3 py-2 text-right">installment_frequency</th>
+                                <th class="px-3 py-2 text-right">risk_score_at_creation</th>
+                                <th class="px-3 py-2 text-right">risk_level_at_creation</th>
+                                <th class="px-3 py-2 text-right">entity_type</th>
+                                <th class="px-3 py-2 text-right">entity_id</th>
+                                <th class="px-3 py-2 text-right">branch_id</th>
+                                <th class="px-3 py-2 text-right">incubator_id</th>
+                                <th class="px-3 py-2 text-right">plan_created_at</th>
+                                <th class="px-3 py-2 text-right">plan_updated_at</th>
+                                <th class="px-3 py-2 text-right">plan_created_by</th>
+                                <th class="px-3 py-2 text-right">plan_approved_by</th>
+                                <th class="px-3 py-2 text-right">plan_approved_at</th>
+                                <th class="px-3 py-2 text-right">created_at</th>
+                                <th class="px-3 py-2 text-right">updated_at</th>
+                                <th class="px-3 py-2 text-right">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="installmentsTable" class="text-xs divide-y divide-gray-100">
+                            <tr>
+                                <td colspan="48" class="px-4 py-12 text-center text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل البيانات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="installmentModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl w-full max-w-3xl p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="installmentModalTitle" class="text-xl font-bold text-gray-800">معاينة قسط</h3>
+                <button onclick="closeInstallmentModal()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            <div id="installmentModalMeta" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600 mb-4"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">معرّف الخطة</label>
+                    <input id="editPlanId" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">رقم القسط</label>
+                    <input id="editInstallmentNumber" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">تاريخ الاستحقاق</label>
+                    <input id="editDueDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">قيمة القسط</label>
+                    <input id="editAmount" type="number" step="0.01" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">المبلغ المدفوع</label>
+                    <input id="editPaidAmount" type="number" step="0.01" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">حالة القسط</label>
+                    <select id="editStatus" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                        <option value="PENDING">PENDING</option>
+                        <option value="PAID">PAID</option>
+                        <option value="OVERDUE">OVERDUE</option>
+                        <option value="WAIVED">WAIVED</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">تاريخ السداد</label>
+                    <input id="editPaidDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">معرّف الدفعة</label>
+                    <input id="editPaymentId" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                <div class="md:col-span-2 border-t border-gray-200 pt-4">
+                    <h4 class="text-sm font-bold text-gray-800 mb-3">بيانات العنوان</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">اسم الشارع</label>
+                            <input id="installmentStreetName" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">الرمز البريدي</label>
+                            <input id="installmentPostalCode" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">رقم المبنى</label>
+                            <input id="installmentBuildingNumber" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">اسم المدينة</label>
+                            <input id="installmentCity" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">اسم المنطقة</label>
+                            <input id="installmentDistrict" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">الرمز الوطني</label>
+                            <input id="installmentNationalAddress" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">العنوان المختصر</label>
+                            <input id="installmentShortAddress" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 mt-6">
+                <button onclick="closeInstallmentModal()" class="bg-gray-100 text-gray-700 px-5 py-2 rounded-lg font-bold">إغلاق</button>
+                <button id="installmentSaveBtn" onclick="saveInstallment()" class="bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold">حفظ التعديل</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        let rows = [];
+        let statusChartInstance = null;
+        let currentInstallmentId = null;
+        let currentInstallmentMode = 'view';
+
+        async function loadReport() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/plan-installments?entity_id=${ENTITY_ID}`);
+                const data = await response.json();
+
+                if (!data.success) throw new Error(data.error || 'Failed to load report');
+
+                rows = data.rows || [];
+                renderSummary(data.summary || {});
+                renderTable(rows);
+                renderChart(data.summary || {});
+                renderInfo(data.summary || {});
+            } catch (error) {
+                console.error('❌ خطأ في تحميل التقرير:', error);
+                document.getElementById('installmentsTable').innerHTML = `
+                    <tr>
+                        <td colspan="48" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل بيانات الأقساط</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function applyFilters() {
+            const params = new URLSearchParams({ entity_id: ENTITY_ID });
+            const status = document.getElementById('status').value;
+            const planStatus = document.getElementById('planStatus').value;
+            const planNumber = document.getElementById('planNumber').value;
+            const customerName = document.getElementById('customerName').value;
+            const invoiceNumber = document.getElementById('invoiceNumber').value;
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+
+            if (status) params.append('status', status);
+            if (planStatus) params.append('plan_status', planStatus);
+            if (planNumber) params.append('plan_number', planNumber);
+            if (customerName) params.append('customer_name', customerName);
+            if (invoiceNumber) params.append('invoice_number', invoiceNumber);
+            if (fromDate) params.append('from_date', fromDate);
+            if (toDate) params.append('to_date', toDate);
+
+            fetch(`${API_BASE}/finance/plan-installments?${params.toString()}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Failed to load report');
+                    rows = data.rows || [];
+                    renderSummary(data.summary || {});
+                    renderTable(rows);
+                    renderChart(data.summary || {});
+                    renderInfo(data.summary || {});
+                })
+                .catch(err => console.error('❌', err));
+        }
+
+        function resetFilters() {
+            document.getElementById('status').value = '';
+            document.getElementById('planStatus').value = '';
+            document.getElementById('planNumber').value = '';
+            document.getElementById('customerName').value = '';
+            document.getElementById('invoiceNumber').value = '';
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            applyFilters();
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('totalInstallments').textContent = summary.total_installments ?? 0;
+            document.getElementById('totalAmount').textContent = formatMoney(summary.total_amount || 0);
+            document.getElementById('totalPaid').textContent = formatMoney(summary.total_paid || 0);
+            document.getElementById('totalRemaining').textContent = formatMoney(summary.total_remaining || 0);
+        }
+
+        function renderTable(rowsData) {
+            const body = rowsData.map(r => `
+                <tr class="hover:bg-indigo-50">
+                    <td class="px-3 py-2">${r.installment_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.plan_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.plan_number ?? '-'}</td>
+                    <td class="px-3 py-2">${r.installment_number ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.due_date)}</td>
+                    <td class="px-3 py-2 font-semibold text-purple-700">${formatMoney(r.amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.paid_amount)}</td>
+                    <td class="px-3 py-2">${r.status ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.paid_date)}</td>
+                    <td class="px-3 py-2">${r.payment_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.payment_number ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.payment_date)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.payment_amount)}</td>
+                    <td class="px-3 py-2">${r.payment_method ?? '-'}</td>
+                    <td class="px-3 py-2">${r.payment_type ?? '-'}</td>
+                    <td class="px-3 py-2">${r.payment_status ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_name_ar ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_name_en ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_code ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_type ?? '-'}</td>
+                    <td class="px-3 py-2">${r.invoice_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.invoice_number ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.invoice_date)}</td>
+                    <td class="px-3 py-2">${r.invoice_status ?? '-'}</td>
+                    <td class="px-3 py-2">${r.invoice_payment_status ?? '-'}</td>
+                    <td class="px-3 py-2">${r.plan_status ?? '-'}</td>
+                    <td class="px-3 py-2">${formatMoney(r.plan_total_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.plan_paid_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.plan_remaining_amount)}</td>
+                    <td class="px-3 py-2">${r.number_of_installments ?? '-'}</td>
+                    <td class="px-3 py-2">${formatMoney(r.plan_installment_amount)}</td>
+                    <td class="px-3 py-2">${r.installment_frequency ?? '-'}</td>
+                    <td class="px-3 py-2">${r.risk_score_at_creation ?? '-'}</td>
+                    <td class="px-3 py-2">${r.risk_level_at_creation ?? '-'}</td>
+                    <td class="px-3 py-2">${r.entity_type ?? '-'}</td>
+                    <td class="px-3 py-2">${r.entity_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.branch_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.incubator_id ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.plan_created_at)}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.plan_updated_at)}</td>
+                    <td class="px-3 py-2">${r.plan_created_by ?? '-'}</td>
+                    <td class="px-3 py-2">${r.plan_approved_by ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.plan_approved_at)}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.created_at)}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.updated_at)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex items-center gap-2">
+                            <button class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة" onclick="openInstallmentModal('view', ${r.installment_id})"><i class="fas fa-eye text-lg"></i></button>
+                            <button class="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-md font-semibold" title="تعديل" onclick="openInstallmentModal('edit', ${r.installment_id})"><i class="fas fa-pen-to-square text-lg"></i></button>
+                            <button class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف" onclick="deleteInstallment(${r.installment_id})"><i class="fas fa-trash text-lg"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('installmentsTable').innerHTML = body.length ? body : `
+                <tr>
+                    <td colspan="48" class="px-4 py-12 text-center text-gray-500">لا توجد بيانات</td>
+                </tr>
+            `;
+            document.getElementById('rowsCount').textContent = `عدد الصفوف: ${rowsData.length}`;
+        }
+
+        function renderChart(summary) {
+            const statusData = summary.by_status || {};
+            const labels = Object.keys(statusData);
+            const values = labels.map(k => statusData[k]);
+
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            if (statusChartInstance) statusChartInstance.destroy();
+            statusChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels.length ? labels : ['لا يوجد'],
+                    datasets: [{
+                        data: values.length ? values : [1],
+                        backgroundColor: ['#6366f1', '#8b5cf6', '#f59e0b', '#ef4444']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderInfo(summary) {
+            document.getElementById('infoPanel').innerHTML = `
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-layer-group text-purple-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">عدد الأقساط</div>
+                        <div class="font-bold">${summary.total_installments ?? 0}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-coins text-purple-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">إجمالي المتبقي</div>
+                        <div class="font-bold">${formatMoney(summary.total_remaining || 0)}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-database text-purple-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">الكيان</div>
+                        <div class="font-bold">${summary.entity_id ?? '-'}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-clock text-purple-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">آخر تحديث</div>
+                        <div class="font-bold">${summary.generated_at ? formatDateTime(summary.generated_at) : '-'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatDateInput(value) {
+            if (!value) return '';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '';
+            return date.toISOString().slice(0, 10);
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function downloadCSV() {
+            const csvRows = [[
+                'installment_id','plan_id','plan_number','installment_number','due_date','amount','paid_amount','status','paid_date','payment_id','payment_number','payment_date','payment_amount','payment_method','payment_type','payment_status','customer_id','customer_name_ar','customer_name_en','customer_code','customer_type','invoice_id','invoice_number','invoice_date','invoice_status','invoice_payment_status','plan_status','plan_total_amount','plan_paid_amount','plan_remaining_amount','number_of_installments','plan_installment_amount','installment_frequency','risk_score_at_creation','risk_level_at_creation','entity_type','entity_id','branch_id','incubator_id','plan_created_at','plan_updated_at','plan_created_by','plan_approved_by','plan_approved_at','created_at','updated_at'
+            ]];
+            rows.forEach(r => csvRows.push([
+                r.installment_id, r.plan_id, r.plan_number, r.installment_number, r.due_date, r.amount, r.paid_amount,
+                r.status, r.paid_date, r.payment_id, r.payment_number, r.payment_date, r.payment_amount, r.payment_method,
+                r.payment_type, r.payment_status, r.customer_id, r.customer_name_ar, r.customer_name_en, r.customer_code,
+                r.customer_type, r.invoice_id, r.invoice_number, r.invoice_date, r.invoice_status, r.invoice_payment_status,
+                r.plan_status, r.plan_total_amount, r.plan_paid_amount, r.plan_remaining_amount, r.number_of_installments,
+                r.plan_installment_amount, r.installment_frequency, r.risk_score_at_creation, r.risk_level_at_creation,
+                r.entity_type, r.entity_id, r.branch_id, r.incubator_id, r.plan_created_at, r.plan_updated_at,
+                r.plan_created_by, r.plan_approved_by, r.plan_approved_at, r.created_at, r.updated_at
+            ]));
+            const csvContent = csvRows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'plan-installments-report.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadJSON() {
+            const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'plan-installments-report.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function refreshData() {
+            loadReport();
+        }
+
+        function openInstallmentModal(mode, installmentId) {
+            const row = installmentId ? rows.find(r => r.installment_id === installmentId) : null;
+            if (installmentId && !row) return;
+
+            currentInstallmentId = installmentId;
+            currentInstallmentMode = mode;
+
+            const title = mode === 'view' ? 'معاينة قسط' : mode === 'edit' ? 'تعديل قسط' : 'إضافة قسط';
+            document.getElementById('installmentModalTitle').textContent = title;
+
+            if (row) {
+                document.getElementById('installmentModalMeta').innerHTML = `
+                    <div>رقم الخطة: <span class="font-semibold">${row.plan_number ?? '-'}</span></div>
+                    <div>اسم العميل: <span class="font-semibold">${row.customer_name_ar ?? row.customer_name_en ?? '-'}</span></div>
+                    <div>رقم الفاتورة: <span class="font-semibold">${row.invoice_number ?? '-'}</span></div>
+                    <div>رقم القسط: <span class="font-semibold">${row.installment_number ?? '-'}</span></div>
+                `;
+            } else {
+                document.getElementById('installmentModalMeta').innerHTML = '';
+            }
+
+            document.getElementById('editPlanId').value = row?.plan_id ?? '';
+            document.getElementById('editInstallmentNumber').value = row?.installment_number ?? '';
+            document.getElementById('editDueDate').value = formatDateInput(row?.due_date);
+            document.getElementById('editAmount').value = row?.amount ?? '';
+            document.getElementById('editPaidAmount').value = row?.paid_amount ?? '';
+            document.getElementById('editStatus').value = (row?.status || 'PENDING').toUpperCase();
+            document.getElementById('editPaidDate').value = formatDateInput(row?.paid_date);
+            document.getElementById('editPaymentId').value = row?.payment_id ?? '';
+            document.getElementById('installmentStreetName').value = row?.street_name ?? '';
+            document.getElementById('installmentPostalCode').value = row?.postal_code ?? '';
+            document.getElementById('installmentBuildingNumber').value = row?.building_number ?? '';
+            document.getElementById('installmentCity').value = row?.city ?? '';
+            document.getElementById('installmentDistrict').value = row?.district ?? '';
+            document.getElementById('installmentNationalAddress').value = row?.national_address_number ?? '';
+            document.getElementById('installmentShortAddress').value = row?.short_address ?? '';
+
+            const isView = mode === 'view';
+            const isCreate = mode === 'create';
+            document.getElementById('editPlanId').disabled = !isCreate;
+            document.getElementById('editInstallmentNumber').disabled = !isCreate;
+            ['editDueDate', 'editAmount', 'editPaidAmount', 'editStatus', 'editPaidDate', 'editPaymentId',
+                'installmentStreetName', 'installmentPostalCode', 'installmentBuildingNumber', 'installmentCity',
+                'installmentDistrict', 'installmentNationalAddress', 'installmentShortAddress']
+                .forEach(id => document.getElementById(id).disabled = isView);
+            document.getElementById('installmentSaveBtn').classList.toggle('hidden', isView);
+
+            const modal = document.getElementById('installmentModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeInstallmentModal() {
+            const modal = document.getElementById('installmentModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        async function saveInstallment() {
+            if (currentInstallmentMode !== 'create' && !currentInstallmentId) return;
+
+            const planId = document.getElementById('editPlanId').value;
+            const installmentNumber = document.getElementById('editInstallmentNumber').value;
+            if (currentInstallmentMode === 'create' && (!planId || !installmentNumber)) {
+                alert('من فضلك أدخل معرّف الخطة ورقم القسط');
+                return;
+            }
+
+            const payload = {
+                plan_id: planId ? Number(planId) : null,
+                installment_number: installmentNumber ? Number(installmentNumber) : null,
+                due_date: document.getElementById('editDueDate').value || null,
+                amount: document.getElementById('editAmount').value || null,
+                paid_amount: document.getElementById('editPaidAmount').value || null,
+                status: document.getElementById('editStatus').value || null,
+                paid_date: document.getElementById('editPaidDate').value || null,
+                payment_id: document.getElementById('editPaymentId').value || null,
+                street_name: document.getElementById('installmentStreetName').value || null,
+                postal_code: document.getElementById('installmentPostalCode').value || null,
+                building_number: document.getElementById('installmentBuildingNumber').value || null,
+                city: document.getElementById('installmentCity').value || null,
+                district: document.getElementById('installmentDistrict').value || null,
+                national_address_number: document.getElementById('installmentNationalAddress').value || null,
+                short_address: document.getElementById('installmentShortAddress').value || null
+            };
+
+            try {
+                const isCreate = currentInstallmentMode === 'create';
+                const url = isCreate
+                    ? `${API_BASE}/finance/plan-installments?entity_id=${ENTITY_ID}`
+                    : `${API_BASE}/finance/plan-installments/${currentInstallmentId}?entity_id=${ENTITY_ID}`;
+                const res = await fetch(url, {
+                    method: isCreate ? 'POST' : 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || (isCreate ? 'فشل إضافة القسط' : 'فشل تعديل القسط'));
+                }
+                closeInstallmentModal();
+                await loadReport();
+            } catch (error) {
+                alert(error.message || (currentInstallmentMode === 'create' ? 'فشل إضافة القسط' : 'فشل تعديل القسط'));
+            }
+        }
+
+        async function deleteInstallment(installmentId) {
+            if (!confirm('هل تريد حذف هذا القسط؟')) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/finance/plan-installments/${installmentId}?entity_id=${ENTITY_ID}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || 'فشل حذف القسط');
+                }
+                await loadReport();
+            } catch (error) {
+                alert(error.message || 'فشل حذف القسط');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadReport);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

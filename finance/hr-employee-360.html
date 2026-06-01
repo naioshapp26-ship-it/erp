@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧑‍💼 ملف الموظف 360° - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0b1220;
+      --muted: #6b7280;
+      --sky: #0284c7;
+      --emerald: #059669;
+      --rose: #e11d48;
+      --sun: #d97706;
+      --paper: #f8fafc;
+      --card: #ffffff;
+      --line: #e2e8f0;
+      --navy: #0f172a;
+      --ink-soft: rgba(15, 23, 42, 0.08);
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 14% 18%, rgba(14, 165, 233, 0.18), transparent 42%),
+        radial-gradient(circle at 86% 8%, rgba(16, 185, 129, 0.16), transparent 40%),
+        linear-gradient(180deg, #ecfeff 0%, #f8fafc 55%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px -30px rgba(15, 23, 42, 0.35);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .tag {
+      border-radius: 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .hero-card {
+      background: linear-gradient(120deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      color: #f8fafc;
+      border-radius: 24px;
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.6);
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: -30% 55% auto -30%;
+      height: 160%;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.35), transparent 60%);
+    }
+
+    .stat-card {
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: #fff;
+      padding: 16px;
+      box-shadow: 0 18px 40px -35px rgba(15, 23, 42, 0.55);
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .table-row {
+      border-bottom: 1px solid var(--line);
+      transition: background 0.2s ease;
+    }
+
+    .table-row:hover {
+      background: rgba(148, 163, 184, 0.08);
+    }
+
+    .status-pill {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 6px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.5);
+    }
+
+    .detail-panel {
+      position: fixed;
+      inset: 0 0 0 auto;
+      width: min(520px, 100%);
+      background: #fff;
+      border-right: 1px solid var(--line);
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      z-index: 40;
+      box-shadow: -20px 0 50px -30px rgba(15, 23, 42, 0.5);
+    }
+
+    .detail-panel.open {
+      transform: translateX(0);
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease;
+      z-index: 30;
+    }
+
+    .backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(15, 23, 42, 0.45);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease;
+      z-index: 50;
+    }
+
+    .modal.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-card {
+      width: min(720px, 100%);
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      padding: 20px;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 30px 60px -40px rgba(15, 23, 42, 0.6);
+    }
+
+    .tab-button {
+      border: 1px solid var(--line);
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-weight: 800;
+      background: #fff;
+      transition: all 0.2s ease;
+    }
+
+    .tab-button.active {
+      background: #0f172a;
+      color: #fff;
+      border-color: #0f172a;
+    }
+
+    .avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, #38bdf8, #10b981);
+      font-size: 24px;
+    }
+
+    .fade-up {
+      animation: fadeUp 0.6s ease both;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+      .detail-panel { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">ملف الموظف 360°</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">🧑‍💼 ملف الموظف 360°</h1>
+        <p class="text-slate-600">ملف رقمي شامل يغطي البيانات، الأداء، الرواتب، والتطوير.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <a href="/hr/employees" class="btn bg-slate-900 text-white">
+          <i class="fas fa-briefcase"></i>
+          النظام الإداري
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-card mb-6 fade-up">
+      <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+        <div class="flex items-center gap-4">
+          <div class="avatar" id="employeeAvatar">را</div>
+          <div>
+            <div class="text-sm text-slate-200">بطاقة الموظف</div>
+            <h2 id="employeeName" class="text-2xl font-extrabold mt-1">رانيا السبيعي</h2>
+            <p id="employeeTitle" class="text-sm text-slate-300">مدير شؤون الموظفين</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">القسم</div>
+            <div id="employeeDepartment" class="text-lg font-extrabold mt-2">الموارد البشرية</div>
+          </div>
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">الحالة الوظيفية</div>
+            <div id="employeeStatus" class="text-lg font-extrabold text-emerald-600 mt-2">نشط</div>
+          </div>
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">تاريخ التعيين</div>
+            <div id="employeeHireDate" class="text-lg font-extrabold mt-2">2019-04-12</div>
+          </div>
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">المدير المباشر</div>
+            <div id="employeeManager" class="text-lg font-extrabold mt-2">مها الفقيه</div>
+          </div>
+        </div>
+        <div class="glass p-4 text-sm">
+          <div class="font-bold text-slate-700">أوامر سريعة</div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button id="printProfile" class="btn bg-white text-slate-700 border border-slate-200 w-full">
+              <i class="fas fa-print"></i>
+              طباعة الملف الكامل
+            </button>
+            <button id="exportProfile" class="btn bg-slate-900 text-white w-full">
+              <i class="fas fa-file-export"></i>
+              تصدير البيانات
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-6 gap-4 mb-6 fade-up">
+      <div class="stat-card">
+        <div class="text-xs text-slate-500">إجمالي أيام الحضور</div>
+        <div id="attendanceDays" class="text-2xl font-extrabold mt-2">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-slate-500">عدد أيام الغياب</div>
+        <div id="absenceDays" class="text-2xl font-extrabold text-rose-600 mt-2">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-slate-500">عدد أيام الإجازات</div>
+        <div id="leaveDays" class="text-2xl font-extrabold text-amber-600 mt-2">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-slate-500">متوسط تقييم الأداء</div>
+        <div id="avgPerformance" class="text-2xl font-extrabold text-sky-700 mt-2">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-slate-500">إجمالي الدورات التدريبية</div>
+        <div id="trainingCount" class="text-2xl font-extrabold text-emerald-600 mt-2">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="text-xs text-slate-500">إجمالي المكافآت</div>
+        <div id="bonusTotal" class="text-2xl font-extrabold text-slate-900 mt-2">0</div>
+      </div>
+    </div>
+
+    <div class="glass p-5 mb-6 fade-up">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">الأقسام التفصيلية</h2>
+          <p class="text-sm text-slate-500">استعراض شامل لكل سجلات الموظف مع بحث وتصفية.</p>
+        </div>
+        <button id="addRecord" class="btn bg-emerald-600 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة سجل جديد
+        </button>
+      </div>
+
+      <div id="tabs" class="flex flex-wrap gap-2 mb-4"></div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 text-sm mb-5">
+        <div class="lg:col-span-2">
+          <label class="text-xs text-slate-500">بحث سريع</label>
+          <div class="mt-1 flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <i class="fas fa-magnifying-glass text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="ابحث داخل القسم الحالي" class="w-full text-sm focus:outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">حالة السجل</label>
+          <select id="statusFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="">كل الحالات</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">الفترة</label>
+          <select id="periodFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="">كل الفترات</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">ترتيب النتائج</label>
+          <select id="sortFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="latest">الأحدث</option>
+            <option value="oldest">الأقدم</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <div id="tableHeader" class="grid grid-cols-6 gap-3 bg-slate-900 text-white text-xs font-bold p-3"></div>
+        <div id="tableBody" class="text-sm"></div>
+      </div>
+      <div id="emptyState" class="hidden text-center text-sm text-slate-500 py-6">لا توجد سجلات مطابقة للفلترة الحالية.</div>
+    </div>
+
+    <div class="glass p-5 fade-up">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">ملخص الملف</h2>
+          <p class="text-sm text-slate-500">نظرة سريعة على تقدم الموظف ومجالات التحسين.</p>
+        </div>
+        <span class="chip bg-amber-100 text-amber-700">محدّث الآن</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+        <div class="tag">جاهزية الملف: 98%</div>
+        <div class="tag">مستوى الالتزام: مرتفع</div>
+        <div class="tag">خطط تطوير نشطة: 3</div>
+        <div class="tag">تنبيهات مفتوحة: 1</div>
+        <div class="tag">مراجعات المدير: 4</div>
+        <div class="tag">مرفقات موثقة: 12</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="backdrop" class="backdrop"></div>
+  <aside id="detailPanel" class="detail-panel">
+    <div class="p-5 border-b border-slate-200 flex items-center justify-between">
+      <div>
+        <div class="text-xs text-slate-500">تفاصيل السجل</div>
+        <h3 id="detailTitle" class="text-xl font-extrabold mt-1">تفاصيل</h3>
+      </div>
+      <button id="closePanel" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+    </div>
+    <div id="detailBody" class="p-5 space-y-4 text-sm"></div>
+  </aside>
+
+  <div id="recordModal" class="modal">
+    <div class="modal-card">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500">إضافة سجل</div>
+          <h3 id="modalTitle" class="text-xl font-extrabold mt-1">سجل جديد</h3>
+        </div>
+        <button id="closeModal" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+      </div>
+      <form id="recordForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"></form>
+    </div>
+  </div>
+
+  <script>
+    const formatter = new Intl.NumberFormat('en-US');
+    const currencyFormatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'SAR',
+      maximumFractionDigits: 2
+    });
+
+    const employeeId = new URLSearchParams(window.location.search).get('employeeId') || 'EMP001';
+    const apiBase = `${window.location.origin}/api`;
+    const profileApi = `${apiBase}/hr/employee-profile`;
+    const recordsApi = `${apiBase}/hr/employee-records`;
+
+    const sections = {
+      attendance: {
+        label: 'سجل الحضور والانصراف',
+        periodKey: 'date',
+        columns: [
+          { key: 'date', label: 'التاريخ' },
+          { key: 'checkIn', label: 'وقت الحضور' },
+          { key: 'checkOut', label: 'وقت الانصراف' },
+          { key: 'shift', label: 'الوردية' },
+          { key: 'status', label: 'الحالة' }
+        ]
+      },
+      payroll: {
+        label: 'سجل الرواتب والمكافآت',
+        periodKey: 'month',
+        columns: [
+          { key: 'month', label: 'الشهر' },
+          { key: 'base', label: 'الراتب الأساسي', format: 'currency' },
+          { key: 'bonuses', label: 'المكافآت', format: 'currency' },
+          { key: 'deductions', label: 'الخصومات', format: 'currency' },
+          { key: 'net', label: 'صافي الراتب', format: 'currency' },
+          { key: 'status', label: 'الحالة' }
+        ]
+      },
+      evaluations: {
+        label: 'سجل التقييمات',
+        periodKey: 'period',
+        columns: [
+          { key: 'period', label: 'الفترة' },
+          { key: 'score', label: 'التقييم', format: 'score' },
+          { key: 'reviewer', label: 'المراجع' },
+          { key: 'status', label: 'الحالة' },
+          { key: 'notes', label: 'ملاحظات' }
+        ]
+      },
+      trainings: {
+        label: 'سجل الدورات التدريبية',
+        periodKey: 'date',
+        columns: [
+          { key: 'course', label: 'الدورة' },
+          { key: 'provider', label: 'الجهة' },
+          { key: 'date', label: 'التاريخ' },
+          { key: 'hours', label: 'الساعات', format: 'number' },
+          { key: 'status', label: 'الحالة' }
+        ]
+      },
+      warnings: {
+        label: 'سجل العقوبات والتنبيهات',
+        periodKey: 'date',
+        columns: [
+          { key: 'type', label: 'النوع' },
+          { key: 'severity', label: 'الدرجة' },
+          { key: 'date', label: 'التاريخ' },
+          { key: 'action', label: 'الإجراء' },
+          { key: 'status', label: 'الحالة' }
+        ]
+      },
+      attachments: {
+        label: 'المرفقات والملفات',
+        periodKey: 'date',
+        columns: [
+          { key: 'name', label: 'الملف' },
+          { key: 'type', label: 'النوع' },
+          { key: 'date', label: 'التاريخ' },
+          { key: 'size', label: 'الحجم' },
+          { key: 'status', label: 'الحالة' }
+        ]
+      }
+    };
+
+    const state = {
+      current: 'attendance',
+      search: '',
+      status: '',
+      period: '',
+      sort: 'latest',
+      records: {
+        attendance: [],
+        payroll: [],
+        evaluations: [],
+        trainings: [],
+        warnings: [],
+        attachments: []
+      }
+    };
+
+    const elements = {
+      tabs: document.getElementById('tabs'),
+      tableHeader: document.getElementById('tableHeader'),
+      tableBody: document.getElementById('tableBody'),
+      emptyState: document.getElementById('emptyState'),
+      searchInput: document.getElementById('searchInput'),
+      statusFilter: document.getElementById('statusFilter'),
+      periodFilter: document.getElementById('periodFilter'),
+      sortFilter: document.getElementById('sortFilter'),
+      addRecord: document.getElementById('addRecord'),
+      detailPanel: document.getElementById('detailPanel'),
+      detailTitle: document.getElementById('detailTitle'),
+      detailBody: document.getElementById('detailBody'),
+      closePanel: document.getElementById('closePanel'),
+      backdrop: document.getElementById('backdrop'),
+      recordModal: document.getElementById('recordModal'),
+      recordForm: document.getElementById('recordForm'),
+      modalTitle: document.getElementById('modalTitle'),
+      closeModal: document.getElementById('closeModal'),
+      employeeAvatar: document.getElementById('employeeAvatar'),
+      employeeName: document.getElementById('employeeName'),
+      employeeTitle: document.getElementById('employeeTitle'),
+      employeeDepartment: document.getElementById('employeeDepartment'),
+      employeeStatus: document.getElementById('employeeStatus'),
+      employeeHireDate: document.getElementById('employeeHireDate'),
+      employeeManager: document.getElementById('employeeManager'),
+      attendanceDays: document.getElementById('attendanceDays'),
+      absenceDays: document.getElementById('absenceDays'),
+      leaveDays: document.getElementById('leaveDays'),
+      avgPerformance: document.getElementById('avgPerformance'),
+      trainingCount: document.getElementById('trainingCount'),
+      bonusTotal: document.getElementById('bonusTotal'),
+      printProfile: document.getElementById('printProfile'),
+      exportProfile: document.getElementById('exportProfile')
+    };
+
+    const statusColors = {
+      'حضور': 'bg-emerald-100 text-emerald-700',
+      'غياب': 'bg-rose-100 text-rose-700',
+      'إجازة': 'bg-amber-100 text-amber-700',
+      'تم الصرف': 'bg-emerald-100 text-emerald-700',
+      'ممتاز': 'bg-emerald-100 text-emerald-700',
+      'جيد جدا': 'bg-sky-100 text-sky-700',
+      'مكتملة': 'bg-emerald-100 text-emerald-700',
+      'متابعة': 'bg-amber-100 text-amber-700',
+      'مغلق': 'bg-slate-100 text-slate-700',
+      'موثق': 'bg-sky-100 text-sky-700',
+      'معتمد': 'bg-emerald-100 text-emerald-700'
+    };
+
+    const formatValue = (value, format) => {
+      if (value === null || value === undefined) return '--';
+      if (format === 'currency') return currencyFormatter.format(value);
+      if (format === 'number') return formatter.format(value);
+      if (format === 'score') return formatter.format(value) + '/5';
+      return value;
+    };
+
+    const updateSummary = () => {
+      const attendanceRecords = state.records.attendance;
+      const attendanceDays = attendanceRecords.filter(item => item.status === 'حضور').length;
+      const absenceDays = attendanceRecords.filter(item => item.status === 'غياب').length;
+      const leaveDays = attendanceRecords.filter(item => item.status === 'إجازة').length;
+      const evaluationRecords = state.records.evaluations;
+      const avgScore = evaluationRecords.length
+        ? evaluationRecords.reduce((sum, item) => sum + Number(item.score || 0), 0) / evaluationRecords.length
+        : 0;
+      const trainingCount = state.records.trainings.length;
+      const bonusTotal = state.records.payroll.reduce((sum, item) => sum + Number(item.bonuses || 0), 0);
+
+      elements.attendanceDays.textContent = formatter.format(attendanceDays);
+      elements.absenceDays.textContent = formatter.format(absenceDays);
+      elements.leaveDays.textContent = formatter.format(leaveDays);
+      elements.avgPerformance.textContent = formatter.format(Number(avgScore.toFixed(1)));
+      elements.trainingCount.textContent = formatter.format(trainingCount);
+      elements.bonusTotal.textContent = currencyFormatter.format(bonusTotal);
+    };
+
+    const renderTabs = () => {
+      elements.tabs.innerHTML = '';
+      Object.keys(sections).forEach((key) => {
+        const button = document.createElement('button');
+        button.className = 'tab-button' + (state.current === key ? ' active' : '');
+        button.textContent = sections[key].label;
+        button.addEventListener('click', () => {
+          state.current = key;
+          state.search = '';
+          state.status = '';
+          state.period = '';
+          elements.searchInput.value = '';
+          elements.sortFilter.value = 'latest';
+          renderTabs();
+          renderFilters();
+          renderTable();
+        });
+        elements.tabs.appendChild(button);
+      });
+    };
+
+    const renderFilters = () => {
+      const section = sections[state.current];
+      const records = state.records[state.current];
+      const statuses = [...new Set(records.map(item => item.status).filter(Boolean))].sort();
+      const periods = [...new Set(records.map(item => item[section.periodKey]).filter(Boolean))].sort().reverse();
+
+      elements.statusFilter.innerHTML = '<option value="">كل الحالات</option>';
+      statuses.forEach(status => {
+        const option = document.createElement('option');
+        option.value = status;
+        option.textContent = status;
+        elements.statusFilter.appendChild(option);
+      });
+
+      elements.periodFilter.innerHTML = '<option value="">كل الفترات</option>';
+      periods.forEach(period => {
+        const option = document.createElement('option');
+        option.value = period;
+        option.textContent = period;
+        elements.periodFilter.appendChild(option);
+      });
+    };
+
+    const renderTable = () => {
+      const section = sections[state.current];
+      const records = state.records[state.current];
+      elements.tableHeader.style.gridTemplateColumns = `repeat(${section.columns.length + 1}, minmax(0, 1fr))`;
+      elements.tableHeader.innerHTML = section.columns.map(col => `<div>${col.label}</div>`).join('') + '<div>الإجراءات</div>';
+
+      let filtered = records.filter(item => {
+        const matchesSearch = state.search
+          ? Object.values(item).some(value => String(value).toLowerCase().includes(state.search))
+          : true;
+        const matchesStatus = state.status ? item.status === state.status : true;
+        const matchesPeriod = state.period ? item[section.periodKey] === state.period : true;
+        return matchesSearch && matchesStatus && matchesPeriod;
+      });
+
+      filtered = filtered.sort((a, b) => {
+        const valueA = a[section.periodKey];
+        const valueB = b[section.periodKey];
+        const dateA = new Date(valueA);
+        const dateB = new Date(valueB);
+        if (!Number.isNaN(dateA.valueOf()) && !Number.isNaN(dateB.valueOf())) {
+          if (state.sort === 'oldest') return dateA - dateB;
+          return dateB - dateA;
+        }
+        if (state.sort === 'oldest') return String(valueA).localeCompare(String(valueB));
+        return String(valueB).localeCompare(String(valueA));
+      });
+
+      elements.tableBody.innerHTML = '';
+      elements.emptyState.classList.toggle('hidden', filtered.length !== 0);
+
+      filtered.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'table-row grid gap-3 items-center p-3';
+        row.style.gridTemplateColumns = `repeat(${section.columns.length + 1}, minmax(0, 1fr))`;
+        const cells = section.columns.map(col => {
+          const value = formatValue(item[col.key], col.format);
+          if (col.key === 'status') {
+            const color = statusColors[item[col.key]] || 'bg-slate-100 text-slate-700';
+            return `<div><span class="status-pill ${color}"><i class="fas fa-circle"></i>${item[col.key]}</span></div>`;
+          }
+          return `<div class="text-slate-600">${value}</div>`;
+        }).join('');
+
+        row.innerHTML = `
+          ${cells}
+          <div class="row-actions flex flex-wrap gap-2">
+            <button data-action="view" data-id="${item.id}" class="bg-white">عرض</button>
+            <button data-action="preview" data-id="${item.id}" class="bg-white">معاينة</button>
+            <button data-action="edit" data-id="${item.id}" class="bg-slate-50">تعديل</button>
+            <button data-action="delete" data-id="${item.id}" class="bg-rose-50 text-rose-700">حذف</button>
+          </div>
+        `;
+        elements.tableBody.appendChild(row);
+      });
+    };
+
+    const openDetail = (item) => {
+      const section = sections[state.current];
+      elements.detailTitle.textContent = `${section.label}`;
+      const items = section.columns.map(col => {
+        const label = col.label;
+        const value = formatValue(item[col.key], col.format);
+        return `<div><span class="text-slate-500">${label}:</span> ${value}</div>`;
+      }).join('');
+
+      elements.detailBody.innerHTML = `
+        <div class="glass p-4">
+          <div class="text-xs text-slate-500">تفاصيل السجل</div>
+          <div class="mt-2 grid grid-cols-1 gap-2 text-slate-700">${items}</div>
+        </div>
+      `;
+      elements.detailPanel.classList.add('open');
+      elements.backdrop.classList.add('open');
+    };
+
+    const closeDetail = () => {
+      elements.detailPanel.classList.remove('open');
+      elements.backdrop.classList.remove('open');
+    };
+
+    const openModal = (item = null) => {
+      const section = sections[state.current];
+      const isEditing = Boolean(item);
+      elements.modalTitle.textContent = `${isEditing ? 'تعديل سجل' : 'إضافة سجل'} - ${section.label}`;
+      elements.recordForm.innerHTML = '';
+      elements.recordForm.dataset.recordId = item ? String(item.id) : '';
+
+      section.columns.forEach(col => {
+        if (col.key === 'status') return;
+        const existingValue = item ? (item[col.key] ?? '') : '';
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `
+          <label class="text-xs text-slate-500">${col.label}</label>
+          <input name="${col.key}" value="${existingValue}" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="${col.label}">
+        `;
+        elements.recordForm.appendChild(wrapper);
+      });
+
+      const statusWrapper = document.createElement('div');
+      statusWrapper.innerHTML = `
+        <label class="text-xs text-slate-500">الحالة</label>
+        <input name="status" value="${item ? (item.status ?? '') : ''}" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="الحالة">
+      `;
+      elements.recordForm.appendChild(statusWrapper);
+
+      const actions = document.createElement('div');
+      actions.className = 'md:col-span-2 flex flex-wrap gap-2';
+      actions.innerHTML = `
+        <button type="submit" class="btn bg-emerald-600 text-white">حفظ السجل</button>
+        <button type="button" id="cancelModal" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+      `;
+      elements.recordForm.appendChild(actions);
+
+      elements.recordForm.addEventListener('submit', handleSubmit, { once: true });
+      document.getElementById('cancelModal').addEventListener('click', closeModal, { once: true });
+      elements.recordModal.classList.add('open');
+    };
+
+    const closeModal = () => {
+      elements.recordModal.classList.remove('open');
+    };
+
+    const parseJsonResponse = async (response) => {
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`استجابة غير متوقعة من الخادم (${response.status}). تأكد من تسجيل الدخول أو تحديث الصفحة.`);
+      }
+      return response.json();
+    };
+
+    const handleSubmit = async (event) => {
+      event.preventDefault();
+      const section = sections[state.current];
+      const formData = new FormData(elements.recordForm);
+      const recordData = {};
+
+      section.columns.forEach(col => {
+        if (col.key === 'status') return;
+        const rawValue = formData.get(col.key) ?? '';
+        if (['currency', 'number', 'score'].includes(col.format)) {
+          recordData[col.key] = rawValue === '' ? null : Number(rawValue);
+        } else {
+          recordData[col.key] = rawValue === '' ? null : rawValue;
+        }
+      });
+
+      const statusValue = formData.get('status') || null;
+      const periodValue = formData.get(section.periodKey) || null;
+      const editingId = elements.recordForm.dataset.recordId;
+
+      try {
+        let response;
+        if (editingId) {
+          response = await fetch(`${recordsApi}/${editingId}`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              status: statusValue,
+              period: periodValue,
+              record: recordData
+            })
+          });
+        } else {
+          response = await fetch(recordsApi, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              employee_id: employeeId,
+              section: state.current,
+              status: statusValue,
+              period: periodValue,
+              record: recordData
+            })
+          });
+        }
+
+        if (!response.ok) {
+          const error = await parseJsonResponse(response);
+          throw new Error(error.error || 'تعذر حفظ السجل');
+        }
+
+        const saved = await parseJsonResponse(response);
+        const mapped = mapRowToItem(saved);
+        const records = state.records[state.current];
+        if (editingId) {
+          const index = records.findIndex(item => String(item.id) === String(editingId));
+          if (index >= 0) {
+            records[index] = mapped;
+          }
+        } else {
+          records.unshift(mapped);
+        }
+        renderFilters();
+        renderTable();
+        updateSummary();
+        closeModal();
+      } catch (error) {
+        alert(error.message);
+      }
+    };
+
+    const handleAction = (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const action = button.getAttribute('data-action');
+      const id = Number(button.getAttribute('data-id'));
+      const section = sections[state.current];
+      const item = state.records[state.current].find(record => record.id === id);
+      if (!item) return;
+
+      if (action === 'view' || action === 'preview') {
+        openDetail(item);
+      }
+      if (action === 'edit') {
+        openModal(item);
+      }
+      if (action === 'delete') {
+        if (!confirm('هل تريد حذف هذا السجل؟')) return;
+        deleteRecord(id);
+      }
+    };
+
+    const exportProfile = () => {
+      const rows = [];
+      Object.keys(sections).forEach(key => {
+        const section = sections[key];
+        rows.push([section.label]);
+        rows.push(section.columns.map(col => col.label));
+        state.records[key].forEach(item => {
+          rows.push(section.columns.map(col => formatValue(item[col.key], col.format)));
+        });
+        rows.push(['']);
+      });
+
+      const csv = rows.map(row => row.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'employee-360-profile.csv';
+      link.click();
+      URL.revokeObjectURL(link.href);
+    };
+
+    elements.searchInput.addEventListener('input', (event) => {
+      state.search = event.target.value.trim().toLowerCase();
+      renderTable();
+    });
+
+    elements.statusFilter.addEventListener('change', (event) => {
+      state.status = event.target.value;
+      renderTable();
+    });
+
+    elements.periodFilter.addEventListener('change', (event) => {
+      state.period = event.target.value;
+      renderTable();
+    });
+
+    elements.sortFilter.addEventListener('change', (event) => {
+      state.sort = event.target.value;
+      renderTable();
+    });
+
+    elements.addRecord.addEventListener('click', () => openModal());
+    elements.tableBody.addEventListener('click', handleAction);
+    elements.closePanel.addEventListener('click', closeDetail);
+    elements.backdrop.addEventListener('click', closeDetail);
+    elements.closeModal.addEventListener('click', closeModal);
+    elements.recordModal.addEventListener('click', (event) => {
+      if (event.target === elements.recordModal) closeModal();
+    });
+    elements.printProfile.addEventListener('click', () => window.print());
+    elements.exportProfile.addEventListener('click', exportProfile);
+
+    const mapRowToItem = (row) => {
+      let base = row.record || {};
+      if (typeof row.record === 'string') {
+        try {
+          base = JSON.parse(row.record);
+        } catch (error) {
+          base = {};
+        }
+      }
+      const periodKey = sections[row.section]?.periodKey;
+      const periodValue = periodKey ? (base[periodKey] ?? row.period) : row.period;
+      return {
+        id: row.id,
+        status: row.status || base.status || '',
+        ...base,
+        ...(periodKey && periodValue ? { [periodKey]: periodValue } : {})
+      };
+    };
+
+    const loadProfile = async () => {
+      const response = await fetch(`${profileApi}?employeeId=${encodeURIComponent(employeeId)}`, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
+      const profile = await parseJsonResponse(response);
+      if (!profile) return;
+      if (elements.employeeAvatar) elements.employeeAvatar.textContent = profile.avatar_initials || '';
+      if (elements.employeeName) elements.employeeName.textContent = profile.name || '';
+      if (elements.employeeTitle) elements.employeeTitle.textContent = profile.title || '';
+      if (elements.employeeDepartment) elements.employeeDepartment.textContent = profile.department || '';
+      if (elements.employeeStatus) elements.employeeStatus.textContent = profile.status || '';
+      if (elements.employeeHireDate) elements.employeeHireDate.textContent = profile.hire_date || '';
+      if (elements.employeeManager) elements.employeeManager.textContent = profile.manager || '';
+    };
+
+    const loadRecords = async () => {
+      const response = await fetch(`${recordsApi}?employeeId=${encodeURIComponent(employeeId)}`, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
+      const records = await parseJsonResponse(response);
+      const grouped = {
+        attendance: [],
+        payroll: [],
+        evaluations: [],
+        trainings: [],
+        warnings: [],
+        attachments: []
+      };
+
+      records.forEach(row => {
+        if (!grouped[row.section]) return;
+        grouped[row.section].push(mapRowToItem(row));
+      });
+
+      state.records = grouped;
+    };
+
+    const deleteRecord = async (id) => {
+      try {
+        const response = await fetch(`${recordsApi}/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) {
+          const error = await parseJsonResponse(response);
+          throw new Error(error.error || 'تعذر حذف السجل');
+        }
+        state.records[state.current] = state.records[state.current].filter(record => record.id !== id);
+        renderFilters();
+        renderTable();
+        updateSummary();
+      } catch (error) {
+        alert(error.message);
+      }
+    };
+
+    const initializePage = async () => {
+      try {
+        await Promise.all([loadProfile(), loadRecords()]);
+      } catch (error) {
+        console.error('Error loading employee 360 data:', error);
+      }
+      updateSummary();
+      renderTabs();
+      renderFilters();
+      renderTable();
+    };
+
+    initializePage();
+  </script>
+</body>
+</html>

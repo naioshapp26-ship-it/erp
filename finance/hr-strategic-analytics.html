@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة التحليلات الاستراتيجية للموارد البشرية</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --teal: #0f766e;
+      --mint: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --paper: #f8fafc;
+      --card: #ffffff;
+      --line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 20%, rgba(16, 185, 129, 0.18), transparent 40%),
+        radial-gradient(circle at 88% 10%, rgba(245, 158, 11, 0.16), transparent 40%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 14px 16px;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .meta-text {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .table-row {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table-row:last-child {
+      border-bottom: none;
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chart-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 16px;
+    }
+
+    .donut {
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      position: relative;
+      margin: 0 auto;
+    }
+
+    .donut::after {
+      content: '';
+      position: absolute;
+      inset: 22px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .bar-track {
+      background: #f1f5f9;
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: inherit;
+    }
+
+    .reveal {
+      animation: fadeUp 0.6s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">تحليلات استراتيجية</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">لوحة التحليلات الاستراتيجية للموارد البشرية</h1>
+        <p class="text-slate-600">رؤية تنفيذية موحدة لمؤشرات الموارد البشرية عبر الزمن مع تحديثات فورية للفلترة.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="addRowButton" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة
+        </button>
+      </div>
+    </div>
+
+    <div class="glass p-5 mb-6 reveal">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="section-title">فلاتر التحليل السريع</h2>
+          <p class="meta-text">عدّل القسم أو الفترة الزمنية لمشاهدة التحديث المباشر للرسوم والمؤشرات.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث بالشهر أو المؤشر" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-64">
+          </div>
+          <select id="departmentFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل الأقسام</option>
+            <option value="tech">التقنية</option>
+            <option value="operations">التشغيل</option>
+            <option value="sales">المبيعات</option>
+            <option value="support">الدعم</option>
+            <option value="people">الموارد البشرية</option>
+            <option value="finance">المالية</option>
+          </select>
+          <select id="periodFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل الفترات</option>
+            <option value="last-6">آخر 6 أشهر</option>
+            <option value="2025-Q3">2025-Q3</option>
+            <option value="2025-Q4">2025-Q4</option>
+            <option value="2026-Q1">2026-Q1</option>
+          </select>
+          <div class="px-3 py-2 rounded-full bg-slate-50 text-xs text-slate-500 border border-slate-200">
+            آخر تحديث: <span id="lastUpdated">Mar 2026</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-6 gap-4 mb-6">
+      <div class="glass stat-card reveal">
+        <div class="text-sm text-slate-500">إجمالي عدد الموظفين</div>
+        <div id="statHeadcount" class="text-2xl font-extrabold mt-2">0</div>
+        <div id="statHeadcountNote" class="text-xs text-emerald-600 mt-1"></div>
+      </div>
+      <div class="glass stat-card reveal">
+        <div class="text-sm text-slate-500">معدل الحضور العام</div>
+        <div id="statAttendance" class="text-2xl font-extrabold mt-2">0%</div>
+        <div id="statAttendanceNote" class="text-xs text-emerald-600 mt-1"></div>
+      </div>
+      <div class="glass stat-card reveal">
+        <div class="text-sm text-slate-500">معدل دوران الموظفين</div>
+        <div id="statTurnover" class="text-2xl font-extrabold mt-2">0%</div>
+        <div id="statTurnoverNote" class="text-xs text-rose-600 mt-1"></div>
+      </div>
+      <div class="glass stat-card reveal">
+        <div class="text-sm text-slate-500">متوسط تقييم الأداء</div>
+        <div id="statPerformance" class="text-2xl font-extrabold mt-2">0</div>
+        <div id="statPerformanceNote" class="text-xs text-emerald-600 mt-1"></div>
+      </div>
+      <div class="glass stat-card reveal">
+        <div class="text-sm text-slate-500">الموظفون الجدد هذا الشهر</div>
+        <div id="statNewHires" class="text-2xl font-extrabold mt-2">0</div>
+        <div id="statNewHiresNote" class="text-xs text-emerald-600 mt-1"></div>
+      </div>
+      <div class="glass stat-card reveal">
+        <div class="text-sm text-slate-500">عدد الاستقالات</div>
+        <div id="statResignations" class="text-2xl font-extrabold mt-2">0</div>
+        <div id="statResignationsNote" class="text-xs text-rose-600 mt-1"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+      <div class="chart-card reveal">
+        <div class="flex items-center justify-between">
+          <h2 class="section-title">توزيع الموظفين حسب الأقسام</h2>
+          <span class="chip bg-emerald-100 text-emerald-700">نسبة توزيع</span>
+        </div>
+        <div class="mt-4 grid grid-cols-1 gap-4">
+          <div id="departmentDonut" class="donut"></div>
+          <div id="departmentLegend" class="space-y-2 text-sm"></div>
+        </div>
+      </div>
+      <div class="chart-card xl:col-span-2 reveal">
+        <div class="flex items-center justify-between">
+          <h2 class="section-title">مقارنة الأداء بين الأقسام</h2>
+          <span class="chip bg-slate-100 text-slate-700">متوسط التقييم</span>
+        </div>
+        <div id="performanceBars" class="mt-4 space-y-4"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="chart-card reveal">
+        <div class="flex items-center justify-between">
+          <h2 class="section-title">تحليل الغياب والتأخير</h2>
+          <span id="absenceBadge" class="chip bg-amber-100 text-amber-700">آخر 6 أشهر</span>
+        </div>
+        <div class="mt-4">
+          <svg id="absenceChart" viewBox="0 0 520 180" class="w-full">
+            <defs>
+              <linearGradient id="absenceLine" x1="0" x2="1">
+                <stop offset="0%" stop-color="#f59e0b" />
+                <stop offset="100%" stop-color="#f97316" />
+              </linearGradient>
+              <linearGradient id="tardyLine" x1="0" x2="1">
+                <stop offset="0%" stop-color="#ef4444" />
+                <stop offset="100%" stop-color="#dc2626" />
+              </linearGradient>
+            </defs>
+            <polyline id="absenceLinePath" fill="none" stroke="url(#absenceLine)" stroke-width="4" />
+            <polyline id="tardyLinePath" fill="none" stroke="url(#tardyLine)" stroke-width="3" />
+            <line x1="20" y1="150" x2="500" y2="150" stroke="#e2e8f0" />
+          </svg>
+          <div id="absenceLabels" class="mt-3 flex justify-between text-xs text-slate-500"></div>
+        </div>
+      </div>
+      <div class="chart-card reveal">
+        <div class="flex items-center justify-between">
+          <h2 class="section-title">تطور عدد الموظفين عبر الوقت</h2>
+          <span class="chip bg-emerald-100 text-emerald-700">اتجاه شهري</span>
+        </div>
+        <div class="mt-4">
+          <svg id="headcountChart" viewBox="0 0 520 180" class="w-full">
+            <defs>
+              <linearGradient id="headcountFill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="rgba(16, 185, 129, 0.4)" />
+                <stop offset="100%" stop-color="rgba(16, 185, 129, 0.05)" />
+              </linearGradient>
+            </defs>
+            <path id="headcountArea" fill="url(#headcountFill)" stroke="none" />
+            <polyline id="headcountLine" fill="none" stroke="#0f766e" stroke-width="3" />
+            <line x1="20" y1="150" x2="500" y2="150" stroke="#e2e8f0" />
+          </svg>
+          <div id="headcountLabels" class="mt-3 flex justify-between text-xs text-slate-500"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="chart-card reveal">
+        <div class="flex items-center justify-between">
+          <h2 class="section-title">تحليل الاستقرار الوظيفي</h2>
+          <span class="chip bg-slate-100 text-slate-700">توزيع مدة الخدمة</span>
+        </div>
+        <div id="tenureBars" class="mt-4 space-y-3"></div>
+      </div>
+      <div class="chart-card reveal">
+        <div class="flex items-center justify-between">
+          <h2 class="section-title">رؤى تنفيذية سريعة</h2>
+          <span class="chip bg-amber-100 text-amber-700">ملخص آلي</span>
+        </div>
+        <div id="insightsList" class="mt-4 space-y-3 text-sm"></div>
+      </div>
+    </div>
+
+    <div class="glass p-5 mb-6 reveal">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="section-title">سجل المؤشرات الشهري</h2>
+          <p class="meta-text">تتبع التطور الشهري مع إمكانية البحث والتصفية حسب القسم والفترة.</p>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4">
+        <div class="grid grid-cols-8 gap-4 bg-slate-50 text-xs font-bold text-slate-500 px-4 py-3">
+          <div>الشهر</div>
+          <div>الإجمالي</div>
+          <div>الحضور</div>
+          <div>الدوران</div>
+          <div>الأداء</div>
+          <div>الجدد</div>
+          <div>الاستقالات</div>
+          <div>الإجراءات</div>
+        </div>
+        <div id="tableBody" class="text-sm"></div>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة لبحثك.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="actionModal" class="fixed inset-0 hidden items-center justify-center bg-slate-900/40 p-4">
+    <div class="glass w-full max-w-lg p-6">
+      <div class="flex items-center justify-between">
+        <h3 id="modalTitle" class="text-xl font-bold"></h3>
+        <button id="modalClose" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+      </div>
+      <div id="modalBody" class="mt-4 text-sm text-slate-600"></div>
+      <div id="modalActions" class="mt-5 flex flex-wrap gap-2"></div>
+    </div>
+  </div>
+
+  <script>
+    const searchInput = document.getElementById('searchInput');
+    const periodFilter = document.getElementById('periodFilter');
+    const departmentFilter = document.getElementById('departmentFilter');
+    const tableBody = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+    const addRowButton = document.getElementById('addRowButton');
+    const lastUpdated = document.getElementById('lastUpdated');
+
+    const statHeadcount = document.getElementById('statHeadcount');
+    const statAttendance = document.getElementById('statAttendance');
+    const statTurnover = document.getElementById('statTurnover');
+    const statPerformance = document.getElementById('statPerformance');
+    const statNewHires = document.getElementById('statNewHires');
+    const statResignations = document.getElementById('statResignations');
+
+    const statHeadcountNote = document.getElementById('statHeadcountNote');
+    const statAttendanceNote = document.getElementById('statAttendanceNote');
+    const statTurnoverNote = document.getElementById('statTurnoverNote');
+    const statPerformanceNote = document.getElementById('statPerformanceNote');
+    const statNewHiresNote = document.getElementById('statNewHiresNote');
+    const statResignationsNote = document.getElementById('statResignationsNote');
+
+    const departmentDonut = document.getElementById('departmentDonut');
+    const departmentLegend = document.getElementById('departmentLegend');
+    const performanceBars = document.getElementById('performanceBars');
+    const absenceLinePath = document.getElementById('absenceLinePath');
+    const tardyLinePath = document.getElementById('tardyLinePath');
+    const absenceLabels = document.getElementById('absenceLabels');
+    const absenceBadge = document.getElementById('absenceBadge');
+    const headcountArea = document.getElementById('headcountArea');
+    const headcountLine = document.getElementById('headcountLine');
+    const headcountLabels = document.getElementById('headcountLabels');
+    const tenureBars = document.getElementById('tenureBars');
+    const insightsList = document.getElementById('insightsList');
+
+    const palette = {
+      tech: '#0f766e',
+      operations: '#10b981',
+      sales: '#f59e0b',
+      support: '#f97316',
+      people: '#ef4444',
+      finance: '#0ea5e9'
+    };
+
+    const data = {
+      months: [],
+      departments: [
+        { id: 'tech', name: 'التقنية', share: 0.28, performanceDelta: 0.25, attendanceDelta: 0.6, turnoverDelta: -1.0, absenceDelta: -0.3, tardyDelta: -0.2 },
+        { id: 'operations', name: 'التشغيل', share: 0.24, performanceDelta: 0.05, attendanceDelta: 0.2, turnoverDelta: -0.2, absenceDelta: 0.0, tardyDelta: 0.0 },
+        { id: 'sales', name: 'المبيعات', share: 0.19, performanceDelta: -0.05, attendanceDelta: -0.3, turnoverDelta: 0.4, absenceDelta: 0.2, tardyDelta: 0.2 },
+        { id: 'support', name: 'الدعم', share: 0.14, performanceDelta: -0.1, attendanceDelta: -0.5, turnoverDelta: 0.8, absenceDelta: 0.4, tardyDelta: 0.3 },
+        { id: 'people', name: 'الموارد البشرية', share: 0.08, performanceDelta: 0.15, attendanceDelta: 0.3, turnoverDelta: -0.3, absenceDelta: -0.1, tardyDelta: -0.1 },
+        { id: 'finance', name: 'المالية', share: 0.07, performanceDelta: 0.1, attendanceDelta: 0.4, turnoverDelta: -0.5, absenceDelta: -0.2, tardyDelta: -0.1 }
+      ],
+      tenure: [
+        { label: '0-6 أشهر', ratio: 0.18 },
+        { label: '6-12 شهر', ratio: 0.16 },
+        { label: '1-3 سنوات', ratio: 0.32 },
+        { label: '3-5 سنوات', ratio: 0.20 },
+        { label: '5+ سنوات', ratio: 0.14 }
+      ]
+    };
+
+    const formatNumber = (value) => value.toLocaleString('en-US');
+    const formatPercent = (value) => `${value.toFixed(1)}%`;
+
+    const normalizeMonth = (row) => ({
+      id: row.id,
+      month_key: row.month_key,
+      label: row.month_label,
+      period: row.period,
+      headcount: Number(row.headcount),
+      attendance: Number(row.attendance_rate),
+      turnover: Number(row.turnover_rate),
+      performance: Number(row.performance_score),
+      newHires: Number(row.new_hires),
+      resignations: Number(row.resignations),
+      absence: Number(row.absence_rate),
+      tardy: Number(row.tardy_rate),
+      updatedAt: row.updated_at
+    });
+
+    const loadMonthlyIndicators = async () => {
+      try {
+        const response = await fetch('/api/hr/strategic-analytics/monthly');
+        if (!response.ok) {
+          throw new Error('Failed to load monthly indicators');
+        }
+        const rows = await response.json();
+        data.months = (rows || []).map(normalizeMonth).sort((a, b) => a.month_key.localeCompare(b.month_key));
+        lastUpdated.textContent = data.months.length ? data.months[data.months.length - 1].label : '--';
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+        data.months = [];
+        lastUpdated.textContent = '--';
+        applyFilters();
+      }
+    };
+
+    const getFilteredMonths = () => {
+      const periodValue = periodFilter.value;
+      if (periodValue === 'last-6') {
+        return data.months.slice(-6);
+      }
+      if (periodValue === 'all') {
+        return data.months;
+      }
+      return data.months.filter((month) => month.period === periodValue);
+    };
+
+    const getDepartmentProfile = (deptId) => data.departments.find((dept) => dept.id === deptId);
+
+    const calculateAverage = (items, key) => {
+      if (!items.length) return 0;
+      const total = items.reduce((sum, item) => sum + item[key], 0);
+      return total / items.length;
+    };
+
+    const applyDeptAdjustments = (months, deptId) => {
+      if (deptId === 'all') return months;
+      const dept = getDepartmentProfile(deptId);
+      return months.map((month) => ({
+        ...month,
+        headcount: Math.round(month.headcount * dept.share),
+        attendance: month.attendance + dept.attendanceDelta,
+        turnover: month.turnover + dept.turnoverDelta,
+        performance: month.performance + dept.performanceDelta,
+        newHires: Math.round(month.newHires * dept.share),
+        resignations: Math.round(month.resignations * dept.share),
+        absence: month.absence + dept.absenceDelta,
+        tardy: month.tardy + dept.tardyDelta
+      }));
+    };
+
+    const renderSummary = (months, deptId) => {
+      if (!months.length) return;
+      const latest = months[months.length - 1];
+      const avgAttendance = calculateAverage(months, 'attendance');
+      const avgTurnover = calculateAverage(months, 'turnover');
+      const avgPerformance = calculateAverage(months, 'performance');
+
+      statHeadcount.textContent = formatNumber(latest.headcount);
+      statAttendance.textContent = formatPercent(avgAttendance);
+      statTurnover.textContent = formatPercent(avgTurnover);
+      statPerformance.textContent = avgPerformance.toFixed(2);
+      statNewHires.textContent = formatNumber(latest.newHires);
+      statResignations.textContent = formatNumber(latest.resignations);
+
+      const previous = months[Math.max(0, months.length - 2)];
+      const headcountDelta = latest.headcount - previous.headcount;
+      statHeadcountNote.textContent = `${headcountDelta >= 0 ? '+' : ''}${formatNumber(headcountDelta)} مقارنة بالشهر السابق`;
+      statAttendanceNote.textContent = `${formatPercent(avgAttendance)} معدل متوسط`;
+      statTurnoverNote.textContent = `${formatPercent(avgTurnover)} متوسط سنوي`;
+      statPerformanceNote.textContent = `متوسط التقييم ${avgPerformance.toFixed(2)} / 5`;
+      statNewHiresNote.textContent = `توظيف جديد لهذا الشهر`;
+      statResignationsNote.textContent = `خروج طوعي في نفس الفترة`;
+
+      if (deptId !== 'all') {
+        const dept = getDepartmentProfile(deptId);
+        statHeadcountNote.textContent = `حصة القسم ${formatPercent(dept.share * 100)}`;
+      }
+    };
+
+    const renderDistribution = (months) => {
+      const averageHeadcount = calculateAverage(months, 'headcount');
+      let cumulative = 0;
+      const gradientStops = data.departments.map((dept) => {
+        const value = averageHeadcount * dept.share;
+        const start = cumulative;
+        cumulative += value;
+        const startPercent = (start / (averageHeadcount || 1)) * 100;
+        const endPercent = (cumulative / (averageHeadcount || 1)) * 100;
+        return `${palette[dept.id]} ${startPercent}% ${endPercent}%`;
+      });
+
+      departmentDonut.style.background = `conic-gradient(${gradientStops.join(', ')})`;
+      departmentLegend.innerHTML = data.departments.map((dept) => {
+        const count = Math.round(averageHeadcount * dept.share);
+        const percent = dept.share * 100;
+        return `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full" style="background:${palette[dept.id]}"></span>
+              <span>${dept.name}</span>
+            </div>
+            <div class="font-bold">${formatNumber(count)} (${percent.toFixed(1)}%)</div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    const renderPerformanceComparison = (months) => {
+      performanceBars.innerHTML = data.departments.map((dept) => {
+        const avgPerformance = calculateAverage(months, 'performance') + dept.performanceDelta;
+        const width = Math.min((avgPerformance / 5) * 100, 100);
+        return `
+          <div>
+            <div class="flex justify-between text-sm mb-2">
+              <span class="font-semibold">${dept.name}</span>
+              <span class="font-bold">${avgPerformance.toFixed(2)} / 5</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${width}%; background:${palette[dept.id]}"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    const buildLinePoints = (items, key, minValue, maxValue) => {
+      const chartHeight = 120;
+      const chartWidth = 480;
+      const offsetX = 20;
+      const offsetY = 20;
+      const step = items.length > 1 ? chartWidth / (items.length - 1) : chartWidth;
+      return items.map((item, index) => {
+        const normalized = (item[key] - minValue) / (maxValue - minValue || 1);
+        const x = offsetX + step * index;
+        const y = offsetY + (1 - normalized) * chartHeight;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+    };
+
+    const renderAbsenceChart = (months, deptId) => {
+      const minValue = Math.min(...months.map((month) => month.absence), ...months.map((month) => month.tardy)) - 0.2;
+      const maxValue = Math.max(...months.map((month) => month.absence), ...months.map((month) => month.tardy)) + 0.2;
+      absenceLinePath.setAttribute('points', buildLinePoints(months, 'absence', minValue, maxValue));
+      tardyLinePath.setAttribute('points', buildLinePoints(months, 'tardy', minValue, maxValue));
+      absenceLabels.innerHTML = months.map((month) => `<span>${month.label.split(' ')[0]}</span>`).join('');
+      absenceBadge.textContent = deptId === 'all' ? 'آخر 6 أشهر' : 'مخصص حسب القسم';
+    };
+
+    const renderHeadcountChart = (months) => {
+      const minValue = Math.min(...months.map((month) => month.headcount)) * 0.98;
+      const maxValue = Math.max(...months.map((month) => month.headcount)) * 1.02;
+      const points = buildLinePoints(months, 'headcount', minValue, maxValue);
+      headcountLine.setAttribute('points', points);
+
+      const areaPoints = points.split(' ').map((point) => point.split(',').map(Number));
+      const first = areaPoints[0];
+      const last = areaPoints[areaPoints.length - 1];
+      const areaPath = `M ${first[0]} 150 L ${areaPoints.map((point) => `${point[0]} ${point[1]}`).join(' ')} L ${last[0]} 150 Z`;
+      headcountArea.setAttribute('d', areaPath);
+      headcountLabels.innerHTML = months.map((month) => `<span>${month.label.split(' ')[0]}</span>`).join('');
+    };
+
+    const renderTenure = (months, deptId) => {
+      const averageHeadcount = calculateAverage(months, 'headcount');
+      tenureBars.innerHTML = data.tenure.map((bucket) => {
+        const count = Math.round(averageHeadcount * bucket.ratio);
+        const width = bucket.ratio * 100;
+        return `
+          <div>
+            <div class="flex justify-between text-sm mb-2">
+              <span class="font-semibold">${bucket.label}</span>
+              <span class="font-bold">${formatNumber(count)}</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${width}%; background:${deptId === 'all' ? '#0f766e' : palette[deptId]}"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    const renderInsights = (months) => {
+      const avgPerformance = calculateAverage(months, 'performance');
+      const avgAttendance = calculateAverage(months, 'attendance');
+      const avgTurnover = calculateAverage(months, 'turnover');
+      const highestPerformanceDept = data.departments.reduce((best, dept) => {
+        const score = avgPerformance + dept.performanceDelta;
+        return score > best.score ? { name: dept.name, score } : best;
+      }, { name: '', score: -Infinity });
+      const highestTurnoverDept = data.departments.reduce((best, dept) => {
+        const score = avgTurnover + dept.turnoverDelta;
+        return score > best.score ? { name: dept.name, score } : best;
+      }, { name: '', score: -Infinity });
+
+      insightsList.innerHTML = `
+        <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+          <div class="font-bold">الأداء الأعلى</div>
+          <div class="text-slate-600 mt-1">${highestPerformanceDept.name} بمتوسط ${highestPerformanceDept.score.toFixed(2)} / 5</div>
+        </div>
+        <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+          <div class="font-bold">حضور مستقر</div>
+          <div class="text-slate-600 mt-1">متوسط الحضور العام ${avgAttendance.toFixed(1)}% مع انخفاض الغياب تدريجيا.</div>
+        </div>
+        <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+          <div class="font-bold">أعلى دوران</div>
+          <div class="text-slate-600 mt-1">${highestTurnoverDept.name} بمعدل دوران ${highestTurnoverDept.score.toFixed(1)}% يحتاج متابعة.</div>
+        </div>
+      `;
+    };
+
+    const renderTable = (months) => {
+      const searchValue = searchInput.value.trim().toLowerCase();
+      const rows = months.filter((month) => {
+        const text = `${month.label} ${month.headcount} ${month.attendance} ${month.turnover} ${month.performance} ${month.newHires} ${month.resignations}`.toLowerCase();
+        return text.includes(searchValue);
+      });
+
+      tableBody.innerHTML = rows.map((month) => `
+        <div class="grid grid-cols-8 gap-4 px-4 py-3 table-row">
+          <div>${month.label}</div>
+          <div>${formatNumber(month.headcount)}</div>
+          <div>${formatPercent(month.attendance)}</div>
+          <div>${formatPercent(month.turnover)}</div>
+          <div>${month.performance.toFixed(2)}</div>
+          <div>${formatNumber(month.newHires)}</div>
+          <div>${formatNumber(month.resignations)}</div>
+          <div class="row-actions flex flex-wrap gap-2">
+            <button data-action="view" data-id="${month.id}">عرض</button>
+            <button data-action="preview" data-id="${month.id}">معاينة</button>
+            <button data-action="edit" data-id="${month.id}">تعديل</button>
+            <button data-action="delete" data-id="${month.id}" class="text-rose-600">حذف</button>
+          </div>
+        </div>
+      `).join('');
+
+      emptyState.style.display = rows.length === 0 ? 'block' : 'none';
+    };
+
+    const actionModal = document.getElementById('actionModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    const modalActions = document.getElementById('modalActions');
+    const modalClose = document.getElementById('modalClose');
+
+    const openModal = (title, body, actions = []) => {
+      modalTitle.textContent = title;
+      modalBody.innerHTML = body;
+      modalActions.innerHTML = actions.join('');
+      actionModal.classList.remove('hidden');
+      actionModal.classList.add('flex');
+    };
+
+    const closeModal = () => {
+      actionModal.classList.add('hidden');
+      actionModal.classList.remove('flex');
+    };
+
+    modalClose.addEventListener('click', closeModal);
+    actionModal.addEventListener('click', (event) => {
+      if (event.target === actionModal) closeModal();
+    });
+
+    const buildForm = (values = {}) => `
+      <div class="grid grid-cols-2 gap-4">
+        <label class="text-xs text-slate-500">رمز الشهر (YYYY-MM)
+          <input id="formMonthKey" value="${values.month_key || ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">اسم الشهر
+          <input id="formMonthLabel" value="${values.label || ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">الفترة
+          <input id="formPeriod" value="${values.period || ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">إجمالي الموظفين
+          <input id="formHeadcount" type="number" value="${values.headcount ?? ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">الحضور %
+          <input id="formAttendance" type="number" step="0.1" value="${values.attendance ?? ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">الدوران %
+          <input id="formTurnover" type="number" step="0.1" value="${values.turnover ?? ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">الأداء
+          <input id="formPerformance" type="number" step="0.01" value="${values.performance ?? ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">الجدد
+          <input id="formNewHires" type="number" value="${values.newHires ?? ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">الاستقالات
+          <input id="formResignations" type="number" value="${values.resignations ?? ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">الغياب %
+          <input id="formAbsence" type="number" step="0.1" value="${values.absence ?? ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">التأخير %
+          <input id="formTardy" type="number" step="0.1" value="${values.tardy ?? ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+      </div>
+    `;
+
+    const getFormValues = () => ({
+      month_key: document.getElementById('formMonthKey').value.trim(),
+      month_label: document.getElementById('formMonthLabel').value.trim(),
+      period: document.getElementById('formPeriod').value.trim(),
+      headcount: Number(document.getElementById('formHeadcount').value),
+      attendance_rate: Number(document.getElementById('formAttendance').value),
+      turnover_rate: Number(document.getElementById('formTurnover').value),
+      performance_score: Number(document.getElementById('formPerformance').value),
+      new_hires: Number(document.getElementById('formNewHires').value),
+      resignations: Number(document.getElementById('formResignations').value),
+      absence_rate: Number(document.getElementById('formAbsence').value),
+      tardy_rate: Number(document.getElementById('formTardy').value)
+    });
+
+    const submitForm = async (mode, id = null) => {
+      const payload = getFormValues();
+      const endpoint = mode === 'create'
+        ? '/api/hr/strategic-analytics/monthly'
+        : `/api/hr/strategic-analytics/monthly/${id}`;
+      const method = mode === 'create' ? 'POST' : 'PUT';
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error?.error || 'تعذر حفظ البيانات');
+      }
+
+      await loadMonthlyIndicators();
+      closeModal();
+    };
+
+    addRowButton.addEventListener('click', () => {
+      openModal(
+        'إضافة مؤشر شهري',
+        buildForm(),
+        [
+          '<button id="modalSave" class="btn bg-slate-900 text-white">حفظ</button>',
+          '<button class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>'
+        ]
+      );
+      modalActions.querySelector('#modalSave').addEventListener('click', async () => {
+        try {
+          await submitForm('create');
+        } catch (error) {
+          openModal('خطأ في الحفظ', `<div class="text-sm text-rose-600">${error.message}</div>`);
+        }
+      }, { once: true });
+    });
+
+    tableBody.addEventListener('click', (event) => {
+      const actionButton = event.target.closest('button[data-action]');
+      if (!actionButton) return;
+      const action = actionButton.dataset.action;
+      const id = Number(actionButton.dataset.id);
+      const month = data.months.find((item) => item.id === id);
+      if (!month) return;
+
+      const details = `
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <div class="text-xs text-slate-500">إجمالي الموظفين</div>
+            <div class="font-bold">${formatNumber(month.headcount)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">الحضور</div>
+            <div class="font-bold">${formatPercent(month.attendance)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">الدوران</div>
+            <div class="font-bold">${formatPercent(month.turnover)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">الأداء</div>
+            <div class="font-bold">${month.performance.toFixed(2)} / 5</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">الموظفون الجدد</div>
+            <div class="font-bold">${formatNumber(month.newHires)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">الاستقالات</div>
+            <div class="font-bold">${formatNumber(month.resignations)}</div>
+          </div>
+        </div>
+      `;
+
+      if (action === 'view') {
+        openModal(`عرض تفاصيل ${month.label}`, details);
+        return;
+      }
+
+      if (action === 'preview') {
+        openModal(`معاينة مؤشرات ${month.label}`, `${details}<div class="mt-4 text-xs text-slate-500">هذه معاينة تحليلية سريعة قبل تصدير التقارير.</div>`);
+        return;
+      }
+
+      if (action === 'edit') {
+        openModal(
+          `تعديل مؤشرات ${month.label}`,
+          buildForm(month),
+          [
+            '<button id="modalSaveEdit" class="btn bg-slate-900 text-white">حفظ التعديلات</button>',
+            '<button class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>'
+          ]
+        );
+        modalActions.querySelector('#modalSaveEdit').addEventListener('click', async () => {
+          try {
+            await submitForm('edit', month.id);
+          } catch (error) {
+            openModal('خطأ في الحفظ', `<div class="text-sm text-rose-600">${error.message}</div>`);
+          }
+        }, { once: true });
+        return;
+      }
+
+      if (action === 'delete') {
+        openModal(
+          `حذف مؤشرات ${month.label}`,
+          '<div class="text-sm">هل ترغب في حذف هذا السجل؟ يمكن التراجع قبل الحفظ النهائي.</div>',
+          [
+            `<button class="btn bg-rose-600 text-white" data-confirm-delete="${month.id}">تأكيد الحذف</button>`,
+            '<button class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>'
+          ]
+        );
+      }
+    });
+
+    modalActions.addEventListener('click', (event) => {
+      const deleteButton = event.target.closest('button[data-confirm-delete]');
+      if (!deleteButton) return;
+      const id = deleteButton.dataset.confirmDelete;
+      fetch(`/api/hr/strategic-analytics/monthly/${id}`, { method: 'DELETE' })
+        .then((response) => {
+          if (!response.ok) {
+            return response.json().then((error) => {
+              throw new Error(error?.error || 'تعذر حذف السجل');
+            });
+          }
+          return response.json();
+        })
+        .then(() => loadMonthlyIndicators())
+        .then(() => closeModal())
+        .catch((error) => {
+          openModal('خطأ في الحذف', `<div class="text-sm text-rose-600">${error.message}</div>`);
+        });
+    });
+
+    const applyFilters = () => {
+      const baseMonths = getFilteredMonths();
+      const deptId = departmentFilter.value;
+      const adjustedMonths = applyDeptAdjustments(baseMonths, deptId);
+
+      if (adjustedMonths.length === 0) {
+        statHeadcount.textContent = '0';
+        statAttendance.textContent = '0%';
+        statTurnover.textContent = '0%';
+        statPerformance.textContent = '0.00';
+        statNewHires.textContent = '0';
+        statResignations.textContent = '0';
+        statHeadcountNote.textContent = '';
+        statAttendanceNote.textContent = '';
+        statTurnoverNote.textContent = '';
+        statPerformanceNote.textContent = '';
+        statNewHiresNote.textContent = '';
+        statResignationsNote.textContent = '';
+        departmentDonut.style.background = 'conic-gradient(#e2e8f0 0% 100%)';
+        departmentLegend.innerHTML = '';
+        performanceBars.innerHTML = '';
+        absenceLinePath.setAttribute('points', '');
+        tardyLinePath.setAttribute('points', '');
+        absenceLabels.innerHTML = '';
+        headcountLine.setAttribute('points', '');
+        headcountArea.setAttribute('d', '');
+        headcountLabels.innerHTML = '';
+        tenureBars.innerHTML = '';
+        insightsList.innerHTML = '';
+        renderTable(adjustedMonths);
+        return;
+      }
+
+      renderSummary(adjustedMonths, deptId);
+      renderDistribution(baseMonths);
+      renderPerformanceComparison(baseMonths);
+      renderAbsenceChart(adjustedMonths, deptId);
+      renderHeadcountChart(adjustedMonths);
+      renderTenure(adjustedMonths, deptId);
+      renderInsights(adjustedMonths);
+      renderTable(adjustedMonths);
+    };
+
+    searchInput.addEventListener('input', applyFilters);
+    periodFilter.addEventListener('change', applyFilters);
+    departmentFilter.addEventListener('change', applyFilters);
+
+    loadMonthlyIndicators();
+  </script>
+</body>
+</html>

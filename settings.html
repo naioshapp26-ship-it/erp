@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إعدادات الصفحة الرئيسية - NAIOSH ERP</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Cairo', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#fff5f5',
+                            100: '#fde1e1',
+                            200: '#fca5a5',
+                            300: '#e55050',
+                            400: '#e55050',
+                            500: '#bb1226',
+                            600: '#990e1e',
+                            700: '#7a0b16',
+                            800: '#59060f',
+                            900: '#340309',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f1f5f9; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+        .section-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: .55rem;
+        }
+
+        .section-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .8rem;
+        }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #1e293b;
+            color: #fff;
+            padding: .6rem 1.4rem;
+            border-radius: 100px;
+            font-size: .875rem;
+            font-weight: 600;
+            z-index: 9999;
+            transition: transform .3s ease;
+            pointer-events: none;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); }
+        #toast.success { background: #059669; }
+        #toast.error   { background: #dc2626; }
+
+        /* Overlay value badge */
+        .range-value {
+            display: inline-block;
+            background: #1e293b;
+            color: #fff;
+            font-size: .72rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 100px;
+            margin-right: .4rem;
+        }
+
+        /* ── Hero Media List ─────────────────────────── */
+        .hero-media-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 10px 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.05);
+            transition: box-shadow .2s;
+        }
+        .hero-media-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.09); }
+        .hero-media-thumb {
+            width: 72px; height: 52px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid #e2e8f0;
+            flex-shrink: 0;
+            background: #f1f5f9;
+        }
+        .hero-media-thumb-video {
+            width: 72px; height: 52px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            border: 1px solid #ddd6fe;
+        }
+        .badge { display:inline-flex; align-items:center; gap:4px; font-size:.7rem; font-weight:700; padding:2px 8px; border-radius:100px; }
+        .badge-img  { background:#dbeafe; color:#1d4ed8; }
+        .badge-vid  { background:#ede9fe; color:#6d28d9; }
+        .badge-on   { background:#dcfce7; color:#15803d; }
+        .badge-off  { background:#fee2e2; color:#b91c1c; }
+        .media-btn {
+            width:32px; height:32px; border-radius:8px; border:none; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; font-size:.8rem;
+            transition: background .15s, color .15s;
+        }
+        .media-btn:disabled { opacity:.3; cursor:default; }
+        .media-btn-mute   { background:#f1f5f9; color:#64748b; }
+        .media-btn-mute:hover:not(:disabled) { background:#e2e8f0; color:#334155; }
+        .media-btn-green  { background:#dcfce7; color:#15803d; }
+        .media-btn-green:hover { background:#bbf7d0; }
+        .media-btn-red    { background:#fee2e2; color:#b91c1c; }
+        .media-btn-red:hover { background:#fecaca; }
+
+        /* Upload zone */
+        .upload-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 1.2rem;
+            transition: border-color .2s, background .2s;
+        }
+        .upload-zone:focus-within, .upload-zone:hover { border-color:#93c5fd; background:#f8faff; }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 1em; height: 1em;
+            border: 2px solid rgba(255,255,255,.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Status banner */
+        .status-banner {
+            padding: .5rem .75rem;
+            border-radius: 10px;
+            font-size: .82rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+        }
+        .status-banner.info    { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+        .status-banner.success { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+        .status-banner.error   { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Header -->
+<header class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="bg-brand-600 text-white w-9 h-9 rounded-xl flex items-center justify-center shadow-lg shadow-brand-200">
+                <i class="fas fa-palette text-sm"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-slate-800 leading-tight">إعدادات الصفحة الرئيسية</h1>
+                <p class="text-xs text-slate-500">تحكم في مظهر وهوية الصفحة الرئيسية (إعدادات الهوية)</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="/" target="_blank" class="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 transition-colors flex items-center gap-1.5">
+                <i class="fas fa-eye"></i> معاينة الصفحة
+            </a>
+            <a href="/super-admin-page.html" class="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 transition-colors flex items-center gap-1.5">
+                <i class="fas fa-arrow-right"></i> لوحة التحكم
+            </a>
+        </div>
+    </div>
+</header>
+
+<!-- Main -->
+<main class="max-w-5xl mx-auto px-4 py-8">
+
+    <!-- Save bar (sticky bottom) -->
+    <div class="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-lg px-4 py-3 flex items-center justify-between">
+        <span class="text-sm text-slate-500 flex items-center gap-1.5">
+            <i class="fas fa-circle-info text-brand-500"></i>
+            اضغط "حفظ" لتطبيق جميع التغييرات دفعة واحدة
+        </span>
+        <button onclick="saveHomepageSettings()" class="bg-brand-600 hover:bg-brand-700 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-brand-200/60 transition-all flex items-center gap-2 font-bold text-sm">
+            <i class="fas fa-save"></i> حفظ الإعدادات
+        </button>
+    </div>
+    <!-- spacer for sticky bar -->
+    <div class="h-16"></div>
+
+    <!-- ─── Section 1: Theme Colors ─── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <span class="section-icon bg-red-100 text-red-600"><i class="fas fa-swatchbook"></i></span>
+            ألوان الثيم
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">Primary Color</span>
+                <input id="hpPrimaryColor" type="color" class="w-full h-11 rounded-lg border border-slate-200 cursor-pointer p-0.5" />
+            </label>
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">Secondary Color</span>
+                <input id="hpSecondaryColor" type="color" class="w-full h-11 rounded-lg border border-slate-200 cursor-pointer p-0.5" />
+            </label>
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">Button Color</span>
+                <input id="hpButtonColor" type="color" class="w-full h-11 rounded-lg border border-slate-200 cursor-pointer p-0.5" />
+            </label>
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">Header Background</span>
+                <input id="hpHeaderBgColor" type="color" class="w-full h-11 rounded-lg border border-slate-200 cursor-pointer p-0.5" />
+            </label>
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">Text Color</span>
+                <input id="hpTextColor" type="color" class="w-full h-11 rounded-lg border border-slate-200 cursor-pointer p-0.5" />
+            </label>
+        </div>
+    </div>
+
+    <!-- ─── Section 2: Typography ─── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <span class="section-icon bg-indigo-100 text-indigo-600"><i class="fas fa-font"></i></span>
+            ألوان الخطوط
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">Heading Color</span>
+                <input id="hpHeadingColor" type="color" class="w-full h-11 rounded-lg border border-slate-200 cursor-pointer p-0.5" />
+            </label>
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">Paragraph Color</span>
+                <input id="hpParagraphColor" type="color" class="w-full h-11 rounded-lg border border-slate-200 cursor-pointer p-0.5" />
+            </label>
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">Link Color</span>
+                <input id="hpLinkColor" type="color" class="w-full h-11 rounded-lg border border-slate-200 cursor-pointer p-0.5" />
+            </label>
+        </div>
+    </div>
+
+    <!-- ─── Section 3: Logo ─── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <span class="section-icon bg-emerald-100 text-emerald-600"><i class="fas fa-image"></i></span>
+            شعار المنصة
+        </h2>
+        <div class="flex flex-col sm:flex-row gap-4 items-start">
+            <div class="flex-1 space-y-3">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-600 mb-1.5">رفع / استبدال الشعار (PNG / SVG / WEBP)</label>
+                    <div class="flex items-center gap-3">
+                        <input id="hpLogoFile" type="file" accept="image/*" class="flex-1 p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm" />
+                        <button onclick="uploadHomepageLogo()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg shadow-md transition-colors text-sm font-bold whitespace-nowrap">
+                            <i class="fas fa-upload ml-1"></i> رفع
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-shrink-0">
+                <p class="text-xs text-slate-500 mb-1.5">الشعار الحالي</p>
+                <img id="hpLogoPreview" src="/لوجو%20نايوش%20خلفيه.png" alt="الشعار" class="w-24 h-24 rounded-xl border border-slate-200 object-contain bg-slate-50 p-2 shadow-sm" />
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Section 4: Hero Background Media ─── -->
+    <div class="section-card" id="hero-section">
+        <h2 class="section-title">
+            <span class="section-icon bg-blue-100 text-blue-600"><i class="fas fa-panorama"></i></span>
+            خلفية Hero الرئيسي
+        </h2>
+        <p class="text-xs text-slate-500 mb-5">ارفع صورة أو فيديو يُعرض كخلفية كاملة للـ Hero. يُحفظ تلقائياً في التخزين المحلي على السيرفر وقاعدة البيانات.</p>
+
+        <!-- ━━━ UPLOAD ROW ━━━ -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+
+            <!-- Upload Image -->
+            <div class="upload-zone">
+                <p class="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
+                    <span class="bg-blue-100 text-blue-600 w-7 h-7 rounded-lg flex items-center justify-center text-xs"><i class="fas fa-image"></i></span>
+                    رفع صورة Hero
+                </p>
+                <div class="space-y-2">
+                    <input id="hpHeroFile" type="file" accept="image/*"
+                        class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                    <input id="hpHeroImageCaption" type="text" maxlength="200"
+                        placeholder="عنوان / وصف (اختياري)"
+                        class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </div>
+                <p class="text-xs text-slate-400 mt-1.5 mb-3">PNG / JPG / WEBP — الحد الأقصى 8 MB</p>
+                <button id="btn-upload-hero-img" onclick="uploadHomepageHeroImage()"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-cloud-arrow-up"></i> رفع الصورة
+                </button>
+                <div id="hero-img-status" class="mt-2 hidden"></div>
+            </div>
+
+            <!-- Upload Video -->
+            <div class="upload-zone" style="border-color:#c4b5fd;">
+                <p class="text-sm font-bold text-purple-800 mb-3 flex items-center gap-2">
+                    <span class="bg-purple-100 text-purple-600 w-7 h-7 rounded-lg flex items-center justify-center text-xs"><i class="fas fa-video"></i></span>
+                    رفع فيديو Hero
+                </p>
+                <div class="space-y-2">
+                    <input id="hpHeroVideoFile" type="file" accept="video/mp4,video/webm"
+                        class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                    <input id="hpHeroVideoCaption" type="text" maxlength="200"
+                        placeholder="عنوان / وصف (اختياري)"
+                        class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </div>
+                <p class="text-xs text-slate-400 mt-1.5 mb-3">MP4 / WEBM — الحد الأقصى 45 MB (قد يستغرق دقيقة)</p>
+                <button id="btn-upload-hero-vid" onclick="uploadHomepageHeroVideo()"
+                    class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-cloud-arrow-up"></i> رفع الفيديو
+                </button>
+                <div id="hero-vid-status" class="mt-2 hidden"></div>
+            </div>
+        </div>
+
+        <!-- ━━━ MEDIA LIST ━━━ -->
+        <div class="mb-5">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <i class="fas fa-layer-group text-slate-400"></i>
+                    الوسائط المحفوظة في الخلفية
+                </h3>
+                <button onclick="loadHeroMediaList()" title="تحديث القائمة"
+                    class="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 transition-colors font-bold">
+                    <i class="fas fa-rotate-right"></i> تحديث
+                </button>
+            </div>
+            <div id="heroMediaListContainer" class="space-y-2 min-h-[56px]">
+                <p id="heroMediaEmptyMsg" class="text-center text-slate-400 text-sm py-5">
+                    <i class="fas fa-circle-notch fa-spin ml-1"></i> جاري التحميل...
+                </p>
+            </div>
+        </div>
+
+        <!-- ━━━ SETTINGS ━━━ -->
+        <div class="border-t border-slate-200 pt-5 mt-2">
+            <h3 class="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                <i class="fas fa-sliders text-slate-400"></i> إعدادات الخلفية
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">وضع الصورة</span>
+                    <select id="hpHeroImageMode" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm">
+                        <option value="cover">Cover (ملء كامل)</option>
+                        <option value="center">Center (توسيط)</option>
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">الخلفية النشطة</span>
+                    <select id="hpHeroActiveType" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm">
+                        <option value="image">صورة</option>
+                        <option value="video">فيديو</option>
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">
+                        قوة التراكب الداكن:
+                        <span id="hpHeroOverlayStrengthValue" class="range-value">62%</span>
+                    </span>
+                    <input id="hpHeroOverlayStrength" type="range" min="50" max="70" step="1" value="62" class="w-full mt-1" />
+                </label>
+            </div>
+            <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 mb-4">
+                <input id="hpHeroAutoplaySlider" type="checkbox" class="w-4 h-4 rounded" checked />
+                <span>تشغيل السلايدر التلقائي (كل 6 ثوانٍ)</span>
+            </label>
+
+            <!-- Active image/video selects (legacy JSONB fallback) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">الصورة النشطة (JSONB)</span>
+                    <div class="flex items-center gap-2">
+                        <select id="hpHeroActiveImageIndex" class="flex-1 p-2.5 rounded-lg border border-slate-200 bg-white text-sm"></select>
+                        <button type="button" onclick="moveHeroMedia('image',-1)" title="تحريك لأعلى" class="media-btn media-btn-mute"><i class="fas fa-arrow-up text-xs"></i></button>
+                        <button type="button" onclick="moveHeroMedia('image', 1)" title="تحريك لأسفل" class="media-btn media-btn-mute"><i class="fas fa-arrow-down text-xs"></i></button>
+                    </div>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">الفيديو النشط (JSONB)</span>
+                    <div class="flex items-center gap-2">
+                        <select id="hpHeroActiveVideoIndex" class="flex-1 p-2.5 rounded-lg border border-slate-200 bg-white text-sm"></select>
+                        <button type="button" onclick="moveHeroMedia('video',-1)" title="تحريك لأعلى" class="media-btn media-btn-mute"><i class="fas fa-arrow-up text-xs"></i></button>
+                        <button type="button" onclick="moveHeroMedia('video', 1)" title="تحريك لأسفل" class="media-btn media-btn-mute"><i class="fas fa-arrow-down text-xs"></i></button>
+                    </div>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">وصف الصورة النشطة</span>
+                    <input id="hpHeroActiveImageCaption" type="text" maxlength="200" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">وصف الفيديو النشط</span>
+                    <input id="hpHeroActiveVideoCaption" type="text" maxlength="200" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </label>
+            </div>
+            <label class="block mt-4">
+                <span class="text-xs font-semibold text-slate-600 block mb-1.5">وصف إضافي للفيديو</span>
+                <textarea id="hpHeroActiveVideoDescription" maxlength="300" rows="2" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm"></textarea>
+            </label>
+
+            <!-- Hero preview thumbnail -->
+            <div class="mt-4">
+                <p class="text-xs font-semibold text-slate-600 mb-1.5">معاينة الصورة الحالية</p>
+                <img id="hpHeroPreview" src="/newhome/booking-workspace.svg" alt="معاينة Hero"
+                     class="w-full h-36 rounded-xl border border-slate-200 object-cover bg-slate-100" />
+            </div>
+
+            <div class="flex justify-end mt-5">
+                <button onclick="saveHeroMediaOnly()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow-md transition-colors text-sm font-bold flex items-center gap-2">
+                    <i class="fas fa-floppy-disk"></i> حفظ إعدادات Hero (بدون تعديل الألوان)
+                </button>
+            </div>
+        </div>
+
+        <!-- ━━━ Announcement + Floating Card reuse existing fields below ━━━ -->
+        <div class="border-t border-slate-200 pt-5 mt-4">
+            <h3 class="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                <i class="fas fa-bullhorn text-slate-400"></i> شريط التنبيه والبطاقة العائمة
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <label class="block sm:col-span-2">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">نص شريط التنبيه المتحرك</span>
+                    <input id="hpAnnouncementText" type="text" maxlength="600" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">سرعة الحركة (ثواني)</span>
+                    <input id="hpAnnouncementSpeed" type="number" min="10" max="120" step="1" value="28" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">لون خلفية الشريط</span>
+                    <input id="hpAnnouncementBgColor" type="color" value="#1a0208" class="w-full h-10 rounded-lg border border-slate-200 bg-white p-1.5" />
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">لون نص الشريط</span>
+                    <input id="hpAnnouncementTextColor" type="color" value="#ffffff" class="w-full h-10 rounded-lg border border-slate-200 bg-white p-1.5" />
+                </label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">عنوان البطاقة العائمة</span>
+                    <input id="hpFloatingCardTitle" type="text" maxlength="160" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">وصف البطاقة العائمة</span>
+                    <textarea id="hpFloatingCardDescription" maxlength="300" rows="2" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm"></textarea>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">زر 1 - النص</span>
+                    <input id="hpFloatingPrimaryText" type="text" maxlength="60" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">زر 1 - الرابط</span>
+                    <input id="hpFloatingPrimaryLink" type="text" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">زر 2 - النص</span>
+                    <input id="hpFloatingSecondaryText" type="text" maxlength="60" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600 block mb-1.5">زر 2 - الرابط</span>
+                    <input id="hpFloatingSecondaryLink" type="text" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Section 5: Book-a-Tour Section ─── -->
+    <div class="section-card" style="border-color:#fcd34d;">
+        <h2 class="section-title">
+            <span class="section-icon bg-amber-100 text-amber-600"><i class="fas fa-calendar-days"></i></span>
+            قسم "احجز جولة في NAIOSH ERP"
+        </h2>
+        <p class="text-xs text-slate-500 mb-4">رفع صورة أو فيديو لقسم الجولة في الصفحة الرئيسية مع التحكم في قوة الإطار المُعتم</p>
+
+        <!-- Current media preview -->
+        <div class="mb-5">
+            <p class="text-sm font-semibold text-slate-700 mb-2">معاينة الوسائط الحالية</p>
+            <div class="relative rounded-2xl overflow-hidden bg-slate-800" style="height:220px">
+                <img id="hpTourPreview"
+                    src="/%D8%B5%D9%88%D8%B1%D8%A9%20%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9.png"
+                    alt="معاينة الجولة"
+                    class="w-full h-full object-cover"
+                    style="display:block" />
+                <video id="hpTourVideoPreview" muted loop playsinline
+                    class="w-full h-full object-cover absolute inset-0"
+                    style="display:none"></video>
+                <!-- vignette frame overlay -->
+                <div class="absolute inset-0 pointer-events-none"
+                    style="box-shadow: inset 0 0 70px rgba(0,0,0,0.55); border-radius: 1rem;"></div>
+                <span id="hpTourMediaBadge"
+                    class="absolute top-3 right-3 bg-amber-500 text-white text-xs px-3 py-1 rounded-full font-bold shadow">صورة</span>
+            </div>
+        </div>
+
+        <!-- Upload image -->
+        <div class="bg-amber-50 rounded-xl border border-amber-200 p-4 mb-4">
+            <p class="text-sm font-bold text-amber-800 mb-3"><i class="fas fa-image text-amber-500 ml-1"></i> صورة الجولة</p>
+            <div class="flex gap-3 items-center">
+                <input id="hpTourImageFile" type="file" accept="image/*" class="flex-1 p-2.5 rounded-lg border border-amber-200 bg-white text-sm" />
+                <button onclick="uploadTourImage()" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg shadow-md transition-colors text-sm font-bold whitespace-nowrap">
+                    <i class="fas fa-upload ml-1"></i> رفع الصورة
+                </button>
+            </div>
+            <p class="text-xs text-amber-600/70 mt-1.5">PNG / JPG / WEBP — الحد الأقصى 8 ميجابايت</p>
+        </div>
+
+        <!-- Upload video -->
+        <div class="bg-amber-50 rounded-xl border border-amber-200 p-4 mb-4">
+            <p class="text-sm font-bold text-amber-800 mb-3"><i class="fas fa-video text-amber-500 ml-1"></i> فيديو الجولة</p>
+            <div class="flex gap-3 items-center">
+                <input id="hpTourVideoFile" type="file" accept="video/mp4,video/webm" class="flex-1 p-2.5 rounded-lg border border-amber-200 bg-white text-sm" />
+                <button onclick="uploadTourVideo()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2.5 rounded-lg shadow-md transition-colors text-sm font-bold whitespace-nowrap">
+                    <i class="fas fa-upload ml-1"></i> رفع الفيديو
+                </button>
+            </div>
+            <p class="text-xs text-amber-600/70 mt-1.5">MP4 / WEBM — الحد الأقصى 45 ميجابايت</p>
+        </div>
+
+        <!-- Tour controls -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">الوسائط النشطة</span>
+                <select id="hpTourActiveType" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm">
+                    <option value="image">صورة</option>
+                    <option value="video">فيديو</option>
+                </select>
+            </label>
+            <label class="block">
+                <span class="text-sm font-semibold text-slate-600 block mb-1.5">
+                    قوة الإطار المُعتم:
+                    <span id="hpTourOverlayStrengthValue" class="range-value">55%</span>
+                </span>
+                <input id="hpTourOverlayStrength" type="range" min="0" max="100" step="1" value="55" class="w-full mt-1" />
+            </label>
+        </div>
+        <div class="mt-4 flex justify-end">
+            <button onclick="saveTourMediaOnly()" aria-label="حفظ وسائط قسم الجولة فقط بدون تعديل ألوان الثيم" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-lg shadow-md transition-colors text-sm font-bold">
+                <i class="fas fa-calendar-check ml-1"></i> حفظ وسائط قسم الجولة فقط (بدون تعديل الألوان)
+            </button>
+        </div>
+    </div>
+
+    <!-- ─── Section 6: Main Sections ─── -->
+    <div class="section-card">
+        <h2 class="section-title">
+            <span class="section-icon bg-violet-100 text-violet-600"><i class="fas fa-table-cells-large"></i></span>
+            الأقسام الرئيسية (Dynamic)
+        </h2>
+        <p class="text-xs text-slate-500 mb-4">إضافة وتعديل وحذف وترتيب بطاقات الأقسام الرئيسية التي تظهر في الصفحة الرئيسية.</p>
+        <div class="mb-4">
+            <button onclick="addHomepageSection()" class="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-lg shadow-md transition-colors text-sm font-bold">
+                <i class="fas fa-plus ml-1"></i> إضافة قسم
+            </button>
+        </div>
+        <div id="hpSectionsList" class="space-y-4"></div>
+    </div>
+
+</main>
+
+<script>
+    const API_BASE = '/api/admin';
+    const USER_ID = 1;
+
+    // ── Utility ───────────────────────────────────────────
+    function showToast(msg, type = 'success') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = `show ${type}`;
+        setTimeout(() => { t.className = ''; }, 3000);
+    }
+
+    const escapeHtml = (v = '') => String(v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    let heroImageCaptionsState = [];
+    let heroImageUrlsState = [];
+    let heroVideoCaptionsState = [];
+    let heroVideoUrlsState = [];
+    let heroVideoDescriptionsState = [];
+    let homepageSectionsState = [];
+    const DEFAULT_HERO_OVERLAY_STRENGTH_PERCENT = 62;
+
+    function renderHeroMediaSelects(activeImageIndex = 0, activeVideoIndex = 0) {
+        const imageSelect = document.getElementById('hpHeroActiveImageIndex');
+        const videoSelect = document.getElementById('hpHeroActiveVideoIndex');
+        if (imageSelect) {
+            imageSelect.innerHTML = heroImageUrlsState
+                .map((url, i) => `<option value="${i}" ${i === activeImageIndex ? 'selected' : ''}>صورة ${i + 1} — ${escapeHtml(url)}</option>`)
+                .join('');
+        }
+        if (videoSelect) {
+            videoSelect.innerHTML = heroVideoUrlsState.length
+                ? heroVideoUrlsState.map((url, i) => `<option value="${i}" ${i === activeVideoIndex ? 'selected' : ''}>فيديو ${i + 1} — ${escapeHtml(url)}</option>`).join('')
+                : '<option value="0">لا يوجد فيديو</option>';
+        }
+    }
+
+    function moveHeroMedia(type, direction) {
+        const isImage = type === 'image';
+        const select = document.getElementById(isImage ? 'hpHeroActiveImageIndex' : 'hpHeroActiveVideoIndex');
+        const urls = isImage ? heroImageUrlsState : heroVideoUrlsState;
+        if (!select || urls.length < 2) return;
+        const from = Number(select.value || 0);
+        const to = from + direction;
+        if (to < 0 || to >= urls.length) return;
+        const captions = isImage ? heroImageCaptionsState : heroVideoCaptionsState;
+        const descriptions = isImage ? null : heroVideoDescriptionsState;
+        [urls[from], urls[to]] = [urls[to], urls[from]];
+        [captions[from], captions[to]] = [captions[to], captions[from]];
+        if (descriptions) {
+            [descriptions[from], descriptions[to]] = [descriptions[to], descriptions[from]];
+        }
+        const newImageIndex = isImage ? to : Number(document.getElementById('hpHeroActiveImageIndex')?.value || 0);
+        const newVideoIndex = isImage ? Number(document.getElementById('hpHeroActiveVideoIndex')?.value || 0) : to;
+        renderHeroMediaSelects(newImageIndex, newVideoIndex);
+        syncHeroCaptionInputs();
+    }
+
+    function syncHeroCaptionInputs() {
+        const activeImageIndex = Number(document.getElementById('hpHeroActiveImageIndex')?.value || 0);
+        const activeVideoIndex = Number(document.getElementById('hpHeroActiveVideoIndex')?.value || 0);
+        const imageCaptionInput = document.getElementById('hpHeroActiveImageCaption');
+        const videoCaptionInput = document.getElementById('hpHeroActiveVideoCaption');
+        const videoDescriptionInput = document.getElementById('hpHeroActiveVideoDescription');
+        if (imageCaptionInput) imageCaptionInput.value = heroImageCaptionsState[activeImageIndex] || '';
+        if (videoCaptionInput) videoCaptionInput.value = heroVideoCaptionsState[activeVideoIndex] || '';
+        if (videoDescriptionInput) videoDescriptionInput.value = heroVideoDescriptionsState[activeVideoIndex] || '';
+    }
+
+    // ── Hero Media List (hero_media DB table) ─────────────
+    let _heroDbItems = [];
+
+    async function loadHeroMediaList() {
+        const container = document.getElementById('heroMediaListContainer');
+        if (!container) return;
+        container.innerHTML = '<p class="text-center text-slate-400 text-sm py-4"><span class="spinner" style="border-color:rgba(0,0,0,.15);border-top-color:#64748b;width:14px;height:14px;border-width:2px;"></span> جاري التحميل...</p>';
+        try {
+            const res = await fetch(`${API_BASE}/hero-media`, { headers: { 'x-user-id': USER_ID } });
+            const data = await res.json();
+            if (data.success) {
+                _heroDbItems = data.heroMediaList || [];
+                renderHeroMediaList(_heroDbItems);
+            } else {
+                container.innerHTML = `<p class="status-banner error"><i class="fas fa-triangle-exclamation"></i> ${escapeHtml(data.message || 'تعذر جلب الوسائط')}</p>`;
+            }
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = '<p class="status-banner error"><i class="fas fa-wifi"></i> تعذر الاتصال بالخادم</p>';
+        }
+    }
+
+    function renderHeroMediaList(items) {
+        const container = document.getElementById('heroMediaListContainer');
+        if (!container) return;
+        if (!items || items.length === 0) {
+            container.innerHTML = '<p class="text-center text-slate-400 text-sm py-6 border border-dashed border-slate-200 rounded-xl"><i class="fas fa-inbox ml-1"></i> لا توجد وسائط محفوظة بعد — ارفع صورة أو فيديو أعلاه</p>';
+            return;
+        }
+        container.innerHTML = items.map((item, idx) => {
+            const isImg = item.type === 'image';
+            const thumb = isImg
+                ? `<img src="${escapeHtml(item.url)}" alt="" class="hero-media-thumb" loading="lazy" />`
+                : `<div class="hero-media-thumb-video"><i class="fas fa-film text-purple-500 text-xl"></i></div>`;
+            const typeBadge = isImg
+                ? `<span class="badge badge-img"><i class="fas fa-image"></i> صورة</span>`
+                : `<span class="badge badge-vid"><i class="fas fa-video"></i> فيديو</span>`;
+            const activeBadge = item.is_active
+                ? `<span class="badge badge-on"><i class="fas fa-circle-check"></i> ظاهر</span>`
+                : `<span class="badge badge-off"><i class="fas fa-eye-slash"></i> مخفي</span>`;
+            const shortTitle = escapeHtml(item.title || item.url.split('/').pop().slice(0, 40));
+            const isFirst = idx === 0;
+            const isLast = idx === items.length - 1;
+            return `<div class="hero-media-card" data-id="${item.id}" data-order="${item.order_index}">
+                ${thumb}
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5 flex-wrap mb-1">${typeBadge}${activeBadge}<span class="text-xs text-slate-400">#${item.id}</span></div>
+                    <p class="text-sm font-semibold text-slate-700 truncate" title="${escapeHtml(item.url)}">${shortTitle}</p>
+                    <p class="text-xs text-slate-400 truncate">${escapeHtml(item.url.replace(/^https?:\/\/[^/]+/, ''))}</p>
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                    <button type="button" onclick="moveHeroDbMedia(${item.id},'up')" ${isFirst ? 'disabled' : ''} class="media-btn media-btn-mute" title="رفع"><i class="fas fa-arrow-up text-xs"></i></button>
+                    <button type="button" onclick="moveHeroDbMedia(${item.id},'down')" ${isLast ? 'disabled' : ''} class="media-btn media-btn-mute" title="تحريك لأسفل"><i class="fas fa-arrow-down text-xs"></i></button>
+                    <button type="button" onclick="toggleHeroDbMedia(${item.id})" class="media-btn ${item.is_active ? 'media-btn-green' : 'media-btn-mute'}" title="${item.is_active ? 'إخفاء' : 'إظهار'}"><i class="fas ${item.is_active ? 'fa-eye' : 'fa-eye-slash'} text-xs"></i></button>
+                    <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" class="media-btn media-btn-mute" title="فتح في تبويب جديد"><i class="fas fa-arrow-up-right-from-square text-xs"></i></a>
+                    <button type="button" onclick="deleteHeroDbMedia(${item.id})" class="media-btn media-btn-red" title="حذف"><i class="fas fa-trash text-xs"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async function deleteHeroDbMedia(id) {
+        if (!confirm('هل تريد حذف هذه الوسائط نهائياً من قاعدة البيانات؟')) return;
+        try {
+            const res = await fetch(`${API_BASE}/hero-media/${id}`, { method: 'DELETE', headers: { 'x-user-id': USER_ID } });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'تعذر الحذف', 'error'); return; }
+            _heroDbItems = data.heroMediaList || [];
+            renderHeroMediaList(_heroDbItems);
+            showToast('تم حذف الوسائط بنجاح ✓');
+        } catch (e) { console.error(e); showToast('خطأ في الحذف', 'error'); }
+    }
+
+    async function toggleHeroDbMedia(id) {
+        try {
+            const res = await fetch(`${API_BASE}/hero-media/${id}/toggle`, { method: 'PATCH', headers: { 'x-user-id': USER_ID } });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'تعذر التحديث', 'error'); return; }
+            _heroDbItems = data.heroMediaList || [];
+            renderHeroMediaList(_heroDbItems);
+            showToast(data.is_active ? 'تم إظهار الوسائط ✓' : 'تم إخفاء الوسائط ✓');
+        } catch (e) { console.error(e); showToast('خطأ في تحديث الحالة', 'error'); }
+    }
+
+    async function moveHeroDbMedia(id, direction) {
+        const container = document.getElementById('heroMediaListContainer');
+        const allCards = Array.from(container.querySelectorAll('.hero-media-card'));
+        const idx = allCards.findIndex(el => Number(el.dataset.id) === id);
+        if (idx === -1) return;
+        const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (swapIdx < 0 || swapIdx >= allCards.length) return;
+        const swapId = Number(allCards[swapIdx].dataset.id);
+        const curOrder = Number(allCards[idx].dataset.order);
+        const swapOrder = Number(allCards[swapIdx].dataset.order);
+        try {
+            const res = await fetch(`${API_BASE}/hero-media/reorder`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                body: JSON.stringify({ items: [{ id, order_index: swapOrder }, { id: swapId, order_index: curOrder }] })
+            });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'تعذر إعادة الترتيب', 'error'); return; }
+            _heroDbItems = data.heroMediaList || [];
+            renderHeroMediaList(_heroDbItems);
+        } catch (e) { console.error(e); showToast('خطأ في إعادة الترتيب', 'error'); }
+    }
+
+    function setUploadState(btnId, statusId, uploading, statusType = '', statusMsg = '') {
+        const btn = document.getElementById(btnId);
+        const statusEl = document.getElementById(statusId);
+        if (btn) btn.disabled = uploading;
+        if (btn && uploading) {
+            btn.dataset.origHtml = btn.innerHTML;
+            btn.innerHTML = `<span class="spinner"></span> جاري الرفع...`;
+        } else if (btn && btn.dataset.origHtml) {
+            btn.innerHTML = btn.dataset.origHtml;
+        }
+        if (statusEl) {
+            if (statusMsg) {
+                statusEl.className = `status-banner ${statusType} mt-2`;
+                statusEl.innerHTML = statusMsg;
+                statusEl.classList.remove('hidden');
+            } else {
+                statusEl.classList.add('hidden');
+                statusEl.innerHTML = '';
+            }
+        }
+    }
+
+    // ── Load Settings ─────────────────────────────────────
+    async function loadHomepageSettings() {
+        try {
+            const res = await fetch(`${API_BASE}/homepage-settings`, { headers: { 'x-user-id': USER_ID } });
+            const data = await res.json();
+            if (!data.success || !data.settings) return;
+            const s = data.settings;
+
+            // Colors
+            document.getElementById('hpPrimaryColor').value   = s.theme?.primaryColor   || '#d70000';
+            document.getElementById('hpSecondaryColor').value = s.theme?.secondaryColor || '#ff4f63';
+            document.getElementById('hpButtonColor').value    = s.theme?.buttonColor    || '#b10011';
+            document.getElementById('hpHeaderBgColor').value  = s.theme?.headerBgColor  || '#ffffff';
+            document.getElementById('hpTextColor').value      = s.theme?.textColor      || '#171a20';
+
+            // Typography
+            document.getElementById('hpHeadingColor').value   = s.typography?.headingColor   || '#171a20';
+            document.getElementById('hpParagraphColor').value = s.typography?.paragraphColor || '#5e636d';
+            document.getElementById('hpLinkColor').value      = s.typography?.linkColor      || '#1f232b';
+
+            // Hero
+            document.getElementById('hpHeroImageMode').value = s.heroImageMode === 'center' ? 'center' : 'cover';
+            const heroMedia = s.heroMedia || {};
+            document.getElementById('hpHeroActiveType').value = heroMedia.activeType === 'video' ? 'video' : 'image';
+            document.getElementById('hpHeroAutoplaySlider').checked = heroMedia.autoPlaySlider !== false;
+
+            const overlayDecimal = Number.isFinite(Number(heroMedia.overlayStrength))
+                ? (Number(heroMedia.overlayStrength) > 1 ? Number(heroMedia.overlayStrength) / 100 : Number(heroMedia.overlayStrength))
+                : 0.62;
+            const overlayPercent = Math.min(70, Math.max(50, Math.round(overlayDecimal * 100)));
+            document.getElementById('hpHeroOverlayStrength').value = overlayPercent;
+            document.getElementById('hpHeroOverlayStrengthValue').textContent = `${overlayPercent}%`;
+
+            const imageUrls = Array.isArray(heroMedia.imageUrls) && heroMedia.imageUrls.length
+                ? heroMedia.imageUrls
+                : [s.heroImageUrl || '/newhome/booking-workspace.svg'];
+            heroImageUrlsState = [...imageUrls];
+            const activeIndex = Math.min(Math.max(Number(heroMedia.activeImageIndex) || 0, 0), imageUrls.length - 1);
+            const imageCaptions = Array.isArray(heroMedia.imageCaptions) ? heroMedia.imageCaptions : [];
+            heroImageCaptionsState = imageUrls.map((_, i) => imageCaptions[i] || '');
+            const videoUrls = Array.isArray(heroMedia.videoUrls) ? heroMedia.videoUrls.filter(Boolean) : (heroMedia.videoUrl ? [heroMedia.videoUrl] : []);
+            heroVideoUrlsState = [...videoUrls];
+            const activeVideoIndex = Math.min(Math.max(Number(heroMedia.activeVideoIndex) || 0, 0), Math.max(0, videoUrls.length - 1));
+            renderHeroMediaSelects(activeIndex, activeVideoIndex);
+            const videoCaptions = Array.isArray(heroMedia.videoCaptions) ? heroMedia.videoCaptions : [];
+            heroVideoCaptionsState = videoUrls.map((_, i) => videoCaptions[i] || '');
+            const videoDescriptions = Array.isArray(heroMedia.videoDescriptions) ? heroMedia.videoDescriptions : [];
+            heroVideoDescriptionsState = videoUrls.map((_, i) => videoDescriptions[i] || '');
+            syncHeroCaptionInputs();
+            document.getElementById('hpLogoPreview').src = s.logoUrl || '/لوجو%20نايوش%20خلفيه.png';
+            document.getElementById('hpHeroPreview').src = imageUrls[activeIndex] || s.heroImageUrl || '/newhome/booking-workspace.svg';
+            document.getElementById('hpAnnouncementText').value = s.announcementBar?.text || '🔥 خصومات على الخدمات 🔥 | 🚀 ابدأ الآن | 📢 عروض محدودة';
+            document.getElementById('hpAnnouncementBgColor').value = s.announcementBar?.backgroundColor || '#1a0208';
+            document.getElementById('hpAnnouncementTextColor').value = s.announcementBar?.textColor || '#ffffff';
+            document.getElementById('hpAnnouncementSpeed').value = Number(s.announcementBar?.speed) || 28;
+            document.getElementById('hpFloatingCardTitle').value = s.floatingCard?.title || 'التكنولوجيا في حياتنا اليومية';
+            document.getElementById('hpFloatingCardDescription').value = s.floatingCard?.description || 'مقال مميز من منصتنا يسلط الضوء على أهم التطورات الحديثة';
+            document.getElementById('hpFloatingPrimaryText').value = s.floatingCard?.primaryButtonText || 'اقرأ المزيد';
+            document.getElementById('hpFloatingPrimaryLink').value = s.floatingCard?.primaryButtonLink || '/newhome/blog.html';
+            document.getElementById('hpFloatingSecondaryText').value = s.floatingCard?.secondaryButtonText || 'ابدأ الآن';
+            document.getElementById('hpFloatingSecondaryLink').value = s.floatingCard?.secondaryButtonLink || '/register.html';
+
+            // Tour
+            const tourMedia = s.tourMedia || {};
+            const tourActiveType = tourMedia.activeType === 'video' ? 'video' : 'image';
+            document.getElementById('hpTourActiveType').value = tourActiveType;
+
+            const tourOverlayDecimal = Number.isFinite(Number(tourMedia.overlayStrength))
+                ? (Number(tourMedia.overlayStrength) > 1 ? Number(tourMedia.overlayStrength) / 100 : Number(tourMedia.overlayStrength))
+                : 0.55;
+            const tourOverlayPercent = Math.min(100, Math.max(0, Math.round(tourOverlayDecimal * 100)));
+            document.getElementById('hpTourOverlayStrength').value = tourOverlayPercent;
+            document.getElementById('hpTourOverlayStrengthValue').textContent = `${tourOverlayPercent}%`;
+
+            const tourImg = document.getElementById('hpTourPreview');
+            const tourVid = document.getElementById('hpTourVideoPreview');
+            const tourBadge = document.getElementById('hpTourMediaBadge');
+            if (tourActiveType === 'video' && tourMedia.videoUrl) {
+                tourImg.style.display = 'none';
+                tourVid.src = tourMedia.videoUrl;
+                tourVid.style.display = 'block';
+                tourVid.play().catch(() => {});
+                tourBadge.textContent = 'فيديو';
+            } else {
+                tourVid.style.display = 'none';
+                tourVid.pause();
+                tourVid.removeAttribute('src');
+                tourImg.src = tourMedia.imageUrl || '/%D8%B5%D9%88%D8%B1%D8%A9%20%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9.png';
+                tourImg.style.display = 'block';
+                tourBadge.textContent = 'صورة';
+            }
+            homepageSectionsState = Array.isArray(data.sections) ? data.sections : [];
+            renderHomepageSections();
+        } catch (err) {
+            console.error('Error loading settings:', err);
+        }
+        // Also refresh the hero_media DB table list
+        await loadHeroMediaList();
+    }
+
+    function renderHomepageSections() {
+        const list = document.getElementById('hpSectionsList');
+        if (!list) return;
+        const ordered = [...homepageSectionsState].sort((a, b) => (Number(a.order_index) || 0) - (Number(b.order_index) || 0));
+        if (!ordered.length) {
+            list.innerHTML = '<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">لا توجد أقسام حالياً</div>';
+            return;
+        }
+        list.innerHTML = ordered.map((section) => {
+            const id = Number(section.id);
+            const title = escapeHtml(section.title || '');
+            const description = escapeHtml(section.description || '');
+            const link = escapeHtml(section.link || '');
+            const iconClass = escapeHtml(section.icon_class || 'fas fa-square');
+            const iconUrl = escapeHtml(section.icon_url || '');
+            const orderIndex = Number(section.order_index) || 0;
+            const iconPreview = iconUrl && !String(iconUrl).startsWith('fa:')
+                ? `<img src="${iconUrl}" alt="${title}" class="w-8 h-8 object-contain" />`
+                : `<i class="${iconClass}"></i>`;
+            return `
+                <div class="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-sm font-bold text-slate-700">قسم #${id}</p>
+                        <button onclick="deleteHomepageSection(${id})" class="text-red-600 hover:text-red-700 text-xs font-bold"><i class="fas fa-trash ml-1"></i> حذف</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label class="block">
+                            <span class="text-xs font-semibold text-slate-600 block mb-1">العنوان</span>
+                            <input id="hpSectionTitle-${id}" type="text" maxlength="120" value="${title}" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-semibold text-slate-600 block mb-1">الرابط (اختياري)</span>
+                            <input id="hpSectionLink-${id}" type="text" value="${link}" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                        </label>
+                        <label class="block sm:col-span-2">
+                            <span class="text-xs font-semibold text-slate-600 block mb-1">الوصف</span>
+                            <textarea id="hpSectionDesc-${id}" maxlength="500" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" rows="2">${description}</textarea>
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                        <label class="block">
+                            <span class="text-xs font-semibold text-slate-600 block mb-1">أيقونة (Font Awesome class)</span>
+                            <input id="hpSectionIconClass-${id}" type="text" value="${iconClass}" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-semibold text-slate-600 block mb-1">الترتيب</span>
+                            <input id="hpSectionOrder-${id}" type="number" min="0" max="9999" value="${orderIndex}" class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                        </label>
+                        <div class="block">
+                            <span class="text-xs font-semibold text-slate-600 block mb-1">معاينة الأيقونة</span>
+                            <div class="w-11 h-11 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-brand-600">${iconPreview}</div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 mt-3">
+                        <input id="hpSectionIconFile-${id}" type="file" accept="image/*" class="flex-1 min-w-[180px] p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
+                        <button onclick="uploadHomepageSectionIcon(${id})" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold">
+                            <i class="fas fa-upload ml-1"></i> رفع أيقونة
+                        </button>
+                        <button onclick="updateHomepageSection(${id})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-bold">
+                            <i class="fas fa-pen ml-1"></i> تحديث
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function addHomepageSection() {
+        const defaultOrder = homepageSectionsState.length
+            ? Math.max(...homepageSectionsState.map((item) => Number(item.order_index) || 0)) + 1
+            : 1;
+        try {
+            const res = await fetch(`${API_BASE}/homepage-sections`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                body: JSON.stringify({
+                    title: 'قسم جديد',
+                    description: '',
+                    icon_url: 'fa:fas fa-square',
+                    link: '',
+                    order_index: defaultOrder
+                })
+            });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'تعذر إضافة القسم', 'error'); return; }
+            homepageSectionsState = Array.isArray(data.sections) ? data.sections : [];
+            renderHomepageSections();
+            showToast('تمت إضافة القسم بنجاح ✓');
+        } catch (error) {
+            console.error(error);
+            showToast('خطأ في إضافة القسم', 'error');
+        }
+    }
+
+    async function updateHomepageSection(sectionId) {
+        const title = document.getElementById(`hpSectionTitle-${sectionId}`)?.value || '';
+        const description = document.getElementById(`hpSectionDesc-${sectionId}`)?.value || '';
+        const link = document.getElementById(`hpSectionLink-${sectionId}`)?.value || '';
+        const iconClass = document.getElementById(`hpSectionIconClass-${sectionId}`)?.value || '';
+        const orderIndex = Number(document.getElementById(`hpSectionOrder-${sectionId}`)?.value || 0);
+        const existingSection = homepageSectionsState.find((item) => Number(item.id) === Number(sectionId));
+        const trimmedIconInput = String(iconClass || '').trim();
+        let iconUrlPayload = typeof existingSection?.icon_url === 'string' && existingSection.icon_url
+            ? existingSection.icon_url
+            : 'fa:fas fa-square';
+        if (trimmedIconInput) {
+            if (trimmedIconInput.startsWith('fa:') || trimmedIconInput.startsWith('/') || /^https?:\/\//i.test(trimmedIconInput)) {
+                iconUrlPayload = trimmedIconInput;
+            } else {
+                iconUrlPayload = `fa:${trimmedIconInput}`;
+            }
+        }
+        try {
+            const res = await fetch(`${API_BASE}/homepage-sections/${sectionId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                body: JSON.stringify({
+                    title,
+                    description,
+                    link,
+                    icon_url: iconUrlPayload,
+                    order_index: orderIndex
+                })
+            });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'تعذر تحديث القسم', 'error'); return; }
+            homepageSectionsState = Array.isArray(data.sections) ? data.sections : [];
+            renderHomepageSections();
+            showToast('تم تحديث القسم بنجاح ✓');
+        } catch (error) {
+            console.error(error);
+            showToast('خطأ في تحديث القسم', 'error');
+        }
+    }
+
+    async function deleteHomepageSection(sectionId) {
+        if (!confirm('هل تريد حذف هذا القسم؟')) return;
+        try {
+            const res = await fetch(`${API_BASE}/homepage-sections/${sectionId}`, {
+                method: 'DELETE',
+                headers: { 'x-user-id': USER_ID }
+            });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'تعذر حذف القسم', 'error'); return; }
+            homepageSectionsState = Array.isArray(data.sections) ? data.sections : [];
+            renderHomepageSections();
+            showToast('تم حذف القسم بنجاح ✓');
+        } catch (error) {
+            console.error(error);
+            showToast('خطأ في حذف القسم', 'error');
+        }
+    }
+
+    async function uploadHomepageSectionIcon(sectionId) {
+        const file = document.getElementById(`hpSectionIconFile-${sectionId}`)?.files?.[0];
+        if (!file) { showToast('يرجى اختيار أيقونة القسم أولاً', 'error'); return; }
+        const fd = new FormData();
+        fd.append('icon', file);
+        try {
+            const res = await fetch(`${API_BASE}/homepage-sections/${sectionId}/icon`, {
+                method: 'POST',
+                headers: { 'x-user-id': USER_ID },
+                body: fd
+            });
+            const data = await res.json();
+            if (!data.success) { showToast(data.message || 'تعذر رفع الأيقونة', 'error'); return; }
+            homepageSectionsState = Array.isArray(data.sections) ? data.sections : [];
+            renderHomepageSections();
+            showToast('تم رفع أيقونة القسم بنجاح ✓');
+        } catch (error) {
+            console.error(error);
+            showToast('خطأ في رفع الأيقونة', 'error');
+        }
+    }
+
+    // ── Uploads ───────────────────────────────────────────
+    async function uploadHomepageLogo() {
+        const file = document.getElementById('hpLogoFile')?.files?.[0];
+        if (!file) { showToast('يرجى اختيار صورة الشعار أولاً', 'error'); return; }
+        const fd = new FormData();
+        fd.append('logo', file);
+        try {
+            const res = await fetch(`${API_BASE}/homepage-settings/logo`, {
+                method: 'POST', headers: { 'x-user-id': USER_ID }, body: fd
+            });
+            const r = await res.json();
+            if (!r.success) { showToast(r.message || 'تعذر رفع الشعار', 'error'); return; }
+            document.getElementById('hpLogoPreview').src = r.logoUrl + '?t=' + Date.now();
+            document.getElementById('hpLogoFile').value = '';
+            showToast('تم رفع الشعار بنجاح ✓');
+        } catch (e) { console.error(e); showToast('خطأ في رفع الشعار', 'error'); }
+    }
+
+    async function uploadHomepageHeroImage() {
+        const file = document.getElementById('hpHeroFile')?.files?.[0];
+        if (!file) { showToast('يرجى اختيار صورة Hero أولاً', 'error'); return; }
+        setUploadState('btn-upload-hero-img', 'hero-img-status', true, 'info', '<i class="fas fa-circle-notch fa-spin"></i> جاري رفع الصورة إلى مساحة التخزين...');
+        const fd = new FormData();
+        fd.append('heroImage', file);
+        fd.append('heroCaption', document.getElementById('hpHeroImageCaption')?.value || '');
+        try {
+            const res = await fetch(`${API_BASE}/homepage-settings/hero-image`, {
+                method: 'POST', headers: { 'x-user-id': USER_ID }, body: fd
+            });
+            const r = await res.json();
+            if (!r.success) {
+                setUploadState('btn-upload-hero-img', 'hero-img-status', false, 'error', `<i class="fas fa-circle-exclamation"></i> ${escapeHtml(r.message || 'تعذر رفع صورة Hero')}`);
+                return;
+            }
+            document.getElementById('hpHeroFile').value = '';
+            const captionInput = document.getElementById('hpHeroImageCaption');
+            if (captionInput) captionInput.value = '';
+            setUploadState('btn-upload-hero-img', 'hero-img-status', false, 'success',
+                `<i class="fas fa-circle-check"></i> تم رفع الصورة بنجاح وحفظها في قاعدة البيانات ✓`);
+            showToast('تم رفع صورة Hero بنجاح ✓');
+            await Promise.all([loadHomepageSettings(), loadHeroMediaList()]);
+        } catch (e) {
+            console.error(e);
+            setUploadState('btn-upload-hero-img', 'hero-img-status', false, 'error', '<i class="fas fa-triangle-exclamation"></i> خطأ في الاتصال بالخادم');
+        }
+    }
+
+    async function uploadHomepageHeroVideo() {
+        const file = document.getElementById('hpHeroVideoFile')?.files?.[0];
+        if (!file) { showToast('يرجى اختيار فيديو Hero أولاً', 'error'); return; }
+        setUploadState('btn-upload-hero-vid', 'hero-vid-status', true, 'info', '<i class="fas fa-circle-notch fa-spin"></i> جاري رفع الفيديو إلى مساحة التخزين... (قد يستغرق دقيقة)');
+        const fd = new FormData();
+        fd.append('heroVideo', file);
+        fd.append('heroCaption', document.getElementById('hpHeroVideoCaption')?.value || '');
+        try {
+            const res = await fetch(`${API_BASE}/homepage-settings/hero-video`, {
+                method: 'POST', headers: { 'x-user-id': USER_ID }, body: fd
+            });
+            const r = await res.json();
+            if (!r.success) {
+                setUploadState('btn-upload-hero-vid', 'hero-vid-status', false, 'error', `<i class="fas fa-circle-exclamation"></i> ${escapeHtml(r.message || 'تعذر رفع فيديو Hero')}`);
+                return;
+            }
+            document.getElementById('hpHeroVideoFile').value = '';
+            const captionInput = document.getElementById('hpHeroVideoCaption');
+            if (captionInput) captionInput.value = '';
+            setUploadState('btn-upload-hero-vid', 'hero-vid-status', false, 'success',
+                `<i class="fas fa-circle-check"></i> تم رفع الفيديو بنجاح وحفظه في قاعدة البيانات ✓`);
+            showToast('تم رفع فيديو Hero بنجاح ✓');
+            await Promise.all([loadHomepageSettings(), loadHeroMediaList()]);
+        } catch (e) {
+            console.error(e);
+            setUploadState('btn-upload-hero-vid', 'hero-vid-status', false, 'error', '<i class="fas fa-triangle-exclamation"></i> خطأ في الاتصال بالخادم');
+        }
+    }
+
+    function collectHeroMediaPayload() {
+        const toValidIndex = (rawValue, maxIndex) => {
+            const parsed = Number(rawValue);
+            if (!Number.isFinite(parsed)) return 0;
+            return Math.min(Math.max(Math.trunc(parsed), 0), Math.max(0, maxIndex));
+        };
+        const activeImageIndex = toValidIndex(
+            document.getElementById('hpHeroActiveImageIndex').value,
+            heroImageUrlsState.length - 1
+        );
+        const activeVideoIndex = toValidIndex(
+            document.getElementById('hpHeroActiveVideoIndex').value,
+            heroVideoUrlsState.length - 1
+        );
+        if (heroImageCaptionsState.length) {
+            heroImageCaptionsState[activeImageIndex] = document.getElementById('hpHeroActiveImageCaption').value || '';
+        }
+        if (heroVideoCaptionsState.length) {
+            heroVideoCaptionsState[activeVideoIndex] = document.getElementById('hpHeroActiveVideoCaption').value || '';
+        }
+        if (heroVideoDescriptionsState.length) {
+            heroVideoDescriptionsState[activeVideoIndex] = document.getElementById('hpHeroActiveVideoDescription').value || '';
+        }
+        return {
+            heroImageMode: document.getElementById('hpHeroImageMode').value,
+            heroMedia: {
+                activeType: document.getElementById('hpHeroActiveType').value,
+                activeImageIndex,
+                activeVideoIndex,
+                imageUrls: heroImageUrlsState,
+                videoUrls: heroVideoUrlsState,
+                imageCaptions: heroImageCaptionsState,
+                videoCaptions: heroVideoCaptionsState,
+                videoDescriptions: heroVideoDescriptionsState,
+                autoPlaySlider: !!document.getElementById('hpHeroAutoplaySlider')?.checked,
+                overlayStrength: Number(document.getElementById('hpHeroOverlayStrength').value || DEFAULT_HERO_OVERLAY_STRENGTH_PERCENT) / 100
+            }
+        };
+    }
+
+    async function saveHeroMediaOnly() {
+        try {
+            const payload = collectHeroMediaPayload();
+            const res = await fetch(`${API_BASE}/homepage-settings/hero-media`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                body: JSON.stringify(payload)
+            });
+            const r = await res.json();
+            if (!r.success) { showToast(r.message || 'تعذر حفظ وسائط Hero', 'error'); return; }
+            showToast('تم حفظ وسائط Hero بنجاح ✓');
+        } catch (e) {
+            console.error(e);
+            showToast('خطأ في حفظ وسائط Hero', 'error');
+        }
+    }
+
+    async function uploadTourImage() {
+        const file = document.getElementById('hpTourImageFile')?.files?.[0];
+        if (!file) { showToast('يرجى اختيار صورة الجولة أولاً', 'error'); return; }
+        const fd = new FormData();
+        fd.append('tourImage', file);
+        try {
+            const res = await fetch(`${API_BASE}/homepage-settings/tour-image`, {
+                method: 'POST', headers: { 'x-user-id': USER_ID }, body: fd
+            });
+            const r = await res.json();
+            if (!r.success) { showToast(r.message || 'تعذر رفع صورة الجولة', 'error'); return; }
+            document.getElementById('hpTourImageFile').value = '';
+            showToast('تم رفع صورة الجولة بنجاح ✓');
+            await loadHomepageSettings();
+        } catch (e) { console.error(e); showToast('خطأ في رفع صورة الجولة', 'error'); }
+    }
+
+    async function uploadTourVideo() {
+        const file = document.getElementById('hpTourVideoFile')?.files?.[0];
+        if (!file) { showToast('يرجى اختيار فيديو الجولة أولاً', 'error'); return; }
+        const fd = new FormData();
+        fd.append('tourVideo', file);
+        try {
+            const res = await fetch(`${API_BASE}/homepage-settings/tour-video`, {
+                method: 'POST', headers: { 'x-user-id': USER_ID }, body: fd
+            });
+            const r = await res.json();
+            if (!r.success) { showToast(r.message || 'تعذر رفع فيديو الجولة', 'error'); return; }
+            document.getElementById('hpTourVideoFile').value = '';
+            showToast('تم رفع فيديو الجولة بنجاح ✓');
+            await loadHomepageSettings();
+        } catch (e) { console.error(e); showToast('خطأ في رفع فيديو الجولة', 'error'); }
+    }
+
+    async function saveTourMediaOnly() {
+        const tourOverlayInput = document.getElementById('hpTourOverlayStrength');
+        const overlayStrengthDecimal = Number(tourOverlayInput?.value || tourOverlayInput?.defaultValue || 0) / 100;
+        const payload = {
+            tourMedia: {
+                activeType: document.getElementById('hpTourActiveType').value,
+                overlayStrength: overlayStrengthDecimal
+            }
+        };
+        try {
+            const res = await fetch(`${API_BASE}/homepage-settings/tour-media`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                body: JSON.stringify(payload)
+            });
+            const r = await res.json();
+            if (!r.success) { showToast(r.message || 'تعذر حفظ وسائط قسم الجولة', 'error'); return; }
+            showToast('تم حفظ وسائط قسم الجولة بنجاح ✓');
+        } catch (e) {
+            console.error(e);
+            showToast('خطأ في حفظ وسائط قسم الجولة', 'error');
+        }
+    }
+
+    // ── Save All ──────────────────────────────────────────
+    async function saveHomepageSettings() {
+        const heroPayload = collectHeroMediaPayload();
+        const tourOverlayInput = document.getElementById('hpTourOverlayStrength');
+        const overlayStrengthDecimal = Number(tourOverlayInput?.value || tourOverlayInput?.defaultValue || 0) / 100;
+        const payload = {
+            theme: {
+                primaryColor:   document.getElementById('hpPrimaryColor').value,
+                secondaryColor: document.getElementById('hpSecondaryColor').value,
+                buttonColor:    document.getElementById('hpButtonColor').value,
+                headerBgColor:  document.getElementById('hpHeaderBgColor').value,
+                textColor:      document.getElementById('hpTextColor').value
+            },
+            typography: {
+                headingColor:   document.getElementById('hpHeadingColor').value,
+                paragraphColor: document.getElementById('hpParagraphColor').value,
+                linkColor:      document.getElementById('hpLinkColor').value
+            },
+            heroImageMode: heroPayload.heroImageMode,
+            heroMedia: heroPayload.heroMedia,
+            announcementBar: {
+                text: document.getElementById('hpAnnouncementText').value,
+                backgroundColor: document.getElementById('hpAnnouncementBgColor').value,
+                textColor: document.getElementById('hpAnnouncementTextColor').value,
+                speed: Number(document.getElementById('hpAnnouncementSpeed').value || 28)
+            },
+            floatingCard: {
+                title: document.getElementById('hpFloatingCardTitle').value,
+                description: document.getElementById('hpFloatingCardDescription').value,
+                primaryButtonText: document.getElementById('hpFloatingPrimaryText').value,
+                primaryButtonLink: document.getElementById('hpFloatingPrimaryLink').value,
+                secondaryButtonText: document.getElementById('hpFloatingSecondaryText').value,
+                secondaryButtonLink: document.getElementById('hpFloatingSecondaryLink').value
+            },
+            tourMedia: {
+                activeType:      document.getElementById('hpTourActiveType').value,
+                overlayStrength: overlayStrengthDecimal
+            }
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/homepage-settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                body: JSON.stringify(payload)
+            });
+            const r = await res.json();
+            if (!r.success) { showToast(r.message || 'تعذر حفظ الإعدادات', 'error'); return; }
+            showToast('تم حفظ الإعدادات بنجاح ✓');
+        } catch (e) {
+            console.error(e);
+            showToast('خطأ في حفظ الإعدادات', 'error');
+        }
+    }
+
+    // ── Range listeners ───────────────────────────────────
+    document.getElementById('hpHeroOverlayStrength').addEventListener('input', e => {
+        document.getElementById('hpHeroOverlayStrengthValue').textContent = `${e.target.value}%`;
+    });
+    document.getElementById('hpTourOverlayStrength').addEventListener('input', e => {
+        document.getElementById('hpTourOverlayStrengthValue').textContent = `${e.target.value}%`;
+    });
+    document.getElementById('hpTourActiveType').addEventListener('change', e => {
+        document.getElementById('hpTourMediaBadge').textContent = e.target.value === 'video' ? 'فيديو' : 'صورة';
+    });
+    document.getElementById('hpHeroActiveImageIndex')?.addEventListener('change', syncHeroCaptionInputs);
+    document.getElementById('hpHeroActiveVideoIndex')?.addEventListener('change', syncHeroCaptionInputs);
+    document.getElementById('hpHeroImageMoveUp')?.addEventListener('click', () => moveHeroMedia('image', -1));
+    document.getElementById('hpHeroImageMoveDown')?.addEventListener('click', () => moveHeroMedia('image', 1));
+    document.getElementById('hpHeroVideoMoveUp')?.addEventListener('click', () => moveHeroMedia('video', -1));
+    document.getElementById('hpHeroVideoMoveDown')?.addEventListener('click', () => moveHeroMedia('video', 1));
+
+    // ── Init ──────────────────────────────────────────────
+    loadHomepageSettings();
+</script>
+</body>
+</html>

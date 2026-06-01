@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 نظام المالية - نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(120deg, #0ea5e9 0%, #0f766e 45%, #7c3aed 100%);
+            min-height: 100vh;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .stat-card.green {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+        }
+        .stat-card.red {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+        .stat-card.blue {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .header-nav-shell {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            gap: 0.875rem;
+            width: 100%;
+            min-width: 0;
+        }
+        .header-nav-track {
+            display: flex;
+            align-items: stretch;
+            gap: 0.875rem;
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .header-nav-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            flex: 0 0 clamp(170px, 18vw, 220px);
+            max-width: 220px;
+            min-height: 64px;
+            padding: 0.95rem 1rem;
+            text-align: center;
+            line-height: 1.45;
+            white-space: normal;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        }
+        .header-nav-link i {
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+        .header-nav-link span {
+            display: block;
+        }
+        .header-nav-more {
+            position: relative;
+            flex: 0 0 auto;
+        }
+        .header-nav-more.is-reserved {
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .header-nav-more-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            min-height: 64px;
+            padding: 0.95rem 1.2rem;
+            border: none;
+            color: white;
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+        }
+        .header-nav-more-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.22);
+        }
+        .header-nav-more-btn i:last-child {
+            font-size: 0.85rem;
+        }
+        .header-nav-menu {
+            position: absolute;
+            top: calc(100% + 0.75rem);
+            inset-inline-end: 0;
+            z-index: 20;
+            width: min(320px, calc(100vw - 2rem));
+            padding: 0.75rem;
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+            backdrop-filter: blur(14px);
+            display: grid;
+            gap: 0.65rem;
+        }
+        .header-nav-link--menu {
+            flex: none;
+            max-width: none;
+            width: 100%;
+            min-height: 58px;
+            justify-content: flex-start;
+            text-align: right;
+            box-shadow: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            color: white;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            transition: border 0.3s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .tab {
+            padding: 1rem 2rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: 700;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            animation: slideDown 0.3s ease-out;
+        }
+        .toast.success { background: #56ab2f; }
+        .toast.error { background: #eb3349; }
+        @keyframes slideDown {
+            from { transform: translate(-50%, -100%); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .section-accent-sky { border-top: 4px solid #0ea5e9; }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .section-accent-amber { border-top: 4px solid #f59e0b; }
+        .section-accent-violet { border-top: 4px solid #8b5cf6; }
+        .section-accent-indigo { border-top: 4px solid #6366f1; }
+        @media (max-width: 1024px) {
+            .header-nav-link {
+                flex-basis: 190px;
+            }
+        }
+        @media (max-width: 640px) {
+            .header-nav-shell {
+                gap: 0.75rem;
+            }
+            .header-nav-link {
+                flex-basis: 156px;
+                min-height: 58px;
+                padding: 0.85rem 1rem;
+            }
+            .header-nav-more-btn {
+                min-height: 58px;
+                padding-inline: 1rem;
+            }
+            .header-nav-menu {
+                width: min(280px, calc(100vw - 1.5rem));
+                padding: 0.65rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 shadow-lg">
+        <div class="container mx-auto">
+            <h1 class="text-3xl font-bold mb-2">📊 نظام المالية المتقدم</h1>
+            <p class="text-purple-100">إدارة التدفقات النقدية • التوقعات الذكية • التقارير الشاملة</p>
+        </div>
+    </div>
+
+    <div class="bg-white border-b">
+        <div class="container mx-auto px-4 sm:px-6 py-4">
+            <div class="header-nav-shell" id="header-nav-shell">
+                <div class="header-nav-track" id="header-nav-track">
+                <a href="/finance/cashflow-risk-reports.html" class="btn btn-primary header-nav-link">
+                    <i class="fas fa-water"></i>
+                    <span>التدفقات والمخاطر والتقارير</span>
+                </a>
+                <a href="/finance/accounting-cycle-impact.html" class="btn btn-success header-nav-link">
+                    <i class="fas fa-sitemap"></i>
+                    <span>أثر النظام المحاسبي والدورة</span>
+                </a>
+                <a href="/finance/chart-accounts-ui-design.html" class="btn btn-primary header-nav-link">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>تصميم شجرة الحسابات والواجهات</span>
+                </a>
+                <a href="/finance/invoices-budgets-master.html" class="btn btn-success header-nav-link">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>الفواتير والتحصيل والميزانيات</span>
+                </a>
+                <a href="/finance/system-blueprint-execution.html" class="btn btn-primary header-nav-link">
+                    <i class="fas fa-network-wired"></i>
+                    <span>المخطط التنفيذي للنظام</span>
+                </a>
+                <a href="/finance/financial-governance-executive.html" class="btn btn-success header-nav-link">
+                    <i class="fas fa-shield-halved"></i>
+                    <span>الحوكمة المالية والصلاحيات</span>
+                </a>
+                <a href="/finance/strategic-financial-reports.html" class="btn btn-primary header-nav-link">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>التقارير الاستراتيجية والذكاء المالي</span>
+                </a>
+                <a href="/finance/ai-risk-payment-framework.html" class="btn btn-success header-nav-link">
+                    <i class="fas fa-brain"></i>
+                    <span>نماذج المخاطر وخطط الدفع والحوكمة</span>
+                </a>
+                <a href="/finance/financial-policies-framework.html" class="btn btn-primary header-nav-link">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>السياسات المالية الأساسية</span>
+                </a>
+                <a href="/finance/operations-sop-finance.html" class="btn btn-success header-nav-link">
+                    <i class="fas fa-diagram-project"></i>
+                    <span>إجراءات التشغيل المالي</span>
+                </a>
+                <a href="/finance/approvals-roles-governance.html" class="btn btn-primary header-nav-link">
+                    <i class="fas fa-shield-halved"></i>
+                    <span>الموافقات والصلاحيات والحوكمة</span>
+                </a>
+                <a href="/finance/admin-erp-hr.html" class="btn btn-success header-nav-link">
+                    <i class="fas fa-sitemap"></i>
+                    <span>النظام الإداري والموارد البشرية</span>
+                </a>
+                <a href="/finance/hr-portal-workflows.html" class="btn btn-primary header-nav-link">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>بوابة العمليات والطلبات</span>
+                </a>
+                <a href="/finance/sales-accounts-operations-mobile.html" class="btn btn-success header-nav-link">
+                    <i class="fas fa-store"></i>
+                    <span>منظومة المبيعات والحسابات</span>
+                </a>
+                <a href="/finance/electronic-signature.html" class="btn btn-primary header-nav-link">
+                    <i class="fas fa-file-signature"></i>
+                    <span>التوقيع الإلكتروني</span>
+                </a>
+                <a href="/finance/franchise-agencies.html" class="btn btn-success header-nav-link">
+                    <i class="fas fa-store"></i>
+                    <span>وكالات فرنشايز</span>
+                </a>
+                <a href="/finance/contracts.html" class="btn btn-primary header-nav-link">
+                    <i class="fas fa-file-contract"></i>
+                    <span>العقود</span>
+                </a>
+                </div>
+                <div class="header-nav-more" id="header-nav-more" hidden>
+                    <button type="button" class="btn header-nav-more-btn" id="header-nav-more-btn" aria-haspopup="true" aria-expanded="false" aria-controls="header-nav-menu">
+                        <i class="fas fa-ellipsis-h"></i>
+                        <span>المزيد</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="header-nav-menu" id="header-nav-menu" hidden></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="bg-white shadow-sm border-b">
+        <div class="container mx-auto flex overflow-x-auto">
+            <div class="tab active" onclick="switchTab('overview')">
+                <i class="fas fa-chart-line ml-2"></i> نظرة عامة
+            </div>
+            <div class="tab" onclick="switchTab('accounts')">
+                <i class="fas fa-book ml-2"></i> شجرة الحسابات
+            </div>
+            <div class="tab" onclick="switchTab('operating')">
+                <i class="fas fa-shopping-cart ml-2"></i> التدفقات التشغيلية
+            </div>
+            <div class="tab" onclick="switchTab('investing')">
+                <i class="fas fa-building ml-2"></i> التدفقات الاستثمارية
+            </div>
+            <div class="tab" onclick="switchTab('financing')">
+                <i class="fas fa-hand-holding-usd ml-2"></i> التدفقات التمويلية
+            </div>
+            <div class="tab" onclick="switchTab('forecast')">
+                <i class="fas fa-brain ml-2"></i> التوقعات الذكية
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-6">
+
+        <!-- Overview Tab -->
+        <div id="overview-tab" class="tab-content">
+            <h2 class="text-2xl font-bold mb-4">📈 لوحة المعلومات الرئيسية</h2>
+            
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="stat-card green">
+                    <div class="text-sm opacity-90">صافي التدفق التشغيلي</div>
+                    <div class="text-3xl font-bold mt-2" id="operating-net">0 ريال</div>
+                    <div class="text-sm mt-2 opacity-75">آخر تحديث: اليوم</div>
+                </div>
+                <div class="stat-card red">
+                    <div class="text-sm opacity-90">صافي التدفق الاستثماري</div>
+                    <div class="text-3xl font-bold mt-2" id="investing-net">0 ريال</div>
+                    <div class="text-sm mt-2 opacity-75">آخر تحديث: اليوم</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="text-sm opacity-90">صافي التدفق التمويلي</div>
+                    <div class="text-3xl font-bold mt-2" id="financing-net">0 ريال</div>
+                    <div class="text-sm mt-2 opacity-75">آخر تحديث: اليوم</div>
+                </div>
+            </div>
+
+            <!-- Total Net Flow -->
+            <div class="card section-accent-sky">
+                <h3 class="text-xl font-bold mb-4">💰 إجمالي صافي التدفق النقدي</h3>
+                <div class="text-4xl font-bold text-purple-600" id="total-net">0 ريال</div>
+                <div class="mt-4">
+                    <canvas id="cashflow-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Transactions -->
+            <div class="card section-accent-emerald">
+                <h3 class="text-xl font-bold mb-4">📋 آخر العمليات</h3>
+                <div id="recent-transactions" class="space-y-2">
+                    <div class="text-gray-500 text-center py-4">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accounts Tab (NEW) -->
+        <div id="accounts-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">📚 شجرة الحسابات المالية</h2>
+            
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat-card green">
+                    <div class="text-sm opacity-90">الأصول</div>
+                    <div class="text-2xl font-bold mt-2" id="assets-count">0</div>
+                </div>
+                <div class="stat-card red">
+                    <div class="text-sm opacity-90">الخصوم</div>
+                    <div class="text-2xl font-bold mt-2" id="liabilities-count">0</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="text-sm opacity-90">حقوق الملكية</div>
+                    <div class="text-2xl font-bold mt-2" id="equity-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="text-sm opacity-90">الإيرادات والمصروفات</div>
+                    <div class="text-2xl font-bold mt-2" id="income-expense-count">0</div>
+                </div>
+            </div>
+
+            <!-- Accounts Table -->
+            <div class="card section-accent-indigo">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">📋 جميع الحسابات (61 حساب)</h3>
+                    <input type="text" id="search-accounts" class="input-field" placeholder="🔍 بحث..." style="width: 300px; margin-bottom: 0;">
+                </div>
+                <div class="overflow-auto" style="max-height: 600px;">
+                    <table class="w-full">
+                        <thead class="bg-gray-100 sticky top-0">
+                            <tr>
+                                <th class="p-3 text-right">account_id</th>
+                                <th class="p-3 text-right">account_code</th>
+                                <th class="p-3 text-right">account_name_ar</th>
+                                <th class="p-3 text-right">account_name_en</th>
+                                <th class="p-3 text-right">account_type</th>
+                                <th class="p-3 text-right">parent_account_id</th>
+                                <th class="p-3 text-right">parent_name</th>
+                                <th class="p-3 text-right">level</th>
+                                <th class="p-3 text-right">is_header</th>
+                                <th class="p-3 text-right">normal_balance</th>
+                                <th class="p-3 text-right">is_active</th>
+                                <th class="p-3 text-right">entity_type</th>
+                                <th class="p-3 text-right">entity_id</th>
+                                <th class="p-3 text-right">branch_id</th>
+                                <th class="p-3 text-right">incubator_id</th>
+                                <th class="p-3 text-right">platform_id</th>
+                                <th class="p-3 text-right">office_id</th>
+                                <th class="p-3 text-right">description</th>
+                                <th class="p-3 text-right">notes</th>
+                                <th class="p-3 text-right">children_count</th>
+                                <th class="p-3 text-right">created_at</th>
+                                <th class="p-3 text-right">updated_at</th>
+                                <th class="p-3 text-right">created_by</th>
+                                <th class="p-3 text-right">updated_by</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accounts-tbody">
+                            <tr><td colspan="24" class="text-center p-4 text-gray-500">جاري التحميل...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operating Cashflow Tab -->
+        <div id="operating-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">🔄 التدفقات التشغيلية</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Add Operating Flow -->
+                <div class="card section-accent-emerald">
+                    <h3 class="text-lg font-bold mb-4">➕ إضافة تدفق تشغيلي</h3>
+                    <form id="operating-form" onsubmit="addOperatingFlow(event)">
+                        <select class="input-field" id="op-type" required>
+                            <option value="">اختر نوع التدفق</option>
+                            <option value="customer_collection">تحصيل من عميل</option>
+                            <option value="vendor_payment">دفع لمورد</option>
+                            <option value="salary_payment">رواتب موظفين</option>
+                            <option value="rent_payment">إيجارات</option>
+                            <option value="utilities_payment">مرافق</option>
+                        </select>
+                        <input type="number" class="input-field" id="op-amount" placeholder="المبلغ (ريال)" required step="0.01">
+                        <input type="text" class="input-field" id="op-description" placeholder="الوصف" required>
+                        <input type="date" class="input-field" id="op-date" required>
+                        <button type="submit" class="btn btn-success w-full">
+                            <i class="fas fa-plus ml-2"></i> إضافة
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Operating Summary -->
+                <div class="card section-accent-emerald">
+                    <h3 class="text-lg font-bold mb-4">📊 ملخص التدفقات التشغيلية</h3>
+                    <div id="operating-summary" class="space-y-3">
+                        <div class="text-gray-500 text-center py-4">جاري التحميل...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operating List -->
+            <div class="card mt-6 section-accent-emerald">
+                <h3 class="text-lg font-bold mb-4">📋 قائمة التدفقات التشغيلية</h3>
+                <div id="operating-list" class="overflow-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-right">flow_id</th>
+                                <th class="p-3 text-right">entity_id</th>
+                                <th class="p-3 text-right">flow_type</th>
+                                <th class="p-3 text-right">amount</th>
+                                <th class="p-3 text-right">direction</th>
+                                <th class="p-3 text-right">description</th>
+                                <th class="p-3 text-right">flow_date</th>
+                                <th class="p-3 text-right">created_by</th>
+                                <th class="p-3 text-right">created_at</th>
+                            </tr>
+                        </thead>
+                        <tbody id="operating-tbody">
+                            <tr><td colspan="9" class="text-center p-4 text-gray-500">جاري التحميل...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Investing Cashflow Tab -->
+        <div id="investing-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">🏢 التدفقات الاستثمارية</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Add Investing Flow -->
+                <div class="card section-accent-amber">
+                    <h3 class="text-lg font-bold mb-4">➕ إضافة تدفق استثماري</h3>
+                    <form id="investing-form" onsubmit="addInvestingFlow(event)">
+                        <select class="input-field" id="inv-type" required>
+                            <option value="">اختر نوع التدفق</option>
+                            <option value="asset_purchase">شراء أصل</option>
+                            <option value="asset_sale">بيع أصل</option>
+                            <option value="platform_investment">استثمار في منصة</option>
+                            <option value="equipment_purchase">شراء معدات</option>
+                        </select>
+                        <input type="number" class="input-field" id="inv-amount" placeholder="المبلغ (ريال)" required step="0.01">
+                        <input type="text" class="input-field" id="inv-description" placeholder="الوصف" required>
+                        <input type="date" class="input-field" id="inv-date" required>
+                        <button type="submit" class="btn btn-success w-full">
+                            <i class="fas fa-plus ml-2"></i> إضافة
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Investing Summary -->
+                <div class="card section-accent-amber">
+                    <h3 class="text-lg font-bold mb-4">📊 ملخص التدفقات الاستثمارية</h3>
+                    <div id="investing-summary" class="space-y-3">
+                        <div class="text-gray-500 text-center py-4">جاري التحميل...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Investing List -->
+            <div class="card mt-6 section-accent-amber">
+                <h3 class="text-lg font-bold mb-4">📋 قائمة التدفقات الاستثمارية</h3>
+                <div id="investing-list" class="overflow-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-right">flow_id</th>
+                                <th class="p-3 text-right">entity_id</th>
+                                <th class="p-3 text-right">flow_type</th>
+                                <th class="p-3 text-right">amount</th>
+                                <th class="p-3 text-right">direction</th>
+                                <th class="p-3 text-right">description</th>
+                                <th class="p-3 text-right">flow_date</th>
+                                <th class="p-3 text-right">created_by</th>
+                                <th class="p-3 text-right">created_at</th>
+                            </tr>
+                        </thead>
+                        <tbody id="investing-tbody">
+                            <tr><td colspan="9" class="text-center p-4 text-gray-500">جاري التحميل...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financing Cashflow Tab -->
+        <div id="financing-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">💵 التدفقات التمويلية</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Add Financing Flow -->
+                <div class="card section-accent-violet">
+                    <h3 class="text-lg font-bold mb-4">➕ إضافة تدفق تمويلي</h3>
+                    <form id="financing-form" onsubmit="addFinancingFlow(event)">
+                        <select class="input-field" id="fin-type" required>
+                            <option value="">اختر نوع التدفق</option>
+                            <option value="bank_loan">قرض من بنك</option>
+                            <option value="loan_repayment">سداد قرض</option>
+                            <option value="capital_increase">زيادة رأس المال</option>
+                            <option value="dividend_payment">توزيع أرباح</option>
+                        </select>
+                        <input type="number" class="input-field" id="fin-amount" placeholder="المبلغ (ريال)" required step="0.01">
+                        <input type="text" class="input-field" id="fin-description" placeholder="الوصف" required>
+                        <input type="date" class="input-field" id="fin-date" required>
+                        <button type="submit" class="btn btn-success w-full">
+                            <i class="fas fa-plus ml-2"></i> إضافة
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Financing Summary -->
+                <div class="card section-accent-violet">
+                    <h3 class="text-lg font-bold mb-4">📊 ملخص التدفقات التمويلية</h3>
+                    <div id="financing-summary" class="space-y-3">
+                        <div class="text-gray-500 text-center py-4">جاري التحميل...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financing List -->
+            <div class="card mt-6 section-accent-violet">
+                <h3 class="text-lg font-bold mb-4">📋 قائمة التدفقات التمويلية</h3>
+                <div id="financing-list" class="overflow-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-right">flow_id</th>
+                                <th class="p-3 text-right">entity_id</th>
+                                <th class="p-3 text-right">flow_type</th>
+                                <th class="p-3 text-right">amount</th>
+                                <th class="p-3 text-right">direction</th>
+                                <th class="p-3 text-right">description</th>
+                                <th class="p-3 text-right">flow_date</th>
+                                <th class="p-3 text-right">created_by</th>
+                                <th class="p-3 text-right">created_at</th>
+                            </tr>
+                        </thead>
+                        <tbody id="financing-tbody">
+                            <tr><td colspan="9" class="text-center p-4 text-gray-500">جاري التحميل...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Forecast Tab -->
+        <div id="forecast-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-4">🤖 التوقعات الذكية بالذكاء الاصطناعي</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Create Forecast -->
+                <div class="card section-accent-sky">
+                    <h3 class="text-lg font-bold mb-4">➕ إنشاء توقع جديد</h3>
+                    <form id="forecast-form" onsubmit="addForecast(event)">
+                        <select class="input-field" id="fc-type" required>
+                            <option value="">نوع التوقع</option>
+                            <option value="surplus">فائض نقدي</option>
+                            <option value="deficit">عجز نقدي</option>
+                        </select>
+                        <input type="date" class="input-field" id="fc-date" placeholder="تاريخ التوقع" required>
+                        <input type="number" class="input-field" id="fc-amount" placeholder="القيمة المتوقعة (ريال)" required step="0.01">
+                        <input type="number" class="input-field" id="fc-confidence" placeholder="مستوى الثقة %" required min="0" max="100" step="0.1">
+                        <input type="number" class="input-field" id="fc-lower" placeholder="النطاق السفلي (ريال)" required step="0.01">
+                        <input type="number" class="input-field" id="fc-upper" placeholder="النطاق العلوي (ريال)" required step="0.01">
+                        <textarea class="input-field" id="fc-factors" placeholder="العوامل المؤثرة (JSON)" rows="3">[]</textarea>
+                        <button type="submit" class="btn btn-primary w-full">
+                            <i class="fas fa-brain ml-2"></i> إنشاء توقع
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Forecast Stats -->
+                <div class="card section-accent-sky">
+                    <h3 class="text-lg font-bold mb-4">📈 إحصائيات التوقعات</h3>
+                    <div id="forecast-stats" class="space-y-3">
+                        <div class="text-gray-500 text-center py-4">جاري التحميل...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forecasts Table -->
+            <div class="card mt-6 section-accent-sky">
+                <h3 class="text-lg font-bold mb-4">🔮 جدول التوقعات</h3>
+                <div class="overflow-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-3 text-right">forecast_id</th>
+                                <th class="p-3 text-right">entity_id</th>
+                                <th class="p-3 text-right">forecast_period</th>
+                                <th class="p-3 text-right">forecast_type</th>
+                                <th class="p-3 text-right">forecast_amount</th>
+                                <th class="p-3 text-right">confidence_level</th>
+                                <th class="p-3 text-right">ai_model</th>
+                                <th class="p-3 text-right">ai_insights</th>
+                                <th class="p-3 text-right">created_at</th>
+                            </tr>
+                        </thead>
+                        <tbody id="forecast-tbody">
+                            <tr><td colspan="9" class="text-center p-4 text-gray-500">جاري التحميل...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = '1'; // Default entity
+        let cashflowChart = null;
+
+        // Switch Tabs
+        function switchTab(tab) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+
+            // Show selected tab
+            document.getElementById(`${tab}-tab`).classList.remove('hidden');
+            event.target.closest('.tab').classList.add('active');
+
+            // Load data for the tab
+            if (tab === 'overview') loadOverview();
+            else if (tab === 'accounts') loadAccounts();
+            else if (tab === 'operating') loadOperating();
+            else if (tab === 'investing') loadInvesting();
+            else if (tab === 'financing') loadFinancing();
+            else if (tab === 'forecast') loadForecasts();
+        }
+
+        // Toast Notification
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} ml-2"></i> ${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Format Number
+        function formatMoney(amount) {
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount) + ' ريال';
+        }
+
+        function closeHeaderOverflowMenu() {
+            const moreButton = document.getElementById('header-nav-more-btn');
+            const menu = document.getElementById('header-nav-menu');
+            if (!moreButton || !menu) return;
+            moreButton.setAttribute('aria-expanded', 'false');
+            menu.hidden = true;
+        }
+
+        function getHeaderTrackContentWidth(track) {
+            if (!track) return 0;
+
+            const items = Array.from(track.children);
+            if (!items.length) return 0;
+
+            const trackStyle = window.getComputedStyle(track);
+            const gap = parseFloat(trackStyle.columnGap || trackStyle.gap || '0');
+
+            return items.reduce((total, item) => total + item.getBoundingClientRect().width, 0) + (gap * Math.max(items.length - 1, 0));
+        }
+
+        function rebalanceHeaderNavigation() {
+            const shell = document.getElementById('header-nav-shell');
+            const track = document.getElementById('header-nav-track');
+            const more = document.getElementById('header-nav-more');
+            const menu = document.getElementById('header-nav-menu');
+
+            if (!shell || !track || !more || !menu) return;
+
+            closeHeaderOverflowMenu();
+
+            while (menu.firstElementChild) {
+                const item = menu.firstElementChild;
+                item.classList.remove('header-nav-link--menu');
+                track.appendChild(item);
+            }
+
+            more.hidden = true;
+            more.classList.remove('is-reserved');
+
+            const fullTrackWidth = getHeaderTrackContentWidth(track);
+
+            if (fullTrackWidth <= shell.clientWidth) {
+                return;
+            }
+
+            const trackStyle = window.getComputedStyle(track);
+            const shellGap = parseFloat(trackStyle.columnGap || trackStyle.gap || '0');
+
+            more.hidden = false;
+            more.classList.add('is-reserved');
+
+            const availableWidth = Math.max(
+                shell.clientWidth - more.offsetWidth - shellGap,
+                0
+            );
+
+            while (getHeaderTrackContentWidth(track) > availableWidth && track.lastElementChild) {
+                const item = track.lastElementChild;
+                item.classList.add('header-nav-link--menu');
+                menu.prepend(item);
+            }
+
+            const hasOverflow = menu.childElementCount > 0;
+            more.hidden = !hasOverflow;
+            more.classList.remove('is-reserved');
+
+            if (!hasOverflow) {
+                closeHeaderOverflowMenu();
+            }
+        }
+
+        // Load Overview
+        async function loadOverview() {
+            try {
+                const res = await fetch(`${API_BASE}/finance/cashflow/overview?entity_id=${ENTITY_ID}`);
+                const data = await res.json();
+
+                document.getElementById('operating-net').textContent = formatMoney(data.operating.net_cashflow);
+                document.getElementById('investing-net').textContent = formatMoney(data.investing.net_cashflow);
+                document.getElementById('financing-net').textContent = formatMoney(data.financing.net_cashflow);
+                document.getElementById('total-net').textContent = formatMoney(data.total_net_cashflow);
+
+                updateChart([
+                    data.operating.net_cashflow,
+                    data.investing.net_cashflow,
+                    data.financing.net_cashflow
+                ]);
+
+                loadRecentTransactions();
+            } catch (error) {
+                console.error('Error loading overview:', error);
+                showToast('خطأ في تحميل البيانات', 'error');
+            }
+        }
+
+        async function loadRecentTransactions() {
+            try {
+                const [opRes, invRes, finRes] = await Promise.all([
+                    fetch(`${API_BASE}/finance/cashflow/operating?entity_id=${ENTITY_ID}`),
+                    fetch(`${API_BASE}/finance/cashflow/investing?entity_id=${ENTITY_ID}`),
+                    fetch(`${API_BASE}/finance/cashflow/financing?entity_id=${ENTITY_ID}`)
+                ]);
+
+                const [opData, invData, finData] = await Promise.all([
+                    opRes.json(), invRes.json(), finRes.json()
+                ]);
+
+                const combined = []
+                    .concat((opData.cashflows || []).map(f => ({ ...f, flow_group: 'OPERATING' })))
+                    .concat((invData.cashflows || []).map(f => ({ ...f, flow_group: 'INVESTING' })))
+                    .concat((finData.cashflows || []).map(f => ({ ...f, flow_group: 'FINANCING' })));
+
+                const recent = combined
+                    .sort((a, b) => new Date(b.flow_date) - new Date(a.flow_date))
+                    .slice(0, 6);
+
+                const container = document.getElementById('recent-transactions');
+                if (!recent.length) {
+                    container.innerHTML = '<div class="text-gray-500 text-center py-4">لا توجد عمليات</div>';
+                    return;
+                }
+
+                container.innerHTML = recent.map(item => {
+                    const amount = parseFloat(item.amount || 0);
+                    const direction = amount >= 0 ? 'IN' : 'OUT';
+                    const badgeColor = direction === 'IN' ? 'text-green-600' : 'text-red-600';
+                    const groupLabel = item.flow_group === 'OPERATING' ? 'تشغيلي' : item.flow_group === 'INVESTING' ? 'استثماري' : 'تمويلي';
+                    return `
+                        <div class="flex items-center justify-between bg-white/70 p-3 rounded-lg border">
+                            <div>
+                                <div class="font-semibold">${groupLabel} • ${getFlowTypeLabel(item.flow_type)}</div>
+                                <div class="text-sm text-gray-500">${item.description || '-'} • ${new Date(item.flow_date).toLocaleDateString('en-US')}</div>
+                            </div>
+                            <div class="font-bold ${badgeColor}">${formatMoney(Math.abs(amount))}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading recent transactions:', error);
+            }
+        }
+
+        // Load Accounts
+        async function loadAccounts() {
+            try {
+                const res = await fetch(`${API_BASE}/finance/accounts?entity_id=${ENTITY_ID}`);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error('Failed to load accounts');
+                }
+
+                const accounts = data.accounts;
+
+                // Count by type
+                const assets = accounts.filter(a => a.account_type === 'ASSET').length;
+                const liabilities = accounts.filter(a => a.account_type === 'LIABILITY').length;
+                const equity = accounts.filter(a => a.account_type === 'EQUITY').length;
+                const income = accounts.filter(a => a.account_type === 'REVENUE' || a.account_type === 'EXPENSE').length;
+
+                document.getElementById('assets-count').textContent = `${assets} حساب`;
+                document.getElementById('liabilities-count').textContent = `${liabilities} حساب`;
+                document.getElementById('equity-count').textContent = `${equity} حساب`;
+                document.getElementById('income-expense-count').textContent = `${income} حساب`;
+
+                // Display accounts
+                const tbody = document.getElementById('accounts-tbody');
+                tbody.innerHTML = accounts.map(acc => {
+                    const typeLabels = {
+                        'ASSET': 'أصل',
+                        'LIABILITY': 'التزام',
+                        'EQUITY': 'حقوق ملكية',
+                        'REVENUE': 'إيراد',
+                        'EXPENSE': 'مصروف'
+                    };
+
+                    const typeColors = {
+                        'ASSET': 'text-green-600',
+                        'LIABILITY': 'text-red-600',
+                        'EQUITY': 'text-blue-600',
+                        'REVENUE': 'text-purple-600',
+                        'EXPENSE': 'text-orange-600'
+                    };
+
+                    return `
+                        <tr class="border-b hover:bg-gray-50 account-row" data-search="${acc.account_code} ${acc.account_name_ar} ${acc.account_name_en || ''} ${typeLabels[acc.account_type] || acc.account_type}">
+                            <td class="p-3 font-mono">${acc.account_id ?? '-'}</td>
+                            <td class="p-3 font-mono font-bold">${acc.account_code ?? '-'}</td>
+                            <td class="p-3">${acc.account_name_ar ?? '-'}</td>
+                            <td class="p-3">${acc.account_name_en ?? '-'}</td>
+                            <td class="p-3 ${typeColors[acc.account_type] || ''}">${typeLabels[acc.account_type] || acc.account_type || '-'}</td>
+                            <td class="p-3 font-mono text-sm text-gray-500">${acc.parent_account_id ?? '-'}</td>
+                            <td class="p-3">${acc.parent_name ?? '-'}</td>
+                            <td class="p-3 text-center"><span class="bg-gray-200 px-2 py-1 rounded text-sm">${acc.level ?? '-'}</span></td>
+                            <td class="p-3">${acc.is_header === true ? 'نعم' : acc.is_header === false ? 'لا' : '-'}</td>
+                            <td class="p-3">${acc.normal_balance ?? '-'}</td>
+                            <td class="p-3">${acc.is_active === true ? 'نعم' : acc.is_active === false ? 'لا' : '-'}</td>
+                            <td class="p-3">${acc.entity_type ?? '-'}</td>
+                            <td class="p-3">${acc.entity_id ?? '-'}</td>
+                            <td class="p-3">${acc.branch_id ?? '-'}</td>
+                            <td class="p-3">${acc.incubator_id ?? '-'}</td>
+                            <td class="p-3">${acc.platform_id ?? '-'}</td>
+                            <td class="p-3">${acc.office_id ?? '-'}</td>
+                            <td class="p-3">${acc.description ?? '-'}</td>
+                            <td class="p-3">${acc.notes ?? '-'}</td>
+                            <td class="p-3">${acc.children_count ?? 0}</td>
+                            <td class="p-3">${acc.created_at ? new Date(acc.created_at).toLocaleString('en-US') : '-'}</td>
+                            <td class="p-3">${acc.updated_at ? new Date(acc.updated_at).toLocaleString('en-US') : '-'}</td>
+                            <td class="p-3">${acc.created_by ?? '-'}</td>
+                            <td class="p-3">${acc.updated_by ?? '-'}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // Search functionality
+                document.getElementById('search-accounts').addEventListener('input', (e) => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    document.querySelectorAll('.account-row').forEach(row => {
+                        const searchData = row.getAttribute('data-search').toLowerCase();
+                        row.style.display = searchData.includes(searchTerm) ? '' : 'none';
+                    });
+                });
+
+            } catch (error) {
+                console.error('Error loading accounts:', error);
+                showToast('خطأ في تحميل الحسابات', 'error');
+            }
+        }
+
+        // Update Chart
+        function updateChart(data) {
+            const ctx = document.getElementById('cashflow-chart');
+            if (cashflowChart) cashflowChart.destroy();
+
+            cashflowChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['التشغيلي', 'الاستثماري', 'التمويلي'],
+                    datasets: [{
+                        label: 'صافي التدفق النقدي (ريال)',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(86, 171, 47, 0.7)',
+                            'rgba(235, 51, 73, 0.7)',
+                            'rgba(79, 172, 254, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgb(86, 171, 47)',
+                            'rgb(235, 51, 73)',
+                            'rgb(79, 172, 254)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Add Operating Flow
+        async function addOperatingFlow(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>';
+
+            try {
+                const res = await fetch(`${API_BASE}/finance/cashflow/operating`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_id: ENTITY_ID,
+                        flow_type: document.getElementById('op-type').value,
+                        amount: parseFloat(document.getElementById('op-amount').value),
+                        description: document.getElementById('op-description').value,
+                        flow_date: document.getElementById('op-date').value
+                    })
+                });
+
+                if (res.ok) {
+                    showToast('تم إضافة التدفق بنجاح');
+                    e.target.reset();
+                    loadOperating();
+                } else {
+                    throw new Error('Failed to add');
+                }
+            } catch (error) {
+                showToast('خطأ في الإضافة', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus ml-2"></i> إضافة';
+            }
+        }
+
+        // Load Operating
+        async function loadOperating() {
+            try {
+                const res = await fetch(`${API_BASE}/finance/cashflow/operating?entity_id=${ENTITY_ID}`);
+                const data = await res.json();
+
+                // Summary
+                document.getElementById('operating-summary').innerHTML = `
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">التدفق الداخل</div>
+                        <div class="text-2xl font-bold text-green-600">${formatMoney(data.summary.inflow)}</div>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">التدفق الخارج</div>
+                        <div class="text-2xl font-bold text-red-600">${formatMoney(data.summary.outflow)}</div>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">صافي التدفق</div>
+                        <div class="text-2xl font-bold text-blue-600">${formatMoney(data.summary.net_flow)}</div>
+                    </div>
+                `;
+
+                // List
+                const tbody = document.getElementById('operating-tbody');
+                const flows = data.cashflows || [];
+                if (flows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-gray-500">لا توجد عمليات</td></tr>';
+                } else {
+                    tbody.innerHTML = flows.map(f => {
+                        const amount = parseFloat(f.amount || 0);
+                        const direction = amount >= 0 ? 'IN' : 'OUT';
+                        return `
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="p-3 font-mono">${f.flow_id ?? '-'}</td>
+                                <td class="p-3">${f.entity_id ?? '-'}</td>
+                                <td class="p-3">${getFlowTypeLabel(f.flow_type)}</td>
+                                <td class="p-3 ${direction === 'IN' ? 'text-green-600' : 'text-red-600'}">${formatMoney(amount)}</td>
+                                <td class="p-3">${direction}</td>
+                                <td class="p-3">${f.description ?? '-'}</td>
+                                <td class="p-3">${f.flow_date ? new Date(f.flow_date).toLocaleDateString('en-US') : '-'}</td>
+                                <td class="p-3">${f.created_by ?? '-'}</td>
+                                <td class="p-3">${f.created_at ? new Date(f.created_at).toLocaleString('en-US') : '-'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error loading operating:', error);
+            }
+        }
+
+        // Add Investing Flow
+        async function addInvestingFlow(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>';
+
+            try {
+                const res = await fetch(`${API_BASE}/finance/cashflow/investing`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_id: ENTITY_ID,
+                        flow_type: document.getElementById('inv-type').value,
+                        amount: parseFloat(document.getElementById('inv-amount').value),
+                        description: document.getElementById('inv-description').value,
+                        flow_date: document.getElementById('inv-date').value
+                    })
+                });
+
+                if (res.ok) {
+                    showToast('تم إضافة التدفق بنجاح');
+                    e.target.reset();
+                    loadInvesting();
+                } else {
+                    throw new Error('Failed');
+                }
+            } catch (error) {
+                showToast('خطأ في الإضافة', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus ml-2"></i> إضافة';
+            }
+        }
+
+        // Load Investing
+        async function loadInvesting() {
+            try {
+                const res = await fetch(`${API_BASE}/finance/cashflow/investing?entity_id=${ENTITY_ID}`);
+                const data = await res.json();
+
+                document.getElementById('investing-summary').innerHTML = `
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">التدفق الداخل</div>
+                        <div class="text-2xl font-bold text-green-600">${formatMoney(data.summary.inflow)}</div>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">التدفق الخارج</div>
+                        <div class="text-2xl font-bold text-red-600">${formatMoney(data.summary.outflow)}</div>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">صافي التدفق</div>
+                        <div class="text-2xl font-bold text-blue-600">${formatMoney(data.summary.net_flow)}</div>
+                    </div>
+                `;
+
+                const tbody = document.getElementById('investing-tbody');
+                const flows = data.cashflows || [];
+                if (flows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-gray-500">لا توجد عمليات</td></tr>';
+                } else {
+                    tbody.innerHTML = flows.map(f => {
+                        const amount = parseFloat(f.amount || 0);
+                        const direction = amount >= 0 ? 'IN' : 'OUT';
+                        return `
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="p-3 font-mono">${f.flow_id ?? '-'}</td>
+                                <td class="p-3">${f.entity_id ?? '-'}</td>
+                                <td class="p-3">${getFlowTypeLabel(f.flow_type)}</td>
+                                <td class="p-3 ${direction === 'IN' ? 'text-green-600' : 'text-red-600'}">${formatMoney(amount)}</td>
+                                <td class="p-3">${direction}</td>
+                                <td class="p-3">${f.description ?? '-'}</td>
+                                <td class="p-3">${f.flow_date ? new Date(f.flow_date).toLocaleDateString('en-US') : '-'}</td>
+                                <td class="p-3">${f.created_by ?? '-'}</td>
+                                <td class="p-3">${f.created_at ? new Date(f.created_at).toLocaleString('en-US') : '-'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Add Financing Flow
+        async function addFinancingFlow(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>';
+
+            try {
+                const res = await fetch(`${API_BASE}/finance/cashflow/financing`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_id: ENTITY_ID,
+                        flow_type: document.getElementById('fin-type').value,
+                        amount: parseFloat(document.getElementById('fin-amount').value),
+                        description: document.getElementById('fin-description').value,
+                        flow_date: document.getElementById('fin-date').value
+                    })
+                });
+
+                if (res.ok) {
+                    showToast('تم إضافة التدفق بنجاح');
+                    e.target.reset();
+                    loadFinancing();
+                } else {
+                    throw new Error('Failed');
+                }
+            } catch (error) {
+                showToast('خطأ في الإضافة', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus ml-2"></i> إضافة';
+            }
+        }
+
+        // Load Financing
+        async function loadFinancing() {
+            try {
+                const res = await fetch(`${API_BASE}/finance/cashflow/financing?entity_id=${ENTITY_ID}`);
+                const data = await res.json();
+
+                document.getElementById('financing-summary').innerHTML = `
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">التدفق الداخل</div>
+                        <div class="text-2xl font-bold text-green-600">${formatMoney(data.summary.inflow)}</div>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">التدفق الخارج</div>
+                        <div class="text-2xl font-bold text-red-600">${formatMoney(data.summary.outflow)}</div>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">صافي التدفق</div>
+                        <div class="text-2xl font-bold text-blue-600">${formatMoney(data.summary.net_flow)}</div>
+                    </div>
+                `;
+
+                const tbody = document.getElementById('financing-tbody');
+                const flows = data.cashflows || [];
+                if (flows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-gray-500">لا توجد عمليات</td></tr>';
+                } else {
+                    tbody.innerHTML = flows.map(f => {
+                        const amount = parseFloat(f.amount || 0);
+                        const direction = amount >= 0 ? 'IN' : 'OUT';
+                        return `
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="p-3 font-mono">${f.flow_id ?? '-'}</td>
+                                <td class="p-3">${f.entity_id ?? '-'}</td>
+                                <td class="p-3">${getFlowTypeLabel(f.flow_type)}</td>
+                                <td class="p-3 ${direction === 'IN' ? 'text-green-600' : 'text-red-600'}">${formatMoney(amount)}</td>
+                                <td class="p-3">${direction}</td>
+                                <td class="p-3">${f.description ?? '-'}</td>
+                                <td class="p-3">${f.flow_date ? new Date(f.flow_date).toLocaleDateString('en-US') : '-'}</td>
+                                <td class="p-3">${f.created_by ?? '-'}</td>
+                                <td class="p-3">${f.created_at ? new Date(f.created_at).toLocaleString('en-US') : '-'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Add Forecast
+        async function addForecast(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>';
+
+            try {
+                const forecastDate = document.getElementById('fc-date').value;
+                const periodLabel = forecastDate ? new Date(forecastDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'غير محدد';
+                const rawConfidence = parseFloat(document.getElementById('fc-confidence').value || 0);
+                const confidenceNormalized = rawConfidence > 1 ? rawConfidence / 100 : rawConfidence;
+                const res = await fetch(`${API_BASE}/finance/cashflow/forecast`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_id: ENTITY_ID,
+                        forecast_type: document.getElementById('fc-type').value,
+                        forecast_period: periodLabel,
+                        forecast_amount: parseFloat(document.getElementById('fc-amount').value),
+                        confidence_level: confidenceNormalized,
+                        ai_model: 'Naiosh-AI v1',
+                        ai_insights: JSON.parse(document.getElementById('fc-factors').value)
+                    })
+                });
+
+                if (res.ok) {
+                    showToast('تم إنشاء التوقع بنجاح');
+                    e.target.reset();
+                    loadForecasts();
+                } else {
+                    throw new Error('Failed');
+                }
+            } catch (error) {
+                showToast('خطأ في الإنشاء', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-brain ml-2"></i> إنشاء توقع';
+            }
+        }
+
+        // Load Forecasts
+        async function loadForecasts() {
+            try {
+                const res = await fetch(`${API_BASE}/finance/cashflow/forecast?entity_id=${ENTITY_ID}`);
+                const data = await res.json();
+
+                document.getElementById('forecast-stats').innerHTML = `
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">عدد التوقعات</div>
+                        <div class="text-2xl font-bold text-purple-600">${data.forecasts.length}</div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">توقعات الفائض</div>
+                        <div class="text-2xl font-bold text-green-600">${data.forecasts.filter(f => f.forecast_type === 'surplus').length}</div>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">توقعات العجز</div>
+                        <div class="text-2xl font-bold text-red-600">${data.forecasts.filter(f => f.forecast_type === 'deficit').length}</div>
+                    </div>
+                `;
+
+                const tbody = document.getElementById('forecast-tbody');
+                if (data.forecasts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-gray-500">لا توجد توقعات</td></tr>';
+                } else {
+                    tbody.innerHTML = data.forecasts.map(f => {
+                        const confidence = parseFloat(f.confidence_level || 0);
+                        const confidencePct = confidence <= 1 ? (confidence * 100).toFixed(1) : confidence.toFixed(1);
+                        return `
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="p-3 font-mono">${f.forecast_id ?? '-'}</td>
+                                <td class="p-3">${f.entity_id ?? '-'}</td>
+                                <td class="p-3">${f.forecast_period ?? '-'}</td>
+                                <td class="p-3">${f.forecast_type ?? '-'}</td>
+                                <td class="p-3 font-semibold text-purple-600">${formatMoney(f.forecast_amount || 0)}</td>
+                                <td class="p-3">${confidencePct}%</td>
+                                <td class="p-3">${f.ai_model ?? '-'}</td>
+                                <td class="p-3">${f.ai_insights ? JSON.stringify(f.ai_insights) : '-'}</td>
+                                <td class="p-3">${f.created_at ? new Date(f.created_at).toLocaleString('en-US') : '-'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Get Flow Type Label
+        function getFlowTypeLabel(type) {
+            const labels = {
+                customer_collection: 'تحصيل من عميل',
+                vendor_payment: 'دفع لمورد',
+                salary_payment: 'رواتب',
+                rent_payment: 'إيجار',
+                utilities_payment: 'مرافق',
+                asset_purchase: 'شراء أصل',
+                asset_sale: 'بيع أصل',
+                platform_investment: 'استثمار منصة',
+                equipment_purchase: 'شراء معدات',
+                bank_loan: 'قرض بنكي',
+                loan_repayment: 'سداد قرض',
+                capital_increase: 'زيادة رأس مال',
+                dividend_payment: 'توزيع أرباح'
+            };
+            return labels[type] || type;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            const moreButton = document.getElementById('header-nav-more-btn');
+            const moreMenu = document.getElementById('header-nav-menu');
+            const headerShell = document.getElementById('header-nav-shell');
+
+            if (moreButton && moreMenu && headerShell) {
+                moreButton.addEventListener('click', () => {
+                    const isExpanded = moreButton.getAttribute('aria-expanded') === 'true';
+                    moreButton.setAttribute('aria-expanded', String(!isExpanded));
+                    moreMenu.hidden = isExpanded;
+                });
+
+                document.addEventListener('click', (event) => {
+                    if (!headerShell.contains(event.target)) {
+                        closeHeaderOverflowMenu();
+                    }
+                });
+
+                window.addEventListener('resize', rebalanceHeaderNavigation);
+
+                if (typeof ResizeObserver === 'function') {
+                    new ResizeObserver(() => rebalanceHeaderNavigation()).observe(headerShell);
+                }
+
+                rebalanceHeaderNavigation();
+            }
+
+            // Set default dates
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('op-date').value = today;
+            document.getElementById('inv-date').value = today;
+            document.getElementById('fin-date').value = today;
+            document.getElementById('fc-date').value = today;
+
+            // Load all data on startup
+            loadOverview();
+            loadAccounts();
+            loadOperating();
+            loadInvesting();
+            loadFinancing();
+            loadForecasts();
+        });
+    </script>
+
+</body>
+</html>

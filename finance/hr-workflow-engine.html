@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔁 محرك سير العمل - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --card: #ffffff;
+      --paper: #f8fafc;
+      --red: #bb1226;
+      --red-dark: #7a0b16;
+      --red-light: rgba(187,18,38,0.1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #f1f5f9 0%, #f8fafc 50%, #eef2f7 100%);
+      min-height: 100vh;
+      margin: 0; padding: 0;
+    }
+
+    /* ─── Top Bar ─── */
+    .top-bar {
+      background: rgba(255,255,255,0.97);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+      padding: 14px 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+      position: sticky; top: 0; z-index: 50;
+      box-shadow: 0 1px 6px rgba(15,23,42,0.07);
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 14px; }
+    .top-bar-icon {
+      width: 46px; height: 46px;
+      background: linear-gradient(135deg, var(--red), var(--red-dark));
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 20px;
+      box-shadow: 0 6px 18px rgba(187,18,38,0.35);
+    }
+    .top-bar-title { color: var(--ink); font-size: 20px; font-weight: 900; line-height: 1.2; }
+    .top-bar-sub   { color: var(--muted); font-size: 12px; font-weight: 600; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; font-weight: 800; border-radius: 999px;
+      padding: 10px 20px; transition: all 0.2s ease;
+      border: 1px solid transparent; cursor: pointer;
+      font-family: 'Cairo', sans-serif; font-size: 13px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background: linear-gradient(135deg, var(--red), var(--red-dark)); color: white; box-shadow: 0 6px 18px rgba(187,18,38,0.3); }
+    .btn-primary:hover { box-shadow: 0 10px 24px rgba(187,18,38,0.4); }
+    .btn-dark { background: var(--ink); color: white; }
+    .btn-dark:hover { background: #1e293b; box-shadow: 0 8px 20px rgba(15,23,42,0.3); }
+    .btn-outline { background: white; color: #374151; border-color: var(--line); }
+    .btn-outline:hover { background: var(--paper); box-shadow: 0 4px 12px rgba(15,23,42,0.08); }
+    .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+    .btn-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+    .btn-danger  { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+    .btn-sm { padding: 7px 14px; font-size: 12px; }
+    .btn-xs { padding: 5px 10px; font-size: 11px; }
+
+    /* ─── Main ─── */
+    .main-wrap { max-width: 1500px; margin: 0 auto; padding: 28px 20px 80px; }
+
+    /* ─── Stats ─── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    @media(max-width:900px){ .stats-grid{grid-template-columns:repeat(2,1fr);} }
+    @media(max-width:500px){ .stats-grid{grid-template-columns:1fr;} }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 14px 32px rgba(15,23,42,0.12); }
+    .stat-icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; margin-bottom: 12px;
+    }
+    .stat-label { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+    .stat-value { font-size: 28px; font-weight: 900; color: var(--ink); line-height: 1.1; }
+    .stat-sub   { font-size: 11px; color: #9ca3af; margin-top: 4px; font-weight: 600; }
+
+    /* ─── Panel ─── */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(15,23,42,0.08);
+      margin-bottom: 24px;
+    }
+    .panel-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.02), rgba(226,232,240,0.3));
+    }
+    .panel-title { font-size: 16px; font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+    .panel-body  { padding: 20px 24px; }
+
+    /* ─── Workflow Table ─── */
+    .wf-table { width: 100%; border-collapse: collapse; }
+    .wf-table th {
+      padding: 12px 16px; text-align: right;
+      font-size: 12px; font-weight: 800; color: var(--muted);
+      background: var(--paper); border-bottom: 2px solid var(--line);
+      white-space: nowrap;
+    }
+    .wf-table td {
+      padding: 14px 16px; border-bottom: 1px solid var(--line);
+      font-size: 13px; font-weight: 600; vertical-align: middle;
+    }
+    .wf-table tr:last-child td { border-bottom: none; }
+    .wf-table tr:hover td { background: rgba(248,250,252,0.8); }
+
+    /* ─── Badges ─── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 12px; border-radius: 999px;
+      font-size: 12px; font-weight: 800;
+    }
+    .badge-active   { background: rgba(16,185,129,0.12); color: #047857; }
+    .badge-paused   { background: rgba(245,158,11,0.14); color: #b45309; }
+    .badge-draft    { background: rgba(100,116,139,0.12); color: #475569; }
+    .badge-error    { background: rgba(239,68,68,0.12); color: #dc2626; }
+
+    /* ─── Empty State ─── */
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+    }
+    .empty-icon {
+      width: 80px; height: 80px; border-radius: 24px;
+      background: var(--red-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; color: var(--red);
+    }
+    .empty-title { font-size: 18px; font-weight: 800; color: var(--ink); }
+    .empty-sub   { font-size: 13px; color: var(--muted); font-weight: 600; }
+
+    /* ─── MODAL OVERLAY ─── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(15,23,42,0.55);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal-box {
+      background: white; border-radius: 28px;
+      width: 100%; max-width: 1100px;
+      max-height: 92vh; overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: 0 40px 100px rgba(15,23,42,0.4);
+      transform: scale(0.96) translateY(16px);
+      transition: transform 0.25s ease;
+    }
+    .modal-overlay.open .modal-box { transform: scale(1) translateY(0); }
+    .modal-header {
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(135deg, var(--ink), #1e293b);
+      color: white; flex-shrink: 0;
+    }
+    .modal-header-title { font-size: 18px; font-weight: 900; display: flex; align-items: center; gap: 10px; }
+    .modal-close {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 16px; transition: background 0.2s;
+    }
+    .modal-close:hover { background: rgba(255,255,255,0.22); }
+    .modal-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* ─── Builder Layout ─── */
+    .builder-layout {
+      display: flex; height: 100%; overflow: hidden;
+      flex: 1; min-height: 0;
+    }
+
+    /* Sidebar: block palette */
+    .palette-sidebar {
+      width: 220px; flex-shrink: 0;
+      background: var(--paper);
+      border-left: 1px solid var(--line);
+      padding: 16px 12px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .palette-title { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .palette-block {
+      background: white;
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: grab;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; font-weight: 700; color: var(--ink);
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .palette-block:hover { border-color: var(--red); background: var(--red-light); transform: translateX(-2px); }
+    .palette-block:active { cursor: grabbing; }
+    .palette-block-icon {
+      width: 30px; height: 30px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+
+    /* Canvas area */
+    .canvas-wrap {
+      flex: 1; overflow: hidden;
+      display: flex; flex-direction: column; min-width: 0;
+    }
+    .canvas-toolbar {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      background: white;
+    }
+    .canvas-area {
+      flex: 1; overflow: auto;
+      background:
+        radial-gradient(circle, rgba(15,23,42,0.06) 1.5px, transparent 1.5px);
+      background-size: 28px 28px;
+      background-color: #f1f5f9;
+      position: relative;
+      min-height: 400px;
+    }
+    .canvas-inner {
+      position: relative;
+      min-width: 1200px;
+      min-height: 600px;
+      padding: 30px;
+    }
+
+    /* ─── Workflow Nodes ─── */
+    .wf-node {
+      position: absolute;
+      background: white;
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 18px;
+      min-width: 160px;
+      max-width: 200px;
+      cursor: grab;
+      user-select: none;
+      box-shadow: 0 4px 14px rgba(15,23,42,0.1);
+      transition: box-shadow 0.2s, border-color 0.2s;
+      z-index: 10;
+    }
+    .wf-node:hover { box-shadow: 0 8px 24px rgba(15,23,42,0.15); }
+    .wf-node.selected { border-color: var(--red); box-shadow: 0 0 0 3px rgba(187,18,38,0.15); }
+    .wf-node.dragging { opacity: 0.85; cursor: grabbing; box-shadow: 0 20px 40px rgba(15,23,42,0.25); z-index: 100; }
+    .node-header {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 6px;
+    }
+    .node-icon {
+      width: 34px; height: 34px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .node-title { font-size: 13px; font-weight: 800; color: var(--ink); flex: 1; }
+    .node-type-label { font-size: 11px; font-weight: 700; color: var(--muted); }
+    .node-delete {
+      position: absolute; top: -8px; left: -8px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #ef4444; color: white;
+      display: none; align-items: center; justify-content: center;
+      font-size: 11px; cursor: pointer; border: 2px solid white;
+      box-shadow: 0 2px 6px rgba(239,68,68,0.4);
+    }
+    .wf-node:hover .node-delete { display: flex; }
+
+    /* connector dots */
+    .node-port {
+      position: absolute;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: white; border: 2.5px solid #cbd5e1;
+      cursor: crosshair; transition: all 0.15s;
+    }
+    .node-port:hover { background: var(--red); border-color: var(--red); transform: scale(1.3); }
+    .node-port.out { bottom: -7px; left: 50%; transform: translateX(-50%); }
+    .node-port.in  { top: -7px; left: 50%; transform: translateX(-50%); }
+    .node-port.out:hover { transform: translateX(-50%) scale(1.3); }
+    .node-port.in:hover  { transform: translateX(-50%) scale(1.3); }
+
+    /* Node type colors */
+    .node-start   .node-icon { background: rgba(16,185,129,0.12); color: #047857; }
+    .node-start   { border-color: rgba(16,185,129,0.35); }
+    .node-trigger .node-icon { background: rgba(59,130,246,0.12); color: #1d4ed8; }
+    .node-trigger { border-color: rgba(59,130,246,0.3); }
+    .node-action  .node-icon { background: rgba(187,18,38,0.1); color: var(--red); }
+    .node-action  { border-color: rgba(187,18,38,0.25); }
+    .node-condition .node-icon { background: rgba(245,158,11,0.12); color: #b45309; }
+    .node-condition { border-color: rgba(245,158,11,0.3); }
+    .node-delay   .node-icon { background: rgba(139,92,246,0.1); color: #7c3aed; }
+    .node-delay   { border-color: rgba(139,92,246,0.25); }
+    .node-end     .node-icon { background: rgba(100,116,139,0.12); color: #475569; }
+    .node-end     { border-color: rgba(100,116,139,0.3); }
+
+    /* SVG Arrows */
+    .canvas-svg {
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 5;
+      width: 100%; height: 100%;
+      overflow: visible;
+    }
+    .conn-path {
+      fill: none; stroke: #94a3b8; stroke-width: 2;
+      stroke-dasharray: 6,3;
+      marker-end: url(#arrowhead);
+    }
+    .conn-path.active { stroke: var(--red); stroke-dasharray: none; }
+
+    /* ─── Side config panel ─── */
+    .config-panel {
+      width: 280px; flex-shrink: 0;
+      background: var(--paper);
+      border-right: 1px solid var(--line);
+      padding: 16px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .config-title { font-size: 13px; font-weight: 900; color: var(--ink); border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 4px; }
+    .config-field { display: flex; flex-direction: column; gap: 4px; }
+    .config-label { font-size: 11px; font-weight: 800; color: var(--muted); }
+    .config-input {
+      width: 100%; padding: 8px 12px;
+      border: 1.5px solid var(--line); border-radius: 10px;
+      background: white; font-family: 'Cairo', sans-serif;
+      font-size: 13px; font-weight: 600; color: var(--ink);
+      transition: border-color 0.15s;
+    }
+    .config-input:focus { outline: none; border-color: var(--red); }
+    .config-select {
+      width: 100%; padding: 8px 12px;
+      border: 1.5px solid var(--line); border-radius: 10px;
+      background: white; font-family: 'Cairo', sans-serif;
+      font-size: 13px; font-weight: 600; color: var(--ink);
+      cursor: pointer;
+    }
+    .config-select:focus { outline: none; border-color: var(--red); }
+    .config-empty { text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; padding: 30px 10px; }
+
+    /* ─── Log Table ─── */
+    .log-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .log-row:last-child { border-bottom: none; }
+    .log-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .log-success .log-icon { background: rgba(16,185,129,0.12); color: #047857; }
+    .log-fail    .log-icon { background: rgba(239,68,68,0.12); color: #dc2626; }
+    .log-info    .log-icon { background: rgba(59,130,246,0.12); color: #2563eb; }
+    .log-text  { flex: 1; font-size: 13px; font-weight: 700; color: var(--ink); }
+    .log-meta  { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .log-time  { font-size: 11px; color: #9ca3af; font-weight: 600; white-space: nowrap; }
+
+    /* ─── Tabs ─── */
+    .tab-bar { display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--paper); }
+    .tab-btn {
+      padding: 12px 20px; font-size: 13px; font-weight: 800;
+      border: none; background: none; cursor: pointer;
+      color: var(--muted); border-bottom: 3px solid transparent;
+      transition: all 0.2s; font-family: 'Cairo', sans-serif;
+    }
+    .tab-btn.active { color: var(--red); border-bottom-color: var(--red); }
+    .tab-btn:hover:not(.active) { color: var(--ink); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ─── Notification Toast ─── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(60px);
+      background: var(--ink); color: white; border-radius: 14px; padding: 12px 24px;
+      font-size: 14px; font-weight: 700; z-index: 9999;
+      box-shadow: 0 12px 40px rgba(15,23,42,0.35);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      opacity: 0; pointer-events: none; white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    #toast.success { background: #10b981; }
+    #toast.error   { background: #ef4444; }
+
+    /* ─── Test Run Modal ─── */
+    .test-log-line {
+      padding: 6px 10px; border-radius: 8px;
+      font-size: 12px; font-weight: 700; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .test-log-line.ok   { background: rgba(16,185,129,0.1); color: #047857; }
+    .test-log-line.fail { background: rgba(239,68,68,0.1); color: #dc2626; }
+    .test-log-line.info { background: rgba(59,130,246,0.08); color: #2563eb; }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    @media(max-width:768px){
+      .palette-sidebar, .config-panel { display: none; }
+      .top-bar-sub { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="top-bar">
+  <div class="top-bar-left">
+    <div class="top-bar-icon"><i class="fas fa-retweet"></i></div>
+    <div>
+      <div class="top-bar-title">🔁 محرك سير العمل</div>
+      <div class="top-bar-sub">إنشاء وإدارة العمليات التلقائية بطريقة مرئية وسهلة</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button class="btn btn-outline btn-sm" onclick="openTestModal()">
+      <i class="fas fa-play-circle"></i> اختبار التشغيل
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="openBuilder(null)">
+      <i class="fas fa-plus"></i> إنشاء سير عمل
+    </button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main-wrap">
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(187,18,38,0.1);color:#bb1226;">
+        <i class="fas fa-retweet"></i>
+      </div>
+      <div class="stat-label">إجمالي سيرات العمل</div>
+      <div class="stat-value" id="stat-total">6</div>
+      <div class="stat-sub">في النظام</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(16,185,129,0.1);color:#047857;">
+        <i class="fas fa-check-circle"></i>
+      </div>
+      <div class="stat-label">نشطة</div>
+      <div class="stat-value" id="stat-active">4</div>
+      <div class="stat-sub">تعمل الآن</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(245,158,11,0.1);color:#b45309;">
+        <i class="fas fa-pause-circle"></i>
+      </div>
+      <div class="stat-label">متوقفة</div>
+      <div class="stat-value" id="stat-paused">2</div>
+      <div class="stat-sub">موقوفة مؤقتاً</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(59,130,246,0.1);color:#2563eb;">
+        <i class="fas fa-bolt"></i>
+      </div>
+      <div class="stat-label">تنفيذات اليوم</div>
+      <div class="stat-value" id="stat-runs">38</div>
+      <div class="stat-sub">تشغيل ناجح</div>
+    </div>
+  </div>
+
+  <!-- Workflows List Panel -->
+  <div class="panel" id="list-panel">
+    <div class="panel-header">
+      <div class="panel-title"><i class="fas fa-list-ul" style="color:var(--red);"></i> قائمة سيرات العمل</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="search-input" placeholder="🔍 بحث..." onkeyup="filterWorkflows()"
+          style="padding:8px 14px;border:1.5px solid var(--line);border-radius:999px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:600;width:200px;">
+        <select id="filter-status" onchange="filterWorkflows()"
+          style="padding:8px 14px;border:1.5px solid var(--line);border-radius:999px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:600;">
+          <option value="">كل الحالات</option>
+          <option value="نشط">نشط</option>
+          <option value="متوقف">متوقف</option>
+          <option value="مسودة">مسودة</option>
+        </select>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="wf-table" id="wf-table">
+        <thead>
+          <tr>
+            <th>اسم العملية</th>
+            <th>الحالة</th>
+            <th>عدد الخطوات</th>
+            <th>آخر تشغيل</th>
+            <th>نسبة النجاح</th>
+            <th style="text-align:center;">الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="wf-tbody"></tbody>
+      </table>
+      <div id="empty-list" class="empty-state" style="display:none;">
+        <div class="empty-icon"><i class="fas fa-retweet"></i></div>
+        <div class="empty-title">لا يوجد سير عمل حالياً</div>
+        <div class="empty-sub">ابدأ بإنشاء أول سير عمل لأتمتة عملياتك</div>
+        <button class="btn btn-primary" onclick="openBuilder(null)"><i class="fas fa-plus"></i> إنشاء سير عمل</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Execution Logs Panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title"><i class="fas fa-history" style="color:var(--red);"></i> سجل التنفيذ</div>
+      <button class="btn btn-outline btn-sm" onclick="refreshLogs()"><i class="fas fa-sync-alt"></i> تحديث</button>
+    </div>
+    <div class="panel-body" id="log-container"></div>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     BUILDER MODAL
+============================================================ -->
+<div class="modal-overlay" id="builder-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-header-title">
+        <i class="fas fa-drafting-compass"></i>
+        <span id="builder-modal-title">منشئ سير العمل المرئي</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn btn-success btn-sm" onclick="saveWorkflow()" style="border-radius:10px;">
+          <i class="fas fa-save"></i> حفظ
+        </button>
+        <div class="modal-close" onclick="closeBuilder()"><i class="fas fa-times"></i></div>
+      </div>
+    </div>
+
+    <!-- Name input row -->
+    <div style="padding:12px 20px;border-bottom:1px solid var(--line);background:var(--paper);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:12px;font-weight:800;color:var(--muted);">اسم سير العمل:</div>
+      <input type="text" id="wf-name-input" placeholder="مثال: ترحيب موظف جديد"
+        style="flex:1;min-width:200px;padding:8px 14px;border:1.5px solid var(--line);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;max-width:360px;">
+      <div style="font-size:12px;font-weight:800;color:var(--muted);">الحالة:</div>
+      <select id="wf-status-select"
+        style="padding:8px 14px;border:1.5px solid var(--line);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;">
+        <option value="نشط">نشط</option>
+        <option value="متوقف">متوقف</option>
+        <option value="مسودة">مسودة</option>
+      </select>
+    </div>
+
+    <!-- Builder Body -->
+    <div class="modal-body">
+      <div class="builder-layout">
+
+        <!-- Palette -->
+        <div class="palette-sidebar">
+          <div class="palette-title">🧱 الكتل المتاحة</div>
+          <div class="palette-block" draggable="true" data-type="start">
+            <div class="palette-block-icon" style="background:rgba(16,185,129,0.12);color:#047857;"><i class="fas fa-play"></i></div>
+            بداية
+          </div>
+          <div class="palette-block" draggable="true" data-type="trigger">
+            <div class="palette-block-icon" style="background:rgba(59,130,246,0.12);color:#2563eb;"><i class="fas fa-bolt"></i></div>
+            محرك (Trigger)
+          </div>
+          <div class="palette-block" draggable="true" data-type="action">
+            <div class="palette-block-icon" style="background:rgba(187,18,38,0.1);color:#bb1226;"><i class="fas fa-cog"></i></div>
+            إجراء (Action)
+          </div>
+          <div class="palette-block" draggable="true" data-type="condition">
+            <div class="palette-block-icon" style="background:rgba(245,158,11,0.12);color:#b45309;"><i class="fas fa-code-branch"></i></div>
+            شرط (Condition)
+          </div>
+          <div class="palette-block" draggable="true" data-type="delay">
+            <div class="palette-block-icon" style="background:rgba(139,92,246,0.1);color:#7c3aed;"><i class="fas fa-clock"></i></div>
+            انتظار (Delay)
+          </div>
+          <div class="palette-block" draggable="true" data-type="end">
+            <div class="palette-block-icon" style="background:rgba(100,116,139,0.12);color:#475569;"><i class="fas fa-stop-circle"></i></div>
+            نهاية
+          </div>
+
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
+            <div class="palette-title">💡 تلميحات</div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600;line-height:1.7;">
+              • اسحب الكتل إلى اللوحة<br>
+              • اضغط بزر الفأرة الأيمن للحذف<br>
+              • اضغط على كتلة لتعديلها<br>
+              • استخدم نقاط الوصل لربط الكتل
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="canvas-wrap">
+          <div class="canvas-toolbar">
+            <button class="btn btn-outline btn-xs" onclick="clearCanvas()"><i class="fas fa-trash-alt"></i> مسح</button>
+            <button class="btn btn-outline btn-xs" onclick="autoArrange()"><i class="fas fa-magic"></i> ترتيب تلقائي</button>
+            <button class="btn btn-outline btn-xs" onclick="zoomIn()"><i class="fas fa-search-plus"></i></button>
+            <button class="btn btn-outline btn-xs" onclick="zoomOut()"><i class="fas fa-search-minus"></i></button>
+            <button class="btn btn-outline btn-xs" onclick="resetZoom()"><i class="fas fa-expand-arrows-alt"></i> إعادة ضبط</button>
+            <span style="font-size:11px;color:var(--muted);font-weight:600;margin-right:auto;" id="zoom-label">100%</span>
+          </div>
+          <div class="canvas-area" id="canvas-area"
+            ondragover="canvasDragOver(event)" ondrop="canvasDrop(event)">
+            <div class="canvas-inner" id="canvas-inner">
+              <svg class="canvas-svg" id="canvas-svg">
+                <defs>
+                  <marker id="arrowhead" markerWidth="10" markerHeight="7"
+                    refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+                  </marker>
+                  <marker id="arrowhead-red" markerWidth="10" markerHeight="7"
+                    refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#bb1226"/>
+                  </marker>
+                </defs>
+              </svg>
+              <div id="canvas-nodes"></div>
+
+              <!-- Empty canvas hint -->
+              <div id="canvas-hint" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:12px;">
+                <div style="font-size:48px;opacity:0.18;">🎨</div>
+                <div style="font-size:14px;font-weight:800;color:var(--muted);opacity:0.5;">اسحب الكتل من الشريط الجانبي إلى هنا</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Config Panel -->
+        <div class="config-panel" id="config-panel">
+          <div class="config-title">⚙️ إعدادات الكتلة</div>
+          <div class="config-empty" id="config-empty">
+            <i class="fas fa-mouse-pointer" style="font-size:24px;color:#cbd5e1;display:block;margin-bottom:8px;"></i>
+            اضغط على كتلة لتعديل إعداداتها
+          </div>
+          <div id="config-form" style="display:none;"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TEST MODAL
+============================================================ -->
+<div class="modal-overlay" id="test-modal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-header-title"><i class="fas fa-play-circle"></i> اختبار تشغيل سير العمل</div>
+      <div class="modal-close" onclick="closeTestModal()"><i class="fas fa-times"></i></div>
+    </div>
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+      <div class="config-field">
+        <div class="config-label">اختر سير العمل</div>
+        <select class="config-select" id="test-wf-select"></select>
+      </div>
+      <div class="config-field">
+        <div class="config-label">بيانات تجريبية (JSON)</div>
+        <textarea class="config-input" id="test-payload" rows="4"
+          style="resize:vertical;font-family:monospace;font-size:12px;">{ "employee_id": "EMP-001", "action": "onboard" }</textarea>
+      </div>
+      <button class="btn btn-primary" onclick="runWorkflowTest()">
+        <i class="fas fa-play"></i> تشغيل الاختبار
+      </button>
+      <div id="test-log" style="display:none;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px;max-height:260px;overflow-y:auto;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================ -->
+<script>
+// ═══════════════════════════════════════════
+// DATA STORE
+// ═══════════════════════════════════════════
+let workflows = [
+  {
+    id: 'wf-1', name: 'ترحيب موظف جديد', status: 'نشط', steps: 5,
+    lastRun: 'منذ 2 ساعة', successRate: 98,
+    nodes: [
+      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
+      { id:'n2', type:'trigger', label:'عند إضافة موظف', x:80, y:200, config:{ event:'add_employee' } },
+      { id:'n3', type:'action', label:'إرسال بريد ترحيب', x:80, y:320, config:{ action:'send_email', target:'employee' } },
+      { id:'n4', type:'delay', label:'انتظار يوم', x:80, y:440, config:{ duration:'1', unit:'day' } },
+      { id:'n5', type:'end', label:'نهاية', x:80, y:560 }
+    ],
+    connections: [['n1','n2'],['n2','n3'],['n3','n4'],['n4','n5']]
+  },
+  {
+    id: 'wf-2', name: 'تذكير بتجديد العقد', status: 'نشط', steps: 4,
+    lastRun: 'منذ 5 دقائق', successRate: 100,
+    nodes: [
+      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
+      { id:'n2', type:'trigger', label:'قبل 30 يوم من الانتهاء', x:80, y:200, config:{ event:'contract_expiry' } },
+      { id:'n3', type:'action', label:'إرسال تذكير واتساب', x:80, y:320, config:{ action:'send_whatsapp', target:'manager' } },
+      { id:'n4', type:'end', label:'نهاية', x:80, y:440 }
+    ],
+    connections: [['n1','n2'],['n2','n3'],['n3','n4']]
+  },
+  {
+    id: 'wf-3', name: 'الموافقة على الإجازة', status: 'نشط', steps: 6,
+    lastRun: 'منذ 1 ساعة', successRate: 95,
+    nodes: [
+      { id:'n1', type:'start', label:'بداية', x:80, y:60 },
+      { id:'n2', type:'trigger', label:'طلب إجازة', x:80, y:170, config:{ event:'leave_request' } },
+      { id:'n3', type:'condition', label:'هل الرصيد كافٍ؟', x:80, y:280, config:{ rule:'balance>=requested' } },
+      { id:'n4', type:'action', label:'إرسال للمدير', x:80, y:390, config:{ action:'notify', target:'manager' } },
+      { id:'n5', type:'action', label:'تحديث الرصيد', x:80, y:500, config:{ action:'update_record', field:'balance' } },
+      { id:'n6', type:'end', label:'نهاية', x:80, y:610 }
+    ],
+    connections: [['n1','n2'],['n2','n3'],['n3','n4'],['n4','n5'],['n5','n6']]
+  },
+  {
+    id: 'wf-4', name: 'تقييم الأداء الشهري', status: 'نشط', steps: 4,
+    lastRun: 'منذ 3 أيام', successRate: 90,
+    nodes: [
+      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
+      { id:'n2', type:'trigger', label:'أول الشهر', x:80, y:200, config:{ event:'monthly_cron' } },
+      { id:'n3', type:'action', label:'إرسال نموذج تقييم', x:80, y:320, config:{ action:'send_form', target:'all_employees' } },
+      { id:'n4', type:'end', label:'نهاية', x:80, y:440 }
+    ],
+    connections: [['n1','n2'],['n2','n3'],['n3','n4']]
+  },
+  {
+    id: 'wf-5', name: 'إشعار تسجيل الحضور', status: 'متوقف', steps: 3,
+    lastRun: 'منذ أسبوع', successRate: 88,
+    nodes: [
+      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
+      { id:'n2', type:'trigger', label:'غياب غير مبرر', x:80, y:200, config:{ event:'absence_detected' } },
+      { id:'n3', type:'end', label:'نهاية', x:80, y:320 }
+    ],
+    connections: [['n1','n2'],['n2','n3']]
+  },
+  {
+    id: 'wf-6', name: 'تحديث بيانات الرواتب', status: 'متوقف', steps: 5,
+    lastRun: 'منذ شهر', successRate: 75,
+    nodes: [
+      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
+      { id:'n2', type:'trigger', label:'تغيير في المسمى الوظيفي', x:80, y:200, config:{ event:'job_title_change' } },
+      { id:'n3', type:'action', label:'حساب الراتب الجديد', x:80, y:320, config:{ action:'calculate', field:'salary' } },
+      { id:'n4', type:'action', label:'تحديث السجل', x:80, y:440, config:{ action:'update_record', field:'payroll' } },
+      { id:'n5', type:'end', label:'نهاية', x:80, y:560 }
+    ],
+    connections: [['n1','n2'],['n2','n3'],['n3','n4'],['n4','n5']]
+  }
+];
+
+let execLogs = [
+  { type:'success', wf:'ترحيب موظف جديد', msg:'تم تنفيذ بنجاح - إرسال بريد ترحيب', time:'14:32' },
+  { type:'success', wf:'تذكير بتجديد العقد', msg:'تم إرسال 3 تذكيرات واتساب', time:'14:15' },
+  { type:'fail',    wf:'تحديث بيانات الرواتب', msg:'فشل الاتصال بقاعدة البيانات', time:'13:58' },
+  { type:'success', wf:'الموافقة على الإجازة', msg:'تمت الموافقة على طلب إجازة #412', time:'13:40' },
+  { type:'info',    wf:'تقييم الأداء الشهري', msg:'جاري إرسال نماذج التقييم...', time:'12:00' },
+  { type:'success', wf:'ترحيب موظف جديد', msg:'تم تنفيذ بنجاح - موظف: أحمد محمود', time:'11:45' },
+];
+
+// ═══════════════════════════════════════════
+// BUILDER STATE
+// ═══════════════════════════════════════════
+let builderState = {
+  editingId: null,
+  nodes: [],
+  connections: [],
+  selectedNode: null,
+  draggingNode: null,
+  dragOffX: 0, dragOffY: 0,
+  zoomLevel: 1,
+  connectingFrom: null
+};
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  renderTable();
+  renderLogs();
+  populateTestSelect();
+});
+
+// ═══════════════════════════════════════════
+// TABLE RENDERING
+// ═══════════════════════════════════════════
+function renderTable(data) {
+  const wfs = data || workflows;
+  const tbody = document.getElementById('wf-tbody');
+  const empty = document.getElementById('empty-list');
+  if (wfs.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = wfs.map(wf => `
+    <tr>
+      <td>
+        <div style="font-weight:800;font-size:14px;">${wf.name}</div>
+        <div style="font-size:11px;color:var(--muted);font-weight:600;">${wf.id}</div>
+      </td>
+      <td>
+        <span class="badge ${wf.status==='نشط'?'badge-active':wf.status==='متوقف'?'badge-paused':'badge-draft'}">
+          <i class="fas fa-circle" style="font-size:7px;"></i> ${wf.status}
+        </span>
+      </td>
+      <td>
+        <span style="font-weight:800;font-size:18px;color:var(--ink);">${wf.steps}</span>
+        <span style="font-size:11px;color:var(--muted);font-weight:600;"> خطوة</span>
+      </td>
+      <td style="color:var(--muted);font-size:13px;">${wf.lastRun}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;height:6px;border-radius:999px;background:var(--line);max-width:80px;">
+            <div style="height:6px;border-radius:999px;width:${wf.successRate}%;background:${wf.successRate>=90?'#10b981':wf.successRate>=70?'#f59e0b':'#ef4444'};"></div>
+          </div>
+          <span style="font-size:12px;font-weight:800;color:var(--ink);">${wf.successRate}%</span>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-xs" onclick="openBuilder('${wf.id}')" title="عرض/تعديل">
+            <i class="fas fa-edit"></i>
+          </button>
+          ${wf.status==='نشط'
+            ? `<button class="btn btn-warning btn-xs" onclick="toggleStatus('${wf.id}')" title="إيقاف"><i class="fas fa-pause"></i></button>`
+            : `<button class="btn btn-success btn-xs" onclick="toggleStatus('${wf.id}')" title="تشغيل"><i class="fas fa-play"></i></button>`
+          }
+          <button class="btn btn-outline btn-xs" onclick="runNow('${wf.id}')" title="تشغيل مباشر">
+            <i class="fas fa-bolt"></i>
+          </button>
+          <button class="btn btn-danger btn-xs" onclick="deleteWorkflow('${wf.id}')" title="حذف">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterWorkflows() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const s = document.getElementById('filter-status').value;
+  const filtered = workflows.filter(w => {
+    const matchQ = !q || w.name.toLowerCase().includes(q) || w.id.toLowerCase().includes(q);
+    const matchS = !s || w.status === s;
+    return matchQ && matchS;
+  });
+  renderTable(filtered);
+}
+
+function renderLogs() {
+  const cont = document.getElementById('log-container');
+  cont.innerHTML = execLogs.map(l => `
+    <div class="log-row log-${l.type}">
+      <div class="log-icon">
+        <i class="fas ${l.type==='success'?'fa-check-circle':l.type==='fail'?'fa-times-circle':'fa-info-circle'}"></i>
+      </div>
+      <div>
+        <div class="log-text">${l.msg}</div>
+        <div class="log-meta">${l.wf}</div>
+      </div>
+      <div class="log-time">${l.time}</div>
+    </div>
+  `).join('');
+}
+
+function refreshLogs() {
+  execLogs.unshift({
+    type: 'info',
+    wf: 'النظام',
+    msg: 'تم تحديث السجل في: ' + new Date().toLocaleTimeString('ar'),
+    time: new Date().toLocaleTimeString('ar', { hour:'2-digit', minute:'2-digit' })
+  });
+  renderLogs();
+  toast('تم تحديث السجل', 'success');
+}
+
+// ═══════════════════════════════════════════
+// WORKFLOW ACTIONS
+// ═══════════════════════════════════════════
+function toggleStatus(id) {
+  const wf = workflows.find(w => w.id === id);
+  if (!wf) return;
+  wf.status = wf.status === 'نشط' ? 'متوقف' : 'نشط';
+  wf.lastRun = 'الآن';
+  updateStats();
+  renderTable();
+  populateTestSelect();
+  toast(`تم ${wf.status === 'نشط' ? 'تفعيل' : 'إيقاف'} "${wf.name}"`, wf.status === 'نشط' ? 'success' : '');
+}
+
+function runNow(id) {
+  const wf = workflows.find(w => w.id === id);
+  if (!wf) return;
+  wf.lastRun = 'الآن';
+  execLogs.unshift({
+    type: 'success', wf: wf.name,
+    msg: `تم تنفيذ "${wf.name}" يدوياً`,
+    time: new Date().toLocaleTimeString('ar', { hour:'2-digit', minute:'2-digit' })
+  });
+  renderTable();
+  renderLogs();
+  toast(`✅ تم تشغيل "${wf.name}" بنجاح`, 'success');
+}
+
+function deleteWorkflow(id) {
+  const wf = workflows.find(w => w.id === id);
+  if (!wf) return;
+  if (!confirm(`هل تريد حذف "${wf.name}"؟`)) return;
+  workflows = workflows.filter(w => w.id !== id);
+  updateStats();
+  renderTable();
+  populateTestSelect();
+  toast(`تم حذف "${wf.name}"`, 'error');
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = workflows.length;
+  document.getElementById('stat-active').textContent = workflows.filter(w=>w.status==='نشط').length;
+  document.getElementById('stat-paused').textContent = workflows.filter(w=>w.status==='متوقف').length;
+}
+
+// ═══════════════════════════════════════════
+// BUILDER OPEN/CLOSE
+// ═══════════════════════════════════════════
+function openBuilder(id) {
+  const s = builderState;
+  s.selectedNode = null;
+  s.connectingFrom = null;
+  s.zoomLevel = 1;
+
+  if (id) {
+    const wf = workflows.find(w => w.id === id);
+    if (!wf) return;
+    s.editingId = id;
+    s.nodes = JSON.parse(JSON.stringify(wf.nodes));
+    s.connections = JSON.parse(JSON.stringify(wf.connections));
+    document.getElementById('wf-name-input').value = wf.name;
+    document.getElementById('wf-status-select').value = wf.status;
+    document.getElementById('builder-modal-title').textContent = 'تعديل: ' + wf.name;
+  } else {
+    s.editingId = null;
+    s.nodes = [];
+    s.connections = [];
+    document.getElementById('wf-name-input').value = '';
+    document.getElementById('wf-status-select').value = 'نشط';
+    document.getElementById('builder-modal-title').textContent = 'إنشاء سير عمل جديد';
+  }
+
+  document.getElementById('builder-modal').classList.add('open');
+  renderCanvas();
+  hideConfigPanel();
+}
+
+function closeBuilder() {
+  document.getElementById('builder-modal').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════
+// CANVAS RENDER
+// ═══════════════════════════════════════════
+const NODE_LABELS = { start:'بداية', trigger:'محرك', action:'إجراء', condition:'شرط', end:'نهاية', delay:'انتظار' };
+const NODE_ICONS  = { start:'fa-play', trigger:'fa-bolt', action:'fa-cog', condition:'fa-code-branch', end:'fa-stop-circle', delay:'fa-clock' };
+
+function renderCanvas() {
+  const container = document.getElementById('canvas-nodes');
+  const hint = document.getElementById('canvas-hint');
+  container.innerHTML = '';
+
+  const s = builderState;
+  hint.style.display = s.nodes.length === 0 ? 'flex' : 'none';
+
+  s.nodes.forEach(node => {
+    const el = document.createElement('div');
+    el.className = `wf-node node-${node.type}${s.selectedNode===node.id?' selected':''}`;
+    el.id = 'node-' + node.id;
+    el.style.left = node.x + 'px';
+    el.style.top  = node.y + 'px';
+    el.innerHTML = `
+      <div class="node-delete" onclick="deleteNodeById('${node.id}')"><i class="fas fa-times"></i></div>
+      <div class="node-port in" data-node="${node.id}" data-port="in" onclick="connectPort('${node.id}','in')"></div>
+      <div class="node-header">
+        <div class="node-icon"><i class="fas ${NODE_ICONS[node.type]||'fa-circle'}"></i></div>
+        <div>
+          <div class="node-type-label">${NODE_LABELS[node.type]||node.type}</div>
+          <div class="node-title">${node.label}</div>
+        </div>
+      </div>
+      ${node.type!=='start'&&node.type!=='end'?`<div style="font-size:11px;color:var(--muted);font-weight:600;">${getNodeSummary(node)}</div>`:''}
+      <div class="node-port out" data-node="${node.id}" data-port="out" onclick="connectPort('${node.id}','out')"></div>
+    `;
+    // Drag
+    el.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.node-delete') || e.target.closest('.node-port')) return;
+      startNodeDrag(e, node.id);
+    });
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.node-delete') || e.target.closest('.node-port')) return;
+      selectNode(node.id);
+    });
+    container.appendChild(el);
+  });
+
+  renderConnections();
+}
+
+function getNodeSummary(node) {
+  if (!node.config) return '';
+  const c = node.config;
+  if (c.event)    return '⚡ ' + translateEvent(c.event);
+  if (c.action)   return '▶ ' + translateAction(c.action);
+  if (c.rule)     return '❓ ' + c.rule;
+  if (c.duration) return '⏱ ' + c.duration + ' ' + (c.unit||'');
+  return '';
+}
+const EVENT_MAP  = { add_employee:'إضافة موظف', contract_expiry:'انتهاء عقد', leave_request:'طلب إجازة', monthly_cron:'أول الشهر', absence_detected:'غياب مكتشف', job_title_change:'تغيير المسمى' };
+const ACTION_MAP = { send_email:'إرسال بريد', send_whatsapp:'إرسال واتساب', notify:'إشعار', update_record:'تحديث سجل', send_form:'إرسال نموذج', calculate:'حساب تلقائي' };
+const translateEvent  = k => EVENT_MAP[k]  || k;
+const translateAction = k => ACTION_MAP[k] || k;
+
+// ═══════════════════════════════════════════
+// CONNECTIONS (SVG)
+// ═══════════════════════════════════════════
+function renderConnections() {
+  const svg = document.getElementById('canvas-svg');
+  // Remove old paths
+  svg.querySelectorAll('.conn-path').forEach(p => p.remove());
+
+  builderState.connections.forEach(([fromId, toId]) => {
+    const fromEl = document.getElementById('node-' + fromId);
+    const toEl   = document.getElementById('node-' + toId);
+    if (!fromEl || !toEl) return;
+
+    const fOut = fromEl.querySelector('.node-port.out');
+    const tIn  = toEl.querySelector('.node-port.in');
+    if (!fOut || !tIn) return;
+
+    const fRect = fOut.getBoundingClientRect();
+    const tRect = tIn.getBoundingClientRect();
+    const svgRect = svg.getBoundingClientRect();
+
+    const x1 = fRect.left + fRect.width/2  - svgRect.left;
+    const y1 = fRect.top  + fRect.height/2 - svgRect.top;
+    const x2 = tRect.left + tRect.width/2  - svgRect.left;
+    const y2 = tRect.top  + tRect.height/2 - svgRect.top;
+
+    const cp1y = y1 + (y2-y1)*0.5;
+    const cp2y = y2 - (y2-y1)*0.5;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M${x1},${y1} C${x1},${cp1y} ${x2},${cp2y} ${x2},${y2}`);
+    path.classList.add('conn-path');
+    path.setAttribute('marker-end','url(#arrowhead)');
+    svg.appendChild(path);
+  });
+}
+
+// ═══════════════════════════════════════════
+// NODE DRAG
+// ═══════════════════════════════════════════
+let activeDrag = null;
+
+function startNodeDrag(e, nodeId) {
+  e.preventDefault();
+  const el = document.getElementById('node-' + nodeId);
+  if (!el) return;
+  const node = builderState.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  const rect = el.getBoundingClientRect();
+  const canvasRect = document.getElementById('canvas-area').getBoundingClientRect();
+
+  activeDrag = {
+    nodeId,
+    offX: e.clientX - rect.left,
+    offY: e.clientY - rect.top,
+    canvasRect
+  };
+  el.classList.add('dragging');
+
+  const onMove = (ev) => {
+    if (!activeDrag) return;
+    const x = ev.clientX - activeDrag.canvasRect.left - activeDrag.offX + document.getElementById('canvas-area').scrollLeft;
+    const y = ev.clientY - activeDrag.canvasRect.top  - activeDrag.offY + document.getElementById('canvas-area').scrollTop;
+    node.x = Math.max(10, x);
+    node.y = Math.max(10, y);
+    el.style.left = node.x + 'px';
+    el.style.top  = node.y + 'px';
+    renderConnections();
+  };
+  const onUp = () => {
+    if (activeDrag) {
+      document.getElementById('node-' + activeDrag.nodeId)?.classList.remove('dragging');
+      activeDrag = null;
+    }
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+// ═══════════════════════════════════════════
+// PALETTE DRAG
+// ═══════════════════════════════════════════
+let dragPaletteType = null;
+
+document.querySelectorAll('.palette-block').forEach(b => {
+  b.addEventListener('dragstart', (e) => {
+    dragPaletteType = b.dataset.type;
+    e.dataTransfer.effectAllowed = 'copy';
+  });
+  b.addEventListener('dragend', () => { dragPaletteType = null; });
+});
+
+function canvasDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+
+function canvasDrop(e) {
+  e.preventDefault();
+  if (!dragPaletteType) return;
+  const canvasArea = document.getElementById('canvas-area');
+  const rect = canvasArea.getBoundingClientRect();
+  const x = e.clientX - rect.left + canvasArea.scrollLeft - 80;
+  const y = e.clientY - rect.top  + canvasArea.scrollTop  - 40;
+  addNode(dragPaletteType, Math.max(10,x), Math.max(10,y));
+  dragPaletteType = null;
+}
+
+function addNode(type, x, y) {
+  const id = 'n' + Date.now();
+  const labels = { start:'بداية', trigger:'محرك جديد', action:'إجراء جديد', condition:'شرط جديد', delay:'انتظار', end:'نهاية' };
+  const node = { id, type, label: labels[type]||type, x, y, config:{} };
+  builderState.nodes.push(node);
+  document.getElementById('canvas-hint').style.display = 'none';
+  renderCanvas();
+  selectNode(id);
+}
+
+// ═══════════════════════════════════════════
+// NODE SELECT & CONFIG
+// ═══════════════════════════════════════════
+function selectNode(id) {
+  builderState.selectedNode = id;
+  document.querySelectorAll('.wf-node').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('node-' + id);
+  if (el) el.classList.add('selected');
+  showConfigPanel(id);
+}
+
+function showConfigPanel(id) {
+  const node = builderState.nodes.find(n => n.id === id);
+  if (!node) return;
+  document.getElementById('config-empty').style.display = 'none';
+  const form = document.getElementById('config-form');
+  form.style.display = 'block';
+
+  let html = `
+    <div class="config-field">
+      <div class="config-label">اسم الكتلة</div>
+      <input class="config-input" type="text" value="${node.label}"
+        oninput="updateNodeLabel('${id}', this.value)">
+    </div>
+  `;
+
+  if (node.type === 'trigger') {
+    html += `
+      <div class="config-field">
+        <div class="config-label">نوع الحدث</div>
+        <select class="config-select" onchange="updateNodeConfig('${id}','event',this.value)">
+          <option value="add_employee"    ${(node.config?.event==='add_employee')?'selected':''}>إضافة موظف جديد</option>
+          <option value="contract_expiry" ${(node.config?.event==='contract_expiry')?'selected':''}>انتهاء عقد</option>
+          <option value="leave_request"   ${(node.config?.event==='leave_request')?'selected':''}>طلب إجازة</option>
+          <option value="monthly_cron"    ${(node.config?.event==='monthly_cron')?'selected':''}>أول الشهر</option>
+          <option value="absence_detected"${(node.config?.event==='absence_detected')?'selected':''}>غياب مكتشف</option>
+          <option value="job_title_change"${(node.config?.event==='job_title_change')?'selected':''}>تغيير المسمى الوظيفي</option>
+        </select>
+      </div>`;
+  }
+
+  if (node.type === 'action') {
+    html += `
+      <div class="config-field">
+        <div class="config-label">نوع الإجراء</div>
+        <select class="config-select" onchange="updateNodeConfig('${id}','action',this.value)">
+          <option value="send_email"    ${(node.config?.action==='send_email')?'selected':''}>إرسال بريد إلكتروني</option>
+          <option value="send_whatsapp" ${(node.config?.action==='send_whatsapp')?'selected':''}>إرسال واتساب</option>
+          <option value="notify"        ${(node.config?.action==='notify')?'selected':''}>إرسال إشعار</option>
+          <option value="update_record" ${(node.config?.action==='update_record')?'selected':''}>تحديث بيانات</option>
+          <option value="send_form"     ${(node.config?.action==='send_form')?'selected':''}>إرسال نموذج</option>
+          <option value="calculate"     ${(node.config?.action==='calculate')?'selected':''}>حساب تلقائي</option>
+        </select>
+      </div>
+      <div class="config-field">
+        <div class="config-label">المستهدف</div>
+        <select class="config-select" onchange="updateNodeConfig('${id}','target',this.value)">
+          <option value="employee"      ${(node.config?.target==='employee')?'selected':''}>الموظف</option>
+          <option value="manager"       ${(node.config?.target==='manager')?'selected':''}>المدير المباشر</option>
+          <option value="hr_team"       ${(node.config?.target==='hr_team')?'selected':''}>فريق الموارد البشرية</option>
+          <option value="all_employees" ${(node.config?.target==='all_employees')?'selected':''}>كل الموظفين</option>
+        </select>
+      </div>`;
+  }
+
+  if (node.type === 'condition') {
+    html += `
+      <div class="config-field">
+        <div class="config-label">قاعدة الشرط</div>
+        <input class="config-input" type="text" value="${node.config?.rule||''}"
+          placeholder="مثال: balance >= requested"
+          oninput="updateNodeConfig('${id}','rule',this.value)">
+      </div>
+      <div class="config-field">
+        <div class="config-label">في حال التحقق</div>
+        <input class="config-input" type="text" value="${node.config?.ifTrue||''}"
+          placeholder="إجراء (نعم)"
+          oninput="updateNodeConfig('${id}','ifTrue',this.value)">
+      </div>
+      <div class="config-field">
+        <div class="config-label">في حال عدم التحقق</div>
+        <input class="config-input" type="text" value="${node.config?.ifFalse||''}"
+          placeholder="إجراء (لا)"
+          oninput="updateNodeConfig('${id}','ifFalse',this.value)">
+      </div>`;
+  }
+
+  if (node.type === 'delay') {
+    html += `
+      <div class="config-field">
+        <div class="config-label">مدة الانتظار</div>
+        <input class="config-input" type="number" min="1" value="${node.config?.duration||'1'}"
+          oninput="updateNodeConfig('${id}','duration',this.value)">
+      </div>
+      <div class="config-field">
+        <div class="config-label">الوحدة</div>
+        <select class="config-select" onchange="updateNodeConfig('${id}','unit',this.value)">
+          <option value="minute" ${node.config?.unit==='minute'?'selected':''}>دقيقة</option>
+          <option value="hour"   ${node.config?.unit==='hour'?'selected':''}>ساعة</option>
+          <option value="day"    ${node.config?.unit==='day'?'selected':''}>يوم</option>
+          <option value="week"   ${node.config?.unit==='week'?'selected':''}>أسبوع</option>
+        </select>
+      </div>`;
+  }
+
+  html += `
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
+      <button class="btn btn-danger btn-sm" style="width:100%;border-radius:12px;" onclick="deleteNodeById('${id}')">
+        <i class="fas fa-trash-alt"></i> حذف الكتلة
+      </button>
+    </div>`;
+
+  form.innerHTML = html;
+}
+
+function hideConfigPanel() {
+  document.getElementById('config-empty').style.display = 'block';
+  const form = document.getElementById('config-form');
+  form.style.display = 'none';
+  form.innerHTML = '';
+}
+
+function updateNodeLabel(id, val) {
+  const node = builderState.nodes.find(n => n.id === id);
+  if (!node) return;
+  node.label = val;
+  const el = document.getElementById('node-' + id);
+  if (el) { const t = el.querySelector('.node-title'); if (t) t.textContent = val; }
+}
+
+function updateNodeConfig(id, key, val) {
+  const node = builderState.nodes.find(n => n.id === id);
+  if (!node) return;
+  if (!node.config) node.config = {};
+  node.config[key] = val;
+  // Update summary
+  const el = document.getElementById('node-' + id);
+  if (el) {
+    const summaryEl = el.querySelectorAll('div');
+    summaryEl.forEach(d => { if (d.style.fontSize==='11px') d.textContent = getNodeSummary(node); });
+  }
+}
+
+// ═══════════════════════════════════════════
+// PORT CONNECTION
+// ═══════════════════════════════════════════
+function connectPort(nodeId, portType) {
+  const s = builderState;
+  if (portType === 'out') {
+    s.connectingFrom = nodeId;
+    toast('اضغط على نقطة الدخول للكتلة التالية للربط', '');
+  } else if (portType === 'in' && s.connectingFrom && s.connectingFrom !== nodeId) {
+    // Check if connection exists
+    const exists = s.connections.some(([a,b]) => a===s.connectingFrom && b===nodeId);
+    if (!exists) {
+      s.connections.push([s.connectingFrom, nodeId]);
+      renderCanvas();
+    }
+    s.connectingFrom = null;
+  } else {
+    s.connectingFrom = null;
+  }
+}
+
+// ═══════════════════════════════════════════
+// DELETE NODE
+// ═══════════════════════════════════════════
+function deleteNodeById(id) {
+  builderState.nodes = builderState.nodes.filter(n => n.id !== id);
+  builderState.connections = builderState.connections.filter(([a,b]) => a!==id && b!==id);
+  if (builderState.selectedNode === id) {
+    builderState.selectedNode = null;
+    hideConfigPanel();
+  }
+  renderCanvas();
+}
+
+// ═══════════════════════════════════════════
+// CANVAS CONTROLS
+// ═══════════════════════════════════════════
+function clearCanvas() {
+  if (!confirm('هل تريد مسح جميع الكتل؟')) return;
+  builderState.nodes = [];
+  builderState.connections = [];
+  builderState.selectedNode = null;
+  hideConfigPanel();
+  renderCanvas();
+}
+
+function autoArrange() {
+  const nodes = builderState.nodes;
+  let y = 60;
+  nodes.forEach((node, i) => {
+    node.x = 120 + (i % 3) * 260;
+    node.y = 60 + Math.floor(i / 3) * 160;
+  });
+  renderCanvas();
+  toast('تم الترتيب التلقائي', 'success');
+}
+
+function zoomIn() {
+  builderState.zoomLevel = Math.min(2, builderState.zoomLevel + 0.1);
+  applyZoom();
+}
+function zoomOut() {
+  builderState.zoomLevel = Math.max(0.4, builderState.zoomLevel - 0.1);
+  applyZoom();
+}
+function resetZoom() {
+  builderState.zoomLevel = 1;
+  applyZoom();
+}
+function applyZoom() {
+  const inner = document.getElementById('canvas-inner');
+  inner.style.transform = `scale(${builderState.zoomLevel})`;
+  inner.style.transformOrigin = 'top right';
+  document.getElementById('zoom-label').textContent = Math.round(builderState.zoomLevel*100) + '%';
+  setTimeout(renderConnections, 50);
+}
+
+// ═══════════════════════════════════════════
+// SAVE WORKFLOW
+// ═══════════════════════════════════════════
+function saveWorkflow() {
+  const name = document.getElementById('wf-name-input').value.trim();
+  if (!name) { toast('الرجاء إدخال اسم سير العمل', 'error'); return; }
+  const status = document.getElementById('wf-status-select').value;
+  const s = builderState;
+
+  if (s.editingId) {
+    const wf = workflows.find(w => w.id === s.editingId);
+    if (wf) {
+      wf.name   = name;
+      wf.status = status;
+      wf.steps  = s.nodes.length;
+      wf.nodes  = JSON.parse(JSON.stringify(s.nodes));
+      wf.connections = JSON.parse(JSON.stringify(s.connections));
+      wf.lastRun = 'الآن';
+    }
+  } else {
+    const newWf = {
+      id: 'wf-' + Date.now(),
+      name, status,
+      steps: s.nodes.length,
+      lastRun: 'لم يُشغَّل بعد',
+      successRate: 100,
+      nodes: JSON.parse(JSON.stringify(s.nodes)),
+      connections: JSON.parse(JSON.stringify(s.connections))
+    };
+    workflows.unshift(newWf);
+  }
+
+  updateStats();
+  renderTable();
+  populateTestSelect();
+  closeBuilder();
+  toast(`✅ تم حفظ "${name}" بنجاح`, 'success');
+}
+
+// ═══════════════════════════════════════════
+// TEST MODAL
+// ═══════════════════════════════════════════
+function populateTestSelect() {
+  const sel = document.getElementById('test-wf-select');
+  sel.innerHTML = workflows.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+}
+
+function openTestModal() {
+  document.getElementById('test-log').style.display = 'none';
+  document.getElementById('test-log').innerHTML = '';
+  document.getElementById('test-modal').classList.add('open');
+}
+
+function closeTestModal() {
+  document.getElementById('test-modal').classList.remove('open');
+}
+
+function runWorkflowTest() {
+  const id = document.getElementById('test-wf-select').value;
+  const wf = workflows.find(w => w.id === id);
+  if (!wf) return;
+
+  const logEl = document.getElementById('test-log');
+  logEl.style.display = 'block';
+  logEl.innerHTML = '';
+
+  const steps = wf.nodes;
+  let i = 0;
+
+  function execStep() {
+    if (i >= steps.length) {
+      logEl.innerHTML += `<div class="test-log-line ok"><i class="fas fa-check-double"></i> ✅ اكتمل تنفيذ "${wf.name}" بنجاح!</div>`;
+      logEl.scrollTop = logEl.scrollHeight;
+      wf.lastRun = 'منذ لحظات';
+      execLogs.unshift({ type:'success', wf:wf.name, msg:`تم اختبار "${wf.name}" يدوياً بنجاح`, time: new Date().toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'}) });
+      renderTable();
+      renderLogs();
+      return;
+    }
+    const step = steps[i];
+    const typeLabel = NODE_LABELS[step.type] || step.type;
+    const line = document.createElement('div');
+    line.className = 'test-log-line ' + (step.type==='end'?'ok':step.type==='start'?'info':'ok');
+    line.innerHTML = `<i class="fas ${NODE_ICONS[step.type]||'fa-circle'}"></i> [${typeLabel}] ${step.label} ${getNodeSummary(step)?'→ '+getNodeSummary(step):''}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+    i++;
+    setTimeout(execStep, 500 + Math.random()*300);
+  }
+
+  logEl.innerHTML = `<div class="test-log-line info"><i class="fas fa-rocket"></i> بدء تشغيل "${wf.name}"...</div>`;
+  setTimeout(execStep, 400);
+}
+
+// ═══════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════
+let toastTimer = null;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+// Close modals on overlay click
+document.getElementById('builder-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeBuilder();
+});
+document.getElementById('test-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeTestModal();
+});
+
+// Re-render connections on window resize
+window.addEventListener('resize', () => { renderConnections(); });
+</script>
+</body>
+</html>

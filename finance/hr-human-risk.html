@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام إدارة المخاطر البشرية</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --navy: #0b1220;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --emerald: #10b981;
+      --sky: #0ea5e9;
+      --line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(245, 158, 11, 0.18), transparent 42%),
+        radial-gradient(circle at 90% 12%, rgba(239, 68, 68, 0.16), transparent 40%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 14px 16px;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chart-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 16px;
+    }
+
+    .risk-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+      vertical-align: top;
+    }
+
+    .table-body tr:last-child td {
+      border-bottom: none;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .badge-high {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .badge-medium {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    .badge-low {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .badge-status {
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 720px;
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      padding: 20px;
+      box-shadow: 0 25px 60px -35px rgba(15, 23, 42, 0.55);
+    }
+
+    .form-field label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .form-input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">المخاطر البشرية</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">نظام إدارة المخاطر البشرية</h1>
+        <p class="text-slate-600">تحليل أسباب الاستقالات والتنبيهات المبكرة للقيادة.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="addRiskBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد حالات المخاطر الحالية</div>
+        <div id="statTotal" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">تم تحديثها من قاعدة البيانات</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">الحالات عالية المخاطر</div>
+        <div id="statHigh" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-rose-600 mt-1">تحتاج تدخل فوري</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">الحالات تحت المتابعة</div>
+        <div id="statFollow" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-amber-600 mt-1">مفتوحة حاليا</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">الحالات المغلقة</div>
+        <div id="statClosed" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-emerald-600 mt-1">تمت معالجتها</div>
+      </div>
+    </div>
+
+    <div class="glass p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">سجل المخاطر والإنذارات</h2>
+          <p class="text-sm text-slate-500">متابعة المخاطر المرتبطة بالموظفين والاقسام.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث باسم الموظف او القسم" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-60">
+          </div>
+          <select id="riskFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل المستويات</option>
+            <option value="مرتفع">مرتفع</option>
+            <option value="متوسط">متوسط</option>
+            <option value="منخفض">منخفض</option>
+          </select>
+          <select id="sortSelect" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="date_desc">الاحدث تاريخا</option>
+            <option value="date_asc">الاقدم تاريخا</option>
+            <option value="risk_desc">اعلى خطورة</option>
+            <option value="risk_asc">اقل خطورة</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4 overflow-x-auto">
+        <table class="min-w-[1100px] w-full text-sm">
+          <thead class="table-head">
+            <tr>
+              <th>الموظف / القسم</th>
+              <th>نوع الخطر</th>
+              <th>مستوى الخطر</th>
+              <th>سبب الخطر</th>
+              <th>الاجراء المقترح</th>
+              <th>المسؤول</th>
+              <th>تاريخ المراجعة</th>
+              <th>حالة المتابعة</th>
+              <th>الاجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="riskTable" class="table-body"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة لبحثك.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="riskModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="flex items-center justify-between">
+        <h3 id="modalTitle" class="text-lg font-extrabold">اضافة خطر بشري</h3>
+        <button id="closeModal" class="text-slate-500"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="riskForm" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="form-field">
+          <label>الموظف او القسم</label>
+          <input id="subjectName" type="text" class="form-input" required>
+        </div>
+        <div class="form-field">
+          <label>نوع الخطر</label>
+          <select id="riskType" class="form-input" required>
+            <option value="">اختر</option>
+            <option value="أداء">اداء</option>
+            <option value="غياب">غياب</option>
+            <option value="ضغط عمل">ضغط عمل</option>
+            <option value="استقالة محتملة">استقالة محتملة</option>
+            <option value="نزاع وظيفي">نزاع وظيفي</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>مستوى الخطر</label>
+          <select id="riskLevel" class="form-input" required>
+            <option value="">اختر</option>
+            <option value="مرتفع">مرتفع</option>
+            <option value="متوسط">متوسط</option>
+            <option value="منخفض">منخفض</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>تاريخ المراجعة</label>
+          <input id="reviewDate" type="date" class="form-input" required>
+        </div>
+        <div class="form-field md:col-span-2">
+          <label>سبب الخطر</label>
+          <textarea id="riskReason" class="form-input" rows="2" required></textarea>
+        </div>
+        <div class="form-field md:col-span-2">
+          <label>الاجراء المقترح</label>
+          <textarea id="proposedAction" class="form-input" rows="2" required></textarea>
+        </div>
+        <div class="form-field">
+          <label>المسؤول عن المتابعة</label>
+          <input id="ownerName" type="text" class="form-input" required>
+        </div>
+        <div class="form-field">
+          <label>حالة المتابعة</label>
+          <select id="followStatus" class="form-input" required>
+            <option value="">اختر</option>
+            <option value="قيد المتابعة">قيد المتابعة</option>
+            <option value="مفتوح">مفتوح</option>
+            <option value="مغلق">مغلق</option>
+          </select>
+        </div>
+        <div class="md:col-span-2 flex flex-wrap gap-2 justify-end mt-2">
+          <button type="button" id="cancelBtn" class="btn bg-white text-slate-700 border border-slate-200">الغاء</button>
+          <button type="submit" id="saveBtn" class="btn bg-slate-900 text-white">حفظ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api/hr/human-risks';
+    const state = {
+      records: [],
+      filtered: [],
+      selected: null,
+      mode: 'add'
+    };
+
+    const elements = {
+      searchInput: document.getElementById('searchInput'),
+      riskFilter: document.getElementById('riskFilter'),
+      sortSelect: document.getElementById('sortSelect'),
+      table: document.getElementById('riskTable'),
+      emptyState: document.getElementById('emptyState'),
+      statTotal: document.getElementById('statTotal'),
+      statHigh: document.getElementById('statHigh'),
+      statFollow: document.getElementById('statFollow'),
+      statClosed: document.getElementById('statClosed'),
+      modal: document.getElementById('riskModal'),
+      modalTitle: document.getElementById('modalTitle'),
+      closeModal: document.getElementById('closeModal'),
+      cancelBtn: document.getElementById('cancelBtn'),
+      addBtn: document.getElementById('addRiskBtn'),
+      form: document.getElementById('riskForm'),
+      saveBtn: document.getElementById('saveBtn'),
+      subjectName: document.getElementById('subjectName'),
+      riskType: document.getElementById('riskType'),
+      riskLevel: document.getElementById('riskLevel'),
+      riskReason: document.getElementById('riskReason'),
+      proposedAction: document.getElementById('proposedAction'),
+      ownerName: document.getElementById('ownerName'),
+      reviewDate: document.getElementById('reviewDate'),
+      followStatus: document.getElementById('followStatus')
+    };
+
+    const riskOrder = { 'منخفض': 1, 'متوسط': 2, 'مرتفع': 3 };
+
+    const formatDate = (value) => {
+      if (!value) return '-';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toISOString().slice(0, 10);
+    };
+
+    const riskBadge = (level) => {
+      if (level === 'مرتفع') return '<span class="badge badge-high">مرتفع</span>';
+      if (level === 'متوسط') return '<span class="badge badge-medium">متوسط</span>';
+      return '<span class="badge badge-low">منخفض</span>';
+    };
+
+    const statusBadge = (status) => `<span class="badge badge-status">${status || '-'}<\/span>`;
+
+    const updateStats = () => {
+      const total = state.records.length;
+      const high = state.records.filter((r) => r.risk_level === 'مرتفع').length;
+      const follow = state.records.filter((r) => r.follow_status === 'قيد المتابعة').length;
+      const closed = state.records.filter((r) => r.follow_status === 'مغلق').length;
+      elements.statTotal.textContent = String(total);
+      elements.statHigh.textContent = String(high);
+      elements.statFollow.textContent = String(follow);
+      elements.statClosed.textContent = String(closed);
+    };
+
+    const applyFilters = () => {
+      const searchValue = elements.searchInput.value.trim().toLowerCase();
+      const riskValue = elements.riskFilter.value;
+      const sortValue = elements.sortSelect.value;
+      let rows = [...state.records];
+
+      if (searchValue) {
+        rows = rows.filter((row) => (row.subject_name || '').toLowerCase().includes(searchValue));
+      }
+
+      if (riskValue !== 'all') {
+        rows = rows.filter((row) => row.risk_level === riskValue);
+      }
+
+      rows.sort((a, b) => {
+        const dateA = new Date(a.review_date).getTime() || 0;
+        const dateB = new Date(b.review_date).getTime() || 0;
+        if (sortValue === 'date_asc') return dateA - dateB;
+        if (sortValue === 'risk_desc') return (riskOrder[b.risk_level] || 0) - (riskOrder[a.risk_level] || 0);
+        if (sortValue === 'risk_asc') return (riskOrder[a.risk_level] || 0) - (riskOrder[b.risk_level] || 0);
+        return dateB - dateA;
+      });
+
+      state.filtered = rows;
+      renderTable();
+    };
+
+    const renderTable = () => {
+      if (!state.filtered.length) {
+        elements.table.innerHTML = '';
+        elements.emptyState.style.display = 'block';
+        return;
+      }
+
+      elements.emptyState.style.display = 'none';
+      elements.table.innerHTML = state.filtered.map((row) => {
+        return `
+          <tr data-id="${row.id}">
+            <td class="font-semibold">${row.subject_name}</td>
+            <td>${row.risk_type}</td>
+            <td>${riskBadge(row.risk_level)}</td>
+            <td>${row.risk_reason}</td>
+            <td>${row.proposed_action}</td>
+            <td>${row.owner_name}</td>
+            <td>${formatDate(row.review_date)}</td>
+            <td>${statusBadge(row.follow_status)}</td>
+            <td>
+              <div class="row-actions flex flex-wrap gap-1">
+                <button data-action="view">عرض</button>
+                <button data-action="preview">معاينة</button>
+                <button data-action="edit">تعديل</button>
+                <button data-action="delete" class="text-rose-600">حذف</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    };
+
+    const loadRecords = async () => {
+      try {
+        const response = await fetch(API_BASE);
+        const data = await response.json();
+        state.records = data.records || [];
+        updateStats();
+        applyFilters();
+      } catch (error) {
+        console.error('Failed to load human risks', error);
+      }
+    };
+
+    const openModal = (mode, record = null) => {
+      state.mode = mode;
+      state.selected = record;
+      const isReadOnly = mode === 'view' || mode === 'preview';
+
+      elements.modalTitle.textContent = mode === 'add'
+        ? 'اضافة خطر بشري'
+        : mode === 'edit'
+          ? 'تعديل خطر بشري'
+          : mode === 'preview'
+            ? 'معاينة خطر بشري'
+            : 'عرض خطر بشري';
+
+      elements.subjectName.value = record?.subject_name || '';
+      elements.riskType.value = record?.risk_type || '';
+      elements.riskLevel.value = record?.risk_level || '';
+      elements.riskReason.value = record?.risk_reason || '';
+      elements.proposedAction.value = record?.proposed_action || '';
+      elements.ownerName.value = record?.owner_name || '';
+      elements.reviewDate.value = record?.review_date ? formatDate(record.review_date) : '';
+      elements.followStatus.value = record?.follow_status || '';
+
+      [
+        elements.subjectName,
+        elements.riskType,
+        elements.riskLevel,
+        elements.riskReason,
+        elements.proposedAction,
+        elements.ownerName,
+        elements.reviewDate,
+        elements.followStatus
+      ].forEach((field) => {
+        field.disabled = isReadOnly;
+      });
+
+      elements.saveBtn.style.display = isReadOnly ? 'none' : 'inline-flex';
+      elements.modal.classList.add('active');
+    };
+
+    const closeModal = () => {
+      elements.modal.classList.remove('active');
+      elements.form.reset();
+      state.selected = null;
+    };
+
+    const saveRecord = async () => {
+      const payload = {
+        subject_name: elements.subjectName.value.trim(),
+        risk_type: elements.riskType.value,
+        risk_level: elements.riskLevel.value,
+        risk_reason: elements.riskReason.value.trim(),
+        proposed_action: elements.proposedAction.value.trim(),
+        owner_name: elements.ownerName.value.trim(),
+        review_date: elements.reviewDate.value,
+        follow_status: elements.followStatus.value
+      };
+
+      const isEdit = state.mode === 'edit' && state.selected;
+      const url = isEdit ? `${API_BASE}/${state.selected.id}` : API_BASE;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(errorData.error || 'حدث خطأ اثناء الحفظ');
+        return;
+      }
+
+      await loadRecords();
+      closeModal();
+    };
+
+    const deleteRecord = async (record) => {
+      if (!record) return;
+      const confirmed = confirm('هل تريد حذف هذا السجل؟');
+      if (!confirmed) return;
+
+      const response = await fetch(`${API_BASE}/${record.id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        alert('تعذر حذف السجل');
+        return;
+      }
+      await loadRecords();
+    };
+
+    elements.searchInput.addEventListener('input', applyFilters);
+    elements.riskFilter.addEventListener('change', applyFilters);
+    elements.sortSelect.addEventListener('change', applyFilters);
+    elements.addBtn.addEventListener('click', () => openModal('add'));
+    elements.closeModal.addEventListener('click', closeModal);
+    elements.cancelBtn.addEventListener('click', closeModal);
+    elements.modal.addEventListener('click', (event) => {
+      if (event.target === elements.modal) closeModal();
+    });
+    elements.form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveRecord();
+    });
+
+    elements.table.addEventListener('click', (event) => {
+      const action = event.target?.dataset?.action;
+      if (!action) return;
+      const row = event.target.closest('tr');
+      if (!row) return;
+      const record = state.records.find((item) => String(item.id) === row.dataset.id);
+      if (!record) return;
+
+      if (action === 'view') openModal('view', record);
+      if (action === 'preview') openModal('preview', record);
+      if (action === 'edit') openModal('edit', record);
+      if (action === 'delete') deleteRecord(record);
+    });
+
+    loadRecords();
+  </script>
+</body>
+</html>

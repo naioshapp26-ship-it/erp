@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة طرق الدفع - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .payment-card {
+            transition: all 0.3s ease;
+        }
+        .payment-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg border-b-4 border-red-600">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <a href="/" class="text-gray-600 hover:text-red-600 transition">
+                        <i class="fas fa-arrow-right text-2xl"></i>
+                    </a>
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                        <i class="fas fa-wallet text-red-600"></i>
+                        إدارة طرق الدفع
+                    </h1>
+                </div>
+                <button onclick="openAddModal()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg transition transform hover:scale-105">
+                    <i class="fas fa-plus ml-2"></i>
+                    إضافة طريقة دفع
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">إجمالي الطرق</p>
+                        <p class="text-3xl font-bold text-gray-800" id="total-methods">0</p>
+                    </div>
+                    <div class="bg-blue-100 p-4 rounded-full">
+                        <i class="fas fa-wallet text-blue-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">الطرق النشطة</p>
+                        <p class="text-3xl font-bold text-gray-800" id="active-methods">0</p>
+                    </div>
+                    <div class="bg-green-100 p-4 rounded-full">
+                        <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">الطرق غير النشطة</p>
+                        <p class="text-3xl font-bold text-gray-800" id="inactive-methods">0</p>
+                    </div>
+                    <div class="bg-yellow-100 p-4 rounded-full">
+                        <i class="fas fa-pause-circle text-yellow-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-r-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">تتطلب تفاصيل</p>
+                        <p class="text-3xl font-bold text-gray-800" id="requires-details">0</p>
+                    </div>
+                    <div class="bg-purple-100 p-4 rounded-full">
+                        <i class="fas fa-info-circle text-purple-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter & Search -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2">بحث</label>
+                    <input type="text" id="search-input" placeholder="ابحث عن طريقة دفع..." 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2">الحالة</label>
+                    <select id="status-filter" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                        <option value="">الكل</option>
+                        <option value="true">نشط</option>
+                        <option value="false">غير نشط</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button onclick="applyFilters()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold transition">
+                        <i class="fas fa-filter ml-2"></i>
+                        تطبيق الفلاتر
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Methods Grid -->
+        <div id="methods-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Methods will be loaded here -->
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden flex items-center justify-center py-20">
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin text-6xl text-red-600 mb-4"></i>
+                <p class="text-gray-600 font-bold">جاري التحميل...</p>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20">
+            <i class="fas fa-wallet text-8xl text-gray-300 mb-4"></i>
+            <h3 class="text-2xl font-bold text-gray-600 mb-2">لا توجد طرق دفع</h3>
+            <p class="text-gray-500 mb-6">ابدأ بإضافة طريقة دفع جديدة</p>
+            <button onclick="openAddModal()" class="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-bold shadow-lg transition">
+                <i class="fas fa-plus ml-2"></i>
+                إضافة طريقة دفع
+            </button>
+        </div>
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div id="paymentMethodModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 text-white p-6 rounded-t-2xl flex justify-between items-center z-10">
+                <h2 class="text-2xl font-bold flex items-center gap-3">
+                    <i class="fas fa-wallet"></i>
+                    <span id="modal-title">إضافة طريقة دفع جديدة</span>
+                </h2>
+                <button onclick="closeModal()" class="text-white/80 hover:text-white hover:rotate-90 transition-all duration-300">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <form id="paymentMethodForm" class="p-6 space-y-6">
+                <input type="hidden" id="payment-method-id">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Method Code -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">كود الطريقة *</label>
+                        <input type="text" id="method-code" required 
+                               placeholder="مثال: apple_pay"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                        <p class="text-xs text-gray-500 mt-1">يستخدم في البرمجة (بدون مسافات)</p>
+                    </div>
+
+                    <!-- Arabic Name -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">الاسم بالعربية *</label>
+                        <input type="text" id="method-name-ar" required 
+                               placeholder="مثال: Apple Pay"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                    </div>
+
+                    <!-- English Name -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">الاسم بالإنجليزية</label>
+                        <input type="text" id="method-name-en" 
+                               placeholder="Example: Apple Pay"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                    </div>
+
+                    <!-- Icon -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">الأيقونة</label>
+                        <input type="text" id="icon" 
+                               placeholder="مثال: 📱"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                        <p class="text-xs text-gray-500 mt-1">استخدم emoji</p>
+                    </div>
+
+                    <!-- Color -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">اللون</label>
+                        <input type="color" id="color" value="#3b82f6"
+                               class="w-full h-12 border border-gray-300 rounded-lg cursor-pointer">
+                    </div>
+
+                    <!-- Display Order -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">ترتيب العرض</label>
+                        <input type="number" id="display-order" min="0" value="0"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                    </div>
+
+                    <!-- Processing Fee Percentage -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">رسوم المعالجة %</label>
+                        <input type="number" id="processing-fee-percentage" min="0" max="100" step="0.01" value="0"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                    </div>
+
+                    <!-- Processing Fee Fixed -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">رسوم ثابتة</label>
+                        <input type="number" id="processing-fee-fixed" min="0" step="0.01" value="0"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                    </div>
+
+                    <!-- Min Amount -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">الحد الأدنى للمبلغ</label>
+                        <input type="number" id="min-amount" min="0" step="0.01"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                    </div>
+
+                    <!-- Max Amount -->
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">الحد الأقصى للمبلغ</label>
+                        <input type="number" id="max-amount" min="0" step="0.01"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                    </div>
+                </div>
+
+                <!-- Description Arabic -->
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2">الوصف بالعربية</label>
+                    <textarea id="description-ar" rows="3" 
+                              placeholder="وصف مختصر لطريقة الدفع..."
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"></textarea>
+                </div>
+
+                <!-- Checkboxes -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="is-active" checked 
+                               class="w-5 h-5 text-red-600 rounded focus:ring-2 focus:ring-red-500">
+                        <span class="font-bold text-gray-700">نشط</span>
+                    </label>
+
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="requires-bank-details" 
+                               class="w-5 h-5 text-red-600 rounded focus:ring-2 focus:ring-red-500">
+                        <span class="font-bold text-gray-700">يتطلب بيانات بنكية</span>
+                    </label>
+
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="requires-card-details" 
+                               class="w-5 h-5 text-red-600 rounded focus:ring-2 focus:ring-red-500">
+                        <span class="font-bold text-gray-700">يتطلب بيانات بطاقة</span>
+                    </label>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex gap-4 pt-4 border-t">
+                    <button type="button" onclick="closeModal()" 
+                            class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-bold transition">
+                        <i class="fas fa-times ml-2"></i>
+                        إلغاء
+                    </button>
+                    <button type="submit" 
+                            class="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold shadow-lg transition transform hover:scale-105">
+                        <i class="fas fa-save ml-2"></i>
+                        حفظ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = '/api';
+        let currentEditId = null;
+        let allMethods = [];
+
+        // Load payment methods
+        async function loadPaymentMethods() {
+            const loadingEl = document.getElementById('loading');
+            const containerEl = document.getElementById('methods-container');
+            const emptyStateEl = document.getElementById('empty-state');
+
+            try {
+                loadingEl.classList.remove('hidden');
+                containerEl.innerHTML = '';
+                emptyStateEl.classList.add('hidden');
+
+                const response = await fetch(`${API_BASE_URL}/payment-methods`);
+                allMethods = await response.json();
+
+                if (allMethods.length === 0) {
+                    emptyStateEl.classList.remove('hidden');
+                } else {
+                    displayMethods(allMethods);
+                    updateStats(allMethods);
+                }
+            } catch (error) {
+                console.error('Error loading methods:', error);
+                alert('حدث خطأ في تحميل البيانات');
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        }
+
+        // Display methods
+        function displayMethods(methods) {
+            const container = document.getElementById('methods-container');
+            container.innerHTML = '';
+
+            methods.forEach(method => {
+                const card = document.createElement('div');
+                card.className = 'payment-card bg-white rounded-xl shadow-lg overflow-hidden border-r-4';
+                card.style.borderColor = method.color || '#3b82f6';
+
+                const statusBadge = method.is_active 
+                    ? '<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold">نشط</span>'
+                    : '<span class="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs font-bold">غير نشط</span>';
+
+                card.innerHTML = `
+                    <div class="p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <span class="text-4xl">${method.icon || '💳'}</span>
+                                <div>
+                                    <h3 class="font-bold text-lg text-gray-800">${method.method_name_ar}</h3>
+                                    <p class="text-xs text-gray-500">${method.method_code}</p>
+                                </div>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        
+                        ${method.description_ar ? `<p class="text-sm text-gray-600 mb-4">${method.description_ar}</p>` : ''}
+                        
+                        <div class="space-y-2 mb-4 text-xs text-gray-600">
+                            ${method.processing_fee_percentage > 0 ? `<div>📊 رسوم: ${method.processing_fee_percentage}%</div>` : ''}
+                            ${method.processing_fee_fixed > 0 ? `<div>💵 رسوم ثابتة: ${method.processing_fee_fixed} ر.س</div>` : ''}
+                            ${method.requires_bank_details ? '<div>🏦 يتطلب بيانات بنكية</div>' : ''}
+                            ${method.requires_card_details ? '<div>💳 يتطلب بيانات بطاقة</div>' : ''}
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button onclick="editMethod(${method.id})" 
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                                <i class="fas fa-edit ml-1"></i>
+                                تعديل
+                            </button>
+                            <button onclick="toggleActive(${method.id})" 
+                                    class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                                <i class="fas fa-power-off ml-1"></i>
+                                تبديل
+                            </button>
+                            <button onclick="deleteMethod(${method.id})" 
+                                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // Update stats
+        function updateStats(methods) {
+            document.getElementById('total-methods').textContent = methods.length;
+            document.getElementById('active-methods').textContent = methods.filter(m => m.is_active).length;
+            document.getElementById('inactive-methods').textContent = methods.filter(m => !m.is_active).length;
+            document.getElementById('requires-details').textContent = methods.filter(m => m.requires_bank_details || m.requires_card_details).length;
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const status = document.getElementById('status-filter').value;
+
+            let filtered = allMethods;
+
+            if (search) {
+                filtered = filtered.filter(m => 
+                    m.method_name_ar.toLowerCase().includes(search) ||
+                    m.method_code.toLowerCase().includes(search)
+                );
+            }
+
+            if (status !== '') {
+                const isActive = status === 'true';
+                filtered = filtered.filter(m => m.is_active === isActive);
+            }
+
+            displayMethods(filtered);
+        }
+
+        // Open add modal
+        function openAddModal() {
+            currentEditId = null;
+            document.getElementById('modal-title').textContent = 'إضافة طريقة دفع جديدة';
+            document.getElementById('paymentMethodForm').reset();
+            document.getElementById('payment-method-id').value = '';
+            document.getElementById('paymentMethodModal').classList.remove('hidden');
+        }
+
+        // Edit method
+        async function editMethod(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/payment-methods/${id}`);
+                const method = await response.json();
+
+                currentEditId = id;
+                document.getElementById('modal-title').textContent = 'تعديل طريقة الدفع';
+                document.getElementById('payment-method-id').value = id;
+                document.getElementById('method-code').value = method.method_code;
+                document.getElementById('method-name-ar').value = method.method_name_ar;
+                document.getElementById('method-name-en').value = method.method_name_en || '';
+                document.getElementById('icon').value = method.icon || '';
+                document.getElementById('color').value = method.color || '#3b82f6';
+                document.getElementById('display-order').value = method.display_order || 0;
+                document.getElementById('processing-fee-percentage').value = method.processing_fee_percentage || 0;
+                document.getElementById('processing-fee-fixed').value = method.processing_fee_fixed || 0;
+                document.getElementById('min-amount').value = method.min_amount || '';
+                document.getElementById('max-amount').value = method.max_amount || '';
+                document.getElementById('description-ar').value = method.description_ar || '';
+                document.getElementById('is-active').checked = method.is_active;
+                document.getElementById('requires-bank-details').checked = method.requires_bank_details || false;
+                document.getElementById('requires-card-details').checked = method.requires_card_details || false;
+
+                document.getElementById('paymentMethodModal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading method:', error);
+                alert('حدث خطأ في تحميل البيانات');
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('paymentMethodModal').classList.add('hidden');
+            currentEditId = null;
+        }
+
+        // Toggle active status
+        async function toggleActive(id) {
+            if (!confirm('هل تريد تبديل حالة هذه الطريقة؟')) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/payment-methods/${id}/toggle-active`, {
+                    method: 'PATCH'
+                });
+
+                if (response.ok) {
+                    loadPaymentMethods();
+                } else {
+                    alert('حدث خطأ في تبديل الحالة');
+                }
+            } catch (error) {
+                console.error('Error toggling status:', error);
+                alert('حدث خطأ في تبديل الحالة');
+            }
+        }
+
+        // Delete method
+        async function deleteMethod(id) {
+            if (!confirm('هل أنت متأكد من حذف هذه الطريقة؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/payment-methods/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadPaymentMethods();
+                } else {
+                    alert('حدث خطأ في الحذف');
+                }
+            } catch (error) {
+                console.error('Error deleting method:', error);
+                alert('حدث خطأ في الحذف');
+            }
+        }
+
+        // Form submit
+        document.getElementById('paymentMethodForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const data = {
+                method_code: document.getElementById('method-code').value,
+                method_name_ar: document.getElementById('method-name-ar').value,
+                method_name_en: document.getElementById('method-name-en').value,
+                icon: document.getElementById('icon').value,
+                color: document.getElementById('color').value,
+                display_order: parseInt(document.getElementById('display-order').value),
+                processing_fee_percentage: parseFloat(document.getElementById('processing-fee-percentage').value),
+                processing_fee_fixed: parseFloat(document.getElementById('processing-fee-fixed').value),
+                min_amount: document.getElementById('min-amount').value ? parseFloat(document.getElementById('min-amount').value) : null,
+                max_amount: document.getElementById('max-amount').value ? parseFloat(document.getElementById('max-amount').value) : null,
+                description_ar: document.getElementById('description-ar').value,
+                is_active: document.getElementById('is-active').checked,
+                requires_bank_details: document.getElementById('requires-bank-details').checked,
+                requires_card_details: document.getElementById('requires-card-details').checked
+            };
+
+            try {
+                const url = currentEditId 
+                    ? `${API_BASE_URL}/payment-methods/${currentEditId}`
+                    : `${API_BASE_URL}/payment-methods`;
+                
+                const method = currentEditId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    closeModal();
+                    loadPaymentMethods();
+                    alert(currentEditId ? 'تم التحديث بنجاح' : 'تم الإضافة بنجاح');
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'حدث خطأ');
+                }
+            } catch (error) {
+                console.error('Error saving:', error);
+                alert('حدث خطأ في الحفظ');
+            }
+        });
+
+        // Search on input
+        document.getElementById('search-input').addEventListener('input', applyFilters);
+
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', loadPaymentMethods);
+    </script>
+</body>
+</html>

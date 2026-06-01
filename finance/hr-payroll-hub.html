@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💰 مركز الرواتب والتعويضات - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0b1220;
+      --muted: #6b7280;
+      --sky: #0284c7;
+      --emerald: #059669;
+      --rose: #e11d48;
+      --sun: #d97706;
+      --paper: #f8fafc;
+      --card: #ffffff;
+      --line: #e2e8f0;
+      --navy: #0f172a;
+      --sand: #fef3c7;
+      --ink-soft: rgba(15, 23, 42, 0.08);
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 14% 14%, rgba(245, 158, 11, 0.18), transparent 42%),
+        radial-gradient(circle at 86% 8%, rgba(2, 132, 199, 0.16), transparent 40%),
+        linear-gradient(180deg, #fef9c3 0%, #f8fafc 55%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px -30px rgba(15, 23, 42, 0.35);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .tag {
+      border-radius: 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .hero-card {
+      background: linear-gradient(120deg, #0f172a 0%, #1f2937 50%, #0f172a 100%);
+      color: #f8fafc;
+      border-radius: 24px;
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.6);
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: -30% 55% auto -30%;
+      height: 160%;
+      background: radial-gradient(circle, rgba(251, 191, 36, 0.35), transparent 60%);
+    }
+
+    .stat-card {
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: #fff;
+      padding: 16px;
+      box-shadow: 0 18px 40px -35px rgba(15, 23, 42, 0.55);
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .table-row {
+      border-bottom: 1px solid var(--line);
+      transition: background 0.2s ease;
+    }
+
+    .table-row:hover {
+      background: rgba(148, 163, 184, 0.08);
+    }
+
+    .status-pill {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 6px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.5);
+    }
+
+    .detail-panel {
+      position: fixed;
+      inset: 0 0 0 auto;
+      width: min(520px, 100%);
+      background: #fff;
+      border-right: 1px solid var(--line);
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      z-index: 40;
+      box-shadow: -20px 0 50px -30px rgba(15, 23, 42, 0.5);
+    }
+
+    .detail-panel.open {
+      transform: translateX(0);
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease;
+      z-index: 30;
+    }
+
+    .backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(15, 23, 42, 0.45);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease;
+      z-index: 50;
+    }
+
+    .modal.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-card {
+      width: min(720px, 100%);
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      padding: 20px;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 30px 60px -40px rgba(15, 23, 42, 0.6);
+    }
+
+    .fade-up {
+      animation: fadeUp 0.6s ease both;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+      .detail-panel { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">مركز الرواتب</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">💰 مركز الرواتب والتعويضات</h1>
+        <p class="text-slate-600">إدارة الرواتب والمكافآت والخصومات والاعتمادات المالية.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <a href="/hr/operations" class="btn bg-slate-900 text-white">
+          <i class="fas fa-diagram-project"></i>
+          بوابة العمليات
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-card mb-6 fade-up">
+      <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+        <div>
+          <div class="text-sm text-slate-200">ملخص المسير</div>
+          <h2 class="text-2xl font-extrabold mt-2">مركز مالي لإدارة الرواتب</h2>
+          <p class="text-sm text-slate-300 mt-3">تابع الصرف الشهري، اعتمد المستحقات، وراقب الخصومات بوضوح.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">إجمالي الموظفين</div>
+            <div id="totalEmployees" class="text-2xl font-extrabold mt-2">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">إجمالي الرواتب الشهرية</div>
+            <div id="totalBase" class="text-2xl font-extrabold text-slate-900 mt-2">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">إجمالي البدلات</div>
+            <div id="totalAllowances" class="text-2xl font-extrabold text-emerald-600 mt-2">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">إجمالي الخصومات</div>
+            <div id="totalDeductions" class="text-2xl font-extrabold text-rose-600 mt-2">0</div>
+          </div>
+        </div>
+        <div class="glass p-4 text-sm">
+          <div class="font-bold text-slate-700">صافي الرواتب المستحقة</div>
+          <div id="totalNet" class="text-3xl font-extrabold mt-3 text-slate-900">0</div>
+          <p class="text-slate-500 mt-2">يشمل المكافآت والخصومات لهذا الشهر.</p>
+          <button class="btn bg-white text-slate-700 border border-slate-200 mt-4 w-full">
+            <i class="fas fa-shield-halved"></i>
+            مطابقة مالية نهائية
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass p-5 mb-6 fade-up">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">جدول الرواتب الشهري</h2>
+          <p class="text-sm text-slate-500">إدارة الرواتب والمكافآت والخصومات في واجهة موحدة.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="addPayrollBtn" class="btn bg-emerald-600 text-white">
+            <i class="fas fa-plus"></i>
+            إضافة راتب جديد
+          </button>
+          <button id="addAdjustmentBtn" class="btn bg-amber-500 text-white">
+            <i class="fas fa-coins"></i>
+            إضافة مكافأة / خصم
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-6 gap-3 text-sm mb-5">
+        <div class="lg:col-span-2">
+          <label class="text-xs text-slate-500">بحث سريع</label>
+          <div class="mt-1 flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <i class="fas fa-magnifying-glass text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="ابحث باسم الموظف" class="w-full text-sm focus:outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">القسم</label>
+          <select id="departmentFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="">كل الأقسام</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">حالة الصرف</label>
+          <select id="statusFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="">كل الحالات</option>
+            <option value="تم الصرف">تم الصرف</option>
+            <option value="قيد المعالجة">قيد المعالجة</option>
+            <option value="متأخر">متأخر</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">الشهر</label>
+          <select id="monthFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="">كل الشهور</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">ترتيب البيانات</label>
+          <select id="sortFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="latest">الأحدث</option>
+            <option value="highest">الأعلى صافي</option>
+            <option value="lowest">الأقل صافي</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <div class="grid grid-cols-10 gap-3 bg-slate-900 text-white text-xs font-bold p-3">
+          <div>الموظف</div>
+          <div>القسم</div>
+          <div>الراتب الأساسي</div>
+          <div>البدلات</div>
+          <div>الخصومات</div>
+          <div>المكافآت</div>
+          <div>صافي الراتب</div>
+          <div>الحالة</div>
+          <div>تاريخ الصرف</div>
+          <div>الإجراءات</div>
+        </div>
+        <div id="tableBody" class="text-sm"></div>
+      </div>
+      <div id="emptyState" class="hidden text-center text-sm text-slate-500 py-6">لا توجد رواتب مطابقة للفلاتر الحالية.</div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 fade-up">
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">خط سير الاعتماد</div>
+        <div class="space-y-2 text-sm mt-3">
+          <div class="tag">تدقيق المسير</div>
+          <div class="tag">اعتماد المدير المالي</div>
+          <div class="tag">مطابقة التحويلات</div>
+          <div class="tag">إصدار القسائم</div>
+        </div>
+      </div>
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">مؤشرات الصرف</div>
+        <div class="grid grid-cols-2 gap-3 mt-3 text-sm">
+          <div class="bg-white border border-slate-200 rounded-2xl p-3">
+            <div class="text-slate-500">قيد المعالجة</div>
+            <div id="processingCount" class="text-xl font-bold text-amber-600">0</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-2xl p-3">
+            <div class="text-slate-500">متأخر</div>
+            <div id="lateCount" class="text-xl font-bold text-rose-600">0</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-2xl p-3">
+            <div class="text-slate-500">تم الصرف</div>
+            <div id="paidCount" class="text-xl font-bold text-emerald-600">0</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-2xl p-3">
+            <div class="text-slate-500">مطابقة مالية</div>
+            <div class="text-xl font-bold text-slate-900">97%</div>
+          </div>
+        </div>
+      </div>
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">توصيات ذكية</div>
+        <div class="space-y-2 text-sm mt-3">
+          <div class="tag">ضبط مكافآت الأداء المرتفعة</div>
+          <div class="tag">مراجعة الخصومات غير المعتادة</div>
+          <div class="tag">تتبع بدلات الفرق الحرجة</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass p-5 fade-up">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">أدوات مركز الرواتب</h2>
+          <p class="text-sm text-slate-500">أدوات تحليلية متقدمة لإدارة الرواتب بكفاءة.</p>
+        </div>
+        <span class="chip bg-amber-100 text-amber-700">جاهز للتفعيل</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+        <div class="tag">محاكاة تعديل الرواتب</div>
+        <div class="tag">سياسات بدلات مرنة</div>
+        <div class="tag">سجل الحسومات</div>
+        <div class="tag">تقارير الرواتب حسب الكيان</div>
+        <div class="tag">مقارنة شهرية</div>
+        <div class="tag">تتبع المكافآت</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="backdrop" class="backdrop"></div>
+  <aside id="detailPanel" class="detail-panel">
+    <div class="p-5 border-b border-slate-200 flex items-center justify-between">
+      <div>
+        <div class="text-xs text-slate-500">تفاصيل الراتب</div>
+        <h3 id="detailTitle" class="text-xl font-extrabold mt-1">تفاصيل</h3>
+      </div>
+      <button id="closePanel" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+    </div>
+    <div class="p-5 space-y-4 text-sm">
+      <div class="glass p-4">
+        <div class="text-xs text-slate-500">ملخص الراتب</div>
+        <div id="detailSummary" class="mt-2 text-slate-700"></div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-xs text-slate-500">سجل الرواتب السابقة</div>
+        <ul id="detailHistory" class="mt-2 space-y-2 text-slate-700"></ul>
+      </div>
+      <div class="glass p-4">
+        <div class="text-xs text-slate-500">سجل المكافآت والخصومات</div>
+        <ul id="detailAdjustments" class="mt-2 space-y-2 text-slate-700"></ul>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button id="printSlip" class="btn bg-slate-900 text-white w-full">
+          <i class="fas fa-print"></i>
+          طباعة كشف الراتب
+        </button>
+        <button id="exportSlip" class="btn bg-white text-slate-700 border border-slate-200 w-full">
+          <i class="fas fa-file-export"></i>
+          تصدير البيانات
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <div id="payrollModal" class="modal">
+    <div class="modal-card">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500">نموذج الراتب</div>
+          <h3 id="modalTitle" class="text-xl font-extrabold mt-1">إضافة راتب</h3>
+        </div>
+        <button id="closeModal" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+      </div>
+      <form id="payrollForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <input type="hidden" id="payrollId">
+        <div>
+          <label class="text-xs text-slate-500">اسم الموظف</label>
+          <input id="fieldName" required class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="اسم الموظف">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">القسم</label>
+          <input id="fieldDepartment" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="القسم">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">الراتب الأساسي</label>
+          <input id="fieldBase" type="number" min="0" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="12000">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">البدلات</label>
+          <input id="fieldAllowances" type="number" min="0" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="1500">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">الخصومات</label>
+          <input id="fieldDeductions" type="number" min="0" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="500">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">المكافآت</label>
+          <input id="fieldBonuses" type="number" min="0" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="800">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">حالة الصرف</label>
+          <select id="fieldStatus" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="قيد المعالجة">قيد المعالجة</option>
+            <option value="تم الصرف">تم الصرف</option>
+            <option value="متأخر">متأخر</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">تاريخ الصرف</label>
+          <input id="fieldPayDate" type="date" required class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">شهر المسير</label>
+          <input id="fieldMonth" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="2026-02">
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-slate-500">ملاحظات داخلية</label>
+          <textarea id="fieldNotes" rows="2" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2"></textarea>
+        </div>
+        <div class="md:col-span-2 flex flex-wrap gap-2">
+          <button type="submit" class="btn bg-emerald-600 text-white">حفظ الراتب</button>
+          <button type="button" id="cancelForm" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let payrollData = [];
+    const apiBase = '/api/hr-payroll-records';
+
+    let currentDetail = null;
+
+    const elements = {
+      tableBody: document.getElementById('tableBody'),
+      emptyState: document.getElementById('emptyState'),
+      searchInput: document.getElementById('searchInput'),
+      departmentFilter: document.getElementById('departmentFilter'),
+      statusFilter: document.getElementById('statusFilter'),
+      monthFilter: document.getElementById('monthFilter'),
+      sortFilter: document.getElementById('sortFilter'),
+      addPayrollBtn: document.getElementById('addPayrollBtn'),
+      addAdjustmentBtn: document.getElementById('addAdjustmentBtn'),
+      totalEmployees: document.getElementById('totalEmployees'),
+      totalBase: document.getElementById('totalBase'),
+      totalAllowances: document.getElementById('totalAllowances'),
+      totalDeductions: document.getElementById('totalDeductions'),
+      totalNet: document.getElementById('totalNet'),
+      processingCount: document.getElementById('processingCount'),
+      lateCount: document.getElementById('lateCount'),
+      paidCount: document.getElementById('paidCount'),
+      detailPanel: document.getElementById('detailPanel'),
+      backdrop: document.getElementById('backdrop'),
+      detailTitle: document.getElementById('detailTitle'),
+      detailSummary: document.getElementById('detailSummary'),
+      detailHistory: document.getElementById('detailHistory'),
+      detailAdjustments: document.getElementById('detailAdjustments'),
+      closePanel: document.getElementById('closePanel'),
+      printSlip: document.getElementById('printSlip'),
+      exportSlip: document.getElementById('exportSlip'),
+      payrollModal: document.getElementById('payrollModal'),
+      modalTitle: document.getElementById('modalTitle'),
+      closeModal: document.getElementById('closeModal'),
+      cancelForm: document.getElementById('cancelForm'),
+      payrollForm: document.getElementById('payrollForm'),
+      payrollId: document.getElementById('payrollId'),
+      fieldName: document.getElementById('fieldName'),
+      fieldDepartment: document.getElementById('fieldDepartment'),
+      fieldBase: document.getElementById('fieldBase'),
+      fieldAllowances: document.getElementById('fieldAllowances'),
+      fieldDeductions: document.getElementById('fieldDeductions'),
+      fieldBonuses: document.getElementById('fieldBonuses'),
+      fieldStatus: document.getElementById('fieldStatus'),
+      fieldPayDate: document.getElementById('fieldPayDate'),
+      fieldMonth: document.getElementById('fieldMonth'),
+      fieldNotes: document.getElementById('fieldNotes')
+    };
+
+    const formatCurrency = (value) => new Intl.NumberFormat('ar-SA', {
+      style: 'currency',
+      currency: 'SAR',
+      maximumFractionDigits: 0
+    }).format(value);
+
+    const calcNet = (entry) => entry.base + entry.allowances + entry.bonuses - entry.deductions;
+
+    const statusStyles = {
+      'تم الصرف': 'bg-emerald-100 text-emerald-700',
+      'قيد المعالجة': 'bg-amber-100 text-amber-700',
+      'متأخر': 'bg-rose-100 text-rose-700'
+    };
+
+    const uniqueValues = (key) => [...new Set(payrollData.map(item => item[key]))].filter(Boolean).sort();
+
+    const mapFromApi = (item) => ({
+      id: item.id,
+      name: item.employee_name,
+      department: item.department,
+      base: Number(item.base_salary || 0),
+      allowances: Number(item.allowances || 0),
+      deductions: Number(item.deductions || 0),
+      bonuses: Number(item.bonuses || 0),
+      status: item.status,
+      payDate: item.pay_date,
+      month: item.payroll_month,
+      notes: item.notes,
+      history: item.history || [],
+      adjustments: item.adjustments || []
+    });
+
+    const mapToApi = (data) => ({
+      employee_name: data.name,
+      department: data.department,
+      base_salary: data.base,
+      allowances: data.allowances,
+      deductions: data.deductions,
+      bonuses: data.bonuses,
+      status: data.status,
+      pay_date: data.payDate,
+      payroll_month: data.month,
+      notes: data.notes,
+      history: data.history || [],
+      adjustments: data.adjustments || []
+    });
+
+    const buildEntryFromForm = () => ({
+      name: elements.fieldName.value.trim(),
+      department: elements.fieldDepartment.value.trim(),
+      base: Number(elements.fieldBase.value || 0),
+      allowances: Number(elements.fieldAllowances.value || 0),
+      deductions: Number(elements.fieldDeductions.value || 0),
+      bonuses: Number(elements.fieldBonuses.value || 0),
+      status: elements.fieldStatus.value,
+      payDate: elements.fieldPayDate.value,
+      month: elements.fieldMonth.value.trim(),
+      notes: elements.fieldNotes.value.trim()
+    });
+
+    const loadPayrolls = async () => {
+      const response = await fetch(apiBase);
+      const data = await response.json();
+      payrollData = data.map(mapFromApi);
+      populateFilters();
+      renderTable();
+    };
+
+    const updateSummary = (data) => {
+      const totalEmployees = data.length;
+      const totalBase = data.reduce((sum, item) => sum + item.base, 0);
+      const totalAllowances = data.reduce((sum, item) => sum + item.allowances, 0);
+      const totalDeductions = data.reduce((sum, item) => sum + item.deductions, 0);
+      const totalNet = data.reduce((sum, item) => sum + calcNet(item), 0);
+
+      elements.totalEmployees.textContent = totalEmployees;
+      elements.totalBase.textContent = formatCurrency(totalBase);
+      elements.totalAllowances.textContent = formatCurrency(totalAllowances);
+      elements.totalDeductions.textContent = formatCurrency(totalDeductions);
+      elements.totalNet.textContent = formatCurrency(totalNet);
+
+      elements.processingCount.textContent = data.filter(item => item.status === 'قيد المعالجة').length;
+      elements.lateCount.textContent = data.filter(item => item.status === 'متأخر').length;
+      elements.paidCount.textContent = data.filter(item => item.status === 'تم الصرف').length;
+    };
+
+    const openDetail = (item) => {
+      currentDetail = item;
+      elements.detailTitle.textContent = `${item.name} • ${item.department}`;
+      elements.detailSummary.innerHTML = `
+        <div class="grid grid-cols-2 gap-3">
+          <div><span class="text-slate-500">الراتب الأساسي:</span> ${formatCurrency(item.base)}</div>
+          <div><span class="text-slate-500">البدلات:</span> ${formatCurrency(item.allowances)}</div>
+          <div><span class="text-slate-500">الخصومات:</span> ${formatCurrency(item.deductions)}</div>
+          <div><span class="text-slate-500">المكافآت:</span> ${formatCurrency(item.bonuses)}</div>
+          <div><span class="text-slate-500">صافي الراتب:</span> ${formatCurrency(calcNet(item))}</div>
+          <div><span class="text-slate-500">حالة الصرف:</span> ${item.status}</div>
+        </div>
+        <p class="text-slate-500 mt-3">${item.notes || 'لا توجد ملاحظات إضافية.'}</p>
+      `;
+
+      elements.detailHistory.innerHTML = item.history
+        .map(row => `<li>• ${row.month} — ${formatCurrency(row.net)} (${row.status})</li>`)
+        .join('');
+
+      elements.detailAdjustments.innerHTML = item.adjustments
+        .map(adj => `• ${adj.type === 'bonus' ? 'مكافأة' : 'خصم'}: ${adj.label} — ${formatCurrency(adj.amount)} (${adj.date})`)
+        .map(text => `<li>${text}</li>`)
+        .join('');
+
+      elements.detailPanel.classList.add('open');
+      elements.backdrop.classList.add('open');
+    };
+
+    const closeDetail = () => {
+      elements.detailPanel.classList.remove('open');
+      elements.backdrop.classList.remove('open');
+    };
+
+    const openModal = (mode, item = {}) => {
+      elements.modalTitle.textContent = mode === 'edit' ? 'تعديل راتب' : 'إضافة راتب';
+      elements.payrollId.value = item.id || '';
+      elements.fieldName.value = item.name || '';
+      elements.fieldDepartment.value = item.department || '';
+      elements.fieldBase.value = item.base || 0;
+      elements.fieldAllowances.value = item.allowances || 0;
+      elements.fieldDeductions.value = item.deductions || 0;
+      elements.fieldBonuses.value = item.bonuses || 0;
+      elements.fieldStatus.value = item.status || 'قيد المعالجة';
+      elements.fieldPayDate.value = item.payDate || '';
+      elements.fieldMonth.value = item.month || '';
+      elements.fieldNotes.value = item.notes || '';
+      elements.payrollModal.classList.add('open');
+    };
+
+    const closeModal = () => {
+      elements.payrollModal.classList.remove('open');
+    };
+
+    const renderTable = () => {
+      const searchValue = elements.searchInput.value.trim().toLowerCase();
+      const departmentValue = elements.departmentFilter.value;
+      const statusValue = elements.statusFilter.value;
+      const monthValue = elements.monthFilter.value;
+      const sortValue = elements.sortFilter.value;
+
+      let filtered = payrollData.filter(item => {
+        const matchesSearch = item.name.toLowerCase().includes(searchValue);
+        const matchesDepartment = departmentValue ? item.department === departmentValue : true;
+        const matchesStatus = statusValue ? item.status === statusValue : true;
+        const matchesMonth = monthValue ? item.month === monthValue : true;
+        return matchesSearch && matchesDepartment && matchesStatus && matchesMonth;
+      });
+
+      filtered = filtered.sort((a, b) => {
+        if (sortValue === 'highest') return calcNet(b) - calcNet(a);
+        if (sortValue === 'lowest') return calcNet(a) - calcNet(b);
+        return new Date(b.payDate) - new Date(a.payDate);
+      });
+
+      elements.tableBody.innerHTML = '';
+      elements.emptyState.classList.toggle('hidden', filtered.length !== 0);
+      updateSummary(filtered);
+
+      filtered.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'table-row grid grid-cols-10 gap-3 items-center p-3';
+        row.innerHTML = `
+          <div class="font-semibold text-slate-900">${item.name}</div>
+          <div class="text-slate-600">${item.department}</div>
+          <div class="text-slate-600">${formatCurrency(item.base)}</div>
+          <div class="text-slate-600">${formatCurrency(item.allowances)}</div>
+          <div class="text-slate-600">${formatCurrency(item.deductions)}</div>
+          <div class="text-slate-600">${formatCurrency(item.bonuses)}</div>
+          <div class="font-bold text-slate-800">${formatCurrency(calcNet(item))}</div>
+          <div>
+            <span class="status-pill ${statusStyles[item.status]}">
+              <i class="fas fa-circle"></i>${item.status}
+            </span>
+          </div>
+          <div class="text-slate-600">${item.payDate}</div>
+          <div class="row-actions flex flex-wrap gap-2">
+            <button data-action="view" data-id="${item.id}" class="bg-white">عرض</button>
+            <button data-action="preview" data-id="${item.id}" class="bg-white">معاينة كشف الراتب</button>
+            <button data-action="edit" data-id="${item.id}" class="bg-slate-50">تعديل</button>
+            <button data-action="delete" data-id="${item.id}" class="bg-rose-50 text-rose-700">حذف</button>
+            <button data-action="approve" data-id="${item.id}" class="bg-emerald-50 text-emerald-700">اعتماد الصرف</button>
+            <button data-action="pause" data-id="${item.id}" class="bg-amber-50 text-amber-700">إيقاف مؤقت</button>
+          </div>
+        `;
+        elements.tableBody.appendChild(row);
+      });
+    };
+
+    const handleAction = (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const action = button.getAttribute('data-action');
+      const id = Number(button.getAttribute('data-id'));
+      const item = payrollData.find(entry => entry.id === id);
+      if (!item) return;
+
+      const persistStatus = async (nextStatus) => {
+        const payload = mapToApi({
+          ...item,
+          status: nextStatus,
+          history: item.history || [],
+          adjustments: item.adjustments || []
+        });
+        await fetch(`${apiBase}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        loadPayrolls();
+      };
+
+      if (action === 'view' || action === 'preview') {
+        openDetail(item);
+      }
+      if (action === 'edit') {
+        openModal('edit', item);
+      }
+      if (action === 'approve') {
+        persistStatus('تم الصرف');
+      }
+      if (action === 'pause') {
+        persistStatus('متأخر');
+      }
+      if (action === 'delete') {
+        if (!confirm('هل تريد حذف هذا السجل؟')) return;
+        fetch(`${apiBase}/${id}`, { method: 'DELETE' }).then(loadPayrolls);
+      }
+    };
+
+    const populateFilters = () => {
+      elements.departmentFilter.innerHTML = '<option value="">كل الأقسام</option>';
+      elements.monthFilter.innerHTML = '<option value="">كل الشهور</option>';
+      uniqueValues('department').forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        elements.departmentFilter.appendChild(option);
+      });
+      uniqueValues('month').forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        elements.monthFilter.appendChild(option);
+      });
+    };
+
+    elements.tableBody.addEventListener('click', handleAction);
+    elements.closePanel.addEventListener('click', closeDetail);
+    elements.backdrop.addEventListener('click', closeDetail);
+    elements.printSlip.addEventListener('click', () => window.print());
+    elements.exportSlip.addEventListener('click', () => {
+      if (!currentDetail) return;
+      const lines = [
+        ['الشهر', 'صافي الراتب', 'الحالة'],
+        [currentDetail.month, calcNet(currentDetail), currentDetail.status],
+        ...currentDetail.history.map(row => [row.month, row.net, row.status])
+      ];
+      const csv = lines.map(row => row.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${currentDetail.name}-payroll.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    });
+
+    elements.addPayrollBtn.addEventListener('click', () => openModal('create'));
+    elements.addAdjustmentBtn.addEventListener('click', () => {
+      openModal('create', {
+        base: 0,
+        allowances: 0,
+        deductions: 0,
+        bonuses: 0,
+        status: 'قيد المعالجة'
+      });
+    });
+
+    elements.closeModal.addEventListener('click', closeModal);
+    elements.cancelForm.addEventListener('click', closeModal);
+    elements.payrollModal.addEventListener('click', (event) => {
+      if (event.target === elements.payrollModal) closeModal();
+    });
+
+    elements.payrollForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const id = elements.payrollId.value ? Number(elements.payrollId.value) : null;
+      const baseEntry = buildEntryFromForm();
+      const existing = id ? payrollData.find(item => item.id === id) : null;
+      const payload = mapToApi({
+        ...baseEntry,
+        history: existing?.history || [],
+        adjustments: existing?.adjustments || []
+      });
+
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? `${apiBase}/${id}` : apiBase;
+      await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      closeModal();
+      loadPayrolls();
+    });
+
+    [elements.searchInput, elements.departmentFilter, elements.statusFilter, elements.monthFilter, elements.sortFilter]
+      .forEach(element => element.addEventListener('input', renderTable));
+
+    loadPayrolls();
+  </script>
+</body>
+</html>

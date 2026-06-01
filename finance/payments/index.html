@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام الدفع - لوحة التحكم</title>
+  <link rel="stylesheet" href="/finance/brand-theme.css">
+  <link rel="stylesheet" href="/finance/contrast-overrides.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Changa:wght@400;600;700&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/finance/payments/payment-system.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">
+        <img src="/لوجو%20نايوش%20خلفيه.png" alt="شعار نايوش" class="logo-img">
+        <span>نظام الدفع</span>
+      </div>
+      <nav>
+        <a class="nav-link active" href="/finance/payments/"><i class="fas fa-chart-pie"></i>لوحة التحكم</a>
+        <a class="nav-link" href="/finance/payments/settlements.html"><i class="fas fa-scale-balanced"></i>تسوية المديونية</a>
+        <a class="nav-link" href="/finance/payments/tracking.html"><i class="fas fa-location-dot"></i>تتبع الدفعات</a>
+        <a class="nav-link" href="/finance/payments/arrears.html"><i class="fas fa-triangle-exclamation"></i>إدارة المتأخرات</a>
+        <a class="nav-link" href="/finance/payments/analytics.html"><i class="fas fa-chart-line"></i>تحليلات الدفع</a>
+        <a class="nav-link" href="/finance/payments/reminders.html"><i class="fas fa-bell"></i>التذكيرات الآلية</a>
+        <a class="nav-link" href="/finance/payments/smart-invoices.html"><i class="fas fa-file-invoice"></i>الفواتير الذكية</a>
+        <a class="nav-link" href="/finance/payments/collection-rules.html"><i class="fas fa-shield-halved"></i>قواعد التحصيل</a>
+      </nav>
+      <div class="side-footer">
+        لوحة تحكم موحدة لمتابعة أداء التحصيل والدفعات.
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="page-hero">
+        <div class="hero-text">
+          <h1>نظام الدفع (Payment System)</h1>
+          <p>لوحة قيادة متكاملة لمراقبة التحصيل، إدارة المتأخرات، وربط الفواتير الذكية بالدفعات.</p>
+        </div>
+        <span class="hero-badge">Finance Payment Hub</span>
+      </section>
+
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="label">إجمالي المدفوعات</div>
+          <div class="value" id="statTotalPayments">0 SAR</div>
+          <div class="trend">مدفوعات مكتملة</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">إجمالي المتأخرات</div>
+          <div class="value" id="statTotalOverdue">0 SAR</div>
+          <div class="trend">تراكمات بحاجة متابعة</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">المدفوع هذا الشهر</div>
+          <div class="value" id="statPaidThisMonth">0 SAR</div>
+          <div class="trend">سيولة الشهر الحالي</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">عدد الفواتير غير المسددة</div>
+          <div class="value" id="statUnpaidCount">0</div>
+          <div class="trend">فواتير تحتاج تحصيل</div>
+        </div>
+      </section>
+
+      <section class="chart-grid">
+        <div class="chart-card">
+          <h3>المدفوعات شهريا</h3>
+          <canvas id="monthlyChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>المتأخرات حسب العملاء</h3>
+          <canvas id="arrearsChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>نسبة التحصيل</h3>
+          <canvas id="ratioChart"></canvas>
+        </div>
+      </section>
+
+      <section class="table-card">
+        <header>
+          <h3>أحدث المعاملات</h3>
+          <span class="badge-pill" id="recentCount">آخر 8 سجلات</span>
+        </header>
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>رقم السجل</th>
+                <th>الوحدة</th>
+                <th>العميل</th>
+                <th>المبلغ</th>
+                <th>الحالة</th>
+                <th>آخر تحديث</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="recentTableBody">
+              <tr>
+                <td colspan="7" style="text-align:center; padding: 24px; color: #64748b;">جاري تحميل البيانات...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal" id="dashboardModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="dashboardModalTitle">عرض المعاملة</h3>
+        <button class="icon-btn" onclick="closeDashboardModal()"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>رقم السجل</label>
+          <input id="dashboardRecordNumber" type="text" disabled>
+        </div>
+        <div class="field">
+          <label>الوحدة</label>
+          <input id="dashboardModuleType" type="text" disabled>
+        </div>
+        <div class="field">
+          <label>التاريخ</label>
+          <input id="dashboardRecordDate" type="date">
+        </div>
+        <div class="field">
+          <label>العميل</label>
+          <input id="dashboardCustomerName" type="text">
+        </div>
+        <div class="field">
+          <label>المبلغ</label>
+          <input id="dashboardAmount" type="number" step="0.01">
+        </div>
+        <div class="field">
+          <label>الحالة</label>
+          <select id="dashboardStatus">
+            <option value="مدفوع">مدفوع</option>
+            <option value="متأخر">متأخر</option>
+            <option value="قيد التحصيل">قيد التحصيل</option>
+            <option value="قيد المراجعة">قيد المراجعة</option>
+            <option value="معلق">معلق</option>
+            <option value="مغلق">مغلق</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>الموظف المسؤول</label>
+          <input id="dashboardOwnerEmployee" type="text">
+        </div>
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>ملاحظات</label>
+          <textarea id="dashboardNotes" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeDashboardModal()">إلغاء</button>
+        <button class="btn btn-primary" id="dashboardModalSave" onclick="submitDashboardRecord()">حفظ</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+
+    let monthlyChart;
+    let arrearsChart;
+    let ratioChart;
+    let recentRecords = [];
+    let dashboardMode = 'view';
+    let dashboardEditingId = null;
+
+    const formatMoney = (value) => {
+      const numberValue = parseFloat(value || 0);
+      return `${numberValue.toLocaleString('en-US')} SAR`;
+    };
+
+    const formatDate = (value) => {
+      if (!value) return '-';
+      return new Date(value).toLocaleDateString('en-US');
+    };
+
+    const getStatusClass = (status) => {
+      switch (status) {
+        case 'مدفوع':
+          return 'status-paid';
+        case 'متأخر':
+          return 'status-overdue';
+        case 'قيد التحصيل':
+          return 'status-progress';
+        case 'قيد المراجعة':
+          return 'status-review';
+        case 'معلق':
+          return 'status-hold';
+        case 'مغلق':
+          return 'status-closed';
+        default:
+          return 'status-closed';
+      }
+    };
+
+    const translateModule = (moduleType) => {
+      const map = {
+        settlements: 'تسوية المديونية',
+        tracking: 'تتبع الدفعات',
+        arrears: 'إدارة المتأخرات',
+        analytics: 'تحليلات الدفع',
+        reminders: 'التذكيرات الآلية',
+        'smart-invoices': 'الفواتير الذكية',
+        'collection-rules': 'قواعد التحصيل'
+      };
+      return map[moduleType] || moduleType;
+    };
+
+    const renderStatusOptions = (selected) => {
+      const options = ['مدفوع', 'متأخر', 'قيد التحصيل', 'قيد المراجعة', 'معلق', 'مغلق'];
+      return options.map((option) => {
+        const isSelected = option === selected ? 'selected' : '';
+        return `<option value="${option}" ${isSelected}>${option}</option>`;
+      }).join('');
+    };
+
+    const updateSummary = (summary) => {
+      document.getElementById('statTotalPayments').textContent = formatMoney(summary.total_paid || 0);
+      document.getElementById('statTotalOverdue').textContent = formatMoney(summary.total_overdue || 0);
+      document.getElementById('statPaidThisMonth').textContent = formatMoney(summary.paid_this_month || 0);
+      document.getElementById('statUnpaidCount').textContent = (summary.unpaid_count || 0).toLocaleString('en-US');
+    };
+
+    const renderMonthlyChart = (data) => {
+      const labels = data.map((row) => row.month);
+      const values = data.map((row) => parseFloat(row.paid || 0));
+
+      if (monthlyChart) monthlyChart.destroy();
+      monthlyChart = new Chart(document.getElementById('monthlyChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'المدفوعات',
+              data: values,
+              borderColor: '#0f766e',
+              backgroundColor: 'rgba(15, 118, 110, 0.2)',
+              tension: 0.3,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } }
+        }
+      });
+    };
+
+    const renderArrearsChart = (data) => {
+      const labels = data.map((row) => row.customer_name);
+      const values = data.map((row) => parseFloat(row.total || 0));
+
+      if (arrearsChart) arrearsChart.destroy();
+      arrearsChart = new Chart(document.getElementById('arrearsChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'المتأخرات',
+              data: values,
+              backgroundColor: '#f59e0b'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } }
+        }
+      });
+    };
+
+    const renderRatioChart = (ratio) => {
+      const paid = parseFloat(ratio.paid || 0);
+      const outstanding = parseFloat(ratio.outstanding || 0);
+
+      if (ratioChart) ratioChart.destroy();
+      ratioChart = new Chart(document.getElementById('ratioChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['محصل', 'غير محصل'],
+          datasets: [
+            {
+              data: [paid, outstanding],
+              backgroundColor: ['#0f766e', '#e11d48']
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    };
+
+    const renderRecent = (records) => {
+      const tbody = document.getElementById('recentTableBody');
+      const rows = records.map((record) => `
+        <tr>
+          <td>${record.record_number || '-'}</td>
+          <td>${translateModule(record.module_type)}</td>
+          <td>
+            <div class="customer-cell">
+              <span>${record.customer_name || '-'}</span>
+              <select class="status-select" onchange="updateDashboardStatus(${record.id}, this.value)">
+                ${renderStatusOptions(record.status)}
+              </select>
+            </div>
+          </td>
+          <td>${formatMoney(record.amount)}</td>
+          <td><span class="status-pill ${getStatusClass(record.status)}">${record.status || '-'}</span></td>
+          <td>${formatDate(record.updated_at)}</td>
+          <td>
+            <div class="row-actions">
+              <button class="icon-btn" onclick="openDashboardModal('view', ${record.id})" title="عرض"><i class="fas fa-eye"></i></button>
+              <button class="icon-btn" onclick="openDashboardModal('edit', ${record.id})" title="تعديل"><i class="fas fa-pen"></i></button>
+              <button class="icon-btn" onclick="deleteDashboardRecord(${record.id})" title="حذف"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.innerHTML = rows || `
+        <tr>
+          <td colspan="7" style="text-align:center; padding: 24px; color: #64748b;">لا توجد بيانات حديثة</td>
+        </tr>
+      `;
+    };
+
+    const setDashboardFormDisabled = (disabled) => {
+      const fields = [
+        'dashboardRecordDate',
+        'dashboardCustomerName',
+        'dashboardAmount',
+        'dashboardStatus',
+        'dashboardOwnerEmployee',
+        'dashboardNotes'
+      ];
+      fields.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = disabled;
+      });
+    };
+
+    const openDashboardModal = (mode, id) => {
+      dashboardMode = mode;
+      dashboardEditingId = id;
+      const record = recentRecords.find((item) => item.id === id);
+      if (!record) return;
+
+      document.getElementById('dashboardModalTitle').textContent = mode === 'view' ? 'عرض المعاملة' : 'تعديل المعاملة';
+      document.getElementById('dashboardModalSave').style.display = mode === 'view' ? 'none' : 'inline-flex';
+
+      document.getElementById('dashboardRecordNumber').value = record.record_number || '';
+      document.getElementById('dashboardModuleType').value = translateModule(record.module_type);
+      document.getElementById('dashboardRecordDate').value = (record.record_date || '').slice(0, 10);
+      document.getElementById('dashboardCustomerName').value = record.customer_name || '';
+      document.getElementById('dashboardAmount').value = record.amount || 0;
+      document.getElementById('dashboardStatus').value = record.status || 'مدفوع';
+      document.getElementById('dashboardOwnerEmployee').value = record.owner_employee || '';
+      document.getElementById('dashboardNotes').value = record.notes || '';
+
+      setDashboardFormDisabled(mode === 'view');
+      document.getElementById('dashboardModal').classList.add('active');
+    };
+
+    const closeDashboardModal = () => {
+      document.getElementById('dashboardModal').classList.remove('active');
+    };
+
+    const submitDashboardRecord = async () => {
+      if (!dashboardEditingId) return;
+      const payload = {
+        record_date: document.getElementById('dashboardRecordDate').value,
+        customer_name: document.getElementById('dashboardCustomerName').value.trim(),
+        amount: parseFloat(document.getElementById('dashboardAmount').value || 0),
+        status: document.getElementById('dashboardStatus').value,
+        owner_employee: document.getElementById('dashboardOwnerEmployee').value.trim(),
+        notes: document.getElementById('dashboardNotes').value.trim()
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/finance/payment-system/records/${dashboardEditingId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || 'تعذر حفظ المعاملة');
+        }
+        closeDashboardModal();
+        await loadDashboard();
+      } catch (error) {
+        console.error('Error updating record:', error);
+        alert(error.message || 'تعذر حفظ المعاملة');
+      }
+    };
+
+    const deleteDashboardRecord = async (id) => {
+      if (!confirm('هل تريد حذف هذه المعاملة؟')) return;
+      try {
+        const res = await fetch(`${API_BASE}/finance/payment-system/records/${id}`, {
+          method: 'DELETE',
+          headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+        });
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || 'تعذر حذف المعاملة');
+        }
+        await loadDashboard();
+      } catch (error) {
+        console.error('Error deleting record:', error);
+        alert(error.message || 'تعذر حذف المعاملة');
+      }
+    };
+
+    const updateDashboardStatus = async (id, status) => {
+      try {
+        const res = await fetch(`${API_BASE}/finance/payment-system/records/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+          },
+          body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || 'تعذر تحديث الحالة');
+        }
+        await loadDashboard();
+      } catch (error) {
+        console.error('Error updating status:', error);
+        alert(error.message || 'تعذر تحديث الحالة');
+      }
+    };
+
+    const loadDashboard = async () => {
+      try {
+        const [summaryRes, chartsRes, recentRes] = await Promise.all([
+          fetch(`${API_BASE}/finance/payment-system/summary?entity_id=${ENTITY_ID}`),
+          fetch(`${API_BASE}/finance/payment-system/charts?entity_id=${ENTITY_ID}`),
+          fetch(`${API_BASE}/finance/payment-system/records?entity_id=${ENTITY_ID}&limit=8`)
+        ]);
+
+        const summaryData = await summaryRes.json();
+        const chartsData = await chartsRes.json();
+        const recentData = await recentRes.json();
+
+        if (summaryData.success) updateSummary(summaryData.summary || {});
+        if (chartsData.success) {
+          renderMonthlyChart(chartsData.charts?.monthly || []);
+          renderArrearsChart(chartsData.charts?.arrears || []);
+          renderRatioChart(chartsData.charts?.ratio || { paid: 0, outstanding: 0 });
+        }
+        if (recentData.success) {
+          recentRecords = recentData.records || [];
+          renderRecent(recentRecords);
+        }
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+      }
+    };
+
+    window.openDashboardModal = openDashboardModal;
+    window.closeDashboardModal = closeDashboardModal;
+    window.submitDashboardRecord = submitDashboardRecord;
+    window.deleteDashboardRecord = deleteDashboardRecord;
+    window.updateDashboardStatus = updateDashboardStatus;
+
+    loadDashboard();
+  </script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

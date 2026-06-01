@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏗️ الأصول الثابتة والإهلاك - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb; /* Slate-50 */
+            min-height: 100vh;
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
+            backdrop-filter: blur(10px);
+        }
+        .stat-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+        .table-scroll {
+            max-height: 520px;
+            overflow: auto;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🏗️ الأصول الثابتة والإهلاك</h1>
+            <p class="text-lg opacity-90">عرض تفصيلي للأصول الثابتة مع حركات الإهلاك</p>
+        </div>
+
+        <div class="mb-6 flex gap-3 flex-wrap">
+            <button onclick="openAssetModal('create')" class="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-emerald-700 transition flex items-center gap-3 border border-emerald-600">
+                <i class="fas fa-plus text-xl"></i>
+                إضافة أصل ثابت
+            </button>
+            <button onclick="downloadCSV()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-blue-500 group">
+                <i class="fas fa-file-csv text-xl text-blue-600 group-hover:text-blue-700 transition"></i>
+                تنزيل ملف نصي
+            </button>
+            <button onclick="downloadJSON()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-purple-500 group">
+                <i class="fas fa-file-code text-xl text-purple-600 group-hover:text-purple-700 transition"></i>
+                تنزيل ملف جيسون
+            </button>
+            <button onclick="printReport()" class="bg-white text-slate-900 px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2 border-2 border-white">
+                <i class="fas fa-print text-xl text-slate-700 transition"></i>
+                طباعة
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-warehouse text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">عدد الأصول</span>
+                </div>
+                <div id="totalAssets" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-sack-dollar text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي التكلفة</span>
+                </div>
+                <div id="totalCost" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-chart-line text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي الإهلاك</span>
+                </div>
+                <div id="totalDep" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-wallet text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">القيمة الدفترية</span>
+                </div>
+                <div id="totalNet" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">من تاريخ الشراء</label>
+                    <input id="fromDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">إلى تاريخ الشراء</label>
+                    <input id="toDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">فئة الأصل</label>
+                    <input id="filterAssetCategory" type="text" placeholder="مثال: تقنية معلومات" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">نوع الأصل</label>
+                    <input id="filterAssetType" type="text" placeholder="مثال: معدات مكتبية" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">الحالة</label>
+                    <input id="status" type="text" placeholder="مثال: نشط" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" oninput="applyFilters()">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card-gradient rounded-2xl shadow-2xl p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📊 توزيع التكلفة حسب الفئة</h3>
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+            <div class="card-gradient rounded-2xl shadow-2xl p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📉 الإهلاك حسب السنة</h3>
+                <div class="chart-container">
+                    <canvas id="depreciationChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl overflow-hidden mb-8">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">📋 جدول الأصول الثابتة</h3>
+                    <span id="assetsCount" class="text-sm text-gray-600"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-3 py-2 text-right">معرف الأصل</th>
+                                <th class="px-3 py-2 text-right">كود الأصل</th>
+                                <th class="px-3 py-2 text-right">اسم الأصل (ع)</th>
+                                <th class="px-3 py-2 text-right">اسم الأصل (إنجليزي)</th>
+                                <th class="px-3 py-2 text-right">فئة الأصل</th>
+                                <th class="px-3 py-2 text-right">نوع الأصل</th>
+                                <th class="px-3 py-2 text-right">تاريخ الشراء</th>
+                                <th class="px-3 py-2 text-right">تكلفة الشراء</th>
+                                <th class="px-3 py-2 text-right">قيمة الخردة</th>
+                                <th class="px-3 py-2 text-right">القيمة القابلة للإهلاك</th>
+                                <th class="px-3 py-2 text-right">طريقة الإهلاك</th>
+                                <th class="px-3 py-2 text-right">العمر (سنوات)</th>
+                                <th class="px-3 py-2 text-right">العمر (أشهر)</th>
+                                <th class="px-3 py-2 text-right">إهلاك متراكم</th>
+                                <th class="px-3 py-2 text-right">القيمة الدفترية</th>
+                                <th class="px-3 py-2 text-right">الحالة</th>
+                                <th class="px-3 py-2 text-right">تاريخ الاستبعاد</th>
+                                <th class="px-3 py-2 text-right">قيمة الاستبعاد</th>
+                                <th class="px-3 py-2 text-right">الموقع</th>
+                                <th class="px-3 py-2 text-right">مسؤول الأصل</th>
+                                <th class="px-3 py-2 text-right">نوع الكيان</th>
+                                <th class="px-3 py-2 text-right">معرف الكيان</th>
+                                <th class="px-3 py-2 text-right">الفرع</th>
+                                <th class="px-3 py-2 text-right">الحاضنة</th>
+                                <th class="px-3 py-2 text-right">المكتب</th>
+                                <th class="px-3 py-2 text-right">حساب الأصل</th>
+                                <th class="px-3 py-2 text-right">حساب الإهلاك</th>
+                                <th class="px-3 py-2 text-right">حساب الإهلاك المتراكم</th>
+                                <th class="px-3 py-2 text-right">الرقم التسلسلي</th>
+                                <th class="px-3 py-2 text-right">انتهاء الضمان</th>
+                                <th class="px-3 py-2 text-right">جدول الصيانة</th>
+                                <th class="px-3 py-2 text-right">ملاحظات</th>
+                                <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                                <th class="px-3 py-2 text-right">آخر تحديث</th>
+                                <th class="px-3 py-2 text-right">أنشئ بواسطة</th>
+                                <th class="px-3 py-2 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assetsTable" class="text-xs divide-y divide-gray-100">
+                            <tr>
+                                <td colspan="36" class="px-4 py-12 text-center text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل البيانات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl overflow-hidden">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">📉 جدول الإهلاك</h3>
+                    <div class="flex items-center gap-3">
+                        <span id="depreciationCount" class="text-sm text-gray-600"></span>
+                        <button onclick="openDepreciationModal('create')" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700">إضافة إهلاك</button>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-3 py-2 text-right">معرف الإهلاك</th>
+                                <th class="px-3 py-2 text-right">معرف الأصل</th>
+                                <th class="px-3 py-2 text-right">كود الأصل</th>
+                                <th class="px-3 py-2 text-right">اسم الأصل (ع)</th>
+                                <th class="px-3 py-2 text-right">اسم الأصل (إنجليزي)</th>
+                                <th class="px-3 py-2 text-right">تاريخ الإهلاك</th>
+                                <th class="px-3 py-2 text-right">السنة المالية</th>
+                                <th class="px-3 py-2 text-right">الفترة المالية</th>
+                                <th class="px-3 py-2 text-right">قيمة الإهلاك</th>
+                                <th class="px-3 py-2 text-right">إهلاك متراكم</th>
+                                <th class="px-3 py-2 text-right">القيمة الدفترية</th>
+                                <th class="px-3 py-2 text-right">رقم القيد</th>
+                                <th class="px-3 py-2 text-right">ملاحظات</th>
+                                <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                                <th class="px-3 py-2 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="depreciationTable" class="text-xs divide-y divide-gray-100">
+                            <tr>
+                                <td colspan="15" class="px-4 py-12 text-center text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل البيانات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Asset Modal -->
+    <div id="assetModal" class="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-5xl border border-slate-200">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                <div>
+                    <h3 id="assetModalTitle" class="text-xl font-bold text-slate-800">إضافة أصل</h3>
+                    <p class="text-sm text-slate-500">إدارة بيانات الأصول الثابتة</p>
+                </div>
+                <button onclick="closeAssetModal()" class="text-slate-500 hover:text-slate-700"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">كود الأصل</label>
+                        <input id="assetCode" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">اسم الأصل (ع)</label>
+                        <input id="assetNameAr" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">اسم الأصل (إنجليزي)</label>
+                        <input id="assetNameEn" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">فئة الأصل</label>
+                        <input id="assetCategory" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">نوع الأصل</label>
+                        <input id="assetType" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">تاريخ الشراء</label>
+                        <input id="purchaseDate" type="date" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">تكلفة الشراء</label>
+                        <input id="purchaseCost" type="number" step="0.01" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">قيمة الخردة</label>
+                        <input id="salvageValue" type="number" step="0.01" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">طريقة الإهلاك</label>
+                        <input id="depreciationMethod" type="text" placeholder="خط مستقيم / رصيد متناقص" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">العمر الإنتاجي (سنوات)</label>
+                        <input id="lifeYears" type="number" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">العمر الإنتاجي (أشهر)</label>
+                        <input id="lifeMonths" type="number" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">الحالة</label>
+                        <select id="assetStatus" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3">
+                            <option value="active">نشط</option>
+                            <option value="disposed">مُباع / مُستبعد</option>
+                            <option value="maintenance">صيانة</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">الموقع</label>
+                        <input id="assetLocation" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">مسؤول الأصل (ID)</label>
+                        <input id="custodianId" type="number" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">الرقم التسلسلي</label>
+                        <input id="serialNumber" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">تاريخ انتهاء الضمان</label>
+                        <input id="warrantyDate" type="date" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">جدول الصيانة</label>
+                        <input id="maintenanceSchedule" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div class="md:col-span-3 mt-2">
+                        <div class="flex items-center gap-3 text-slate-700 font-bold">
+                            <div class="h-px flex-1 bg-slate-200"></div>
+                            <span>بيانات العنوان</span>
+                            <div class="h-px flex-1 bg-slate-200"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">اسم الشارع</label>
+                        <input id="assetStreetName" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">الرمز البريدي</label>
+                        <input id="assetPostalCode" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">رقم المبنى</label>
+                        <input id="assetBuildingNumber" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">المدينة</label>
+                        <input id="assetCity" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">الحي</label>
+                        <input id="assetDistrict" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">رقم العنوان الوطني</label>
+                        <input id="assetNationalAddress" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">العنوان المختصر</label>
+                        <input id="assetShortAddress" type="text" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">ملاحظات</label>
+                        <textarea id="assetNotes" rows="2" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3"></textarea>
+                    </div>
+                </div>
+                <div id="assetModalError" class="text-sm text-red-600 hidden"></div>
+            </div>
+            <div class="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                <div class="flex gap-3">
+                    <button id="deleteAssetBtn" onclick="confirmDeleteAsset()" class="hidden bg-red-50 text-red-700 px-4 py-2 rounded-lg border border-red-200 hover:bg-red-100">حذف</button>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeAssetModal()" class="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100">إلغاء</button>
+                    <button id="saveAssetBtn" onclick="submitAssetForm()" class="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700">حفظ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Depreciation Modal -->
+    <div id="depreciationModal" class="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl border border-slate-200">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                <div>
+                    <h3 id="depreciationModalTitle" class="text-xl font-bold text-slate-800">معاينة الإهلاك</h3>
+                    <p class="text-sm text-slate-500">إدارة بيانات الإهلاك</p>
+                </div>
+                <button onclick="closeDepreciationModal()" class="text-slate-500 hover:text-slate-700"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">معرف الأصل</label>
+                        <input id="depreciationAssetId" type="number" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">تاريخ الإهلاك</label>
+                        <input id="depreciationDate" type="date" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">السنة المالية</label>
+                        <input id="depreciationFiscalYear" type="number" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">الفترة المالية</label>
+                        <input id="depreciationFiscalPeriod" type="number" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">قيمة الإهلاك</label>
+                        <input id="depreciationAmount" type="number" step="0.01" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">إهلاك متراكم</label>
+                        <input id="depreciationAccumulated" type="number" step="0.01" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">القيمة الدفترية</label>
+                        <input id="depreciationNetBook" type="number" step="0.01" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">رقم القيد</label>
+                        <input id="depreciationJournalEntry" type="number" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3" />
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">ملاحظات</label>
+                        <textarea id="depreciationNotes" rows="2" class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3"></textarea>
+                    </div>
+                </div>
+                <div id="depreciationModalError" class="text-sm text-red-600 hidden"></div>
+            </div>
+            <div class="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                <div class="flex gap-3">
+                    <button id="deleteDepreciationBtn" onclick="confirmDeleteDepreciation()" class="hidden bg-red-50 text-red-700 px-4 py-2 rounded-lg border border-red-200 hover:bg-red-100">حذف</button>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeDepreciationModal()" class="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100">إلغاء</button>
+                    <button id="saveDepreciationBtn" onclick="submitDepreciationForm()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700">حفظ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
+        let assets = [];
+        let depreciation = [];
+        let categoryChartInstance = null;
+        let depreciationChartInstance = null;
+        let assetModalMode = 'create';
+        let editingAssetId = null;
+        let depreciationModalMode = 'view';
+        let editingDepreciationId = null;
+
+        const translations = {
+            status: { active: 'نشط', disposed: 'مستبعد', maintenance: 'صيانة', pending: 'قيد الإجراء' },
+            method: { SL: 'الخط المستقيم', DDB: 'الرصيد المتناقص', SYD: 'مجموع أرقام السنوات' },
+            category: { IT: 'تقنية المعلومات', Equipment: 'معدات', Facility: 'مرافق', Furniture: 'أثاث', Vehicles: 'مركبات', Software: 'برمجيات' },
+            type: { Laptop: 'حاسوب محمول', Printer: 'طابعة', HVAC: 'تكييف', Server: 'خادم', Vehicle: 'مركبة' },
+            entity: { HQ: 'مقر رئيسي', BR: 'فرع', INC: 'حاضنة', OFF: 'مكتب' }
+        };
+
+        const translateValue = (map, value) => {
+            if (value === null || value === undefined || value === '') return '-';
+            return map[value] || value;
+        };
+
+        async function loadReport() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/fixed-assets?entity_id=${ENTITY_ID}`);
+                const data = await response.json();
+
+                if (!data.success) throw new Error(data.error || 'فشل تحميل التقرير');
+
+                assets = data.assets || [];
+                depreciation = data.depreciation || [];
+
+                renderSummary(data.summary || {});
+                renderAssetsTable(assets);
+                renderDepreciationTable(depreciation);
+                renderCharts(data.summary || {});
+            } catch (error) {
+                console.error('❌ خطأ في تحميل التقرير:', error);
+                document.getElementById('assetsTable').innerHTML = `
+                    <tr>
+                        <td colspan="36" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل بيانات الأصول</div>
+                        </td>
+                    </tr>
+                `;
+                document.getElementById('depreciationTable').innerHTML = `
+                    <tr>
+                        <td colspan="14" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل بيانات الإهلاك</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function applyFilters() {
+            const params = new URLSearchParams({ entity_id: ENTITY_ID });
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            const assetCategory = document.getElementById('filterAssetCategory').value;
+            const assetType = document.getElementById('filterAssetType').value;
+            const status = document.getElementById('status').value;
+
+            if (fromDate) params.append('from_date', fromDate);
+            if (toDate) params.append('to_date', toDate);
+            if (assetCategory) params.append('asset_category', assetCategory);
+            if (assetType) params.append('asset_type', assetType);
+            if (status) params.append('status', status);
+
+            fetch(`${API_BASE}/finance/fixed-assets?${params.toString()}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'فشل تحميل التقرير');
+                    assets = data.assets || [];
+                    depreciation = data.depreciation || [];
+                    renderSummary(data.summary || {});
+                    renderAssetsTable(assets);
+                    renderDepreciationTable(depreciation);
+                    renderCharts(data.summary || {});
+                })
+                .catch(err => console.error('❌', err));
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('totalAssets').textContent = summary.total_assets ?? 0;
+            document.getElementById('totalCost').textContent = formatMoney(summary.total_cost || 0);
+            document.getElementById('totalDep').textContent = formatMoney(summary.total_accumulated || 0);
+            document.getElementById('totalNet').textContent = formatMoney(summary.total_net || 0);
+        }
+
+        function renderAssetsTable(rows) {
+            const body = rows.map(r => {
+                const statusLabel = translateValue(translations.status, r.status);
+                const methodLabel = translateValue(translations.method, r.depreciation_method);
+                const categoryLabel = translateValue(translations.category, r.asset_category);
+                const typeLabel = translateValue(translations.type, r.asset_type);
+                const entityLabel = translateValue(translations.entity, r.entity_type);
+
+                return `
+                <tr class="hover:bg-emerald-50">
+                    <td class="px-3 py-2">${r.asset_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.asset_code ?? '-'}</td>
+                    <td class="px-3 py-2">${r.asset_name_ar ?? '-'}</td>
+                    <td class="px-3 py-2">${r.asset_name_en ?? '-'}</td>
+                    <td class="px-3 py-2">${categoryLabel}</td>
+                    <td class="px-3 py-2">${typeLabel}</td>
+                    <td class="px-3 py-2">${formatDate(r.purchase_date)}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(r.purchase_cost)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.salvage_value)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.depreciable_value)}</td>
+                    <td class="px-3 py-2">${methodLabel}</td>
+                    <td class="px-3 py-2">${r.useful_life_years ?? '-'}</td>
+                    <td class="px-3 py-2">${r.useful_life_months ?? '-'}</td>
+                    <td class="px-3 py-2">${formatMoney(r.accumulated_depreciation)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.net_book_value)}</td>
+                    <td class="px-3 py-2">${statusLabel}</td>
+                    <td class="px-3 py-2">${formatDate(r.disposal_date)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.disposal_value)}</td>
+                    <td class="px-3 py-2">${r.location ?? '-'}</td>
+                    <td class="px-3 py-2">${r.custodian_employee_id ?? '-'}</td>
+                    <td class="px-3 py-2">${entityLabel}</td>
+                    <td class="px-3 py-2">${r.entity_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.branch_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.incubator_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.office_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.asset_account_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.depreciation_account_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.accumulated_depreciation_account_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.serial_number ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.warranty_expiry_date)}</td>
+                    <td class="px-3 py-2">${r.maintenance_schedule ?? '-'}</td>
+                    <td class="px-3 py-2">${r.notes ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.created_at)}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.updated_at)}</td>
+                    <td class="px-3 py-2">${r.created_by ?? '-'}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex items-center gap-2">
+                            <button class="px-3 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100" onclick='openAssetModal("view", ${JSON.stringify(r)})'>معاينة</button>
+                            <button class="px-3 py-1 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50" onclick='openAssetModal("edit", ${JSON.stringify(r)})'>تعديل</button>
+                            <button class="px-3 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50" onclick='openAssetModal("delete", ${JSON.stringify(r)})'>حذف</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            }).join('');
+
+            document.getElementById('assetsTable').innerHTML = body.length ? body : `
+                <tr>
+                    <td colspan="36" class="px-4 py-12 text-center text-gray-500">لا توجد بيانات</td>
+                </tr>
+            `;
+            document.getElementById('assetsCount').textContent = `عدد الصفوف: ${rows.length}`;
+        }
+
+        function renderDepreciationTable(rows) {
+            const body = rows.map(r => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-3 py-2">${r.depreciation_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.asset_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.asset_code ?? '-'}</td>
+                    <td class="px-3 py-2">${r.asset_name_ar ?? '-'}</td>
+                    <td class="px-3 py-2">${r.asset_name_en ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.depreciation_date)}</td>
+                    <td class="px-3 py-2">${r.fiscal_year ?? '-'}</td>
+                    <td class="px-3 py-2">${r.fiscal_period ?? '-'}</td>
+                    <td class="px-3 py-2 font-semibold text-indigo-700">${formatMoney(r.depreciation_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.accumulated_depreciation)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.net_book_value)}</td>
+                    <td class="px-3 py-2">${r.journal_entry_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.notes ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.created_at)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex items-center gap-2">
+                            <button class="px-3 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100" onclick='openDepreciationModal("view", ${JSON.stringify(r)})'>معاينة</button>
+                            <button class="px-3 py-1 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50" onclick='openDepreciationModal("edit", ${JSON.stringify(r)})'>تعديل</button>
+                            <button class="px-3 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50" onclick='openDepreciationModal("delete", ${JSON.stringify(r)})'>حذف</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('depreciationTable').innerHTML = body.length ? body : `
+                <tr>
+                    <td colspan="15" class="px-4 py-12 text-center text-gray-500">لا توجد بيانات</td>
+                </tr>
+            `;
+            document.getElementById('depreciationCount').textContent = `عدد الصفوف: ${rows.length}`;
+        }
+
+        function renderCharts(summary) {
+            const categoryData = summary.by_category || {};
+            const categoryLabels = Object.keys(categoryData);
+            const categoryValues = categoryLabels.map(k => categoryData[k]);
+
+            const ctx1 = document.getElementById('categoryChart').getContext('2d');
+            if (categoryChartInstance) categoryChartInstance.destroy();
+            categoryChartInstance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: categoryLabels.length ? categoryLabels : ['لا يوجد'],
+                    datasets: [{
+                        label: 'تكلفة الأصول',
+                        data: categoryValues.length ? categoryValues : [0],
+                        backgroundColor: 'rgba(16, 185, 129, 0.6)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const depByYear = summary.depreciation?.by_year || {};
+            const yearLabels = Object.keys(depByYear);
+            const yearValues = yearLabels.map(k => depByYear[k]);
+
+            const ctx2 = document.getElementById('depreciationChart').getContext('2d');
+            if (depreciationChartInstance) depreciationChartInstance.destroy();
+            depreciationChartInstance = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: yearLabels.length ? yearLabels : ['لا يوجد'],
+                    datasets: [{
+                        label: 'الإهلاك',
+                        data: yearValues.length ? yearValues : [0],
+                        borderColor: '#1f2937',
+                        backgroundColor: 'rgba(31, 41, 55, 0.2)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function downloadCSV() {
+            const rows = [
+                ['جدول الأصول'],
+                ['معرف الأصل','كود الأصل','اسم الأصل (ع)','اسم الأصل (إنجليزي)','فئة الأصل','نوع الأصل','تاريخ الشراء','تكلفة الشراء','قيمة الخردة','القيمة القابلة للإهلاك','طريقة الإهلاك','العمر (سنوات)','العمر (أشهر)','إهلاك متراكم','القيمة الدفترية','الحالة','تاريخ الاستبعاد','قيمة الاستبعاد','الموقع','مسؤول الأصل','نوع الكيان','معرف الكيان','الفرع','الحاضنة','المكتب','حساب الأصل','حساب الإهلاك','حساب الإهلاك المتراكم','الرقم التسلسلي','انتهاء الضمان','جدول الصيانة','ملاحظات','تاريخ الإنشاء','آخر تحديث','أنشئ بواسطة']
+            ];
+            assets.forEach(a => {
+                const categoryLabel = translateValue(translations.category, a.asset_category);
+                const typeLabel = translateValue(translations.type, a.asset_type);
+                const methodLabel = translateValue(translations.method, a.depreciation_method);
+                const statusLabel = translateValue(translations.status, a.status);
+                const entityLabel = translateValue(translations.entity, a.entity_type);
+
+                rows.push([
+                    a.asset_id, a.asset_code, a.asset_name_ar, a.asset_name_en, categoryLabel, typeLabel,
+                    a.purchase_date, a.purchase_cost, a.salvage_value, a.depreciable_value, methodLabel,
+                    a.useful_life_years, a.useful_life_months, a.accumulated_depreciation, a.net_book_value, statusLabel,
+                    a.disposal_date, a.disposal_value, a.location, a.custodian_employee_id, entityLabel, a.entity_id,
+                    a.branch_id, a.incubator_id, a.office_id, a.asset_account_id, a.depreciation_account_id,
+                    a.accumulated_depreciation_account_id, a.serial_number, a.warranty_expiry_date,
+                    a.maintenance_schedule, a.notes, a.created_at, a.updated_at, a.created_by
+                ]);
+            });
+
+            rows.push([]);
+            rows.push(['جدول الإهلاك']);
+            rows.push(['معرف الإهلاك','معرف الأصل','كود الأصل','اسم الأصل (ع)','اسم الأصل (إنجليزي)','تاريخ الإهلاك','السنة المالية','الفترة المالية','قيمة الإهلاك','إهلاك متراكم','القيمة الدفترية','رقم القيد','ملاحظات','تاريخ الإنشاء']);
+            depreciation.forEach(d => rows.push([
+                d.depreciation_id, d.asset_id, d.asset_code, d.asset_name_ar, d.asset_name_en, d.depreciation_date,
+                d.fiscal_year, d.fiscal_period, d.depreciation_amount, d.accumulated_depreciation,
+                d.net_book_value, d.journal_entry_id, d.notes, d.created_at
+            ]));
+
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'تقرير-الأصول-الثابتة.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadJSON() {
+            const payload = { assets, depreciation };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'تقرير-الأصول-الثابتة.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function openAssetModal(mode, row = {}) {
+            assetModalMode = mode;
+            editingAssetId = row.asset_id || null;
+
+            const setVal = (id, value) => { const el = document.getElementById(id); if (el) el.value = value ?? ''; };
+
+            setVal('assetCode', row.asset_code);
+            setVal('assetNameAr', row.asset_name_ar);
+            setVal('assetNameEn', row.asset_name_en);
+            setVal('assetCategory', row.asset_category);
+            setVal('assetType', row.asset_type);
+            setVal('purchaseDate', row.purchase_date ? row.purchase_date.slice(0,10) : '');
+            setVal('purchaseCost', row.purchase_cost);
+            setVal('salvageValue', row.salvage_value);
+            setVal('depreciationMethod', row.depreciation_method);
+            setVal('lifeYears', row.useful_life_years);
+            setVal('lifeMonths', row.useful_life_months);
+            setVal('assetStatus', row.status || 'active');
+            setVal('assetLocation', row.location);
+            setVal('custodianId', row.custodian_employee_id);
+            setVal('serialNumber', row.serial_number);
+            setVal('warrantyDate', row.warranty_expiry_date ? row.warranty_expiry_date.slice(0,10) : '');
+            setVal('maintenanceSchedule', row.maintenance_schedule);
+            setVal('assetStreetName', row.street_name);
+            setVal('assetPostalCode', row.postal_code);
+            setVal('assetBuildingNumber', row.building_number);
+            setVal('assetCity', row.city);
+            setVal('assetDistrict', row.district);
+            setVal('assetNationalAddress', row.national_address_number);
+            setVal('assetShortAddress', row.short_address);
+            setVal('assetNotes', row.notes);
+
+            const errorEl = document.getElementById('assetModalError');
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
+
+            const deleteBtn = document.getElementById('deleteAssetBtn');
+            const saveBtn = document.getElementById('saveAssetBtn');
+            const title = document.getElementById('assetModalTitle');
+
+            if (mode === 'create') {
+                title.textContent = 'إضافة أصل';
+                deleteBtn.classList.add('hidden');
+                saveBtn.textContent = 'حفظ';
+                setAssetReadOnly(false);
+            } else if (mode === 'edit') {
+                title.textContent = 'تعديل أصل';
+                deleteBtn.classList.remove('hidden');
+                saveBtn.textContent = 'تحديث';
+                setAssetReadOnly(false);
+            } else if (mode === 'view') {
+                title.textContent = 'معاينة الأصل';
+                deleteBtn.classList.add('hidden');
+                saveBtn.textContent = 'إغلاق';
+                setAssetReadOnly(true);
+            } else if (mode === 'delete') {
+                title.textContent = 'حذف الأصل';
+                deleteBtn.classList.remove('hidden');
+                saveBtn.textContent = 'إغلاق';
+                setAssetReadOnly(true);
+            }
+
+            document.getElementById('assetModal').classList.remove('hidden');
+        }
+
+        function setAssetReadOnly(isReadOnly) {
+            const ids = ['assetCode','assetNameAr','assetNameEn','assetCategory','assetType','purchaseDate','purchaseCost','salvageValue','depreciationMethod','lifeYears','lifeMonths','assetStatus','assetLocation','custodianId','serialNumber','warrantyDate','maintenanceSchedule','assetStreetName','assetPostalCode','assetBuildingNumber','assetCity','assetDistrict','assetNationalAddress','assetShortAddress','assetNotes'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.readOnly = isReadOnly;
+                el.disabled = isReadOnly && el.tagName === 'SELECT';
+            });
+        }
+
+        function closeAssetModal() {
+            document.getElementById('assetModal').classList.add('hidden');
+        }
+
+        function openDepreciationModal(mode, row = {}) {
+            depreciationModalMode = mode;
+            editingDepreciationId = row.depreciation_id || null;
+
+            const setVal = (id, value) => { const el = document.getElementById(id); if (el) el.value = value ?? ''; };
+
+            setVal('depreciationAssetId', row.asset_id);
+            setVal('depreciationDate', row.depreciation_date ? row.depreciation_date.slice(0,10) : '');
+            setVal('depreciationFiscalYear', row.fiscal_year);
+            setVal('depreciationFiscalPeriod', row.fiscal_period);
+            setVal('depreciationAmount', row.depreciation_amount);
+            setVal('depreciationAccumulated', row.accumulated_depreciation);
+            setVal('depreciationNetBook', row.net_book_value);
+            setVal('depreciationJournalEntry', row.journal_entry_id);
+            setVal('depreciationNotes', row.notes);
+
+            const errorEl = document.getElementById('depreciationModalError');
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
+
+            const deleteBtn = document.getElementById('deleteDepreciationBtn');
+            const saveBtn = document.getElementById('saveDepreciationBtn');
+            const title = document.getElementById('depreciationModalTitle');
+
+            if (mode === 'create') {
+                title.textContent = 'إضافة إهلاك';
+                deleteBtn.classList.add('hidden');
+                saveBtn.textContent = 'حفظ';
+                setDepreciationReadOnly(false);
+            } else if (mode === 'edit') {
+                title.textContent = 'تعديل الإهلاك';
+                deleteBtn.classList.remove('hidden');
+                saveBtn.textContent = 'تحديث';
+                setDepreciationReadOnly(false);
+            } else if (mode === 'view') {
+                title.textContent = 'معاينة الإهلاك';
+                deleteBtn.classList.add('hidden');
+                saveBtn.textContent = 'إغلاق';
+                setDepreciationReadOnly(true);
+            } else if (mode === 'delete') {
+                title.textContent = 'حذف الإهلاك';
+                deleteBtn.classList.remove('hidden');
+                saveBtn.textContent = 'إغلاق';
+                setDepreciationReadOnly(true);
+            }
+
+            document.getElementById('depreciationModal').classList.remove('hidden');
+        }
+
+        function setDepreciationReadOnly(isReadOnly) {
+            const ids = ['depreciationAssetId','depreciationDate','depreciationFiscalYear','depreciationFiscalPeriod','depreciationAmount','depreciationAccumulated','depreciationNetBook','depreciationJournalEntry','depreciationNotes'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.readOnly = isReadOnly;
+            });
+        }
+
+        function closeDepreciationModal() {
+            document.getElementById('depreciationModal').classList.add('hidden');
+        }
+
+        function getDepreciationPayload() {
+            const errorEl = document.getElementById('depreciationModalError');
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
+            try {
+                const payload = {
+                    asset_id: document.getElementById('depreciationAssetId').value,
+                    depreciation_date: document.getElementById('depreciationDate').value,
+                    fiscal_year: document.getElementById('depreciationFiscalYear').value,
+                    fiscal_period: document.getElementById('depreciationFiscalPeriod').value,
+                    depreciation_amount: document.getElementById('depreciationAmount').value,
+                    accumulated_depreciation: document.getElementById('depreciationAccumulated').value,
+                    net_book_value: document.getElementById('depreciationNetBook').value,
+                    journal_entry_id: document.getElementById('depreciationJournalEntry').value,
+                    notes: document.getElementById('depreciationNotes').value
+                };
+
+                const required = ['asset_id','depreciation_date','depreciation_amount'];
+                for (const key of required) {
+                    if (!payload[key] && payload[key] !== 0) {
+                        throw new Error('يرجى تعبئة الحقول الأساسية');
+                    }
+                }
+
+                payload.asset_id = Number(payload.asset_id);
+                if (Number.isNaN(payload.asset_id)) throw new Error('معرف الأصل يجب أن يكون رقمياً');
+
+                payload.depreciation_amount = Number(payload.depreciation_amount);
+                if (Number.isNaN(payload.depreciation_amount)) throw new Error('قيمة الإهلاك يجب أن تكون رقمية');
+
+                payload.fiscal_year = payload.fiscal_year === '' ? null : Number(payload.fiscal_year);
+                payload.fiscal_period = payload.fiscal_period === '' ? null : Number(payload.fiscal_period);
+                payload.accumulated_depreciation = payload.accumulated_depreciation === '' ? null : Number(payload.accumulated_depreciation);
+                payload.net_book_value = payload.net_book_value === '' ? null : Number(payload.net_book_value);
+                payload.journal_entry_id = payload.journal_entry_id === '' ? null : Number(payload.journal_entry_id);
+                if (payload.journal_entry_id !== null && payload.journal_entry_id <= 0) {
+                    payload.journal_entry_id = null;
+                }
+
+                return payload;
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.classList.remove('hidden');
+                return null;
+            }
+        }
+
+        async function submitDepreciationForm() {
+            if (depreciationModalMode === 'view') { closeDepreciationModal(); return; }
+            if (depreciationModalMode === 'delete') { confirmDeleteDepreciation(); return; }
+
+            const payload = getDepreciationPayload();
+            if (!payload) return;
+
+            const url = depreciationModalMode === 'create'
+                ? `${API_BASE}/finance/fixed-assets/depreciation`
+                : `${API_BASE}/finance/fixed-assets/depreciation/${editingDepreciationId}`;
+            const method = depreciationModalMode === 'create' ? 'POST' : 'PUT';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-entity-id': ENTITY_ID,
+                        'x-entity-type': ENTITY_TYPE
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'فشل حفظ الإهلاك');
+                closeDepreciationModal();
+                await loadReport();
+            } catch (error) {
+                const errorEl = document.getElementById('depreciationModalError');
+                errorEl.textContent = error.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        async function confirmDeleteDepreciation() {
+            if (!editingDepreciationId) return;
+            const errorEl = document.getElementById('depreciationModalError');
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
+            try {
+                const res = await fetch(`${API_BASE}/finance/fixed-assets/depreciation/${editingDepreciationId}`, {
+                    method: 'DELETE',
+                    headers: { 'x-entity-id': ENTITY_ID, 'x-entity-type': ENTITY_TYPE }
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'فشل حذف الإهلاك');
+                closeDepreciationModal();
+                await loadReport();
+            } catch (error) {
+                errorEl.textContent = error.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        function getAssetPayload() {
+            const errorEl = document.getElementById('assetModalError');
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
+            try {
+                const payload = {
+                    asset_code: document.getElementById('assetCode').value,
+                    asset_name_ar: document.getElementById('assetNameAr').value,
+                    asset_name_en: document.getElementById('assetNameEn').value,
+                    asset_category: document.getElementById('assetCategory').value,
+                    asset_type: document.getElementById('assetType').value,
+                    purchase_date: document.getElementById('purchaseDate').value,
+                    purchase_cost: Number(document.getElementById('purchaseCost').value),
+                    salvage_value: document.getElementById('salvageValue').value,
+                    depreciation_method: document.getElementById('depreciationMethod').value,
+                    useful_life_years: Number(document.getElementById('lifeYears').value),
+                    useful_life_months: document.getElementById('lifeMonths').value,
+                    status: document.getElementById('assetStatus').value,
+                    location: document.getElementById('assetLocation').value,
+                    custodian_employee_id: document.getElementById('custodianId').value,
+                    serial_number: document.getElementById('serialNumber').value,
+                    warranty_expiry_date: document.getElementById('warrantyDate').value,
+                    maintenance_schedule: document.getElementById('maintenanceSchedule').value,
+                    street_name: document.getElementById('assetStreetName').value,
+                    postal_code: document.getElementById('assetPostalCode').value,
+                    building_number: document.getElementById('assetBuildingNumber').value,
+                    city: document.getElementById('assetCity').value,
+                    district: document.getElementById('assetDistrict').value,
+                    national_address_number: document.getElementById('assetNationalAddress').value,
+                    short_address: document.getElementById('assetShortAddress').value,
+                    notes: document.getElementById('assetNotes').value,
+                    entity_id: ENTITY_ID,
+                    entity_type: ENTITY_TYPE
+                };
+
+                const required = ['asset_code','asset_name_ar','asset_category','asset_type','purchase_date','purchase_cost','depreciation_method','useful_life_years'];
+                for (const key of required) {
+                    if (!payload[key] && payload[key] !== 0) {
+                        throw new Error('يرجى تعبئة الحقول الأساسية');
+                    }
+                }
+                if (Number.isNaN(payload.purchase_cost)) {
+                    throw new Error('تكلفة الشراء يجب أن تكون رقمية');
+                }
+                if (payload.salvage_value && Number.isNaN(Number(payload.salvage_value))) {
+                    throw new Error('قيمة الخردة يجب أن تكون رقمية');
+                }
+                if (Number.isNaN(payload.useful_life_years)) {
+                    throw new Error('العمر الإنتاجي (سنوات) يجب أن يكون رقمياً');
+                }
+
+                payload.salvage_value = payload.salvage_value === '' ? null : Number(payload.salvage_value);
+                payload.useful_life_months = payload.useful_life_months === '' ? null : Number(payload.useful_life_months);
+                payload.custodian_employee_id = payload.custodian_employee_id === '' ? null : Number(payload.custodian_employee_id);
+
+                return payload;
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.classList.remove('hidden');
+                return null;
+            }
+        }
+
+        async function submitAssetForm() {
+            if (assetModalMode === 'view') { closeAssetModal(); return; }
+            if (assetModalMode === 'delete') { confirmDeleteAsset(); return; }
+
+            const payload = getAssetPayload();
+            if (!payload) return;
+
+            const url = assetModalMode === 'edit'
+                ? `${API_BASE}/finance/fixed-assets/${editingAssetId}`
+                : `${API_BASE}/finance/fixed-assets`;
+            const method = assetModalMode === 'edit' ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-entity-id': ENTITY_ID,
+                        'x-entity-type': ENTITY_TYPE
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'فشل حفظ الأصل');
+                closeAssetModal();
+                await loadReport();
+            } catch (error) {
+                const errorEl = document.getElementById('assetModalError');
+                errorEl.textContent = error.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        async function confirmDeleteAsset() {
+            if (!editingAssetId) return;
+            const errorEl = document.getElementById('assetModalError');
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
+            try {
+                const res = await fetch(`${API_BASE}/finance/fixed-assets/${editingAssetId}?entity_id=${ENTITY_ID}`, {
+                    method: 'DELETE',
+                    headers: { 'x-entity-id': ENTITY_ID, 'x-entity-type': ENTITY_TYPE }
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'فشل حذف الأصل');
+                closeAssetModal();
+                await loadReport();
+            } catch (error) {
+                errorEl.textContent = error.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadReport);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔗 ربط المكونات بالموظفين - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background: #f9fafb; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-4">
+                     <a href="/finance/index.html" class="flex items-center gap-2 text-slate-700 hover:text-blue-600 transition">
+                        <img src="/لوجو%20نايوش%20خلفيه.png" alt="Logo" class="h-8 w-auto">
+                        <span class="font-bold text-xl">نظام نايوش</span>
+                    </a>
+                    <span class="h-6 w-px bg-gray-300 mx-2"></span>
+                    <span class="font-medium text-slate-600">ربط المكونات</span>
+                </div>
+            </div>
+            <div class="flex overflow-x-auto gap-2 py-2 text-sm font-medium border-t border-gray-100 no-scrollbar">
+                <a href="/finance/payroll-employees.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الموظفون</a>
+                <a href="/finance/payroll-components.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">المكونات</a>
+                <a href="/finance/payroll-assignments.html" class="px-3 py-1 rounded-full bg-blue-50 text-blue-700 whitespace-nowrap">الربط</a>
+                <a href="/finance/payroll-runs.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الدورات</a>
+                <a href="/finance/payroll-payslips.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الكشوف</a>
+                <a href="/finance/payroll-bank-batches.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">البنوك</a>
+                <a href="/finance/payroll-overtime.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">الإضافي</a>
+                <a href="/finance/payroll-settlements.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">التسويات</a>
+                <a href="/finance/payroll-reports.html" class="px-3 py-1 rounded-full text-gray-600 hover:bg-gray-50 whitespace-nowrap">التقارير</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">🔗 ربط المكونات بالموظفين</h1>
+            <p class="text-slate-500">إسناد بدلات واستقطاعات لكل موظف بشكل مرن.</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="text-xs font-semibold text-gray-500 mb-1">روابط المكونات</div>
+                <div id="statTotal" class="text-2xl font-bold text-slate-800">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-green-500">
+                <div class="text-xs font-semibold text-gray-500 mb-1">روابط نشطة</div>
+                <div id="statActive" class="text-2xl font-bold text-green-600">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-emerald-500">
+                <div class="text-xs font-semibold text-gray-500 mb-1">إجمالي الاستحقاقات</div>
+                <div id="statEarnings" class="text-2xl font-bold text-emerald-600">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-l-4 border-l-orange-500">
+                <div class="text-xs font-semibold text-gray-500 mb-1">إجمالي الاستقطاعات</div>
+                <div id="statDeductions" class="text-2xl font-bold text-orange-600">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="text-xs font-semibold text-gray-500 mb-1">عدد الموظفين المرتبطين</div>
+                <div id="statEmployees" class="text-2xl font-bold text-slate-800">--</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div class="text-xs font-semibold text-gray-500 mb-1">عدد المكونات المرتبطة</div>
+                <div id="statComponents" class="text-2xl font-bold text-slate-800">--</div>
+            </div>
+        </div>
+
+        <!-- Filters & Action -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                <h2 class="text-lg font-bold text-slate-800">مرشحات البحث</h2>
+                <div class="flex gap-2">
+                    <button onclick="resetFilters()" class="text-gray-500 hover:text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
+                        إعادة ضبط
+                    </button>
+                    <button onclick="openAssignmentModal()" class="bg-white hover:bg-slate-50 text-slate-900 px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition flex items-center gap-2 border-2 border-blue-500">
+                        <i class="fas fa-plus"></i> إضافة ربط
+                    </button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">بحث سريع</label>
+                    <input id="filterQuery" type="text" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-gray-50 border" placeholder="اسم الموظف أو كود المكون">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الموظف</label>
+                    <select id="filterEmployee" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-white border">
+                        <option value="">الكل</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">المكون</label>
+                    <select id="filterComponent" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-white border">
+                        <option value="">الكل</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">نوع المكون</label>
+                    <select id="filterComponentType" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-white border">
+                        <option value="">الكل</option>
+                        <option value="EARNING">استحقاق</option>
+                        <option value="DEDUCTION">استقطاع</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">نوع القيمة</label>
+                    <select id="filterValueType" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-white border">
+                        <option value="">الكل</option>
+                        <option value="AMOUNT">قيمة ثابتة</option>
+                        <option value="PERCENTAGE">نسبة</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
+                    <select id="filterActive" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-white border">
+                        <option value="">الكل</option>
+                        <option value="true">نشط</option>
+                        <option value="false">غير نشط</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الحد الأدنى للقيمة</label>
+                    <input id="filterMinAmount" type="number" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-gray-50 border" placeholder="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">الحد الأعلى للقيمة</label>
+                    <input id="filterMaxAmount" type="number" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2 bg-gray-50 border" placeholder="0">
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-lg font-bold text-slate-800">روابط المكونات</h2>
+                    <span id="assignmentsCount" class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">--</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span id="selectedCount" class="text-xs font-semibold text-slate-500">0 محدد</span>
+                    <button id="bulkActivate" onclick="setSelectedActive(true)" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition" disabled>
+                        تفعيل المحدد
+                    </button>
+                    <button id="bulkDeactivate" onclick="setSelectedActive(false)" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-100 text-orange-700 hover:bg-orange-200 transition" disabled>
+                        إيقاف المحدد
+                    </button>
+                    <button onclick="exportAssignments()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+                        تصدير CSV
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-sm text-gray-600">
+                    <thead class="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-4">
+                                <input id="selectAllAssignments" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" onchange="toggleSelectAll(this)">
+                            </th>
+                            <th class="px-6 py-4">الموظف</th>
+                            <th class="px-6 py-4">المكون</th>
+                            <th class="px-6 py-4">النوع</th>
+                            <th class="px-6 py-4">نوع القيمة</th>
+                            <th class="px-6 py-4">القيمة</th>
+                            <th class="px-6 py-4">النسبة</th>
+                            <th class="px-6 py-4">تاريخ الإضافة</th>
+                            <th class="px-6 py-4">الحالة</th>
+                            <th class="px-6 py-4">ملاحظات</th>
+                            <th class="px-6 py-4 text-center">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assignmentsTable" class="divide-y divide-gray-100">
+                        <tr>
+                            <td colspan="11" class="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Form -->
+    <div id="assignmentModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto transform transition-transform scale-95">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                <h3 class="text-xl font-bold text-slate-800" id="assignmentModalTitle">إضافة ربط</h3>
+                <button onclick="closeAssignmentModal()" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الموظف *</label>
+                        <select id="assignmentEmployee" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">المكون *</label>
+                        <select id="assignmentComponent" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">القيمة</label>
+                            <input id="assignmentAmount" type="number" step="0.01" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="0">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">النسبة</label>
+                            <input id="assignmentPercentage" type="number" step="0.01" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="0">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
+                        <select id="assignmentActive" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                            <option value="true">نشط</option>
+                            <option value="false">غير نشط</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+                        <textarea id="assignmentNotes" rows="3" class="w-full rounded-lg border bg-gray-50 border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="ملاحظات إضافية"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-100 flex gap-3 justify-end bg-gray-50 rounded-b-2xl">
+                <button onclick="closeAssignmentModal()" class="px-6 py-2 rounded-lg text-gray-600 font-bold hover:bg-gray-200 transition">إلغاء</button>
+                <button onclick="saveAssignment()" class="px-6 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg hover:shadow-xl transition">حفظ البيانات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="previewModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                <h3 class="text-xl font-bold text-slate-800">معاينة الربط</h3>
+                <button onclick="closePreviewModal()" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-gray-500 mb-1">الموظف</div>
+                    <div id="previewEmployee" class="text-sm font-bold text-slate-800">--</div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-gray-500 mb-1">المكون</div>
+                    <div id="previewComponent" class="text-sm font-bold text-slate-800">--</div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-gray-500 mb-1">نوع المكون</div>
+                    <div id="previewType" class="text-sm font-bold text-slate-800">--</div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-gray-500 mb-1">نوع القيمة</div>
+                    <div id="previewValueType" class="text-sm font-bold text-slate-800">--</div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-gray-500 mb-1">القيمة</div>
+                    <div id="previewAmount" class="text-sm font-bold text-slate-800">--</div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-gray-500 mb-1">النسبة</div>
+                    <div id="previewPercentage" class="text-sm font-bold text-slate-800">--</div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-gray-500 mb-1">الحالة</div>
+                    <div id="previewStatus" class="text-sm font-bold text-slate-800">--</div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-gray-500 mb-1">تاريخ الإضافة</div>
+                    <div id="previewCreated" class="text-sm font-bold text-slate-800">--</div>
+                </div>
+                <div class="md:col-span-2 bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-semibold text-gray-500 mb-1">ملاحظات</div>
+                    <div id="previewNotes" class="text-sm font-bold text-slate-800">--</div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-100 flex justify-end bg-gray-50 rounded-b-2xl">
+                <button onclick="closePreviewModal()" class="px-6 py-2 rounded-lg text-gray-600 font-bold hover:bg-gray-200 transition">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/finance/finance-context.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+        let assignments = [];
+        let filteredAssignments = [];
+        let employees = [];
+        let components = [];
+        let editingAssignmentId = null;
+        let selectedAssignments = new Set();
+
+        async function loadReferenceData() {
+            const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+            try {
+                const [employeesRes, componentsRes] = await Promise.all([
+                    fetch(`${API_BASE}/finance/payroll/employees`, { headers }),
+                    fetch(`${API_BASE}/finance/payroll/components`, { headers })
+                ]);
+                const employeesData = await employeesRes.json();
+                const componentsData = await componentsRes.json();
+                employees = employeesData.employees || [];
+                components = componentsData.components || [];
+                renderSelectOptions();
+            } catch (error) {
+                console.error("Error loading reference data", error);
+            }
+        }
+
+        function renderSelectOptions() {
+            const employeeOptions = ['<option value="">الكل</option>']
+                .concat(employees.map((e) => `<option value="${e.employee_id}">${e.full_name_ar} (${e.employee_code})</option>`))
+                .join('');
+            const componentOptions = ['<option value="">الكل</option>']
+                .concat(components.map((c) => `<option value="${c.component_id}">${c.component_name_ar} (${c.component_code})</option>`))
+                .join('');
+
+            document.getElementById('filterEmployee').innerHTML = employeeOptions;
+            document.getElementById('filterComponent').innerHTML = componentOptions;
+            
+            // For modal, filter out "All"
+            const modalEmployeeOptions = ['<option value="">اختر الموظف</option>']
+                .concat(employees.map((e) => `<option value="${e.employee_id}">${e.full_name_ar} (${e.employee_code})</option>`))
+                .join('');
+            const modalComponentOptions = ['<option value="">اختر المكون</option>']
+                 .concat(components.map((c) => `<option value="${c.component_id}">${c.component_name_ar} (${c.component_code})</option>`))
+                .join('');
+
+            document.getElementById('assignmentEmployee').innerHTML = modalEmployeeOptions;
+            document.getElementById('assignmentComponent').innerHTML = modalComponentOptions;
+        }
+
+        async function loadAssignments() {
+            const params = new URLSearchParams();
+            const employeeId = document.getElementById('filterEmployee').value;
+            const componentId = document.getElementById('filterComponent').value;
+            const isActive = document.getElementById('filterActive').value;
+
+            if (employeeId) params.set('employee_id', employeeId);
+            if (componentId) params.set('component_id', componentId);
+            if (isActive) params.set('is_active', isActive);
+
+            const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/employee-components?${params.toString()}`, { headers });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر تحميل الربط');
+                assignments = data.employee_components || [];
+                applyFilters();
+            } catch (error) {
+                console.error('Error loading assignments:', error);
+                document.getElementById('assignmentsTable').innerHTML = `
+                    <tr><td colspan="11" class="px-6 py-8 text-center text-red-500 font-bold">تعذر تحميل البيانات</td></tr>
+                `;
+            }
+        }
+
+        function renderStats() {
+            const total = filteredAssignments.length;
+            const active = filteredAssignments.filter((item) => item.is_active).length;
+            const earningsTotal = filteredAssignments
+                .filter((item) => item.component_type === 'EARNING')
+                .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            const deductionsTotal = filteredAssignments
+                .filter((item) => item.component_type === 'DEDUCTION')
+                .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            const employeeCount = new Set(filteredAssignments.map((item) => item.employee_id)).size;
+            const componentCount = new Set(filteredAssignments.map((item) => item.component_id)).size;
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statActive').textContent = active;
+            document.getElementById('statEarnings').textContent = formatCurrency(earningsTotal);
+            document.getElementById('statDeductions').textContent = formatCurrency(deductionsTotal);
+            document.getElementById('statEmployees').textContent = employeeCount;
+            document.getElementById('statComponents').textContent = componentCount;
+            document.getElementById('assignmentsCount').textContent = `${total}`;
+        }
+
+        function renderTable() {
+            if (!filteredAssignments.length) {
+                document.getElementById('assignmentsTable').innerHTML = `
+                    <tr><td colspan="11" class="px-6 py-8 text-center text-gray-500">لا توجد بيانات</td></tr>
+                `;
+                updateBulkActions();
+                return;
+            }
+            const rows = filteredAssignments.map((item) => {
+                const typeBadge = item.component_type === 'DEDUCTION'
+                    ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">استقطاع</span>'
+                    : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">استحقاق</span>';
+                const valueTypeBadge = resolveValueType(item) === 'PERCENTAGE'
+                    ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">نسبة</span>'
+                    : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">قيمة ثابتة</span>';
+                const statusBadge = item.is_active
+                    ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">نشط</span>'
+                    : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">غير نشط</span>';
+                const isSelected = selectedAssignments.has(item.employee_component_id);
+                return `
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${isSelected ? 'checked' : ''} onchange="toggleRowSelection(${item.employee_component_id}, this)">
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-gray-900">${item.full_name_ar || '-'}</div>
+                            <div class="text-xs text-slate-500">${item.employee_code || '-'}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="font-medium text-gray-900">${item.component_name_ar || '-'}</div>
+                            <div class="text-xs text-slate-500">${item.component_code || '-'}</div>
+                        </td>
+                        <td class="px-6 py-4">${typeBadge}</td>
+                        <td class="px-6 py-4">${valueTypeBadge}</td>
+                        <td class="px-6 py-4 font-mono">${formatCurrency(item.amount || 0)}</td>
+                        <td class="px-6 py-4 font-mono">${formatPercentage(item.percentage)}</td>
+                        <td class="px-6 py-4">${formatDate(item.created_at)}</td>
+                        <td class="px-6 py-4">${statusBadge}</td>
+                        <td class="px-6 py-4 text-xs text-slate-500">${truncateText(item.notes || '-', 30)}</td>
+                        <td class="px-6 py-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="openPreviewModal(${item.employee_component_id})" class="p-2 text-white bg-sky-600 hover:bg-sky-700 rounded-full transition shadow-sm" title="معاينة">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button onclick="editAssignment(${item.employee_component_id})" class="p-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-full transition shadow-sm" title="تعديل">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteAssignment(${item.employee_component_id})" class="p-2 text-white bg-red-600 hover:bg-red-700 rounded-full transition shadow-sm" title="حذف">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('assignmentsTable').innerHTML = rows;
+            updateBulkActions();
+        }
+
+        function openAssignmentModal() {
+            editingAssignmentId = null;
+            document.getElementById('assignmentModalTitle').textContent = 'إضافة ربط';
+            document.getElementById('assignmentModal').classList.remove('hidden');
+            clearAssignmentForm();
+        }
+
+        function closeAssignmentModal() {
+            document.getElementById('assignmentModal').classList.add('hidden');
+        }
+
+        function clearAssignmentForm() {
+            document.getElementById('assignmentEmployee').value = '';
+            document.getElementById('assignmentComponent').value = '';
+            document.getElementById('assignmentAmount').value = '';
+            document.getElementById('assignmentPercentage').value = '';
+            document.getElementById('assignmentActive').value = 'true';
+            document.getElementById('assignmentNotes').value = '';
+        }
+
+        function editAssignment(id) {
+            const item = assignments.find((row) => row.employee_component_id === id);
+            if (!item) return;
+            editingAssignmentId = id;
+            document.getElementById('assignmentModalTitle').textContent = 'تعديل ربط';
+            document.getElementById('assignmentModal').classList.remove('hidden');
+            document.getElementById('assignmentEmployee').value = item.employee_id || '';
+            document.getElementById('assignmentComponent').value = item.component_id || '';
+            document.getElementById('assignmentAmount').value = item.amount || 0;
+            document.getElementById('assignmentPercentage').value = item.percentage || '';
+            document.getElementById('assignmentActive').value = String(item.is_active);
+            document.getElementById('assignmentNotes').value = item.notes || '';
+        }
+
+        async function saveAssignment() {
+            const percentageValue = document.getElementById('assignmentPercentage').value;
+            const payload = {
+                employee_id: document.getElementById('assignmentEmployee').value,
+                component_id: document.getElementById('assignmentComponent').value,
+                amount: Number(document.getElementById('assignmentAmount').value || 0),
+                percentage: percentageValue === '' ? null : Number(percentageValue),
+                is_active: document.getElementById('assignmentActive').value === 'true',
+                notes: document.getElementById('assignmentNotes').value.trim()
+            };
+
+            if (!payload.employee_id || !payload.component_id) {
+                alert('يرجى اختيار الموظف والمكون');
+                return;
+            }
+
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+            };
+            const url = editingAssignmentId
+                ? `${API_BASE}/finance/payroll/employee-components/${editingAssignmentId}`
+                : `${API_BASE}/finance/payroll/employee-components`;
+            const method = editingAssignmentId ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر حفظ الربط');
+                closeAssignmentModal();
+                await loadAssignments();
+            } catch (error) {
+                console.error('Error saving assignment:', error);
+                alert('تعذر حفظ الربط');
+            }
+        }
+
+        async function deleteAssignment(id) {
+            if (!confirm('هل تريد حذف الربط؟')) return;
+            const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+            try {
+                const response = await fetch(`${API_BASE}/finance/payroll/employee-components/${id}`, { method: 'DELETE', headers });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'تعذر حذف الربط');
+                await loadAssignments();
+            } catch (error) {
+                console.error('Error deleting assignment:', error);
+                alert('تعذر حذف الربط');
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('filterEmployee').value = '';
+            document.getElementById('filterComponent').value = '';
+            document.getElementById('filterQuery').value = '';
+            document.getElementById('filterComponentType').value = '';
+            document.getElementById('filterValueType').value = '';
+            document.getElementById('filterActive').value = '';
+            document.getElementById('filterMinAmount').value = '';
+            document.getElementById('filterMaxAmount').value = '';
+            loadAssignments();
+        }
+
+        function resolveValueType(item) {
+            return item.percentage !== null && item.percentage !== undefined ? 'PERCENTAGE' : 'AMOUNT';
+        }
+
+        function formatCurrency(value) {
+            const amount = Number(value || 0);
+            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+        }
+
+        function formatPercentage(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            return `${Number(value).toFixed(2)}%`;
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '-';
+            return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(date);
+        }
+
+        function truncateText(value, maxLength) {
+            if (!value || value === '-') return '-';
+            if (value.length <= maxLength) return value;
+            return `${value.slice(0, maxLength - 1)}…`;
+        }
+
+        function applyFilters() {
+            const query = document.getElementById('filterQuery').value.trim().toLowerCase();
+            const componentType = document.getElementById('filterComponentType').value;
+            const valueType = document.getElementById('filterValueType').value;
+            const minAmount = parseFloat(document.getElementById('filterMinAmount').value);
+            const maxAmount = parseFloat(document.getElementById('filterMaxAmount').value);
+
+            filteredAssignments = assignments.filter((item) => {
+                if (query) {
+                    const haystack = [
+                        item.full_name_ar,
+                        item.full_name_en,
+                        item.employee_code,
+                        item.component_name_ar,
+                        item.component_code
+                    ]
+                        .filter(Boolean)
+                        .join(' ')
+                        .toLowerCase();
+                    if (!haystack.includes(query)) return false;
+                }
+                if (componentType && item.component_type !== componentType) return false;
+                if (valueType && resolveValueType(item) !== valueType) return false;
+                const amount = Number(item.amount || 0);
+                if (!Number.isNaN(minAmount) && amount < minAmount) return false;
+                if (!Number.isNaN(maxAmount) && amount > maxAmount) return false;
+                return true;
+            });
+
+            selectedAssignments = new Set(
+                [...selectedAssignments].filter((id) => filteredAssignments.some((item) => item.employee_component_id === id))
+            );
+
+            renderStats();
+            renderTable();
+        }
+
+        function toggleRowSelection(id, checkbox) {
+            if (checkbox.checked) {
+                selectedAssignments.add(id);
+            } else {
+                selectedAssignments.delete(id);
+            }
+            updateBulkActions();
+        }
+
+        function toggleSelectAll(checkbox) {
+            if (checkbox.checked) {
+                filteredAssignments.forEach((item) => selectedAssignments.add(item.employee_component_id));
+            } else {
+                filteredAssignments.forEach((item) => selectedAssignments.delete(item.employee_component_id));
+            }
+            renderTable();
+        }
+
+        function updateBulkActions() {
+            const count = selectedAssignments.size;
+            document.getElementById('selectedCount').textContent = `${count} محدد`;
+            const bulkActivate = document.getElementById('bulkActivate');
+            const bulkDeactivate = document.getElementById('bulkDeactivate');
+            const disableBulk = count === 0;
+            bulkActivate.disabled = disableBulk;
+            bulkDeactivate.disabled = disableBulk;
+            document.getElementById('selectAllAssignments').checked =
+                filteredAssignments.length > 0 && count === filteredAssignments.length;
+        }
+
+        async function setSelectedActive(isActive) {
+            if (!selectedAssignments.size) return;
+            const confirmMessage = isActive ? 'تفعيل الروابط المحددة؟' : 'إيقاف الروابط المحددة؟';
+            if (!confirm(confirmMessage)) return;
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+            };
+            try {
+                await Promise.all(
+                    [...selectedAssignments].map((id) =>
+                        fetch(`${API_BASE}/finance/payroll/employee-components/${id}`, {
+                            method: 'PUT',
+                            headers,
+                            body: JSON.stringify({ is_active: isActive })
+                        })
+                    )
+                );
+                await loadAssignments();
+            } catch (error) {
+                console.error('Error updating assignments:', error);
+                alert('تعذر تحديث الروابط المحددة');
+            }
+        }
+
+        function exportAssignments() {
+            const headers = [
+                'الموظف',
+                'كود الموظف',
+                'المكون',
+                'كود المكون',
+                'نوع المكون',
+                'نوع القيمة',
+                'القيمة',
+                'النسبة',
+                'الحالة',
+                'تاريخ الإضافة',
+                'ملاحظات'
+            ];
+            const rows = filteredAssignments.map((item) => [
+                item.full_name_ar || '',
+                item.employee_code || '',
+                item.component_name_ar || '',
+                item.component_code || '',
+                item.component_type || '',
+                resolveValueType(item) === 'PERCENTAGE' ? 'نسبة' : 'قيمة ثابتة',
+                Number(item.amount || 0).toFixed(2),
+                item.percentage ?? '',
+                item.is_active ? 'نشط' : 'غير نشط',
+                formatDate(item.created_at),
+                (item.notes || '').replace(/\n/g, ' ')
+            ]);
+
+            const csvContent = [headers, ...rows]
+                .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                .join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'payroll-assignments.csv';
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        function openPreviewModal(id) {
+            const item = assignments.find((row) => row.employee_component_id === id);
+            if (!item) return;
+            document.getElementById('previewEmployee').textContent = `${item.full_name_ar || '-'} (${item.employee_code || '-'})`;
+            document.getElementById('previewComponent').textContent = `${item.component_name_ar || '-'} (${item.component_code || '-'})`;
+            document.getElementById('previewType').textContent = item.component_type === 'DEDUCTION' ? 'استقطاع' : 'استحقاق';
+            document.getElementById('previewValueType').textContent = resolveValueType(item) === 'PERCENTAGE' ? 'نسبة' : 'قيمة ثابتة';
+            document.getElementById('previewAmount').textContent = formatCurrency(item.amount || 0);
+            document.getElementById('previewPercentage').textContent = formatPercentage(item.percentage);
+            document.getElementById('previewStatus').textContent = item.is_active ? 'نشط' : 'غير نشط';
+            document.getElementById('previewCreated').textContent = formatDate(item.created_at);
+            document.getElementById('previewNotes').textContent = item.notes || '-';
+            document.getElementById('previewModal').classList.remove('hidden');
+        }
+
+        function closePreviewModal() {
+            document.getElementById('previewModal').classList.add('hidden');
+        }
+
+        document.getElementById('filterEmployee').addEventListener('change', loadAssignments);
+        document.getElementById('filterComponent').addEventListener('change', loadAssignments);
+        document.getElementById('filterActive').addEventListener('change', loadAssignments);
+        document.getElementById('filterQuery').addEventListener('input', applyFilters);
+        document.getElementById('filterComponentType').addEventListener('change', applyFilters);
+        document.getElementById('filterValueType').addEventListener('change', applyFilters);
+        document.getElementById('filterMinAmount').addEventListener('input', applyFilters);
+        document.getElementById('filterMaxAmount').addEventListener('input', applyFilters);
+
+        document.getElementById('assignmentModal').addEventListener('click', (event) => {
+            if (event.target.id === 'assignmentModal') closeAssignmentModal();
+        });
+        document.getElementById('previewModal').addEventListener('click', (event) => {
+            if (event.target.id === 'previewModal') closePreviewModal();
+        });
+
+        // Initial Load
+        loadReferenceData().then(loadAssignments);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

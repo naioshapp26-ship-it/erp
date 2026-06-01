@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📈 مختبر الأداء والتقييم - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0b1220;
+      --muted: #6b7280;
+      --sky: #0284c7;
+      --emerald: #059669;
+      --rose: #e11d48;
+      --sun: #d97706;
+      --paper: #f8fafc;
+      --card: #ffffff;
+      --line: #e2e8f0;
+      --navy: #0f172a;
+      --mint: #d1fae5;
+      --sand: #fef3c7;
+      --ink-soft: rgba(15, 23, 42, 0.08);
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(16, 185, 129, 0.16), transparent 42%),
+        radial-gradient(circle at 86% 8%, rgba(2, 132, 199, 0.18), transparent 40%),
+        linear-gradient(180deg, #f8fafc 0%, #f1f5f9 52%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px -30px rgba(15, 23, 42, 0.35);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .tag {
+      border-radius: 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .hero-card {
+      background: linear-gradient(120deg, #0f172a 0%, #1e293b 45%, #0f172a 100%);
+      color: #f8fafc;
+      border-radius: 24px;
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 30px 60px -35px rgba(15, 23, 42, 0.6);
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: -20% 55% auto -20%;
+      height: 140%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.35), transparent 60%);
+    }
+
+    .stat-card {
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: #fff;
+      padding: 16px;
+      box-shadow: 0 18px 40px -35px rgba(15, 23, 42, 0.55);
+    }
+
+    .status-pill {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 6px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.5);
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .table-row {
+      border-bottom: 1px solid var(--line);
+      transition: background 0.2s ease;
+    }
+
+    .table-row:hover {
+      background: rgba(148, 163, 184, 0.08);
+    }
+
+    .score-bar {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.2);
+      overflow: hidden;
+    }
+
+    .score-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .detail-panel {
+      position: fixed;
+      inset: 0 0 0 auto;
+      width: min(520px, 100%);
+      background: #fff;
+      border-right: 1px solid var(--line);
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      z-index: 40;
+      box-shadow: -20px 0 50px -30px rgba(15, 23, 42, 0.5);
+    }
+
+    .detail-panel.open {
+      transform: translateX(0);
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease;
+      z-index: 30;
+    }
+
+    .backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .fade-up {
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(15, 23, 42, 0.45);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease;
+      z-index: 50;
+    }
+
+    .modal.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-card {
+      width: min(720px, 100%);
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      padding: 20px;
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: 0 30px 60px -40px rgba(15, 23, 42, 0.6);
+    }
+
+    .tool-card {
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .tool-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 30px -24px rgba(15, 23, 42, 0.5);
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+      .detail-panel { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">مختبر الأداء</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">📈 مختبر الأداء والتقييم</h1>
+        <p class="text-slate-600">إدارة التقييمات، مراقبة الأداء، وصناعة خطط تطوير متقدمة.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <a href="/hr/operations" class="btn bg-slate-900 text-white">
+          <i class="fas fa-diagram-project"></i>
+          بوابة العمليات
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-card mb-6 fade-up">
+      <div class="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+        <div>
+          <div class="text-sm text-slate-200">لوحة القيادة</div>
+          <h2 class="text-2xl font-extrabold mt-2">نظرة تشغيلية على الأداء</h2>
+          <p class="text-sm text-slate-300 mt-3">تابع التقييمات، قيّم الجودة، وأطلق خطط التحسين في الوقت المناسب.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">إجمالي التقييمات</div>
+            <div id="totalEvaluations" class="text-2xl font-extrabold mt-2">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">التقييمات المكتملة</div>
+            <div id="completedEvaluations" class="text-2xl font-extrabold text-emerald-600 mt-2">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">قيد المراجعة</div>
+            <div id="reviewEvaluations" class="text-2xl font-extrabold text-amber-600 mt-2">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="text-xs text-slate-500">متوسط الأداء العام</div>
+            <div id="avgScore" class="text-2xl font-extrabold text-sky-700 mt-2">0%</div>
+          </div>
+        </div>
+        <div class="glass p-4 text-sm">
+          <div class="font-bold text-slate-700">تنبيهات الجودة</div>
+          <ul class="mt-3 space-y-2 text-slate-600">
+            <li class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-rose-500"></span> 3 تقييمات تحتاج مراجعة نهائية</li>
+            <li class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-400"></span> قسم العمليات أقل من الهدف بنسبة 6%</li>
+            <li class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> نمو ملحوظ في فرق الدعم</li>
+          </ul>
+          <button class="btn bg-white text-slate-700 border border-slate-200 mt-4 w-full">
+            <i class="fas fa-bell"></i>
+            ضبط التنبيهات
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass p-5 mb-6 fade-up">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">جدول التقييمات التشغيلية</h2>
+          <p class="text-sm text-slate-500">فلترة فورية، فرز ذكي، وإدارة كاملة لدورات الأداء.</p>
+        </div>
+        <button id="addEvaluationBtn" class="btn bg-emerald-600 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة تقييم جديد
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-6 gap-3 text-sm mb-5">
+        <div class="lg:col-span-2">
+          <label class="text-xs text-slate-500">بحث سريع</label>
+          <div class="mt-1 flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <i class="fas fa-magnifying-glass text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="ابحث باسم الموظف أو الفريق" class="w-full text-sm focus:outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">القسم</label>
+          <select id="departmentFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="">كل الأقسام</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">الحالة</label>
+          <select id="statusFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="">كل الحالات</option>
+            <option value="مكتمل">مكتمل</option>
+            <option value="قيد التقييم">قيد التقييم</option>
+            <option value="يحتاج مراجعة">يحتاج مراجعة</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">الفترة</label>
+          <select id="periodFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="">كل الفترات</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">ترتيب النتائج</label>
+          <select id="sortFilter" class="mt-1 w-full bg-white border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="latest">الأحدث</option>
+            <option value="highest">الأعلى أداء</option>
+            <option value="lowest">الأقل أداء</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <div class="grid grid-cols-9 gap-3 bg-slate-900 text-white text-xs font-bold p-3">
+          <div>الموظف / الفريق</div>
+          <div>القسم</div>
+          <div>نوع التقييم</div>
+          <div>الفترة</div>
+          <div>درجة الأداء</div>
+          <div>الحالة</div>
+          <div>المسؤول</div>
+          <div>تاريخ التقييم</div>
+          <div>الإجراءات</div>
+        </div>
+        <div id="tableBody" class="text-sm"></div>
+      </div>
+      <div id="emptyState" class="hidden text-center text-sm text-slate-500 py-6">لا توجد تقييمات مطابقة للفلاتر الحالية.</div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 fade-up">
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">خريطة الكفاءات</div>
+        <div class="text-2xl font-extrabold mt-2">76% تطابق المهارات</div>
+        <p class="text-sm text-slate-500 mt-2">تقييم فجوة المهارات حسب احتياجات 2026.</p>
+        <div class="mt-4 score-bar">
+          <div class="score-fill" style="width: 76%; background: linear-gradient(90deg, #22c55e, #0ea5e9);"></div>
+        </div>
+      </div>
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">مؤشرات الالتزام</div>
+        <div class="grid grid-cols-2 gap-3 mt-3 text-sm">
+          <div class="bg-white border border-slate-200 rounded-2xl p-3">
+            <div class="text-slate-500">تقييمات مكتملة</div>
+            <div id="completedInline" class="text-xl font-bold text-emerald-600">0</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-2xl p-3">
+            <div class="text-slate-500">متأخرة</div>
+            <div class="text-xl font-bold text-rose-600">2</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-2xl p-3">
+            <div class="text-slate-500">خطط تحسين</div>
+            <div class="text-xl font-bold text-sky-700">9</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-2xl p-3">
+            <div class="text-slate-500">الأهداف المحققة</div>
+            <div class="text-xl font-bold text-amber-600">82%</div>
+          </div>
+        </div>
+      </div>
+      <div class="glass p-5">
+        <div class="text-sm text-slate-500">خط سير التقييم</div>
+        <div class="space-y-2 text-sm mt-3">
+          <div class="tag">تحديد مؤشرات الأداء</div>
+          <div class="tag">توزيع الأهداف على الفرق</div>
+          <div class="tag">تقييم متعدد المصادر</div>
+          <div class="tag">اعتماد النتيجة وخطة التطوير</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass p-5 fade-up">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">أدوات الأداء الذكية</h2>
+          <p class="text-sm text-slate-500">واجهة موحدة لرفع الجودة والشفافية.</p>
+        </div>
+        <span class="chip bg-amber-100 text-amber-700">جاهز للتفعيل</span>
+      </div>
+      <div id="toolsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+        <div class="tag tool-card" data-tool="custom-templates">نماذج تقييم قابلة للتخصيص</div>
+        <div class="tag tool-card" data-tool="smart-goals">لوحة أهداف ذكية مرتبطة بالنتائج</div>
+        <div class="tag tool-card" data-tool="auto-paths">مسارات تطوير تلقائية</div>
+        <div class="tag tool-card" data-tool="skills-gap">تقارير فجوة المهارات</div>
+        <div class="tag tool-card" data-tool="manager-review">مراجعة دورية للمدير</div>
+        <div class="tag tool-card" data-tool="auto-escalation">تصعيد تلقائي للتأخير</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="backdrop" class="backdrop"></div>
+  <aside id="detailPanel" class="detail-panel">
+    <div class="p-5 border-b border-slate-200 flex items-center justify-between">
+      <div>
+        <div class="text-xs text-slate-500">تفاصيل التقييم</div>
+        <h3 id="detailTitle" class="text-xl font-extrabold mt-1">تفاصيل</h3>
+      </div>
+      <button id="closePanel" class="btn bg-white text-slate-700 border border-slate-200">
+        إغلاق
+      </button>
+    </div>
+    <div class="p-5 space-y-4 text-sm">
+      <div class="glass p-4">
+        <div class="text-xs text-slate-500">نقاط القوة</div>
+        <ul id="detailStrengths" class="mt-2 space-y-2 text-slate-700"></ul>
+      </div>
+      <div class="glass p-4">
+        <div class="text-xs text-slate-500">نقاط التحسين</div>
+        <ul id="detailImprovements" class="mt-2 space-y-2 text-slate-700"></ul>
+      </div>
+      <div class="glass p-4">
+        <div class="text-xs text-slate-500">ملاحظات المدير</div>
+        <p id="detailManagerNotes" class="mt-2 text-slate-700"></p>
+      </div>
+      <div class="glass p-4">
+        <div class="text-xs text-slate-500">خطة تطوير مقترحة</div>
+        <ul id="detailPlan" class="mt-2 space-y-2 text-slate-700"></ul>
+      </div>
+      <button id="printReport" class="btn bg-slate-900 text-white w-full">
+        <i class="fas fa-print"></i>
+        طباعة التقرير
+      </button>
+    </div>
+  </aside>
+
+  <div id="evaluationModal" class="modal">
+    <div class="modal-card">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500">نموذج التقييم</div>
+          <h3 id="modalTitle" class="text-xl font-extrabold mt-1">إضافة تقييم</h3>
+        </div>
+        <button id="closeModal" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+      </div>
+      <form id="evaluationForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <input type="hidden" id="evaluationId">
+        <div>
+          <label class="text-xs text-slate-500">الموظف / الفريق</label>
+          <input id="fieldName" required class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="اسم الموظف أو الفريق">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">القسم</label>
+          <input id="fieldDepartment" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="القسم">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">نوع التقييم</label>
+          <input id="fieldType" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="تقييم 360 / أهداف">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">الفترة</label>
+          <input id="fieldPeriod" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="2026 Q1">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">درجة الأداء</label>
+          <input id="fieldScore" type="number" min="0" max="100" step="1" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="85">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">الحالة</label>
+          <select id="fieldStatus" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2">
+            <option value="قيد التقييم">قيد التقييم</option>
+            <option value="مكتمل">مكتمل</option>
+            <option value="يحتاج مراجعة">يحتاج مراجعة</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">المسؤول عن التقييم</label>
+          <input id="fieldOwner" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2" placeholder="اسم المسؤول">
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">تاريخ التقييم</label>
+          <input id="fieldDate" type="date" required class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2">
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-slate-500">نقاط القوة (سطر لكل نقطة)</label>
+          <textarea id="fieldStrengths" rows="2" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2"></textarea>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-slate-500">نقاط التحسين (سطر لكل نقطة)</label>
+          <textarea id="fieldImprovements" rows="2" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2"></textarea>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-slate-500">ملاحظات المدير</label>
+          <textarea id="fieldNotes" rows="2" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2"></textarea>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs text-slate-500">خطة التطوير (سطر لكل خطوة)</label>
+          <textarea id="fieldPlan" rows="2" class="mt-1 w-full border border-slate-200 rounded-2xl px-3 py-2"></textarea>
+        </div>
+        <div class="md:col-span-2 flex flex-wrap gap-2">
+          <button type="submit" class="btn bg-emerald-600 text-white">حفظ التقييم</button>
+          <button type="button" id="cancelForm" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toolModal" class="modal">
+    <div class="modal-card">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500">أداة الأداء الذكية</div>
+          <h3 id="toolTitle" class="text-xl font-extrabold mt-1">تفاصيل الأداة</h3>
+        </div>
+        <button id="closeToolModal" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+      </div>
+      <div id="toolBody" class="space-y-4 text-sm"></div>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button id="toolPrimaryAction" class="btn bg-slate-900 text-white">فتح الأداة</button>
+        <button id="toolSecondaryAction" class="btn bg-white text-slate-700 border border-slate-200">عرض الإعدادات</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let evaluationData = [];
+    const apiBase = '/api/hr-performance-evaluations';
+
+    const elements = {
+      tableBody: document.getElementById("tableBody"),
+      emptyState: document.getElementById("emptyState"),
+      searchInput: document.getElementById("searchInput"),
+      departmentFilter: document.getElementById("departmentFilter"),
+      statusFilter: document.getElementById("statusFilter"),
+      periodFilter: document.getElementById("periodFilter"),
+      sortFilter: document.getElementById("sortFilter"),
+      addEvaluationBtn: document.getElementById("addEvaluationBtn"),
+      totalEvaluations: document.getElementById("totalEvaluations"),
+      completedEvaluations: document.getElementById("completedEvaluations"),
+      reviewEvaluations: document.getElementById("reviewEvaluations"),
+      avgScore: document.getElementById("avgScore"),
+      completedInline: document.getElementById("completedInline"),
+      detailPanel: document.getElementById("detailPanel"),
+      backdrop: document.getElementById("backdrop"),
+      detailTitle: document.getElementById("detailTitle"),
+      detailStrengths: document.getElementById("detailStrengths"),
+      detailImprovements: document.getElementById("detailImprovements"),
+      detailManagerNotes: document.getElementById("detailManagerNotes"),
+      detailPlan: document.getElementById("detailPlan"),
+      closePanel: document.getElementById("closePanel"),
+      printReport: document.getElementById("printReport"),
+      evaluationModal: document.getElementById("evaluationModal"),
+      modalTitle: document.getElementById("modalTitle"),
+      closeModal: document.getElementById("closeModal"),
+      cancelForm: document.getElementById("cancelForm"),
+      evaluationForm: document.getElementById("evaluationForm"),
+      evaluationId: document.getElementById("evaluationId"),
+      fieldName: document.getElementById("fieldName"),
+      fieldDepartment: document.getElementById("fieldDepartment"),
+      fieldType: document.getElementById("fieldType"),
+      fieldPeriod: document.getElementById("fieldPeriod"),
+      fieldScore: document.getElementById("fieldScore"),
+      fieldStatus: document.getElementById("fieldStatus"),
+      fieldOwner: document.getElementById("fieldOwner"),
+      fieldDate: document.getElementById("fieldDate"),
+      fieldStrengths: document.getElementById("fieldStrengths"),
+      fieldImprovements: document.getElementById("fieldImprovements"),
+      fieldNotes: document.getElementById("fieldNotes"),
+      fieldPlan: document.getElementById("fieldPlan"),
+      toolsGrid: document.getElementById("toolsGrid"),
+      toolModal: document.getElementById("toolModal"),
+      toolTitle: document.getElementById("toolTitle"),
+      toolBody: document.getElementById("toolBody"),
+      closeToolModal: document.getElementById("closeToolModal"),
+      toolPrimaryAction: document.getElementById("toolPrimaryAction"),
+      toolSecondaryAction: document.getElementById("toolSecondaryAction")
+    };
+
+    const setOptions = (select, values) => {
+      values.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+    };
+
+    const uniqueValues = (key) => [...new Set(evaluationData.map(item => item[key]))].sort();
+
+    const toList = (value) => (value || '')
+      .split('\n')
+      .map(text => text.trim())
+      .filter(Boolean);
+
+    const toTextArea = (list) => (list || []).join('\n');
+
+    const statusStyles = {
+      "مكتمل": "bg-emerald-100 text-emerald-700",
+      "قيد التقييم": "bg-amber-100 text-amber-700",
+      "يحتاج مراجعة": "bg-rose-100 text-rose-700"
+    };
+
+    const scoreGradient = (score) => {
+      if (score >= 90) return "linear-gradient(90deg, #22c55e, #0ea5e9)";
+      if (score >= 80) return "linear-gradient(90deg, #38bdf8, #22c55e)";
+      if (score >= 70) return "linear-gradient(90deg, #f59e0b, #f97316)";
+      return "linear-gradient(90deg, #fb7185, #ef4444)";
+    };
+
+    const updateStats = (filtered) => {
+      const total = filtered.length;
+      const completed = filtered.filter(item => item.status === "مكتمل").length;
+      const review = filtered.filter(item => item.status === "يحتاج مراجعة").length;
+      const avg = total ? Math.round(filtered.reduce((sum, item) => sum + item.score, 0) / total) : 0;
+
+      elements.totalEvaluations.textContent = total;
+      elements.completedEvaluations.textContent = completed;
+      elements.reviewEvaluations.textContent = review;
+      elements.avgScore.textContent = `${avg}%`;
+      elements.completedInline.textContent = completed;
+    };
+
+    const openPanel = (item) => {
+      elements.detailTitle.textContent = `${item.name} • ${item.type}`;
+      elements.detailStrengths.innerHTML = (item.strengths || []).map(text => `<li>• ${text}</li>`).join("");
+      elements.detailImprovements.innerHTML = (item.improvements || []).map(text => `<li>• ${text}</li>`).join("");
+      elements.detailManagerNotes.textContent = item.managerNotes || '';
+      elements.detailPlan.innerHTML = (item.plan || []).map(text => `<li>• ${text}</li>`).join("");
+      elements.detailPanel.classList.add("open");
+      elements.backdrop.classList.add("open");
+    };
+
+    const closePanel = () => {
+      elements.detailPanel.classList.remove("open");
+      elements.backdrop.classList.remove("open");
+    };
+
+    const openModal = (mode, item = {}) => {
+      elements.modalTitle.textContent = mode === 'edit' ? 'تعديل تقييم' : 'إضافة تقييم';
+      elements.evaluationId.value = item.id || '';
+      elements.fieldName.value = item.name || '';
+      elements.fieldDepartment.value = item.department || '';
+      elements.fieldType.value = item.type || '';
+      elements.fieldPeriod.value = item.period || '';
+      elements.fieldScore.value = item.score || '';
+      elements.fieldStatus.value = item.status || 'قيد التقييم';
+      elements.fieldOwner.value = item.owner || '';
+      elements.fieldDate.value = item.date || '';
+      elements.fieldStrengths.value = toTextArea(item.strengths);
+      elements.fieldImprovements.value = toTextArea(item.improvements);
+      elements.fieldNotes.value = item.managerNotes || '';
+      elements.fieldPlan.value = toTextArea(item.plan);
+      elements.evaluationModal.classList.add('open');
+    };
+
+    const closeModal = () => {
+      elements.evaluationModal.classList.remove('open');
+    };
+
+    const toolCatalog = {
+      'custom-templates': {
+        title: 'نماذج تقييم قابلة للتخصيص',
+        summary: 'أنشئ قوالب تقييم مختلفة لكل قسم مع مقاييس وأوزان مخصصة.',
+        highlights: ['قوالب متعددة حسب الوظيفة', 'أوزان ومعايير قابلة للتعديل', 'حفظ نسخ ومراجعات'],
+        workspace: ['قالب تقييم للقيادات', 'قالب تقييم للوظائف الحرجة', 'قالب تقييم للفرق'],
+        settings: ['تحديد أوزان الكفاءات', 'ربط القالب بالقسم', 'سير الموافقات']
+      },
+      'smart-goals': {
+        title: 'لوحة أهداف ذكية مرتبطة بالنتائج',
+        summary: 'تتبع مؤشرات الأداء الرئيسية وربطها بنتائج التقييم.',
+        highlights: ['أهداف ربع سنوية', 'تقدم فوري للأهداف', 'تنبيه عند الانحراف'],
+        workspace: ['مؤشر إنجاز الأهداف', 'لوحة تقدم الفرق', 'تحليل مؤشرات الأداء'],
+        settings: ['تحديث أوزان الأهداف', 'حدود التنبيه', 'سياسات المشاركة']
+      },
+      'auto-paths': {
+        title: 'مسارات تطوير تلقائية',
+        summary: 'اقتراح خطط تطوير مبنية على نقاط القوة والفجوات.',
+        highlights: ['خطط تعلم حسب الدور', 'مستويات تقدم واضحة', 'مزامنة مع الأكاديمية'],
+        workspace: ['خطط تطوير للقيادات', 'مسار نمو للخبراء', 'مؤشرات الالتزام بالخطة'],
+        settings: ['ربط البرامج التدريبية', 'قواعد اقتراح المسارات', 'تفعيل الإشعارات']
+      },
+      'skills-gap': {
+        title: 'تقارير فجوة المهارات',
+        summary: 'عرض تحليلي للفجوات حسب القسم مع توصيات تدريبية.',
+        highlights: ['مقارنة مع مستهدف 2026', 'أولويات التدريب', 'تصدير التقارير'],
+        workspace: ['خريطة فجوات الأقسام', 'تصنيف المهارات الحرجة', 'مقارنة الربع الحالي'],
+        settings: ['تعريف المهارات المستهدفة', 'مصادر بيانات التقييم', 'قوالب التصدير']
+      },
+      'manager-review': {
+        title: 'مراجعة دورية للمدير',
+        summary: 'جدولة مراجعات منتظمة مع ملخص أداء تلقائي.',
+        highlights: ['جدول مراجعات شهري', 'ملاحظات منظمة', 'توثيق نتائج المراجعة'],
+        workspace: ['قائمة مراجعات هذا الشهر', 'نموذج مراجعة سريع', 'سجل الملاحظات'],
+        settings: ['تحديد دورية المراجعة', 'تخصيص نموذج المدير', 'صلاحيات الوصول']
+      },
+      'auto-escalation': {
+        title: 'تصعيد تلقائي للتأخير',
+        summary: 'إشعارات وتنبيهات عند تأخر التقييمات عن الموعد.',
+        highlights: ['سياسات تصعيد مرنة', 'تنبيهات متعددة القنوات', 'تتبع الالتزام'],
+        workspace: ['حالات متأخرة', 'سجل التنبيهات', 'لوحة الالتزام'],
+        settings: ['تحديد مستويات التصعيد', 'قنوات التنبيه', 'فترات السماح']
+      }
+    };
+
+    const renderToolView = (toolKey, view) => {
+      const tool = toolCatalog[toolKey];
+      if (!tool) return;
+      const list = view === 'settings' ? tool.settings : tool.workspace;
+      const viewTitle = view === 'settings' ? 'إعدادات الأداة' : 'مساحة العمل';
+
+      elements.toolBody.innerHTML = `
+        <div class="glass p-4">
+          <div class="text-xs text-slate-500">نبذة سريعة</div>
+          <p class="mt-2 text-slate-700">${tool.summary}</p>
+        </div>
+        <div class="glass p-4">
+          <div class="text-xs text-slate-500">أهم المزايا</div>
+          <ul class="mt-2 space-y-2 text-slate-700">
+            ${tool.highlights.map(item => `<li>• ${item}</li>`).join('')}
+          </ul>
+        </div>
+        <div class="glass p-4">
+          <div class="text-xs text-slate-500">${viewTitle}</div>
+          <ul class="mt-2 space-y-2 text-slate-700">
+            ${list.map(item => `<li>• ${item}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    };
+
+    const openToolModal = (key) => {
+      const tool = toolCatalog[key];
+      if (!tool) return;
+      elements.toolTitle.textContent = tool.title;
+      elements.toolModal.dataset.tool = key;
+      renderToolView(key, 'workspace');
+      elements.toolPrimaryAction.textContent = 'فتح الأداة';
+      elements.toolSecondaryAction.textContent = 'عرض الإعدادات';
+      elements.toolModal.classList.add('open');
+    };
+
+    const closeToolModal = () => {
+      elements.toolModal.classList.remove('open');
+    };
+
+    const mapFromApi = (item) => ({
+      id: item.id,
+      name: item.employee_name,
+      department: item.department,
+      type: item.evaluation_type,
+      period: item.evaluation_period,
+      score: Number(item.score || 0),
+      status: item.status,
+      owner: item.evaluator_name,
+      date: item.evaluation_date,
+      strengths: item.strengths || [],
+      improvements: item.improvements || [],
+      managerNotes: item.manager_notes,
+      plan: item.development_plan || []
+    });
+
+    const mapToApi = () => ({
+      employee_name: elements.fieldName.value.trim(),
+      department: elements.fieldDepartment.value.trim(),
+      evaluation_type: elements.fieldType.value.trim(),
+      evaluation_period: elements.fieldPeriod.value.trim(),
+      score: elements.fieldScore.value ? Number(elements.fieldScore.value) : null,
+      status: elements.fieldStatus.value,
+      evaluator_name: elements.fieldOwner.value.trim(),
+      evaluation_date: elements.fieldDate.value,
+      strengths: toList(elements.fieldStrengths.value),
+      improvements: toList(elements.fieldImprovements.value),
+      manager_notes: elements.fieldNotes.value.trim(),
+      development_plan: toList(elements.fieldPlan.value)
+    });
+
+    const loadEvaluations = async () => {
+      const response = await fetch(apiBase);
+      const data = await response.json();
+      evaluationData = data.map(mapFromApi);
+      elements.departmentFilter.innerHTML = '<option value="">كل الأقسام</option>';
+      elements.periodFilter.innerHTML = '<option value="">كل الفترات</option>';
+      setOptions(elements.departmentFilter, uniqueValues("department"));
+      setOptions(elements.periodFilter, uniqueValues("period"));
+      renderTable();
+    };
+
+    const renderTable = () => {
+      const searchValue = elements.searchInput.value.trim().toLowerCase();
+      const departmentValue = elements.departmentFilter.value;
+      const statusValue = elements.statusFilter.value;
+      const periodValue = elements.periodFilter.value;
+      const sortValue = elements.sortFilter.value;
+
+      let filtered = evaluationData.filter(item => {
+        const matchesSearch = item.name.toLowerCase().includes(searchValue);
+        const matchesDepartment = departmentValue ? item.department === departmentValue : true;
+        const matchesStatus = statusValue ? item.status === statusValue : true;
+        const matchesPeriod = periodValue ? item.period === periodValue : true;
+        return matchesSearch && matchesDepartment && matchesStatus && matchesPeriod;
+      });
+
+      filtered = filtered.sort((a, b) => {
+        if (sortValue === "highest") return b.score - a.score;
+        if (sortValue === "lowest") return a.score - b.score;
+        return new Date(b.date) - new Date(a.date);
+      });
+
+      elements.tableBody.innerHTML = "";
+      elements.emptyState.classList.toggle("hidden", filtered.length !== 0);
+      updateStats(filtered);
+
+      filtered.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "table-row grid grid-cols-9 gap-3 items-center p-3";
+        row.innerHTML = `
+          <div class="font-semibold text-slate-900">${item.name}</div>
+          <div class="text-slate-600">${item.department}</div>
+          <div class="text-slate-600">${item.type}</div>
+          <div class="text-slate-600">${item.period}</div>
+          <div>
+            <div class="font-bold text-slate-800">${item.score}%</div>
+            <div class="score-bar mt-2">
+              <div class="score-fill" style="width: ${item.score}%; background: ${scoreGradient(item.score)};"></div>
+            </div>
+          </div>
+          <div>
+            <span class="status-pill ${statusStyles[item.status]}">
+              <i class="fas fa-circle"></i>${item.status}
+            </span>
+          </div>
+          <div class="text-slate-600">${item.owner}</div>
+          <div class="text-slate-600">${item.date}</div>
+          <div class="row-actions flex flex-wrap gap-2">
+            <button data-action="view" data-id="${item.id}" class="bg-white">عرض</button>
+            <button data-action="preview" data-id="${item.id}" class="bg-white">معاينة</button>
+            <button data-action="edit" data-id="${item.id}" class="bg-slate-50">تعديل</button>
+            <button data-action="delete" data-id="${item.id}" class="bg-rose-50 text-rose-700">حذف</button>
+            <button data-action="approve" data-id="${item.id}" class="bg-emerald-50 text-emerald-700">اعتماد</button>
+            <button data-action="reject" data-id="${item.id}" class="bg-amber-50 text-amber-700">رفض</button>
+          </div>
+        `;
+        elements.tableBody.appendChild(row);
+      });
+    };
+
+    const handleAction = (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const action = button.getAttribute("data-action");
+      const id = Number(button.getAttribute("data-id"));
+      const item = evaluationData.find(entry => entry.id === id);
+      if (!item) return;
+
+      if (action === "view" || action === "preview") {
+        openPanel(item);
+      }
+      if (action === "edit") {
+        openModal('edit', item);
+      }
+      if (action === "approve" || action === "reject") {
+        const nextStatus = action === "approve" ? "مكتمل" : "يحتاج مراجعة";
+        fetch(`${apiBase}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...mapToApi(),
+            employee_name: item.name,
+            department: item.department,
+            evaluation_type: item.type,
+            evaluation_period: item.period,
+            score: item.score,
+            status: nextStatus,
+            evaluator_name: item.owner,
+            evaluation_date: item.date,
+            strengths: item.strengths,
+            improvements: item.improvements,
+            manager_notes: item.managerNotes,
+            development_plan: item.plan
+          })
+        }).then(loadEvaluations);
+      }
+      if (action === "delete") {
+        if (!confirm('هل تريد حذف هذا التقييم؟')) return;
+        fetch(`${apiBase}/${id}`, { method: 'DELETE' }).then(loadEvaluations);
+      }
+    };
+
+    [elements.searchInput, elements.departmentFilter, elements.statusFilter, elements.periodFilter, elements.sortFilter]
+      .forEach(element => element.addEventListener("input", renderTable));
+
+    elements.tableBody.addEventListener("click", handleAction);
+    elements.closePanel.addEventListener("click", closePanel);
+    elements.backdrop.addEventListener("click", closePanel);
+    elements.printReport.addEventListener("click", () => window.print());
+
+    elements.closeModal.addEventListener("click", closeModal);
+    elements.cancelForm.addEventListener("click", closeModal);
+    elements.evaluationModal.addEventListener("click", (event) => {
+      if (event.target === elements.evaluationModal) closeModal();
+    });
+
+    elements.closeToolModal.addEventListener("click", closeToolModal);
+    elements.toolModal.addEventListener("click", (event) => {
+      if (event.target === elements.toolModal) closeToolModal();
+    });
+
+    elements.toolPrimaryAction.addEventListener("click", () => {
+      const key = elements.toolModal.dataset.tool;
+      renderToolView(key, 'workspace');
+    });
+
+    elements.toolSecondaryAction.addEventListener("click", () => {
+      const key = elements.toolModal.dataset.tool;
+      renderToolView(key, 'settings');
+    });
+
+    elements.toolsGrid?.addEventListener("click", (event) => {
+      const target = event.target.closest('[data-tool]');
+      if (!target) return;
+      openToolModal(target.getAttribute('data-tool'));
+    });
+
+    elements.evaluationForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payload = mapToApi();
+      const id = elements.evaluationId.value;
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? `${apiBase}/${id}` : apiBase;
+      await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      closeModal();
+      loadEvaluations();
+    });
+
+    elements.addEvaluationBtn?.addEventListener("click", () => openModal('create'));
+
+    loadEvaluations();
+  </script>
+</body>
+</html>

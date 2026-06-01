@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡ مركز العروض السريعة</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Changa:wght@400;600;700;800&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --surface: rgba(255, 255, 255, 0.92);
+      --accent: #f97316;
+      --accent-2: #0ea5e9;
+      --accent-3: #22c55e;
+      --danger: #ef4444;
+      --shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+    }
+
+    body {
+      font-family: 'Tajawal', sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top right, #fff7ed 0%, #f8fafc 35%, #eff6ff 100%);
+      min-height: 100vh;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(249, 115, 22, 0.12), transparent 40%),
+                  linear-gradient(300deg, rgba(14, 165, 233, 0.12), transparent 40%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    h1, h2, h3, .heading {
+      font-family: 'Changa', sans-serif;
+    }
+
+    .glass-card {
+      background: var(--surface);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+    }
+
+    .stat-card {
+      background: #fff;
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.15);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .table-scroll {
+      max-height: 480px;
+      overflow: auto;
+    }
+
+    .input-field {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: #fff;
+      outline: none;
+      width: 100%;
+    }
+
+    .input-field:focus {
+      border-color: #f97316;
+      box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .progress {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #0ea5e9);
+    }
+
+    .modal-backdrop {
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .fv-required-star {
+      color: #ff3b3b;
+      font-size: 11px;
+      font-weight: bold;
+      margin-right: 2px;
+    }
+
+    .error-msg {
+      display: block;
+      color: #ff3b3b;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    @keyframes fv-shake {
+      0%   { transform: translateX(0); }
+      25%  { transform: translateX(-4px); }
+      50%  { transform: translateX(4px); }
+      75%  { transform: translateX(-4px); }
+      100% { transform: translateX(0); }
+    }
+
+    .input-error {
+      border: 2px solid #ff3b3b !important;
+      background: #fff5f5 !important;
+      animation: fv-shake 0.3s ease;
+    }
+  </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <header class="mb-8">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="badge bg-orange-100 text-orange-700">مركز قيادة العروض</span>
+          <h1 class="text-4xl font-bold mt-3">⚡ مركز العروض السريعة</h1>
+          <p class="text-base text-slate-600 mt-2">إدارة عروض عالية التأثير مع ذكاء المخاطر، الحوكمة، وسرعة التنفيذ.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="addOfferBtn" class="bg-orange-500 text-white px-5 py-3 rounded-full font-bold shadow-lg hover:shadow-xl transition flex items-center gap-2">
+            <i class="fas fa-plus"></i>
+            إضافة عرض جديد
+          </button>
+          <button id="refreshBtn" class="bg-white text-orange-600 border border-orange-100 px-5 py-3 rounded-full font-bold hover:shadow-md transition flex items-center gap-2">
+            <i class="fas fa-rotate"></i>
+            تحديث البيانات
+          </button>
+          <button id="exportBtn" class="bg-slate-900 text-white px-5 py-3 rounded-full font-bold hover:shadow-md transition flex items-center gap-2">
+            <i class="fas fa-file-export"></i>
+            تصدير CSV
+          </button>
+          <button id="printBtn" class="bg-rose-500 text-white px-5 py-3 rounded-full font-bold hover:shadow-md transition flex items-center gap-2">
+            <i class="fas fa-print"></i>
+            طباعة
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="stat-card p-5 rounded-2xl border-t-4 border-orange-500">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-slate-500">العروض النشطة</span>
+          <i class="fas fa-bolt text-orange-500"></i>
+        </div>
+        <div id="statActive" class="text-2xl font-bold">0</div>
+        <div class="text-xs text-slate-500">قيد التنفيذ الآن</div>
+      </div>
+      <div class="stat-card p-5 rounded-2xl border-t-4 border-emerald-500">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-slate-500">متوسط الخصم</span>
+          <i class="fas fa-percent text-emerald-500"></i>
+        </div>
+        <div id="statDiscount" class="text-2xl font-bold">0%</div>
+        <div class="text-xs text-slate-500">آخر دورة تشغيل</div>
+      </div>
+      <div class="stat-card p-5 rounded-2xl border-t-4 border-sky-500">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-slate-500">معدل التحويل</span>
+          <i class="fas fa-chart-line text-sky-500"></i>
+        </div>
+        <div id="statConversion" class="text-2xl font-bold">0%</div>
+        <div class="text-xs text-slate-500">تجميعي عبر القنوات</div>
+      </div>
+      <div class="stat-card p-5 rounded-2xl border-t-4 border-rose-500">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm text-slate-500">تنتهي قريباً</span>
+          <i class="fas fa-hourglass-end text-rose-500"></i>
+        </div>
+        <div id="statExpiring" class="text-2xl font-bold">0</div>
+        <div class="text-xs text-slate-500">خلال 72 ساعة</div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div class="glass-card rounded-3xl p-6 lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">🧠 محرك العروض الذكية</h2>
+          <span class="badge bg-sky-100 text-sky-700">حماية آلية</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div class="bg-orange-50 p-4 rounded-2xl">جدولة تلقائية حسب المخزون + إيقاف عند تجاوز السقف المالي</div>
+          <div class="bg-emerald-50 p-4 rounded-2xl">مصفوفة موافقات متعددة المستويات مع سجل تغيير حي</div>
+          <div class="bg-slate-50 p-4 rounded-2xl">حماية من تداخل الشرائح وحساب التأثير على الـLTV</div>
+          <div class="bg-sky-50 p-4 rounded-2xl">توصيات خصم مبنية على هامش الربح الحالي</div>
+        </div>
+      </div>
+      <div class="glass-card rounded-3xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold">⚠️ رادار المخاطر</h3>
+          <span class="badge bg-rose-100 text-rose-700">مباشر</span>
+        </div>
+        <div class="space-y-3 text-sm" id="riskRadar">
+          <div class="p-3 rounded-2xl bg-slate-50">لا توجد بيانات حالياً</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="glass-card rounded-3xl p-6 mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h3 class="text-lg font-bold">🧾 قائمة العروض السريعة</h3>
+        <div class="flex flex-wrap gap-2">
+          <button id="bulkApproveBtn" class="bg-emerald-500 text-white px-4 py-2 rounded-full text-sm font-bold hidden">اعتماد المحدد</button>
+          <button id="bulkDeleteBtn" class="bg-rose-500 text-white px-4 py-2 rounded-full text-sm font-bold hidden">حذف المحدد</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-5">
+        <div class="lg:col-span-4 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input id="searchInput" class="input-field" placeholder="بحث سريع بالاسم أو الكود...">
+            <select id="statusFilter" class="input-field">
+              <option value="">كل الحالات</option>
+              <option value="active">نشط</option>
+              <option value="pending">قيد المراجعة</option>
+              <option value="paused">متوقف</option>
+              <option value="draft">مسودة</option>
+              <option value="ended">منتهي</option>
+            </select>
+            <select id="categoryFilter" class="input-field">
+              <option value="">كل الفئات</option>
+            </select>
+            <select id="channelFilter" class="input-field">
+              <option value="">كل القنوات</option>
+            </select>
+          </div>
+
+          <div class="table-scroll">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-100 text-slate-600 sticky top-0">
+                <tr>
+                  <th class="p-2 text-right"><input id="selectAll" type="checkbox"></th>
+                  <th class="p-2 text-right">العرض</th>
+                  <th class="p-2 text-right">الخصم</th>
+                  <th class="p-2 text-right">المدة</th>
+                  <th class="p-2 text-right">الأداء</th>
+                  <th class="p-2 text-right">الحالة</th>
+                  <th class="p-2 text-right">إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="offersTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="glass-card rounded-2xl p-4">
+          <h4 class="font-bold mb-3">📌 ملخص تشغيلي</h4>
+          <div class="space-y-3 text-sm" id="opsSummary"></div>
+          <div class="mt-5">
+            <h5 class="font-bold mb-2">🗓️ أقرب النوافذ</h5>
+            <div class="space-y-2 text-xs" id="timeline"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg hidden"></div>
+
+    <div id="offerModal" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+      <div class="bg-white rounded-3xl w-full max-w-4xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 id="modalTitle" class="text-xl font-bold">إضافة عرض جديد</h3>
+          <button id="closeModal" class="text-slate-500 hover:text-slate-900"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="offerForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm font-bold">اسم العرض <span class="fv-required-star">*</span></label>
+            <input id="titleInput" class="input-field" required>
+          </div>
+          <div>
+            <label class="text-sm font-bold">الفئة <span class="fv-required-star">*</span></label>
+            <input id="categoryInput" class="input-field" required>
+          </div>
+          <div>
+            <label class="text-sm font-bold">نوع الخصم <span class="fv-required-star">*</span></label>
+            <select id="discountTypeInput" class="input-field" required>
+              <option value="percent">نسبة مئوية</option>
+              <option value="amount">قيمة ثابتة</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-bold">قيمة الخصم</label>
+            <input id="discountValueInput" type="number" class="input-field" required>
+          </div>
+          <div>
+            <label class="text-sm font-bold">تاريخ البداية <span class="fv-required-star">*</span></label>
+            <input id="startInput" type="datetime-local" class="input-field" required>
+          </div>
+          <div>
+            <label class="text-sm font-bold">تاريخ النهاية <span class="fv-required-star">*</span></label>
+            <input id="endInput" type="datetime-local" class="input-field" required>
+          </div>
+          <div>
+            <label class="text-sm font-bold">الحالة <span class="fv-required-star">*</span></label>
+            <select id="statusInput" class="input-field" required>
+              <option value="draft">مسودة</option>
+              <option value="pending">قيد المراجعة</option>
+              <option value="active">نشط</option>
+              <option value="paused">متوقف</option>
+              <option value="ended">منتهي</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-bold">الموافقة</label>
+            <select id="approvalInput" class="input-field">
+              <option value="pending">بانتظار الاعتماد</option>
+              <option value="approved">معتمد</option>
+              <option value="rejected">مرفوض</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-bold">الأولوية</label>
+            <select id="priorityInput" class="input-field">
+              <option value="عالي">عالي</option>
+              <option value="متوسط">متوسط</option>
+              <option value="منخفض">منخفض</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-bold">الشريحة المستهدفة</label>
+            <input id="segmentInput" class="input-field">
+          </div>
+          <div>
+            <label class="text-sm font-bold">القنوات (افصل بفاصلة)</label>
+            <input id="channelsInput" class="input-field" placeholder="web, sales, whatsapp">
+          </div>
+          <div>
+            <label class="text-sm font-bold">الميزانية المتاحة</label>
+            <input id="budgetInput" type="number" class="input-field" value="0">
+          </div>
+          <div>
+            <label class="text-sm font-bold">ROI المتوقع</label>
+            <input id="roiInput" type="number" class="input-field" value="0" step="0.1">
+          </div>
+          <div>
+            <label class="text-sm font-bold">مؤشر المخاطر</label>
+            <input id="riskInput" type="number" class="input-field" value="0" step="1">
+          </div>
+          <div>
+            <label class="text-sm font-bold">الانطباعات</label>
+            <input id="impressionsInput" type="number" class="input-field" value="0">
+          </div>
+          <div>
+            <label class="text-sm font-bold">التحويلات</label>
+            <input id="conversionsInput" type="number" class="input-field" value="0">
+          </div>
+          <div>
+            <label class="text-sm font-bold">الإيرادات</label>
+            <input id="revenueInput" type="number" class="input-field" value="0">
+          </div>
+          <div>
+            <label class="text-sm font-bold">التكلفة</label>
+            <input id="costInput" type="number" class="input-field" value="0">
+          </div>
+          <div class="md:col-span-2 border-t border-slate-200 pt-4">
+            <h4 class="text-sm font-bold text-slate-800 mb-3">بيانات العنوان</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="text-sm font-bold">اسم الشارع</label>
+                <input id="offerStreetName" class="input-field" placeholder="اسم الشارع">
+              </div>
+              <div>
+                <label class="text-sm font-bold">الرمز البريدي</label>
+                <input id="offerPostalCode" class="input-field" placeholder="الرمز البريدي">
+              </div>
+              <div>
+                <label class="text-sm font-bold">رقم المبنى</label>
+                <input id="offerBuildingNumber" class="input-field" placeholder="رقم المبنى">
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div>
+                <label class="text-sm font-bold">اسم المدينة</label>
+                <input id="offerCity" class="input-field" placeholder="المدينة">
+              </div>
+              <div>
+                <label class="text-sm font-bold">اسم المنطقة</label>
+                <input id="offerDistrict" class="input-field" placeholder="المنطقة">
+              </div>
+              <div>
+                <label class="text-sm font-bold">الرمز الوطني</label>
+                <input id="offerNationalAddress" class="input-field" placeholder="الرمز الوطني">
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div>
+                <label class="text-sm font-bold">العنوان المختصر</label>
+                <input id="offerShortAddress" class="input-field" placeholder="العنوان المختصر">
+              </div>
+            </div>
+          </div>
+          <div class="md:col-span-2">
+            <label class="text-sm font-bold">قواعد الحماية</label>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+              <label class="toggle"><input id="ruleAutoPause" type="checkbox"> إيقاف تلقائي عند انخفاض ROI</label>
+              <label class="toggle"><input id="rulePriceFloor" type="checkbox"> تفعيل حد أدنى للسعر</label>
+              <label class="toggle"><input id="ruleAudienceCap" type="checkbox"> حماية تداخل الشرائح</label>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+              <input id="priceFloorInput" type="number" class="input-field" placeholder="حد أدنى للهامش (مثال 0.18)" step="0.01">
+              <input id="audienceCapInput" type="number" class="input-field" placeholder="حد الشريحة (مثال 0.3)" step="0.01">
+            </div>
+          </div>
+          <div class="md:col-span-2">
+            <label class="text-sm font-bold">ملاحظات</label>
+            <textarea id="notesInput" class="input-field" rows="3"></textarea>
+          </div>
+          <div class="md:col-span-2 flex justify-end gap-2 mt-2">
+            <button type="button" id="cancelModal" class="bg-slate-100 text-slate-700 px-5 py-2 rounded-full font-bold">إلغاء</button>
+            <button type="submit" class="bg-orange-500 text-white px-5 py-2 rounded-full font-bold">حفظ العرض</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/finance/quick-offers';
+
+    const state = {
+      offers: [],
+      filtered: [],
+      selected: new Set(),
+      editingId: null
+    };
+
+    const elements = {
+      statActive: document.getElementById('statActive'),
+      statDiscount: document.getElementById('statDiscount'),
+      statConversion: document.getElementById('statConversion'),
+      statExpiring: document.getElementById('statExpiring'),
+      riskRadar: document.getElementById('riskRadar'),
+      opsSummary: document.getElementById('opsSummary'),
+      timeline: document.getElementById('timeline'),
+      tableBody: document.getElementById('offersTableBody'),
+      searchInput: document.getElementById('searchInput'),
+      statusFilter: document.getElementById('statusFilter'),
+      categoryFilter: document.getElementById('categoryFilter'),
+      channelFilter: document.getElementById('channelFilter'),
+      selectAll: document.getElementById('selectAll'),
+      bulkApproveBtn: document.getElementById('bulkApproveBtn'),
+      bulkDeleteBtn: document.getElementById('bulkDeleteBtn'),
+      toast: document.getElementById('toast'),
+      modal: document.getElementById('offerModal'),
+      modalTitle: document.getElementById('modalTitle'),
+      offerForm: document.getElementById('offerForm'),
+      titleInput: document.getElementById('titleInput'),
+      categoryInput: document.getElementById('categoryInput'),
+      discountTypeInput: document.getElementById('discountTypeInput'),
+      discountValueInput: document.getElementById('discountValueInput'),
+      startInput: document.getElementById('startInput'),
+      endInput: document.getElementById('endInput'),
+      statusInput: document.getElementById('statusInput'),
+      approvalInput: document.getElementById('approvalInput'),
+      priorityInput: document.getElementById('priorityInput'),
+      segmentInput: document.getElementById('segmentInput'),
+      channelsInput: document.getElementById('channelsInput'),
+      budgetInput: document.getElementById('budgetInput'),
+      roiInput: document.getElementById('roiInput'),
+      riskInput: document.getElementById('riskInput'),
+      impressionsInput: document.getElementById('impressionsInput'),
+      conversionsInput: document.getElementById('conversionsInput'),
+      revenueInput: document.getElementById('revenueInput'),
+      costInput: document.getElementById('costInput'),
+      offerStreetName: document.getElementById('offerStreetName'),
+      offerPostalCode: document.getElementById('offerPostalCode'),
+      offerBuildingNumber: document.getElementById('offerBuildingNumber'),
+      offerCity: document.getElementById('offerCity'),
+      offerDistrict: document.getElementById('offerDistrict'),
+      offerNationalAddress: document.getElementById('offerNationalAddress'),
+      offerShortAddress: document.getElementById('offerShortAddress'),
+      ruleAutoPause: document.getElementById('ruleAutoPause'),
+      rulePriceFloor: document.getElementById('rulePriceFloor'),
+      ruleAudienceCap: document.getElementById('ruleAudienceCap'),
+      priceFloorInput: document.getElementById('priceFloorInput'),
+      audienceCapInput: document.getElementById('audienceCapInput'),
+      notesInput: document.getElementById('notesInput')
+    };
+
+    const formatCurrency = (value) => {
+      const number = Number(value || 0);
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(number);
+    };
+
+    const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
+
+    const formatDate = (value) => {
+      if (!value) return '-';
+      const date = new Date(value);
+      return date.toLocaleString('en-US', { hour12: true });
+    };
+
+    const toDatetimeLocalValue = (value) => {
+      if (!value) return '';
+      const date = new Date(value);
+      const offset = date.getTimezoneOffset();
+      const local = new Date(date.getTime() - offset * 60000);
+      return local.toISOString().slice(0, 16);
+    };
+
+    const getEntityId = () => window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+
+    const showToast = (message, type = 'success') => {
+      elements.toast.textContent = message;
+      elements.toast.classList.remove('hidden');
+      elements.toast.style.background = type === 'error' ? '#ef4444' : '#0f172a';
+      setTimeout(() => elements.toast.classList.add('hidden'), 2500);
+    };
+
+    const fetchJson = async (url, options = {}) => {
+      const response = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(error.error || 'Request failed');
+      }
+
+      return response.json();
+    };
+
+    const loadOffers = async () => {
+      try {
+        const query = new URLSearchParams({ entity_id: getEntityId() }).toString();
+        const data = await fetchJson(`${API_BASE}?${query}`);
+        state.offers = data.offers || [];
+        applyFilters();
+        renderFilters();
+        renderSummary();
+      } catch (error) {
+        showToast('تعذر تحميل بيانات العروض', 'error');
+      }
+    };
+
+    const applyFilters = () => {
+      const q = elements.searchInput.value.trim().toLowerCase();
+      const status = elements.statusFilter.value;
+      const category = elements.categoryFilter.value;
+      const channel = elements.channelFilter.value;
+
+      state.filtered = state.offers.filter((offer) => {
+        const matchesSearch = !q || [offer.title, offer.offer_code, offer.target_segment].some((field) => String(field || '').toLowerCase().includes(q));
+        const matchesStatus = !status || offer.status === status;
+        const matchesCategory = !category || offer.category === category;
+        const matchesChannel = !channel || (offer.channels || []).includes(channel);
+        return matchesSearch && matchesStatus && matchesCategory && matchesChannel;
+      });
+
+      renderTable();
+    };
+
+    const renderFilters = () => {
+      const categories = Array.from(new Set(state.offers.map((offer) => offer.category).filter(Boolean)));
+      const channels = Array.from(new Set(state.offers.flatMap((offer) => offer.channels || []).filter(Boolean)));
+
+      elements.categoryFilter.innerHTML = '<option value="">كل الفئات</option>' + categories.map((item) => `<option value="${item}">${item}</option>`).join('');
+      elements.channelFilter.innerHTML = '<option value="">كل القنوات</option>' + channels.map((item) => `<option value="${item}">${item}</option>`).join('');
+    };
+
+    const calcConversionRate = (offer) => {
+      const impressions = Number(offer.impressions || 0);
+      const conversions = Number(offer.conversions || 0);
+      if (!impressions) return 0;
+      return (conversions / impressions) * 100;
+    };
+
+    const calcROI = (offer) => {
+      const cost = Number(offer.cost || 0);
+      const revenue = Number(offer.revenue || 0);
+      if (!cost) return 0;
+      return ((revenue - cost) / cost) * 100;
+    };
+
+    const statusPill = (status, approval) => {
+      const map = {
+        active: { label: 'نشط', color: 'bg-emerald-100 text-emerald-700' },
+        pending: { label: 'مراجعة', color: 'bg-amber-100 text-amber-700' },
+        paused: { label: 'متوقف', color: 'bg-slate-200 text-slate-700' },
+        draft: { label: 'مسودة', color: 'bg-slate-100 text-slate-600' },
+        ended: { label: 'منتهي', color: 'bg-rose-100 text-rose-700' }
+      };
+      const approvalBadge = approval === 'approved' ? 'معتمد' : approval === 'rejected' ? 'مرفوض' : 'بانتظار';
+      const config = map[status] || map.draft;
+      return `<span class="pill ${config.color}"><i class="fas fa-circle text-[8px]"></i>${config.label} • ${approvalBadge}</span>`;
+    };
+
+    const renderTable = () => {
+      if (!state.filtered.length) {
+        elements.tableBody.innerHTML = '<tr><td colspan="7" class="text-center p-6 text-slate-500">لا توجد عروض مطابقة.</td></tr>';
+        return;
+      }
+
+      elements.tableBody.innerHTML = state.filtered.map((offer) => {
+        const channels = (offer.channels || []).join('، ');
+        const conversion = calcConversionRate(offer);
+        const roi = calcROI(offer);
+        const remaining = Math.max(0, new Date(offer.end_at) - new Date());
+        const remainingHours = Math.floor(remaining / 3600000);
+        const progressValue = Math.min(100, Math.max(0, conversion));
+        return `
+          <tr>
+            <td class="p-2"><input type="checkbox" class="row-select" data-id="${offer.id}" ${state.selected.has(offer.id) ? 'checked' : ''}></td>
+            <td class="p-2">
+              <div class="font-bold">${offer.title}</div>
+              <div class="text-xs text-slate-500">${offer.offer_code} • ${channels || 'بدون قناة'} • ${offer.target_segment || 'شريحة عامة'}</div>
+            </td>
+            <td class="p-2">
+              <div class="font-bold">${offer.discount_type === 'percent' ? offer.discount_value + '%' : formatCurrency(offer.discount_value)}</div>
+              <div class="text-xs text-slate-500">أولوية: ${offer.priority || '-'} • مخاطر: ${offer.risk_score || 0}</div>
+            </td>
+            <td class="p-2">
+              <div class="text-xs">${formatDate(offer.start_at)}</div>
+              <div class="text-xs text-slate-500">ينتهي خلال ${remainingHours} ساعة</div>
+            </td>
+            <td class="p-2">
+              <div class="text-xs">تحويل ${conversion.toFixed(1)}% • ROI ${roi.toFixed(1)}%</div>
+              <div class="progress mt-2"><span style="width:${progressValue}%"></span></div>
+            </td>
+            <td class="p-2">${statusPill(offer.status, offer.approval_state)}</td>
+            <td class="p-2">
+              <div class="flex flex-wrap gap-2">
+                <button class="text-xs bg-slate-900 text-white px-3 py-1 rounded-full" data-action="edit" data-id="${offer.id}">تعديل</button>
+                <button class="text-xs bg-emerald-500 text-white px-3 py-1 rounded-full" data-action="approve" data-id="${offer.id}">اعتماد</button>
+                <button class="text-xs bg-rose-500 text-white px-3 py-1 rounded-full" data-action="delete" data-id="${offer.id}">حذف</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    };
+
+    const renderSummary = () => {
+      const active = state.offers.filter((offer) => offer.status === 'active').length;
+      const avgDiscount = state.offers.length
+        ? state.offers.reduce((sum, offer) => sum + Number(offer.discount_value || 0), 0) / state.offers.length
+        : 0;
+      const expiring = state.offers.filter((offer) => new Date(offer.end_at) <= new Date(Date.now() + 72 * 3600 * 1000)).length;
+      const totalImpressions = state.offers.reduce((sum, offer) => sum + Number(offer.impressions || 0), 0);
+      const totalConversions = state.offers.reduce((sum, offer) => sum + Number(offer.conversions || 0), 0);
+      const conversionRate = totalImpressions ? (totalConversions / totalImpressions) * 100 : 0;
+
+      elements.statActive.textContent = active;
+      elements.statDiscount.textContent = `${avgDiscount.toFixed(1)}%`;
+      elements.statExpiring.textContent = expiring;
+      elements.statConversion.textContent = `${conversionRate.toFixed(1)}%`;
+
+      renderRadar();
+      renderOpsSummary();
+      renderTimeline();
+    };
+
+    const renderRadar = () => {
+      const highRisk = [...state.offers].sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0)).slice(0, 3);
+      elements.riskRadar.innerHTML = highRisk.length ? highRisk.map((offer) => `
+        <div class="p-3 rounded-2xl bg-rose-50">
+          <div class="font-bold">${offer.title}</div>
+          <div class="text-xs text-slate-600">مخاطر ${offer.risk_score || 0} • ${offer.status}</div>
+        </div>
+      `).join('') : '<div class="p-3 rounded-2xl bg-slate-50">لا توجد بيانات حالياً</div>';
+    };
+
+    const renderOpsSummary = () => {
+      const topRoi = [...state.offers].sort((a, b) => calcROI(b) - calcROI(a))[0];
+      const topConversion = [...state.offers].sort((a, b) => calcConversionRate(b) - calcConversionRate(a))[0];
+      const budgetTotal = state.offers.reduce((sum, offer) => sum + Number(offer.budget || 0), 0);
+
+      elements.opsSummary.innerHTML = `
+        <div class="p-3 rounded-2xl bg-orange-50">إجمالي الميزانية: <strong>${formatCurrency(budgetTotal)}</strong></div>
+        <div class="p-3 rounded-2xl bg-emerald-50">أفضل ROI: <strong>${topRoi ? topRoi.title : 'غير متوفر'}</strong></div>
+        <div class="p-3 rounded-2xl bg-sky-50">أعلى تحويل: <strong>${topConversion ? topConversion.title : 'غير متوفر'}</strong></div>
+      `;
+    };
+
+    const renderTimeline = () => {
+      const upcoming = [...state.offers]
+        .sort((a, b) => new Date(a.end_at) - new Date(b.end_at))
+        .slice(0, 5);
+
+      elements.timeline.innerHTML = upcoming.length ? upcoming.map((offer) => `
+        <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50">
+          <span>${offer.title}</span>
+          <span class="text-slate-500">${formatDate(offer.end_at)}</span>
+        </div>
+      `).join('') : '<div class="p-2 text-slate-500">لا توجد نوافذ قريبة.</div>';
+    };
+
+    const openModal = (offer = null) => {
+      state.editingId = offer ? offer.id : null;
+      elements.modalTitle.textContent = offer ? 'تعديل العرض' : 'إضافة عرض جديد';
+
+      elements.titleInput.value = offer?.title || '';
+      elements.categoryInput.value = offer?.category || '';
+      elements.discountTypeInput.value = offer?.discount_type || 'percent';
+      elements.discountValueInput.value = offer?.discount_value || 0;
+      elements.startInput.value = toDatetimeLocalValue(offer?.start_at);
+      elements.endInput.value = toDatetimeLocalValue(offer?.end_at);
+      if (elements.startInput.value) elements.endInput.min = elements.startInput.value;
+      elements.statusInput.value = offer?.status || 'draft';
+      elements.approvalInput.value = offer?.approval_state || 'pending';
+      elements.priorityInput.value = offer?.priority || 'متوسط';
+      elements.segmentInput.value = offer?.target_segment || '';
+      elements.channelsInput.value = (offer?.channels || []).join(', ');
+      elements.budgetInput.value = offer?.budget || 0;
+      elements.roiInput.value = offer?.expected_roi || 0;
+      elements.riskInput.value = offer?.risk_score || 0;
+      elements.impressionsInput.value = offer?.impressions || 0;
+      elements.conversionsInput.value = offer?.conversions || 0;
+      elements.revenueInput.value = offer?.revenue || 0;
+      elements.costInput.value = offer?.cost || 0;
+      elements.offerStreetName.value = offer?.street_name || '';
+      elements.offerPostalCode.value = offer?.postal_code || '';
+      elements.offerBuildingNumber.value = offer?.building_number || '';
+      elements.offerCity.value = offer?.city || '';
+      elements.offerDistrict.value = offer?.district || '';
+      elements.offerNationalAddress.value = offer?.national_address_number || '';
+      elements.offerShortAddress.value = offer?.short_address || '';
+      elements.notesInput.value = offer?.notes || '';
+
+      const rules = offer?.rules || {};
+      elements.ruleAutoPause.checked = Boolean(rules.auto_pause_roi);
+      elements.rulePriceFloor.checked = Boolean(rules.price_floor);
+      elements.ruleAudienceCap.checked = Boolean(rules.audience_cap);
+      elements.priceFloorInput.value = rules.price_floor || '';
+      elements.audienceCapInput.value = rules.audience_cap || '';
+
+      elements.modal.classList.remove('hidden');
+      elements.modal.classList.add('flex');
+
+      // Clear any leftover validation errors from previous open
+      elements.offerForm.querySelectorAll('.input-error').forEach(function (f) { f.classList.remove('input-error'); });
+      elements.offerForm.querySelectorAll('.error-msg').forEach(function (m) { m.parentNode.removeChild(m); });
+    };
+
+    // Keep endInput.min in sync whenever startInput changes
+    elements.startInput.addEventListener('change', function () {
+      elements.endInput.min = elements.startInput.value;
+      // Clear end-date error if it's now valid
+      if (elements.endInput.value && new Date(elements.endInput.value) > new Date(elements.startInput.value)) {
+        elements.endInput.classList.remove('input-error');
+        const msg = elements.endInput.parentNode.querySelector('.error-msg');
+        if (msg) msg.parentNode.removeChild(msg);
+      }
+    });
+
+    const closeModal = () => {
+      elements.modal.classList.add('hidden');
+      elements.modal.classList.remove('flex');
+    };
+
+    const getFormPayload = () => {
+      const rules = {
+        auto_pause_roi: elements.ruleAutoPause.checked,
+        price_floor: elements.rulePriceFloor.checked ? Number(elements.priceFloorInput.value || 0) : 0,
+        audience_cap: elements.ruleAudienceCap.checked ? Number(elements.audienceCapInput.value || 0) : 0
+      };
+
+      return {
+        title: elements.titleInput.value.trim(),
+        category: elements.categoryInput.value.trim(),
+        discount_type: elements.discountTypeInput.value,
+        discount_value: Number(elements.discountValueInput.value || 0),
+        start_at: new Date(elements.startInput.value).toISOString(),
+        end_at: new Date(elements.endInput.value).toISOString(),
+        status: elements.statusInput.value,
+        approval_state: elements.approvalInput.value,
+        priority: elements.priorityInput.value,
+        target_segment: elements.segmentInput.value.trim(),
+        channels: elements.channelsInput.value,
+        budget: Number(elements.budgetInput.value || 0),
+        expected_roi: Number(elements.roiInput.value || 0),
+        risk_score: Number(elements.riskInput.value || 0),
+        impressions: Number(elements.impressionsInput.value || 0),
+        conversions: Number(elements.conversionsInput.value || 0),
+        revenue: Number(elements.revenueInput.value || 0),
+        cost: Number(elements.costInput.value || 0),
+        street_name: elements.offerStreetName.value.trim(),
+        postal_code: elements.offerPostalCode.value.trim(),
+        building_number: elements.offerBuildingNumber.value.trim(),
+        city: elements.offerCity.value.trim(),
+        district: elements.offerDistrict.value.trim(),
+        national_address_number: elements.offerNationalAddress.value.trim(),
+        short_address: elements.offerShortAddress.value.trim(),
+        notes: elements.notesInput.value.trim(),
+        rules,
+        entity_id: getEntityId(),
+        entity_type: 'HQ'
+      };
+    };
+
+    const saveOffer = async (event) => {
+      event.preventDefault();
+
+      // Inline required-field validation
+      let isFormValid = true;
+      elements.offerForm.querySelectorAll('[required]').forEach(function (field) {
+        field.classList.remove('input-error');
+        const prev = field.parentNode.querySelector('.error-msg');
+        if (prev) prev.parentNode.removeChild(prev);
+        if (!field.value.trim()) {
+          isFormValid = false;
+          field.classList.add('input-error');
+          const msg = document.createElement('div');
+          msg.className = 'error-msg';
+          msg.textContent = 'هذا الحقل مطلوب';
+          field.parentNode.appendChild(msg);
+        }
+      });
+      if (!isFormValid) {
+        const first = elements.offerForm.querySelector('.input-error');
+        if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus(); }
+        return;
+      }
+
+      // Validate end date is after start date
+      const startVal = elements.startInput.value;
+      const endVal = elements.endInput.value;
+      if (startVal && endVal && new Date(endVal) <= new Date(startVal)) {
+        elements.endInput.classList.add('input-error');
+        const existingMsg = elements.endInput.parentNode.querySelector('.error-msg');
+        if (existingMsg) existingMsg.parentNode.removeChild(existingMsg);
+        const dateMsg = document.createElement('div');
+        dateMsg.className = 'error-msg';
+        dateMsg.textContent = 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية';
+        elements.endInput.parentNode.appendChild(dateMsg);
+        elements.endInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        elements.endInput.focus();
+        return;
+      }
+
+      try {
+        const payload = getFormPayload();
+        if (state.editingId) {
+          await fetchJson(`${API_BASE}/${state.editingId}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+          });
+          showToast('تم تحديث العرض بنجاح');
+        } else {
+          await fetchJson(API_BASE, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          showToast('تم إضافة العرض بنجاح');
+        }
+        closeModal();
+        await loadOffers();
+      } catch (error) {
+        showToast('تعذر حفظ العرض', 'error');
+      }
+    };
+
+    const deleteOffer = async (id) => {
+      if (!confirm('هل تريد حذف العرض فعلاً؟')) return;
+      try {
+        await fetchJson(`${API_BASE}/${id}`, { method: 'DELETE' });
+        showToast('تم حذف العرض');
+        await loadOffers();
+      } catch (error) {
+        showToast('تعذر حذف العرض', 'error');
+      }
+    };
+
+    const approveOffer = async (id) => {
+      const offer = state.offers.find((item) => item.id === id);
+      if (!offer) return;
+      try {
+        await fetchJson(`${API_BASE}/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ approval_state: 'approved', status: offer.status === 'draft' ? 'pending' : offer.status })
+        });
+        showToast('تم اعتماد العرض');
+        await loadOffers();
+      } catch (error) {
+        showToast('تعذر اعتماد العرض', 'error');
+      }
+    };
+
+    const handleBulkDelete = async () => {
+      if (!state.selected.size) return;
+      if (!confirm('حذف كل العروض المحددة؟')) return;
+      for (const id of state.selected) {
+        try {
+          await fetchJson(`${API_BASE}/${id}`, { method: 'DELETE' });
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      state.selected.clear();
+      showToast('تم حذف العروض المحددة');
+      await loadOffers();
+    };
+
+    const handleBulkApprove = async () => {
+      if (!state.selected.size) return;
+      for (const id of state.selected) {
+        try {
+          await fetchJson(`${API_BASE}/${id}`, { method: 'PUT', body: JSON.stringify({ approval_state: 'approved' }) });
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      state.selected.clear();
+      showToast('تم اعتماد العروض المحددة');
+      await loadOffers();
+    };
+
+    const updateBulkButtons = () => {
+      const hasSelection = state.selected.size > 0;
+      elements.bulkDeleteBtn.classList.toggle('hidden', !hasSelection);
+      elements.bulkApproveBtn.classList.toggle('hidden', !hasSelection);
+    };
+
+    const exportCsv = () => {
+      const headers = ['الكود', 'الاسم', 'الفئة', 'الخصم', 'البداية', 'النهاية', 'الحالة', 'القنوات'];
+      const rows = state.filtered.map((offer) => [
+        offer.offer_code,
+        offer.title,
+        offer.category,
+        offer.discount_type === 'percent' ? offer.discount_value + '%' : offer.discount_value,
+        formatDate(offer.start_at),
+        formatDate(offer.end_at),
+        offer.status,
+        (offer.channels || []).join(' | ')
+      ]);
+      const csvContent = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'quick-offers.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    };
+
+    elements.tableBody.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const id = Number(button.dataset.id);
+      const action = button.dataset.action;
+      if (action === 'edit') {
+        const offer = state.offers.find((item) => item.id === id);
+        if (offer) openModal(offer);
+      }
+      if (action === 'delete') deleteOffer(id);
+      if (action === 'approve') approveOffer(id);
+    });
+
+    elements.tableBody.addEventListener('change', (event) => {
+      const checkbox = event.target.closest('.row-select');
+      if (!checkbox) return;
+      const id = Number(checkbox.dataset.id);
+      if (checkbox.checked) state.selected.add(id); else state.selected.delete(id);
+      updateBulkButtons();
+    });
+
+    elements.selectAll.addEventListener('change', (event) => {
+      const checked = event.target.checked;
+      state.selected.clear();
+      document.querySelectorAll('.row-select').forEach((checkbox) => {
+        checkbox.checked = checked;
+        if (checked) state.selected.add(Number(checkbox.dataset.id));
+      });
+      updateBulkButtons();
+    });
+
+    document.getElementById('addOfferBtn').addEventListener('click', () => openModal());
+    document.getElementById('refreshBtn').addEventListener('click', loadOffers);
+    document.getElementById('exportBtn').addEventListener('click', exportCsv);
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    document.getElementById('cancelModal').addEventListener('click', closeModal);
+    elements.offerForm.addEventListener('submit', saveOffer);
+
+    // Clear validation error when user corrects a field
+    elements.offerForm.addEventListener('input', function (e) {
+      if (e.target.classList.contains('input-error')) {
+        e.target.classList.remove('input-error');
+        var msg = e.target.parentNode.querySelector('.error-msg');
+        if (msg) msg.parentNode.removeChild(msg);
+      }
+    });
+    elements.offerForm.addEventListener('change', function (e) {
+      if (e.target.classList.contains('input-error')) {
+        e.target.classList.remove('input-error');
+        var msg = e.target.parentNode.querySelector('.error-msg');
+        if (msg) msg.parentNode.removeChild(msg);
+      }
+    });
+
+    elements.searchInput.addEventListener('input', applyFilters);
+    elements.statusFilter.addEventListener('change', applyFilters);
+    elements.categoryFilter.addEventListener('change', applyFilters);
+    elements.channelFilter.addEventListener('change', applyFilters);
+    elements.bulkDeleteBtn.addEventListener('click', handleBulkDelete);
+    elements.bulkApproveBtn.addEventListener('click', handleBulkApprove);
+
+    loadOffers();
+  </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

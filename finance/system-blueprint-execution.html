@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧭 المخطط التنفيذي لنظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f9fafb; color: #0f172a; }
+        
+        .card-gradient {
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    
+        .shape-a { border-radius: 26px 8px 26px 8px; }
+        .shape-b { border-radius: 999px; }
+        .shape-c { border-radius: 28px 28px 6px 28px; }
+        .shape-d { border-radius: 18px 40px 18px 40px; }
+        .shape-e { border-radius: 12px 40px 12px 40px; }
+        .stat-card { transition: transform 0.3s, box-shadow 0.3s; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(15,23,42,0.15); }
+        .table-scroll { max-height: 520px; overflow: auto; }
+        .chart-container { position: relative; height: 280px; }
+        .section-accent-sky { border-top: 4px solid #0ea5e9; }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .section-accent-amber { border-top: 4px solid #f59e0b; }
+        .section-accent-indigo { border-top: 4px solid #6366f1; }
+        .section-accent-rose { border-top: 4px solid #f43f5e; }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 0.75rem 1.5rem; border-radius: 999px; color: white; font-weight: 700; z-index: 60; }
+        .toast-success { background: #10b981; }
+        .toast-info { background: #6366f1; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🧭 المخطط التنفيذي لنظام نايوش</h1>
+            <p class="text-lg text-slate-600">تعريف الوحدات والجداول والتدفقات الأساسية (الصفحة 35)</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="downloadJSON()" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-code"></i>
+                تنزيل ملف بيانات
+            </button>
+            <button onclick="downloadCSV()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-csv"></i>
+                تنزيل ملف جدولي
+            </button>
+            <button onclick="printReport()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة
+            </button>
+            <button onclick="showToast('تم نسخ المخطط (محاكاة)', 'success')" class="bg-white text-slate-900 px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2 border-2 border-white">
+                <i class="fas fa-copy text-slate-700"></i>
+                نسخ المخطط
+            </button>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">✅ تحويل النماذج إلى مخطط جاهز للتنفيذ</h2>
+                <span class="text-sm text-slate-500">وحدات، جداول، وتدفقات أساسية</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="stat-card shape-b bg-gradient-to-br from-sky-500 to-blue-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>عدد الوحدات</span><i class="fas fa-layer-group text-2xl opacity-70"></i></div>
+                    <div id="modulesCount" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-a bg-gradient-to-br from-emerald-500 to-teal-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>عدد الجداول الأساسية</span><i class="fas fa-table text-2xl opacity-70"></i></div>
+                    <div id="tablesCount" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-c bg-gradient-to-br from-amber-500 to-orange-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>عدد التدفقات</span><i class="fas fa-route text-2xl opacity-70"></i></div>
+                    <div id="flowsCount" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-d bg-gradient-to-br from-indigo-500 to-purple-600 text-slate-900 p-5">
+                    <div class="flex justify-between mb-3"><span>عدد السجلات الحية</span><i class="fas fa-database text-2xl opacity-70"></i></div>
+                    <div id="recordsCount" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧩 الوحدات الأساسية داخل النظام</h2>
+                <span class="text-sm text-slate-500">هيكل وحدة متكامل</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="modulesGrid"></div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧱 الجداول الجوهرية (مستوى أول)</h2>
+                <span class="text-sm text-slate-500">بيانات النظام الرئيسية</span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-indigo-50 text-indigo-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">الجدول</th>
+                            <th class="px-3 py-2 text-right">حقول أساسية</th>
+                            <th class="px-3 py-2 text-right">عدد السجلات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="coreTables" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-3xl shadow-2xl p-6 mb-8 section-accent-rose">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🔁 التدفقات الأساسية</h2>
+                <span class="text-sm text-slate-500">ربط العمليات والقيود والتقارير</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="flowsGrid"></div>
+        </div>
+
+        <div class="space-y-6">
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-sky" open>
+                <summary class="text-xl font-bold text-slate-800">📋 جدول العملاء</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2">
+                        <h4 class="font-bold text-slate-700">بيانات العملاء</h4>
+                        <div class="flex gap-2">
+                            <button onclick="addCustomer()" class="bg-emerald-600 text-white px-4 py-1 rounded-lg text-xs hover:bg-emerald-700 flex items-center gap-1">
+                                <i class="fas fa-plus"></i> إضافة عميل
+                            </button>
+                            <span id="customersCount" class="text-sm text-slate-500"></span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead id="customersHead" class="bg-sky-50 text-sky-700"></thead>
+                            <tbody id="customersTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-emerald">
+                <summary class="text-xl font-bold text-slate-800">🧾 جدول الفواتير</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2">
+                        <h4 class="font-bold text-slate-700">بيانات الفواتير</h4>
+                        <div class="flex gap-2">
+                            <button onclick="addInvoice()" class="bg-emerald-600 text-white px-4 py-1 rounded-lg text-xs hover:bg-emerald-700 flex items-center gap-1">
+                                <i class="fas fa-plus"></i> إضافة فاتورة
+                            </button>
+                            <span id="invoicesCount" class="text-sm text-slate-500"></span>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead id="invoicesHead" class="bg-emerald-50 text-emerald-700"></thead>
+                            <tbody id="invoicesTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                        <h4 class="font-bold text-slate-700">بيانات المدفوعات</h4>
+                        <div class="flex gap-2">
+                            <button onclick="addPayment()" class="bg-emerald-600 text-white px-4 py-1 rounded-lg text-xs hover:bg-emerald-700 flex items-center gap-1">
+                                <i class="fas fa-plus"></i> إضافة مدفوعة
+                            </button>
+                            <span id="paymentsCount" class="text-sm text-slate-500"></span>
+                        </div>
+                    
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-amber">
+                <summary class="text-xl font-bold text-slate-800">💳 جدول المدفوعات</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">بيانات المدفوعات</h4><span id="paymentsCount" class="text-sm text-slate-500"></span></div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead id="paymentsHead" class="bg-amber-50 text-amber-700"></thead>
+                            <tbody id="paymentsTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                        <h4 class="font-bold text-slate-700">بيانات الخطط</h4>
+                        <div class="flex gap-2">
+                            <button onclick="addPlan()" class="bg-emerald-600 text-white px-4 py-1 rounded-lg text-xs hover:bg-emerald-700 flex items-center gap-1">
+                                <i class="fas fa-plus"></i> إضافة خطة
+                            </button>
+                            <span id="plansCount" class="text-sm text-slate-500"></span>
+                        </div>
+                    
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-indigo">
+                <summary class="text-xl font-bold text-slate-800">📆 جدول خطط السداد</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">بيانات الخطط</h4><span id="plansCount" class="text-sm text-slate-500"></span></div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead id="plansHead" class="bg-indigo-50 text-indigo-700"></thead>
+                            <tbody id="plansTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-rose">
+                <summary class="text-xl font-bold text-slate-800">📚 شجرة الحسابات</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">الحسابات العامة</h4><span id="accountsCount" class="text-sm text-slate-500"></span></div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead id="accountsHead" class="bg-rose-50 text-rose-700"></thead>
+                            <tbody id="accountsTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-sky">
+                <summary class="text-xl font-bold text-slate-800">🧾 القيود المحاسبية</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">القيود المسجلة</h4><span id="entriesCount" class="text-sm text-slate-500"></span></div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead id="entriesHead" class="bg-sky-50 text-sky-700"></thead>
+                            <tbody id="entriesTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-emerald">
+                <summary class="text-xl font-bold text-slate-800">🧾 سطور القيود</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">تفاصيل السطور</h4><span id="linesCount" class="text-sm text-slate-500"></span></div>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead id="linesHead" class="bg-emerald-50 text-emerald-700"></thead>
+                            <tbody id="linesTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-amber">
+                <summary class="text-xl font-bold text-slate-800">📊 الميزانيات والانحرافات</summary>
+                <div class="mt-4 space-y-6">
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">الميزانيات</h4><span id="budgetsCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll">
+                            <table class="w-full text-xs">
+                                <thead id="budgetsHead" class="bg-amber-50 text-amber-700"></thead>
+                                <tbody id="budgetsTable" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">سطور الميزانية</h4><span id="budgetLinesCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll">
+                            <table class="w-full text-xs">
+                                <thead id="budgetLinesHead" class="bg-indigo-50 text-indigo-700"></thead>
+                                <tbody id="budgetLinesTable" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">تحليل الانحراف</h4><span id="variancesCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll">
+                            <table class="w-full text-xs">
+                                <thead id="variancesHead" class="bg-rose-50 text-rose-700"></thead>
+                                <tbody id="variancesTable" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-3xl shadow-2xl p-6 section-accent-indigo">
+                <summary class="text-xl font-bold text-slate-800">🤖 ذكاء مالي</summary>
+                <div class="mt-4 space-y-6">
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">تقييمات المخاطر</h4><span id="risksCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll">
+                            <table class="w-full text-xs">
+                                <thead id="risksHead" class="bg-indigo-50 text-indigo-700"></thead>
+                                <tbody id="risksTable" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">التوقعات الذكية</h4><span id="forecastsCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll">
+                            <table class="w-full text-xs">
+                                <thead id="forecastsHead" class="bg-emerald-50 text-emerald-700"></thead>
+                                <tbody id="forecastsTable" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
+        const API_HEADERS = window.getFinanceHeaders ? window.getFinanceHeaders() : {
+            'x-entity-id': ENTITY_ID,
+            'x-entity-type': ENTITY_TYPE
+        };
+
+        const store = {
+            customers: [],
+            invoices: [],
+            payments: [],
+            plans: [],
+            accounts: [],
+            entries: [],
+            lines: [],
+            budgets: [],
+            budgetLines: [],
+            variances: [],
+            risks: [],
+            forecasts: []
+        };
+
+        const modulesList = [
+            { title: 'وحدة الحسابات العامة', icon: 'fa-book', color: 'from-sky-500 to-blue-600', key: 'accounts' },
+            { title: 'وحدة العملاء والذمم المدينة', icon: 'fa-users', color: 'from-emerald-500 to-teal-600', key: 'customers' },
+            { title: 'وحدة الموردين والذمم الدائنة', icon: 'fa-hand-holding-dollar', color: 'from-amber-500 to-orange-600', key: 'payments' },
+            { title: 'وحدة الفوترة والتحصيل', icon: 'fa-file-invoice', color: 'from-indigo-500 to-purple-600', key: 'invoices' },
+            { title: 'وحدة الأصول الثابتة', icon: 'fa-industry', color: 'from-rose-500 to-red-600', key: 'assets' },
+            { title: 'وحدة الميزانيات', icon: 'fa-coins', color: 'from-cyan-500 to-sky-600', key: 'budgets' },
+            { title: 'وحدة التقارير المالية', icon: 'fa-chart-line', color: 'from-fuchsia-500 to-pink-600', key: 'reports' },
+            { title: 'وحدة الذكاء المالي', icon: 'fa-robot', color: 'from-slate-600 to-slate-800', key: 'forecasts' }
+        ];
+
+        const coreTablesList = [
+            { name: 'العملاء', fields: 'العميل، التصنيف، الحاضنة، البرنامج، مستوى المخاطر', key: 'customers' },
+            { name: 'الفواتير', fields: 'رقم الفاتورة، العميل، البرنامج، المبلغ، الحالة، السداد الجزئي', key: 'invoices' },
+            { name: 'المدفوعات', fields: 'رقم الدفعة، نوع الدفع، المبلغ، الوسيلة، الربط بالفواتير', key: 'payments' },
+            { name: 'خطط السداد', fields: 'الخطة، عدد الدفعات، التواريخ، المبلغ، الحالة، المخاطر', key: 'plans' },
+            { name: 'شجرة الحسابات', fields: 'الحسابات العامة', key: 'accounts' },
+            { name: 'القيود والسطور', fields: 'القيود وسطورها', key: 'entries' },
+            { name: 'الميزانيات', fields: 'نوع الميزانية، السنة، السيناريو، الحالة', key: 'budgets' },
+            { name: 'سطور الميزانية', fields: 'الحساب، مبلغ سنوي/شهري، فرع، حاضنة، برنامج', key: 'budgetLines' },
+            { name: 'تقييمات المخاطر', fields: 'العميل، التاريخ، الدرجة، الأسباب', key: 'risks' },
+            { name: 'التوقعات الذكية', fields: 'نوع التوقع، الفترة، القيمة، الثقة', key: 'forecasts' }
+        ];
+
+        const flowsList = [
+            {
+                title: 'التدفق 1: من الفاتورة إلى القيد المحاسبي',
+                steps: [
+                    'إنشاء فاتورة',
+                    'إنشاء قيود إيراد وذمم مدينة',
+                    'الظهور في تقارير الذمم والأستاذ العام'
+                ]
+            },
+            {
+                title: 'التدفق 2: من الدفعة إلى إغلاق الفاتورة',
+                steps: [
+                    'تسجيل دفعة كاملة أو جزئية',
+                    'ربط الدفعة بالفاتورة',
+                    'تحديث الرصيد وإنشاء قيد نقدي',
+                    'تحديث تقارير الذمم والتدفقات'
+                ]
+            },
+            {
+                title: 'التدفق 3: من الميزانية إلى التقارير',
+                steps: [
+                    'إدخال الميزانية وتوزيعها',
+                    'مقارنة الفعلي بالمخطط',
+                    'تخزين الانحرافات لعرضها في التقارير'
+                ]
+            },
+            {
+                title: 'التدفق 4: من البيانات إلى التوقعات الذكية',
+                steps: [
+                    'سحب بيانات آخر 12 إلى 36 شهر',
+                    'تغذية نموذج الذكاء المالي',
+                    'تخزين النتائج وعرضها في اللوحات'
+                ]
+            }
+        ];
+
+        async function fetchJson(url) {
+            const res = await fetch(url, { headers: API_HEADERS });
+            const data = await res.json();
+            return { ok: res.ok, data };
+        }
+
+        async function loadData() {
+            try {
+                const [customersRes, invoicesRes, paymentsRes, plansRes, accountsRes, entriesRes, linesRes, budgetsRes, risksRes, forecastsRes] = await Promise.all([
+                    fetchJson(`${API_BASE}/finance/customers`),
+                    fetchJson(`${API_BASE}/finance/invoices`),
+                    fetchJson(`${API_BASE}/finance/payments`),
+                    fetchJson(`${API_BASE}/finance/payment-plans?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/accounts?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/journal/entries?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/journal-lines?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/budgets?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/ai-risk-scores?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/ai-forecasts?entity_id=${ENTITY_ID}`)
+                ]);
+
+                store.customers = customersRes.data.customers || [];
+                store.invoices = invoicesRes.data.invoices || [];
+                store.payments = paymentsRes.data.payments || [];
+                store.plans = plansRes.data.plans || [];
+                store.accounts = accountsRes.data.accounts || accountsRes.data.rows || [];
+                store.entries = entriesRes.data.entries || [];
+                store.lines = linesRes.data.lines || [];
+                store.budgets = budgetsRes.data.budgets || [];
+                store.budgetLines = budgetsRes.data.lines || [];
+                store.variances = budgetsRes.data.variances || [];
+                store.risks = risksRes.data.rows || [];
+                store.forecasts = forecastsRes.data.forecasts || [];
+
+                renderKPIs();
+                renderModules();
+                renderCoreTables();
+                renderFlows();
+                renderAllTables();
+            } catch (error) {
+                console.error('❌ خطأ في تحميل البيانات:', error);
+            }
+        }
+
+        function renderKPIs() {
+            const moduleCount = modulesList.length;
+            const tableCount = coreTablesList.length;
+            const flowsCount = flowsList.length;
+            const recordsCount = store.customers.length + store.invoices.length + store.payments.length + store.plans.length + store.accounts.length + store.entries.length + store.lines.length + store.budgets.length + store.budgetLines.length + store.variances.length + store.risks.length + store.forecasts.length;
+
+            document.getElementById('modulesCount').textContent = moduleCount.toLocaleString('en-US');
+            document.getElementById('tablesCount').textContent = tableCount.toLocaleString('en-US');
+            document.getElementById('flowsCount').textContent = flowsCount.toLocaleString('en-US');
+            document.getElementById('recordsCount').textContent = recordsCount.toLocaleString('en-US');
+        }
+
+        function renderModules() {
+            const grid = document.getElementById('modulesGrid');
+            grid.innerHTML = modulesList.map((m, idx) => {
+                const count = getModuleCount(m.key);
+                const shape = idx % 3 === 0 ? 'shape-a' : idx % 3 === 1 ? 'shape-c' : 'shape-d';
+                return `
+                    <div class="stat-card ${shape} bg-gradient-to-br ${m.color} text-slate-900 p-5">
+                        <div class="flex justify-between mb-3"><span>${m.title}</span><i class="fas ${m.icon} text-2xl opacity-70"></i></div>
+                        <div class="text-2xl font-bold">${count.toLocaleString('en-US')}</div>
+                        <div class="text-xs opacity-90">عدد السجلات المرتبطة</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCoreTables() {
+            const body = document.getElementById('coreTables');
+            body.innerHTML = coreTablesList.map(row => `
+                <tr class="hover:bg-indigo-50">
+                    <td class="px-3 py-2">${row.name}</td>
+                    <td class="px-3 py-2">${row.fields}</td>
+                    <td class="px-3 py-2">${getModuleCount(row.key).toLocaleString('en-US')}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderFlows() {
+            const grid = document.getElementById('flowsGrid');
+            grid.innerHTML = flowsList.map((flow, idx) => `
+                <div class="card-gradient p-5 shadow-lg ${idx % 2 === 0 ? 'shape-b' : 'shape-e'}">
+                    <div class="font-bold text-slate-800 mb-3">${flow.title}</div>
+                    <ul class="text-sm text-slate-700 space-y-2">
+                        ${flow.steps.map(step => `<li>• ${step}</li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
+        }
+
+        function renderAllTables() {
+            renderDynamicTable('customersHead', 'customersTable', store.customers, 'customersCount');
+            renderDynamicTable('invoicesHead', 'invoicesTable', store.invoices, 'invoicesCount');
+            renderDynamicTable('paymentsHead', 'paymentsTable', store.payments, 'paymentsCount');
+            renderDynamicTable('plansHead', 'plansTable', store.plans, 'plansCount');
+            renderDynamicTable('accountsHead', 'accountsTable', store.accounts, 'accountsCount');
+            renderDynamicTable('entriesHead', 'entriesTable', store.entries, 'entriesCount');
+            renderDynamicTable('linesHead', 'linesTable', store.lines, 'linesCount');
+            renderDynamicTable('budgetsHead', 'budgetsTable', store.budgets, 'budgetsCount');
+            renderDynamicTable('budgetLinesHead', 'budgetLinesTable', store.budgetLines, 'budgetLinesCount');
+            renderDynamicTable('variancesHead', 'variancesTable', store.variances, 'variancesCount');
+            renderDynamicTable('risksHead', 'risksTable', store.risks, 'risksCount');
+            renderDynamicTable('forecastsHead', 'forecastsTable', store.forecasts, 'forecastsCount');
+        }
+
+        function renderDynamicTable(headId, bodyId, rows, countId) {
+            const head = document.getElementById(headId);
+            const body = document.getElementById(bodyId);
+            const count = document.getElementById(countId);
+            count.textContent = `عدد الصفوف: ${rows.length}`;
+
+            if (!rows.length) {
+                head.innerHTML = '';
+                body.innerHTML = `<tr><td class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+                return;
+            }
+
+            const columns = Array.from(new Set(rows.flatMap(row => Object.keys(row))));
+            const displayColumns = columns.filter(c => !c.endsWith('_id') || c === 'customer_id' || c === 'invoice_id' || c === 'payment_id' || c === 'plan_id' || c === 'account_id' || c === 'entry_id' || c === 'budget_id' || c === 'risk_id' || c === 'forecast_id');
+            
+            head.innerHTML = `<tr>${displayColumns.map(c => `<th class="px-3 py-2 text-right">${translateHeader(c)}</th>`).join('')}<th class="px-3 py-2 text-center">الإجراءات</th></tr>`;
+            body.innerHTML = rows.map(row => {
+                const tableName = bodyId.replace('Table', '');
+                const idField = Object.keys(row).find(k => k.endsWith('_id') && row[k]);
+                const recordId = idField ? row[idField] : '';
+                
+                return `
+                <tr class="hover:bg-slate-50">
+                    ${displayColumns.map(c => `<td class="px-3 py-2">${formatValue(c, row[c])}</td>`).join('')}
+                    <td class="px-3 py-2 text-center">
+                        <div class="flex gap-1 justify-center">
+                            <button onclick="viewRecord('${tableName}', ${recordId})" class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600" title="معاينة">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="editRecord('${tableName}', ${recordId})" class="bg-amber-500 text-white px-2 py-1 rounded text-xs hover:bg-amber-600" title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteRecord('${tableName}', ${recordId})" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function translateHeader(key) {
+            const map = {
+                customer_id: 'رقم العميل',
+                customer_name_ar: 'اسم العميل',
+                customer_name_en: 'اسم العميل',
+                customer_code: 'كود العميل',
+                customer_type: 'نوع العميل',
+                invoice_id: 'رقم الفاتورة',
+                invoice_number: 'رقم الفاتورة',
+                invoice_date: 'تاريخ الفاتورة',
+                due_date: 'تاريخ الاستحقاق',
+                total_amount: 'إجمالي المبلغ',
+                paid_amount: 'المدفوع',
+                remaining_amount: 'المتبقي',
+                status: 'الحالة',
+                payment_status: 'حالة السداد',
+                payment_id: 'رقم الدفعة',
+                payment_number: 'رقم الدفعة',
+                payment_date: 'تاريخ الدفع',
+                payment_amount: 'مبلغ الدفع',
+                payment_method: 'وسيلة الدفع',
+                payment_type: 'نوع الدفع',
+                plan_id: 'رقم الخطة',
+                plan_number: 'رقم الخطة',
+                plan_status: 'حالة الخطة',
+                number_of_installments: 'عدد الدفعات',
+                installment_amount: 'قيمة الدفعة',
+                installment_frequency: 'تكرار الدفعات',
+                account_id: 'رقم الحساب',
+                account_code: 'كود الحساب',
+                account_name: 'اسم الحساب',
+                account_name_ar: 'اسم الحساب',
+                account_type: 'نوع الحساب',
+                entry_id: 'رقم القيد',
+                entry_number: 'رقم القيد',
+                entry_date: 'تاريخ القيد',
+                entry_type: 'نوع القيد',
+                debit_amount: 'مدين',
+                credit_amount: 'دائن',
+                budget_id: 'رقم الميزانية',
+                budget_code: 'كود الميزانية',
+                budget_name_ar: 'اسم الميزانية',
+                budget_name_en: 'اسم الميزانية',
+                budget_type: 'نوع الميزانية',
+                fiscal_year: 'السنة المالية',
+                fiscal_period: 'الفترة المالية',
+                scenario: 'السيناريو',
+                period_name: 'اسم الفترة',
+                budgeted_amount: 'المخطط',
+                actual_amount: 'الفعلي',
+                variance_amount: 'الانحراف',
+                variance_percentage: 'نسبة الانحراف',
+                variance_type: 'نوع الانحراف',
+                significance_level: 'مستوى الأهمية',
+                risk_id: 'رقم المخاطر',
+                risk_level: 'مستوى المخاطر',
+                risk_score: 'درجة المخاطر',
+                forecast_id: 'رقم التوقع',
+                forecast_type: 'نوع التوقع',
+                forecast_period: 'فترة التوقع',
+                forecast_amount: 'قيمة التوقع',
+                confidence_level: 'مستوى الثقة',
+                entity_type: 'نوع المنشأة',
+                entity_id: 'معرف المنشأة',
+                created_at: 'تاريخ الإنشاء',
+                updated_at: 'تاريخ التحديث'
+            };
+            return map[key] || 'حقل إضافي';
+        }
+
+        function formatValue(key, value) {
+            if (value === null || value === undefined || value === '') return '-';
+            if (key.includes('date') || key.endsWith('_at')) return formatDateTime(value);
+            if (key.includes('amount') || key.includes('total') || key.includes('balance') || key.includes('cost') || key.includes('value') || key.includes('budgeted') || key.includes('actual') || key.includes('variance')) return formatMoney(value);
+            if (key.includes('percentage') || key.includes('rate') || key.includes('score') || key.includes('confidence')) return formatPercent(value);
+            if (key === 'status') return translateStatus(value);
+            if (key === 'payment_status') return translateStatus(value);
+            if (key === 'payment_type') return translatePaymentType(value);
+            if (key === 'payment_method') return translatePaymentMethod(value);
+            if (key === 'account_type') return translateAccountType(value);
+            if (key === 'entry_type') return translateEntryType(value);
+            if (key === 'budget_type') return translateBudgetType(value);
+            if (key === 'scenario') return translateScenario(value);
+            if (key === 'risk_level') return translateRiskLevel(value);
+            if (key === 'forecast_type') return translateForecastType(value);
+            if (key === 'entity_type') return translateEntityType(value);
+            if (typeof value === 'boolean') return value ? 'نعم' : 'لا';
+            return sanitizeText(value);
+        }
+
+        function translateStatus(value) {
+            const map = { PAID: 'مدفوع', OVERDUE: 'متأخر', PARTIAL: 'جزئي', OPEN: 'مفتوح', APPROVED: 'معتمد', POSTED: 'مرحل', ACTIVE: 'نشط', CLOSED: 'مغلق', DRAFT: 'مسودة', CANCELLED: 'ملغي' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translatePaymentType(value) {
+            const map = { FULL: 'كامل', PARTIAL: 'جزئي', INSTALLMENT: 'أقساط' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translatePaymentMethod(value) {
+            const map = { CASH: 'نقدي', BANK_TRANSFER: 'تحويل بنكي', CARD: 'بطاقة', CHECK: 'شيك', ONLINE: 'إلكتروني' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateAccountType(value) {
+            const map = { REVENUE: 'إيرادات', EXPENSE: 'مصروفات', ASSET: 'أصول', LIABILITY: 'التزامات', EQUITY: 'حقوق ملكية' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateEntryType(value) {
+            const map = { AUTO: 'آلي', MANUAL: 'يدوي' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateBudgetType(value) {
+            const map = { REVENUE: 'ميزانية الإيرادات', EXPENSE: 'ميزانية المصروفات', CASHFLOW: 'ميزانية التدفقات', CAPITAL: 'ميزانية رأس المال' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateScenario(value) {
+            const map = { CONSERVATIVE: 'متحفظ', OPTIMISTIC: 'متفائل', BASE: 'أساسي', BASIC: 'أساسي' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateRiskLevel(value) {
+            const map = { HIGH: 'مرتفع', MEDIUM: 'متوسط', LOW: 'منخفض', CRITICAL: 'حرج' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateForecastType(value) {
+            const map = { REVENUE: 'إيرادات', EXPENSE: 'مصروفات', CASHFLOW: 'تدفقات نقدية', DEFAULT: 'تعثر' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateEntityType(value) {
+            const map = { HQ: 'مركز رئيسي', BRANCH: 'فرع', PLATFORM: 'منصة', INCUBATOR: 'حاضنة', PROGRAM: 'برنامج' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatPercent(value) {
+            const num = parseFloat(value || 0);
+            return `${num.toFixed(1)}%`;
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function sanitizeText(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            const text = typeof value === 'string' ? value : JSON.stringify(value);
+            const cleaned = text.replace(/[A-Za-z]+/g, '').replace(/\s{2,}/g, ' ').trim();
+            return cleaned || '-';
+        }
+
+        function getModuleCount(key) {
+            const map = {
+                customers: store.customers.length,
+                invoices: store.invoices.length,
+                payments: store.payments.length,
+                plans: store.plans.length,
+                accounts: store.accounts.length,
+                budgets: store.budgets.length,
+                entries: store.entries.length,
+                risks: store.risks.length,
+                forecasts: store.forecasts.length,
+                assets: 0,
+                reports: store.variances.length
+            };
+            return map[key] || 0;
+        }
+
+        function downloadJSON() {
+            downloadBlob(JSON.stringify(store, null, 2), 'المخطط-التنفيذي-لنظام-نايوش.json', 'application/json');
+        }
+
+        function downloadCSV() {
+            const rows = [];
+            rows.push(['العملاء']);
+            rows.push(['رقم العميل','الاسم','التصنيف']);
+            store.customers.forEach(c => rows.push([c.customer_id, c.customer_name_ar || c.customer_name_en, c.customer_type]));
+
+            rows.push([]);
+            rows.push(['الفواتير']);
+            rows.push(['رقم الفاتورة','العميل','المبلغ','الحالة']);
+            store.invoices.forEach(i => rows.push([i.invoice_number, i.customer_name_ar || i.customer_name, i.total_amount, translateStatus(i.status)]));
+
+            rows.push([]);
+            rows.push(['المدفوعات']);
+            rows.push(['رقم الدفعة','المبلغ','الوسيلة','الحالة']);
+            store.payments.forEach(p => rows.push([p.payment_number, p.payment_amount, translatePaymentMethod(p.payment_method), translateStatus(p.status)]));
+
+            rows.push([]);
+            rows.push(['الميزانيات']);
+            rows.push(['كود الميزانية','النوع','السنة','الحالة']);
+            store.budgets.forEach(b => rows.push([b.budget_code, translateBudgetType(b.budget_type), b.fiscal_year, translateStatus(b.status)]));
+
+            rows.push([]);
+            rows.push(['تحليل الانحراف']);
+            rows.push(['الفترة','الحساب','الانحراف','النسبة']);
+            store.variances.forEach(v => rows.push([v.period_name, v.account_code, v.variance_amount, v.variance_percentage]));
+
+            const csvContent = rows.map(r => r.map(v => `"${sanitizeText(v) ?? ''}"`).join(',')).join('\n');
+            downloadBlob(csvContent, 'المخطط-التنفيذي-لنظام-نايوش.csv', 'text/csv;charset=utf-8;');
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'success' ? 'toast-success' : 'toast-info'}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        function printReport() { window.print(); }
+        function refreshData() { loadData(); }
+
+        // CRUD Operations
+        async function addCustomer() {
+            const customerName = prompt('أدخل اسم العميل بالعربية:');
+            if (!customerName) return;
+
+            const details = collectRequiredCustomerDetails(customerName);
+            if (!details) {
+                showToast('يلزم إدخال البيانات الأساسية للعميل', 'info');
+                return;
+            }
+
+            const customerType = prompt('نوع العميل (COMPANY/INDIVIDUAL):', 'COMPANY');
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/customers`, {
+                    method: 'POST',
+                    headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customer_name_ar: customerName,
+                        customer_type: customerType || 'COMPANY',
+                        ...details,
+                        entity_id: ENTITY_ID,
+                        entity_type: ENTITY_TYPE
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم إضافة العميل بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل في إضافة العميل: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ: ' + error.message, 'info');
+            }
+        }
+
+        function collectRequiredCustomerDetails(defaultName) {
+            const taxNumber = prompt('الرقم الضريبي للعميل:', '');
+            if (!taxNumber) return null;
+
+            const companyName = prompt('اسم المنشأة:', defaultName || '') || '';
+            if (!companyName.trim()) return null;
+
+            const website = prompt('الموقع الإلكتروني:', 'https://') || '';
+            if (!website.trim()) return null;
+
+            const primaryEmail = prompt('البريد الإلكتروني الأساسي:', '') || '';
+            if (!primaryEmail.trim()) return null;
+
+            const secondaryEmail = prompt('البريد الإلكتروني الثانوي:', '') || '';
+            if (!secondaryEmail.trim()) return null;
+
+            const primaryMobile = prompt('رقم الجوال الأساسي:', '') || '';
+            if (!primaryMobile.trim()) return null;
+
+            const secondaryMobile = prompt('رقم الجوال الثانوي:', '') || '';
+            if (!secondaryMobile.trim()) return null;
+
+            const billingStreet = prompt('اسم الشارع (عنوان الفوترة):', '') || '';
+            const billingCity = prompt('المدينة (عنوان الفوترة):', '') || '';
+            const billingRegion = prompt('المنطقة (عنوان الفوترة):', '') || '';
+            const billingBuilding = prompt('رقم المبنى (عنوان الفوترة):', '') || '';
+            const billingPostal = prompt('الرمز البريدي (عنوان الفوترة):', '') || '';
+            const billingCountry = prompt('الدولة (عنوان الفوترة):', '') || '';
+
+            if (!billingStreet.trim() || !billingCity.trim() || !billingRegion.trim() || !billingBuilding.trim() || !billingPostal.trim() || !billingCountry.trim()) {
+                return null;
+            }
+
+            const copyShipping = (prompt('نسخ عنوان الفوترة إلى عنوان الشحن؟ (نعم/لا)', 'نعم') || 'نعم').trim() !== 'لا';
+            let shippingStreet = '';
+            let shippingCity = '';
+            let shippingRegion = '';
+            let shippingPostal = '';
+
+            if (!copyShipping) {
+                shippingStreet = prompt('اسم الشارع (عنوان الشحن):', '') || '';
+                shippingCity = prompt('المدينة (عنوان الشحن):', '') || '';
+                shippingRegion = prompt('المنطقة (عنوان الشحن):', '') || '';
+                shippingPostal = prompt('الرمز البريدي (عنوان الشحن):', '') || '';
+
+                if (!shippingStreet.trim() || !shippingCity.trim() || !shippingRegion.trim() || !shippingPostal.trim()) {
+                    return null;
+                }
+            }
+
+            return {
+                company_name: companyName.trim(),
+                website: website.trim(),
+                email: primaryEmail.trim(),
+                email_secondary: secondaryEmail.trim(),
+                mobile: primaryMobile.trim(),
+                mobile_secondary: secondaryMobile.trim(),
+                tax_number: taxNumber.trim(),
+                street_name: billingStreet.trim(),
+                city: billingCity.trim(),
+                district: billingRegion.trim(),
+                building_number: billingBuilding.trim(),
+                postal_code: billingPostal.trim(),
+                country: billingCountry.trim(),
+                shipping_copy_billing: copyShipping,
+                shipping_street_name: copyShipping ? billingStreet.trim() : shippingStreet.trim(),
+                shipping_city: copyShipping ? billingCity.trim() : shippingCity.trim(),
+                shipping_region: copyShipping ? billingRegion.trim() : shippingRegion.trim(),
+                shipping_postal_code: copyShipping ? billingPostal.trim() : shippingPostal.trim()
+            };
+        }
+
+        async function addInvoice() {
+            showToast('يرجى استخدام صفحة الفواتير لإنشاء فاتورة متكاملة', 'info');
+        }
+
+        async function addPayment() {
+            const customerId = prompt('معرّف العميل:');
+            if (!customerId) return;
+            
+            const amount = prompt('مبلغ الدفعة:');
+            if (!amount) return;
+            
+            const method = prompt('وسيلة الدفع (CASH/BANK_TRANSFER/CARD):', 'CASH');
+            
+            try {
+                const response = await fetch(`${API_BASE}/finance/payments`, {
+                    method: 'POST',
+                    headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customer_id: customerId,
+                        payment_amount: parseFloat(amount),
+                        payment_method: method || 'CASH',
+                        payment_date: new Date().toISOString().split('T')[0],
+                        entity_id: ENTITY_ID,
+                        entity_type: ENTITY_TYPE
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم إضافة المدفوعة بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل في إضافة المدفوعة: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ: ' + error.message, 'info');
+            }
+        }
+
+        async function addPlan() {
+            showToast('يرجى استخدام صفحة خطط السداد لإنشاء خطة متكاملة', 'info');
+        }
+
+        async function viewRecord(tableName, id) {
+            const apiMap = {
+                customers: `/finance/customers?customer_id=${id}`,
+                invoices: `/finance/invoices/${id}`,
+                payments: `/finance/payments?payment_id=${id}`,
+                plans: `/finance/payment-plans?plan_id=${id}`,
+                accounts: `/finance/accounts/${id}`,
+                entries: `/finance/journal/entries/${id}`,
+                budgets: `/finance/budgets?budget_id=${id}`,
+                risks: `/finance/ai-risk-scores?risk_id=${id}`,
+                forecasts: `/finance/ai-forecasts?forecast_id=${id}`
+            };
+            
+            if (!apiMap[tableName]) {
+                showToast('جدول غير مدعوم', 'info');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${apiMap[tableName]}`, { headers: API_HEADERS });
+                const data = await response.json();
+                alert(JSON.stringify(data, null, 2));
+            } catch (error) {
+                showToast('خطأ في المعاينة: ' + error.message, 'info');
+            }
+        }
+
+        async function editRecord(tableName, id) {
+            showToast(`تعديل ${tableName} - معرّف: ${id}`, 'info');
+        }
+
+        async function deleteRecord(tableName, id) {
+            if (!confirm('هل أنت متأكد من الحذف؟')) return;
+            
+            const apiMap = {
+                customers: `/finance/customers/${id}?entity_id=${ENTITY_ID}`,
+                invoices: `/finance/invoices/${id}`,
+                payments: `/finance/payments/${id}?entity_id=${ENTITY_ID}`,
+                plans: `/finance/payment-plans/${id}`,
+                budgets: `/finance/budgets/${id}`,
+                risks: `/finance/ai-risk-scores/${id}?entity_id=${ENTITY_ID}`,
+                forecasts: `/finance/ai-forecasts/${id}?entity_id=${ENTITY_ID}`
+            };
+            
+            if (!apiMap[tableName]) {
+                showToast('جدول غير مدعوم', 'info');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${apiMap[tableName]}`, {
+                    method: 'DELETE',
+                    headers: API_HEADERS
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم الحذف بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل الحذف: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ: ' + error.message, 'info');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

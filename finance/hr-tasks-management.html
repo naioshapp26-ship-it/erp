@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة المهام - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --sky: #0ea5e9;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --sun: #f59e0b;
+      --violet: #7c3aed;
+      --line: #e2e8f0;
+    }
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(14,165,233,0.12), transparent 40%),
+        radial-gradient(circle at 90% 20%, rgba(124,58,237,0.10), transparent 40%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+    .glass {
+      background: rgba(255,255,255,0.93);
+      border: 1px solid rgba(148,163,184,0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15,23,42,0.4);
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; font-weight: 800; border-radius: 999px;
+      padding: 10px 18px; transition: all 0.2s ease; border: 1px solid transparent;
+      cursor: pointer;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 26px -18px rgba(15,23,42,0.4); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* Stat cards */
+    .stat-card {
+      border-radius: 20px; border: 1px solid var(--line);
+      background: #fff; padding: 16px 20px;
+      box-shadow: 0 8px 24px -16px rgba(15,23,42,0.2);
+      transition: transform 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+
+    /* Priority badges */
+    .pri-high   { background: rgba(244,63,94,0.14);   color: #be123c; }
+    .pri-medium { background: rgba(245,158,11,0.16);  color: #b45309; }
+    .pri-low    { background: rgba(16,185,129,0.14);  color: #047857; }
+
+    /* Status badges */
+    .st-todo        { background: rgba(100,116,139,0.14); color: #475569; }
+    .st-in_progress { background: rgba(14,165,233,0.14);  color: #0369a1; }
+    .st-done        { background: rgba(16,185,129,0.14);  color: #047857; }
+
+    /* View toggle */
+    .view-btn { padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+                border: 1px solid var(--line); background: #fff; cursor: pointer; transition: all 0.2s; }
+    .view-btn.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+
+    /* Table */
+    .task-table { width: 100%; border-collapse: collapse; }
+    .task-table thead tr { background: #f8fafc; }
+    .task-table thead th { padding: 12px 16px; font-size: 12px; font-weight: 800; color: var(--muted);
+                           text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+    .task-table tbody tr { border-bottom: 1px solid var(--line); transition: background 0.15s; }
+    .task-table tbody tr:last-child { border-bottom: none; }
+    .task-table tbody tr:hover { background: #f8fafc; }
+    .task-table tbody td { padding: 13px 16px; font-size: 13px; vertical-align: middle; }
+    .task-table tbody td:first-child { font-weight: 700; max-width: 260px; }
+    .table-shell { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #fff; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+
+    /* Kanban */
+    .kanban-col { background: #f8fafc; border: 1px solid var(--line); border-radius: 20px;
+                  padding: 16px; min-height: 300px; flex: 1; }
+    .kanban-col-header { font-weight: 800; font-size: 14px; margin-bottom: 12px;
+                         display: flex; align-items: center; gap: 8px; }
+    .kanban-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+                   margin-bottom: 10px; cursor: grab; transition: box-shadow 0.2s, transform 0.15s;
+                   box-shadow: 0 2px 8px -4px rgba(15,23,42,0.12); }
+    .kanban-card:hover { box-shadow: 0 8px 24px -12px rgba(15,23,42,0.25); transform: translateY(-1px); }
+    .kanban-card.dragging { opacity: 0.5; transform: rotate(1deg); }
+    .kanban-col.drag-over { border-color: #0ea5e9; background: rgba(14,165,233,0.05); }
+
+    /* Card grid */
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .task-card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 18px;
+                 box-shadow: 0 4px 16px -8px rgba(15,23,42,0.15); transition: transform 0.2s, box-shadow 0.2s; }
+    .task-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px -14px rgba(15,23,42,0.25); }
+
+    /* Priority stripe on card */
+    .card-stripe { height: 4px; border-radius: 999px; margin-bottom: 14px; }
+    .stripe-high   { background: #f43f5e; }
+    .stripe-medium { background: #f59e0b; }
+    .stripe-low    { background: #10b981; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6);
+                     backdrop-filter: blur(4px); z-index: 50;
+                     display: none; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: #fff; border-radius: 28px; box-shadow: 0 40px 80px -30px rgba(15,23,42,0.5);
+                 width: 100%; max-width: 600px; max-height: 92vh; overflow-y: auto; }
+    .modal-header { padding: 24px 24px 16px; border-bottom: 1px solid var(--line); }
+    .modal-body   { padding: 20px 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid #f1f5f9; background: #f8fafc;
+                    border-radius: 0 0 28px 28px; display: flex; justify-content: flex-end; gap: 10px; }
+    .form-label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
+    .form-input { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
+                  font-family: 'Cairo',sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    .form-input:focus { border-color: #0ea5e9; }
+
+    /* Empty state */
+    .empty-state { display: none; flex-direction: column; align-items: center;
+                   justify-content: center; padding: 60px 20px; text-align: center; gap: 14px; }
+    .empty-icon { width: 80px; height: 80px; border-radius: 999px; background: rgba(14,165,233,0.08);
+                  display: flex; align-items: center; justify-content: center; }
+
+    /* Toast */
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+             background: #0f172a; color: #fff; padding: 12px 24px; border-radius: 999px;
+             font-size: 14px; font-weight: 700; z-index: 100; opacity: 0; transition: opacity 0.3s;
+             pointer-events: none; }
+    #toast.show { opacity: 1; }
+
+    /* Confirm dialog */
+    #confirmDialog { position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(3px);
+                     z-index: 60; display: none; align-items: center; justify-content: center; }
+    #confirmDialog.open { display: flex; }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8 max-w-7xl">
+
+    <!-- Header -->
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-white border border-slate-200 text-slate-600 mb-2">
+          <i class="fas fa-tasks text-sky-500"></i> إدارة الموارد البشرية
+        </span>
+        <h1 class="text-3xl md:text-4xl font-extrabold">✅ إدارة المهام</h1>
+        <p class="text-slate-500 mt-1">تتبع المهام اليومية ومتابعة الإنجاز بشكل احترافي.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200 text-sm">
+          <i class="fas fa-arrow-right"></i> العودة للموارد البشرية
+        </a>
+        <button id="addTaskBtn" class="btn bg-slate-900 text-white text-sm">
+          <i class="fas fa-plus"></i> إضافة مهمة
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="stat-card">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+            <i class="fas fa-list-check text-slate-600"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 font-semibold">إجمالي المهام</div>
+            <div id="statTotal" class="text-2xl font-extrabold">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center">
+            <i class="fas fa-spinner text-sky-500"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 font-semibold">قيد التنفيذ</div>
+            <div id="statInProgress" class="text-2xl font-extrabold text-sky-600">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+            <i class="fas fa-check-circle text-emerald-500"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 font-semibold">مكتملة</div>
+            <div id="statDone" class="text-2xl font-extrabold text-emerald-600">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
+            <i class="fas fa-clock text-rose-500"></i>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500 font-semibold">متأخرة</div>
+            <div id="statLate" class="text-2xl font-extrabold text-rose-600">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters & View Toggle -->
+    <div class="glass p-4 mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap gap-2 items-center">
+        <div class="relative">
+          <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input id="searchInput" type="text" placeholder="بحث بالعنوان..."
+            class="pr-9 pl-3 py-2 border border-slate-200 rounded-full text-sm w-48 focus:outline-none focus:border-sky-400">
+        </div>
+        <select id="filterStatus" class="py-2 px-3 border border-slate-200 rounded-full text-sm focus:outline-none">
+          <option value="">كل الحالات</option>
+          <option value="todo">To Do</option>
+          <option value="in_progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+        <select id="filterPriority" class="py-2 px-3 border border-slate-200 rounded-full text-sm focus:outline-none">
+          <option value="">كل الأولويات</option>
+          <option value="high">عالية</option>
+          <option value="medium">متوسطة</option>
+          <option value="low">منخفضة</option>
+        </select>
+        <button id="clearFiltersBtn" class="btn bg-white border border-slate-200 text-slate-600 text-xs py-2">
+          <i class="fas fa-times"></i> مسح
+        </button>
+      </div>
+      <div class="flex gap-2">
+        <button class="view-btn active" data-view="table"><i class="fas fa-table-list"></i> جدول</button>
+        <button class="view-btn" data-view="kanban"><i class="fas fa-columns"></i> كانبان</button>
+        <button class="view-btn" data-view="cards"><i class="fas fa-grip"></i> بطاقات</button>
+      </div>
+    </div>
+
+    <!-- TABLE VIEW -->
+    <div id="viewTable" class="glass p-5">
+      <div class="table-shell">
+        <table class="task-table">
+          <thead>
+            <tr>
+              <th>اسم المهمة</th>
+              <th>الحالة</th>
+              <th>الأولوية</th>
+              <th>تاريخ الانتهاء</th>
+              <th>الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="tableEmpty" class="empty-state">
+          <div class="empty-icon"><i class="fas fa-clipboard-list text-3xl text-sky-400"></i></div>
+          <p class="text-slate-500 font-semibold">لا توجد مهام حالياً</p>
+          <button onclick="openAddModal()" class="btn bg-slate-900 text-white text-sm">
+            <i class="fas fa-plus"></i> إضافة مهمة
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KANBAN VIEW -->
+    <div id="viewKanban" class="hidden">
+      <div class="flex gap-4 items-start flex-wrap lg:flex-nowrap">
+        <!-- To Do -->
+        <div class="kanban-col" data-status="todo" id="col-todo">
+          <div class="kanban-col-header">
+            <span class="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-black">
+              <i class="fas fa-inbox"></i>
+            </span>
+            To Do
+            <span id="cnt-todo" class="ml-auto text-xs bg-slate-200 text-slate-700 rounded-full px-2 py-0.5 font-bold">0</span>
+          </div>
+          <div id="kanban-todo" class="min-h-[100px]"></div>
+        </div>
+        <!-- In Progress -->
+        <div class="kanban-col" data-status="in_progress" id="col-in_progress">
+          <div class="kanban-col-header">
+            <span class="w-7 h-7 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-xs">
+              <i class="fas fa-spinner"></i>
+            </span>
+            In Progress
+            <span id="cnt-in_progress" class="ml-auto text-xs bg-sky-100 text-sky-700 rounded-full px-2 py-0.5 font-bold">0</span>
+          </div>
+          <div id="kanban-in_progress" class="min-h-[100px]"></div>
+        </div>
+        <!-- Done -->
+        <div class="kanban-col" data-status="done" id="col-done">
+          <div class="kanban-col-header">
+            <span class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs">
+              <i class="fas fa-check"></i>
+            </span>
+            Done
+            <span id="cnt-done" class="ml-auto text-xs bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 font-bold">0</span>
+          </div>
+          <div id="kanban-done" class="min-h-[100px]"></div>
+        </div>
+      </div>
+      <div id="kanbanEmpty" class="empty-state">
+        <div class="empty-icon"><i class="fas fa-columns text-3xl text-sky-400"></i></div>
+        <p class="text-slate-500 font-semibold">لا توجد مهام حالياً</p>
+        <button onclick="openAddModal()" class="btn bg-slate-900 text-white text-sm">
+          <i class="fas fa-plus"></i> إضافة مهمة
+        </button>
+      </div>
+    </div>
+
+    <!-- CARDS VIEW -->
+    <div id="viewCards" class="hidden">
+      <div id="cardGrid" class="card-grid"></div>
+      <div id="cardsEmpty" class="empty-state">
+        <div class="empty-icon"><i class="fas fa-grip text-3xl text-sky-400"></i></div>
+        <p class="text-slate-500 font-semibold">لا توجد مهام حالياً</p>
+        <button onclick="openAddModal()" class="btn bg-slate-900 text-white text-sm">
+          <i class="fas fa-plus"></i> إضافة مهمة
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+
+  <!-- ADD/EDIT MODAL -->
+  <div id="taskModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header flex items-center justify-between">
+        <div>
+          <h3 id="modalTitle" class="text-2xl font-black text-slate-800">إضافة مهمة</h3>
+          <p class="text-sm text-slate-500 mt-1">أدخل تفاصيل المهمة الجديدة</p>
+        </div>
+        <button id="modalClose" class="text-slate-400 hover:text-rose-500 text-xl transition-colors">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body space-y-4">
+        <input type="hidden" id="editingId">
+        <div>
+          <label class="form-label">عنوان المهمة <span class="text-rose-500">*</span></label>
+          <input id="inputTitle" type="text" class="form-input" placeholder="مثال: مراجعة عقود الموظفين">
+        </div>
+        <div>
+          <label class="form-label">الوصف</label>
+          <textarea id="inputDescription" rows="3" class="form-input" placeholder="وصف تفصيلي للمهمة..."></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">تاريخ البداية</label>
+            <input id="inputStartDate" type="date" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">تاريخ النهاية</label>
+            <input id="inputEndDate" type="date" class="form-input">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="form-label">الأولوية</label>
+            <select id="inputPriority" class="form-input">
+              <option value="high">🔴 عالية</option>
+              <option value="medium" selected>🟡 متوسطة</option>
+              <option value="low">🟢 منخفضة</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">الحالة</label>
+            <select id="inputStatus" class="form-input">
+              <option value="todo" selected>To Do</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">مرفقات (اختياري)</label>
+          <input id="inputAttachments" type="text" class="form-input" placeholder="روابط أو أسماء الملفات مفصولة بفاصلة">
+          <p class="text-xs text-slate-400 mt-1">أدخل أسماء أو روابط المرفقات مفصولة بفاصلة</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="modalCancel" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+        <button id="modalSave" class="btn bg-slate-900 text-white">
+          <i class="fas fa-save"></i> حفظ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM DELETE DIALOG -->
+  <div id="confirmDialog">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center">
+          <i class="fas fa-trash text-rose-500"></i>
+        </div>
+        <div>
+          <h4 class="font-extrabold text-slate-800">حذف المهمة</h4>
+          <p class="text-sm text-slate-500">هل أنت متأكد من حذف هذه المهمة؟</p>
+        </div>
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button id="confirmCancel" class="btn bg-white border border-slate-200 text-slate-700 text-sm">إلغاء</button>
+        <button id="confirmDelete" class="btn bg-rose-500 text-white text-sm">حذف نهائياً</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script>
+    const API = '/api/hr/tasks';
+    let allTasks = [];
+    let currentView = 'table';
+    let draggedTaskId = null;
+    let deleteTargetId = null;
+
+    // ── Labels ──────────────────────────────────────────────────
+    const STATUS_LABEL = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' };
+    const STATUS_CLASS = { todo: 'st-todo', in_progress: 'st-in_progress', done: 'st-done' };
+    const STATUS_ICON  = { todo: 'fas fa-inbox', in_progress: 'fas fa-spinner', done: 'fas fa-check-circle' };
+    const PRI_LABEL    = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
+    const PRI_CLASS    = { high: 'pri-high', medium: 'pri-medium', low: 'pri-low' };
+    const PRI_ICON     = { high: '🔴', medium: '🟡', low: '🟢' };
+
+    // ── Toast ────────────────────────────────────────────────────
+    function showToast(msg, duration = 2800) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    // ── API helpers ──────────────────────────────────────────────
+    async function apiFetch(url, opts = {}) {
+      const r = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+        ...opts
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'خطأ في الخادم');
+      return data;
+    }
+
+    // ── Load stats ───────────────────────────────────────────────
+    async function loadStats() {
+      try {
+        const d = await apiFetch(`${API}/stats`);
+        document.getElementById('statTotal').textContent      = d.stats.total     ?? 0;
+        document.getElementById('statInProgress').textContent = d.stats.in_progress ?? 0;
+        document.getElementById('statDone').textContent       = d.stats.done       ?? 0;
+        document.getElementById('statLate').textContent       = d.stats.late       ?? 0;
+      } catch { /* silent */ }
+    }
+
+    // ── Load tasks & render ──────────────────────────────────────
+    async function loadTasks() {
+      try {
+        const q        = document.getElementById('searchInput').value.trim();
+        const status   = document.getElementById('filterStatus').value;
+        const priority = document.getElementById('filterPriority').value;
+        const params   = new URLSearchParams();
+        if (q)        params.set('q', q);
+        if (status)   params.set('status', status);
+        if (priority) params.set('priority', priority);
+
+        const d = await apiFetch(`${API}?${params}`);
+        allTasks = d.records || [];
+        renderView();
+        loadStats();
+      } catch (e) {
+        showToast('⚠️ تعذّر تحميل المهام');
+      }
+    }
+
+    function renderView() {
+      if (currentView === 'table')  renderTable();
+      if (currentView === 'kanban') renderKanban();
+      if (currentView === 'cards')  renderCards();
+    }
+
+    // ── Format date ──────────────────────────────────────────────
+    function fmtDate(d) {
+      if (!d) return '—';
+      return new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function isLate(task) {
+      return task.status !== 'done' && task.end_date && new Date(task.end_date) < new Date();
+    }
+
+    // ── TABLE VIEW ───────────────────────────────────────────────
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      const empty = document.getElementById('tableEmpty');
+      if (!allTasks.length) {
+        tbody.innerHTML = '';
+        empty.style.display = 'flex';
+        document.querySelector('.task-table').style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      document.querySelector('.task-table').style.display = 'table';
+      tbody.innerHTML = allTasks.map(t => {
+        const late = isLate(t);
+        const rowBg = late ? 'style="background:#fff7f7"' : '';
+        const lateIcon = late ? '<span style="color:#f43f5e;margin-left:4px" title="متأخرة"><i class="fas fa-exclamation-circle"></i></span>' : '';
+        const doneBtn = t.status !== 'done'
+          ? `<button onclick="quickDone(${t.id})" style="font-size:11px;padding:4px 10px;border-radius:999px;background:rgba(16,185,129,0.1);color:#047857;border:1px solid rgba(16,185,129,0.3);font-weight:700;cursor:pointer;white-space:nowrap">✓ إنجاز</button>`
+          : '';
+        return `<tr ${rowBg}>
+          <td>
+            <div style="display:flex;align-items:center;gap:4px;max-width:260px">
+              ${lateIcon}
+              <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.title)}">${esc(t.title)}</span>
+            </div>
+          </td>
+          <td>
+            <span class="pill ${STATUS_CLASS[t.status] || 'st-todo'}" style="white-space:nowrap">
+              <i class="${STATUS_ICON[t.status] || ''}"></i>
+              ${STATUS_LABEL[t.status] || t.status}
+            </span>
+          </td>
+          <td>
+            <span class="pill ${PRI_CLASS[t.priority] || 'pri-medium'}" style="white-space:nowrap">
+              ${PRI_ICON[t.priority] || ''} ${PRI_LABEL[t.priority] || t.priority}
+            </span>
+          </td>
+          <td style="color:#64748b;font-size:12px;white-space:nowrap">${fmtDate(t.end_date)}</td>
+          <td>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+              ${doneBtn}
+              <button onclick="openEditModal(${t.id})" style="font-size:11px;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid #e2e8f0;font-weight:700;cursor:pointer">تعديل</button>
+              <button onclick="confirmRemove(${t.id})" style="font-size:11px;padding:4px 10px;border-radius:999px;background:rgba(244,63,94,0.07);color:#be123c;border:1px solid rgba(244,63,94,0.25);font-weight:700;cursor:pointer">حذف</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── KANBAN VIEW ──────────────────────────────────────────────
+    function renderKanban() {
+      const cols   = ['todo', 'in_progress', 'done'];
+      const empty  = document.getElementById('kanbanEmpty');
+      const hasAny = allTasks.length > 0;
+      empty.style.display = hasAny ? 'none' : 'flex';
+
+      cols.forEach(status => {
+        const tasks = allTasks.filter(t => t.status === status);
+        document.getElementById(`cnt-${status}`).textContent = tasks.length;
+        document.getElementById(`kanban-${status}`).innerHTML = tasks.map(t => `
+          <div class="kanban-card" draggable="true" data-id="${t.id}"
+               ondragstart="onDragStart(event,${t.id})" ondragend="onDragEnd(event)">
+            <div class="card-stripe stripe-${t.priority || 'medium'}"></div>
+            <div class="font-bold text-sm leading-snug mb-2">${esc(t.title)}</div>
+            ${t.description ? `<p class="text-xs text-slate-500 mb-2 line-clamp-2">${esc(t.description)}</p>` : ''}
+            <div class="flex items-center justify-between mt-2">
+              <span class="pill ${PRI_CLASS[t.priority]} text-xs">${PRI_ICON[t.priority]} ${PRI_LABEL[t.priority] || ''}</span>
+              <div class="flex gap-1">
+                <button onclick="openEditModal(${t.id})" class="text-xs text-slate-400 hover:text-sky-600 transition-colors" title="تعديل"><i class="fas fa-pen"></i></button>
+                <button onclick="confirmRemove(${t.id})" class="text-xs text-slate-400 hover:text-rose-500 transition-colors" title="حذف"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>
+            ${t.end_date ? `<div class="text-xs text-slate-400 mt-2"><i class="fas fa-calendar-alt mr-1"></i>${fmtDate(t.end_date)}${isLate(t) ? ' <span class="text-rose-500 font-bold">- متأخرة</span>' : ''}</div>` : ''}
+          </div>
+        `).join('') || '<div class="text-center text-slate-400 text-sm py-6">( فارغ )</div>';
+      });
+
+      // Setup drop zones
+      cols.forEach(status => {
+        const col = document.getElementById(`col-${status}`);
+        col.ondragover  = e => { e.preventDefault(); col.classList.add('drag-over'); };
+        col.ondragleave = () => col.classList.remove('drag-over');
+        col.ondrop      = async e => {
+          e.preventDefault();
+          col.classList.remove('drag-over');
+          if (!draggedTaskId) return;
+          await changeStatus(draggedTaskId, status);
+        };
+      });
+    }
+
+    function onDragStart(e, id) {
+      draggedTaskId = id;
+      e.currentTarget.classList.add('dragging');
+    }
+    function onDragEnd(e) {
+      draggedTaskId = null;
+      e.currentTarget.classList.remove('dragging');
+    }
+
+    // ── CARDS VIEW ───────────────────────────────────────────────
+    function renderCards() {
+      const grid  = document.getElementById('cardGrid');
+      const empty = document.getElementById('cardsEmpty');
+      if (!allTasks.length) {
+        grid.innerHTML = '';
+        empty.style.display = 'flex';
+        return;
+      }
+      empty.style.display = 'none';
+      grid.innerHTML = allTasks.map(t => `
+        <div class="task-card">
+          <div class="card-stripe stripe-${t.priority || 'medium'}"></div>
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <h3 class="font-extrabold text-base leading-snug">${esc(t.title)}</h3>
+            <span class="pill ${STATUS_CLASS[t.status]} shrink-0 text-xs">
+              <i class="${STATUS_ICON[t.status]}"></i> ${STATUS_LABEL[t.status]}
+            </span>
+          </div>
+          ${t.description ? `<p class="text-sm text-slate-500 mb-3 line-clamp-2">${esc(t.description)}</p>` : ''}
+          <div class="flex items-center gap-2 mb-3 flex-wrap">
+            <span class="pill ${PRI_CLASS[t.priority]} text-xs">${PRI_ICON[t.priority]} ${PRI_LABEL[t.priority]}</span>
+            ${t.end_date ? `<span class="text-xs text-slate-400"><i class="fas fa-calendar mr-1"></i>${fmtDate(t.end_date)}${isLate(t) ? ' <span class="text-rose-500 font-bold">⚠</span>' : ''}</span>` : ''}
+          </div>
+          <div class="flex gap-2 border-t border-slate-100 pt-3 flex-wrap">
+            ${t.status !== 'done' ? `<button onclick="quickDone(${t.id})" class="btn bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs py-1.5 px-3"><i class="fas fa-check"></i> إنجاز</button>` : ''}
+            <button onclick="openEditModal(${t.id})" class="btn bg-white border border-slate-200 text-slate-700 text-xs py-1.5 px-3"><i class="fas fa-pen"></i> تعديل</button>
+            <button onclick="confirmRemove(${t.id})" class="btn bg-rose-50 text-rose-600 border border-rose-200 text-xs py-1.5 px-3"><i class="fas fa-trash"></i> حذف</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ── Status helpers ───────────────────────────────────────────
+    async function changeStatus(id, status) {
+      try {
+        await apiFetch(`${API}/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+        showToast('✅ تم تحديث الحالة');
+        loadTasks();
+      } catch (e) { showToast('⚠️ ' + e.message); }
+    }
+
+    window.quickDone = (id) => changeStatus(id, 'done');
+
+    // ── Modal ────────────────────────────────────────────────────
+    function openAddModal() {
+      document.getElementById('editingId').value = '';
+      document.getElementById('modalTitle').textContent = 'إضافة مهمة';
+      document.getElementById('inputTitle').value = '';
+      document.getElementById('inputDescription').value = '';
+      document.getElementById('inputStartDate').value = '';
+      document.getElementById('inputEndDate').value = '';
+      document.getElementById('inputPriority').value = 'medium';
+      document.getElementById('inputStatus').value = 'todo';
+      document.getElementById('inputAttachments').value = '';
+      document.getElementById('taskModal').classList.add('open');
+      document.getElementById('inputTitle').focus();
+    }
+
+    window.openAddModal = openAddModal;
+
+    window.openEditModal = async (id) => {
+      try {
+        const d = await apiFetch(`${API}/${id}`);
+        const t = d.record;
+        document.getElementById('editingId').value = t.id;
+        document.getElementById('modalTitle').textContent = 'تعديل المهمة';
+        document.getElementById('inputTitle').value       = t.title || '';
+        document.getElementById('inputDescription').value = t.description || '';
+        document.getElementById('inputStartDate').value   = (t.start_date || '').slice(0, 10);
+        document.getElementById('inputEndDate').value     = (t.end_date   || '').slice(0, 10);
+        document.getElementById('inputPriority').value    = t.priority || 'medium';
+        document.getElementById('inputStatus').value      = t.status   || 'todo';
+        const atts = Array.isArray(t.attachments) ? t.attachments.join(', ') : '';
+        document.getElementById('inputAttachments').value = atts;
+        document.getElementById('taskModal').classList.add('open');
+        document.getElementById('inputTitle').focus();
+      } catch (e) { showToast('⚠️ تعذّر تحميل المهمة'); }
+    };
+
+    function closeModal() {
+      document.getElementById('taskModal').classList.remove('open');
+    }
+    document.getElementById('modalClose').addEventListener('click', closeModal);
+    document.getElementById('modalCancel').addEventListener('click', closeModal);
+    document.getElementById('taskModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('taskModal')) closeModal();
+    });
+
+    document.getElementById('addTaskBtn').addEventListener('click', openAddModal);
+
+    document.getElementById('modalSave').addEventListener('click', async () => {
+      const id    = document.getElementById('editingId').value;
+      const title = document.getElementById('inputTitle').value.trim();
+      if (!title) { showToast('⚠️ عنوان المهمة مطلوب'); return; }
+
+      const rawAtt = document.getElementById('inputAttachments').value.trim();
+      const attachments = rawAtt ? rawAtt.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+      const body = {
+        title,
+        description : document.getElementById('inputDescription').value.trim() || null,
+        start_date  : document.getElementById('inputStartDate').value || null,
+        end_date    : document.getElementById('inputEndDate').value   || null,
+        priority    : document.getElementById('inputPriority').value,
+        status      : document.getElementById('inputStatus').value,
+        attachments
+      };
+
+      const btn = document.getElementById('modalSave');
+      btn.disabled = true;
+      try {
+        if (id) {
+          await apiFetch(`${API}/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+          showToast('✅ تم تحديث المهمة');
+        } else {
+          await apiFetch(API, { method: 'POST', body: JSON.stringify(body) });
+          showToast('✅ تمت إضافة المهمة');
+        }
+        closeModal();
+        loadTasks();
+      } catch (e) {
+        showToast('⚠️ ' + e.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ── Delete confirm ───────────────────────────────────────────
+    window.confirmRemove = (id) => {
+      deleteTargetId = id;
+      document.getElementById('confirmDialog').classList.add('open');
+    };
+
+    document.getElementById('confirmCancel').addEventListener('click', () => {
+      document.getElementById('confirmDialog').classList.remove('open');
+      deleteTargetId = null;
+    });
+
+    document.getElementById('confirmDelete').addEventListener('click', async () => {
+      if (!deleteTargetId) return;
+      try {
+        await apiFetch(`${API}/${deleteTargetId}`, { method: 'DELETE' });
+        showToast('🗑️ تم حذف المهمة');
+        document.getElementById('confirmDialog').classList.remove('open');
+        deleteTargetId = null;
+        loadTasks();
+      } catch (e) { showToast('⚠️ ' + e.message); }
+    });
+
+    // ── View toggle ──────────────────────────────────────────────
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentView = btn.dataset.view;
+
+        document.getElementById('viewTable').classList.add('hidden');
+        document.getElementById('viewKanban').classList.add('hidden');
+        document.getElementById('viewCards').classList.add('hidden');
+
+        if (currentView === 'table')  document.getElementById('viewTable').classList.remove('hidden');
+        if (currentView === 'kanban') document.getElementById('viewKanban').classList.remove('hidden');
+        if (currentView === 'cards')  document.getElementById('viewCards').classList.remove('hidden');
+
+        renderView();
+      });
+    });
+
+    // ── Filters ──────────────────────────────────────────────────
+    let filterTimer;
+    function scheduleLoad() { clearTimeout(filterTimer); filterTimer = setTimeout(loadTasks, 320); }
+    document.getElementById('searchInput').addEventListener('input', scheduleLoad);
+    document.getElementById('filterStatus').addEventListener('change', loadTasks);
+    document.getElementById('filterPriority').addEventListener('change', loadTasks);
+    document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('filterStatus').value = '';
+      document.getElementById('filterPriority').value = '';
+      loadTasks();
+    });
+
+    // ── Escape HTML ──────────────────────────────────────────────
+    function esc(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Init ─────────────────────────────────────────────────────
+    loadTasks();
+  </script>
+</body>
+</html>

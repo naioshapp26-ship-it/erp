@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الدخول - نظام نايوش</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Cairo -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#990e1e',
+                            dark: '#7a0b18',
+                            light: '#b91c2e',
+                            50: '#fdf2f3',
+                        },
+                        secondary: '#1a202c',
+                    },
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        .loading-spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 20px;
+            height: 20px;
+            -webkit-animation: spin 1s linear infinite; /* Safari */
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Background Decoration -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div class="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-3xl"></div>
+        <div class="absolute top-[40%] -left-[10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-3xl"></div>
+    </div>
+
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden z-10 relative border border-gray-100">
+        
+        <!-- Header -->
+        <div class="bg-primary p-8 text-center relative overflow-hidden">
+            <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIvPjwvc3ZnPg==')] opacity-30"></div>
+            <div class="relative z-10">
+                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/90 mb-4 border border-white/60 shadow-xl">
+                    <img src="/لوجو%20نايوش%20خلفيه.png" alt="شعار نايوش" class="w-16 h-16 object-contain drop-shadow">
+                </div>
+                <div class="text-white text-3xl md:text-4xl font-extrabold tracking-wide">NAIOSH</div>
+                <p class="text-white/80 text-sm mt-2">تسجيل الدخول إلى حسابك</p>
+            </div>
+        </div>
+
+        <div class="p-8">
+            <!-- Alert Message -->
+            <div id="alertMessage" class="hidden mb-6 p-4 rounded-lg text-sm font-medium transition-all duration-300 transform scale-95 border"></div>
+
+            <form id="loginForm" class="space-y-5">
+                <!-- Email Field -->
+                <div>
+                    <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">البريد الإلكتروني</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-envelope"></i>
+                        </div>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            class="block w-full pr-10 pl-3 py-3 border border-gray-300 rounded-lg leading-5 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition duration-150 ease-in-out sm:text-sm" 
+                            placeholder="name@company.com" 
+                            required 
+                            autocomplete="email"
+                        >
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div>
+                    <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">كلمة المرور</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-lock"></i>
+                        </div>
+                        <button
+                            type="button"
+                            id="togglePassword"
+                            class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 hover:text-primary transition-colors"
+                            aria-label="إظهار كلمة المرور"
+                            aria-pressed="false"
+                        >
+                            <i id="togglePasswordIcon" class="fa-solid fa-eye"></i>
+                        </button>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            class="block w-full pr-10 pl-10 py-3 border border-gray-300 rounded-lg leading-5 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition duration-150 ease-in-out sm:text-sm" 
+                            placeholder="••••••••" 
+                            required 
+                            autocomplete="current-password"
+                        >
+                    </div>
+                </div>
+
+                <!-- Remember Me & Forgot Password -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input id="rememberMe" type="checkbox" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded cursor-pointer">
+                        <label for="rememberMe" class="mr-2 block text-sm text-gray-600 cursor-pointer">تذكرني</label>
+                    </div>
+                    <div class="text-sm">
+                        <a href="#" class="font-medium text-primary hover:text-primary-dark transition-colors">نسيت كلمة المرور؟</a>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="loginBtn" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                    <span class="btn-text flex items-center gap-2">
+                        تسجيل الدخول
+                        <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+                    </span>
+                    <span class="loading-spinner hidden"></span>
+                </button>
+            </form>
+
+            <div id="selfRegisterPrompt" class="mt-5 text-center text-sm text-gray-600">
+                ليس لديك حساب؟
+                <a href="/register.html" class="font-bold text-primary hover:text-primary-dark transition-colors">
+                    اضغط هنا لإنشاء حساب
+                </a>
+            </div>
+
+            <!-- Divider -->
+            <div id="officeTestingDivider" class="relative mt-8 mb-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-200"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-4 bg-white text-gray-500 font-medium">أو اختر مكتب للاختبار</span>
+                </div>
+            </div>
+
+            <!-- Real Offices from Database -->
+            <div id="officeTestingSection" class="space-y-3">
+                <h3 class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">المكاتب المتاحة (40 مكتب)</h3>
+                
+                <div class="grid grid-cols-1 gap-3">
+                    <!-- Super Admin Account -->
+                    <button onclick="fillLogin('ahmed@nayosh.com', 'Admin@123')" class="flex items-center p-3 border border-gray-200 rounded-lg hover:border-primary hover:bg-primary-50 transition-all duration-200 group text-right w-full">
+                        <div class="flex-shrink-0 bg-primary/10 text-primary w-10 h-10 rounded-full flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                            <i class="fa-solid fa-user-shield"></i>
+                        </div>
+                        <div class="mr-3">
+                            <p class="text-sm font-bold text-gray-800">Super Admin</p>
+                            <p class="text-xs text-gray-500">م. أحمد العلي - المكتب الرئيسي</p>
+                        </div>
+                    </button>
+
+                    <!-- Real Offices Grid - Password: test123 -->
+                    <div class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto p-2 border border-gray-100 rounded-lg">
+                        <!-- Office 39 -->
+                        <button onclick="fillLogin('OFF-5657-FIN@naiosh.com', 'test123')" class="flex flex-col items-center p-2 border border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 group text-center w-full" title="مكتب الاستشارات المالية - التعليم والتعلم">
+                            <div class="bg-green-50 text-green-600 w-8 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-green-100">
+                                <i class="fa-solid fa-handshake text-xs"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-800">مالية</span>
+                            <span class="text-[9px] text-gray-500">OFF-5657-FIN</span>
+                        </button>
+                        
+                        <!-- Office 40 -->
+                        <button onclick="fillLogin('OFF-5657-MKT@naiosh.com', 'test123')" class="flex flex-col items-center p-2 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group text-center w-full" title="مكتب التسويق الرقمي - التعليم والتعلم">
+                            <div class="bg-blue-50 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-blue-100">
+                                <i class="fa-solid fa-users text-xs"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-800">تسويق</span>
+                            <span class="text-[9px] text-gray-500">OFF-5657-MKT</span>
+                        </button>
+                        
+                        <!-- Office 41 -->
+                        <button onclick="fillLogin('OFF-5657-DEV@naiosh.com', 'test123')" class="flex flex-col items-center p-2 border border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 group text-center w-full" title="مكتب تطوير البرمجيات - التعليم والتعلم">
+                            <div class="bg-purple-50 text-purple-600 w-8 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-purple-100">
+                                <i class="fa-solid fa-lock text-xs"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-800">برمجة</span>
+                            <span class="text-[9px] text-gray-500">OFF-5657-DEV</span>
+                        </button>
+                        
+                        <!-- Office 42 -->
+                        <button onclick="fillLogin('OFF-5657-ENT@naiosh.com', 'test123')" class="flex flex-col items-center p-2 border border-gray-200 rounded-lg hover:border-teal-500 hover:bg-teal-50 transition-all duration-200 group text-center w-full" title="مكتب ريادة الأعمال - التعليم والتعلم">
+                            <div class="bg-teal-50 text-teal-600 w-8 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-teal-100">
+                                <i class="fa-solid fa-share-nodes text-xs"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-800">ريادة</span>
+                            <span class="text-[9px] text-gray-500">OFF-5657-ENT</span>
+                        </button>
+                        
+                        <!-- Office 43 -->
+                        <button onclick="fillLogin('OFF-5658-FIN@naiosh.com', 'test123')" class="flex flex-col items-center p-2 border border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 group text-center w-full" title="مكتب الاستشارات المالية - التدريب والشهادات الإحترافية">
+                            <div class="bg-green-50 text-green-600 w-8 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-green-100">
+                                <i class="fa-solid fa-handshake text-xs"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-800">مالية</span>
+                            <span class="text-[9px] text-gray-500">OFF-5658-FIN</span>
+                        </button>
+                        
+                        <!-- Office 44 -->
+                        <button onclick="fillLogin('OFF-5658-MKT@naiosh.com', 'test123')" class="flex flex-col items-center p-2 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group text-center w-full" title="مكتب التسويق الرقمي - التدريب والشهادات الإحترافية">
+                            <div class="bg-blue-50 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center mb-1 group-hover:bg-blue-100">
+                                <i class="fa-solid fa-users text-xs"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-gray-800">تسويق</span>
+                            <span class="text-[9px] text-gray-500">OFF-5658-MKT</span>
+                        </button>
+                        
+                        <!-- More offices (showing 6 of 40) -->
+                        <div class="col-span-2 text-center py-2 text-xs text-gray-500">
+                            ... و34 مكتب آخر (جميع المكاتب تستخدم كلمة المرور: test123)
+                        </div>
+                    </div>
+                    
+                    <p class="text-center text-xs text-green-600 font-semibold mt-2">
+                        <i class="fa-solid fa-check-circle"></i> كلمة المرور لجميع المكاتب
+                    </p>
+                </div>
+            </div>
+
+            <!-- Footer Text -->
+            <div class="mt-6 flex items-center justify-center gap-3 text-base font-extrabold text-gray-700">
+                <img src="/لوجو%20نايوش%20خلفيه.png" alt="شعار نايوش" class="w-12 h-12 object-contain drop-shadow-sm">
+                <span>NAIOSH</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const alertMessage = document.getElementById('alertMessage');
+        const loginBtn = document.getElementById('loginBtn');
+        const btnText = loginBtn.querySelector('.btn-text');
+        const loadingSpinner = loginBtn.querySelector('.loading-spinner');
+        const passwordInput = document.getElementById('password');
+        const togglePasswordBtn = document.getElementById('togglePassword');
+        const togglePasswordIcon = document.getElementById('togglePasswordIcon');
+        const selfRegisterPrompt = document.getElementById('selfRegisterPrompt');
+        const officeTestingDivider = document.getElementById('officeTestingDivider');
+        const officeTestingSection = document.getElementById('officeTestingSection');
+
+        if (togglePasswordBtn && passwordInput && togglePasswordIcon) {
+            togglePasswordBtn.addEventListener('click', () => {
+                const isHidden = passwordInput.type === 'password';
+                passwordInput.type = isHidden ? 'text' : 'password';
+                togglePasswordIcon.className = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+                togglePasswordBtn.setAttribute('aria-pressed', String(isHidden));
+                togglePasswordBtn.setAttribute('aria-label', isHidden ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
+                passwordInput.focus();
+            });
+        }
+
+        // ملء بيانات الدخول من الحسابات التجريبية
+        function fillLogin(email, password) {
+            document.getElementById('email').value = email;
+            document.getElementById('password').value = password;
+            // animate fill
+            document.getElementById('email').parentElement.classList.add('ring-2', 'ring-primary/20');
+            setTimeout(() => {
+                document.getElementById('email').parentElement.classList.remove('ring-2', 'ring-primary/20');
+            }, 500);
+            // focus login
+            document.getElementById('loginBtn').focus();
+        }
+
+        // عرض رسالة
+        function showAlert(message, type = 'error') {
+            alertMessage.textContent = message;
+            alertMessage.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-green-50', 'text-green-700', 'border-green-200');
+            
+            if (type === 'error') {
+                alertMessage.classList.add('bg-red-50', 'text-red-700', 'border-red-200');
+                const icon = '<i class="fa-solid fa-circle-exclamation ml-2"></i>';
+                alertMessage.innerHTML = icon + message;
+            } else {
+                alertMessage.classList.add('bg-green-50', 'text-green-700', 'border-green-200');
+                const icon = '<i class="fa-solid fa-check-circle ml-2"></i>';
+                alertMessage.innerHTML = icon + message;
+            }
+            
+            alertMessage.classList.remove('hidden');
+            
+            setTimeout(() => {
+                alertMessage.classList.add('hidden');
+            }, 5000);
+        }
+
+        function getAuthContext() {
+            const host = window.location.hostname.toLowerCase();
+            const reserved = new Set(['www', 'app', 'api', 'admin', 'saas']);
+            const parts = host.split('.');
+            const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : host;
+            const subdomain = host.endsWith('.' + baseDomain)
+                ? host.slice(0, host.length - baseDomain.length - 1)
+                : null;
+            const isTenant = Boolean(
+                subdomain &&
+                !subdomain.includes('.') &&
+                !reserved.has(subdomain) &&
+                host !== baseDomain &&
+                host !== `www.${baseDomain}`
+            );
+
+            return {
+                isTenant,
+                loginEndpoint: isTenant ? '/api/tenant-auth/login' : '/api/auth/login',
+                verifyEndpoint: isTenant ? '/api/tenant-auth/verify' : '/api/auth/verify'
+            };
+        }
+
+        function applyTenantLoginPageMode() {
+            const authContext = getAuthContext();
+            if (!authContext.isTenant) return;
+
+            if (selfRegisterPrompt) {
+                selfRegisterPrompt.classList.add('hidden');
+            }
+            if (officeTestingDivider) {
+                officeTestingDivider.classList.add('hidden');
+            }
+            if (officeTestingSection) {
+                officeTestingSection.classList.add('hidden');
+            }
+        }
+
+        applyTenantLoginPageMode();
+
+        // إلغاء Service Worker القديم (يسبب ردود Betacademy مخزّنة لـ /api)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then((regs) => {
+                regs.forEach((reg) => reg.unregister());
+            }).catch(() => {});
+        }
+
+        // معالجة تسجيل الدخول
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            if (!email || !password) {
+                showAlert('يرجى إدخال البريد الإلكتروني وكلمة المرور');
+                return;
+            }
+
+            // تعطيل الزر وإظهار التحميل
+            loginBtn.disabled = true;
+            loginBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            btnText.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+
+            try {
+                const authContext = getAuthContext();
+                const payload = authContext.isTenant
+                    ? { identifier: email, password }
+                    : { email, password };
+
+                console.group('[NAIOSH Login]');
+                console.log('URL:', authContext.loginEndpoint);
+                console.log('Payload:', { ...payload, password: '***' });
+
+                const response = await fetch(authContext.loginEndpoint, {
+                    method: 'POST',
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const apiBuild = response.headers.get('X-Auth-Api-Build');
+                const rawBody = await response.text();
+                console.log('HTTP Status:', response.status, response.statusText);
+                console.log('X-Auth-Api-Build:', apiBuild || '(غير موجود — الملف القديم لم يُرفع)');
+                console.log('Raw body (first 500 chars):', rawBody.slice(0, 500));
+
+                let result;
+                try {
+                    result = rawBody ? JSON.parse(rawBody) : {};
+                    console.log('Parsed JSON:', result);
+                } catch (parseError) {
+                    console.error('Login response was not JSON');
+                    const wrongApp = /Betacademy|beta-logo|index-BDcwhEVX/i.test(rawBody);
+                    if (wrongApp) {
+                        console.error('[NAIOSH] ⚠️ الدومين يخدم تطبيق Betacademy وليس ERP — /api لا يصل لـ Node');
+                        showAlert('إعدادات الاستضافة خاطئة: الموقع يعرض Betacademy بدل نظام نايوش. راجع Document Root و Node.js App في cPanel.');
+                    } else {
+                        showAlert('خطأ تقني: السيرفر لم يرجع JSON. راجع cPanel → Node.js → Restart ومسار التطبيق.');
+                    }
+                    try {
+                        const dbg = await fetch('/api/auth/ping', {
+                            cache: 'no-store',
+                            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        const dbgText = await dbg.text();
+                        console.log('[NAIOSH Debug]', dbg.status, dbgText.slice(0, 300));
+                        if (/Betacademy|beta-logo/i.test(dbgText)) {
+                            console.error('[NAIOSH Debug] نفس المشكلة: /api/auth/debug يُرجع HTML Betacademy — Node ERP غير مربوط بالدومين');
+                        }
+                    } catch (dbgErr) {
+                        console.error('[NAIOSH Debug] failed', dbgErr);
+                    }
+                    console.groupEnd();
+                    return;
+                }
+                console.groupEnd();
+
+                if (!apiBuild) {
+                    console.warn('⚠️ auth-api.js القديم على السيرفر — ارفع الملف الجديد واعمل Restart');
+                }
+
+                if (!result.success && (result.detail || result.step)) {
+                    console.error('[Login failed]', {
+                        step: result.step,
+                        detail: result.detail,
+                        code: result.code,
+                        apiBuild: result.apiBuild
+                    });
+                }
+
+                if (result.success) {
+                    showAlert('تم تسجيل الدخول بنجاح! جاري تحويلك...', 'success');
+
+                    const sessionToken = result.data?.session?.token;
+                    const user = result.data?.user || result.user;
+                    const menu = result.data?.menu || result.menu || null;
+
+                    // حفظ البيانات
+                    const storage = rememberMe ? localStorage : sessionStorage;
+                    storage.setItem('authToken', sessionToken);
+                    storage.setItem('user', JSON.stringify(user));
+                    if (menu) {
+                        storage.setItem('menu', JSON.stringify(menu));
+                    }
+                    const maxAge = rememberMe ? `; Max-Age=${60 * 60 * 24}` : '';
+                    document.cookie = `authToken=${encodeURIComponent(sessionToken)}; Path=/; SameSite=Lax${maxAge}`;
+
+                    // عرض معلومات المستخدم في Console
+                    console.log('✅ تم تسجيل الدخول بنجاح');
+                    console.log('👤 المستخدم:', user);
+
+                    // التوجيه حسب صلاحيات المستخدم
+                    setTimeout(() => {
+                        // Check for both property styles (snake_case and camelCase) just in case
+                        const entityId = user.entity_id || user.entityId;
+                        
+                        if (!authContext.isTenant && entityId === 'HQ001') {
+                            window.location.href = '/super-admin-page.html';
+                        } else {
+                            window.location.href = '/index.html'; 
+                        }
+                    }, 1000);
+
+                } else {
+                    const debugHint = result.step && result.detail
+                        ? ` [${result.step}: ${result.detail}]`
+                        : (result.detail ? ` (${result.detail})` : '');
+                    showAlert((result.message || 'فشل تسجيل الدخول') + debugHint);
+                    loginBtn.disabled = false;
+                    loginBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    btnText.classList.remove('hidden');
+                    loadingSpinner.classList.add('hidden');
+                }
+
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى');
+                loginBtn.disabled = false;
+                loginBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                btnText.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+            }
+        });
+
+        // التحقق من الجلسة الحالية
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            
+            if (token) {
+                const authContext = getAuthContext();
+                // التحقق من صحة الجلسة
+                fetch(authContext.verifyEndpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(res => res.json())
+                .then(result => {
+                    if (result.success) {
+                        showAlert('لديك جلسة نشطة بالفعل. جاري تحويلك...', 'success');
+                        setTimeout(() => {
+                            const user = result.data?.user || result.user;
+                            const entityId = user?.entity_id || user?.entityId;
+                            if (!authContext.isTenant && entityId === 'HQ001') {
+                                window.location.href = '/super-admin-page.html';
+                            } else {
+                                window.location.href = '/index.html';
+                            }
+                        }, 1000);
+                    } else {
+                        localStorage.removeItem('authToken');
+                        sessionStorage.removeItem('authToken');
+                        document.cookie = 'authToken=; Max-Age=0; Path=/; SameSite=Lax';
+                    }
+                })
+                .catch(err => {
+                    console.log('Session verification check failed (which is normal if not logged in)');
+                    localStorage.removeItem('authToken');
+                    sessionStorage.removeItem('authToken');
+                    document.cookie = 'authToken=; Max-Age=0; Path=/; SameSite=Lax';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام تحليل رضا الموظفين</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --sky: #0284c7;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(2, 132, 199, 0.18), transparent 42%),
+        radial-gradient(circle at 90% 12%, rgba(245, 158, 11, 0.16), transparent 40%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 20px 45px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 14px 16px;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .table-row {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table-row:last-child {
+      border-bottom: none;
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chart-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 16px;
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: 16px;
+    }
+
+    .modal-card {
+      background: #fff;
+      border-radius: 18px;
+      width: min(720px, 100%);
+      box-shadow: 0 20px 50px -20px rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--line);
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">رضا الموظفين</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">نظام تحليل رضا الموظفين</h1>
+        <p class="text-slate-600">لوحة تشغيلية لقياس التجربة وتحديد أولويات التحسين.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="addRecordButton" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">متوسط رضا الموظفين</div>
+        <div id="statAverage" class="text-2xl font-extrabold mt-2">0%</div>
+        <div class="text-xs text-slate-500 mt-1">نسبة مئوية</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد التقييمات المكتملة</div>
+        <div id="statCompleted" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">حالات مغلقة</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد الحالات منخفضة الرضا</div>
+        <div id="statLow" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-rose-600 mt-1">تحتاج متابعة</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد الاستبيانات هذا الشهر</div>
+        <div id="statMonthly" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">حسب تاريخ التقييم</div>
+      </div>
+    </div>
+
+    <div class="glass p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">سجل رضا الموظفين</h2>
+          <p class="text-sm text-slate-500">قياس مباشر لأداء الاستبيانات وخطط المتابعة.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث بالموظف أو الإدارة" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-56">
+          </div>
+          <select id="levelFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل المستويات</option>
+            <option value="مرتفع">مرتفع</option>
+            <option value="متوسط">متوسط</option>
+            <option value="منخفض">منخفض</option>
+          </select>
+          <select id="sortSelect" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="date-desc">الأحدث أولًا</option>
+            <option value="date-asc">الأقدم أولًا</option>
+            <option value="score-desc">الأعلى درجة</option>
+            <option value="score-asc">الأقل درجة</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4">
+        <div class="grid grid-cols-8 gap-4 bg-slate-50 text-xs font-bold text-slate-500 px-4 py-3">
+          <div>الموظف / الإدارة</div>
+          <div>نوع الاستبيان</div>
+          <div>درجة الرضا</div>
+          <div>مستوى الرضا</div>
+          <div>تاريخ التقييم</div>
+          <div>أهم الملاحظات</div>
+          <div>حالة المتابعة</div>
+          <div>الإجراءات</div>
+        </div>
+        <div id="tableBody" class="text-sm"></div>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة لبحثك.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="actionModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+        <h3 id="modalTitle" class="font-bold text-lg"></h3>
+        <button id="modalClose" class="text-slate-500"><i class="fas fa-times"></i></button>
+      </div>
+      <div id="modalBody" class="px-5 py-4 text-sm text-slate-700"></div>
+      <div id="modalActions" class="px-5 py-4 border-t border-slate-200 flex flex-wrap gap-2 justify-end"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api/hr/satisfaction-analytics';
+    const searchInput = document.getElementById('searchInput');
+    const levelFilter = document.getElementById('levelFilter');
+    const sortSelect = document.getElementById('sortSelect');
+    const tableBody = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+    const addRecordButton = document.getElementById('addRecordButton');
+
+    const statAverage = document.getElementById('statAverage');
+    const statCompleted = document.getElementById('statCompleted');
+    const statLow = document.getElementById('statLow');
+    const statMonthly = document.getElementById('statMonthly');
+
+    const actionModal = document.getElementById('actionModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    const modalActions = document.getElementById('modalActions');
+    const modalClose = document.getElementById('modalClose');
+
+    const state = { records: [] };
+
+    const levelMeta = {
+      'مرتفع': { bg: 'bg-emerald-100 text-emerald-700', icon: 'fa-arrow-up' },
+      'متوسط': { bg: 'bg-amber-100 text-amber-700', icon: 'fa-minus' },
+      'منخفض': { bg: 'bg-rose-100 text-rose-700', icon: 'fa-arrow-down' }
+    };
+
+    const formatNumber = (value) => Number(value || 0).toLocaleString('en-US');
+    const formatPercent = (value) => `${Number(value || 0).toFixed(1).toLocaleString('en-US')}%`;
+
+    const resolveLevel = (score, level) => {
+      if (level) return level;
+      const numeric = Number(score || 0);
+      if (numeric >= 4) return 'مرتفع';
+      if (numeric >= 3) return 'متوسط';
+      return 'منخفض';
+    };
+
+    const parseRecord = (record) => ({
+      ...record,
+      satisfaction_score: Number(record.satisfaction_score || 0),
+      satisfaction_level: resolveLevel(record.satisfaction_score, record.satisfaction_level),
+      evaluation_date: record.evaluation_date || ''
+    });
+
+    const loadRecords = async () => {
+      try {
+        const response = await fetch(API_BASE);
+        if (!response.ok) throw new Error('تعذر تحميل البيانات');
+        const rows = await response.json();
+        state.records = (rows || []).map(parseRecord);
+      } catch (error) {
+        console.error(error);
+        state.records = [];
+      }
+      renderSummary();
+      applyFilters();
+    };
+
+    const renderSummary = () => {
+      const records = state.records;
+      if (!records.length) {
+        statAverage.textContent = '0%';
+        statCompleted.textContent = '0';
+        statLow.textContent = '0';
+        statMonthly.textContent = '0';
+        return;
+      }
+
+      const averageScore = records.reduce((sum, item) => sum + item.satisfaction_score, 0) / records.length;
+      const averagePercent = (averageScore / 5) * 100;
+      const completedCount = records.filter((item) => item.follow_up_status === 'مكتمل').length;
+      const lowCount = records.filter((item) => item.satisfaction_level === 'منخفض').length;
+
+      const now = new Date();
+      const monthCount = records.filter((item) => {
+        if (!item.evaluation_date) return false;
+        const date = new Date(item.evaluation_date);
+        return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+      }).length;
+
+      statAverage.textContent = formatPercent(averagePercent);
+      statCompleted.textContent = formatNumber(completedCount);
+      statLow.textContent = formatNumber(lowCount);
+      statMonthly.textContent = formatNumber(monthCount);
+    };
+
+    const renderTable = (records) => {
+      tableBody.innerHTML = records.map((record) => {
+        const levelInfo = levelMeta[record.satisfaction_level] || levelMeta['متوسط'];
+        return `
+          <div class="grid grid-cols-8 gap-4 px-4 py-3 table-row">
+            <div>
+              <div class="font-semibold">${record.employee_name}</div>
+              <div class="text-xs text-slate-500">${record.department_name}</div>
+            </div>
+            <div>${record.survey_type}</div>
+            <div class="font-bold">${record.satisfaction_score.toFixed(1)}</div>
+            <div>
+              <span class="badge ${levelInfo.bg}"><i class="fas ${levelInfo.icon}"></i>${record.satisfaction_level}</span>
+            </div>
+            <div>${record.evaluation_date || '--'}</div>
+            <div class="text-slate-500">${record.notes || '--'}</div>
+            <div>${record.follow_up_status || '--'}</div>
+            <div class="row-actions flex flex-wrap gap-2">
+              <button data-action="view" data-id="${record.id}">عرض</button>
+              <button data-action="preview" data-id="${record.id}">معاينة</button>
+              <button data-action="edit" data-id="${record.id}">تعديل</button>
+              <button data-action="delete" data-id="${record.id}" class="text-rose-600">حذف</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      emptyState.style.display = records.length === 0 ? 'block' : 'none';
+    };
+
+    const applyFilters = () => {
+      const searchValue = searchInput.value.trim().toLowerCase();
+      const levelValue = levelFilter.value;
+      const sortValue = sortSelect.value;
+
+      let filtered = state.records.filter((record) => {
+        const combined = `${record.employee_name} ${record.department_name}`.toLowerCase();
+        const matchesSearch = combined.includes(searchValue);
+        const matchesLevel = levelValue === 'all' || record.satisfaction_level === levelValue;
+        return matchesSearch && matchesLevel;
+      });
+
+      filtered = filtered.sort((a, b) => {
+        if (sortValue === 'score-desc') return b.satisfaction_score - a.satisfaction_score;
+        if (sortValue === 'score-asc') return a.satisfaction_score - b.satisfaction_score;
+        const dateA = a.evaluation_date ? new Date(a.evaluation_date).getTime() : 0;
+        const dateB = b.evaluation_date ? new Date(b.evaluation_date).getTime() : 0;
+        return sortValue === 'date-asc' ? dateA - dateB : dateB - dateA;
+      });
+
+      renderTable(filtered);
+    };
+
+    const openModal = (title, body, actions = []) => {
+      modalTitle.textContent = title;
+      modalBody.innerHTML = body;
+      modalActions.innerHTML = actions.join('');
+      actionModal.style.display = 'flex';
+    };
+
+    const closeModal = () => {
+      actionModal.style.display = 'none';
+    };
+
+    const buildForm = (values = {}) => `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="text-xs text-slate-500">اسم الموظف
+          <input id="formEmployee" value="${values.employee_name || ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">الإدارة
+          <input id="formDepartment" value="${values.department_name || ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">نوع الاستبيان
+          <select id="formSurvey" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+            <option value="استبيان نبض شهري" ${values.survey_type === 'استبيان نبض شهري' ? 'selected' : ''}>استبيان نبض شهري</option>
+            <option value="استبيان تجربة العمل" ${values.survey_type === 'استبيان تجربة العمل' ? 'selected' : ''}>استبيان تجربة العمل</option>
+            <option value="استبيان القيادة" ${values.survey_type === 'استبيان القيادة' ? 'selected' : ''}>استبيان القيادة</option>
+            <option value="استبيان بيئة العمل" ${values.survey_type === 'استبيان بيئة العمل' ? 'selected' : ''}>استبيان بيئة العمل</option>
+          </select>
+        </label>
+        <label class="text-xs text-slate-500">درجة الرضا (من 5)
+          <input id="formScore" type="number" step="0.1" min="0" max="5" value="${values.satisfaction_score ?? ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">مستوى الرضا
+          <select id="formLevel" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+            <option value="مرتفع" ${values.satisfaction_level === 'مرتفع' ? 'selected' : ''}>مرتفع</option>
+            <option value="متوسط" ${values.satisfaction_level === 'متوسط' ? 'selected' : ''}>متوسط</option>
+            <option value="منخفض" ${values.satisfaction_level === 'منخفض' ? 'selected' : ''}>منخفض</option>
+          </select>
+        </label>
+        <label class="text-xs text-slate-500">تاريخ التقييم
+          <input id="formDate" type="date" value="${values.evaluation_date || ''}" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+        </label>
+        <label class="text-xs text-slate-500">حالة المتابعة
+          <select id="formFollow" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+            <option value="مكتمل" ${values.follow_up_status === 'مكتمل' ? 'selected' : ''}>مكتمل</option>
+            <option value="قيد المتابعة" ${values.follow_up_status === 'قيد المتابعة' ? 'selected' : ''}>قيد المتابعة</option>
+            <option value="مفتوح" ${values.follow_up_status === 'مفتوح' ? 'selected' : ''}>مفتوح</option>
+          </select>
+        </label>
+        <label class="text-xs text-slate-500 md:col-span-2">أهم الملاحظات
+          <textarea id="formNotes" rows="3" class="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">${values.notes || ''}</textarea>
+        </label>
+      </div>
+    `;
+
+    const getFormValues = () => {
+      const scoreValue = Number(document.getElementById('formScore').value);
+      const levelValue = document.getElementById('formLevel').value || resolveLevel(scoreValue);
+      return {
+        employee_name: document.getElementById('formEmployee').value.trim(),
+        department_name: document.getElementById('formDepartment').value.trim(),
+        survey_type: document.getElementById('formSurvey').value.trim(),
+        satisfaction_score: scoreValue,
+        satisfaction_level: levelValue,
+        evaluation_date: document.getElementById('formDate').value || null,
+        notes: document.getElementById('formNotes').value.trim(),
+        follow_up_status: document.getElementById('formFollow').value
+      };
+    };
+
+    const bindScoreWatcher = () => {
+      const scoreInput = document.getElementById('formScore');
+      const levelSelect = document.getElementById('formLevel');
+      if (!scoreInput || !levelSelect) return;
+      scoreInput.addEventListener('input', () => {
+        levelSelect.value = resolveLevel(scoreInput.value);
+      });
+    };
+
+    const submitForm = async (mode, id = null) => {
+      const payload = getFormValues();
+      const endpoint = mode === 'create' ? API_BASE : `${API_BASE}/${id}`;
+      const method = mode === 'create' ? 'POST' : 'PUT';
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error?.error || 'تعذر حفظ البيانات');
+      }
+
+      await loadRecords();
+      closeModal();
+    };
+
+    addRecordButton.addEventListener('click', () => {
+      openModal(
+        'إضافة استبيان رضا',
+        buildForm(),
+        [
+          '<button id="modalSave" class="btn bg-slate-900 text-white">حفظ</button>',
+          '<button class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>'
+        ]
+      );
+      bindScoreWatcher();
+      modalActions.querySelector('#modalSave').addEventListener('click', async () => {
+        try {
+          await submitForm('create');
+        } catch (error) {
+          openModal('خطأ في الحفظ', `<div class="text-sm text-rose-600">${error.message}</div>`);
+        }
+      }, { once: true });
+    });
+
+    tableBody.addEventListener('click', (event) => {
+      const actionButton = event.target.closest('button[data-action]');
+      if (!actionButton) return;
+      const action = actionButton.dataset.action;
+      const id = Number(actionButton.dataset.id);
+      const record = state.records.find((item) => item.id === id);
+      if (!record) return;
+
+      const detailHtml = `
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div class="text-xs text-slate-500">الموظف</div>
+            <div class="font-bold">${record.employee_name}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">الإدارة</div>
+            <div class="font-bold">${record.department_name}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">نوع الاستبيان</div>
+            <div class="font-bold">${record.survey_type}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">درجة الرضا</div>
+            <div class="font-bold">${record.satisfaction_score.toFixed(1)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">مستوى الرضا</div>
+            <div class="font-bold">${record.satisfaction_level}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">تاريخ التقييم</div>
+            <div class="font-bold">${record.evaluation_date || '--'}</div>
+          </div>
+          <div class="col-span-2">
+            <div class="text-xs text-slate-500">أهم الملاحظات</div>
+            <div class="font-bold">${record.notes || '--'}</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">حالة المتابعة</div>
+            <div class="font-bold">${record.follow_up_status || '--'}</div>
+          </div>
+        </div>
+      `;
+
+      if (action === 'view') {
+        openModal('عرض تفاصيل الاستبيان', detailHtml);
+        return;
+      }
+
+      if (action === 'preview') {
+        openModal('معاينة ملخص الرضا', `${detailHtml}<div class="mt-4 text-xs text-slate-500">هذه معاينة سريعة قبل مشاركة التقرير.</div>`);
+        return;
+      }
+
+      if (action === 'edit') {
+        openModal(
+          'تعديل استبيان رضا',
+          buildForm(record),
+          [
+            '<button id="modalSaveEdit" class="btn bg-slate-900 text-white">حفظ التعديلات</button>',
+            '<button class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>'
+          ]
+        );
+        bindScoreWatcher();
+        modalActions.querySelector('#modalSaveEdit').addEventListener('click', async () => {
+          try {
+            await submitForm('edit', record.id);
+          } catch (error) {
+            openModal('خطأ في الحفظ', `<div class="text-sm text-rose-600">${error.message}</div>`);
+          }
+        }, { once: true });
+        return;
+      }
+
+      if (action === 'delete') {
+        openModal(
+          'حذف استبيان رضا',
+          '<div class="text-sm">هل ترغب في حذف هذا السجل؟ لا يمكن التراجع بعد التنفيذ.</div>',
+          [
+            `<button class="btn bg-rose-600 text-white" data-confirm-delete="${record.id}">تأكيد الحذف</button>`,
+            '<button class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>'
+          ]
+        );
+      }
+    });
+
+    modalActions.addEventListener('click', (event) => {
+      const deleteButton = event.target.closest('button[data-confirm-delete]');
+      if (!deleteButton) return;
+      const id = deleteButton.dataset.confirmDelete;
+      fetch(`${API_BASE}/${id}`, { method: 'DELETE' })
+        .then((response) => {
+          if (!response.ok) {
+            return response.json().then((error) => {
+              throw new Error(error?.error || 'تعذر حذف السجل');
+            });
+          }
+          return response.json();
+        })
+        .then(() => loadRecords())
+        .then(() => closeModal())
+        .catch((error) => {
+          openModal('خطأ في الحذف', `<div class="text-sm text-rose-600">${error.message}</div>`);
+        });
+    });
+
+    modalClose.addEventListener('click', closeModal);
+    actionModal.addEventListener('click', (event) => {
+      if (event.target === actionModal) closeModal();
+    });
+
+    searchInput.addEventListener('input', applyFilters);
+    levelFilter.addEventListener('change', applyFilters);
+    sortSelect.addEventListener('change', applyFilters);
+
+    loadRecords();
+  </script>
+</body>
+</html>

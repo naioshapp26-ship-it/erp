@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>السياسات التشغيلية المعتمدة - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #6b7280;
+      --accent: #0ea5e9;
+      --emerald: #10b981;
+      --gold: #f59e0b;
+      --paper: #f8fafc;
+      --line: #e2e8f0;
+      --stamp: #1f2937;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 18%, rgba(14, 165, 233, 0.15), transparent 42%),
+        radial-gradient(circle at 85% 12%, rgba(245, 158, 11, 0.14), transparent 40%),
+        linear-gradient(180deg, #fff7ed 0%, #f8fafc 55%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 28px;
+      box-shadow: 0 22px 50px -28px rgba(15, 23, 42, 0.45);
+    }
+
+    .badge {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    .stamp {
+      border: 1px dashed rgba(15, 23, 42, 0.25);
+      border-radius: 18px;
+      padding: 10px 14px;
+      color: var(--stamp);
+      background: rgba(15, 23, 42, 0.03);
+      font-weight: 700;
+    }
+
+    .soft-input {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 14px;
+      width: 100%;
+    }
+
+    .policy-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: #fff;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .policy-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.4);
+    }
+
+    .number-en {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-10">
+    <header class="flex flex-wrap items-center justify-between gap-6 mb-8">
+      <div>
+        <span class="badge bg-slate-900 text-white">قسم مستقل</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">السياسات التشغيلية المعتمدة</h1>
+        <p class="text-slate-600 mt-2 max-w-2xl">هذا القسم مخصص لإدارة السياسات الإلزامية الصادرة من جهات تنظيمية رسمية مع تتبع الإصدارات والتحديثات المعتمدة.</p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <a href="/" class="stamp"><i class="fas fa-arrow-right ml-2"></i>العودة للرئيسية</a>
+        <button id="openCreatePolicy" class="stamp"><i class="fas fa-plus ml-2"></i>إضافة سياسة جديدة</button>
+      </div>
+    </header>
+
+    <section class="glass p-5 mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">تنبيه رسمي</h2>
+          <p class="text-sm text-slate-500">هذه السياسات إلزامية وصادرة من جهات تنظيمية، ويتم إدارتها وتحديثها فقط عبر إجراءات رسمية.</p>
+        </div>
+        <span class="badge bg-emerald-100 text-emerald-700">إلزامية تنظيمية</span>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">إجمالي السياسات</div>
+        <div id="totalPolicies" class="text-2xl font-extrabold number-en">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">سياسات سارية</div>
+        <div id="activePolicies" class="text-2xl font-extrabold text-emerald-600 number-en">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">سياسات محدثة</div>
+        <div id="updatedPolicies" class="text-2xl font-extrabold text-sky-700 number-en">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">مراجعة قريبة</div>
+        <div id="reviewSoon" class="text-2xl font-extrabold text-amber-600 number-en">0</div>
+      </div>
+    </section>
+
+    <section class="glass p-5 mb-6">
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+        <div>
+          <label class="text-sm text-slate-500">بحث سريع</label>
+          <input id="searchInput" type="text" placeholder="ابحث باسم السياسة أو الجهة" class="soft-input mt-2">
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">تصنيف السياسة</label>
+          <select id="categoryFilter" class="soft-input mt-2"></select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">النظام</label>
+          <select id="systemFilter" class="soft-input mt-2"></select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">الجهة المعتمدة</label>
+          <select id="authorityFilter" class="soft-input mt-2"></select>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+        <div class="text-sm text-slate-500">النتائج المعروضة: <span id="filteredCount" class="number-en font-bold text-slate-700">0</span></div>
+        <div class="text-xs text-slate-400">جميع الأرقام تُعرض باللغة الإنجليزية</div>
+      </div>
+    </section>
+
+    <section class="glass p-4 mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="text-sm text-slate-500">توزيع السياسات حسب الأنظمة</div>
+        <div id="systemCounts" class="flex flex-wrap gap-2 text-xs"></div>
+      </div>
+    </section>
+
+    <section id="policiesGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></section>
+
+    <div id="policyModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4">
+      <div class="bg-white rounded-3xl w-full max-w-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 id="policyModalTitle" class="text-xl font-bold">إضافة سياسة جديدة</h3>
+          <button id="closePolicyModal" class="text-slate-400 hover:text-slate-700"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-slate-500">اسم السياسة</label>
+            <input id="policyTitleInput" class="soft-input mt-2" type="text" placeholder="اسم السياسة">
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">الجهة المعتمدة</label>
+            <input id="policyAuthorityInput" class="soft-input mt-2" type="text" placeholder="الجهة المعتمدة">
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">التصنيف</label>
+            <select id="policyCategoryInput" class="soft-input mt-2"></select>
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">النظام التابع لها</label>
+            <select id="policySystemInput" class="soft-input mt-2"></select>
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">حالة السياسة</label>
+            <select id="policyStatusInput" class="soft-input mt-2">
+              <option value="سارية">سارية</option>
+              <option value="محدثة">محدثة</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">تاريخ الإصدار</label>
+            <input id="policyIssueDateInput" class="soft-input mt-2" type="date">
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">تاريخ المراجعة</label>
+            <input id="policyReviewDateInput" class="soft-input mt-2" type="date">
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">رقم الإصدار</label>
+            <input id="policyVersionInput" class="soft-input mt-2" type="text" placeholder="رقم الإصدار">
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">رقم المرجع</label>
+            <input id="policyReferenceInput" class="soft-input mt-2" type="text" placeholder="رقم المرجع">
+          </div>
+          <div class="md:col-span-2">
+            <label class="text-sm text-slate-500">رابط النسخة الرسمية (PDF)</label>
+            <input id="policyDownloadInput" class="soft-input mt-2" type="url" placeholder="https://">
+          </div>
+          <div class="md:col-span-2">
+            <label class="text-sm text-slate-500">النص الكامل</label>
+            <textarea id="policyTextInput" class="soft-input mt-2" rows="5" placeholder="النص الكامل للسياسة"></textarea>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-3 justify-end mt-6">
+          <button id="cancelPolicyModal" class="stamp">إلغاء</button>
+          <button id="savePolicyModal" class="badge bg-slate-900 text-white">حفظ السياسة</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="updateModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4">
+      <div class="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl font-bold">إضافة تحديث للسياسة</h3>
+          <button id="closeUpdateModal" class="text-slate-400 hover:text-slate-700"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="text-sm text-slate-500">عنوان التحديث</label>
+            <input id="updateTitleInput" class="soft-input mt-2" type="text" placeholder="عنوان التحديث">
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">تاريخ التحديث</label>
+            <input id="updateDateInput" class="soft-input mt-2" type="date">
+          </div>
+          <div>
+            <label class="text-sm text-slate-500">ملاحظات</label>
+            <textarea id="updateNoteInput" class="soft-input mt-2" rows="4" placeholder="تفاصيل التحديث"></textarea>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-3 justify-end mt-6">
+          <button id="cancelUpdateModal" class="stamp">إلغاء</button>
+          <button id="saveUpdateModal" class="badge bg-slate-900 text-white">حفظ التحديث</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const apiBase = '/api/operational-policies';
+    const policyCategories = ['أكاديمية', 'مالية', 'إدارية', 'تقنية', 'سلوكية'];
+    const systems = [
+      { key: 'HR', label: 'الموارد البشرية', path: '/hr/policies' },
+      { key: 'FINANCE', label: 'المالية', path: '/finance/policies' },
+      { key: 'ACADEMIC', label: 'الشؤون الأكاديمية', path: '/academic/policies' },
+      { key: 'TECH', label: 'التقنية', path: '/tech/policies' },
+      { key: 'ADMIN', label: 'الإدارة العامة', path: '/admin/policies' }
+    ];
+    let policies = [];
+    let editingPolicyId = null;
+    let updatingPolicyId = null;
+
+    const searchInput = document.getElementById('searchInput');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const authorityFilter = document.getElementById('authorityFilter');
+    const systemFilter = document.getElementById('systemFilter');
+    const policiesGrid = document.getElementById('policiesGrid');
+    const totalPolicies = document.getElementById('totalPolicies');
+    const activePolicies = document.getElementById('activePolicies');
+    const updatedPolicies = document.getElementById('updatedPolicies');
+    const reviewSoon = document.getElementById('reviewSoon');
+    const filteredCount = document.getElementById('filteredCount');
+    const openCreatePolicy = document.getElementById('openCreatePolicy');
+    const policyModal = document.getElementById('policyModal');
+    const policyModalTitle = document.getElementById('policyModalTitle');
+    const closePolicyModal = document.getElementById('closePolicyModal');
+    const cancelPolicyModal = document.getElementById('cancelPolicyModal');
+    const savePolicyModal = document.getElementById('savePolicyModal');
+    const policyTitleInput = document.getElementById('policyTitleInput');
+    const policyAuthorityInput = document.getElementById('policyAuthorityInput');
+    const policyCategoryInput = document.getElementById('policyCategoryInput');
+    const policyStatusInput = document.getElementById('policyStatusInput');
+    const policySystemInput = document.getElementById('policySystemInput');
+    const policyIssueDateInput = document.getElementById('policyIssueDateInput');
+    const policyReviewDateInput = document.getElementById('policyReviewDateInput');
+    const policyVersionInput = document.getElementById('policyVersionInput');
+    const policyReferenceInput = document.getElementById('policyReferenceInput');
+    const policyDownloadInput = document.getElementById('policyDownloadInput');
+    const policyTextInput = document.getElementById('policyTextInput');
+    const updateModal = document.getElementById('updateModal');
+    const closeUpdateModal = document.getElementById('closeUpdateModal');
+    const cancelUpdateModal = document.getElementById('cancelUpdateModal');
+    const saveUpdateModal = document.getElementById('saveUpdateModal');
+    const updateTitleInput = document.getElementById('updateTitleInput');
+    const updateDateInput = document.getElementById('updateDateInput');
+    const updateNoteInput = document.getElementById('updateNoteInput');
+
+    const toEnglishNumber = (value) => Number(value || 0).toLocaleString('en-US');
+    const normalizeText = (value) => (value || '').toLowerCase();
+
+    const notifyPoliciesUpdated = () => {
+      localStorage.setItem('operationalPoliciesUpdated', Date.now().toString());
+    };
+
+    const getSystemMeta = (key) => systems.find((item) => item.key === key) || { label: '-', path: '/operational-policies' };
+
+    const getReviewMeta = (policy) => {
+      if (!policy.review_date) {
+        return { label: 'غير محدد', className: 'bg-slate-100 text-slate-600' };
+      }
+      const today = new Date();
+      const reviewDate = new Date(policy.review_date);
+      const diffDays = Math.ceil((reviewDate - today) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 0) {
+        return { label: 'مستحقة المراجعة', className: 'bg-rose-100 text-rose-700' };
+      }
+      if (diffDays <= 45) {
+        return { label: 'قريبة المراجعة', className: 'bg-amber-100 text-amber-700' };
+      }
+      return { label: 'ضمن الفترة', className: 'bg-emerald-100 text-emerald-700' };
+    };
+
+    const populateFilters = () => {
+      const selectedCategory = categoryFilter.value || 'الكل';
+      const selectedAuthority = authorityFilter.value || 'الكل';
+      const selectedSystem = systemFilter.value || 'الكل';
+      const categories = ['الكل', ...new Set(policies.map(p => p.category).filter(Boolean))];
+      const authorities = ['الكل', ...new Set(policies.map(p => p.authority).filter(Boolean))];
+      const systemOptions = ['الكل', ...systems.map(system => system.key)];
+
+      categoryFilter.innerHTML = categories.map(category => `<option value="${category}">${category}</option>`).join('');
+      authorityFilter.innerHTML = authorities.map(authority => `<option value="${authority}">${authority}</option>`).join('');
+      systemFilter.innerHTML = systemOptions.map(systemKey => {
+        if (systemKey === 'الكل') return '<option value="الكل">الكل</option>';
+        const label = getSystemMeta(systemKey).label;
+        return `<option value="${systemKey}">${label}</option>`;
+      }).join('');
+
+      categoryFilter.value = categories.includes(selectedCategory) ? selectedCategory : 'الكل';
+      authorityFilter.value = authorities.includes(selectedAuthority) ? selectedAuthority : 'الكل';
+      systemFilter.value = systemOptions.includes(selectedSystem) ? selectedSystem : 'الكل';
+    };
+
+    const updateStats = () => {
+      const activeCount = policies.filter(p => p.status === 'سارية').length;
+      const updatedCount = policies.filter(p => p.status === 'محدثة').length;
+      const reviewSoonCount = policies.filter(p => {
+        const review = getReviewMeta(p);
+        return review.label === 'قريبة المراجعة' || review.label === 'مستحقة المراجعة';
+      }).length;
+      const systemCounts = systems.map(system => ({
+        ...system,
+        count: policies.filter(policy => policy.system_key === system.key).length
+      }));
+
+      totalPolicies.textContent = toEnglishNumber(policies.length);
+      activePolicies.textContent = toEnglishNumber(activeCount);
+      updatedPolicies.textContent = toEnglishNumber(updatedCount);
+      reviewSoon.textContent = toEnglishNumber(reviewSoonCount);
+
+      const systemCountsEl = document.getElementById('systemCounts');
+      systemCountsEl.innerHTML = systemCounts.map(system => `
+        <a href="${system.path}" class="badge bg-slate-100 text-slate-700">
+          ${system.label} · <span class="number-en">${toEnglishNumber(system.count)}</span>
+        </a>
+      `).join('');
+    };
+
+    const renderPolicies = () => {
+      const searchValue = normalizeText(searchInput.value);
+      const categoryValue = categoryFilter.value;
+      const authorityValue = authorityFilter.value;
+      const systemValue = systemFilter.value;
+
+      const filtered = policies.filter(policy => {
+        const matchesSearch = !searchValue || normalizeText(policy.title).includes(searchValue) || normalizeText(policy.authority).includes(searchValue);
+        const matchesCategory = categoryValue === 'الكل' || policy.category === categoryValue;
+        const matchesAuthority = authorityValue === 'الكل' || policy.authority === authorityValue;
+        const matchesSystem = systemValue === 'الكل' || policy.system_key === systemValue;
+        return matchesSearch && matchesCategory && matchesAuthority && matchesSystem;
+      });
+
+      filteredCount.textContent = toEnglishNumber(filtered.length);
+
+      policiesGrid.innerHTML = filtered.map(policy => {
+        const review = getReviewMeta(policy);
+        const statusClass = policy.status === 'محدثة' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700';
+        const systemMeta = getSystemMeta(policy.system_key);
+        return `
+          <article class="policy-card p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-lg font-bold">${policy.title}</h3>
+              <span class="badge ${statusClass}">${policy.status || 'سارية'}</span>
+            </div>
+            <div class="mt-3 text-sm text-slate-600">الجهة المعتمدة: <span class="font-semibold text-slate-800">${policy.authority || '-'}</span></div>
+            <div class="mt-1 text-sm text-slate-600">التصنيف: <span class="font-semibold text-slate-800">${policy.category || '-'}</span></div>
+            <div class="mt-1 text-sm text-slate-600">تاريخ الإصدار: <span class="font-semibold number-en">${policy.issue_date || '-'}</span></div>
+            <div class="mt-1 text-sm text-slate-600">رقم الإصدار: <span class="font-semibold number-en">${policy.version || 'غير متاح'}</span></div>
+            <div class="mt-1 text-sm text-slate-600">رقم المرجع: <span class="font-semibold number-en">${policy.reference || 'غير متاح'}</span></div>
+            <div class="mt-1 text-sm text-slate-600">النظام: <span class="font-semibold text-slate-800">${systemMeta.label}</span></div>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <span class="badge bg-slate-900 text-white">سياسة إلزامية</span>
+              <span class="badge ${review.className}">${review.label}</span>
+            </div>
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <div class="flex flex-wrap gap-2 text-sm font-bold">
+                <a href="/operational-policies/${policy.slug}" class="text-sky-700">عرض التفاصيل</a>
+                <span class="text-slate-300">|</span>
+                <a href="${systemMeta.path}" class="text-slate-600">فتح النظام</a>
+              </div>
+              <div class="flex flex-wrap gap-2 text-xs">
+                <button class="badge bg-slate-100 text-slate-700" onclick="openUpdatePolicy(${policy.id})">إضافة تحديث</button>
+                <button class="badge bg-slate-100 text-slate-700" onclick="openEditPolicy(${policy.id})">تعديل</button>
+                <button class="badge bg-amber-100 text-amber-700" onclick="togglePolicyStatus(${policy.id})">تعيين حالة</button>
+                <button class="badge bg-rose-100 text-rose-700" onclick="deletePolicy(${policy.id})">حذف</button>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+    };
+
+    const openModal = (modalEl) => {
+      modalEl.classList.remove('hidden');
+      modalEl.classList.add('flex');
+    };
+
+    const closeModal = (modalEl) => {
+      modalEl.classList.add('hidden');
+      modalEl.classList.remove('flex');
+    };
+
+    const resetPolicyForm = () => {
+      policyTitleInput.value = '';
+      policyAuthorityInput.value = '';
+      policyCategoryInput.value = policyCategories[0];
+      policySystemInput.value = systems[0].key;
+      policyStatusInput.value = 'سارية';
+      policyIssueDateInput.value = '';
+      policyReviewDateInput.value = '';
+      policyVersionInput.value = '';
+      policyReferenceInput.value = '';
+      policyDownloadInput.value = '';
+      policyTextInput.value = '';
+    };
+
+    const openPolicyModal = (policy = null) => {
+      editingPolicyId = policy ? policy.id : null;
+      policyModalTitle.textContent = policy ? 'تعديل السياسة' : 'إضافة سياسة جديدة';
+      if (policy) {
+        policyTitleInput.value = policy.title || '';
+        policyAuthorityInput.value = policy.authority || '';
+        policyCategoryInput.value = policy.category || policyCategories[0];
+        policySystemInput.value = policy.system_key || systems[0].key;
+        policyStatusInput.value = policy.status || 'سارية';
+        policyIssueDateInput.value = policy.issue_date ? policy.issue_date.slice(0, 10) : '';
+        policyReviewDateInput.value = policy.review_date ? policy.review_date.slice(0, 10) : '';
+        policyVersionInput.value = policy.version || '';
+        policyReferenceInput.value = policy.reference || '';
+        policyDownloadInput.value = policy.download_url || '';
+        policyTextInput.value = policy.full_text || '';
+      } else {
+        resetPolicyForm();
+      }
+      openModal(policyModal);
+    };
+
+    const openUpdateModal = (policyId) => {
+      updatingPolicyId = policyId;
+      updateTitleInput.value = '';
+      updateDateInput.value = '';
+      updateNoteInput.value = '';
+      openModal(updateModal);
+    };
+
+    const fetchPolicies = async () => {
+      const response = await fetch(apiBase);
+      const data = await response.json();
+      policies = Array.isArray(data.policies) ? data.policies : [];
+      populateFilters();
+      updateStats();
+      renderPolicies();
+    };
+
+    const savePolicy = async () => {
+      const payload = {
+        title: policyTitleInput.value.trim(),
+        authority: policyAuthorityInput.value.trim(),
+        category: policyCategoryInput.value,
+        system_key: policySystemInput.value,
+        status: policyStatusInput.value,
+        issue_date: policyIssueDateInput.value || null,
+        review_date: policyReviewDateInput.value || null,
+        version: policyVersionInput.value.trim() || null,
+        reference: policyReferenceInput.value.trim() || null,
+        download_url: policyDownloadInput.value.trim() || null,
+        full_text: policyTextInput.value.trim() || null
+      };
+
+      if (!payload.title || !payload.authority || !payload.category) {
+        alert('يرجى إدخال اسم السياسة والجهة والتصنيف.');
+        return;
+      }
+
+      const url = editingPolicyId ? `${apiBase}/${editingPolicyId}` : apiBase;
+      const method = editingPolicyId ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || 'حدث خطأ أثناء حفظ السياسة.');
+        return;
+      }
+
+      closeModal(policyModal);
+      await fetchPolicies();
+      notifyPoliciesUpdated();
+    };
+
+    const saveUpdate = async () => {
+      if (!updatingPolicyId) return;
+      const payload = {
+        title: updateTitleInput.value.trim(),
+        update_date: updateDateInput.value || null,
+        note: updateNoteInput.value.trim() || null
+      };
+
+      if (!payload.title) {
+        alert('يرجى إدخال عنوان التحديث.');
+        return;
+      }
+
+      const response = await fetch(`${apiBase}/${updatingPolicyId}/updates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || 'حدث خطأ أثناء حفظ التحديث.');
+        return;
+      }
+
+      closeModal(updateModal);
+      await fetchPolicies();
+      notifyPoliciesUpdated();
+    };
+
+    window.openEditPolicy = (id) => {
+      const policy = policies.find(item => item.id === id);
+      if (policy) {
+        openPolicyModal(policy);
+      }
+    };
+
+    window.deletePolicy = async (id) => {
+      if (!confirm('هل أنت متأكد من حذف هذه السياسة؟')) return;
+      const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || 'حدث خطأ أثناء الحذف.');
+        return;
+      }
+      await fetchPolicies();
+      notifyPoliciesUpdated();
+    };
+
+    window.openUpdatePolicy = (id) => {
+      openUpdateModal(id);
+    };
+
+    window.togglePolicyStatus = async (id) => {
+      const policy = policies.find(item => item.id === id);
+      if (!policy) return;
+      const nextStatus = policy.status === 'محدثة' ? 'سارية' : 'محدثة';
+      const response = await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || 'حدث خطأ أثناء تحديث الحالة.');
+        return;
+      }
+      await fetchPolicies();
+      notifyPoliciesUpdated();
+    };
+
+    openCreatePolicy.addEventListener('click', () => openPolicyModal());
+    closePolicyModal.addEventListener('click', () => closeModal(policyModal));
+    cancelPolicyModal.addEventListener('click', () => closeModal(policyModal));
+    savePolicyModal.addEventListener('click', savePolicy);
+    closeUpdateModal.addEventListener('click', () => closeModal(updateModal));
+    cancelUpdateModal.addEventListener('click', () => closeModal(updateModal));
+    saveUpdateModal.addEventListener('click', saveUpdate);
+
+    policyCategoryInput.innerHTML = policyCategories.map(category => `<option value="${category}">${category}</option>`).join('');
+    policySystemInput.innerHTML = systems.map(system => `<option value="${system.key}">${system.label}</option>`).join('');
+
+    searchInput.addEventListener('input', renderPolicies);
+    categoryFilter.addEventListener('change', renderPolicies);
+    systemFilter.addEventListener('change', renderPolicies);
+    authorityFilter.addEventListener('change', renderPolicies);
+
+    fetchPolicies();
+  </script>
+</body>
+</html>

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة المهارات</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0b1220;
+      --muted: #6b7280;
+      --indigo: #4338ca;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --line: #e5e7eb;
+      --card: #ffffff;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 16%, rgba(67, 56, 202, 0.16), transparent 46%),
+        radial-gradient(circle at 86% 12%, rgba(16, 185, 129, 0.18), transparent 42%),
+        linear-gradient(180deg, #f8fafc 0%, #f1f5f9 60%, #eef2ff 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 22px;
+      box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 16px;
+    }
+
+    .panel-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 18px;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 18px 30px -18px rgba(15, 23, 42, 0.6);
+      display: none;
+      z-index: 50;
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div class="max-w-2xl">
+        <span class="chip bg-white text-slate-700 border border-slate-200">إدارة الكفاءات</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">إدارة المهارات</h1>
+        <p class="text-slate-600">لوحة استراتيجية تعرض قدرات الشركة وتغلق فجوات المهارات عبر التدريب والتطوير.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="addSkillBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة مهارة جديدة
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">إجمالي المهارات المسجلة</div>
+        <div id="totalSkills" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">سجل المهارات</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">المهارات الأساسية</div>
+        <div id="coreSkills" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-emerald-600 mt-1">مطلوبة في الوظائف الأساسية</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">المهارات النادرة</div>
+        <div id="rareSkills" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-amber-600 mt-1">تحتاج توسيع</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">متوسط مستوى المهارات</div>
+        <div id="avgSkillLevel" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">تقييم عام</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">مهارات تحتاج تطوير</div>
+        <div id="needsDevelopment" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-rose-600 mt-1">خطة تحسين</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="panel-card">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">تصنيف المهارات حسب الأقسام</h2>
+          <span class="chip bg-indigo-100 text-indigo-700">Top 4</span>
+        </div>
+        <div id="departmentSkills" class="mt-4 space-y-3 text-sm"></div>
+      </div>
+      <div class="panel-card">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">أكثر المهارات انتشارًا</h2>
+          <span class="chip bg-emerald-100 text-emerald-700">Most Used</span>
+        </div>
+        <div id="popularSkills" class="mt-4 space-y-3 text-sm"></div>
+      </div>
+      <div class="panel-card">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">المهارات غير المتوفرة</h2>
+          <span class="chip bg-rose-100 text-rose-700">Gap List</span>
+        </div>
+        <div id="missingSkills" class="mt-4 flex flex-wrap gap-2"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="panel-card">
+        <h2 class="text-lg font-bold">مقارنة مهارات الموظف بمتطلبات الوظيفة</h2>
+        <p class="text-sm text-slate-500">قياس التطابق بين مهارات الموظفين والوظائف الحالية.</p>
+        <div id="roleMatch" class="mt-4 space-y-3 text-sm"></div>
+      </div>
+      <div class="panel-card">
+        <h2 class="text-lg font-bold">تحليل فجوات المهارات داخل الأقسام</h2>
+        <p class="text-sm text-slate-500">تحديد الأولويات التدريبية لكل قسم.</p>
+        <div id="gapAnalysis" class="mt-4 space-y-3 text-sm"></div>
+      </div>
+    </div>
+
+    <div class="panel-card mb-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold">اقتراح دورات تدريبية</h2>
+          <p class="text-sm text-slate-500">مسارات تطوير مخصصة لسد الفجوات.</p>
+        </div>
+        <span class="chip bg-amber-100 text-amber-700">Auto Plan</span>
+      </div>
+      <div id="trainingRecommendations" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm"></div>
+    </div>
+
+    <div class="glass p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">جدول إدارة المهارات</h2>
+          <p class="text-sm text-slate-500">تفاصيل مهارات الموظفين مع تقييمات واحتياجات التطوير.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث باسم الموظف أو المهارة" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-64">
+          </div>
+          <select id="departmentFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل الأقسام</option>
+          </select>
+          <select id="levelFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل المستويات</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4 overflow-x-auto">
+        <table class="min-w-[1100px] w-full text-sm">
+          <thead class="bg-slate-50 text-xs font-bold text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-right">اسم الموظف</th>
+              <th class="px-4 py-3 text-right">اسم المهارة</th>
+              <th class="px-4 py-3 text-right">نوع المهارة</th>
+              <th class="px-4 py-3 text-right">مستوى المهارة</th>
+              <th class="px-4 py-3 text-right">سنوات الخبرة</th>
+              <th class="px-4 py-3 text-right">تاريخ التقييم</th>
+              <th class="px-4 py-3 text-right">حالة المهارة</th>
+              <th class="px-4 py-3 text-right">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة للبحث.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="skillModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center z-40">
+    <div class="bg-white rounded-2xl border border-slate-200 w-[92%] max-w-3xl p-0 overflow-hidden">
+      <div class="max-h-[85vh] overflow-y-auto p-6">
+        <div class="flex items-center justify-between">
+          <h3 id="modalTitle" class="text-xl font-extrabold">إضافة مهارة جديدة</h3>
+          <button id="closeModalBtn" class="text-slate-500"><i class="fas fa-xmark"></i></button>
+        </div>
+        <p id="modalHint" class="text-sm text-slate-500 mt-1">أدخل بيانات المهارة لتحديث ملف الكفاءات.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label class="text-sm text-slate-600">اسم الموظف</label>
+            <input id="employeeInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: خالد السبيعي">
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">اسم المهارة</label>
+            <input id="skillInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: إدارة المشاريع">
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">القسم</label>
+            <input id="departmentInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: العمليات">
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">نوع المهارة</label>
+            <select id="typeInput" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+              <option>تقنية</option>
+              <option>إدارية</option>
+              <option>قيادية</option>
+              <option>تشغيلية</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">مستوى المهارة</label>
+            <select id="levelInput" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+              <option>مبتدئ</option>
+              <option>متوسط</option>
+              <option>متقدم</option>
+              <option>خبير</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">سنوات الخبرة</label>
+            <input id="yearsInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 4">
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">تاريخ التقييم</label>
+            <input id="dateInput" type="date" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">حالة المهارة</label>
+            <select id="statusInput" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+              <option>معتمدة</option>
+              <option>تحتاج تطوير</option>
+            </select>
+          </div>
+        </div>
+        <div class="mt-4">
+          <label class="text-sm text-slate-600">مقارنة بمتطلبات الوظيفة</label>
+          <textarea id="matchInput" rows="3" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: تحتاج تعزيز في التخطيط الاستراتيجي"></textarea>
+        </div>
+        <div class="mt-5 flex flex-wrap gap-2">
+          <button id="saveSkillBtn" class="btn bg-slate-900 text-white">
+            <i class="fas fa-check"></i>
+            حفظ المهارة
+          </button>
+          <button id="cancelSkillBtn" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">تم حفظ المهارة بنجاح.</div>
+
+  <script>
+    const API_BASE = '/api/hr/skills';
+    const state = {
+      records: [],
+      filtered: [],
+      mode: 'add',
+      selected: null
+    };
+
+    const searchInput = document.getElementById('searchInput');
+    const departmentFilter = document.getElementById('departmentFilter');
+    const levelFilter = document.getElementById('levelFilter');
+    const tableBody = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+    const totalSkills = document.getElementById('totalSkills');
+    const coreSkills = document.getElementById('coreSkills');
+    const rareSkills = document.getElementById('rareSkills');
+    const avgSkillLevel = document.getElementById('avgSkillLevel');
+    const needsDevelopment = document.getElementById('needsDevelopment');
+    const departmentSkills = document.getElementById('departmentSkills');
+    const popularSkills = document.getElementById('popularSkills');
+    const missingSkills = document.getElementById('missingSkills');
+    const roleMatch = document.getElementById('roleMatch');
+    const gapAnalysis = document.getElementById('gapAnalysis');
+    const trainingRecommendations = document.getElementById('trainingRecommendations');
+    const addSkillBtn = document.getElementById('addSkillBtn');
+    const skillModal = document.getElementById('skillModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalHint = document.getElementById('modalHint');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelSkillBtn = document.getElementById('cancelSkillBtn');
+    const saveSkillBtn = document.getElementById('saveSkillBtn');
+    const employeeInput = document.getElementById('employeeInput');
+    const skillInput = document.getElementById('skillInput');
+    const departmentInput = document.getElementById('departmentInput');
+    const typeInput = document.getElementById('typeInput');
+    const levelInput = document.getElementById('levelInput');
+    const yearsInput = document.getElementById('yearsInput');
+    const dateInput = document.getElementById('dateInput');
+    const statusInput = document.getElementById('statusInput');
+    const matchInput = document.getElementById('matchInput');
+    const toast = document.getElementById('toast');
+
+    const levelScore = (level) => ({
+      'مبتدئ': 1,
+      'متوسط': 2,
+      'متقدم': 3,
+      'خبير': 4
+    }[level] || 0);
+
+    const showToast = (message) => {
+      toast.textContent = message;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 2400);
+    };
+
+    const formatNumber = (value) => Number(value || 0).toLocaleString('en-US');
+
+    const formatDate = (value) => {
+      if (!value) return '-';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toISOString().slice(0, 10);
+    };
+
+    const updateSummary = () => {
+      totalSkills.textContent = formatNumber(state.records.length);
+      coreSkills.textContent = formatNumber(state.records.filter((item) => item.is_core).length);
+      rareSkills.textContent = formatNumber(state.records.filter((item) => item.skill_level === 'خبير').length);
+      const avg = state.records.length
+        ? state.records.reduce((sum, item) => sum + levelScore(item.skill_level), 0) / state.records.length
+        : 0;
+      avgSkillLevel.textContent = avg.toFixed(1);
+      needsDevelopment.textContent = formatNumber(state.records.filter((item) => item.skill_status === 'تحتاج تطوير').length);
+    };
+
+    const renderDepartmentSkills = () => {
+      departmentSkills.innerHTML = '';
+      const grouped = state.records.reduce((acc, item) => {
+        acc[item.department] = (acc[item.department] || 0) + 1;
+        return acc;
+      }, {});
+
+      Object.entries(grouped)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .forEach(([department, count]) => {
+          const row = document.createElement('div');
+          row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+          row.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span>${department}</span>
+              <span class="font-bold text-slate-700">${formatNumber(count)}</span>
+            </div>
+            <div class="h-2 bg-slate-100 rounded-full overflow-hidden mt-2">
+              <div class="h-full bg-indigo-500" style="width: ${Math.min(count * 18, 100)}%"></div>
+            </div>
+          `;
+          departmentSkills.appendChild(row);
+        });
+    };
+
+    const renderPopularSkills = () => {
+      popularSkills.innerHTML = '';
+      const grouped = state.records.reduce((acc, item) => {
+        acc[item.skill_name] = (acc[item.skill_name] || 0) + 1;
+        return acc;
+      }, {});
+
+      Object.entries(grouped)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .forEach(([skill, count]) => {
+          const row = document.createElement('div');
+          row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+          row.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span>${skill}</span>
+              <span class="font-bold text-emerald-700">${formatNumber(count)}</span>
+            </div>
+            <div class="h-2 bg-slate-100 rounded-full overflow-hidden mt-2">
+              <div class="h-full bg-emerald-500" style="width: ${Math.min(count * 20, 100)}%"></div>
+            </div>
+          `;
+          popularSkills.appendChild(row);
+        });
+    };
+
+    const renderMissingSkills = () => {
+      missingSkills.innerHTML = '';
+      const gaps = [...new Set(state.records
+        .filter((item) => item.skill_status === 'تحتاج تطوير')
+        .map((item) => item.skill_name))];
+
+      if (!gaps.length) {
+        const chip = document.createElement('div');
+        chip.className = 'chip bg-emerald-100 text-emerald-700';
+        chip.textContent = 'لا توجد فجوات حالية';
+        missingSkills.appendChild(chip);
+        return;
+      }
+
+      gaps.slice(0, 6).forEach((skill) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip bg-rose-100 text-rose-700';
+        chip.textContent = skill;
+        missingSkills.appendChild(chip);
+      });
+    };
+
+    const renderRoleMatch = () => {
+      roleMatch.innerHTML = '';
+      const matches = state.records.slice(0, 4);
+      matches.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+        row.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span>${item.employee_name}</span>
+            <span class="font-bold text-slate-700">${item.skill_name}</span>
+          </div>
+          <div class="text-xs text-slate-500 mt-1">${item.role_match || 'تحتاج مراجعة تفصيلية'}</div>
+        `;
+        roleMatch.appendChild(row);
+      });
+    };
+
+    const renderGapAnalysis = () => {
+      gapAnalysis.innerHTML = '';
+      const grouped = state.records.reduce((acc, item) => {
+        acc[item.department] = acc[item.department] || { total: 0, needs: 0 };
+        acc[item.department].total += 1;
+        if (item.skill_status === 'تحتاج تطوير') acc[item.department].needs += 1;
+        return acc;
+      }, {});
+
+      const gaps = Object.entries(grouped)
+        .map(([department, stats]) => {
+          const level = stats.total ? Math.round((stats.needs / stats.total) * 100) : 0;
+          return { department, gap: 'نسبة مهارات تحتاج تطوير', level };
+        })
+        .sort((a, b) => b.level - a.level)
+        .slice(0, 3);
+
+      gaps.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+        row.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span>${item.department}</span>
+            <span class="font-bold text-rose-600">${item.level}%</span>
+          </div>
+          <div class="text-xs text-slate-500 mt-1">${item.gap}</div>
+        `;
+        gapAnalysis.appendChild(row);
+      });
+    };
+
+    const renderTrainingRecommendations = () => {
+      trainingRecommendations.innerHTML = '';
+      const gapSkills = [...new Set(state.records
+        .filter((item) => item.skill_status === 'تحتاج تطوير')
+        .map((item) => item.skill_name))].slice(0, 4);
+
+      const trainings = gapSkills.length
+        ? gapSkills.map((skill) => ({
+          title: `مسار تطوير ${skill}`,
+          target: 'المهارات ذات الاولوية',
+          focus: 'رفع مستوى الاتقان خلال 60 يوم'
+        }))
+        : [{ title: 'خطة تطوير عامة', target: 'جميع الاقسام', focus: 'مراجعة دورية للمهارات' }];
+
+      trainings.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+        card.innerHTML = `
+          <div class="font-bold">${item.title}</div>
+          <div class="text-xs text-slate-500 mt-1">مستهدف: ${item.target}</div>
+          <div class="text-xs text-emerald-600 mt-1">${item.focus}</div>
+        `;
+        trainingRecommendations.appendChild(card);
+      });
+    };
+
+    const renderFilters = () => {
+      departmentFilter.innerHTML = '<option value="all">كل الأقسام</option>';
+      levelFilter.innerHTML = '<option value="all">كل المستويات</option>';
+
+      [...new Set(state.records.map((item) => item.department))].forEach((department) => {
+        const option = document.createElement('option');
+        option.value = department;
+        option.textContent = department;
+        departmentFilter.appendChild(option);
+      });
+
+      [...new Set(state.records.map((item) => item.skill_level))].forEach((level) => {
+        const option = document.createElement('option');
+        option.value = level;
+        option.textContent = level;
+        levelFilter.appendChild(option);
+      });
+    };
+
+    const renderTable = (data) => {
+      tableBody.innerHTML = '';
+      if (!data.length) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      data.forEach((item) => {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-slate-100';
+        row.dataset.id = item.id;
+        row.innerHTML = `
+          <td class="px-4 py-3 font-bold text-slate-700">${item.employee_name}</td>
+          <td class="px-4 py-3">${item.skill_name}</td>
+          <td class="px-4 py-3">${item.skill_type}</td>
+          <td class="px-4 py-3">${item.skill_level}</td>
+          <td class="px-4 py-3">${formatNumber(item.years_experience)}</td>
+          <td class="px-4 py-3">${formatDate(item.assessment_date)}</td>
+          <td class="px-4 py-3">
+            <span class="chip ${item.skill_status === 'معتمدة' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${item.skill_status}</span>
+          </td>
+          <td class="px-4 py-3 row-actions">
+            <div class="flex flex-wrap gap-1">
+              <button data-action="view">عرض</button>
+              <button data-action="preview">معاينة</button>
+              <button data-action="edit">تعديل</button>
+              <button data-action="delete" class="text-rose-600">حذف</button>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    };
+
+    const applyFilters = () => {
+      const searchValue = searchInput.value.trim().toLowerCase();
+      const departmentValue = departmentFilter.value;
+      const levelValue = levelFilter.value;
+
+      const filtered = state.records.filter((item) => {
+        const matchesSearch = item.employee_name.toLowerCase().includes(searchValue)
+          || item.skill_name.toLowerCase().includes(searchValue);
+        const matchesDepartment = departmentValue === 'all' || item.department === departmentValue;
+        const matchesLevel = levelValue === 'all' || item.skill_level === levelValue;
+        return matchesSearch && matchesDepartment && matchesLevel;
+      });
+
+      state.filtered = filtered;
+      renderTable(filtered);
+    };
+
+    const resetModal = () => {
+      employeeInput.value = '';
+      skillInput.value = '';
+      departmentInput.value = '';
+      typeInput.value = 'تقنية';
+      levelInput.value = 'متوسط';
+      yearsInput.value = '';
+      dateInput.value = '';
+      statusInput.value = 'معتمدة';
+      matchInput.value = '';
+    };
+
+    const setModalDisabled = (disabled) => {
+      [employeeInput, skillInput, departmentInput, typeInput, levelInput, yearsInput, dateInput, statusInput, matchInput]
+        .forEach((input) => {
+          input.disabled = disabled;
+          input.classList.toggle('bg-slate-100', disabled);
+        });
+    };
+
+    const openModal = (mode, item = null) => {
+      state.mode = mode;
+      state.selected = item ? item : null;
+
+      if (!item) {
+        resetModal();
+      } else {
+        employeeInput.value = item.employee_name;
+        skillInput.value = item.skill_name;
+        departmentInput.value = item.department;
+        typeInput.value = item.skill_type;
+        levelInput.value = item.skill_level;
+        yearsInput.value = item.years_experience;
+        dateInput.value = formatDate(item.assessment_date);
+        statusInput.value = item.skill_status;
+        matchInput.value = item.role_match || '';
+      }
+
+      const isReadOnly = mode === 'view' || mode === 'preview';
+      setModalDisabled(isReadOnly);
+      saveSkillBtn.classList.toggle('hidden', isReadOnly);
+      modalTitle.textContent = mode === 'edit' ? 'تعديل المهارة' : mode === 'preview' ? 'معاينة المهارة' : mode === 'view' ? 'عرض المهارة' : 'إضافة مهارة جديدة';
+      modalHint.textContent = isReadOnly ? 'عرض تفاصيل المهارة الحالية.' : 'أدخل بيانات المهارة لتحديث ملف الكفاءات.';
+      skillModal.classList.remove('hidden');
+      skillModal.classList.add('flex');
+    };
+
+    const closeModal = () => {
+      skillModal.classList.add('hidden');
+      skillModal.classList.remove('flex');
+    };
+
+    const hydrate = () => {
+      updateSummary();
+      renderDepartmentSkills();
+      renderPopularSkills();
+      renderMissingSkills();
+      renderRoleMatch();
+      renderGapAnalysis();
+      renderTrainingRecommendations();
+      renderFilters();
+      applyFilters();
+    };
+
+    const loadRecords = async () => {
+      try {
+        const response = await fetch(API_BASE);
+        const data = await response.json();
+        state.records = data.records || [];
+        hydrate();
+      } catch (error) {
+        console.error('Failed to load skills records', error);
+      }
+    };
+
+    searchInput.addEventListener('input', applyFilters);
+    departmentFilter.addEventListener('change', applyFilters);
+    levelFilter.addEventListener('change', applyFilters);
+
+    tableBody.addEventListener('click', (event) => {
+      const action = event.target.getAttribute('data-action');
+      if (!action) return;
+      const row = event.target.closest('[data-id]');
+      const id = row ? Number(row.dataset.id) : null;
+      const item = state.records.find((entry) => entry.id === id);
+      if (id === null || !item) return;
+
+      if (action === 'delete') {
+        const confirmed = window.confirm('هل تريد حذف المهارة؟');
+        if (!confirmed) return;
+        fetch(`${API_BASE}/${id}`, { method: 'DELETE' })
+          .then((response) => {
+            if (!response.ok) throw new Error('Delete failed');
+            return loadRecords();
+          })
+          .then(() => showToast('تم حذف المهارة بنجاح.'))
+          .catch(() => showToast('تعذر حذف المهارة.'));
+        return;
+      }
+
+      if (action === 'edit') {
+        openModal('edit', item);
+        return;
+      }
+
+      if (action === 'view') {
+        openModal('view', item);
+        return;
+      }
+
+      if (action === 'preview') {
+        openModal('preview', item);
+        return;
+      }
+    });
+
+    addSkillBtn.addEventListener('click', () => openModal('add'));
+    closeModalBtn.addEventListener('click', closeModal);
+    cancelSkillBtn.addEventListener('click', closeModal);
+
+    saveSkillBtn.addEventListener('click', async () => {
+      if (!employeeInput.value.trim() || !skillInput.value.trim() || !departmentInput.value.trim()) {
+        showToast('يرجى إدخال البيانات الأساسية للمهارة.');
+        return;
+      }
+
+      const payload = {
+        employee_name: employeeInput.value.trim(),
+        skill_name: skillInput.value.trim(),
+        department: departmentInput.value.trim(),
+        skill_type: typeInput.value,
+        skill_level: levelInput.value,
+        years_experience: Number(yearsInput.value || 0),
+        assessment_date: dateInput.value || new Date().toISOString().slice(0, 10),
+        skill_status: statusInput.value,
+        role_match: matchInput.value.trim() || 'تحتاج مراجعة تفصيلية',
+        is_core: statusInput.value === 'معتمدة'
+      };
+
+      const isEdit = state.mode === 'edit' && state.selected;
+      const url = isEdit ? `${API_BASE}/${state.selected.id}` : API_BASE;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('Save failed');
+        await loadRecords();
+        closeModal();
+        showToast('تم حفظ المهارة بنجاح.');
+      } catch (error) {
+        showToast('تعذر حفظ المهارة.');
+      }
+    });
+
+    loadRecords();
+  </script>
+</body>
+</html>

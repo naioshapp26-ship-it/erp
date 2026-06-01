@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔔 نظام التنبيهات والإشعارات - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --red: #ef4444;
+      --red-dark: #dc2626;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --violet: #8b5cf6;
+      --sky: #0ea5e9;
+      --paper: #f8fafc;
+      --card: #ffffff;
+      --line: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(239, 68, 68, 0.08), transparent 40%),
+        radial-gradient(circle at 90% 20%, rgba(15, 23, 42, 0.06), transparent 40%),
+        linear-gradient(180deg, #fef2f2 0%, #f8fafc 55%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    /* ===== Topbar ===== */
+    .topbar {
+      background: rgba(255,255,255,0.95);
+      border-bottom: 1px solid var(--line);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+
+    /* ===== Bell ===== */
+    .bell-btn {
+      position: relative;
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.2);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s;
+      color: #ef4444; font-size: 16px;
+    }
+    .bell-btn:hover { background: rgba(239,68,68,0.15); }
+
+    .bell-badge {
+      position: absolute;
+      top: -4px; left: -4px;
+      background: #ef4444; color: #fff;
+      border-radius: 999px;
+      font-size: 10px; font-weight: 800;
+      min-width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 4px;
+      border: 2px solid #fff;
+      display: none;
+    }
+    .bell-badge.visible { display: flex; }
+
+    .bell-dropdown {
+      position: absolute;
+      top: 52px; left: 0;
+      width: 340px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px -15px rgba(15,23,42,0.2);
+      z-index: 999;
+      display: none;
+      overflow: hidden;
+    }
+    .bell-dropdown.open { display: block; }
+    .bell-dropdown-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 800; font-size: 13px; color: var(--ink);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .bell-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(226,232,240,0.6);
+      cursor: pointer;
+      transition: background 0.15s;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .bell-item:hover { background: #f8fafc; }
+    .bell-item.unread { background: rgba(239,68,68,0.04); }
+    .bell-item-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 14px;
+    }
+    .bell-empty {
+      padding: 30px 16px; text-align: center;
+      color: var(--muted); font-size: 13px;
+    }
+
+    /* ===== Page header ===== */
+    .page-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #dc2626 100%);
+      border-radius: 24px;
+      padding: 32px;
+      color: white;
+      position: relative;
+      overflow: hidden;
+    }
+    .page-header::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 200px; height: 200px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 999px;
+    }
+    .page-header::after {
+      content: '';
+      position: absolute;
+      bottom: -30px; left: 30px;
+      width: 140px; height: 140px;
+      background: rgba(239,68,68,0.15);
+      border-radius: 999px;
+    }
+
+    /* ===== Stat Cards ===== */
+    .stat-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 4px 20px -8px rgba(15,23,42,0.12);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px -10px rgba(15,23,42,0.18);
+    }
+    .stat-icon {
+      width: 48px; height: 48px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .stat-icon-red    { background: rgba(239,68,68,0.12);  color: #dc2626; }
+    .stat-icon-green  { background: rgba(16,185,129,0.12); color: #059669; }
+    .stat-icon-amber  { background: rgba(245,158,11,0.12); color: #b45309; }
+    .stat-icon-violet { background: rgba(139,92,246,0.12); color: #7c3aed; }
+    .stat-icon-slate  { background: rgba(100,116,139,0.12);color: #475569; }
+
+    /* ===== Btns ===== */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px; font-weight: 700; border-radius: 12px;
+      padding: 8px 16px; transition: all 0.2s ease;
+      border: 1px solid transparent; cursor: pointer;
+      font-family: 'Cairo', sans-serif; font-size: 13px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-red {
+      background: #ef4444; color: #fff; border-color: #ef4444;
+      box-shadow: 0 4px 14px -4px rgba(239,68,68,0.4);
+    }
+    .btn-red:hover { background: #dc2626; border-color: #dc2626; }
+    .btn-dark {
+      background: #0f172a; color: #fff; border-color: #0f172a;
+      box-shadow: 0 4px 14px -4px rgba(15,23,42,0.3);
+    }
+    .btn-dark:hover { background: #1e293b; }
+    .btn-outline {
+      background: #fff; color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .btn-outline:hover { background: var(--paper); }
+    .btn-green {
+      background: #10b981; color: #fff; border-color: #10b981;
+      box-shadow: 0 4px 14px -4px rgba(16,185,129,0.4);
+    }
+    .btn-green:hover { background: #059669; }
+
+    .btn-icon {
+      width: 34px; height: 34px; border-radius: 10px;
+      border: 1px solid var(--line); background: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s ease; font-size: 13px;
+    }
+    .btn-icon:hover { transform: translateY(-1px); box-shadow: 0 4px 12px -4px rgba(15,23,42,0.2); }
+    .btn-icon.view   { color: #0ea5e9; border-color: rgba(14,165,233,0.3); }
+    .btn-icon.view:hover   { background: rgba(14,165,233,0.1); }
+    .btn-icon.edit   { color: #f59e0b; border-color: rgba(245,158,11,0.3); }
+    .btn-icon.edit:hover   { background: rgba(245,158,11,0.1); }
+    .btn-icon.del    { color: #ef4444; border-color: rgba(239,68,68,0.3); }
+    .btn-icon.del:hover    { background: rgba(239,68,68,0.1); }
+    .btn-icon.send   { color: #10b981; border-color: rgba(16,185,129,0.3); }
+    .btn-icon.send:hover   { background: rgba(16,185,129,0.1); }
+    .btn-icon.pause  { color: #8b5cf6; border-color: rgba(139,92,246,0.3); }
+    .btn-icon.pause:hover  { background: rgba(139,92,246,0.1); }
+
+    /* ===== Filter bar ===== */
+    .filter-bar {
+      background: #fff; border: 1px solid var(--line);
+      border-radius: 16px; padding: 14px 16px;
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    }
+    .filter-input {
+      border: 1px solid var(--line); border-radius: 10px;
+      padding: 8px 12px; font-family: 'Cairo', sans-serif;
+      font-size: 13px; flex: 1; min-width: 160px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .filter-input:focus { border-color: #ef4444; }
+    .filter-select {
+      border: 1px solid var(--line); border-radius: 10px;
+      padding: 8px 12px; font-family: 'Cairo', sans-serif;
+      font-size: 13px; background: #fff; cursor: pointer; outline: none;
+      min-width: 130px; transition: border-color 0.2s;
+    }
+    .filter-select:focus { border-color: #ef4444; }
+
+    /* ===== Glass ===== */
+    .glass {
+      background: rgba(255,255,255,0.95);
+      border: 1px solid rgba(148,163,184,0.25);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px -12px rgba(15,23,42,0.15);
+    }
+
+    /* ===== Table ===== */
+    .records-table { width: 100%; border-collapse: collapse; }
+    .records-table th {
+      background: #f8fafc; padding: 12px 16px; text-align: right;
+      font-size: 12px; font-weight: 800; color: var(--muted);
+      border-bottom: 2px solid var(--line); white-space: nowrap;
+    }
+    .records-table td {
+      padding: 14px 16px; border-bottom: 1px solid rgba(226,232,240,0.6);
+      font-size: 13px; vertical-align: middle;
+    }
+    .records-table tr:hover td { background: rgba(248,250,252,0.8); }
+    .records-table tr.unread-row td { background: rgba(239,68,68,0.03); }
+    .records-table tr.unread-row td:first-child { border-right: 3px solid #ef4444; }
+
+    /* ===== Status Pills ===== */
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      border-radius: 999px; padding: 3px 12px;
+      font-size: 11px; font-weight: 800; white-space: nowrap;
+    }
+    .pill-sent     { background: rgba(16,185,129,0.14);  color: #047857; }
+    .pill-scheduled{ background: rgba(139,92,246,0.14);  color: #6d28d9; }
+    .pill-failed   { background: rgba(239,68,68,0.14);   color: #b91c1c; }
+    .pill-pending  { background: rgba(245,158,11,0.14);  color: #b45309; }
+    .pill-type-alert{ background: rgba(239,68,68,0.1);   color: #b91c1c; }
+    .pill-type-remind{ background: rgba(245,158,11,0.1); color: #b45309; }
+    .pill-type-announce{ background: rgba(14,165,233,0.1); color: #0369a1; }
+    .pill-type-sys { background: rgba(100,116,139,0.1);  color: #475569; }
+    .pill-cat-all   { background: rgba(16,185,129,0.1);  color: #047857; }
+    .pill-cat-emp   { background: rgba(14,165,233,0.1);  color: #0369a1; }
+    .pill-cat-cust  { background: rgba(139,92,246,0.1);  color: #6d28d9; }
+    .pill-high  { background: rgba(239,68,68,0.12);   color: #b91c1c; }
+    .pill-mid   { background: rgba(245,158,11,0.14);  color: #b45309; }
+    .pill-low   { background: rgba(100,116,139,0.12); color: #64748b; }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(15,23,42,0.55); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 24px;
+      width: 100%; max-width: 700px;
+      max-height: 92vh; overflow-y: auto;
+      box-shadow: 0 24px 80px -20px rgba(15,23,42,0.4);
+    }
+    .modal-header {
+      position: sticky; top: 0; z-index: 2; background: #fff;
+      padding: 20px 24px; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-close {
+      width: 38px; height: 38px; border-radius: 999px;
+      background: rgba(239,68,68,0.1); color: #ef4444;
+      border: 1px solid rgba(239,68,68,0.2);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s ease;
+    }
+    .modal-close:hover { background: #ef4444; color: #fff; }
+
+    /* Form */
+    .form-label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
+    .form-input {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px;
+      padding: 10px 14px; font-family: 'Cairo', sans-serif; font-size: 13px;
+      outline: none; transition: border-color 0.2s; background: #fff;
+    }
+    .form-input:focus { border-color: #ef4444; }
+    .form-input:disabled { background: #f8fafc; color: var(--muted); cursor: not-allowed; }
+    .form-select {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px;
+      padding: 10px 14px; font-family: 'Cairo', sans-serif; font-size: 13px;
+      outline: none; transition: border-color 0.2s; background: #fff; cursor: pointer;
+    }
+    .form-select:focus { border-color: #ef4444; }
+    .form-textarea {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px;
+      padding: 12px 14px; font-family: 'Cairo', sans-serif; font-size: 13px;
+      outline: none; transition: border-color 0.2s; resize: vertical; min-height: 120px;
+    }
+    .form-textarea:focus { border-color: #ef4444; }
+
+    .channel-toggle {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .channel-btn {
+      border: 2px solid var(--line);
+      border-radius: 12px; padding: 8px 14px;
+      cursor: pointer; font-family: 'Cairo', sans-serif;
+      font-size: 12px; font-weight: 700;
+      transition: all 0.2s; background: #fff;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .channel-btn.selected {
+      border-color: #ef4444; background: rgba(239,68,68,0.08); color: #ef4444;
+    }
+    .schedule-row {
+      display: none;
+    }
+    .schedule-row.visible { display: grid; }
+
+    /* ===== View modal ===== */
+    .view-modal-box { max-width: 780px; }
+    .log-item {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 10px 0; border-bottom: 1px solid rgba(226,232,240,0.5);
+    }
+    .log-dot {
+      width: 10px; height: 10px;
+      border-radius: 999px; flex-shrink: 0; margin-top: 5px;
+    }
+    .log-dot-success { background: #10b981; }
+    .log-dot-failed  { background: #ef4444; }
+    .log-dot-pending { background: #f59e0b; }
+
+    /* ===== Empty state ===== */
+    .empty-state { text-align: center; padding: 60px 20px; }
+
+    /* ===== Confirm modal ===== */
+    .confirm-box { max-width: 420px; }
+
+    /* ===== Animations ===== */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.3s ease forwards; }
+
+    @keyframes bellRing {
+      0%, 100% { transform: rotate(0); }
+      10%, 30%, 50% { transform: rotate(-15deg); }
+      20%, 40% { transform: rotate(15deg); }
+    }
+    .bell-ring { animation: bellRing 0.8s ease; }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 768px) {
+      .page-header { padding: 20px; }
+      .hide-mobile { display: none !important; }
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ======================== TOPBAR ======================== -->
+<div class="topbar">
+  <div class="flex items-center gap-3">
+    <a href="/hr" class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+      <i class="fas fa-arrow-right text-sm"></i>
+    </a>
+    <span class="text-sm font-bold text-slate-500">الموارد البشرية</span>
+    <i class="fas fa-chevron-left text-slate-300 text-xs"></i>
+    <span class="text-sm font-bold text-slate-800">نظام التنبيهات</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <div class="relative" id="bellWrapper">
+      <button class="bell-btn" id="bellBtn" onclick="toggleBellDropdown()" title="الإشعارات">
+        <i class="fas fa-bell" id="bellIcon"></i>
+        <span class="bell-badge" id="bellBadge">0</span>
+      </button>
+      <div class="bell-dropdown" id="bellDropdown">
+        <div class="bell-dropdown-header">
+          <span>🔔 آخر الإشعارات</span>
+          <button onclick="markAllRead()" class="text-xs text-red-500 font-bold hover:underline">تحديد الكل كمقروء</button>
+        </div>
+        <div id="bellList">
+          <div class="bell-empty"><i class="fas fa-bell-slash text-2xl text-slate-200 mb-2 block"></i>لا توجد إشعارات</div>
+        </div>
+      </div>
+    </div>
+    <button onclick="openAddModal()" class="btn btn-red text-sm">
+      <i class="fas fa-plus"></i> إنشاء إشعار
+    </button>
+  </div>
+</div>
+
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+
+  <!-- ===== PAGE HEADER ===== -->
+  <div class="page-header mb-6">
+    <div class="relative z-10 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-black text-white">🔔 نظام التنبيهات والإشعارات</h1>
+        <p class="text-white/70 text-sm mt-1">إدارة وإرسال التنبيهات للمستخدمين بشكل ذكي وفوري</p>
+      </div>
+      <div class="flex gap-3 flex-wrap">
+        <button onclick="loadRecords()" class="btn btn-outline text-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.3)">
+          <i class="fas fa-sync-alt"></i> تحديث
+        </button>
+        <button onclick="openAddModal()" class="btn btn-outline text-sm" style="background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.3)">
+          <i class="fas fa-plus"></i> إنشاء إشعار
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STATS CARDS ===== -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="stat-card">
+      <div class="flex items-center gap-3">
+        <div class="stat-icon stat-icon-red"><i class="fas fa-bell"></i></div>
+        <div>
+          <p class="text-xs text-slate-500 font-bold">إجمالي الإشعارات</p>
+          <p class="text-2xl font-black text-slate-800" id="statTotal">0</p>
+        </div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center gap-3">
+        <div class="stat-icon stat-icon-green"><i class="fas fa-paper-plane"></i></div>
+        <div>
+          <p class="text-xs text-slate-500 font-bold">المرسلة اليوم</p>
+          <p class="text-2xl font-black text-slate-800" id="statToday">0</p>
+        </div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center gap-3">
+        <div class="stat-icon stat-icon-amber"><i class="fas fa-envelope-open-text"></i></div>
+        <div>
+          <p class="text-xs text-slate-500 font-bold">غير المقروءة</p>
+          <p class="text-2xl font-black text-slate-800" id="statUnread">0</p>
+        </div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center gap-3">
+        <div class="stat-icon stat-icon-violet"><i class="fas fa-clock"></i></div>
+        <div>
+          <p class="text-xs text-slate-500 font-bold">المجدولة</p>
+          <p class="text-2xl font-black text-slate-800" id="statScheduled">0</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FILTER BAR ===== -->
+  <div class="filter-bar mb-4">
+    <i class="fas fa-search text-slate-400"></i>
+    <input type="text" id="searchInput" class="filter-input" placeholder="ابحث بعنوان الإشعار..." oninput="applyFilters()">
+    <select id="filterType" class="filter-select" onchange="applyFilters()">
+      <option value="">كل الأنواع</option>
+      <option value="تنبيه">تنبيه</option>
+      <option value="تذكير">تذكير</option>
+      <option value="إعلان">إعلان</option>
+      <option value="تنبيه عاجل">تنبيه عاجل</option>
+      <option value="نظامي">نظامي</option>
+      <option value="إداري">إداري</option>
+    </select>
+    <select id="filterStatus" class="filter-select" onchange="applyFilters()">
+      <option value="">كل الحالات</option>
+      <option value="مرسل">مرسل</option>
+      <option value="مجدول">مجدول</option>
+      <option value="قيد الإرسال">قيد الإرسال</option>
+      <option value="فشل">فشل</option>
+    </select>
+    <select id="filterCategory" class="filter-select" onchange="applyFilters()">
+      <option value="">كل الفئات</option>
+      <option value="الجميع">الجميع</option>
+      <option value="موظفين">موظفين</option>
+      <option value="عملاء">عملاء</option>
+    </select>
+    <button onclick="clearFilters()" class="btn btn-outline text-xs px-3 py-2">
+      <i class="fas fa-times"></i> مسح
+    </button>
+    <div class="mr-auto text-xs text-slate-400 font-bold" id="filterCount"></div>
+  </div>
+
+  <!-- ===== MAIN TABLE ===== -->
+  <div class="glass overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="records-table" id="mainTable">
+        <thead>
+          <tr>
+            <th>عنوان الإشعار</th>
+            <th>النوع</th>
+            <th>الفئة</th>
+            <th>الحالة</th>
+            <th class="hide-mobile">تاريخ الإرسال</th>
+            <th class="hide-mobile">المستلمون</th>
+            <th>الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="7" class="text-center py-8 text-slate-400"><i class="fas fa-spinner fa-spin"></i> جارٍ التحميل...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="mt-3 text-xs text-slate-400 font-bold px-1" id="resultCount"></div>
+
+</div>
+
+<!-- ======================== ADD / EDIT MODAL ======================== -->
+<div class="modal-overlay" id="addEditModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <h3 class="text-xl font-black text-slate-800" id="modalTitle">إنشاء إشعار جديد</h3>
+        <p class="text-xs text-slate-400 mt-1">🔔 نظام التنبيهات والإشعارات</p>
+      </div>
+      <button class="modal-close" onclick="closeAddEditModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="p-6 space-y-4">
+
+      <!-- Title -->
+      <div>
+        <label class="form-label">عنوان الإشعار *</label>
+        <input type="text" id="fTitle" class="form-input" placeholder="مثال: تذكير بإغلاق تقييم الأداء">
+      </div>
+
+      <!-- Message / Body -->
+      <div>
+        <label class="form-label">نص الإشعار *</label>
+        <textarea id="fBody" class="form-textarea" placeholder="اكتب نص الإشعار الكامل هنا..."></textarea>
+      </div>
+
+      <!-- Type + Category -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">نوع الإشعار *</label>
+          <select id="fType" class="form-select">
+            <option value="تنبيه">🔔 تنبيه</option>
+            <option value="تذكير">⏰ تذكير</option>
+            <option value="إعلان">📢 إعلان</option>
+            <option value="تنبيه عاجل">🚨 تنبيه عاجل</option>
+            <option value="نظامي">⚙️ نظامي</option>
+            <option value="إداري">📋 إداري</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">الفئة المستهدفة *</label>
+          <select id="fCategory" class="form-select">
+            <option value="الجميع">👥 الجميع</option>
+            <option value="موظفين">👤 موظفين</option>
+            <option value="عملاء">🏢 عملاء</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Priority + Recipients -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label">الأهمية</label>
+          <select id="fPriority" class="form-select">
+            <option value="عالي">🔴 عالي</option>
+            <option value="متوسط" selected>🟡 متوسط</option>
+            <option value="منخفض">🟢 منخفض</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">عدد المستلمين المتوقع</label>
+          <input type="number" id="fRecipients" class="form-input" placeholder="مثال: 150" min="0">
+        </div>
+      </div>
+
+      <!-- Channels -->
+      <div>
+        <label class="form-label">طريقة الإرسال</label>
+        <div class="channel-toggle" id="channelToggles">
+          <button type="button" class="channel-btn selected" data-channel="in-app" onclick="toggleChannel(this)">
+            <i class="fas fa-bell text-red-500"></i> داخل النظام
+          </button>
+          <button type="button" class="channel-btn" data-channel="email" onclick="toggleChannel(this)">
+            <i class="fas fa-envelope text-sky-500"></i> بريد إلكتروني
+          </button>
+          <button type="button" class="channel-btn" data-channel="whatsapp" onclick="toggleChannel(this)">
+            <i class="fab fa-whatsapp text-emerald-500"></i> واتساب
+          </button>
+        </div>
+      </div>
+
+      <!-- Send time -->
+      <div>
+        <label class="form-label">وقت الإرسال</label>
+        <div class="flex gap-3 mb-3">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="sendTime" id="stImmediate" value="immediate" checked onchange="toggleSchedule()">
+            <span class="text-sm font-bold">⚡ فوري</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="sendTime" id="stScheduled" value="scheduled" onchange="toggleSchedule()">
+            <span class="text-sm font-bold">📅 مجدول</span>
+          </label>
+        </div>
+        <div class="schedule-row grid grid-cols-1 md:grid-cols-2 gap-4" id="scheduleRow">
+          <div>
+            <label class="form-label">تاريخ الإرسال</label>
+            <input type="date" id="fSendDate" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">وقت الإرسال</label>
+            <input type="time" id="fSendTime" class="form-input">
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div>
+        <label class="form-label">ملاحظات إضافية</label>
+        <input type="text" id="fNotes" class="form-input" placeholder="أي ملاحظات إضافية عن هذا الإشعار">
+      </div>
+
+      <!-- Footer actions -->
+      <div class="flex gap-3 pt-2 border-t border-slate-100">
+        <button id="saveBtn" class="btn btn-red flex-1" onclick="saveRecord()">
+          <i class="fas fa-save"></i> <span id="saveBtnLabel">حفظ وإرسال</span>
+        </button>
+        <button class="btn btn-outline" onclick="closeAddEditModal()">إلغاء</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== VIEW MODAL ======================== -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal-box view-modal-box">
+    <div class="modal-header">
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-center gap-2 mb-1">
+          <span id="vTypePill" class="pill pill-type-alert"></span>
+          <span id="vStatusPill" class="pill pill-sent"></span>
+          <span id="vPriorityPill" class="pill pill-high"></span>
+        </div>
+        <h3 class="text-lg font-black text-slate-800 leading-snug" id="vTitle">-</h3>
+      </div>
+      <button class="modal-close mr-3 flex-shrink-0" onclick="closeViewModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="p-6 space-y-5">
+
+      <!-- Meta grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-slate-50 rounded-xl p-3">
+          <p class="text-xs text-slate-400 font-bold mb-1"><i class="fas fa-layer-group ml-1"></i>الفئة</p>
+          <p class="text-sm font-bold text-slate-700" id="vCategory">-</p>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-3">
+          <p class="text-xs text-slate-400 font-bold mb-1"><i class="fas fa-calendar ml-1"></i>تاريخ الإرسال</p>
+          <p class="text-sm font-bold text-slate-700" id="vDate">-</p>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-3">
+          <p class="text-xs text-slate-400 font-bold mb-1"><i class="fas fa-users ml-1"></i>المستلمون</p>
+          <p class="text-sm font-bold text-slate-700" id="vRecipients">-</p>
+        </div>
+        <div class="bg-slate-50 rounded-xl p-3">
+          <p class="text-xs text-slate-400 font-bold mb-1"><i class="fas fa-satellite-dish ml-1"></i>قناة الإرسال</p>
+          <p class="text-sm font-bold text-slate-700" id="vChannel">-</p>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div id="vBodyWrap">
+        <p class="text-xs text-slate-400 font-bold mb-2">نص الإشعار</p>
+        <div class="text-sm text-slate-700 leading-loose bg-slate-50 rounded-xl p-4 whitespace-pre-wrap" id="vBody">-</div>
+      </div>
+
+      <!-- Notes -->
+      <div id="vNotesWrap" class="hidden">
+        <p class="text-xs text-slate-400 font-bold mb-2">ملاحظات</p>
+        <p class="text-sm text-slate-600 bg-slate-50 rounded-xl p-3" id="vNotes">-</p>
+      </div>
+
+      <!-- Send log -->
+      <div>
+        <p class="text-xs text-slate-400 font-bold mb-3">📋 سجل الإرسال</p>
+        <div id="vLog">
+          <div class="log-item">
+            <div class="log-dot log-dot-success mt-1"></div>
+            <div>
+              <p class="text-sm font-bold text-slate-700" id="vLogStatus">-</p>
+              <p class="text-xs text-slate-400" id="vLogDate">-</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
+        <button class="btn btn-red text-sm" onclick="editFromView()"><i class="fas fa-edit"></i> تعديل</button>
+        <button class="btn btn-green text-sm" id="vSendBtn" onclick="sendNowFromView()"><i class="fas fa-paper-plane"></i> إرسال الآن</button>
+        <button class="btn btn-outline text-sm" id="vPauseBtn" onclick="pauseFromView()"><i class="fas fa-pause"></i> إيقاف/إلغاء جدولة</button>
+        <button class="btn text-sm" style="background:#ef4444;color:#fff;border-color:#ef4444" onclick="deleteFromView()"><i class="fas fa-trash"></i> حذف</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== CONFIRM DELETE ======================== -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box confirm-box">
+    <div class="modal-header">
+      <div>
+        <h3 class="text-lg font-black text-slate-800">تأكيد الحذف</h3>
+        <p class="text-xs text-slate-400 mt-1">هذا الإجراء لا يمكن التراجع عنه</p>
+      </div>
+      <button class="modal-close" onclick="closeConfirmModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="p-6">
+      <div class="flex items-center gap-4 mb-6 p-4 bg-red-50 border border-red-100 rounded-xl">
+        <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>
+        </div>
+        <div>
+          <p class="font-bold text-slate-800 text-sm">هل أنت متأكد من حذف هذا الإشعار؟</p>
+          <p class="text-xs text-slate-500 mt-1" id="deleteRecordName">-</p>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button class="btn btn-red flex-1" onclick="confirmDelete()"><i class="fas fa-trash"></i> نعم، احذف</button>
+        <button class="btn btn-outline flex-1" onclick="closeConfirmModal()">إلغاء</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== SCRIPTS ======================== -->
+<script>
+  // ===== State =====
+  let allRecords = [];
+  let filteredRecords = [];
+  let readIds = new Set(JSON.parse(localStorage.getItem('notif_read_ids') || '[]'));
+  let editingId = null;
+  let deletingId = null;
+  let viewingId = null;
+  let selectedChannels = new Set(['in-app']);
+
+  const MODULE_KEY = 'notifications-center';
+
+  // ===== Auth headers =====
+  function buildHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    const userRaw = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        if (user?.entity_id)   headers['x-entity-id']   = user.entity_id;
+        if (user?.tenant_type) headers['x-entity-type'] = user.tenant_type;
+        if (user?.role)        headers['x-user-role']   = encodeURIComponent(user.role || '');
+        if (user?.name)        headers['x-user-name']   = encodeURIComponent(user.name || '');
+      } catch (e) { /* ignore */ }
+    }
+    return headers;
+  }
+
+  // ===== Helpers =====
+  function formatDate(d) {
+    if (!d) return '-';
+    try {
+      const dt = new Date(d);
+      if (isNaN(dt)) return d;
+      return dt.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch { return d; }
+  }
+
+  function isToday(d) {
+    if (!d) return false;
+    const dt = new Date(d);
+    const now = new Date();
+    return dt.getDate() === now.getDate() && dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
+  }
+
+  function statusPill(s) {
+    if (!s) return '<span class="pill pill-pending">-</span>';
+    const map = {
+      'مرسل':        { cls: 'pill-sent',      icon: '✓' },
+      'مجدول':       { cls: 'pill-scheduled',  icon: '◷' },
+      'فشل':         { cls: 'pill-failed',     icon: '✗' },
+      'قيد الإرسال': { cls: 'pill-pending',    icon: '⟳' }
+    };
+    const m = map[s] || { cls: 'pill-pending', icon: '•' };
+    return `<span class="pill ${m.cls}">${m.icon} ${s}</span>`;
+  }
+
+  function typePill(t) {
+    if (!t) return '-';
+    const map = {
+      'تنبيه':       { cls: 'pill-type-alert',   icon: '🔔' },
+      'تذكير':       { cls: 'pill-type-remind',  icon: '⏰' },
+      'إعلان':       { cls: 'pill-type-announce',icon: '📢' },
+      'تنبيه عاجل':  { cls: 'pill-type-alert',   icon: '🚨' },
+      'نظامي':       { cls: 'pill-type-sys',     icon: '⚙️' },
+      'إداري':       { cls: 'pill-type-sys',     icon: '📋' }
+    };
+    const m = map[t] || { cls: 'pill-type-sys', icon: '•' };
+    return `<span class="pill ${m.cls}">${m.icon} ${t}</span>`;
+  }
+
+  function categoryPill(c) {
+    if (!c) return '-';
+    const map = {
+      'الجميع':  { cls: 'pill-cat-all', icon: '👥' },
+      'موظفين':  { cls: 'pill-cat-emp', icon: '👤' },
+      'عملاء':   { cls: 'pill-cat-cust',icon: '🏢' }
+    };
+    const m = map[c] || { cls: 'pill-cat-all', icon: '•' };
+    return `<span class="pill ${m.cls}">${m.icon} ${c}</span>`;
+  }
+
+  function priorityPill(p) {
+    if (!p) return '';
+    const map = { 'عالي':'pill-high','متوسط':'pill-mid','منخفض':'pill-low' };
+    return `<span class="pill ${map[p]||'pill-mid'}">${p}</span>`;
+  }
+
+  // Get department as category (stored in 'department' field as "موظفين/عملاء/الجميع")
+  // Get procedure_type as notification type
+  // The 'owner' field stores comma-separated channels
+  // 'keywords' stores notes/extra info
+  // 'steps_count' stores recipient count
+  // 'notes' stores notification body text
+
+  // ===== Load records =====
+  async function loadRecords() {
+    try {
+      const res = await fetch(`/api/hr/modules/${MODULE_KEY}/records`, { headers: buildHeaders() });
+      if (!res.ok) throw new Error('Server error');
+      allRecords = await res.json();
+      if (!Array.isArray(allRecords)) allRecords = [];
+    } catch (e) {
+      console.error('Load error:', e);
+      allRecords = [];
+    }
+    applyFilters();
+    updateStats();
+    updateBell();
+  }
+
+  // Extract category from department field
+  const CATEGORIES = ['الجميع', 'موظفين', 'عملاء'];
+  function getCategory(r) {
+    if (CATEGORIES.includes(r.department)) return r.department;
+    return r.department || 'الجميع';
+  }
+
+  // ===== Update stats =====
+  function updateStats() {
+    const total     = allRecords.length;
+    const today     = allRecords.filter(r => isToday(r.due_date || r.created_at)).length;
+    const unread    = allRecords.filter(r => !readIds.has(r.id)).length;
+    const scheduled = allRecords.filter(r => r.status === 'مجدول').length;
+
+    document.getElementById('statTotal').textContent     = total;
+    document.getElementById('statToday').textContent     = today;
+    document.getElementById('statUnread').textContent    = unread;
+    document.getElementById('statScheduled').textContent = scheduled;
+  }
+
+  // ===== Bell dropdown =====
+  function updateBell() {
+    const unread = allRecords.filter(r => !readIds.has(r.id));
+    const badge  = document.getElementById('bellBadge');
+    if (unread.length > 0) {
+      badge.textContent = unread.length > 99 ? '99+' : unread.length;
+      badge.classList.add('visible');
+      // Ring animation
+      const icon = document.getElementById('bellIcon');
+      icon.classList.add('bell-ring');
+      setTimeout(() => icon.classList.remove('bell-ring'), 800);
+    } else {
+      badge.classList.remove('visible');
+    }
+
+    const list = document.getElementById('bellList');
+    const recent = allRecords.slice(0, 8);
+    if (!recent.length) {
+      list.innerHTML = `<div class="bell-empty"><i class="fas fa-bell-slash text-2xl text-slate-200 mb-2 block"></i>لا توجد إشعارات</div>`;
+      return;
+    }
+    list.innerHTML = recent.map(r => {
+      const isUnread = !readIds.has(r.id);
+      const icon = r.procedure_type === 'تنبيه عاجل' ? '🚨'
+                 : r.procedure_type === 'تذكير' ? '⏰'
+                 : r.procedure_type === 'إعلان' ? '📢'
+                 : '🔔';
+      const bgColor = isUnread ? 'rgba(239,68,68,0.1)' : 'rgba(100,116,139,0.08)';
+      return `
+        <div class="bell-item ${isUnread ? 'unread' : ''}" onclick="markRead(${r.id}); openViewModal(${r.id}); closeBellDropdown();">
+          <div class="bell-item-icon" style="background:${bgColor}">${icon}</div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-bold text-slate-800 truncate">${r.title || '-'}</p>
+            <p class="text-xs text-slate-400">${formatDate(r.due_date || r.created_at)}</p>
+          </div>
+          ${isUnread ? '<span class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 mt-2"></span>' : ''}
+        </div>`;
+    }).join('');
+  }
+
+  function toggleBellDropdown() {
+    document.getElementById('bellDropdown').classList.toggle('open');
+  }
+  function closeBellDropdown() {
+    document.getElementById('bellDropdown').classList.remove('open');
+  }
+  function markRead(id) {
+    readIds.add(id);
+    localStorage.setItem('notif_read_ids', JSON.stringify([...readIds]));
+  }
+  function markAllRead() {
+    allRecords.forEach(r => readIds.add(r.id));
+    localStorage.setItem('notif_read_ids', JSON.stringify([...readIds]));
+    updateStats();
+    updateBell();
+  }
+  document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('bellWrapper');
+    if (wrapper && !wrapper.contains(e.target)) closeBellDropdown();
+  });
+
+  // ===== Apply filters =====
+  function applyFilters() {
+    const q        = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+    const type     = document.getElementById('filterType').value;
+    const status   = document.getElementById('filterStatus').value;
+    const category = document.getElementById('filterCategory').value;
+
+    filteredRecords = allRecords.filter(r => {
+      const matchQ    = !q      || (r.title||'').toLowerCase().includes(q) || (r.department||'').toLowerCase().includes(q);
+      const matchType = !type   || r.procedure_type === type;
+      const matchStat = !status || r.status === status;
+      const matchCat  = !category || getCategory(r) === category;
+      return matchQ && matchType && matchStat && matchCat;
+    });
+    filteredRecords.sort((a, b) => new Date(b.updated_at||b.created_at||0) - new Date(a.updated_at||a.created_at||0));
+
+    renderTable();
+
+    const active = q || type || status || category;
+    document.getElementById('filterCount').textContent = active ? `(${filteredRecords.length} نتيجة)` : '';
+    document.getElementById('resultCount').textContent = filteredRecords.length
+      ? `يُعرض ${filteredRecords.length} من ${allRecords.length} إشعار`
+      : '';
+  }
+
+  function clearFilters() {
+    document.getElementById('searchInput').value   = '';
+    document.getElementById('filterType').value    = '';
+    document.getElementById('filterStatus').value  = '';
+    document.getElementById('filterCategory').value = '';
+    applyFilters();
+  }
+
+  // ===== Render table =====
+  function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    if (!filteredRecords.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="7">
+          <div class="empty-state">
+            <div class="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-bell-slash text-3xl text-red-200"></i>
+            </div>
+            <h3 class="text-lg font-black text-slate-600 mb-2">لا توجد إشعارات حالياً</h3>
+            <p class="text-sm text-slate-400 mb-6">لم يتم إنشاء أي إشعار بعد أو لا توجد نتائج مطابقة</p>
+            <button onclick="openAddModal()" class="btn btn-red mx-auto">
+              <i class="fas fa-plus"></i> إنشاء إشعار جديد
+            </button>
+          </div>
+        </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filteredRecords.map(r => {
+      const isUnread = !readIds.has(r.id);
+      const category = getCategory(r);
+      const recipients = Number(r.steps_count) || 0;
+      const isSent = r.status === 'مرسل';
+      const isSch  = r.status === 'مجدول';
+      return `
+        <tr class="${isUnread ? 'unread-row' : ''} fade-in">
+          <td>
+            <div class="flex flex-col gap-0.5">
+              <div class="flex items-center gap-2">
+                ${isUnread ? '<span class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></span>' : ''}
+                <span class="font-bold text-slate-800 text-sm">${r.title || '-'}</span>
+              </div>
+              ${r.notes ? `<span class="text-xs text-slate-400">${r.notes.slice(0,80)}${r.notes.length>80?'...':''}</span>` : ''}
+            </div>
+          </td>
+          <td>${typePill(r.procedure_type)}</td>
+          <td>${categoryPill(category)}</td>
+          <td>${statusPill(r.status)}</td>
+          <td class="text-slate-500 text-sm whitespace-nowrap hide-mobile">${formatDate(r.due_date)}</td>
+          <td class="hide-mobile">
+            <span class="text-sm font-bold text-slate-700">${recipients > 0 ? recipients.toLocaleString('ar-SA') : '-'}</span>
+          </td>
+          <td>
+            <div class="flex items-center gap-1 flex-wrap">
+              <button class="btn-icon view"  title="عرض"  onclick="openViewModal(${r.id})"><i class="fas fa-eye"></i></button>
+              <button class="btn-icon edit"  title="تعديل" onclick="openEditModal(${r.id})"><i class="fas fa-edit"></i></button>
+              <button class="btn-icon send"  title="إرسال الآن" onclick="sendNow(${r.id})" ${isSent?'style="opacity:0.4;pointer-events:none"':''}><i class="fas fa-paper-plane"></i></button>
+              <button class="btn-icon pause" title="إيقاف / إلغاء جدولة" onclick="pauseRecord(${r.id})" ${!isSch?'style="opacity:0.4;pointer-events:none"':''}><i class="fas fa-pause"></i></button>
+              <button class="btn-icon del"   title="حذف" onclick="openDeleteConfirm(${r.id})"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ===== Channel toggle =====
+  function toggleChannel(btn) {
+    const ch = btn.dataset.channel;
+    if (selectedChannels.has(ch)) {
+      if (selectedChannels.size === 1) return; // at least one
+      selectedChannels.delete(ch);
+      btn.classList.remove('selected');
+    } else {
+      selectedChannels.add(ch);
+      btn.classList.add('selected');
+    }
+  }
+
+  // ===== Schedule toggle =====
+  function toggleSchedule() {
+    const isScheduled = document.getElementById('stScheduled').checked;
+    document.getElementById('scheduleRow').classList.toggle('visible', isScheduled);
+  }
+
+  // ===== Open Add Modal =====
+  function openAddModal() {
+    editingId = null;
+    selectedChannels = new Set(['in-app']);
+    document.getElementById('modalTitle').textContent = 'إنشاء إشعار جديد';
+    document.getElementById('saveBtnLabel').textContent = 'حفظ وإرسال';
+    document.getElementById('fTitle').value    = '';
+    document.getElementById('fBody').value     = '';
+    document.getElementById('fType').value     = 'تنبيه';
+    document.getElementById('fCategory').value = 'الجميع';
+    document.getElementById('fPriority').value = 'متوسط';
+    document.getElementById('fRecipients').value = '';
+    document.getElementById('fNotes').value    = '';
+    document.getElementById('fSendDate').value = '';
+    document.getElementById('fSendTime').value = '';
+    document.getElementById('stImmediate').checked = true;
+    document.getElementById('scheduleRow').classList.remove('visible');
+
+    // Reset channel btns
+    document.querySelectorAll('.channel-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.channel === 'in-app');
+    });
+
+    document.getElementById('addEditModal').classList.add('active');
+  }
+
+  // ===== Open Edit Modal =====
+  function openEditModal(id) {
+    const r = allRecords.find(x => x.id === id);
+    if (!r) return;
+    editingId = id;
+
+    document.getElementById('modalTitle').textContent = 'تعديل الإشعار';
+    document.getElementById('saveBtnLabel').textContent = 'حفظ التعديلات';
+    document.getElementById('fTitle').value    = r.title || '';
+    document.getElementById('fBody').value     = r.notes || '';
+    document.getElementById('fType').value     = r.procedure_type || 'تنبيه';
+    document.getElementById('fCategory').value = CATEGORIES.includes(r.department) ? r.department : 'الجميع';
+    document.getElementById('fPriority').value = r.priority || 'متوسط';
+    document.getElementById('fRecipients').value = r.steps_count || '';
+    document.getElementById('fNotes').value    = r.keywords || '';
+    document.getElementById('fSendDate').value = r.due_date ? r.due_date.slice(0,10) : '';
+    document.getElementById('fSendTime').value = '';
+
+    // Channels from owner field
+    const ownerVal = r.owner || 'in-app';
+    selectedChannels = new Set(ownerVal.split(',').map(s => s.trim()).filter(Boolean));
+    document.querySelectorAll('.channel-btn').forEach(b => {
+      b.classList.toggle('selected', selectedChannels.has(b.dataset.channel));
+    });
+
+    const isScheduled = r.status === 'مجدول';
+    document.getElementById('stImmediate').checked = !isScheduled;
+    document.getElementById('stScheduled').checked = isScheduled;
+    document.getElementById('scheduleRow').classList.toggle('visible', isScheduled);
+
+    document.getElementById('addEditModal').classList.add('active');
+  }
+
+  function closeAddEditModal() {
+    document.getElementById('addEditModal').classList.remove('active');
+    editingId = null;
+  }
+
+  // ===== Save record =====
+  async function saveRecord() {
+    const title = document.getElementById('fTitle').value.trim();
+    const body  = document.getElementById('fBody').value.trim();
+    if (!title) { showToast('يرجى إدخال عنوان الإشعار', 'error'); document.getElementById('fTitle').focus(); return; }
+    if (!body)  { showToast('يرجى إدخال نص الإشعار', 'error'); document.getElementById('fBody').focus(); return; }
+
+    const isScheduled = document.getElementById('stScheduled').checked;
+    const sendDate    = document.getElementById('fSendDate').value;
+    const status      = isScheduled ? 'مجدول' : 'مرسل';
+
+    const payload = {
+      title,
+      notes:          body,
+      procedure_type: document.getElementById('fType').value,
+      department:     document.getElementById('fCategory').value,
+      priority:       document.getElementById('fPriority').value,
+      steps_count:    parseInt(document.getElementById('fRecipients').value) || null,
+      owner:          [...selectedChannels].join(','),
+      keywords:       document.getElementById('fNotes').value.trim(),
+      status,
+      due_date:       sendDate || new Date().toISOString().slice(0,10),
+      issue_date:     new Date().toISOString().slice(0,10)
+    };
+
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الحفظ...';
+
+    try {
+      let res;
+      if (editingId) {
+        res = await fetch(`/api/hr/modules/${MODULE_KEY}/records/${editingId}`, {
+          method: 'PUT', headers: buildHeaders(), body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch(`/api/hr/modules/${MODULE_KEY}/records`, {
+          method: 'POST', headers: buildHeaders(), body: JSON.stringify(payload)
+        });
+      }
+      if (!res.ok) throw new Error('فشل الحفظ');
+      closeAddEditModal();
+      await loadRecords();
+      showToast(editingId ? 'تم تعديل الإشعار بنجاح ✓' : 'تم إنشاء الإشعار وإرساله بنجاح ✓', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('حدث خطأ أثناء الحفظ', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fas fa-save"></i> <span id="saveBtnLabel">${editingId ? 'حفظ التعديلات' : 'حفظ وإرسال'}</span>`;
+    }
+  }
+
+  // ===== Open View Modal =====
+  function openViewModal(id) {
+    const r = allRecords.find(x => x.id === id);
+    if (!r) return;
+    viewingId = id;
+    markRead(id);
+    updateBell();
+    updateStats();
+
+    document.getElementById('vTitle').textContent    = r.title || '-';
+    document.getElementById('vCategory').textContent = getCategory(r);
+    document.getElementById('vDate').textContent     = formatDate(r.due_date);
+    document.getElementById('vRecipients').textContent = Number(r.steps_count) > 0 ? Number(r.steps_count).toLocaleString('ar-SA') + ' مستلم' : '-';
+    document.getElementById('vChannel').textContent  = (r.owner||'in-app').split(',').map(c => {
+      const map = {'in-app':'📱 داخل النظام','email':'📧 البريد','whatsapp':'💬 واتساب'};
+      return map[c.trim()] || c;
+    }).join(' • ');
+
+    // Pills
+    const tp = document.getElementById('vTypePill');
+    tp.textContent = r.procedure_type || '-';
+    const typeMap = {'تنبيه':'pill-type-alert','تذكير':'pill-type-remind','إعلان':'pill-type-announce','تنبيه عاجل':'pill-type-alert'};
+    tp.className = 'pill ' + (typeMap[r.procedure_type] || 'pill-type-sys');
+
+    const sp = document.getElementById('vStatusPill');
+    sp.textContent = r.status || '-';
+    const statusMap = {'مرسل':'pill-sent','مجدول':'pill-scheduled','فشل':'pill-failed','قيد الإرسال':'pill-pending'};
+    sp.className = 'pill ' + (statusMap[r.status] || 'pill-pending');
+
+    const pp = document.getElementById('vPriorityPill');
+    pp.textContent = r.priority || '-';
+    const prioMap = {'عالي':'pill-high','متوسط':'pill-mid','منخفض':'pill-low'};
+    pp.className = 'pill ' + (prioMap[r.priority] || 'pill-mid');
+
+    // Body
+    document.getElementById('vBody').textContent = r.notes || '-';
+
+    // Notes
+    const notesWrap = document.getElementById('vNotesWrap');
+    if (r.keywords) {
+      document.getElementById('vNotes').textContent = r.keywords;
+      notesWrap.classList.remove('hidden');
+    } else {
+      notesWrap.classList.add('hidden');
+    }
+
+    // Log
+    const logStatus = r.status === 'مرسل' ? 'تم الإرسال بنجاح' : r.status === 'فشل' ? 'فشل الإرسال' : r.status === 'مجدول' ? 'مجدول للإرسال' : 'قيد الإرسال';
+    const logDotCls = r.status === 'مرسل' ? 'log-dot-success' : r.status === 'فشل' ? 'log-dot-failed' : 'log-dot-pending';
+    document.getElementById('vLog').innerHTML = `
+      <div class="log-item">
+        <div class="log-dot ${logDotCls} mt-1"></div>
+        <div>
+          <p class="text-sm font-bold text-slate-700">${logStatus}</p>
+          <p class="text-xs text-slate-400">${formatDate(r.due_date || r.created_at)}</p>
+        </div>
+      </div>`;
+
+    // Toggle buttons
+    const isSent = r.status === 'مرسل';
+    const isSch  = r.status === 'مجدول';
+    document.getElementById('vSendBtn').style.opacity  = isSent ? '0.4' : '1';
+    document.getElementById('vSendBtn').style.pointerEvents = isSent ? 'none' : '';
+    document.getElementById('vPauseBtn').style.opacity = isSch ? '1' : '0.4';
+    document.getElementById('vPauseBtn').style.pointerEvents = isSch ? '' : 'none';
+
+    document.getElementById('viewModal').classList.add('active');
+    applyFilters(); // refresh table to remove unread dot
+  }
+
+  function closeViewModal() {
+    document.getElementById('viewModal').classList.remove('active');
+    viewingId = null;
+  }
+
+  function editFromView() {
+    const id = viewingId;
+    closeViewModal();
+    if (id !== null) openEditModal(id);
+  }
+
+  async function sendNowFromView() {
+    if (viewingId !== null) { await sendNow(viewingId); closeViewModal(); }
+  }
+  async function pauseFromView() {
+    if (viewingId !== null) { await pauseRecord(viewingId); closeViewModal(); }
+  }
+  function deleteFromView() {
+    const id = viewingId;
+    closeViewModal();
+    if (id !== null) openDeleteConfirm(id);
+  }
+
+  // ===== Send Now =====
+  async function sendNow(id) {
+    const r = allRecords.find(x => x.id === id);
+    if (!r) return;
+    try {
+      await fetch(`/api/hr/modules/${MODULE_KEY}/records/${id}`, {
+        method: 'PUT', headers: buildHeaders(),
+        body: JSON.stringify({ title: r.title, status: 'مرسل', due_date: new Date().toISOString().slice(0,10) })
+      });
+      r.status = 'مرسل';
+      r.due_date = new Date().toISOString().slice(0,10);
+      readIds.add(id);
+      localStorage.setItem('notif_read_ids', JSON.stringify([...readIds]));
+      applyFilters(); updateStats(); updateBell();
+      showToast('تم إرسال الإشعار بنجاح ✓', 'success');
+    } catch (e) { showToast('حدث خطأ أثناء الإرسال', 'error'); }
+  }
+
+  // ===== Pause / Cancel schedule =====
+  async function pauseRecord(id) {
+    const r = allRecords.find(x => x.id === id);
+    if (!r) return;
+    try {
+      await fetch(`/api/hr/modules/${MODULE_KEY}/records/${id}`, {
+        method: 'PUT', headers: buildHeaders(),
+        body: JSON.stringify({ title: r.title, status: 'قيد الإرسال' })
+      });
+      r.status = 'قيد الإرسال';
+      applyFilters(); updateStats(); updateBell();
+      showToast('تم إلغاء جدولة الإشعار', 'success');
+    } catch (e) { showToast('حدث خطأ', 'error'); }
+  }
+
+  // ===== Delete =====
+  function openDeleteConfirm(id) {
+    const r = allRecords.find(x => x.id === id);
+    deletingId = id;
+    document.getElementById('deleteRecordName').textContent = r ? r.title : '';
+    document.getElementById('confirmModal').classList.add('active');
+  }
+
+  function closeConfirmModal() {
+    document.getElementById('confirmModal').classList.remove('active');
+    deletingId = null;
+  }
+
+  async function confirmDelete() {
+    if (!deletingId) return;
+    try {
+      const res = await fetch(`/api/hr/modules/${MODULE_KEY}/records/${deletingId}`, {
+        method: 'DELETE', headers: buildHeaders()
+      });
+      if (!res.ok) throw new Error('Delete failed');
+      readIds.delete(deletingId);
+      localStorage.setItem('notif_read_ids', JSON.stringify([...readIds]));
+      closeConfirmModal();
+      await loadRecords();
+      showToast('تم حذف الإشعار بنجاح', 'success');
+    } catch (e) { showToast('حدث خطأ أثناء الحذف', 'error'); }
+  }
+
+  // ===== Toast =====
+  function showToast(message, type = 'success') {
+    const existing = document.getElementById('toastEl');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.id = 'toastEl';
+    toast.style.cssText = `
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      z-index: 9999; padding: 14px 24px; border-radius: 14px;
+      font-family: 'Cairo', sans-serif; font-weight: 700; font-size: 14px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 32px -8px rgba(15,23,42,0.35);
+      animation: fadeIn 0.3s ease;
+      ${type === 'success' ? 'background:#0f172a;color:#fff;' : 'background:#ef4444;color:#fff;'}
+    `;
+    toast.innerHTML = `<i class="fas ${type==='success'?'fa-check-circle':'fa-exclamation-circle'}"></i> ${message}`;
+    document.body.appendChild(toast);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3500);
+  }
+
+  // ===== Modal overlay click to close =====
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('active');
+    });
+  });
+
+  // ===== ESC key =====
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+    }
+  });
+
+  // ===== Real-time polling (every 30s) =====
+  setInterval(async () => {
+    try {
+      const res = await fetch(`/api/hr/modules/${MODULE_KEY}/records`, { headers: buildHeaders() });
+      if (!res.ok) return;
+      const fresh = await res.json();
+      if (!Array.isArray(fresh)) return;
+      const prevCount = allRecords.length;
+      allRecords = fresh;
+      if (fresh.length > prevCount) {
+        applyFilters(); updateStats(); updateBell();
+      }
+    } catch (e) { /* silent */ }
+  }, 30000);
+
+  // ===== Bootstrap =====
+  loadRecords();
+</script>
+</body>
+</html>

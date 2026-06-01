@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 تقارير الوضع المالي والذكاء الاصطناعي - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb; /* Slate-50 */
+            min-height: 100vh;
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
+            backdrop-filter: blur(10px);
+        }
+        .stat-card { transition: transform 0.3s, box-shadow 0.3s; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 14px 28px rgba(15,23,42,0.15); }
+        .shape-pill { border-radius: 999px; }
+        .shape-angle { border-radius: 28px 8px 28px 8px; }
+        .shape-wave { border-radius: 28px 28px 6px 28px; }
+        .shape-arc { border-radius: 18px 40px 18px 40px; }
+        .chart-container { position: relative; height: 280px; }
+        .table-scroll { max-height: 520px; overflow: auto; }
+        .section-accent-sky { border-top: 4px solid #0ea5e9; }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .section-accent-amber { border-top: 4px solid #f59e0b; }
+        .section-accent-indigo { border-top: 4px solid #6366f1; }
+        .section-accent-rose { border-top: 4px solid #f43f5e; }
+        .badge { padding: 6px 12px; border-radius: 999px; font-weight: 700; }
+        details > summary { cursor: pointer; }
+        .action-btn { padding: 6px 10px; border-radius: 10px; font-weight: 700; }
+        .action-btn.view { background: #e0f2fe; color: #0ea5e9; }
+        .action-btn.edit { background: #ecfeff; color: #0d9488; }
+        .action-btn.delete { background: #fef2f2; color: #dc2626; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 16px; }
+        .modal-card { background: #fff; width: min(960px, 96vw); max-height: 90vh; border-radius: 18px; box-shadow: 0 20px 80px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; }
+        .modal-header { padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .modal-body { padding: 16px 20px; overflow-y: auto; }
+        .modal-footer { padding: 12px 20px 16px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-input { width: 100%; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+        .modal-label { font-weight: 700; color: #0f172a; font-size: 13px; }
+        .add-btn { background: #0ea5e9; color: #fff; padding: 6px 10px; border-radius: 10px; font-weight: 700; font-size: 12px; }
+        .add-btn:hover { background: #0284c7; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">📊 تقارير الوضع المالي والذكاء الاصطناعي</h1>
+            <p class="text-lg opacity-90">صحة الإمبراطورية في لحظة واحدة + دمج الذكاء الاصطناعي + نموذج القيد الموحد (الصفحة 31)</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-emerald-500 group">
+                <i class="fas fa-rotate text-xl text-emerald-600 group-hover:text-emerald-700 transition"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="downloadJSON()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-indigo-500 group">
+                <i class="fas fa-file-code text-xl text-indigo-600 group-hover:text-indigo-700 transition"></i>
+                تنزيل ملف بيانات
+            </button>
+            <button onclick="downloadCSV()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-blue-500 group">
+                <i class="fas fa-file-csv text-xl text-blue-600 group-hover:text-blue-700 transition"></i>
+                تنزيل ملف جدولي
+            </button>
+            <button onclick="printReport()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print text-xl text-gray-600 group-hover:text-gray-700 transition"></i>
+                طباعة
+            </button>
+        </div>
+
+        <div class="card-gradient rounded-xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-bold text-slate-800">🚀 لوحة الإضافة السريعة</h2>
+                <span class="text-sm text-slate-500">إدخال بيانات تحفظ مباشرة في قاعدة البيانات</span>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <form id="riskQuickForm" class="bg-white rounded-2xl p-4 shadow" onsubmit="submitRiskQuick(event)">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-bold text-slate-800">تقييم مخاطر</h3>
+                        <span class="text-xs text-slate-500" id="riskEntityLabel"></span>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <label class="block">العميل</label>
+                        <select id="riskCustomer" class="w-full border rounded-lg px-3 py-2 text-sm"></select>
+                        <label class="block">درجة المخاطر</label>
+                        <input id="riskScoreInput" type="number" step="0.1" class="w-full border rounded-lg px-3 py-2" placeholder="مثال: 78" required>
+                        <label class="block">مستوى المخاطر</label>
+                        <select id="riskLevelInput" class="w-full border rounded-lg px-3 py-2">
+                            <option value="HIGH">مرتفع</option>
+                            <option value="MEDIUM">متوسط</option>
+                            <option value="LOW">منخفض</option>
+                        </select>
+                        <label class="block">تاريخ التقييم</label>
+                        <input id="riskDateInput" type="date" class="w-full border rounded-lg px-3 py-2">
+                        <label class="block">توصيات مختصرة</label>
+                        <input id="riskNoteInput" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="تنبيه أو توصية" />
+                    </div>
+                    <button type="submit" class="mt-3 w-full bg-emerald-600 text-white rounded-lg py-2 font-bold hover:bg-emerald-700">حفظ التقييم</button>
+                </form>
+
+                <form id="operatingQuickForm" class="bg-white rounded-2xl p-4 shadow" onsubmit="submitOperatingQuick(event)">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-bold text-slate-800">تدفق تشغيلي</h3>
+                        <span class="text-xs text-slate-500" id="operatingEntityLabel"></span>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <label class="block">نوع التدفق</label>
+                        <select id="operatingType" class="w-full border rounded-lg px-3 py-2">
+                            <option value="customer_collection">تحصيل عملاء</option>
+                            <option value="salary_payment">رواتب</option>
+                            <option value="rent_payment">إيجار</option>
+                            <option value="utilities_payment">مرافق</option>
+                            <option value="vendor_payment">مدفوعات موردين</option>
+                        </select>
+                        <label class="block">المبلغ</label>
+                        <input id="operatingAmount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="مثال: 25000" required>
+                        <label class="block">الاتجاه</label>
+                        <select id="operatingDirection" class="w-full border rounded-lg px-3 py-2">
+                            <option value="IN">تدفق داخل</option>
+                            <option value="OUT">تدفق خارج</option>
+                        </select>
+                        <label class="block">تاريخ التدفق</label>
+                        <input id="operatingDate" type="date" class="w-full border rounded-lg px-3 py-2">
+                        <label class="block">الوصف</label>
+                        <input id="operatingDesc" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="تفاصيل مختصرة" />
+                    </div>
+                    <button type="submit" class="mt-3 w-full bg-indigo-600 text-white rounded-lg py-2 font-bold hover:bg-indigo-700">تسجيل التدفق</button>
+                </form>
+
+                <form id="agingQuickForm" class="bg-white rounded-2xl p-4 shadow" onsubmit="submitAgingQuick(event)">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-bold text-slate-800">فاتورة ذمم</h3>
+                        <span class="text-xs text-slate-500" id="agingEntityLabel"></span>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <label class="block">العميل</label>
+                        <select id="agingCustomer" class="w-full border rounded-lg px-3 py-2"></select>
+                        <label class="block">إجمالي الفاتورة</label>
+                        <input id="agingTotal" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="مثال: 85000" required>
+                        <label class="block">المبلغ المدفوع</label>
+                        <input id="agingPaid" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="مثال: 15000" value="0">
+                        <label class="block">تاريخ الفاتورة</label>
+                        <input id="agingInvoiceDate" type="date" class="w-full border rounded-lg px-3 py-2">
+                        <label class="block">تاريخ الاستحقاق</label>
+                        <input id="agingDueDate" type="date" class="w-full border rounded-lg px-3 py-2">
+                    </div>
+                    <button type="submit" class="mt-3 w-full bg-amber-600 text-white rounded-lg py-2 font-bold hover:bg-amber-700">حفظ الفاتورة</button>
+                </form>
+            </div>
+            <div id="quickStatus" class="text-sm text-slate-600 mt-3"></div>
+        </div>
+
+        <!-- تقارير الوضع المالي -->
+        <div class="card-gradient rounded-xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">📌 تقارير الوضع المالي</h2>
+                <span class="text-sm text-slate-500">صحة الإمبراطورية لحظيًا</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-6">
+                <div class="stat-card shape-pill bg-gradient-to-br from-sky-500 to-blue-600 text-white p-5">
+                    <div class="flex justify-between mb-3"><span>إجمالي الأصول</span><i class="fas fa-building-columns text-2xl opacity-70"></i></div>
+                    <div id="totalAssets" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-angle bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5">
+                    <div class="flex justify-between mb-3"><span>إجمالي الالتزامات</span><i class="fas fa-scale-balanced text-2xl opacity-70"></i></div>
+                    <div id="totalLiabilities" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-wave bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5">
+                    <div class="flex justify-between mb-3"><span>حقوق الملكية</span><i class="fas fa-hand-holding-heart text-2xl opacity-70"></i></div>
+                    <div id="totalEquity" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-arc bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-5">
+                    <div class="flex justify-between mb-3"><span>توازن الميزانية</span><i class="fas fa-balance-scale text-2xl opacity-70"></i></div>
+                    <div id="balanceStatus" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-pill bg-gradient-to-br from-rose-500 to-red-600 text-white p-5">
+                    <div class="flex justify-between mb-3"><span>نسبة المخاطر العامة</span><i class="fas fa-shield-alt text-2xl opacity-70"></i></div>
+                    <div id="overallRisk" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-emerald">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">📈 الأداء المالي</h3>
+                    <div id="performanceCards" class="space-y-3 text-sm text-slate-700"></div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">📊 أعمار الذمم</h3>
+                    <div class="chart-container"><canvas id="agingChart"></canvas></div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-indigo">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">💧 التدفقات النقدية اللحظية</h3>
+                    <div id="cashflowSnapshot" class="space-y-3 text-sm text-slate-700"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- تقارير المخاطر -->
+        <div class="card-gradient rounded-xl shadow-2xl p-6 mb-8 section-accent-rose">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">⚠️ تقرير المخاطر المالية</h2>
+                <span class="text-sm text-slate-500">العملاء والفروع والبرامج عالية المخاطر</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+                <div class="stat-card shape-pill bg-white text-slate-800 p-5 shadow-lg">
+                    <div class="flex justify-between mb-3"><span>عملاء عالي المخاطر</span><i class="fas fa-user-shield text-rose-600"></i></div>
+                    <div id="highRiskCustomers" class="text-2xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-angle bg-white text-slate-800 p-5 shadow-lg">
+                    <div class="flex justify-between mb-3"><span>فروع عالية المخاطر</span><i class="fas fa-building text-amber-600"></i></div>
+                    <div id="highRiskBranches" class="text-2xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-wave bg-white text-slate-800 p-5 shadow-lg">
+                    <div class="flex justify-between mb-3"><span>برامج عالية المخاطر</span><i class="fas fa-layer-group text-indigo-600"></i></div>
+                    <div id="highRiskPrograms" class="text-2xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-arc bg-white text-slate-800 p-5 shadow-lg">
+                    <div class="flex justify-between mb-3"><span>تنبيه التعثر</span><i class="fas fa-triangle-exclamation text-rose-600"></i></div>
+                    <div id="defaultAlert" class="text-2xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">📊 توزيع مستويات المخاطر</h3>
+                    <div class="chart-container"><canvas id="riskChart"></canvas></div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-indigo">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">🤖 توصيات الذكاء الاصطناعي</h3>
+                    <div id="riskInsights" class="space-y-3 text-sm text-slate-700"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- دمج الذكاء الاصطناعي -->
+        <div class="card-gradient rounded-xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🤖 دمج الذكاء الاصطناعي في النظام المحاسبي</h2>
+                <span class="text-sm text-slate-500">توقع الإيرادات والمصروفات والتعثر</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="aiIntegration"></div>
+        </div>
+
+        <!-- نموذج القيد الموحد -->
+        <div class="card-gradient rounded-xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">📚 نموذج القيد المحاسبي الموحد</h2>
+                <span class="text-sm text-slate-500">كل عملية تُسجل وفق نموذج موحد</span>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">🧾 القيود المحاسبية</h3>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead id="entriesHead" class="bg-amber-50 text-amber-700"></thead>
+                            <tbody id="entriesTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                    <div id="entriesCount" class="text-sm text-slate-500 mt-2"></div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-rose">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">🧾 سطور القيود</h3>
+                    <div class="table-scroll">
+                        <table class="w-full text-xs">
+                            <thead id="linesHead" class="bg-rose-50 text-rose-700"></thead>
+                            <tbody id="linesTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                    <div id="linesCount" class="text-sm text-slate-500 mt-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- جداول التقارير -->
+        <div class="space-y-6">
+            <details class="card-gradient rounded-xl shadow-2xl p-6 section-accent-sky" open>
+                <summary class="text-xl font-bold text-slate-800">📊 تقارير الوضع المالي التفصيلية</summary>
+                <div class="mt-4 space-y-6">
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">الميزانية الموحدة</h4><span id="sheetCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="sheetHead" class="bg-sky-50 text-sky-700"></thead><tbody id="sheetTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <h4 class="font-bold text-slate-700">الأصول</h4>
+                            <div class="flex items-center gap-2">
+                                <span id="assetsCount" class="text-sm text-slate-500"></span>
+                                <button class="add-btn" onclick="openAddModal('assetsTable')">➕ إضافة</button>
+                            </div>
+                        </div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="assetsHead" class="bg-emerald-50 text-emerald-700"></thead><tbody id="assetsTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <h4 class="font-bold text-slate-700">الالتزامات</h4>
+                            <div class="flex items-center gap-2">
+                                <span id="liabilitiesCount" class="text-sm text-slate-500"></span>
+                                <button class="add-btn" onclick="openAddModal('liabilitiesTable')">➕ إضافة</button>
+                            </div>
+                        </div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="liabilitiesHead" class="bg-amber-50 text-amber-700"></thead><tbody id="liabilitiesTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <h4 class="font-bold text-slate-700">حقوق الملكية</h4>
+                            <div class="flex items-center gap-2">
+                                <span id="equityCount" class="text-sm text-slate-500"></span>
+                                <button class="add-btn" onclick="openAddModal('equityTable')">➕ إضافة</button>
+                            </div>
+                        </div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="equityHead" class="bg-indigo-50 text-indigo-700"></thead><tbody id="equityTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-xl shadow-2xl p-6 section-accent-emerald">
+                <summary class="text-xl font-bold text-slate-800">📈 تقرير الأداء المالي</summary>
+                <div class="mt-4 space-y-6">
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">الإيرادات</h4><span id="incomeRevenueCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="incomeRevenueHead" class="bg-emerald-50 text-emerald-700"></thead><tbody id="incomeRevenueTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">المصروفات</h4><span id="incomeExpenseCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="incomeExpenseHead" class="bg-rose-50 text-rose-700"></thead><tbody id="incomeExpenseTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-xl shadow-2xl p-6 section-accent-amber">
+                <summary class="text-xl font-bold text-slate-800">📋 تقرير أعمار الذمم</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2">
+                        <h4 class="font-bold text-slate-700">تفاصيل الذمم</h4>
+                        <div class="flex items-center gap-2">
+                            <span id="agingCount" class="text-sm text-slate-500"></span>
+                            <button class="add-btn" onclick="openAddModal('agingTable')">➕ إضافة</button>
+                        </div>
+                    </div>
+                    <div class="table-scroll"><table class="w-full text-xs"><thead id="agingHead" class="bg-amber-50 text-amber-700"></thead><tbody id="agingTable" class="divide-y divide-slate-100"></tbody></table></div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-xl shadow-2xl p-6 section-accent-indigo">
+                <summary class="text-xl font-bold text-slate-800">💧 تقرير التدفقات النقدية اللحظي</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2">
+                        <h4 class="font-bold text-slate-700">التدفقات التشغيلية</h4>
+                        <div class="flex items-center gap-2">
+                            <span id="operatingCount" class="text-sm text-slate-500"></span>
+                            <button class="add-btn" onclick="openAddModal('operatingTable')">➕ إضافة</button>
+                        </div>
+                    </div>
+                    <div class="table-scroll"><table class="w-full text-xs"><thead id="operatingHead" class="bg-sky-50 text-sky-700"></thead><tbody id="operatingTable" class="divide-y divide-slate-100"></tbody></table></div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-xl shadow-2xl p-6 section-accent-rose">
+                <summary class="text-xl font-bold text-slate-800">🛡️ تقرير المخاطر المالية التفصيلي</summary>
+                <div class="mt-4">
+                    <div class="flex justify-between mb-2">
+                        <h4 class="font-bold text-slate-700">تقييمات المخاطر</h4>
+                        <div class="flex items-center gap-2">
+                            <span id="riskCount" class="text-sm text-slate-500"></span>
+                            <button class="add-btn" onclick="openAddModal('riskTable')">➕ إضافة</button>
+                        </div>
+                    </div>
+                    <div class="table-scroll"><table class="w-full text-xs"><thead id="riskHead" class="bg-rose-50 text-rose-700"></thead><tbody id="riskTable" class="divide-y divide-slate-100"></tbody></table></div>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <div id="modalOverlay" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modalTitle" class="text-lg font-bold text-slate-900">لوحة</h3>
+                <button id="modalClose" class="text-slate-500 hover:text-slate-800 text-xl">✕</button>
+            </div>
+            <div id="modalBody" class="modal-body text-sm text-slate-800"></div>
+            <div class="modal-footer">
+                <button id="modalCancel" class="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold hover:bg-slate-200">إلغاء</button>
+                <button id="modalConfirm" class="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const SECONDARY_ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const FALLBACK_ENTITY_ID = '1';
+        const FALLBACK_SECONDARY_ENTITY_ID = '1';
+        let activePrimaryEntity = ENTITY_ID;
+        let activeSecondaryEntity = SECONDARY_ENTITY_ID;
+
+        const store = {
+            sheet: null,
+            sheetTotals: null,
+            assets: [],
+            liabilities: [],
+            equity: [],
+            incomeRevenue: [],
+            incomeExpenses: [],
+            arAging: [],
+            cashflowOverview: null,
+            cashflowOperating: [],
+            forecasts: [],
+            riskScores: [],
+            invoices: [],
+            payments: [],
+            entries: [],
+            lines: []
+        };
+
+        const tableDataCache = {};
+        const ACTION_CONFIG = {
+            assetsTable: { actions: ['view', 'edit', 'delete'] },
+            liabilitiesTable: { actions: ['view', 'edit', 'delete'] },
+            equityTable: { actions: ['view', 'edit', 'delete'] },
+            agingTable: { actions: ['view', 'edit', 'delete'] },
+            operatingTable: { actions: ['view', 'edit', 'delete'] },
+            riskTable: { actions: ['view', 'edit', 'delete'] },
+            entriesTable: { actions: ['view', 'delete'] },
+            linesTable: { actions: ['view', 'delete'] },
+            sheetTable: { actions: ['view'] },
+            incomeRevenueTable: { actions: ['view'] },
+            incomeExpenseTable: { actions: ['view'] }
+        };
+
+        const ADD_CONFIG = {
+            assetsTable: {
+                title: 'إضافة أصل جديد',
+                fields: [
+                    { key: 'asset_name', value: 'أصل جديد' },
+                    { key: 'asset_category', value: 'current' },
+                    { key: 'asset_type', value: 'equipment' },
+                    { key: 'amount', value: 50000 },
+                    { key: 'description', value: 'إضافة من الواجهة' }
+                ]
+            },
+            liabilitiesTable: {
+                title: 'إضافة التزام جديد',
+                fields: [
+                    { key: 'liability_name', value: 'التزام جديد' },
+                    { key: 'liability_category', value: 'current' },
+                    { key: 'liability_type', value: 'loan' },
+                    { key: 'amount', value: 30000 },
+                    { key: 'description', value: 'إضافة من الواجهة' }
+                ]
+            },
+            equityTable: {
+                title: 'إضافة بند حقوق ملكية',
+                fields: [
+                    { key: 'equity_name', value: 'بند حقوق ملكية' },
+                    { key: 'equity_type', value: 'capital' },
+                    { key: 'amount', value: 40000 },
+                    { key: 'description', value: 'إضافة من الواجهة' }
+                ]
+            },
+            operatingTable: {
+                title: 'إضافة تدفق تشغيلي',
+                fields: [
+                    { key: 'flow_type', value: 'customer_collection' },
+                    { key: 'amount', value: 15000 },
+                    { key: 'flow_direction', value: 'IN' },
+                    { key: 'flow_date', value: new Date().toISOString().slice(0, 10) },
+                    { key: 'description', value: 'تدفق جديد' }
+                ]
+            },
+            agingTable: {
+                title: 'إضافة فاتورة ذمم',
+                fields: [
+                    { key: 'customer_id', value: 1 },
+                    { key: 'total_amount', value: 20000 },
+                    { key: 'paid_amount', value: 0 },
+                    { key: 'invoice_date', value: new Date().toISOString().slice(0, 10) },
+                    { key: 'due_date', value: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10) }
+                ]
+            },
+            riskTable: {
+                title: 'إضافة تقييم مخاطر',
+                fields: [
+                    { key: 'customer_id', value: 1 },
+                    { key: 'assessment_date', value: new Date().toISOString().slice(0, 10) },
+                    { key: 'risk_score', value: 75 },
+                    { key: 'risk_level', value: 'MEDIUM' },
+                    { key: 'recommendations', value: 'تقييم سريع من الواجهة' }
+                ]
+            }
+        };
+
+        let agingChartInstance = null;
+        let riskChartInstance = null;
+        let cashflowChartInstance = null;
+
+        const modalState = {
+            overlay: null,
+            title: null,
+            body: null,
+            confirmBtn: null,
+            cancelBtn: null,
+            closeBtn: null,
+            onConfirm: null,
+            confirmVisible: true
+        };
+
+        function getFinanceHeaders() {
+            const external = window.getFinanceHeaders;
+            if (typeof external === 'function' && external !== getFinanceHeaders) {
+                return external();
+            }
+            return { 'x-entity-id': activePrimaryEntity, 'x-entity-type': 'HQ' };
+        }
+
+        async function fetchJson(url, options = {}) {
+            try {
+                const headers = { ...(options.headers || {}), ...getFinanceHeaders() };
+                const res = await fetch(url, { ...options, headers });
+                const text = await res.text();
+                let data = {};
+                try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+                return { ok: res.ok, status: res.status, data };
+            } catch (error) {
+                return { ok: false, status: 0, data: {}, error };
+            }
+        }
+
+        function hasRows(payload) {
+            if (!payload || typeof payload !== 'object') return false;
+            const buckets = [
+                payload.rows,
+                payload.assets,
+                payload.liabilities,
+                payload.equity,
+                payload.revenue_accounts,
+                payload.expense_accounts,
+                payload.cashflows,
+                payload.forecasts,
+                payload.invoices,
+                payload.payments,
+                payload.entries,
+                payload.lines
+            ];
+            return buckets.some(arr => Array.isArray(arr) && arr.length > 0);
+        }
+
+        async function fetchWithFallback(primaryUrl, fallbackUrl, { secondary = false } = {}) {
+            const primary = await fetchJson(primaryUrl);
+            if (primary.ok && hasRows(primary.data)) return { ...primary, usedFallback: false };
+            if (!fallbackUrl) return { ...primary, usedFallback: false };
+
+            const fallback = await fetchJson(fallbackUrl);
+            if (fallback.ok && hasRows(fallback.data)) {
+                const urlToRead = fallbackUrl.startsWith('http') ? new URL(fallbackUrl) : new URL(fallbackUrl, window.location.origin);
+                const eid = urlToRead.searchParams.get('entity_id');
+                if (eid) {
+                    if (secondary) {
+                        activeSecondaryEntity = eid;
+                    } else {
+                        activePrimaryEntity = eid;
+                    }
+                }
+                return { ...fallback, usedFallback: true };
+            }
+            return { ...primary, usedFallback: false };
+        }
+
+        function initModal() {
+            modalState.overlay = document.getElementById('modalOverlay');
+            modalState.title = document.getElementById('modalTitle');
+            modalState.body = document.getElementById('modalBody');
+            modalState.confirmBtn = document.getElementById('modalConfirm');
+            modalState.cancelBtn = document.getElementById('modalCancel');
+            modalState.closeBtn = document.getElementById('modalClose');
+
+            const closeFn = () => closeModal();
+            modalState.cancelBtn.addEventListener('click', closeFn);
+            modalState.closeBtn.addEventListener('click', closeFn);
+            modalState.confirmBtn.addEventListener('click', () => {
+                if (typeof modalState.onConfirm === 'function') {
+                    modalState.onConfirm();
+                }
+            });
+        }
+
+        function openModal({ title, body, showConfirm = false, confirmLabel = 'تأكيد', onConfirm = null }) {
+            if (!modalState.overlay) initModal();
+            modalState.title.textContent = title || 'لوحة';
+            modalState.body.innerHTML = body || '';
+            modalState.onConfirm = onConfirm;
+            modalState.confirmBtn.style.display = showConfirm ? 'inline-flex' : 'none';
+            modalState.confirmBtn.textContent = confirmLabel;
+            modalState.overlay.style.display = 'flex';
+        }
+
+        function closeModal() {
+            if (!modalState.overlay) return;
+            modalState.overlay.style.display = 'none';
+            modalState.body.innerHTML = '';
+            modalState.onConfirm = null;
+        }
+
+        function escapeHtml(str) {
+            if (str === undefined || str === null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function openViewModal(row) {
+            const pretty = escapeHtml(JSON.stringify(row, null, 2));
+            openModal({
+                title: 'عرض السطر',
+                body: `<pre class="bg-slate-50 p-4 rounded-xl text-xs leading-6 whitespace-pre-wrap">${pretty}</pre>`,
+                showConfirm: false
+            });
+        }
+
+        function openConfirmModal(message, onConfirm) {
+            openModal({
+                title: 'تأكيد العملية',
+                body: `<div class="text-slate-800 text-sm">${escapeHtml(message || 'تأكيد؟')}</div>`,
+                showConfirm: true,
+                confirmLabel: 'تأكيد',
+                onConfirm: () => { closeModal(); if (onConfirm) onConfirm(); }
+            });
+        }
+
+        function inputTemplate(key, value) {
+            const label = translateHeader(key);
+            const val = value === null || value === undefined ? '' : value;
+            return `
+                <label class="block space-y-1">
+                    <span class="modal-label">${label}</span>
+                    <input data-key="${escapeHtml(key)}" class="modal-input" value="${escapeHtml(val)}" />
+                </label>
+            `;
+        }
+
+        function openEditModal(tableId, row) {
+            const fields = Object.keys(row || {});
+            const body = fields.length ? fields.map(k => inputTemplate(k, row[k])).join('') : '<div class="text-slate-500">لا توجد حقول للتحرير</div>';
+            openModal({
+                title: 'تعديل السطر',
+                body: `<div class="space-y-3">${body}</div>`,
+                showConfirm: true,
+                confirmLabel: 'حفظ',
+                onConfirm: async () => {
+                    const updates = collectFormValues();
+                    await handleModalEdit(tableId, row, updates);
+                    closeModal();
+                }
+            });
+        }
+
+        function collectFormValues() {
+            if (!modalState.body) return {};
+            const inputs = modalState.body.querySelectorAll('[data-key]');
+            const result = {};
+            inputs.forEach(input => {
+                const key = input.getAttribute('data-key');
+                const val = input.value;
+                const num = Number(val);
+                result[key] = !Number.isNaN(num) && val !== '' ? num : val;
+            });
+            return result;
+        }
+
+        function openAddModal(tableId) {
+            const cfg = ADD_CONFIG[tableId];
+            if (!cfg) {
+                return setStatus('هذا الجدول لا يدعم الإضافة بعد', true);
+            }
+            const body = cfg.fields.map(f => inputTemplate(f.key, f.value)).join('');
+            openModal({
+                title: cfg.title || 'إضافة سطر جديد',
+                body: `<div class="space-y-3">${body}</div>`,
+                showConfirm: true,
+                confirmLabel: 'حفظ',
+                onConfirm: async () => {
+                    const values = collectFormValues();
+                    await handleModalCreate(tableId, values);
+                    closeModal();
+                }
+            });
+        }
+
+        function setContextLabels() {
+            const riskLbl = document.getElementById('riskEntityLabel');
+            const opLbl = document.getElementById('operatingEntityLabel');
+            const agingLbl = document.getElementById('agingEntityLabel');
+            if (riskLbl) riskLbl.textContent = `الكيان ${activePrimaryEntity}`;
+            if (opLbl) opLbl.textContent = `الكيان ${activePrimaryEntity}`;
+            if (agingLbl) agingLbl.textContent = `الكيان ${activeSecondaryEntity}`;
+        }
+
+        function setStatus(message, isError = false) {
+            const box = document.getElementById('quickStatus');
+            if (!box) return;
+            box.textContent = message || '';
+            box.className = `text-sm ${isError ? 'text-rose-600' : 'text-emerald-600'} mt-3`;
+        }
+
+        async function callApi(url, method, body) {
+            const res = await fetch(url, {
+                method,
+                headers: body ? { 'Content-Type': 'application/json' } : undefined,
+                body: body ? JSON.stringify(body) : undefined
+            });
+
+            let payload = null;
+            try { payload = await res.json(); } catch (err) { payload = null; }
+            if (!res.ok) {
+                throw new Error(payload?.error || 'فشل في الاتصال بالخادم');
+            }
+            return payload;
+        }
+
+        function normalizeJsonField(value) {
+            if (!value) return {};
+            if (typeof value === 'string') {
+                try { return JSON.parse(value); } catch (err) { return { raw: value }; }
+            }
+            return value;
+        }
+
+        function uniqueCustomers() {
+            const fromAging = store.arAging.map(r => ({ id: r.customer_id, name: r.customer_name_ar || r.customer_name_en || `عميل ${r.customer_id}` }));
+            const fromInvoices = store.invoices.map(r => ({ id: r.customer_id, name: r.customer_name || `عميل ${r.customer_id}` }));
+            const map = new Map();
+            [...fromAging, ...fromInvoices].forEach(c => {
+                if (!c.id) return;
+                if (!map.has(c.id)) map.set(c.id, c.name);
+            });
+            return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+        }
+
+        function populateCustomerSelects() {
+            const options = uniqueCustomers();
+            const riskSel = document.getElementById('riskCustomer');
+            const agingSel = document.getElementById('agingCustomer');
+
+            if (riskSel) {
+                riskSel.innerHTML = options.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            }
+            if (agingSel) {
+                agingSel.innerHTML = options.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            }
+        }
+
+        async function submitRiskQuick(event) {
+            event.preventDefault();
+            try {
+                const customer_id = Number(document.getElementById('riskCustomer').value || 1);
+                const risk_score = parseFloat(document.getElementById('riskScoreInput').value || 0);
+                const risk_level = document.getElementById('riskLevelInput').value || 'MEDIUM';
+                const assessment_date = document.getElementById('riskDateInput').value || new Date().toISOString().slice(0, 10);
+                const recommendations = document.getElementById('riskNoteInput').value || 'توصية سريعة من النموذج';
+
+                await callApi('/finance/ai-risk-scores', 'POST', {
+                    customer_id,
+                    assessment_date,
+                    risk_score,
+                    risk_level,
+                    risk_factors: { source: 'quick-form' },
+                    calculation_details: { method: 'manual' },
+                    recommendations,
+                    suggested_actions: [],
+                    entity_type: 'HQ',
+                    entity_id: activePrimaryEntity,
+                    model_version: 'v1.2.0'
+                });
+
+                setStatus('✅ تم حفظ تقييم المخاطر بنجاح');
+                await loadData();
+            } catch (error) {
+                setStatus(`❌ ${error.message}`, true);
+            }
+        }
+
+        async function submitOperatingQuick(event) {
+            event.preventDefault();
+            try {
+                const flow_type = document.getElementById('operatingType').value;
+                const amount = parseFloat(document.getElementById('operatingAmount').value || 0);
+                const flow_direction = document.getElementById('operatingDirection').value;
+                const flow_date = document.getElementById('operatingDate').value || new Date().toISOString().slice(0, 10);
+                const description = document.getElementById('operatingDesc').value || 'تدفق سريع';
+
+                await callApi('/finance/cashflow/operating', 'POST', {
+                    flow_type,
+                    amount,
+                    flow_direction,
+                    flow_date,
+                    description,
+                    entity_type: 'HQ',
+                    entity_id: activePrimaryEntity
+                });
+
+                setStatus('✅ تم تسجيل التدفق التشغيلي');
+                await loadData();
+            } catch (error) {
+                setStatus(`❌ ${error.message}`, true);
+            }
+        }
+
+        async function submitAgingQuick(event) {
+            event.preventDefault();
+            try {
+                const customer_id = Number(document.getElementById('agingCustomer').value || 1);
+                const total_amount = parseFloat(document.getElementById('agingTotal').value || 0);
+                const paid_amount = parseFloat(document.getElementById('agingPaid').value || 0);
+                const invoice_date = document.getElementById('agingInvoiceDate').value || new Date().toISOString().slice(0, 10);
+                const due_date = document.getElementById('agingDueDate').value || invoice_date;
+
+                await callApi('/finance/ar-aging/invoices', 'POST', {
+                    customer_id,
+                    total_amount,
+                    paid_amount,
+                    invoice_date,
+                    due_date,
+                    entity_type: 'HQ',
+                    entity_id: activeSecondaryEntity,
+                    notes: 'إضافة سريعة من الواجهة'
+                });
+
+                setStatus('✅ تم إضافة فاتورة الذمم بنجاح');
+                await loadData();
+            } catch (error) {
+                setStatus(`❌ ${error.message}`, true);
+            }
+        }
+
+        async function loadData() {
+            try {
+                const sheetRes = await fetchWithFallback(
+                    `${API_BASE}/finance/balance-sheet/complete?entity_id=${activePrimaryEntity}`,
+                    `${API_BASE}/finance/balance-sheet/complete?entity_id=${FALLBACK_ENTITY_ID}`
+                );
+
+                const agingRes = await fetchWithFallback(
+                    `${API_BASE}/finance/ar-aging?entity_id=${activeSecondaryEntity}`,
+                    `${API_BASE}/finance/ar-aging?entity_id=${FALLBACK_SECONDARY_ENTITY_ID}`,
+                    { secondary: true }
+                );
+
+                const [incomeRes, cashflowRes, operatingRes, forecastRes, riskRes, invoicesRes, paymentsRes, entriesRes, linesRes] = await Promise.all([
+                    fetchWithFallback(
+                        `${API_BASE}/finance/income-statement?entity_id=${activePrimaryEntity}`,
+                        `${API_BASE}/finance/income-statement?entity_id=${FALLBACK_ENTITY_ID}`
+                    ),
+                    fetchWithFallback(
+                        `${API_BASE}/finance/cashflow/overview?entity_id=${activePrimaryEntity}`,
+                        `${API_BASE}/finance/cashflow/overview?entity_id=${FALLBACK_ENTITY_ID}`
+                    ),
+                    fetchWithFallback(
+                        `${API_BASE}/finance/cashflow/operating?entity_id=${activePrimaryEntity}`,
+                        `${API_BASE}/finance/cashflow/operating?entity_id=${FALLBACK_ENTITY_ID}`
+                    ),
+                    fetchWithFallback(
+                        `${API_BASE}/finance/ai-forecasts?entity_id=${activePrimaryEntity}`,
+                        `${API_BASE}/finance/ai-forecasts?entity_id=${FALLBACK_ENTITY_ID}`
+                    ),
+                    fetchWithFallback(
+                        `${API_BASE}/finance/ai-risk-scores?entity_id=${activePrimaryEntity}`,
+                        `${API_BASE}/finance/ai-risk-scores?entity_id=${FALLBACK_ENTITY_ID}`
+                    ),
+                    fetchWithFallback(
+                        `${API_BASE}/finance/invoices?entity_id=${activePrimaryEntity}`,
+                        `${API_BASE}/finance/invoices?entity_id=${FALLBACK_ENTITY_ID}`
+                    ),
+                    fetchWithFallback(
+                        `${API_BASE}/finance/payments?entity_id=${activePrimaryEntity}`,
+                        `${API_BASE}/finance/payments?entity_id=${FALLBACK_ENTITY_ID}`
+                    ),
+                    fetchWithFallback(
+                        `${API_BASE}/finance/journal/entries?entity_id=${activePrimaryEntity}`,
+                        `${API_BASE}/finance/journal/entries?entity_id=${FALLBACK_ENTITY_ID}`
+                    ),
+                    fetchWithFallback(
+                        `${API_BASE}/finance/journal-lines?entity_id=${activePrimaryEntity}`,
+                        `${API_BASE}/finance/journal-lines?entity_id=${FALLBACK_ENTITY_ID}`
+                    )
+                ]);
+
+                const sheetData = sheetRes.data || {};
+                const incomeData = incomeRes.data || {};
+                const agingData = agingRes.data || {};
+                const cashflowData = cashflowRes.data || {};
+                const operatingData = operatingRes.data || {};
+                const forecastData = forecastRes.data || {};
+                const riskData = riskRes.data || {};
+                const invoicesData = invoicesRes.data || {};
+                const paymentsData = paymentsRes.data || {};
+                const entriesData = entriesRes.data || {};
+                const linesData = linesRes.data || {};
+
+                store.sheet = sheetData.sheet || null;
+                store.sheetTotals = sheetData.totals || null;
+                store.assets = sheetData.assets || [];
+                store.liabilities = sheetData.liabilities || [];
+                store.equity = sheetData.equity || [];
+                store.incomeRevenue = incomeData.revenue_accounts || [];
+                store.incomeExpenses = incomeData.expense_accounts || [];
+                store.arAging = agingData.rows || [];
+                store.cashflowOverview = cashflowData || null;
+                store.cashflowOperating = operatingData.cashflows || [];
+                store.forecasts = forecastData.forecasts || [];
+                store.riskScores = riskData.rows || [];
+                store.invoices = invoicesData.invoices || [];
+                store.payments = paymentsData.payments || [];
+                store.entries = entriesData.entries || [];
+                store.lines = linesData.lines || [];
+
+                if (sheetRes.usedFallback || agingRes.usedFallback) {
+                    setStatus(`استخدام بيانات احتياطية للكيان ${activePrimaryEntity}`);
+                }
+
+                setContextLabels();
+                populateCustomerSelects();
+
+                renderKPIs();
+                renderPerformance();
+                renderAgingChart();
+                renderCashflowSnapshot();
+                renderRisk();
+                renderAI();
+                renderJournalTables();
+                renderTables();
+            } catch (error) {
+                console.error('❌ خطأ في تحميل البيانات:', error);
+                setStatus('تعذر تحميل البيانات، الرجاء التحقق من الخادم', true);
+            }
+        }
+
+        function renderKPIs() {
+            const totalsSource = store.sheetTotals || (store.sheet && store.sheet.totals) || null;
+            const totals = totalsSource ? {
+                assets: Number(totalsSource.total_assets || 0),
+                liabilities: Number(totalsSource.total_liabilities || 0),
+                equity: Number(totalsSource.total_equity || 0),
+                balanced: Boolean(totalsSource.is_balanced)
+            } : (() => {
+                const assetsSum = sum(store.assets, 'amount');
+                const liabilitiesSum = sum(store.liabilities, 'amount');
+                const equitySum = sum(store.equity, 'amount');
+                return {
+                    assets: assetsSum,
+                    liabilities: liabilitiesSum,
+                    equity: equitySum,
+                    balanced: Math.abs(assetsSum - (liabilitiesSum + equitySum)) < 0.01
+                };
+            })();
+
+            document.getElementById('totalAssets').textContent = formatMoney(totals.assets);
+            document.getElementById('totalLiabilities').textContent = formatMoney(totals.liabilities);
+            document.getElementById('totalEquity').textContent = formatMoney(totals.equity);
+            document.getElementById('balanceStatus').textContent = totals.balanced ? 'متوازن' : 'غير متوازن';
+
+            const riskRows = Array.isArray(store.riskScores) ? store.riskScores : [];
+            const highRisk = riskRows.filter(r => ['HIGH', 'CRITICAL'].includes(String(r.risk_level || '').toUpperCase()));
+            const overallRisk = riskRows.length ? (highRisk.length / riskRows.length) * 100 : 0;
+            document.getElementById('overallRisk').textContent = `${overallRisk.toFixed(1)}%`;
+        }
+
+        function renderPerformance() {
+            const revenue = sum(store.incomeRevenue, 'balance');
+            const expenses = sum(store.incomeExpenses, 'balance');
+            const net = revenue - expenses;
+            const margin = revenue ? (net / revenue) * 100 : 0;
+            const expenseRatio = revenue ? (expenses / revenue) * 100 : 0;
+            const collections = sum(store.payments, 'payment_amount');
+            const invoicesTotal = sum(store.invoices, 'total_amount');
+            const collectionRatio = invoicesTotal ? (collections / invoicesTotal) * 100 : 0;
+
+            document.getElementById('performanceCards').innerHTML = `
+                <div class="bg-slate-50 p-3 rounded-xl">الربحية: ${formatMoney(net)}</div>
+                <div class="bg-slate-50 p-3 rounded-xl">هامش الربح: ${margin.toFixed(1)}%</div>
+                <div class="bg-slate-50 p-3 rounded-xl">نسبة المصروفات: ${expenseRatio.toFixed(1)}%</div>
+                <div class="bg-slate-50 p-3 rounded-xl">نسبة التحصيل: ${collectionRatio.toFixed(1)}%</div>
+            `;
+        }
+
+        function renderAgingChart() {
+            const buckets = store.arAging.reduce((acc, r) => {
+                const key = translateAging(r.aging_category);
+                acc[key] = (acc[key] || 0) + parseFloat(r.remaining_amount || 0);
+                return acc;
+            }, {});
+
+            const labels = Object.keys(buckets);
+            const values = Object.values(buckets);
+
+            const ctx = document.getElementById('agingChart').getContext('2d');
+            if (agingChartInstance) agingChartInstance.destroy();
+            agingChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.length ? labels : ['لا يوجد'],
+                    datasets: [{
+                        data: values.length ? values : [0],
+                        backgroundColor: '#f59e0b'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderCashflowSnapshot() {
+            const overview = store.cashflowOverview?.success ? store.cashflowOverview : null;
+            const available = overview ? overview.total_net_cashflow : 0;
+            const expected = store.forecasts.reduce((sum, f) => sum + parseFloat(f.forecast_amount || 0), 0);
+            const upcoming = overview ? overview.operating.outflow + overview.investing.outflow + overview.financing.outflow : 0;
+
+            document.getElementById('cashflowSnapshot').innerHTML = `
+                <div class="bg-slate-50 p-3 rounded-xl">النقد المتاح: ${formatMoney(available)}</div>
+                <div class="bg-slate-50 p-3 rounded-xl">النقد المتوقع: ${formatMoney(expected)}</div>
+                <div class="bg-slate-50 p-3 rounded-xl">الالتزامات القادمة: ${formatMoney(Math.abs(upcoming))}</div>
+            `;
+        }
+
+        function renderRisk() {
+            const highRisk = store.riskScores.filter(r => ['HIGH', 'CRITICAL'].includes(String(r.risk_level || '').toUpperCase()));
+            const highRiskCustomers = new Set(highRisk.map(r => r.customer_id)).size;
+            const highRiskBranches = new Set(store.invoices.filter(i => ['HIGH', 'CRITICAL'].includes(String(i.risk_level || '').toUpperCase())).map(i => i.branch_id || 'غير محدد')).size;
+            const highRiskPrograms = new Set(store.invoices.filter(i => ['HIGH', 'CRITICAL'].includes(String(i.risk_level || '').toUpperCase())).map(i => i.program_id || 'غير محدد')).size;
+            const defaultAlert = highRisk.length ? 'مستوى مرتفع' : 'مستقر';
+
+            document.getElementById('highRiskCustomers').textContent = highRiskCustomers;
+            document.getElementById('highRiskBranches').textContent = highRiskBranches;
+            document.getElementById('highRiskPrograms').textContent = highRiskPrograms;
+            document.getElementById('defaultAlert').textContent = defaultAlert;
+
+            const levelCounts = store.riskScores.reduce((acc, r) => {
+                const level = translateRiskLevel(r.risk_level);
+                acc[level] = (acc[level] || 0) + 1;
+                return acc;
+            }, {});
+
+            const ctx = document.getElementById('riskChart').getContext('2d');
+            if (riskChartInstance) riskChartInstance.destroy();
+            riskChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(levelCounts),
+                    datasets: [{
+                        data: Object.values(levelCounts),
+                        backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#6366f1']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const topRisk = [...store.riskScores].sort((a, b) => parseFloat(b.risk_score || 0) - parseFloat(a.risk_score || 0)).slice(0, 3);
+            document.getElementById('riskInsights').innerHTML = topRisk.length ? topRisk.map(r => `
+                <div class="bg-slate-50 p-3 rounded-xl">العميل ${r.customer_id} لديه احتمال تعثر ${parseFloat(r.risk_score || 0).toFixed(1)}%</div>
+            `).join('') : '<div class="text-slate-500">لا توجد توصيات حالية</div>';
+        }
+
+        function renderAI() {
+            const cards = [];
+            const revenueForecast = store.forecasts.find(f => parseFloat(f.forecast_amount || 0) > 0);
+            if (revenueForecast) {
+                cards.push(`
+                    <div class="bg-white p-4 rounded-2xl shadow">
+                        <div class="font-bold">توقع الإيرادات</div>
+                        <div>${formatMoney(revenueForecast.forecast_amount)} خلال ${revenueForecast.forecast_period || 'الفترة القادمة'}</div>
+                    </div>
+                `);
+            }
+            const deficitForecast = store.forecasts.find(f => parseFloat(f.forecast_amount || 0) < 0);
+            if (deficitForecast) {
+                cards.push(`
+                    <div class="bg-white p-4 rounded-2xl shadow">
+                        <div class="font-bold">توقع العجز</div>
+                        <div>${formatMoney(deficitForecast.forecast_amount)} في ${deficitForecast.forecast_period || 'الفترة القادمة'}</div>
+                    </div>
+                `);
+            }
+            const collectionTip = store.payments.length ? 'اقتراح خطط دفع لتحسين التحصيل' : 'اقتراح خطط دفع للعملاء الجدد';
+            cards.push(`
+                <div class="bg-white p-4 rounded-2xl shadow">
+                    <div class="font-bold">اقتراح خطط دفع</div>
+                    <div>${collectionTip}</div>
+                </div>
+            `);
+            const varianceTip = 'تحليل الانحرافات بين الميزانية والواقع لتحسين التوقعات';
+            cards.push(`
+                <div class="bg-white p-4 rounded-2xl shadow">
+                    <div class="font-bold">تحليل الانحرافات</div>
+                    <div>${varianceTip}</div>
+                </div>
+            `);
+
+            document.getElementById('aiIntegration').innerHTML = cards.join('');
+        }
+
+        function renderJournalTables() {
+            renderDynamicTable('entriesHead', 'entriesTable', store.entries, 'entriesCount');
+            renderDynamicTable('linesHead', 'linesTable', store.lines, 'linesCount');
+        }
+
+        function renderTables() {
+            renderDynamicTable('sheetHead', 'sheetTable', store.sheet ? [store.sheet] : [], 'sheetCount');
+            renderDynamicTable('assetsHead', 'assetsTable', store.assets, 'assetsCount');
+            renderDynamicTable('liabilitiesHead', 'liabilitiesTable', store.liabilities, 'liabilitiesCount');
+            renderDynamicTable('equityHead', 'equityTable', store.equity, 'equityCount');
+
+            renderDynamicTable('incomeRevenueHead', 'incomeRevenueTable', store.incomeRevenue, 'incomeRevenueCount');
+            renderDynamicTable('incomeExpenseHead', 'incomeExpenseTable', store.incomeExpenses, 'incomeExpenseCount');
+
+            renderDynamicTable('agingHead', 'agingTable', store.arAging, 'agingCount');
+            renderDynamicTable('operatingHead', 'operatingTable', store.cashflowOperating, 'operatingCount');
+            renderDynamicTable('riskHead', 'riskTable', store.riskScores, 'riskCount');
+        }
+
+        function renderDynamicTable(headId, bodyId, rows, countId) {
+            const head = document.getElementById(headId);
+            const body = document.getElementById(bodyId);
+            const count = document.getElementById(countId);
+            const config = ACTION_CONFIG[bodyId];
+            tableDataCache[bodyId] = rows || [];
+            count.textContent = `عدد الصفوف: ${rows.length}`;
+
+            if (!rows.length) {
+                head.innerHTML = '';
+                body.innerHTML = `<tr><td class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+                return;
+            }
+
+            const columns = Array.from(new Set(rows.flatMap(row => Object.keys(row))));
+            const actionsHeader = config ? '<th class="px-3 py-2 text-right">إجراءات</th>' : '';
+            head.innerHTML = `<tr>${columns.map(c => `<th class="px-3 py-2 text-right">${translateHeader(c)}</th>`).join('')}${actionsHeader}</tr>`;
+            body.innerHTML = rows.map((row, idx) => {
+                const actionButtons = config ? renderActions(bodyId, idx, config.actions || []) : '';
+                return `
+                    <tr class="hover:bg-slate-50">
+                        ${columns.map(c => `<td class="px-3 py-2">${formatValue(c, row[c])}</td>`).join('')}
+                        ${config ? `<td class="px-3 py-2 space-x-1 whitespace-nowrap">${actionButtons}</td>` : ''}
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderActions(tableId, idx, actions) {
+            const labels = { view: '👁 عرض', edit: '✏ تعديل', delete: '🗑 حذف' };
+            return actions.map(action => `<button class="action-btn ${action}" onclick="handleRowAction('${tableId}', ${idx}, '${action}')">${labels[action]}</button>`).join(' ');
+        }
+
+        async function handleRowAction(tableId, index, action) {
+            const rows = tableDataCache[tableId] || [];
+            const row = rows[index];
+            if (!row) return;
+            if (action === 'view') return openViewModal(row);
+
+            if (action === 'edit') return openEditModal(tableId, row);
+
+            if (action === 'delete') {
+                return openConfirmModal('سيتم حذف هذا السطر، هل أنت متأكد؟', async () => {
+                    await handleModalEdit(tableId, row, null, true);
+                });
+            }
+        }
+
+        async function handleModalCreate(tableId, values) {
+            try {
+                switch (tableId) {
+                    case 'assetsTable':
+                        return await assetAction('create', {}, values);
+                    case 'liabilitiesTable':
+                        return await liabilityAction('create', {}, values);
+                    case 'equityTable':
+                        return await equityAction('create', {}, values);
+                    case 'operatingTable':
+                        return await operatingAction('create', {}, values);
+                    case 'agingTable':
+                        return await agingAction('create', {}, values);
+                    case 'riskTable':
+                        return await riskAction('create', {}, values);
+                    default:
+                        return setStatus('هذا الجدول لا يدعم الإضافة بعد', true);
+                }
+            } catch (error) {
+                setStatus(`❌ ${error.message}`, true);
+            }
+        }
+
+        async function handleModalEdit(tableId, row, updates, isDelete = false) {
+            try {
+                switch (tableId) {
+                    case 'assetsTable':
+                        return await assetAction(isDelete ? 'delete' : 'edit', row, updates);
+                    case 'liabilitiesTable':
+                        return await liabilityAction(isDelete ? 'delete' : 'edit', row, updates);
+                    case 'equityTable':
+                        return await equityAction(isDelete ? 'delete' : 'edit', row, updates);
+                    case 'operatingTable':
+                        return await operatingAction(isDelete ? 'delete' : 'edit', row, updates);
+                    case 'agingTable':
+                        return await agingAction(isDelete ? 'delete' : 'edit', row, updates);
+                    case 'riskTable':
+                        return await riskAction(isDelete ? 'delete' : 'edit', row, updates);
+                    case 'entriesTable':
+                        return await entryAction(isDelete ? 'delete' : 'edit', row, updates);
+                    case 'linesTable':
+                        return await lineAction(isDelete ? 'delete' : 'edit', row, updates);
+                    default:
+                        setStatus('لم يتم ربط هذا الجدول بإجراءات بعد', true);
+                }
+            } catch (error) {
+                setStatus(`❌ ${error.message}`, true);
+            }
+        }
+
+        async function assetAction(action, row, updates = {}) {
+            if (action === 'create') {
+                const amount = parseFloat(updates.amount ?? 0) || 0;
+                await callApi('/finance/balance-sheet/assets', 'POST', {
+                    entity_id: activePrimaryEntity,
+                    asset_category: updates.asset_category || 'current',
+                    asset_type: updates.asset_type || 'equipment',
+                    asset_name: updates.asset_name || 'أصل جديد',
+                    amount,
+                    description: updates.description || 'إضافة من الواجهة'
+                });
+                setStatus('تم إضافة أصل جديد');
+                return loadData();
+            }
+            if (action === 'delete') {
+                await callApi(`/finance/balance-sheet/assets/${row.asset_id}?entity_id=${row.entity_id}`, 'DELETE');
+                setStatus('تم حذف الأصل');
+                return loadData();
+            }
+            if (action === 'edit') {
+                const asset_name = updates.asset_name ?? row.asset_name;
+                const amount = parseFloat(updates.amount ?? row.amount ?? 0);
+                const description = updates.description ?? row.description;
+                await callApi(`/finance/balance-sheet/assets/${row.asset_id}`, 'PUT', {
+                    entity_id: row.entity_id,
+                    asset_category: updates.asset_category ?? row.asset_category,
+                    asset_type: updates.asset_type ?? row.asset_type,
+                    asset_name,
+                    amount,
+                    description
+                });
+                setStatus('تم تعديل الأصل');
+                return loadData();
+            }
+        }
+
+        async function liabilityAction(action, row, updates = {}) {
+            if (action === 'create') {
+                const amount = parseFloat(updates.amount ?? 0) || 0;
+                await callApi('/finance/balance-sheet/liabilities', 'POST', {
+                    entity_id: activePrimaryEntity,
+                    liability_category: updates.liability_category || 'current',
+                    liability_type: updates.liability_type || 'loan',
+                    liability_name: updates.liability_name || 'التزام جديد',
+                    amount,
+                    description: updates.description || 'إضافة من الواجهة'
+                });
+                setStatus('تم إضافة التزام جديد');
+                return loadData();
+            }
+            if (action === 'delete') {
+                await callApi(`/finance/balance-sheet/liabilities/${row.liability_id}?entity_id=${row.entity_id}`, 'DELETE');
+                setStatus('تم حذف الالتزام');
+                return loadData();
+            }
+            if (action === 'edit') {
+                const liability_name = updates.liability_name ?? row.liability_name;
+                const amount = parseFloat(updates.amount ?? row.amount ?? 0);
+                await callApi(`/finance/balance-sheet/liabilities/${row.liability_id}`, 'PUT', {
+                    entity_id: row.entity_id,
+                    liability_category: updates.liability_category ?? row.liability_category,
+                    liability_type: updates.liability_type ?? row.liability_type,
+                    liability_name,
+                    amount,
+                    description: updates.description ?? row.description
+                });
+                setStatus('تم تعديل الالتزام');
+                return loadData();
+            }
+        }
+
+        async function equityAction(action, row, updates = {}) {
+            if (action === 'create') {
+                const amount = parseFloat(updates.amount ?? 0) || 0;
+                await callApi('/finance/balance-sheet/equity', 'POST', {
+                    entity_id: activePrimaryEntity,
+                    equity_type: updates.equity_type || 'capital',
+                    equity_name: updates.equity_name || 'بند حقوق ملكية',
+                    amount,
+                    description: updates.description || 'إضافة من الواجهة'
+                });
+                setStatus('تم إضافة بند حقوق ملكية');
+                return loadData();
+            }
+            if (action === 'delete') {
+                await callApi(`/finance/balance-sheet/equity/${row.equity_id}?entity_id=${row.entity_id}`, 'DELETE');
+                setStatus('تم حذف البند');
+                return loadData();
+            }
+            if (action === 'edit') {
+                const equity_name = updates.equity_name ?? row.equity_name;
+                const amount = parseFloat(updates.amount ?? row.amount ?? 0);
+                await callApi(`/finance/balance-sheet/equity/${row.equity_id}`, 'PUT', {
+                    entity_id: row.entity_id,
+                    equity_type: updates.equity_type ?? row.equity_type,
+                    equity_name,
+                    amount,
+                    description: updates.description ?? row.description
+                });
+                setStatus('تم تعديل حقوق الملكية');
+                return loadData();
+            }
+        }
+
+        async function operatingAction(action, row, updates = {}) {
+            if (action === 'create') {
+                const amount = parseFloat(updates.amount ?? 0) || 0;
+                const flow_date = updates.flow_date || new Date().toISOString().slice(0, 10);
+                await callApi('/finance/cashflow/operating', 'POST', {
+                    flow_type: updates.flow_type || 'customer_collection',
+                    amount,
+                    flow_direction: updates.flow_direction || 'IN',
+                    flow_date,
+                    description: updates.description || 'تدفق جديد',
+                    entity_type: 'HQ',
+                    entity_id: activePrimaryEntity
+                });
+                setStatus('تم إضافة تدفق تشغيلي');
+                return loadData();
+            }
+            if (action === 'delete') {
+                await callApi(`/finance/cashflow/operating/${row.flow_id}?entity_id=${row.entity_id}`, 'DELETE');
+                setStatus('تم حذف التدفق');
+                return loadData();
+            }
+            if (action === 'edit') {
+                const amount = parseFloat(updates.amount ?? row.amount ?? 0);
+                const description = updates.description ?? row.description;
+                const flow_date = updates.flow_date ?? row.flow_date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
+                await callApi(`/finance/cashflow/operating/${row.flow_id}`, 'PUT', {
+                    amount,
+                    description,
+                    flow_date,
+                    entity_id: row.entity_id,
+                    flow_type: updates.flow_type ?? row.flow_type,
+                    flow_direction: updates.flow_direction ?? row.flow_direction
+                });
+                setStatus('تم تعديل التدفق التشغيلي');
+                return loadData();
+            }
+        }
+
+        async function agingAction(action, row, updates = {}) {
+            if (action === 'create') {
+                const total_amount = parseFloat(updates.total_amount ?? 0) || 0;
+                const paid_amount = parseFloat(updates.paid_amount ?? 0) || 0;
+                const invoice_date = updates.invoice_date || new Date().toISOString().slice(0, 10);
+                const due_date = updates.due_date || invoice_date;
+                const customer_id = Number(updates.customer_id || 1);
+                await callApi('/finance/ar-aging/invoices', 'POST', {
+                    customer_id,
+                    total_amount,
+                    paid_amount,
+                    invoice_date,
+                    due_date,
+                    entity_type: 'HQ',
+                    entity_id: activeSecondaryEntity,
+                    notes: 'إضافة من الواجهة'
+                });
+                setStatus('تم إضافة فاتورة ذمم جديدة');
+                return loadData();
+            }
+            if (action === 'delete') {
+                await callApi(`/finance/ar-aging/invoices/${row.invoice_id}`, 'DELETE');
+                setStatus('تم حذف الفاتورة');
+                return loadData();
+            }
+            if (action === 'edit') {
+                const paid_amount = parseFloat(updates.paid_amount ?? row.paid_amount ?? 0);
+                const status = updates.status ?? row.status ?? 'ISSUED';
+                await callApi(`/finance/ar-aging/invoices/${row.invoice_id}`, 'PUT', {
+                    paid_amount,
+                    total_amount: parseFloat(updates.total_amount ?? row.total_amount ?? 0),
+                    status,
+                    payment_status: updates.payment_status ?? row.payment_status
+                });
+                setStatus('تم تحديث بيانات الذمم');
+                return loadData();
+            }
+        }
+
+        async function riskAction(action, row, updates = {}) {
+            if (action === 'create') {
+                const risk_score = parseFloat(updates.risk_score ?? 0) || 0;
+                const risk_level = updates.risk_level || resolveLevel(risk_score);
+                await callApi('/finance/ai-risk-scores', 'POST', {
+                    customer_id: updates.customer_id || 1,
+                    assessment_date: updates.assessment_date || new Date().toISOString().slice(0, 10),
+                    risk_score,
+                    risk_level,
+                    risk_factors: updates.risk_factors || { source: 'manual' },
+                    calculation_details: updates.calculation_details || { method: 'manual' },
+                    recommendations: updates.recommendations || 'توصية سريعة',
+                    suggested_actions: updates.suggested_actions || ['متابعة'],
+                    entity_type: 'HQ',
+                    entity_id: activePrimaryEntity,
+                    model_version: updates.model_version || 'v1.2.0'
+                });
+                setStatus('تم إضافة تقييم مخاطر');
+                return loadData();
+            }
+            if (action === 'delete') {
+                await callApi(`/finance/ai-risk-scores/${row.risk_id}?entity_id=${row.entity_id}`, 'DELETE');
+                setStatus('تم حذف تقييم المخاطر');
+                return loadData();
+            }
+            if (action === 'edit') {
+                const risk_score = parseFloat(updates.risk_score ?? row.risk_score ?? 0);
+                const risk_level = updates.risk_level ?? row.risk_level || 'MEDIUM';
+                await callApi(`/finance/ai-risk-scores/${row.risk_id}`, 'PUT', {
+                    customer_id: updates.customer_id ?? row.customer_id,
+                    assessment_date: updates.assessment_date ?? row.assessment_date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+                    risk_score,
+                    risk_level,
+                    risk_factors: normalizeJsonField(updates.risk_factors ?? row.risk_factors),
+                    calculation_details: normalizeJsonField(updates.calculation_details ?? row.calculation_details),
+                    recommendations: updates.recommendations ?? row.recommendations,
+                    suggested_actions: normalizeJsonField(updates.suggested_actions ?? row.suggested_actions),
+                    entity_type: updates.entity_type ?? row.entity_type || 'HQ',
+                    entity_id: updates.entity_id ?? row.entity_id,
+                    model_version: updates.model_version ?? row.model_version || 'v1.0.0'
+                });
+                setStatus('تم تعديل تقييم المخاطر');
+                return loadData();
+            }
+        }
+
+        async function entryAction(action, row, updates = {}) {
+            if (action === 'delete') {
+                await callApi(`/finance/journal/entries/${row.entry_id}`, 'DELETE');
+                setStatus('تم حذف القيد');
+                return loadData();
+            }
+        }
+
+        async function lineAction(action, row, updates = {}) {
+            if (action === 'delete') {
+                await callApi(`/finance/journal-lines/${row.line_id}?entity_id=${row.entity_id}`, 'DELETE');
+                setStatus('تم حذف السطر');
+                return loadData();
+            }
+        }
+
+        function translateHeader(key) {
+            const map = {
+                sheet_id: 'رقم التقرير',
+                sheet_date: 'تاريخ التقرير',
+                period_type: 'نوع الفترة',
+                period_name: 'اسم الفترة',
+                total_assets: 'إجمالي الأصول',
+                total_liabilities: 'إجمالي الالتزامات',
+                total_equity: 'إجمالي حقوق الملكية',
+                created_at: 'تاريخ الإنشاء',
+                updated_at: 'تاريخ التحديث',
+                asset_id: 'رقم الأصل',
+                asset_name: 'اسم الأصل',
+                asset_category: 'تصنيف الأصل',
+                amount: 'المبلغ',
+                liability_id: 'رقم الالتزام',
+                liability_name: 'اسم الالتزام',
+                liability_category: 'تصنيف الالتزام',
+                equity_id: 'رقم بند حقوق الملكية',
+                equity_name: 'اسم بند حقوق الملكية',
+                account_id: 'رقم الحساب',
+                account_code: 'كود الحساب',
+                account_name_ar: 'اسم الحساب',
+                account_type: 'نوع الحساب',
+                balance: 'الرصيد',
+                remaining_amount: 'الرصيد المتبقي',
+                aging_category: 'فئة العمر',
+                risk_id: 'رقم المخاطر',
+                customer_id: 'رقم العميل',
+                assessment_date: 'تاريخ التقييم',
+                risk_score: 'درجة المخاطرة',
+                risk_level: 'مستوى المخاطرة',
+                risk_factors: 'عوامل المخاطر',
+                recommendations: 'توصيات',
+                suggested_actions: 'إجراءات مقترحة',
+                entity_type: 'نوع المنشأة',
+                entity_id: 'معرف المنشأة',
+                flow_id: 'رقم التدفق',
+                flow_type: 'نوع التدفق',
+                flow_date: 'تاريخ التدفق',
+                description: 'الوصف',
+                debit_amount: 'مدين',
+                credit_amount: 'دائن',
+                entry_id: 'رقم القيد',
+                entry_number: 'رقم القيد',
+                entry_date: 'تاريخ القيد',
+                entry_type: 'نوع القيد',
+                status: 'الحالة'
+            };
+            return map[key] || 'حقل إضافي';
+        }
+
+        function formatValue(key, value) {
+            if (value === null || value === undefined || value === '') return '-';
+            if (key === 'account_type') return translateAccountType(value);
+            if (key === 'risk_level') return translateRiskLevel(value);
+            if (key === 'entity_type') return translateEntityType(value);
+            if (key === 'status') return translateStatus(value);
+            if (key === 'aging_category') return translateAging(value);
+            if (key === 'flow_type') return translateFlowType(value);
+            if (key === 'entry_type') return translateEntryType(value);
+            if (key.endsWith('_date') || key.endsWith('_at')) return formatDateTime(value);
+            if (typeof value === 'number') return value.toLocaleString('en-US');
+            if (typeof value === 'boolean') return value ? 'نعم' : 'لا';
+            return String(value);
+        }
+
+        function translateAccountType(value) {
+            const map = { REVENUE: 'إيرادات', EXPENSE: 'مصروفات', ASSET: 'أصول', LIABILITY: 'التزامات', EQUITY: 'حقوق ملكية' };
+            return map[value] || 'غير محدد';
+        }
+
+        function translateRiskLevel(value) {
+            const map = { HIGH: 'مرتفع', MEDIUM: 'متوسط', LOW: 'منخفض', CRITICAL: 'حرج' };
+            return map[value] || 'غير محدد';
+        }
+
+        function translateEntityType(value) {
+            const map = { HQ: 'مركز رئيسي', BRANCH: 'فرع', PLATFORM: 'منصة', INCUBATOR: 'حاضنة', PROGRAM: 'برنامج' };
+            return map[value] || 'غير محدد';
+        }
+
+        function translateStatus(value) {
+            const map = { PAID: 'مدفوع', OVERDUE: 'متأخر', PARTIAL: 'جزئي', OPEN: 'مفتوح', APPROVED: 'معتمد', POSTED: 'مرحل', ACTIVE: 'نشط', CLOSED: 'مغلق', DRAFT: 'مسودة', CANCELLED: 'ملغي' };
+            return map[String(value).toUpperCase()] || 'غير محدد';
+        }
+
+        function translateAging(value) {
+            const map = {
+                CURRENT: 'حتى 30 يوم',
+                '0-30_DAYS': 'حتى 30 يوم',
+                '31-60_DAYS': '31 إلى 60 يوم',
+                '61-90_DAYS': '61 إلى 90 يوم',
+                OVER_90_DAYS: 'أكثر من 90 يوم'
+            };
+            return map[value] || 'غير محدد';
+        }
+
+        function translateFlowType(value) {
+            const map = {
+                collection: 'تحصيل',
+                payment: 'مدفوعات',
+                salary: 'رواتب',
+                expense: 'مصروفات تشغيلية',
+                asset_purchase: 'شراء أصول',
+                investment: 'استثمار',
+                other_investing: 'أنشطة استثمارية أخرى',
+                capital_injection: 'زيادة رأس المال',
+                loan_received: 'قرض مستلم',
+                loan_payment: 'سداد قرض',
+                dividend_payment: 'توزيع أرباح'
+            };
+            return map[value] || 'غير محدد';
+        }
+
+        function translateEntryType(value) {
+            const map = { AUTO: 'آلي', MANUAL: 'يدوي' };
+            return map[value] || 'غير محدد';
+        }
+
+        function sum(rows, key) {
+            return rows.reduce((acc, r) => acc + parseFloat(r[key] || 0), 0);
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function downloadJSON() {
+            downloadBlob(JSON.stringify(store, null, 2), 'تقارير-الوضع-المالي.json', 'application/json');
+        }
+
+        function downloadCSV() {
+            const sections = [
+                ['الميزانية الموحدة', store.sheet ? [store.sheet] : []],
+                ['الأصول', store.assets],
+                ['الالتزامات', store.liabilities],
+                ['حقوق الملكية', store.equity],
+                ['الإيرادات', store.incomeRevenue],
+                ['المصروفات', store.incomeExpenses],
+                ['أعمار الذمم', store.arAging],
+                ['التدفقات التشغيلية', store.cashflowOperating],
+                ['المخاطر', store.riskScores],
+                ['القيود', store.entries],
+                ['سطور القيود', store.lines]
+            ];
+
+            const rows = [];
+            sections.forEach(([title, data]) => {
+                rows.push([title]);
+                if (data.length) {
+                    const cols = Array.from(new Set(data.flatMap(row => Object.keys(row))));
+                    rows.push(cols);
+                    data.forEach(row => rows.push(cols.map(c => row[c])));
+                }
+                rows.push([]);
+            });
+
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            downloadBlob(csvContent, 'تقارير-الوضع-المالي.csv', 'text/csv;charset=utf-8;');
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function refreshData() {
+            loadData();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

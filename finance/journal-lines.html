@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧾 تفاصيل القيود اليومية - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb; /* Slate-50 */
+            min-height: 100vh;
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
+            backdrop-filter: blur(10px);
+        }
+        .stat-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+    
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🧾 تفاصيل القيود اليومية</h1>
+            <p class="text-lg opacity-90">جميع سطور القيود المحاسبية بالتفصيل</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mb-8 flex gap-3 flex-wrap">
+            <button onclick="openLineModal('create')" class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-green-700 transition flex items-center gap-3 border border-green-600">
+                <i class="fas fa-plus text-xl"></i>
+                <span>إضافة سطر</span>
+            </button>
+            <button onclick="downloadCSV()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-red-500 group">
+                <i class="fas fa-file-csv text-xl text-red-600 group-hover:text-red-700 transition"></i>
+                <span class="">تنزيل CSV</span>
+            </button>
+            <button onclick="downloadJSON()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-red-500 group">
+                <i class="fas fa-file-code text-xl text-red-600 group-hover:text-red-700 transition"></i>
+                <span class="">تنزيل JSON</span>
+            </button>
+            <button onclick="printLines()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-red-500 group">
+                <i class="fas fa-print text-xl text-red-600 group-hover:text-red-700 transition"></i>
+                <span class="">طباعة</span>
+            </button>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card card-gradient rounded-xl p-6 shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-red-50 text-red-600">
+                        <i class="fas fa-list text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">عدد السطور</span>
+                </div>
+                <div id="lineCount" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card card-gradient rounded-xl p-6 shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-red-50 text-red-600">
+                        <i class="fas fa-arrow-up text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">إجمالي المدين</span>
+                </div>
+                <div id="totalDebit" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card card-gradient rounded-xl p-6 shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-red-50 text-red-600">
+                        <i class="fas fa-arrow-down text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">إجمالي الدائن</span>
+                </div>
+                <div id="totalCredit" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+            <div class="stat-card card-gradient rounded-xl p-6 shadow-sm border border-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="p-3 rounded-full bg-red-50 text-red-600">
+                        <i class="fas fa-balance-scale text-xl"></i>
+                    </div>
+                    <span class="text-sm text-slate-500 font-medium">الفرق</span>
+                </div>
+                <div id="totalDiff" class="text-2xl font-bold text-slate-800">
+                    <div class="animate-pulse bg-slate-200 h-8 w-24 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8 card-gradient">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">بحث</label>
+                    <input id="searchInput" type="text" placeholder="رقم القيد أو الحساب" class="w-full bg-white border border-slate-300 text-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">نوع القيد</label>
+                    <select id="entryTypeFilter" class="w-full bg-white border border-slate-300 text-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all" onchange="applyFilters()">
+                        <option value="">كافة الأنواع</option>
+                        <option value="GENERAL">عام</option>
+                        <option value="ADJUSTING">تسويات</option>
+                        <option value="CLOSING">إقفال</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">الحالة</label>
+                    <select id="statusFilter" class="w-full bg-white border border-slate-300 text-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all" onchange="applyFilters()">
+                        <option value="">كافة الحالات</option>
+                        <option value="POSTED">مرحل</option>
+                        <option value="DRAFT">مسودة</option>
+                        <option value="APPROVED">معتمد</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-right">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-4 font-bold text-slate-700 w-24">رقم القيد</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 w-32">التاريخ</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 w-32">نوع القيد</th>
+                            <th class="px-4 py-4 font-bold text-slate-700">الحساب</th>
+                            <th class="px-4 py-4 font-bold text-slate-700">الوصف</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 w-32">مدين</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 w-32">دائن</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 w-24">الحالة</th>
+                            <th class="px-4 py-4 font-bold text-slate-700 w-28">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="linesTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="9" class="px-6 py-12 text-center text-slate-500">
+                                <i class="fas fa-spinner fa-spin text-3xl mb-3 opacity-30"></i>
+                                <div>جاري تحميل السطور...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-200 text-sm text-slate-600" id="tableCount"></div>
+        </div>
+    </div>
+
+    <!-- Line Modal -->
+    <div id="lineModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b">
+                <h3 id="lineModalTitle" class="text-lg font-bold text-gray-800">إضافة سطر</h3>
+                <button onclick="closeLineModal()" class="text-slate-800 hover:text-red-600 font-bold">
+                    <i class="fas fa-xmark text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">رقم القيد (entry_id)</label>
+                        <input id="entryId" type="number" class="w-full border rounded-lg px-3 py-2" placeholder="مثال: 25" list="entriesList">
+                        <datalist id="entriesList"></datalist>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">رقم الحساب</label>
+                        <input id="accountCode" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="مثال: 1111" list="accountsList">
+                        <datalist id="accountsList"></datalist>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">مدين</label>
+                        <input id="debitAmount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-700 mb-1">دائن</label>
+                        <input id="creditAmount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="0">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-700 mb-1">الوصف</label>
+                    <input id="lineDescription" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="وصف السطر">
+                </div>
+            </div>
+            <div class="p-5 border-t flex items-center justify-end gap-2">
+                <button onclick="closeLineModal()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                <button id="lineModalSave" onclick="submitLine()" class="px-4 py-2 rounded-lg bg-green-600 text-white">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        let allLines = [];
+        let lineModalMode = 'create';
+        let editingLineId = null;
+
+        async function loadLines() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/journal-lines?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load journal lines');
+                }
+
+                allLines = data.lines || [];
+                renderSummary(data.summary || {});
+                renderTable(allLines);
+            } catch (error) {
+                console.error('❌ خطأ في تحميل السطور:', error);
+                document.getElementById('linesTable').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل السطور</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('lineCount').textContent = summary.total_lines ?? '0';
+            document.getElementById('totalDebit').textContent = formatMoney(summary.total_debit || 0);
+            document.getElementById('totalCredit').textContent = formatMoney(summary.total_credit || 0);
+            document.getElementById('totalDiff').textContent = formatMoney(summary.total_diff || 0);
+        }
+
+        function renderTable(lines) {
+            const rows = lines.map(l => {
+                // Ensure values are numbers for money formatting
+                const debit = parseFloat(l.debit_amount || 0);
+                const credit = parseFloat(l.credit_amount || 0);
+                
+                return `
+                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                    <td class="px-4 py-3 font-mono text-slate-600">${l.entry_number || '-'}</td>
+                    <td class="px-4 py-3 text-slate-600">${formatDate(l.entry_date)}</td>
+                    <td class="px-4 py-3">${translateEntryType(l.entry_type)}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-800">${l.account_code || '-'} - ${l.account_name_ar || l.account_name || '-'}</td>
+                    <td class="px-4 py-3 text-slate-600">${l.line_description || '-'}</td>
+                    <td class="px-4 py-3 font-bold text-red-600">${formatMoney(debit)}</td>
+                    <td class="px-4 py-3 font-bold text-green-600">${formatMoney(credit)}</td>
+                    <td class="px-4 py-3">${statusBadge(l.status)}</td>
+                    <td class="px-4 py-3">
+                        <div class="flex gap-2">
+                            <button onclick="openLineModal('view', ${l.line_id})" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة">
+                                <i class="fas fa-eye text-lg"></i>
+                            </button>
+                            <button onclick="openLineModal('edit', ${l.line_id})" class="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition shadow-md font-semibold" title="تعديل">
+                                <i class="fas fa-pen text-lg"></i>
+                            </button>
+                            <button onclick="deleteLine(${l.line_id})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف">
+                                <i class="fas fa-trash text-lg"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+
+            document.getElementById('linesTable').innerHTML = rows.length ? rows : `
+                <tr>
+                    <td colspan="9" class="px-4 py-12 text-center text-slate-500">لا توجد سطور</td>
+                </tr>
+            `;
+            document.getElementById('tableCount').textContent = `عدد الصفوف المعروضة: ${lines.length}`;
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            const entryType = document.getElementById('entryTypeFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            const filtered = allLines.filter(l => {
+                const matchesSearch = !search ||
+                    (l.entry_number || '').toLowerCase().includes(search) ||
+                    (l.account_code || '').toLowerCase().includes(search) ||
+                    (l.account_name_ar || '').toLowerCase().includes(search);
+
+                const matchesType = !entryType || (l.entry_type || '').toUpperCase() === entryType;
+                const matchesStatus = !status || (l.status || '').toUpperCase() === status;
+
+                return matchesSearch && matchesType && matchesStatus;
+            });
+
+            renderTable(filtered);
+
+            const summary = filtered.reduce((acc, l) => {
+                acc.total_lines += 1;
+                acc.total_debit += parseFloat(l.debit_amount || 0);
+                acc.total_credit += parseFloat(l.credit_amount || 0);
+                return acc;
+            }, { total_lines: 0, total_debit: 0, total_credit: 0 });
+            summary.total_diff = summary.total_debit - summary.total_credit;
+            renderSummary(summary);
+        }
+
+        function translateEntryType(type) {
+            const map = {
+                'GENERAL': 'عام',
+                'ADJUSTING': 'تسويات',
+                'CLOSING': 'إقفال'
+            };
+            return map[(type || '').toUpperCase()] || (type || '-');
+        }
+
+        function statusBadge(status) {
+            const s = (status || '').toUpperCase();
+            if (s === 'POSTED') return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">مرحل</span>';
+            if (s === 'DRAFT') return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">مسودة</span>';
+            if (s === 'APPROVED') return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">معتمد</span>';
+            return '<span class="px-2 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">غير محدد</span>';
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        async function loadEntries() {
+            try {
+                const res = await fetch(`${API_BASE}/finance/journal/entries?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await res.json();
+                const entries = data.entries || [];
+                const list = document.getElementById('entriesList');
+                list.innerHTML = entries.map(e => `<option value="${e.entry_id}">${e.entry_number} - ${formatDate(e.entry_date)}</option>`).join('');
+            } catch (error) {
+                console.error('❌ خطأ في تحميل القيود:', error);
+            }
+        }
+
+        async function loadAccounts() {
+            try {
+                const res = await fetch(`${API_BASE}/finance/chart-of-accounts?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await res.json();
+                const accounts = data.accounts || [];
+                const list = document.getElementById('accountsList');
+                list.innerHTML = accounts.map(a => `<option value="${a.account_code}">${a.account_code} - ${a.account_name_ar || a.account_name_en || ''}</option>`).join('');
+            } catch (error) {
+                console.error('❌ خطأ في تحميل الحسابات:', error);
+            }
+        }
+
+        function openLineModal(mode, lineId = null) {
+            lineModalMode = mode;
+            editingLineId = lineId;
+            const modal = document.getElementById('lineModal');
+            const title = document.getElementById('lineModalTitle');
+            const saveButton = document.getElementById('lineModalSave');
+
+            title.textContent = mode === 'view' ? 'معاينة السطر' : mode === 'edit' ? 'تعديل السطر' : 'إضافة سطر';
+            saveButton.textContent = mode === 'edit' ? 'حفظ التعديل' : 'حفظ';
+            saveButton.classList.toggle('hidden', mode === 'view');
+
+            resetLineForm();
+            setLineFormDisabled(mode === 'view');
+
+            if (mode !== 'create' && lineId) {
+                const line = allLines.find(l => l.line_id === lineId);
+                if (line) fillLineForm(line);
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeLineModal() {
+            const modal = document.getElementById('lineModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function resetLineForm() {
+            document.getElementById('entryId').value = '';
+            document.getElementById('accountCode').value = '';
+            document.getElementById('debitAmount').value = '';
+            document.getElementById('creditAmount').value = '';
+            document.getElementById('lineDescription').value = '';
+        }
+
+        function fillLineForm(line) {
+            document.getElementById('entryId').value = line.entry_id || '';
+            document.getElementById('accountCode').value = line.account_code || '';
+            document.getElementById('debitAmount').value = line.debit_amount || '';
+            document.getElementById('creditAmount').value = line.credit_amount || '';
+            document.getElementById('lineDescription').value = line.line_description || '';
+        }
+
+        function setLineFormDisabled(disabled) {
+            ['entryId', 'accountCode', 'debitAmount', 'creditAmount', 'lineDescription']
+                .forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.disabled = disabled || (id === 'entryId' && lineModalMode !== 'create');
+                });
+        }
+
+        async function submitLine() {
+            const payload = {
+                entity_id: ENTITY_ID,
+                entry_id: parseInt(document.getElementById('entryId').value || 0, 10),
+                account_code: document.getElementById('accountCode').value.trim(),
+                debit_amount: parseFloat(document.getElementById('debitAmount').value || 0),
+                credit_amount: parseFloat(document.getElementById('creditAmount').value || 0),
+                description: document.getElementById('lineDescription').value.trim()
+            };
+
+            if (!payload.entry_id || !payload.account_code) {
+                alert('يرجى إدخال رقم القيد ورقم الحساب');
+                return;
+            }
+            if (payload.debit_amount === 0 && payload.credit_amount === 0) {
+                alert('يرجى إدخال قيمة مدين أو دائن');
+                return;
+            }
+
+            try {
+                const url = lineModalMode === 'edit'
+                    ? `${API_BASE}/finance/journal-lines/${editingLineId}`
+                    : `${API_BASE}/finance/journal-lines`;
+                const method = lineModalMode === 'edit' ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'تعذر حفظ السطر');
+                }
+
+                closeLineModal();
+                await loadLines();
+            } catch (error) {
+                console.error('❌ خطأ في حفظ السطر:', error);
+                alert(error.message || 'تعذر حفظ السطر');
+            }
+        }
+
+        async function deleteLine(lineId) {
+            if (!confirm('هل تريد حذف هذا السطر؟')) return;
+            const res = await fetch(`${API_BASE}/finance/journal-lines/${lineId}?entity_id=${ENTITY_ID}`, {
+                method: 'DELETE',
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            });
+            if (res.ok) {
+                await loadLines();
+            } else {
+                const data = await res.json();
+                alert(data.error || 'تعذر حذف السطر');
+            }
+        }
+
+        function downloadCSV() {
+            if (!allLines.length) return;
+            const rows = [
+                ['رقم القيد', 'التاريخ', 'نوع القيد', 'الحساب', 'الوصف', 'مدين', 'دائن', 'الحالة']
+            ];
+            allLines.forEach(l => {
+                rows.push([
+                    l.entry_number,
+                    l.entry_date,
+                    translateEntryType(l.entry_type),
+                    `${l.account_code} - ${l.account_name_ar || l.account_name}`,
+                    l.line_description,
+                    l.debit_amount,
+                    l.credit_amount,
+                    l.status
+                ]);
+            });
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'journal-lines.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadJSON() {
+            if (!allLines.length) return;
+            const blob = new Blob([JSON.stringify(allLines, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'journal-lines.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printLines() {
+            window.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLines();
+            loadEntries();
+            loadAccounts();
+        });
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

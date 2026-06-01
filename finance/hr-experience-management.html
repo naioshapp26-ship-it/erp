@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ادارة الخبرات</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0b1220;
+      --muted: #6b7280;
+      --sky: #0ea5e9;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --line: #e5e7eb;
+      --card: #ffffff;
+      --navy: #0f172a;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(14, 165, 233, 0.16), transparent 46%),
+        radial-gradient(circle at 90% 16%, rgba(16, 185, 129, 0.18), transparent 42%),
+        linear-gradient(180deg, #f8fafc 0%, #f1f5f9 60%, #ecfeff 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 22px;
+      box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 16px;
+    }
+
+    .panel-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 18px;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .table-row {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table-row:last-child {
+      border-bottom: none;
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 18px 30px -18px rgba(15, 23, 42, 0.6);
+      display: none;
+      z-index: 50;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 40;
+    }
+
+    .modal {
+      background: #fff;
+      border-radius: 20px;
+      width: min(720px, 92vw);
+      border: 1px solid var(--line);
+      box-shadow: 0 25px 60px -35px rgba(15, 23, 42, 0.6);
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div class="max-w-2xl">
+        <span class="chip bg-white text-slate-700 border border-slate-200">إدارة الخبرات</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">لوحة إدارة الخبرات</h1>
+        <p class="text-slate-600">تتبع الخبرات المعتمدة، إدارة المعرفة، وكشف الفجوات الحرجة داخل الشركة.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="addExperienceBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة خبرة جديدة
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">إجمالي الخبرات المسجلة</div>
+        <div id="totalExperiences" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">سجلات خبرة موثقة</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد الخبرات المعتمدة</div>
+        <div id="approvedExperiences" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-emerald-600 mt-1">جاهزة للمشاركة</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">عدد الخبرات قيد المراجعة</div>
+        <div id="reviewExperiences" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-amber-600 mt-1">بانتظار الاعتماد</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">متوسط سنوات الخبرة</div>
+        <div id="averageYears" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">داخل الشركة</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="panel-card lg:col-span-2">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-bold">تصنيف الخبرات حسب التخصص</h2>
+            <p class="text-sm text-slate-500">نظرة مركزة على التخصصات الأكثر حضورًا.</p>
+          </div>
+          <span class="chip bg-sky-100 text-sky-700">تحديث مباشر</span>
+        </div>
+        <div id="specialtyGrid" class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+      </div>
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">رؤية المهارات</h2>
+        <p class="text-sm text-slate-500">الأكثر انتشارًا والمهارات النادرة.</p>
+        <div class="mt-4">
+          <div class="text-sm font-bold text-slate-700">أكثر المهارات انتشارًا</div>
+          <div id="topSkills" class="mt-3 space-y-2"></div>
+        </div>
+        <div class="mt-5">
+          <div class="text-sm font-bold text-slate-700">المهارات النادرة</div>
+          <div id="rareSkills" class="mt-3 space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">جدول إدارة الخبرات</h2>
+          <p class="text-sm text-slate-500">تتبع الخبرات المعتمدة والمراجعة مع تفاصيل كاملة.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث باسم الموظف أو نوع الخبرة" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-64">
+          </div>
+          <select id="typeFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل أنواع الخبرة</option>
+          </select>
+          <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-2 text-sm">
+            <span class="text-slate-500">سنوات خبرة</span>
+            <input id="yearsFilter" type="range" min="0" max="15" value="0" class="accent-slate-900">
+            <span id="yearsValue" class="font-bold text-slate-700">0+</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4 overflow-x-auto">
+        <table class="min-w-[960px] w-full text-sm">
+          <thead class="bg-slate-50 text-xs font-bold text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-right">اسم الموظف</th>
+              <th class="px-4 py-3 text-right">نوع الخبرة</th>
+              <th class="px-4 py-3 text-right">مجال الخبرة</th>
+              <th class="px-4 py-3 text-right">عدد السنوات</th>
+              <th class="px-4 py-3 text-right">مستوى الخبرة</th>
+              <th class="px-4 py-3 text-right">تاريخ الإضافة</th>
+              <th class="px-4 py-3 text-right">الحالة</th>
+              <th class="px-4 py-3 text-right">ملاحظات</th>
+              <th class="px-4 py-3 text-right">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة لبحثك.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop">
+    <div class="modal p-6">
+      <div class="flex items-center justify-between">
+        <h3 id="modalTitle" class="text-xl font-extrabold">إضافة خبرة جديدة</h3>
+        <button id="closeModalBtn" class="text-slate-500"><i class="fas fa-xmark"></i></button>
+      </div>
+      <p id="modalHint" class="text-sm text-slate-500 mt-1">أدخل بيانات الخبرة بدقة لضمان جودة السجل.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label class="text-sm text-slate-600">اسم الموظف</label>
+          <input id="employeeInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: مروان السيد">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">نوع الخبرة</label>
+          <input id="typeInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: تشغيل الأنظمة">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">مجال الخبرة</label>
+          <input id="fieldInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: العمليات">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">عدد سنوات الخبرة</label>
+          <input id="yearsInput" type="number" min="0" max="40" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 6">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">مستوى الخبرة</label>
+          <select id="levelInput" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+            <option>مبتدئ</option>
+            <option>متوسط</option>
+            <option>متقدم</option>
+            <option>خبير</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">الحالة</label>
+          <select id="statusInput" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+            <option>معتمدة</option>
+            <option>قيد المراجعة</option>
+          </select>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-sm text-slate-600">ملاحظات</label>
+          <textarea id="notesInput" rows="3" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="ملخص الخبرة أو نقاط القوة"></textarea>
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button id="saveExperienceBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-check"></i>
+          حفظ الخبرة
+        </button>
+        <button id="cancelModalBtn" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">تم حفظ الخبرة بنجاح.</div>
+
+  <script>
+    const apiBase = '/api/hr-experience-records';
+    let experiences = [];
+    let currentMode = 'add';
+    let currentEditId = null;
+    let currentEditDate = null;
+
+    const searchInput = document.getElementById('searchInput');
+    const typeFilter = document.getElementById('typeFilter');
+    const yearsFilter = document.getElementById('yearsFilter');
+    const yearsValue = document.getElementById('yearsValue');
+    const tableBody = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+    const specialtyGrid = document.getElementById('specialtyGrid');
+    const topSkills = document.getElementById('topSkills');
+    const rareSkills = document.getElementById('rareSkills');
+    const totalExperiences = document.getElementById('totalExperiences');
+    const approvedExperiences = document.getElementById('approvedExperiences');
+    const reviewExperiences = document.getElementById('reviewExperiences');
+    const averageYears = document.getElementById('averageYears');
+    const addExperienceBtn = document.getElementById('addExperienceBtn');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelModalBtn = document.getElementById('cancelModalBtn');
+    const saveExperienceBtn = document.getElementById('saveExperienceBtn');
+    const toast = document.getElementById('toast');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalHint = document.getElementById('modalHint');
+
+    const employeeInput = document.getElementById('employeeInput');
+    const typeInput = document.getElementById('typeInput');
+    const fieldInput = document.getElementById('fieldInput');
+    const yearsInput = document.getElementById('yearsInput');
+    const levelInput = document.getElementById('levelInput');
+    const statusInput = document.getElementById('statusInput');
+    const notesInput = document.getElementById('notesInput');
+
+    const showToast = (message) => {
+      toast.textContent = message;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 2500);
+    };
+
+    const normalizeExperience = (item) => {
+      const skills = Array.isArray(item.skills)
+        ? item.skills
+        : item.skills
+          ? [item.skills]
+          : [];
+
+      return {
+        id: item.id,
+        employee: item.employee_name,
+        type: item.experience_type,
+        field: item.experience_field,
+        years: Number(item.years_of_experience || 0),
+        level: item.experience_level,
+        date: item.added_on ? String(item.added_on).slice(0, 10) : '',
+        status: item.status || 'قيد المراجعة',
+        notes: item.notes || 'بدون ملاحظات',
+        skills
+      };
+    };
+
+    const fetchExperiences = async () => {
+      const response = await fetch(apiBase);
+      if (!response.ok) {
+        throw new Error('تعذر تحميل بيانات الخبرات.');
+      }
+      const data = await response.json();
+      return data.map(normalizeExperience);
+    };
+
+    const createExperience = async (payload) => {
+      const response = await fetch(apiBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        throw new Error('تعذر حفظ الخبرة.');
+      }
+      const data = await response.json();
+      return normalizeExperience(data);
+    };
+
+    const updateExperience = async (id, payload) => {
+      const response = await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        throw new Error('تعذر تحديث الخبرة.');
+      }
+      const data = await response.json();
+      return normalizeExperience(data);
+    };
+
+    const removeExperience = async (id) => {
+      const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error('تعذر حذف الخبرة.');
+      }
+      return response.json();
+    };
+
+    const updateStats = (data) => {
+      totalExperiences.textContent = String(data.length);
+      approvedExperiences.textContent = String(data.filter((item) => item.status === 'معتمدة').length);
+      reviewExperiences.textContent = String(data.filter((item) => item.status === 'قيد المراجعة').length);
+      const average = data.length ? data.reduce((sum, item) => sum + item.years, 0) / data.length : 0;
+      averageYears.textContent = average.toFixed(1);
+    };
+
+    const updateSpecialties = (data) => {
+      const counts = data.reduce((acc, item) => {
+        acc[item.field] = (acc[item.field] || 0) + 1;
+        return acc;
+      }, {});
+      specialtyGrid.innerHTML = '';
+      Object.entries(counts).forEach(([field, count]) => {
+        const card = document.createElement('div');
+        card.className = 'border border-slate-200 rounded-2xl px-4 py-3 bg-white';
+        card.innerHTML = `
+          <div class="text-sm text-slate-500">${field}</div>
+          <div class="text-2xl font-extrabold mt-2">${count}</div>
+        `;
+        specialtyGrid.appendChild(card);
+      });
+    };
+
+    const updateSkills = (data) => {
+      const frequency = {};
+      data.forEach((item) => {
+        item.skills.forEach((skill) => {
+          frequency[skill] = (frequency[skill] || 0) + 1;
+        });
+      });
+      const sorted = Object.entries(frequency).sort((a, b) => b[1] - a[1]);
+      const top = sorted.slice(0, 5);
+      const rare = sorted.slice(-5).reverse();
+
+      topSkills.innerHTML = '';
+      top.forEach(([skill, count]) => {
+        const row = document.createElement('div');
+        row.innerHTML = `
+          <div class="flex items-center justify-between text-sm">
+            <span>${skill}</span>
+            <span class="font-bold text-slate-700">${count}</span>
+          </div>
+          <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-emerald-500" style="width: ${Math.min(count * 18, 100)}%"></div>
+          </div>
+        `;
+        topSkills.appendChild(row);
+      });
+
+      rareSkills.innerHTML = '';
+      rare.forEach(([skill, count]) => {
+        const row = document.createElement('div');
+        row.innerHTML = `
+          <div class="flex items-center justify-between text-sm">
+            <span>${skill}</span>
+            <span class="font-bold text-amber-700">${count}</span>
+          </div>
+          <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-amber-500" style="width: ${Math.min(count * 18, 100)}%"></div>
+          </div>
+        `;
+        rareSkills.appendChild(row);
+      });
+    };
+
+    const fillTypeOptions = (data) => {
+      typeFilter.innerHTML = '<option value="all">كل أنواع الخبرة</option>';
+      const types = [...new Set(data.map((item) => item.type))];
+      types.forEach((type) => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        typeFilter.appendChild(option);
+      });
+    };
+
+    const renderTable = (data) => {
+      tableBody.innerHTML = '';
+      if (!data.length) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      data.forEach((item) => {
+        const row = document.createElement('tr');
+        row.className = 'table-row';
+        row.innerHTML = `
+          <td class="px-4 py-3 font-bold text-slate-700">${item.employee}</td>
+          <td class="px-4 py-3">${item.type}</td>
+          <td class="px-4 py-3">${item.field}</td>
+          <td class="px-4 py-3">${item.years}</td>
+          <td class="px-4 py-3">${item.level}</td>
+          <td class="px-4 py-3">${item.date}</td>
+          <td class="px-4 py-3">
+            <span class="chip ${item.status === 'معتمدة' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
+              ${item.status}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-slate-600">${item.notes}</td>
+          <td class="px-4 py-3 row-actions" data-id="${item.id}">
+            <div class="flex flex-wrap gap-1">
+              <button data-action="view">عرض</button>
+              <button data-action="preview">معاينة</button>
+              <button data-action="edit">تعديل</button>
+              <button data-action="delete" class="text-rose-600">حذف</button>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    };
+
+    const applyFilters = () => {
+      const searchValue = searchInput.value.trim().toLowerCase();
+      const typeValue = typeFilter.value;
+      const minYears = Number(yearsFilter.value || 0);
+
+      const filtered = experiences.filter((item) => {
+        const matchesSearch =
+          item.employee.toLowerCase().includes(searchValue) ||
+          item.type.toLowerCase().includes(searchValue);
+        const matchesType = typeValue === 'all' || item.type === typeValue;
+        const matchesYears = item.years >= minYears;
+        return matchesSearch && matchesType && matchesYears;
+      });
+
+      renderTable(filtered);
+    };
+
+    const resetModal = () => {
+      employeeInput.value = '';
+      typeInput.value = '';
+      fieldInput.value = '';
+      yearsInput.value = '';
+      levelInput.value = 'مبتدئ';
+      statusInput.value = 'قيد المراجعة';
+      notesInput.value = '';
+    };
+
+    const setFormDisabled = (disabled) => {
+      [employeeInput, typeInput, fieldInput, yearsInput, levelInput, statusInput, notesInput]
+        .forEach((input) => {
+          input.disabled = disabled;
+          input.classList.toggle('bg-slate-100', disabled);
+        });
+    };
+
+    const openModal = (mode, item = null) => {
+      currentMode = mode;
+      currentEditId = item ? item.id : null;
+      currentEditDate = item ? item.date : null;
+
+      if (!item) {
+        resetModal();
+      } else {
+        employeeInput.value = item.employee;
+        typeInput.value = item.type;
+        fieldInput.value = item.field;
+        yearsInput.value = item.years;
+        levelInput.value = item.level;
+        statusInput.value = item.status;
+        notesInput.value = item.notes === 'بدون ملاحظات' ? '' : item.notes;
+      }
+
+      const isReadOnly = mode === 'view' || mode === 'preview';
+      setFormDisabled(isReadOnly);
+      saveExperienceBtn.classList.toggle('hidden', isReadOnly);
+      modalTitle.textContent = mode === 'edit' ? 'تعديل الخبرة' : mode === 'preview' ? 'معاينة الخبرة' : mode === 'view' ? 'عرض الخبرة' : 'إضافة خبرة جديدة';
+      modalHint.textContent = isReadOnly ? 'عرض تفاصيل الخبرة كما هي مسجلة في النظام.' : 'أدخل بيانات الخبرة بدقة لضمان جودة السجل.';
+      modalBackdrop.style.display = 'flex';
+    };
+
+    const closeModal = () => {
+      modalBackdrop.style.display = 'none';
+    };
+
+    const initialize = () => {
+      updateStats(experiences);
+      updateSpecialties(experiences);
+      updateSkills(experiences);
+      fillTypeOptions(experiences);
+      renderTable(experiences);
+    };
+
+    searchInput.addEventListener('input', applyFilters);
+    typeFilter.addEventListener('change', applyFilters);
+    yearsFilter.addEventListener('input', () => {
+      yearsValue.textContent = `${yearsFilter.value}+`;
+      applyFilters();
+    });
+
+    tableBody.addEventListener('click', (event) => {
+      const action = event.target.getAttribute('data-action');
+      if (!action) return;
+      const row = event.target.closest('[data-id]');
+      const id = Number(row.dataset.id);
+      const itemIndex = experiences.findIndex((item) => item.id === id);
+      if (itemIndex === -1) return;
+      const item = experiences[itemIndex];
+
+      if (action === 'delete') {
+        const confirmed = window.confirm('هل تريد حذف الخبرة المحددة؟');
+        if (!confirmed) return;
+        removeExperience(id)
+          .then(() => {
+            experiences.splice(itemIndex, 1);
+            updateStats(experiences);
+            updateSpecialties(experiences);
+            updateSkills(experiences);
+            applyFilters();
+            showToast('تم حذف الخبرة بنجاح.');
+          })
+          .catch((error) => showToast(error.message));
+        return;
+      }
+
+      if (action === 'edit') {
+        openModal('edit', item);
+        return;
+      }
+
+      if (action === 'view') {
+        openModal('view', item);
+        return;
+      }
+
+      if (action === 'preview') {
+        openModal('preview', item);
+        return;
+      }
+    });
+
+    addExperienceBtn.addEventListener('click', () => openModal('add'));
+    closeModalBtn.addEventListener('click', closeModal);
+    cancelModalBtn.addEventListener('click', closeModal);
+
+    saveExperienceBtn.addEventListener('click', () => {
+      if (!employeeInput.value.trim() || !typeInput.value.trim() || !fieldInput.value.trim() || !yearsInput.value) {
+        showToast('يرجى إدخال جميع البيانات المطلوبة.');
+        return;
+      }
+
+      const payload = {
+        employee_name: employeeInput.value.trim(),
+        experience_type: typeInput.value.trim(),
+        experience_field: fieldInput.value.trim(),
+        years_of_experience: Number(yearsInput.value),
+        experience_level: levelInput.value,
+        status: statusInput.value,
+        notes: notesInput.value.trim() || null,
+        skills: ['Knowledge Transfer']
+      };
+
+      if (currentMode === 'edit' && currentEditDate) {
+        payload.added_on = currentEditDate;
+      }
+
+      const request = currentMode === 'edit'
+        ? updateExperience(currentEditId, payload)
+        : createExperience(payload);
+
+      request
+        .then((saved) => {
+          if (currentMode === 'edit') {
+            const index = experiences.findIndex((item) => item.id === saved.id);
+            if (index !== -1) experiences[index] = saved;
+          } else {
+            experiences.unshift(saved);
+          }
+          updateStats(experiences);
+          updateSpecialties(experiences);
+          updateSkills(experiences);
+          fillTypeOptions(experiences);
+          applyFilters();
+          closeModal();
+          showToast('تم حفظ الخبرة بنجاح.');
+        })
+        .catch((error) => showToast(error.message));
+    });
+
+    fetchExperiences()
+      .then((data) => {
+        experiences = data;
+        initialize();
+      })
+      .catch((error) => {
+        showToast(error.message);
+        initialize();
+      });
+  </script>
+</body>
+</html>

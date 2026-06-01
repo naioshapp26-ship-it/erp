@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚚 مركز تحكم خيارات الشحن - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;600;700&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ink: #0b1120;
+            --slate: #1f2937;
+            --sky: #0ea5e9;
+            --mint: #10b981;
+            --amber: #f59e0b;
+            --rose: #f43f5e;
+            --indigo: #6366f1;
+            --soft: #eef2ff;
+        }
+        body {
+            font-family: 'Tajawal', sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 10% 10%, rgba(14, 165, 233, 0.12), transparent 45%),
+                radial-gradient(circle at 85% 15%, rgba(245, 158, 11, 0.18), transparent 40%),
+                linear-gradient(135deg, #f8fafc 0%, #eef2ff 35%, #fef3c7 100%);
+            min-height: 100vh;
+        }
+        .hero-title {
+            font-family: 'El Messiri', sans-serif;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+            backdrop-filter: blur(10px);
+        }
+        .stat-card {
+            background: white;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+        }
+        .tag {
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .table-scroll {
+            max-height: 420px;
+            overflow: auto;
+        }
+        .fade-up {
+            animation: fadeUp 0.6s ease both;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pulse-soft {
+            animation: pulseSoft 2.8s ease-in-out infinite;
+        }
+        @keyframes pulseSoft {
+            0%, 100% { box-shadow: 0 0 0 rgba(14, 165, 233, 0.12); }
+            50% { box-shadow: 0 0 30px rgba(14, 165, 233, 0.2); }
+        }
+        .grid-lines {
+            background-image: linear-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            display: inline-block;
+        }
+        .chip-btn {
+            border: 1px solid rgba(148, 163, 184, 0.4);
+        }
+        .modal-backdrop {
+            background: rgba(15, 23, 42, 0.45);
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <header class="glass rounded-[28px] p-6 mb-8 grid-lines fade-up">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="tag bg-sky-100 text-sky-700"><span class="status-dot" style="background: var(--mint);"></span>نظام حي</span>
+                        <span class="tag bg-amber-100 text-amber-700">إدارة متقدمة</span>
+                        <span class="tag bg-rose-100 text-rose-700">مخاطر مراقبة</span>
+                    </div>
+                    <h1 class="text-3xl md:text-4xl font-bold hero-title">🚚 مركز تحكم خيارات الشحن</h1>
+                    <p class="text-slate-600 mt-2">لوحة موحدة للتحكم في الأسعار، التغطية، الامتثال، الـ SLA، وإدارة المخاطر مع تشغيل كامل للأوامر.</p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-rotate"></i>
+                        تحديث البيانات
+                    </button>
+                    <button onclick="openOptionForm()" class="bg-slate-900 text-white px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        إضافة خيار شحن
+                    </button>
+                    <button onclick="exportCsv()" class="bg-amber-500 text-white px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-file-export"></i>
+                        تصدير CSV
+                    </button>
+                    <button onclick="printPage()" class="bg-rose-600 text-white px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-print"></i>
+                        طباعة التقرير
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-sky-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">خيارات نشطة</span>
+                    <i class="fas fa-shipping-fast text-sky-500"></i>
+                </div>
+                <div id="stat-active" class="text-2xl font-bold text-slate-900">0</div>
+                <div class="text-xs text-slate-500">تمكين تلقائي للقدرات</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-emerald-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">متوسط زمن التسليم</span>
+                    <i class="fas fa-stopwatch text-emerald-500"></i>
+                </div>
+                <div id="stat-eta" class="text-2xl font-bold text-slate-900">0 ساعة</div>
+                <div class="text-xs text-slate-500">مقاس داخلي + إقليمي</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-amber-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">التزام SLA</span>
+                    <i class="fas fa-signal text-amber-500"></i>
+                </div>
+                <div id="stat-sla" class="text-2xl font-bold text-slate-900">0%</div>
+                <div class="text-xs text-slate-500">آخر 30 يوم</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-rose-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">مؤشر المخاطر</span>
+                    <i class="fas fa-triangle-exclamation text-rose-500"></i>
+                </div>
+                <div id="stat-risk" class="text-2xl font-bold text-slate-900">منخفض</div>
+                <div class="text-xs text-slate-500">بناء على SLA و المرتجعات</div>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6 mb-8">
+            <div class="glass rounded-3xl p-6 fade-up">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900">📦 خيارات الشحن التشغيلية</h2>
+                        <p class="text-sm text-slate-500">كل خيار مرتبط بالتغطية، SLA، مخاطر، الكربون، وسياسات الإرجاع.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="optimizeOptions()" class="chip-btn bg-white text-slate-700 px-4 py-2 rounded-full text-sm font-semibold hover:shadow">تحسين تلقائي</button>
+                        <button onclick="copySummary()" class="chip-btn bg-white text-slate-700 px-4 py-2 rounded-full text-sm font-semibold hover:shadow">نسخ الملخص</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200">
+                        <label class="text-xs text-slate-500">بحث سريع</label>
+                        <input id="searchInput" type="text" placeholder="ابحث بالاسم أو الشركة" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                    </div>
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200">
+                        <label class="text-xs text-slate-500">الحالة</label>
+                        <select id="statusFilter" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="all">الكل</option>
+                            <option value="نشط">نشط</option>
+                            <option value="مجدول">مجدول</option>
+                            <option value="معلق">معلق</option>
+                        </select>
+                    </div>
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200">
+                        <label class="text-xs text-slate-500">التغطية</label>
+                        <select id="coverageFilter" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="all">الكل</option>
+                            <option value="محلي">محلي</option>
+                            <option value="خليجي">خليجي</option>
+                            <option value="دولي">دولي</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-scroll rounded-2xl border border-slate-200">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-50 text-slate-700">
+                            <tr>
+                                <th class="px-3 py-3 text-right">الخيار</th>
+                                <th class="px-3 py-3 text-right">الشركة</th>
+                                <th class="px-3 py-3 text-right">SLA</th>
+                                <th class="px-3 py-3 text-right">الزمن</th>
+                                <th class="px-3 py-3 text-right">التسعير</th>
+                                <th class="px-3 py-3 text-right">التأمين</th>
+                                <th class="px-3 py-3 text-right">المخاطر</th>
+                                <th class="px-3 py-3 text-right">الحالة</th>
+                                <th class="px-3 py-3 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="optionsTable" class="divide-y divide-slate-100 bg-white"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="glass rounded-3xl p-6 fade-up">
+                    <h3 class="text-xl font-bold text-slate-900 mb-3">⚡ محرك التسعير الذكي</h3>
+                    <p class="text-sm text-slate-500 mb-4">احسب تسعير ديناميكي يعتمد على الوزن، المسافة، ونوع الخدمة.</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs text-slate-500">الوزن (كجم)</label>
+                            <input id="calcWeight" type="number" min="0" value="3" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">المسافة (كم)</label>
+                            <input id="calcDistance" type="number" min="0" value="120" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                        <div class="col-span-2">
+                            <label class="text-xs text-slate-500">الخيار</label>
+                            <select id="calcOption" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"></select>
+                        </div>
+                    </div>
+                    <button onclick="calculatePricing()" class="mt-4 w-full bg-slate-900 text-white px-4 py-3 rounded-xl font-semibold hover:shadow">احسب السعر</button>
+                    <div class="mt-4 bg-slate-50 rounded-2xl p-4">
+                        <div class="text-xs text-slate-500">السعر المتوقع</div>
+                        <div id="calcResult" class="text-2xl font-bold text-slate-900">—</div>
+                        <div id="calcMeta" class="text-xs text-slate-500">مع خصم التحسين وتكلفة الكربون</div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-3xl p-6 fade-up">
+                    <h3 class="text-xl font-bold text-slate-900 mb-3">🛡️ حوكمة وامتثال</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-center justify-between bg-white rounded-2xl p-3 border border-slate-200">
+                            <span>تفعيل توثيق التوقيع الإلكتروني عند الاستلام</span>
+                            <input id="ruleSignature" type="checkbox" checked class="h-4 w-4" />
+                        </div>
+                        <div class="flex items-center justify-between bg-white rounded-2xl p-3 border border-slate-200">
+                            <span>تطبيق سياسة فحص الأوزان الشاذة</span>
+                            <input id="ruleWeight" type="checkbox" checked class="h-4 w-4" />
+                        </div>
+                        <div class="flex items-center justify-between bg-white rounded-2xl p-3 border border-slate-200">
+                            <span>حظر مناطق عالية المخاطر تلقائيا</span>
+                            <input id="ruleZones" type="checkbox" class="h-4 w-4" />
+                        </div>
+                        <div class="flex items-center justify-between bg-white rounded-2xl p-3 border border-slate-200">
+                            <span>تفعيل سلسلة التبريد للمواد الحساسة</span>
+                            <input id="ruleCold" type="checkbox" checked class="h-4 w-4" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6 mb-8">
+            <div class="glass rounded-3xl p-6 fade-up">
+                <h3 class="text-xl font-bold text-slate-900 mb-3">📊 مراقبة SLA والإنذارات</h3>
+                <div id="alertsList" class="space-y-3 text-sm"></div>
+                <div class="mt-5">
+                    <h4 class="text-sm font-bold text-slate-700 mb-2">سجل الأعطال الحرجة</h4>
+                    <div class="table-scroll rounded-2xl border border-slate-200">
+                        <table class="w-full text-sm">
+                            <thead class="bg-rose-50 text-rose-700">
+                                <tr>
+                                    <th class="px-3 py-2 text-right">الخدمة</th>
+                                    <th class="px-3 py-2 text-right">السبب</th>
+                                    <th class="px-3 py-2 text-right">الإجراء</th>
+                                    <th class="px-3 py-2 text-right">الزمن</th>
+                                </tr>
+                            </thead>
+                            <tbody id="incidentsTable" class="divide-y divide-slate-100 bg-white"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass rounded-3xl p-6 fade-up">
+                <h3 class="text-xl font-bold text-slate-900 mb-3">🏢 شركات الشحن المعتمدة</h3>
+                <div id="carriersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div class="mt-5 bg-indigo-50 p-4 rounded-2xl text-sm">
+                    <div class="font-bold text-indigo-800 mb-1">تحليلات الاستدامة</div>
+                    <div class="text-indigo-700">انبعاثات الكربون لكل طلب: <span id="co2Score">—</span> كجم</div>
+                    <div class="text-indigo-700">نسبة الشحنات الخضراء: <span id="greenRate">—</span>%</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="glass rounded-3xl p-6 fade-up">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h3 class="text-xl font-bold text-slate-900">🧠 سجل الإجراءات الذكي</h3>
+                <button onclick="clearLogs()" class="chip-btn bg-white text-slate-700 px-4 py-2 rounded-full text-sm font-semibold">مسح السجل</button>
+            </div>
+            <div id="activityLog" class="space-y-3 text-sm"></div>
+        </section>
+    </div>
+
+    <div id="optionModal" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="modalTitle" class="text-xl font-bold text-slate-900">إضافة خيار شحن</h3>
+                <button onclick="closeOptionForm()" class="text-slate-400 hover:text-slate-700"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="optionForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <input type="hidden" id="optionId" />
+                <div>
+                    <label class="text-xs text-slate-500">اسم الخيار</label>
+                    <input id="optionName" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">شركة الشحن</label>
+                    <input id="optionCarrier" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">التغطية</label>
+                    <input id="optionCoverage" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الزمن (ساعة)</label>
+                    <input id="optionEta" type="number" min="1" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">السعر الأساسي</label>
+                    <input id="optionCost" type="number" min="1" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">التأمين</label>
+                    <input id="optionInsurance" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">التتبع</label>
+                    <input id="optionTracking" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">SLA %</label>
+                    <input id="optionSla" type="number" min="80" max="100" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">كربون/طلب (كجم)</label>
+                    <input id="optionCo2" type="number" step="0.01" min="0" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">القدرة/يوم</label>
+                    <input id="optionCapacity" type="number" min="1" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">آخر وقت استلام</label>
+                    <input id="optionCutoff" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">مستوى المخاطر</label>
+                    <select id="optionRisk" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2">
+                        <option value="منخفض">منخفض</option>
+                        <option value="متوسط">متوسط</option>
+                        <option value="مرتفع">مرتفع</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs text-slate-500">الحالة</label>
+                    <select id="optionStatus" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2">
+                        <option value="نشط">نشط</option>
+                        <option value="مجدول">مجدول</option>
+                        <option value="معلق">معلق</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+                    <button type="button" onclick="closeOptionForm()" class="px-4 py-2 rounded-full border border-slate-200 text-slate-600">إلغاء</button>
+                    <button type="submit" class="px-5 py-2 rounded-full bg-slate-900 text-white font-semibold">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const seedOptions = [
+            {
+                id: 'SHP-001',
+                name: 'سريع بريمير',
+                carrier: 'SkyShip',
+                coverage: 'محلي + خليجي',
+                etaHours: 20,
+                cost: 48,
+                insurance: 'شامل حتى 20000',
+                tracking: 'لحظي + خرائط',
+                sla: 98.8,
+                co2: 0.34,
+                capacity: 1400,
+                cutoff: '21:00',
+                risk: 'منخفض',
+                status: 'نشط'
+            },
+            {
+                id: 'SHP-002',
+                name: 'مرن اقتصادي',
+                carrier: 'DesertX',
+                coverage: 'محلي',
+                etaHours: 48,
+                cost: 22,
+                insurance: 'أساسي حتى 6000',
+                tracking: 'كل 4 ساعات',
+                sla: 95.4,
+                co2: 0.26,
+                capacity: 2200,
+                cutoff: '19:30',
+                risk: 'متوسط',
+                status: 'نشط'
+            },
+            {
+                id: 'SHP-003',
+                name: 'سلسلة التبريد الطبية',
+                carrier: 'ColdLine',
+                coverage: 'محلي + دولي',
+                etaHours: 36,
+                cost: 85,
+                insurance: 'شامل حتى 50000',
+                tracking: 'حساسات حرارة',
+                sla: 97.1,
+                co2: 0.52,
+                capacity: 600,
+                cutoff: '17:00',
+                risk: 'منخفض',
+                status: 'مجدول'
+            },
+            {
+                id: 'SHP-004',
+                name: 'تسليم المساء',
+                carrier: 'NightRide',
+                coverage: 'محلي',
+                etaHours: 30,
+                cost: 33,
+                insurance: 'أساسي حتى 9000',
+                tracking: 'فوري',
+                sla: 93.8,
+                co2: 0.31,
+                capacity: 900,
+                cutoff: '23:00',
+                risk: 'متوسط',
+                status: 'معلق'
+            },
+            {
+                id: 'SHP-005',
+                name: 'اقتصادي دولي',
+                carrier: 'GlobalWing',
+                coverage: 'دولي',
+                etaHours: 96,
+                cost: 120,
+                insurance: 'محدود حتى 15000',
+                tracking: 'يومي',
+                sla: 92.4,
+                co2: 1.1,
+                capacity: 320,
+                cutoff: '15:00',
+                risk: 'مرتفع',
+                status: 'نشط'
+            }
+        ];
+
+        const incidents = [
+            { service: 'NightRide', reason: 'تأخير سعة النقل', action: 'إعادة توزيع الشحنات', time: 'قبل 4 ساعات' },
+            { service: 'GlobalWing', reason: 'تفتيش جمركي مفاجئ', action: 'تحديث العميل + SLA', time: 'قبل يوم' },
+            { service: 'DesertX', reason: 'ازدحام مركزي', action: 'تبديل المسار الذكي', time: 'قبل 2 يوم' }
+        ];
+
+        const carriers = [
+            { name: 'SkyShip', grade: 'A+', hubs: 18, ontime: 99.2, highlight: 'محرك طائرات محلي سريع' },
+            { name: 'DesertX', grade: 'A', hubs: 11, ontime: 96.5, highlight: 'تكلفة محسنة للمناطق الداخلية' },
+            { name: 'ColdLine', grade: 'A', hubs: 6, ontime: 97.8, highlight: 'تبريد طبي + حساسات' },
+            { name: 'NightRide', grade: 'B+', hubs: 8, ontime: 93.9, highlight: 'تسليم ليلي مخصص' },
+            { name: 'GlobalWing', grade: 'B', hubs: 12, ontime: 92.1, highlight: 'تغطية دولية موسعة' }
+        ];
+
+        let options = JSON.parse(JSON.stringify(seedOptions));
+        let logs = [
+            { time: 'قبل 10 دقائق', text: 'تم تشغيل محرك التسعير الذكي تلقائيا.' },
+            { time: 'قبل ساعة', text: 'رفع سقف التأمين لخيار سريع بريمير.' },
+            { time: 'قبل يوم', text: 'تنبيه SLA للخيار الدولي.' }
+        ];
+
+        const tableBody = document.getElementById('optionsTable');
+        const searchInput = document.getElementById('searchInput');
+        const statusFilter = document.getElementById('statusFilter');
+        const coverageFilter = document.getElementById('coverageFilter');
+        const calcOption = document.getElementById('calcOption');
+        const incidentsTable = document.getElementById('incidentsTable');
+        const carriersGrid = document.getElementById('carriersGrid');
+        const alertsList = document.getElementById('alertsList');
+        const activityLog = document.getElementById('activityLog');
+
+        function refreshData() {
+            options = JSON.parse(JSON.stringify(seedOptions));
+            logs.unshift({ time: 'الآن', text: 'تمت إعادة تحميل البيانات إلى الحالة الافتراضية.' });
+            renderAll();
+        }
+
+        function printPage() { window.print(); }
+
+        function copySummary() {
+            const summaryText = `خيارات نشطة: ${getActiveCount()} | متوسط زمن: ${getAverageEta().toFixed(1)} ساعة | SLA: ${getAverageSla().toFixed(1)}% | مخاطر: ${getRiskLevel()}`;
+            navigator.clipboard.writeText(summaryText).then(() => alert('تم نسخ ملخص الشحن.'));
+        }
+
+        function getActiveCount() {
+            return options.filter((item) => item.status === 'نشط').length;
+        }
+
+        function getAverageEta() {
+            const total = options.reduce((sum, item) => sum + item.etaHours, 0);
+            return options.length ? total / options.length : 0;
+        }
+
+        function getAverageSla() {
+            const total = options.reduce((sum, item) => sum + item.sla, 0);
+            return options.length ? total / options.length : 0;
+        }
+
+        function getRiskLevel() {
+            const hasHigh = options.some((item) => item.risk === 'مرتفع');
+            if (hasHigh) return 'مرتفع';
+            const hasMedium = options.some((item) => item.risk === 'متوسط');
+            return hasMedium ? 'متوسط' : 'منخفض';
+        }
+
+        function getFilteredOptions() {
+            const searchValue = searchInput.value.trim().toLowerCase();
+            const statusValue = statusFilter.value;
+            const coverageValue = coverageFilter.value;
+            return options.filter((item) => {
+                const matchesSearch = `${item.name} ${item.carrier}`.toLowerCase().includes(searchValue);
+                const matchesStatus = statusValue === 'all' || item.status === statusValue;
+                const matchesCoverage = coverageValue === 'all' || item.coverage.includes(coverageValue);
+                return matchesSearch && matchesStatus && matchesCoverage;
+            });
+        }
+
+        function renderStats() {
+            document.getElementById('stat-active').textContent = getActiveCount();
+            document.getElementById('stat-eta').textContent = `${getAverageEta().toFixed(1)} ساعة`;
+            document.getElementById('stat-sla').textContent = `${getAverageSla().toFixed(1)}%`;
+            document.getElementById('stat-risk').textContent = getRiskLevel();
+        }
+
+        function renderOptions() {
+            const filtered = getFilteredOptions();
+            tableBody.innerHTML = filtered.map((item) => {
+                const statusClass = item.status === 'نشط' ? 'bg-emerald-100 text-emerald-700' : item.status === 'مجدول' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700';
+                const riskClass = item.risk === 'مرتفع' ? 'bg-rose-100 text-rose-700' : item.risk === 'متوسط' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+                return `
+                    <tr>
+                        <td class="px-3 py-3">
+                            <div class="font-bold text-slate-800">${item.name}</div>
+                            <div class="text-xs text-slate-500">${item.coverage} | ${item.cutoff}</div>
+                        </td>
+                        <td class="px-3 py-3">${item.carrier}</td>
+                        <td class="px-3 py-3">${item.sla.toFixed(1)}%</td>
+                        <td class="px-3 py-3">${item.etaHours} ساعة</td>
+                        <td class="px-3 py-3">${item.cost} SAR</td>
+                        <td class="px-3 py-3">${item.insurance}</td>
+                        <td class="px-3 py-3"><span class="tag ${riskClass}">${item.risk}</span></td>
+                        <td class="px-3 py-3"><span class="tag ${statusClass}">${item.status}</span></td>
+                        <td class="px-3 py-3">
+                            <div class="flex flex-wrap gap-2">
+                                <button class="chip-btn bg-white text-slate-700 px-3 py-1 rounded-full text-xs" onclick="assignOption('${item.id}')">تعيين</button>
+                                <button class="chip-btn bg-white text-slate-700 px-3 py-1 rounded-full text-xs" onclick="editOption('${item.id}')">تعديل</button>
+                                <button class="chip-btn bg-white text-rose-600 px-3 py-1 rounded-full text-xs" onclick="deleteOption('${item.id}')">حذف</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderIncidents() {
+            incidentsTable.innerHTML = incidents.map((item) => `
+                <tr>
+                    <td class="px-3 py-2">${item.service}</td>
+                    <td class="px-3 py-2">${item.reason}</td>
+                    <td class="px-3 py-2">${item.action}</td>
+                    <td class="px-3 py-2">${item.time}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderCarriers() {
+            carriersGrid.innerHTML = carriers.map((item) => `
+                <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="font-bold text-slate-800">${item.name}</div>
+                        <span class="tag bg-sky-100 text-sky-700">${item.grade}</span>
+                    </div>
+                    <div class="text-xs text-slate-500">مراكز تشغيل: ${item.hubs}</div>
+                    <div class="text-xs text-slate-500">التزام الوقت: ${item.ontime}%</div>
+                    <div class="text-xs text-slate-600 mt-2">${item.highlight}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderAlerts() {
+            const alerts = options.filter((item) => item.sla < 95 || item.risk === 'مرتفع').map((item) => {
+                const tone = item.risk === 'مرتفع' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700';
+                return `<div class="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-3">
+                    <div>
+                        <div class="font-semibold text-slate-800">${item.name}</div>
+                        <div class="text-xs text-slate-500">SLA ${item.sla.toFixed(1)}% | ${item.coverage}</div>
+                    </div>
+                    <span class="tag ${tone}">${item.risk}</span>
+                </div>`;
+            });
+            alertsList.innerHTML = alerts.length ? alerts.join('') : '<div class="text-sm text-slate-500">لا توجد إنذارات حرجة حاليا.</div>';
+        }
+
+        function renderLogs() {
+            activityLog.innerHTML = logs.map((item) => `
+                <div class="bg-white border border-slate-200 rounded-2xl p-3">
+                    <div class="text-xs text-slate-500">${item.time}</div>
+                    <div class="text-sm text-slate-800">${item.text}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderCalcOptions() {
+            calcOption.innerHTML = options.map((item) => `<option value="${item.id}">${item.name} - ${item.carrier}</option>`).join('');
+        }
+
+        function renderSustainability() {
+            const avgCo2 = options.reduce((sum, item) => sum + item.co2, 0) / options.length;
+            const greenCount = options.filter((item) => item.co2 <= 0.4).length;
+            document.getElementById('co2Score').textContent = avgCo2.toFixed(2);
+            document.getElementById('greenRate').textContent = ((greenCount / options.length) * 100).toFixed(0);
+        }
+
+        function renderAll() {
+            renderStats();
+            renderOptions();
+            renderIncidents();
+            renderCarriers();
+            renderAlerts();
+            renderLogs();
+            renderCalcOptions();
+            renderSustainability();
+        }
+
+        function calculatePricing() {
+            const optionId = calcOption.value;
+            const weight = parseFloat(document.getElementById('calcWeight').value || 0);
+            const distance = parseFloat(document.getElementById('calcDistance').value || 0);
+            const selected = options.find((item) => item.id === optionId);
+            if (!selected) return;
+            const distanceFactor = Math.max(distance / 100, 1);
+            const weightFactor = Math.max(weight / 3, 0.7);
+            const riskFactor = selected.risk === 'مرتفع' ? 1.18 : selected.risk === 'متوسط' ? 1.08 : 0.98;
+            const co2Cost = selected.co2 * 4.2;
+            const price = (selected.cost * distanceFactor * weightFactor * riskFactor) + co2Cost;
+            document.getElementById('calcResult').textContent = `${price.toFixed(1)} SAR`;
+            document.getElementById('calcMeta').textContent = `يشمل تكلفة كربون ${co2Cost.toFixed(1)} SAR وخصومات الجدولة.`;
+            logs.unshift({ time: 'الآن', text: `تم حساب تسعير ذكي لخيار ${selected.name}.` });
+            renderLogs();
+        }
+
+        function optimizeOptions() {
+            options = options.map((item) => ({
+                ...item,
+                cost: Math.max(item.cost * 0.97, 18),
+                sla: Math.min(item.sla + 0.4, 99.5)
+            }));
+            logs.unshift({ time: 'الآن', text: 'تم تنفيذ تحسين تلقائي للأسعار ورفع SLA المتوقع.' });
+            renderAll();
+        }
+
+        function openOptionForm() {
+            document.getElementById('optionForm').reset();
+            document.getElementById('optionId').value = '';
+            document.getElementById('modalTitle').textContent = 'إضافة خيار شحن';
+            document.getElementById('optionModal').classList.remove('hidden');
+            document.getElementById('optionModal').classList.add('flex');
+        }
+
+        function closeOptionForm() {
+            document.getElementById('optionModal').classList.add('hidden');
+            document.getElementById('optionModal').classList.remove('flex');
+        }
+
+        function editOption(id) {
+            const option = options.find((item) => item.id === id);
+            if (!option) return;
+            document.getElementById('optionId').value = option.id;
+            document.getElementById('optionName').value = option.name;
+            document.getElementById('optionCarrier').value = option.carrier;
+            document.getElementById('optionCoverage').value = option.coverage;
+            document.getElementById('optionEta').value = option.etaHours;
+            document.getElementById('optionCost').value = option.cost;
+            document.getElementById('optionInsurance').value = option.insurance;
+            document.getElementById('optionTracking').value = option.tracking;
+            document.getElementById('optionSla').value = option.sla;
+            document.getElementById('optionCo2').value = option.co2;
+            document.getElementById('optionCapacity').value = option.capacity;
+            document.getElementById('optionCutoff').value = option.cutoff;
+            document.getElementById('optionRisk').value = option.risk;
+            document.getElementById('optionStatus').value = option.status;
+            document.getElementById('modalTitle').textContent = 'تعديل خيار شحن';
+            document.getElementById('optionModal').classList.remove('hidden');
+            document.getElementById('optionModal').classList.add('flex');
+        }
+
+        function deleteOption(id) {
+            const option = options.find((item) => item.id === id);
+            if (!option) return;
+            if (!confirm(`هل تريد حذف خيار ${option.name}؟`)) return;
+            options = options.filter((item) => item.id !== id);
+            logs.unshift({ time: 'الآن', text: `تم حذف خيار الشحن ${option.name}.` });
+            renderAll();
+        }
+
+        function assignOption(id) {
+            const option = options.find((item) => item.id === id);
+            if (!option) return;
+            option.status = 'مجدول';
+            logs.unshift({ time: 'الآن', text: `تم تعيين خيار ${option.name} لجدولة الشحنات الجديدة.` });
+            renderAll();
+        }
+
+        function exportCsv() {
+            const headers = ['ID', 'Name', 'Carrier', 'Coverage', 'ETA', 'Cost', 'Insurance', 'Tracking', 'SLA', 'CO2', 'Capacity', 'Cutoff', 'Risk', 'Status'];
+            const rows = options.map((item) => [
+                item.id,
+                item.name,
+                item.carrier,
+                item.coverage,
+                item.etaHours,
+                item.cost,
+                item.insurance,
+                item.tracking,
+                item.sla,
+                item.co2,
+                item.capacity,
+                item.cutoff,
+                item.risk,
+                item.status
+            ]);
+            const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'shipping-options.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            logs.unshift({ time: 'الآن', text: 'تم تصدير تقرير CSV لخيارات الشحن.' });
+            renderLogs();
+        }
+
+        function clearLogs() {
+            logs = [{ time: 'الآن', text: 'تم بدء سجل جديد للعمليات.' }];
+            renderLogs();
+        }
+
+        document.getElementById('optionForm').addEventListener('submit', (event) => {
+            event.preventDefault();
+            const id = document.getElementById('optionId').value;
+            const payload = {
+                id: id || `SHP-${Math.floor(Math.random() * 900 + 100)}`,
+                name: document.getElementById('optionName').value,
+                carrier: document.getElementById('optionCarrier').value,
+                coverage: document.getElementById('optionCoverage').value,
+                etaHours: Number(document.getElementById('optionEta').value),
+                cost: Number(document.getElementById('optionCost').value),
+                insurance: document.getElementById('optionInsurance').value,
+                tracking: document.getElementById('optionTracking').value,
+                sla: Number(document.getElementById('optionSla').value),
+                co2: Number(document.getElementById('optionCo2').value),
+                capacity: Number(document.getElementById('optionCapacity').value),
+                cutoff: document.getElementById('optionCutoff').value,
+                risk: document.getElementById('optionRisk').value,
+                status: document.getElementById('optionStatus').value
+            };
+
+            if (id) {
+                options = options.map((item) => (item.id === id ? payload : item));
+                logs.unshift({ time: 'الآن', text: `تم تحديث خيار الشحن ${payload.name}.` });
+            } else {
+                options.unshift(payload);
+                logs.unshift({ time: 'الآن', text: `تمت إضافة خيار شحن جديد: ${payload.name}.` });
+            }
+            closeOptionForm();
+            renderAll();
+        });
+
+        searchInput.addEventListener('input', renderOptions);
+        statusFilter.addEventListener('change', renderOptions);
+        coverageFilter.addEventListener('change', renderOptions);
+
+        renderAll();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

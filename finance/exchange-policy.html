@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔁 سياسة الاستبدال - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ink: #0f172a;
+            --muted: #64748b;
+            --outline: #e2e8f0;
+        }
+        body { font-family: 'Cairo', sans-serif; background-color: #f9fafb; color: var(--ink); }
+        .card-glass { background: rgba(255, 255, 255, 0.95); border: 1px solid var(--outline); box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08); }
+        .stat-card { background: #fff; border: 1px solid var(--outline); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12); }
+        .section-accent-indigo { border-top: 4px solid #6366f1; }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .section-accent-amber { border-top: 4px solid #f59e0b; }
+        .table-scroll { max-height: 460px; overflow: auto; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; font-weight: 700; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12); }
+        .btn-outline { background: #fff; border: 1px solid var(--outline); color: var(--ink); }
+        .btn-indigo { background: #4f46e5; color: #fff; }
+        .btn-amber { background: #f59e0b; color: #fff; }
+        .btn-rose { background: #e11d48; color: #fff; }
+        .btn-emerald { background: #10b981; color: #fff; }
+        .input { background: #fff; border: 1px solid var(--outline); border-radius: 12px; padding: 10px 14px; font-size: 14px; width: 100%; }
+        .input:focus { outline: 2px solid rgba(15, 23, 42, 0.15); border-color: #111827; }
+        .action-btn { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; border: none; color: #fff !important; cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
+        .action-btn:hover { opacity: 0.85; transform: scale(1.08); }
+        .action-btn *, .action-btn i, .action-btn svg { color: #fff !important; fill: #fff !important; stroke: #fff !important; }
+        .action-btn-edit    { background: #2563eb; }  /* أزرق  - تعديل */
+        .action-btn-delete  { background: #dc2626; }  /* أحمر  - حذف */
+        .action-btn-approve { background: #16a34a; }  /* أخضر  - موافقة */
+        .action-btn-reject  { background: #ea580c; }  /* برتقالي - رفض */
+        .action-btn-stage   { background: #7c3aed; }  /* بنفسجي - تغيير المرحلة */
+        .action-btn-view    { background: #0891b2; }  /* سماوي  - عرض */
+        .action-btn-pdf     { background: #b45309; }  /* بني    - PDF */
+        .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); display: none; align-items: center; justify-content: center; z-index: 60; }
+        .modal.open { display: flex; }
+        .modal-card { background: #fff; border-radius: 24px; width: min(860px, 96vw); max-height: 90vh; overflow: auto; box-shadow: 0 24px 40px rgba(15, 23, 42, 0.2); }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🔁 سياسة الاستبدال</h1>
+            <p class="text-lg text-slate-600">لوحة متكاملة لطلبات الاستبدال، الموافقات، والتتبع التشغيلي.</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="btn btn-outline">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="openForm('create')" class="btn btn-emerald">
+                <i class="fas fa-plus"></i>
+                إنشاء طلب
+            </button>
+            <button onclick="printPage()" class="btn btn-rose">
+                <i class="fas fa-print"></i>
+                طباعة
+            </button>
+            <button onclick="copySummary()" class="btn btn-amber">
+                <i class="fas fa-copy"></i>
+                نسخ الملخص
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-indigo-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">إجمالي الطلبات</span>
+                    <i class="fas fa-layer-group text-indigo-500"></i>
+                </div>
+                <div id="statTotal" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">كل الطلبات المسجلة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-emerald-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">طلبات موافق عليها</span>
+                    <i class="fas fa-check-circle text-emerald-500"></i>
+                </div>
+                <div id="statApproved" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">منتهية بالموافقة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-rose-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">طلبات مرفوضة</span>
+                    <i class="fas fa-times-circle text-rose-500"></i>
+                </div>
+                <div id="statRejected" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">تحت إشراف الجودة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-amber-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">متوسط التكلفة</span>
+                    <i class="fas fa-coins text-amber-500"></i>
+                </div>
+                <div id="statAvgCost" class="text-2xl font-bold text-slate-800">0</div>
+                <div class="text-xs text-slate-500">بالريال السعودي</div>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 mb-8 section-accent-indigo">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">📌 متطلبات الاستبدال</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div class="bg-indigo-50 p-4 rounded-2xl">تقديم الطلب خلال المدة المعتمدة</div>
+                <div class="bg-emerald-50 p-4 rounded-2xl">إحضار المنتج بحالة سليمة</div>
+                <div class="bg-amber-50 p-4 rounded-2xl">إرفاق الفاتورة أو إثبات الشراء</div>
+                <div class="bg-rose-50 p-4 rounded-2xl">إثبات سبب الاستبدال إن وجد</div>
+                <div class="bg-slate-50 p-4 rounded-2xl">موافقة مسؤول الفرع للطلبات الخاصة</div>
+                <div class="bg-indigo-50 p-4 rounded-2xl">توثيق فرق السعر والرسوم</div>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 section-accent-amber">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">📋 طلبات الاستبدال</h3>
+                <span class="badge bg-amber-100 text-amber-700" id="tableBadge">0 طلب</span>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-sm">
+                    <thead class="bg-amber-50 text-amber-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم الطلب</th>
+                            <th class="px-3 py-2 text-right">التاريخ</th>
+                            <th class="px-3 py-2 text-right">العميل</th>
+                            <th class="px-3 py-2 text-right">الفرع</th>
+                            <th class="px-3 py-2 text-right">المنتج</th>
+                            <th class="px-3 py-2 text-right">النوع</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">المرحلة</th>
+                            <th class="px-3 py-2 text-right">التكلفة</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requestsTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="formModal" class="modal">
+        <div class="modal-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800" id="formTitle">إنشاء طلب</h3>
+                    <p class="text-sm text-slate-500">تعبئة جميع الحقول قبل الحفظ.</p>
+                </div>
+                <button onclick="closeForm()" class="btn btn-outline"><i class="fas fa-xmark"></i> إغلاق</button>
+            </div>
+            <form id="exchangeForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" id="fieldId" />
+                <div>
+                    <label class="text-xs text-slate-500">تاريخ الطلب</label>
+                    <input id="fieldDate" type="date" class="input" required />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">اسم العميل</label>
+                    <input id="fieldCustomer" type="text" class="input" required />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الفرع</label>
+                    <input id="fieldBranch" type="text" class="input" required />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">اسم المنتج</label>
+                    <input id="fieldProduct" type="text" class="input" required />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الرقم التسلسلي</label>
+                    <input id="fieldSerial" type="text" class="input" required />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">نوع الاستبدال</label>
+                    <select id="fieldType" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">سبب الطلب</label>
+                    <input id="fieldReason" type="text" class="input" required />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">حالة الضمان</label>
+                    <select id="fieldWarranty" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الأولوية</label>
+                    <select id="fieldPriority" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">نتيجة الفحص الفني</label>
+                    <input id="fieldTechnical" type="text" class="input" required />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">حالة الموافقة</label>
+                    <select id="fieldApproval" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">تكلفة الاستبدال</label>
+                    <input id="fieldCost" type="number" class="input" min="0" step="0.01" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">المسؤول</label>
+                    <input id="fieldOwner" type="text" class="input" required />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">تاريخ التسليم</label>
+                    <input id="fieldDelivery" type="date" class="input" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">مرحلة العمل</label>
+                    <select id="fieldStage" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">منشئ الطلب</label>
+                    <input id="fieldCreatedBy" type="text" class="input" required />
+                </div>
+                <div class="md:col-span-2 flex flex-wrap gap-3 justify-end">
+                    <button type="submit" class="btn btn-indigo"><i class="fas fa-save"></i> حفظ الطلب</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const workflowStages = ['استلام الطلب', 'الفحص الفني', 'مراجعة الجودة', 'الموافقة الإدارية', 'التسليم النهائي'];
+        const approvalStatuses = ['قيد المراجعة', 'موافق عليه', 'مرفوض'];
+        const exchangeTypes = ['استبدال كامل', 'استبدال جزئي', 'استرجاع مبلغ', 'إصلاح'];
+        const warrantyStatuses = ['داخل الضمان', 'خارج الضمان'];
+        const priorities = ['عاجل', 'عالي', 'متوسط', 'منخفض'];
+
+        let requests = [];
+        let summaryText = '';
+
+        const formatCurrency = (value) => {
+            const number = Number(value || 0);
+            return `${number.toLocaleString('en-US')} SAR`;
+        };
+
+        function fillSelect(id, items) {
+            const element = document.getElementById(id);
+            element.innerHTML = items.map(item => `<option value="${item}">${item}</option>`).join('');
+        }
+
+        function setStats(metrics) {
+            document.getElementById('statTotal').textContent = metrics.total_count || 0;
+            document.getElementById('statApproved').textContent = metrics.approved_count || 0;
+            document.getElementById('statRejected').textContent = metrics.rejected_count || 0;
+            document.getElementById('statAvgCost').textContent = formatCurrency(metrics.avg_cost || 0);
+            summaryText = `إحصائيات سياسة الاستبدال: إجمالي ${metrics.total_count || 0} طلب، موافق عليه ${metrics.approved_count || 0}، مرفوض ${metrics.rejected_count || 0}، ومتوسط تكلفة ${formatCurrency(metrics.avg_cost || 0)}.`;
+        }
+
+        async function loadMetrics() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/exchange-requests/metrics`);
+                if (!response.ok) throw new Error('Failed to load metrics');
+                const data = await response.json();
+                setStats(data.metrics || {});
+            } catch (error) {
+                console.error(error);
+                setStats({});
+            }
+        }
+
+        function renderTable() {
+            const table = document.getElementById('requestsTable');
+            if (!requests.length) {
+                table.innerHTML = '<tr><td colspan="10" class="px-3 py-6 text-center text-slate-500">لا توجد طلبات حتى الآن.</td></tr>';
+                document.getElementById('tableBadge').textContent = '0 طلب';
+                return;
+            }
+
+            table.innerHTML = requests.map(request => `
+                <tr>
+                    <td class="px-3 py-2">${request.id}</td>
+                    <td class="px-3 py-2">${request.request_date || '-'}</td>
+                    <td class="px-3 py-2">${request.customer_name}</td>
+                    <td class="px-3 py-2">${request.branch_name}</td>
+                    <td class="px-3 py-2">${request.product_name}</td>
+                    <td class="px-3 py-2">${request.exchange_type}</td>
+                    <td class="px-3 py-2">${request.approval_status}</td>
+                    <td class="px-3 py-2">${request.workflow_stage}</td>
+                    <td class="px-3 py-2">${formatCurrency(request.exchange_cost)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2">
+                            <button class="action-btn action-btn-view"    onclick="viewRequest('${request.id}')"   title="عرض التفاصيل"><i class="fas fa-eye"></i></button>
+                            <button class="action-btn action-btn-edit"    onclick="openForm('edit', '${request.id}')" title="تعديل"><i class="fas fa-pen"></i></button>
+                            <button class="action-btn action-btn-approve" onclick="approveRequest('${request.id}')" title="موافقة"><i class="fas fa-check"></i></button>
+                            <button class="action-btn action-btn-reject"  onclick="rejectRequest('${request.id}')"  title="رفض"><i class="fas fa-xmark"></i></button>
+                            <button class="action-btn action-btn-stage"   onclick="advanceStage('${request.id}')"   title="تغيير المرحلة"><i class="fas fa-repeat"></i></button>
+                            <button class="action-btn action-btn-delete"  onclick="deleteRequest('${request.id}')"  title="حذف"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('tableBadge').textContent = `${requests.length} طلب`;
+        }
+
+        async function loadRequests() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/exchange-requests`);
+                if (!response.ok) throw new Error('Failed to load requests');
+                const data = await response.json();
+                requests = data.requests || [];
+                renderTable();
+            } catch (error) {
+                console.error(error);
+                requests = [];
+                renderTable();
+            }
+        }
+
+        async function refreshData() {
+            await Promise.all([loadRequests(), loadMetrics()]);
+        }
+
+        function viewRequest(id) {
+            openForm('edit', id);
+            // set all inputs to readonly for view mode
+            document.getElementById('formTitle').textContent = 'عرض تفاصيل الطلب';
+            document.querySelectorAll('#formModal input, #formModal select, #formModal textarea').forEach(el => el.setAttribute('disabled', 'true'));
+            setTimeout(() => {
+                document.querySelectorAll('#formModal input, #formModal select, #formModal textarea').forEach(el => el.removeAttribute('disabled'));
+            }, 1);
+        }
+
+        function openForm(mode, id) {
+            document.getElementById('formModal').classList.add('open');
+            document.getElementById('formTitle').textContent = mode === 'edit' ? 'تعديل طلب' : 'إنشاء طلب';
+            const data = mode === 'edit' ? requests.find(item => item.id === id) : null;
+
+            document.getElementById('fieldId').value = data?.id || '';
+            document.getElementById('fieldDate').value = data?.request_date?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+            document.getElementById('fieldCustomer').value = data?.customer_name || '';
+            document.getElementById('fieldBranch').value = data?.branch_name || '';
+            document.getElementById('fieldProduct').value = data?.product_name || '';
+            document.getElementById('fieldSerial').value = data?.serial_number || '';
+            document.getElementById('fieldType').value = data?.exchange_type || exchangeTypes[0];
+            document.getElementById('fieldReason').value = data?.reason || '';
+            document.getElementById('fieldWarranty').value = data?.warranty_status || warrantyStatuses[0];
+            document.getElementById('fieldPriority').value = data?.priority || priorities[0];
+            document.getElementById('fieldTechnical').value = data?.technical_result || '';
+            document.getElementById('fieldApproval').value = data?.approval_status || approvalStatuses[0];
+            document.getElementById('fieldCost').value = data?.exchange_cost || 0;
+            document.getElementById('fieldOwner').value = data?.owner_name || '';
+            document.getElementById('fieldDelivery').value = data?.delivery_date?.slice(0, 10) || '';
+            document.getElementById('fieldStage').value = data?.workflow_stage || workflowStages[0];
+            document.getElementById('fieldCreatedBy').value = data?.created_by || 'خدمة العملاء';
+        }
+
+        function closeForm() {
+            document.getElementById('formModal').classList.remove('open');
+        }
+
+        async function saveRequest(event) {
+            event.preventDefault();
+            const payload = {
+                request_date: document.getElementById('fieldDate').value,
+                customer_name: document.getElementById('fieldCustomer').value.trim(),
+                branch_name: document.getElementById('fieldBranch').value.trim(),
+                product_name: document.getElementById('fieldProduct').value.trim(),
+                serial_number: document.getElementById('fieldSerial').value.trim(),
+                exchange_type: document.getElementById('fieldType').value,
+                reason: document.getElementById('fieldReason').value.trim(),
+                warranty_status: document.getElementById('fieldWarranty').value,
+                priority: document.getElementById('fieldPriority').value,
+                technical_result: document.getElementById('fieldTechnical').value.trim(),
+                approval_status: document.getElementById('fieldApproval').value,
+                exchange_cost: Number(document.getElementById('fieldCost').value || 0),
+                owner_name: document.getElementById('fieldOwner').value.trim(),
+                delivery_date: document.getElementById('fieldDelivery').value || null,
+                workflow_stage: document.getElementById('fieldStage').value,
+                created_by: document.getElementById('fieldCreatedBy').value.trim()
+            };
+
+            const id = document.getElementById('fieldId').value;
+            const url = id ? `${API_BASE}/finance/exchange-requests/${id}` : `${API_BASE}/finance/exchange-requests`;
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error('Failed to save request');
+                closeForm();
+                await refreshData();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر حفظ الطلب في قاعدة البيانات.');
+            }
+        }
+
+        async function deleteRequest(id) {
+            if (!confirm('هل تريد حذف هذا الطلب؟')) return;
+            try {
+                const response = await fetch(`${API_BASE}/finance/exchange-requests/${id}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('Failed to delete request');
+                await refreshData();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر حذف الطلب.');
+            }
+        }
+
+        async function patchRequest(id, payload) {
+            try {
+                const response = await fetch(`${API_BASE}/finance/exchange-requests/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error('Failed to patch request');
+                await refreshData();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر تحديث حالة الطلب.');
+            }
+        }
+
+        function approveRequest(id) {
+            patchRequest(id, { approval_status: 'موافق عليه', actor: 'سياسة الاستبدال' });
+        }
+
+        function rejectRequest(id) {
+            patchRequest(id, { approval_status: 'مرفوض', actor: 'سياسة الاستبدال' });
+        }
+
+        function advanceStage(id) {
+            const request = requests.find(item => item.id === id);
+            if (!request) return;
+            const currentIndex = workflowStages.indexOf(request.workflow_stage);
+            const nextIndex = currentIndex === -1 ? 0 : Math.min(workflowStages.length - 1, currentIndex + 1);
+            const nextStage = workflowStages[nextIndex];
+            patchRequest(id, { workflow_stage: nextStage, actor: 'سياسة الاستبدال' });
+        }
+
+        function printPage() { window.print(); }
+
+        function copySummary() {
+            navigator.clipboard.writeText(summaryText || 'لا توجد بيانات بعد.').then(() => {
+                alert('تم نسخ ملخص سياسة الاستبدال.');
+            });
+        }
+
+        document.getElementById('exchangeForm').addEventListener('submit', saveRequest);
+
+        fillSelect('fieldType', exchangeTypes);
+        fillSelect('fieldWarranty', warrantyStatuses);
+        fillSelect('fieldPriority', priorities);
+        fillSelect('fieldApproval', approvalStatuses);
+        fillSelect('fieldStage', workflowStages);
+
+        refreshData();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

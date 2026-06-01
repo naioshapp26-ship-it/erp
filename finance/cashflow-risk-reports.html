@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💧 التدفقات النقدية + المخاطر + التقارير الذكية - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f9fafb; /* Zinc-50 */
+            color: #18181b; /* Zinc-900 */
+            min-height: 100vh;
+        }
+        .card-glass {
+            background: #ffffff;
+            border: 1px solid #e4e4e7; /* Zinc-200 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .stat-pill {
+            border-radius: 999px;
+            background-color: #18181b; /* Zinc-900 */
+            color: #ffffff;
+        }
+        .stat-angled {
+            border-radius: 28px 6px 28px 6px;
+            background-color: #ef4444; /* Red-500 */
+            color: #ffffff;
+        }
+        .stat-rounded {
+            border-radius: 28px;
+            background-color: #ffffff;
+            border: 2px solid #18181b;
+            color: #18181b;
+        }
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+        .table-scroll {
+            max-height: 520px;
+            overflow: auto;
+        }
+        /* Accents converted to Black/Red/Gray theme */
+        .section-accent-sky { border-top: 4px solid #18181b; }      /* Black */
+        .section-accent-emerald { border-top: 4px solid #000000; }  /* Black */
+        .section-accent-amber { border-top: 4px solid #ef4444; }    /* Red-500 */
+        .section-accent-violet { border-top: 4px solid #18181b; }   /* Black */
+        .section-accent-rose { border-top: 4px solid #991b1b; }     /* Red-800 */
+        .section-accent-indigo { border-top: 4px solid #3f3f46; }   /* Zinc-700 */
+        .chip {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+        .glass-panel {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+        }
+        .kpi-glow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .progress-track {
+            height: 8px;
+            border-radius: 999px;
+            background: #f4f4f5; /* Zinc-100 */
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.4s ease;
+        }
+        .insight-card {
+            border-left: 4px solid #ef4444;
+        }
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #ef4444;
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            animation: pulse 1.6s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .demo-banner {
+            background: #fef2f2; /* Red-50 */
+            border: 1px dashed #ef4444;
+            color: #991b1b;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">💧 التدفقات النقدية + المخاطر + التقارير الذكية</h1>
+            <p class="text-lg text-slate-600">منطقة التدفقات النقدية + منطقة المخاطر المالية + التقارير الذكية (الصفحة 27)</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-slate-800 border border-slate-200 px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="downloadAllJSON()" class="bg-slate-900 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-code"></i>
+                تنزيل ملف بيانات شامل
+            </button>
+            <button onclick="downloadAllCSV()" class="bg-white text-slate-900 px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2 border-2 border-white">
+                <i class="fas fa-file-csv text-slate-700"></i>
+                تنزيل ملف جدولي شامل
+            </button>
+            <button onclick="printReport()" class="bg-red-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة التقرير
+            </button>
+            <button onclick="downloadEnhancementPack()" class="bg-black text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-bolt"></i>
+                تنزيل تعزيزات ذكية
+            </button>
+        </div>
+
+        <!-- Command Center -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+            <div class="glass-panel rounded-3xl p-6 kpi-glow">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">🧠 جودة التدفق النقدي</h3>
+                        <p class="text-sm text-slate-500">مؤشر توازن وتذبذب التدفقات</p>
+                    </div>
+                    <span id="cashflowQualityBadge" class="chip bg-black text-white">ممتاز</span>
+                </div>
+                <div class="flex items-end justify-between mb-3">
+                    <div>
+                        <div class="text-3xl font-bold text-slate-800" id="cashflowQualityScore">0%</div>
+                        <div class="text-sm text-slate-500">مؤشر الجودة</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm text-slate-500">نسبة التذبذب</div>
+                        <div class="text-xl font-bold text-red-600" id="cashflowVolatility">0%</div>
+                    </div>
+                </div>
+                <div class="progress-track">
+                    <div id="cashflowQualityProgress" class="progress-fill bg-slate-900" style="width: 0%"></div>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div class="bg-slate-50 rounded-xl p-3">
+                        <div class="text-slate-500">صافي 30 يوم</div>
+                        <div class="font-bold text-slate-800" id="net30">0</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-3">
+                        <div class="text-slate-500">آخر تحديث</div>
+                        <div class="font-bold text-slate-800" id="lastSync">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-panel rounded-3xl p-6 kpi-glow">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">🚨 تنبيهات استباقية</h3>
+                        <p class="text-sm text-slate-500">تحذيرات مبكرة للمخاطر والسيولة</p>
+                    </div>
+                    <span class="pulse-dot"></span>
+                </div>
+                <div id="cashflowAlerts" class="space-y-3 text-sm text-slate-700">
+                    <div class="animate-pulse text-slate-400">جاري التحليل...</div>
+                </div>
+            </div>
+            <div class="glass-panel rounded-3xl p-6 kpi-glow">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">⚡ مؤشرات سريعة</h3>
+                        <p class="text-sm text-slate-500">ملخص أداء التحصيل والمخاطر</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <div class="text-sm text-slate-600">معدل التحصيل</div>
+                        <div class="text-2xl font-bold text-slate-800" id="collectionRate">0%</div>
+                    </div>
+                    <div class="bg-red-50 border border-red-100 rounded-xl p-4">
+                        <div class="text-sm text-red-600">مخاطر عالية</div>
+                        <div class="text-2xl font-bold text-red-700" id="highRiskShare">0%</div>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <div class="text-sm text-slate-600">متوسط التحصيل</div>
+                        <div class="text-2xl font-bold text-slate-700" id="avgCollection">0</div>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <div class="text-sm text-slate-600">صافي السيولة</div>
+                        <div class="text-2xl font-bold text-slate-700" id="netLiquidity">0</div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h4 class="text-sm font-bold text-slate-700 mb-2">🏆 أعلى مصادر التدفق</h4>
+                    <div id="topSources" class="space-y-2 text-sm"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cash Flow Zone -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">💧 منطقة التدفقات النقدية</h2>
+                <div class="text-sm text-slate-500">مصدر البيانات: جداول التدفقات النقدية والتوقعات الذكية</div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
+                <div class="stat-pill bg-slate-900 text-white p-6">
+                    <div class="flex justify-between mb-3"><span>التدفق الداخل</span><i class="fas fa-arrow-trend-up text-2xl opacity-70"></i></div>
+                    <div id="cashInflow" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-angled bg-red-600 text-white p-6">
+                    <div class="flex justify-between mb-3"><span>التدفق الخارج</span><i class="fas fa-arrow-trend-down text-2xl opacity-70"></i></div>
+                    <div id="cashOutflow" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-rounded bg-white text-slate-900 border-2 border-slate-900 p-6">
+                    <div class="flex justify-between mb-3"><span>صافي التدفق</span><i class="fas fa-water text-2xl opacity-70"></i></div>
+                    <div id="cashNet" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-pill bg-black text-white p-6">
+                    <div class="flex justify-between mb-3"><span>توقعات 30 يوم</span><i class="fas fa-calendar-day text-2xl opacity-70"></i></div>
+                    <div id="forecast30" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-angled bg-slate-700 text-white p-6">
+                    <div class="flex justify-between mb-3"><span>توقعات 90 يوم</span><i class="fas fa-calendar-week text-2xl opacity-70"></i></div>
+                    <div id="forecast90" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="card-glass rounded-2xl p-5 shadow-lg section-accent-emerald">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">📈 مخطط التدفق النقدي</h3>
+                    <div class="chart-container">
+                        <canvas id="cashflowChart"></canvas>
+                    </div>
+                </div>
+                <div class="card-glass rounded-2xl p-5 shadow-lg section-accent-violet">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">🤖 ذكاء اصطناعي</h3>
+                    <div id="cashflowInsights" class="space-y-3 text-sm text-slate-600">
+                        <div class="animate-pulse">جاري التحميل...</div>
+                    </div>
+                </div>
+                <div class="card-glass rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">📊 توزيع التدفقات حسب النوع</h3>
+                    <div class="chart-container">
+                        <canvas id="cashflowMixChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financial Risk Zone -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-rose">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">⚠️ منطقة المخاطر المالية</h2>
+                <div class="text-sm text-slate-500">رادار المخاطر الذكي</div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
+                <div class="stat-pill bg-red-600 text-white p-6">
+                    <div class="flex justify-between mb-3"><span>العملاء عالي المخاطر</span><i class="fas fa-user-shield text-2xl opacity-70"></i></div>
+                    <div id="riskCustomers" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-rounded bg-slate-900 text-white p-6">
+                    <div class="flex justify-between mb-3"><span>الفروع عالية المخاطر</span><i class="fas fa-building text-2xl opacity-70"></i></div>
+                    <div id="riskBranches" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-angled bg-black text-white p-6">
+                    <div class="flex justify-between mb-3"><span>البرامج عالية المخاطر</span><i class="fas fa-layer-group text-2xl opacity-70"></i></div>
+                    <div id="riskPrograms" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-pill bg-slate-700 text-white p-6">
+                    <div class="flex justify-between mb-3"><span>نسبة المخاطر العامة</span><i class="fas fa-gauge-high text-2xl opacity-70"></i></div>
+                    <div id="overallRisk" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-angled bg-white text-red-700 border border-red-200 p-6">
+                    <div class="flex justify-between mb-3"><span>توقعات التعثر 30 يوم</span><i class="fas fa-triangle-exclamation text-2xl opacity-70"></i></div>
+                    <div id="default30" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="card-glass rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">🧭 توزيع مستويات المخاطر</h3>
+                    <div class="chart-container">
+                        <canvas id="riskLevelChart"></canvas>
+                    </div>
+                </div>
+                <div class="card-glass rounded-2xl p-5 shadow-lg section-accent-emerald">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">🏅 أعلى 10 عملاء مخاطرة</h3>
+                    <div id="topRiskCustomers" class="space-y-3 text-sm text-slate-700">
+                        <div class="animate-pulse">جاري التحميل...</div>
+                    </div>
+                </div>
+                <div class="card-glass rounded-2xl p-5 shadow-lg section-accent-violet">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">🤖 ذكاء اصطناعي</h3>
+                    <div id="riskInsights" class="space-y-3 text-sm text-slate-600">
+                        <div class="animate-pulse">جاري التحميل...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Smart Reports Zone -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">📑 منطقة التقارير الذكية</h2>
+                <div class="text-sm text-slate-500">تقارير جاهزة بضغطة زر</div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div class="bg-white border boundary-slate-200 rounded-2xl p-5 shadow-sm">
+                    <h4 class="font-bold text-slate-900 mb-3 border-b pb-2">تقارير العملاء</h4>
+                    <div class="space-y-2">
+                        <button onclick="downloadReport('customer-statement')" class="w-full text-right px-4 py-2 bg-slate-50 rounded-xl hover:bg-slate-200 transition">كشف حساب</button>
+                        <button onclick="downloadReport('overdue-customers')" class="w-full text-right px-4 py-2 bg-slate-50 rounded-xl hover:bg-slate-200 transition">العملاء المتأخرون</button>
+                        <button onclick="downloadReport('top-balances')" class="w-full text-right px-4 py-2 bg-slate-50 rounded-xl hover:bg-slate-200 transition">العملاء الأعلى رصيدًا</button>
+                    </div>
+                </div>
+                <div class="bg-white border boundary-slate-200 rounded-2xl p-5 shadow-sm">
+                    <h4 class="font-bold text-slate-900 mb-3 border-b pb-2">تقارير الفروع</h4>
+                    <div class="space-y-2">
+                        <button onclick="downloadReport('branch-collections')" class="w-full text-right px-4 py-2 bg-slate-50 rounded-xl hover:bg-slate-200 transition">أداء التحصيل</button>
+                        <button onclick="downloadReport('branch-ar')" class="w-full text-right px-4 py-2 bg-slate-50 rounded-xl hover:bg-slate-200 transition">الذمم</button>
+                        <button onclick="downloadReport('branch-cashflow')" class="w-full text-right px-4 py-2 bg-slate-50 rounded-xl hover:bg-slate-200 transition">التدفق النقدي</button>
+                    </div>
+                </div>
+                <div class="bg-white border boundary-slate-200 rounded-2xl p-5 shadow-sm">
+                    <h4 class="font-bold text-slate-900 mb-3 border-b pb-2">تقارير الحاضنات</h4>
+                    <div class="space-y-2">
+                        <button onclick="downloadReport('incubator-programs')" class="w-full text-right px-4 py-2 bg-slate-50 rounded-xl hover:bg-slate-200 transition">أداء البرامج</button>
+                        <button onclick="downloadReport('incubator-collections')" class="w-full text-right px-4 py-2 bg-slate-50 rounded-xl hover:bg-slate-200 transition">التحصيل حسب البرنامج</button>
+                        <button onclick="downloadReport('incubator-ar')" class="w-full text-right px-4 py-2 bg-slate-50 rounded-xl hover:bg-slate-200 transition">الذمم حسب البرنامج</button>
+                    </div>
+                </div>
+                <div class="bg-white border boundary-red-200 rounded-2xl p-5 shadow-sm">
+                    <h4 class="font-bold text-red-700 mb-3 border-b border-red-100 pb-2">تقارير الإمبراطورية</h4>
+                    <div class="space-y-2">
+                        <button onclick="downloadReport('empire-monthly')" class="w-full text-right px-4 py-2 bg-red-50 rounded-xl hover:bg-red-100 text-red-900 transition">تقرير مالي شهري</button>
+                        <button onclick="downloadReport('empire-quarterly')" class="w-full text-right px-4 py-2 bg-red-50 rounded-xl hover:bg-red-100 text-red-900 transition">تقرير مالي ربع سنوي</button>
+                        <button onclick="downloadReport('empire-risk')" class="w-full text-right px-4 py-2 bg-red-50 rounded-xl hover:bg-red-100 text-red-900 transition">تقرير المخاطر</button>
+                        <button onclick="downloadReport('empire-forecast')" class="w-full text-right px-4 py-2 bg-red-50 rounded-xl hover:bg-red-100 text-red-900 transition">تقرير التوقعات</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cashflow Tables -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">📄 جدول معاملات التدفق النقدي</h3>
+                <div class="flex items-center gap-2">
+                    <span id="cashflowCount" class="text-sm text-slate-500"></span>
+                    <button onclick="openCashflowCreate()" class="px-3 py-1.5 text-xs font-semibold text-slate-900 bg-white border-2 border-sky-500 rounded-full hover:bg-sky-50 transition-colors">
+                        <i class="fas fa-plus ml-1"></i>
+                        إضافة
+                    </button>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم التدفق</th>
+                            <th class="px-3 py-2 text-right">نوع التدفق</th>
+                            <th class="px-3 py-2 text-right">المبلغ</th>
+                            <th class="px-3 py-2 text-right">الوصف</th>
+                            <th class="px-3 py-2 text-right">تاريخ التدفق</th>
+                            <th class="px-3 py-2 text-right">معرف المنشأة</th>
+                            <th class="px-3 py-2 text-right">منشئ السجل</th>
+                            <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                            <th class="px-3 py-2 text-right">المصدر</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cashflowTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="10" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- AI Forecasts Table -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">🔮 جدول التوقعات الذكية</h3>
+                <div class="flex items-center gap-2">
+                    <span id="forecastCount" class="text-sm text-slate-500"></span>
+                    <button onclick="openForecastCreate()" class="px-3 py-1.5 text-xs font-semibold text-slate-900 bg-white border-2 border-emerald-500 rounded-full hover:bg-emerald-50 transition-colors">
+                        <i class="fas fa-plus ml-1"></i>
+                        إضافة
+                    </button>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم التوقع</th>
+                            <th class="px-3 py-2 text-right">معرف المنشأة</th>
+                            <th class="px-3 py-2 text-right">فترة التوقع</th>
+                            <th class="px-3 py-2 text-right">نوع التوقع</th>
+                            <th class="px-3 py-2 text-right">قيمة التوقع</th>
+                            <th class="px-3 py-2 text-right">مستوى الثقة</th>
+                            <th class="px-3 py-2 text-right">نموذج الذكاء</th>
+                            <th class="px-3 py-2 text-right">ملاحظات الذكاء</th>
+                            <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="forecastTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="10" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Risk Scores Table -->
+        <div class="card-glass rounded-3xl shadow-2xl p-6 section-accent-rose">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">🛡️ جدول تقييمات المخاطر</h3>
+                <div class="flex items-center gap-2">
+                    <span id="riskCount" class="text-sm text-slate-500"></span>
+                    <button onclick="openRiskCreate()" class="px-3 py-1.5 text-xs font-semibold text-slate-900 bg-white border-2 border-rose-500 rounded-full hover:bg-rose-50 transition-colors">
+                        <i class="fas fa-plus ml-1"></i>
+                        إضافة
+                    </button>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-red-50 text-red-800 font-bold border-b border-red-100">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم المخاطر</th>
+                            <th class="px-3 py-2 text-right">رقم العميل</th>
+                            <th class="px-3 py-2 text-right">تاريخ التقييم</th>
+                            <th class="px-3 py-2 text-right">درجة المخاطرة</th>
+                            <th class="px-3 py-2 text-right">مستوى المخاطرة</th>
+                            <th class="px-3 py-2 text-right">عوامل المخاطر</th>
+                            <th class="px-3 py-2 text-right">تفاصيل الحساب</th>
+                            <th class="px-3 py-2 text-right">التوصيات</th>
+                            <th class="px-3 py-2 text-right">إجراءات مقترحة</th>
+                            <th class="px-3 py-2 text-right">نوع المنشأة</th>
+                            <th class="px-3 py-2 text-right">معرف المنشأة</th>
+                            <th class="px-3 py-2 text-right">نسخة النموذج</th>
+                            <th class="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="riskTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="14" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const CASHFLOW_ENTITY_ID = '1';
+        const AR_ENTITY_ID = 'HQ001';
+
+        let cashflowOverview = null;
+        let cashflowOperating = [];
+        let cashflowInvesting = [];
+        let cashflowFinancing = [];
+        let forecasts = [];
+        let riskScores = [];
+        let invoices = [];
+        let payments = [];
+        let arAging = [];
+
+        let lastSyncAt = null;
+        let cashflowChartInstance = null;
+        let cashflowMixInstance = null;
+        let riskLevelInstance = null;
+
+        async function fetchJsonSafe(url, fallback) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    return fallback;
+                }
+                return await res.json();
+            } catch (error) {
+                console.warn('⚠️ fetch failed:', url, error);
+                return fallback;
+            }
+        }
+
+        async function fetchJsonWithFallback(urls, fallback) {
+            for (const url of urls) {
+                const data = await fetchJsonSafe(url, null);
+                if (data !== null) {
+                    return data;
+                }
+            }
+            return fallback;
+        }
+
+        async function loadData() {
+            try {
+                const [overviewData, operatingData, investingData, financingData, forecastData, riskData, invoiceData, paymentData, arData] = await Promise.all([
+                    fetchJsonSafe(`${API_BASE}/finance/cashflow/overview?entity_id=${CASHFLOW_ENTITY_ID}`, null),
+                    fetchJsonSafe(`${API_BASE}/finance/cashflow/operating?entity_id=${CASHFLOW_ENTITY_ID}`, { cashflows: [] }),
+                    fetchJsonSafe(`${API_BASE}/finance/cashflow/investing?entity_id=${CASHFLOW_ENTITY_ID}`, { cashflows: [] }),
+                    fetchJsonSafe(`${API_BASE}/finance/cashflow/financing?entity_id=${CASHFLOW_ENTITY_ID}`, { cashflows: [] }),
+                    fetchJsonSafe(`${API_BASE}/finance/ai-forecasts?entity_id=${CASHFLOW_ENTITY_ID}`, { forecasts: [] }),
+                    fetchJsonSafe(`${API_BASE}/finance/ai-risk-scores?entity_id=${CASHFLOW_ENTITY_ID}`, { rows: [] }),
+                    fetchJsonWithFallback([
+                        `${API_BASE}/finance/invoices?entity_id=${AR_ENTITY_ID}`,
+                        `${API_BASE}/api/invoices?entity_id=${AR_ENTITY_ID}`,
+                        `${API_BASE}/api/invoices`
+                    ], []),
+                    fetchJsonSafe(`${API_BASE}/finance/payments?entity_id=${AR_ENTITY_ID}`, { payments: [] }),
+                    fetchJsonSafe(`${API_BASE}/finance/ar-aging?entity_id=${AR_ENTITY_ID}`, { rows: [] })
+                ]);
+
+                cashflowOverview = overviewData;
+                cashflowOperating = operatingData.cashflows || [];
+                cashflowInvesting = investingData.cashflows || [];
+                cashflowFinancing = financingData.cashflows || [];
+                forecasts = forecastData.forecasts || [];
+                riskScores = riskData.rows || [];
+                invoices = Array.isArray(invoiceData) ? invoiceData : (invoiceData.invoices || invoiceData.rows || []);
+                payments = paymentData.payments || [];
+                arAging = arData.rows || [];
+
+                lastSyncAt = new Date();
+
+                renderCashflow();
+                renderRisk();
+                renderTables();
+                renderEnhancements();
+            } catch (error) {
+                console.error('❌ خطأ في تحميل البيانات:', error);
+                cashflowOverview = null;
+                cashflowOperating = [];
+                cashflowInvesting = [];
+                cashflowFinancing = [];
+                forecasts = [];
+                riskScores = [];
+                invoices = [];
+                payments = [];
+                arAging = [];
+                lastSyncAt = new Date();
+                renderCashflow();
+                renderRisk();
+                renderTables();
+                renderEnhancements();
+            }
+        }
+
+        function renderCashflow() {
+            const hasOverview = cashflowOverview?.success && cashflowOverview.operating && cashflowOverview.investing && cashflowOverview.financing;
+            const inflow = hasOverview
+                ? cashflowOverview.operating.inflow + cashflowOverview.investing.inflow + cashflowOverview.financing.inflow
+                : 0;
+            const outflow = hasOverview
+                ? cashflowOverview.operating.outflow + cashflowOverview.investing.outflow + cashflowOverview.financing.outflow
+                : 0;
+            const net = hasOverview ? cashflowOverview.total_net_cashflow : 0;
+
+            document.getElementById('cashInflow').textContent = formatMoney(inflow);
+            document.getElementById('cashOutflow').textContent = formatMoney(outflow);
+            document.getElementById('cashNet').textContent = formatMoney(net);
+
+            const forecastSorted = [...forecasts].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            const forecast30Val = forecastSorted[0]?.forecast_amount || 0;
+            const forecast90Val = forecastSorted.slice(0, 3).reduce((sum, f) => sum + parseFloat(f.forecast_amount || 0), 0);
+
+            document.getElementById('forecast30').textContent = formatMoney(forecast30Val);
+            document.getElementById('forecast90').textContent = formatMoney(forecast90Val);
+
+            const insights = forecastSorted.length ? forecastSorted.slice(0, 2).map((f, idx) => `
+                <div class="bg-slate-50 p-3 rounded-xl">
+                    <div class="font-bold">تنبيه ${idx + 1}</div>
+                    <div>${extractInsight(f.ai_insights) || 'لا توجد ملاحظة'}</div>
+                </div>
+            `).join('') : '<div class="text-slate-500">لا توجد تنبيهات</div>';
+            document.getElementById('cashflowInsights').innerHTML = insights;
+
+            const merged = mergeCashflows();
+            renderCashflowCharts(merged);
+        }
+
+        function renderCashflowCharts(merged) {
+            const grouped = groupByDate(merged);
+            const labels = Object.keys(grouped).sort();
+            const inflowSeries = labels.map(date => grouped[date].inflow);
+            const outflowSeries = labels.map(date => Math.abs(grouped[date].outflow));
+            const netSeries = labels.map(date => grouped[date].net);
+
+            const ctx = document.getElementById('cashflowChart').getContext('2d');
+            if (cashflowChartInstance) cashflowChartInstance.destroy();
+            cashflowChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'تدفق داخل', data: inflowSeries, borderColor: '#18181b', backgroundColor: 'rgba(24, 24, 27, 0.1)', tension: 0.35, borderWidth: 2 },
+                        { label: 'تدفق خارج', data: outflowSeries, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', tension: 0.35, borderWidth: 2 },
+                        { label: 'صافي', data: netSeries, borderColor: '#52525b', backgroundColor: 'rgba(82, 82, 91, 0.1)', tension: 0.35, borderDash: [5, 5], borderWidth: 2 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const mixTotals = {
+                operating: sumAmounts(cashflowOperating),
+                investing: sumAmounts(cashflowInvesting),
+                financing: sumAmounts(cashflowFinancing)
+            };
+            const mixCtx = document.getElementById('cashflowMixChart').getContext('2d');
+            if (cashflowMixInstance) cashflowMixInstance.destroy();
+            cashflowMixInstance = new Chart(mixCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['تشغيلي', 'استثماري', 'تمويلي'],
+                    datasets: [{
+                        data: [Math.abs(mixTotals.operating), Math.abs(mixTotals.investing), Math.abs(mixTotals.financing)],
+                        backgroundColor: ['#18181b', '#ef4444', '#94a3b8'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderRisk() {
+            const totalScores = riskScores.length;
+            const highRisk = riskScores.filter(r => ['HIGH', 'CRITICAL'].includes(String(r.risk_level || '').toUpperCase()));
+            const uniqueHighRiskCustomers = new Set(highRisk.map(r => r.customer_id)).size;
+
+            const highRiskBranches = new Set(invoices.filter(i => ['HIGH', 'CRITICAL'].includes(String(i.risk_level || '').toUpperCase())).map(i => i.branch_id || 'غير محدد')).size;
+            const highRiskPrograms = new Set(invoices.filter(i => ['HIGH', 'CRITICAL'].includes(String(i.risk_level || '').toUpperCase())).map(i => i.program_id || 'غير محدد')).size;
+            const overallRisk = totalScores ? ((highRisk.length / totalScores) * 100) : 0;
+            const default30 = totalScores ? (average(riskScores.map(r => parseFloat(r.risk_score || 0))) / 100) * 100 : 0;
+
+            document.getElementById('riskCustomers').textContent = uniqueHighRiskCustomers;
+            document.getElementById('riskBranches').textContent = highRiskBranches;
+            document.getElementById('riskPrograms').textContent = highRiskPrograms;
+            document.getElementById('overallRisk').textContent = `${overallRisk.toFixed(1)}%`;
+            document.getElementById('default30').textContent = `${default30.toFixed(1)}%`;
+
+            const levelCounts = riskScores.reduce((acc, r) => {
+                const level = translateRiskLevel(r.risk_level) || 'غير محدد';
+                acc[level] = (acc[level] || 0) + 1;
+                return acc;
+            }, {});
+            renderRiskChart(levelCounts);
+
+            const topCustomers = [...riskScores].sort((a, b) => parseFloat(b.risk_score || 0) - parseFloat(a.risk_score || 0)).slice(0, 10);
+            document.getElementById('topRiskCustomers').innerHTML = topCustomers.length ? topCustomers.map(c => `
+                <div class="flex items-center justify-between bg-amber-50 p-3 rounded-xl">
+                    <span>عميل ${sanitizeText(c.customer_id)}</span>
+                    <span class="chip bg-amber-100 text-amber-700">${parseFloat(c.risk_score || 0).toFixed(1)}</span>
+                </div>
+            `).join('') : '<div class="text-slate-500">لا توجد بيانات</div>';
+
+            document.getElementById('riskInsights').innerHTML = `
+                <div class="bg-slate-50 p-3 rounded-xl">
+                    "${topCustomers[0] ? `العميل ${sanitizeText(topCustomers[0].customer_id)} لديه احتمال تعثر ${(parseFloat(topCustomers[0].risk_score || 0)).toFixed(1)}%` : 'لا توجد بيانات متاحة'}"
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl">
+                    "${highRiskPrograms ? 'تحسين مراقبة البرامج عالية المخاطر سيخفض مؤشر المخاطر العام.' : 'لا توجد تنبيهات إضافية'}"
+                </div>
+            `;
+        }
+
+        function renderRiskChart(levelCounts) {
+            const ctx = document.getElementById('riskLevelChart').getContext('2d');
+            if (riskLevelInstance) riskLevelInstance.destroy();
+            riskLevelInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(levelCounts),
+                    datasets: [{
+                        data: Object.values(levelCounts),
+                        // Colors mapped for risk levels: High/Crit=Red/DarkRed, Low/Med=Gray/Black
+                        backgroundColor: ['#ef4444', '#b91c1c', '#18181b', '#9ca3af']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderTables() {
+            const merged = mergeCashflows();
+            const cashRows = merged.map(row => `
+                <tr class="hover:bg-sky-50">
+                    <td class="px-3 py-2">${row.flow_id ?? '-'}</td>
+                    <td class="px-3 py-2">${translateFlowType(row.flow_type)}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(row.amount)}</td>
+                    <td class="px-3 py-2">${sanitizeText(row.description)}</td>
+                    <td class="px-3 py-2">${formatDate(row.flow_date)}</td>
+                    <td class="px-3 py-2">${row.entity_id ?? '-'}</td>
+                    <td class="px-3 py-2">${sanitizeText(row.created_by)}</td>
+                    <td class="px-3 py-2">${formatDateTime(row.created_at)}</td>
+                    <td class="px-3 py-2">${sanitizeText(row.source)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex items-center gap-2">
+                            <button class="p-2 bg-white border-2 border-sky-500 text-slate-900 rounded-lg hover:bg-sky-50 transition" title="معاينة" onclick="viewCashflow('${row.source}', '${row.flow_id}')"><i class="fas fa-eye text-sm"></i></button>
+                            <button class="p-2 bg-white border-2 border-emerald-500 text-slate-900 rounded-lg hover:bg-emerald-50 transition" title="تعديل" onclick="editCashflow('${row.source}', '${row.flow_id}')"><i class="fas fa-pen text-sm"></i></button>
+                            <button class="p-2 bg-white border-2 border-rose-500 text-slate-900 rounded-lg hover:bg-rose-50 transition" title="حذف" onclick="deleteCashflow('${row.source}', '${row.flow_id}')"><i class="fas fa-trash text-sm"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('cashflowTable').innerHTML = cashRows || `<tr><td colspan="10" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('cashflowCount').textContent = `عدد الصفوف: ${merged.length}`;
+
+            const forecastRows = forecasts.map(f => `
+                <tr class="hover:bg-emerald-50">
+                    <td class="px-3 py-2">${f.forecast_id ?? '-'}</td>
+                    <td class="px-3 py-2">${f.entity_id ?? '-'}</td>
+                    <td class="px-3 py-2">${formatPeriod(f.forecast_period)}</td>
+                    <td class="px-3 py-2">${translateForecastType(f.forecast_type)}</td>
+                    <td class="px-3 py-2">${formatMoney(f.forecast_amount)}</td>
+                    <td class="px-3 py-2">${formatPercent(f.confidence_level)}</td>
+                    <td class="px-3 py-2">${sanitizeText(f.ai_model)}</td>
+                    <td class="px-3 py-2">${truncate(sanitizeText(f.ai_insights))}</td>
+                    <td class="px-3 py-2">${formatDateTime(f.created_at)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex items-center gap-2">
+                            <button class="p-2 bg-white border-2 border-emerald-500 text-slate-900 rounded-lg hover:bg-emerald-50 transition" title="معاينة" onclick="viewForecast('${f.forecast_id}')"><i class="fas fa-eye text-sm"></i></button>
+                            <button class="p-2 bg-white border-2 border-amber-500 text-slate-900 rounded-lg hover:bg-amber-50 transition" title="تعديل" onclick="editForecast('${f.forecast_id}')"><i class="fas fa-pen text-sm"></i></button>
+                            <button class="p-2 bg-white border-2 border-rose-500 text-slate-900 rounded-lg hover:bg-rose-50 transition" title="حذف" onclick="deleteForecast('${f.forecast_id}')"><i class="fas fa-trash text-sm"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('forecastTable').innerHTML = forecastRows || `<tr><td colspan="10" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('forecastCount').textContent = `عدد الصفوف: ${forecasts.length}`;
+
+            const riskRows = riskScores.map(r => `
+                <tr class="hover:bg-rose-50">
+                    <td class="px-3 py-2">${r.risk_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_id ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.assessment_date)}</td>
+                    <td class="px-3 py-2">${formatPercent(r.risk_score)}</td>
+                    <td class="px-3 py-2">${translateRiskLevel(r.risk_level)}</td>
+                    <td class="px-3 py-2">${truncate(sanitizeText(r.risk_factors))}</td>
+                    <td class="px-3 py-2">${truncate(sanitizeText(r.calculation_details))}</td>
+                    <td class="px-3 py-2">${truncate(sanitizeText(r.recommendations))}</td>
+                    <td class="px-3 py-2">${truncate(sanitizeText(r.suggested_actions))}</td>
+                    <td class="px-3 py-2">${translateEntityType(r.entity_type)}</td>
+                    <td class="px-3 py-2">${r.entity_id ?? '-'}</td>
+                    <td class="px-3 py-2">${sanitizeText(r.model_version)}</td>
+                    <td class="px-3 py-2">${formatDateTime(r.created_at)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex items-center gap-2">
+                            <button class="p-2 bg-white border-2 border-rose-500 text-slate-900 rounded-lg hover:bg-rose-50 transition" title="معاينة" onclick="viewRisk('${r.risk_id}')"><i class="fas fa-eye text-sm"></i></button>
+                            <button class="p-2 bg-white border-2 border-amber-500 text-slate-900 rounded-lg hover:bg-amber-50 transition" title="تعديل" onclick="editRisk('${r.risk_id}')"><i class="fas fa-pen text-sm"></i></button>
+                            <button class="p-2 bg-white border-2 border-slate-400 text-slate-900 rounded-lg hover:bg-slate-100 transition" title="حذف" onclick="deleteRisk('${r.risk_id}')"><i class="fas fa-trash text-sm"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('riskTable').innerHTML = riskRows || `<tr><td colspan="14" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('riskCount').textContent = `عدد الصفوف: ${riskScores.length}`;
+        }
+
+        function renderEnhancements() {
+            renderCashflowQuality();
+            renderCashflowAlerts();
+            renderQuickIndicators();
+        }
+
+        function getCashflowList(source) {
+            switch (source) {
+                case 'operating':
+                    return cashflowOperating;
+                case 'investing':
+                    return cashflowInvesting;
+                case 'financing':
+                    return cashflowFinancing;
+                default:
+                    return cashflowOperating;
+            }
+        }
+
+        function findCashflowIndex(source, flowId) {
+            const list = getCashflowList(source);
+            return list.findIndex((row) => String(row.flow_id) === String(flowId));
+        }
+
+        function openCashflowCreate() {
+            const amount = parseFloat(prompt('أدخل مبلغ التدفق', '0'));
+            if (Number.isNaN(amount)) return;
+            const flowType = prompt('نوع التدفق (collection/payment/expense)', 'collection') || 'collection';
+            const description = prompt('الوصف المختصر', '') || '';
+            const flowDate = prompt('تاريخ التدفق (YYYY-MM-DD)', new Date().toISOString().slice(0, 10)) || new Date().toISOString().slice(0, 10);
+            cashflowOperating.unshift({
+                flow_id: `CF-${Date.now()}`,
+                flow_type: flowType,
+                amount,
+                description,
+                flow_date: flowDate,
+                entity_id: CASHFLOW_ENTITY_ID,
+                created_by: 'manual',
+                created_at: new Date().toISOString(),
+                source: 'manual'
+            });
+            renderCashflow();
+            renderTables();
+            renderEnhancements();
+        }
+
+        function viewCashflow(source, flowId) {
+            const list = getCashflowList(source);
+            const row = list.find((item) => String(item.flow_id) === String(flowId));
+            if (!row) return;
+            alert(JSON.stringify(row, null, 2));
+        }
+
+        function editCashflow(source, flowId) {
+            const list = getCashflowList(source);
+            const index = findCashflowIndex(source, flowId);
+            if (index < 0) return;
+            const row = list[index];
+            const amount = parseFloat(prompt('تعديل المبلغ', row.amount ?? 0));
+            if (Number.isNaN(amount)) return;
+            const description = prompt('تعديل الوصف', row.description || '') || row.description;
+            row.amount = amount;
+            row.description = description;
+            row.updated_at = new Date().toISOString();
+            list[index] = row;
+            renderCashflow();
+            renderTables();
+            renderEnhancements();
+        }
+
+        function deleteCashflow(source, flowId) {
+            if (!confirm('هل تريد حذف التدفق؟')) return;
+            const list = getCashflowList(source);
+            const index = findCashflowIndex(source, flowId);
+            if (index < 0) return;
+            list.splice(index, 1);
+            renderCashflow();
+            renderTables();
+            renderEnhancements();
+        }
+
+        function openForecastCreate() {
+            const period = prompt('فترة التوقع', '2026-Q1') || '2026-Q1';
+            const type = prompt('نوع التوقع (REVENUE/EXPENSE/CASHFLOW)', 'CASHFLOW') || 'CASHFLOW';
+            const amount = parseFloat(prompt('قيمة التوقع', '0'));
+            if (Number.isNaN(amount)) return;
+            const confidence = parseFloat(prompt('مستوى الثقة (%)', '70'));
+            if (Number.isNaN(confidence)) return;
+            forecasts.unshift({
+                forecast_id: `FC-${Date.now()}`,
+                entity_id: CASHFLOW_ENTITY_ID,
+                forecast_period: period,
+                forecast_type: type,
+                forecast_amount: amount,
+                confidence_level: confidence,
+                ai_model: 'manual',
+                ai_insights: 'مدخل يدوي',
+                created_at: new Date().toISOString()
+            });
+            renderCashflow();
+            renderTables();
+        }
+
+        function viewForecast(forecastId) {
+            const row = forecasts.find((f) => String(f.forecast_id) === String(forecastId));
+            if (!row) return;
+            alert(JSON.stringify(row, null, 2));
+        }
+
+        function editForecast(forecastId) {
+            const index = forecasts.findIndex((f) => String(f.forecast_id) === String(forecastId));
+            if (index < 0) return;
+            const row = forecasts[index];
+            const amount = parseFloat(prompt('تعديل قيمة التوقع', row.forecast_amount ?? 0));
+            if (Number.isNaN(amount)) return;
+            const confidence = parseFloat(prompt('تعديل مستوى الثقة (%)', row.confidence_level ?? 0));
+            if (Number.isNaN(confidence)) return;
+            row.forecast_amount = amount;
+            row.confidence_level = confidence;
+            row.updated_at = new Date().toISOString();
+            forecasts[index] = row;
+            renderCashflow();
+            renderTables();
+        }
+
+        function deleteForecast(forecastId) {
+            if (!confirm('هل تريد حذف التوقع؟')) return;
+            const index = forecasts.findIndex((f) => String(f.forecast_id) === String(forecastId));
+            if (index < 0) return;
+            forecasts.splice(index, 1);
+            renderCashflow();
+            renderTables();
+        }
+
+        function openRiskCreate() {
+            const customerId = prompt('رقم العميل', '') || '';
+            const score = parseFloat(prompt('درجة المخاطرة (%)', '0'));
+            if (Number.isNaN(score)) return;
+            const level = prompt('مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL)', 'LOW') || 'LOW';
+            riskScores.unshift({
+                risk_id: `RS-${Date.now()}`,
+                customer_id: customerId,
+                assessment_date: new Date().toISOString().slice(0, 10),
+                risk_score: score,
+                risk_level: level,
+                risk_factors: 'مدخل يدوي',
+                calculation_details: '-',
+                recommendations: '-',
+                suggested_actions: '-',
+                entity_type: 'HQ',
+                entity_id: AR_ENTITY_ID,
+                model_version: 'manual',
+                created_at: new Date().toISOString()
+            });
+            renderRisk();
+            renderTables();
+            renderEnhancements();
+        }
+
+        function viewRisk(riskId) {
+            const row = riskScores.find((r) => String(r.risk_id) === String(riskId));
+            if (!row) return;
+            alert(JSON.stringify(row, null, 2));
+        }
+
+        function editRisk(riskId) {
+            const index = riskScores.findIndex((r) => String(r.risk_id) === String(riskId));
+            if (index < 0) return;
+            const row = riskScores[index];
+            const score = parseFloat(prompt('تعديل درجة المخاطرة (%)', row.risk_score ?? 0));
+            if (Number.isNaN(score)) return;
+            const level = prompt('تعديل مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL)', row.risk_level || 'LOW') || row.risk_level;
+            row.risk_score = score;
+            row.risk_level = level;
+            row.updated_at = new Date().toISOString();
+            riskScores[index] = row;
+            renderRisk();
+            renderTables();
+            renderEnhancements();
+        }
+
+        function deleteRisk(riskId) {
+            if (!confirm('هل تريد حذف تقييم المخاطر؟')) return;
+            const index = riskScores.findIndex((r) => String(r.risk_id) === String(riskId));
+            if (index < 0) return;
+            riskScores.splice(index, 1);
+            renderRisk();
+            renderTables();
+            renderEnhancements();
+        }
+
+        function renderCashflowQuality() {
+            const merged = mergeCashflows();
+            const totalNet = merged.reduce((sum, row) => sum + parseFloat(row.amount || 0), 0);
+            const inflow = merged.filter(r => parseFloat(r.amount || 0) >= 0).reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+            const outflow = merged.filter(r => parseFloat(r.amount || 0) < 0).reduce((sum, r) => sum + Math.abs(parseFloat(r.amount || 0)), 0);
+            const volatility = inflow + outflow ? Math.round((outflow / (inflow + outflow)) * 100) : 0;
+            const qualityScore = inflow ? Math.max(10, 100 - volatility) : 0;
+
+            const qualityEl = document.getElementById('cashflowQualityScore');
+            if (qualityEl) qualityEl.textContent = `${qualityScore}%`;
+
+            const volEl = document.getElementById('cashflowVolatility');
+            if (volEl) volEl.textContent = `${volatility}%`;
+
+            const progressEl = document.getElementById('cashflowQualityProgress');
+            if (progressEl) progressEl.style.width = `${qualityScore}%`;
+
+            const badgeEl = document.getElementById('cashflowQualityBadge');
+            if (badgeEl) {
+                if (qualityScore >= 85) {
+                    badgeEl.textContent = 'ممتاز';
+                    badgeEl.className = 'chip bg-black text-white';
+                } else if (qualityScore >= 65) {
+                    badgeEl.textContent = 'مستقر';
+                    badgeEl.className = 'chip bg-slate-200 text-slate-800';
+                } else {
+                    badgeEl.textContent = 'متقلب';
+                    badgeEl.className = 'chip bg-red-100 text-red-700';
+                }
+            }
+
+            const net30 = merged.filter(r => new Date(r.flow_date) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+                .reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+            const net30El = document.getElementById('net30');
+            if (net30El) net30El.textContent = formatMoney(net30);
+
+            const syncEl = document.getElementById('lastSync');
+            if (syncEl) syncEl.textContent = lastSyncAt ? lastSyncAt.toLocaleString('en-US') : '-';
+        }
+
+        function renderCashflowAlerts() {
+            const alertsEl = document.getElementById('cashflowAlerts');
+            if (!alertsEl) return;
+            const merged = mergeCashflows();
+            const net = merged.reduce((sum, row) => sum + parseFloat(row.amount || 0), 0);
+            const highRiskCount = riskScores.filter(r => ['HIGH', 'CRITICAL'].includes(String(r.risk_level || '').toUpperCase())).length;
+            const overdueCount = invoices.filter(i => String(i.status || '').toUpperCase() === 'OVERDUE').length;
+
+            const alerts = [
+                net < 0 ? `⚠️ صافي التدفق سلبي بقيمة <strong>${formatMoney(net)}</strong>` : '✅ صافي التدفق موجب ومستقر.',
+                highRiskCount ? `🚩 يوجد <strong>${highRiskCount}</strong> عميل عالي المخاطر يحتاج متابعة.` : '✅ لا توجد مخاطر عالية بارزة.',
+                overdueCount ? `💳 هناك <strong>${overdueCount}</strong> فاتورة متأخرة عن السداد.` : '✅ لا توجد فواتير متأخرة حالياً.'
+            ];
+
+            alertsEl.innerHTML = alerts.map(text => `<div class="bg-slate-50 rounded-xl p-3">${text}</div>`).join('');
+        }
+
+        function renderQuickIndicators() {
+            const totalInvoices = invoices.reduce((sum, i) => sum + parseFloat(i.total_amount || 0), 0);
+            const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0);
+            const collectionRate = totalInvoices ? Math.min(100, (totalPayments / totalInvoices) * 100) : 0;
+
+            const highRiskCount = riskScores.filter(r => ['HIGH', 'CRITICAL'].includes(String(r.risk_level || '').toUpperCase())).length;
+            const highRiskShare = riskScores.length ? (highRiskCount / riskScores.length) * 100 : 0;
+
+            const avgCollection = payments.length ? (totalPayments / payments.length) : 0;
+            const netLiquidity = mergeCashflows().reduce((sum, row) => sum + parseFloat(row.amount || 0), 0);
+
+            const collectionRateEl = document.getElementById('collectionRate');
+            if (collectionRateEl) collectionRateEl.textContent = `${collectionRate.toFixed(1)}%`;
+
+            const highRiskShareEl = document.getElementById('highRiskShare');
+            if (highRiskShareEl) highRiskShareEl.textContent = `${highRiskShare.toFixed(1)}%`;
+
+            const avgCollectionEl = document.getElementById('avgCollection');
+            if (avgCollectionEl) avgCollectionEl.textContent = formatMoney(avgCollection);
+
+            const netLiquidityEl = document.getElementById('netLiquidity');
+            if (netLiquidityEl) netLiquidityEl.textContent = formatMoney(netLiquidity);
+
+            const sourceTotals = mergeCashflows().reduce((acc, row) => {
+                const key = translateFlowType(row.flow_type) || 'غير محدد';
+                acc[key] = (acc[key] || 0) + Math.abs(parseFloat(row.amount || 0));
+                return acc;
+            }, {});
+
+            const topSourcesEl = document.getElementById('topSources');
+            if (topSourcesEl) {
+                const items = Object.entries(sourceTotals).sort((a, b) => b[1] - a[1]).slice(0, 4);
+                topSourcesEl.innerHTML = items.length
+                    ? items.map(([name, amount]) => `
+                        <div class="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-2">
+                            <span>${name}</span>
+                            <span class="chip bg-black text-white">${formatMoney(amount)}</span>
+                        </div>
+                    `).join('')
+                    : '<div class="text-slate-500">لا توجد بيانات كافية</div>';
+            }
+        }
+
+        function mergeCashflows() {
+            const tag = (rows, source) => rows.map(r => ({ ...r, source }));
+            return [...tag(cashflowOperating, 'operating'), ...tag(cashflowInvesting, 'investing'), ...tag(cashflowFinancing, 'financing')]
+                .sort((a, b) => new Date(b.flow_date) - new Date(a.flow_date));
+        }
+
+        function groupByDate(rows) {
+            return rows.reduce((acc, row) => {
+                const date = row.flow_date ? new Date(row.flow_date).toISOString().split('T')[0] : 'غير محدد';
+                if (!acc[date]) acc[date] = { inflow: 0, outflow: 0, net: 0 };
+                const amount = parseFloat(row.amount || 0);
+                if (amount >= 0) acc[date].inflow += amount;
+                else acc[date].outflow += amount;
+                acc[date].net += amount;
+                return acc;
+            }, {});
+        }
+
+        function sumAmounts(rows) {
+            return rows.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+        }
+
+        function average(values) {
+            if (!values.length) return 0;
+            return values.reduce((sum, v) => sum + v, 0) / values.length;
+        }
+
+        function extractInsight(value) {
+            if (!value) return '';
+            try {
+                const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+                return parsed?.risks?.[0] || parsed?.trend || '';
+            } catch {
+                return String(value).slice(0, 120);
+            }
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function truncate(value) {
+            if (value === null || value === undefined) return '-';
+            const text = typeof value === 'string' ? value : JSON.stringify(value);
+            return text.length > 120 ? text.slice(0, 120) + '...' : text;
+        }
+
+        function downloadAllJSON() {
+            const payload = {
+                cashflow_overview: cashflowOverview,
+                cashflow_operating: cashflowOperating,
+                cashflow_investing: cashflowInvesting,
+                cashflow_financing: cashflowFinancing,
+                forecasts,
+                risk_scores: riskScores,
+                invoices,
+                payments,
+                ar_aging: arAging
+            };
+            downloadBlob(JSON.stringify(payload, null, 2), 'التدفقات-والمخاطر-والتقارير.json', 'application/json');
+        }
+
+        function downloadAllCSV() {
+            const rows = [];
+            rows.push(['معاملات التدفق النقدي']);
+            rows.push(['رقم التدفق','نوع التدفق','المبلغ','الوصف','تاريخ التدفق','معرف المنشأة','منشئ السجل','تاريخ الإنشاء','المصدر']);
+            mergeCashflows().forEach(r => rows.push([r.flow_id, translateFlowType(r.flow_type), r.amount, sanitizeText(r.description), r.flow_date, r.entity_id, r.created_by, r.created_at, r.source]));
+
+            rows.push([]);
+            rows.push(['التوقعات الذكية']);
+            rows.push(['رقم التوقع','معرف المنشأة','فترة التوقع','نوع التوقع','قيمة التوقع','مستوى الثقة','نموذج الذكاء','ملاحظات الذكاء','تاريخ الإنشاء']);
+            forecasts.forEach(f => rows.push([f.forecast_id, f.entity_id, f.forecast_period, translateForecastType(f.forecast_type), f.forecast_amount, f.confidence_level, sanitizeText(f.ai_model), sanitizeText(f.ai_insights), f.created_at]));
+
+            rows.push([]);
+            rows.push(['تقييمات المخاطر']);
+            rows.push(['رقم المخاطر','رقم العميل','تاريخ التقييم','درجة المخاطرة','مستوى المخاطرة','عوامل المخاطر','تفاصيل الحساب','التوصيات','إجراءات مقترحة','نوع المنشأة','معرف المنشأة','نسخة النموذج','تاريخ الإنشاء']);
+            riskScores.forEach(r => rows.push([r.risk_id, r.customer_id, r.assessment_date, r.risk_score, translateRiskLevel(r.risk_level), sanitizeText(r.risk_factors), sanitizeText(r.calculation_details), sanitizeText(r.recommendations), sanitizeText(r.suggested_actions), translateEntityType(r.entity_type), r.entity_id, sanitizeText(r.model_version), r.created_at]));
+
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            downloadBlob(csvContent, 'التدفقات-والمخاطر-والتقارير.csv', 'text/csv;charset=utf-8;');
+        }
+
+        function downloadReport(type) {
+            const report = buildReport(type);
+            const nameMap = {
+                'customer-statement': 'كشف-حساب-العملاء',
+                'overdue-customers': 'العملاء-المتأخرون',
+                'top-balances': 'العملاء-الأعلى-رصيدًا',
+                'branch-collections': 'تحصيل-الفروع',
+                'branch-ar': 'ذمم-الفروع',
+                'branch-cashflow': 'تدفق-الفروع',
+                'incubator-programs': 'أداء-برامج-الحاضنات',
+                'incubator-collections': 'تحصيل-الحاضنات',
+                'incubator-ar': 'ذمم-الحاضنات',
+                'empire-monthly': 'تقرير-مالي-شهري',
+                'empire-quarterly': 'تقرير-مالي-ربع-سنوي',
+                'empire-risk': 'تقرير-المخاطر',
+                'empire-forecast': 'تقرير-التوقعات'
+            };
+            const fileName = nameMap[type] || 'تقرير';
+            downloadBlob(JSON.stringify(report, null, 2), `${fileName}.json`, 'application/json');
+        }
+
+        function buildReport(type) {
+            switch (type) {
+                case 'customer-statement':
+                    return buildCustomerStatement();
+                case 'overdue-customers':
+                    return { overdue_invoices: invoices.filter(i => String(i.status || '').toUpperCase() === 'OVERDUE') };
+                case 'top-balances':
+                    return { top_balances: arAging.sort((a, b) => parseFloat(b.remaining_amount || 0) - parseFloat(a.remaining_amount || 0)).slice(0, 10) };
+                case 'branch-collections':
+                    return { branch_collections: groupSum(payments, 'branch_id', 'payment_amount') };
+                case 'branch-ar':
+                    return { branch_ar: groupSum(arAging, 'branch_id', 'remaining_amount') };
+                case 'branch-cashflow':
+                    return { cashflow_overview: cashflowOverview };
+                case 'incubator-programs':
+                    return { program_performance: groupSum(invoices, 'program_id', 'total_amount') };
+                case 'incubator-collections':
+                    return { program_collections: groupSum(payments, 'program_id', 'payment_amount') };
+                case 'incubator-ar':
+                    return { program_ar: groupSum(arAging, 'program_id', 'remaining_amount') };
+                case 'empire-monthly':
+                    return { monthly_cashflow: cashflowOverview };
+                case 'empire-quarterly':
+                    return { quarterly_forecasts: forecasts };
+                case 'empire-risk':
+                    return { risk_scores: riskScores };
+                case 'empire-forecast':
+                    return { forecasts };
+                default:
+                    return { خطأ: 'نوع تقرير غير معروف' };
+            }
+        }
+
+        function translateFlowType(value) {
+            const map = {
+                collection: 'تحصيل',
+                payment: 'مدفوعات',
+                salary: 'رواتب',
+                expense: 'مصروفات تشغيلية',
+                asset_purchase: 'شراء أصول',
+                investment: 'استثمار',
+                other_investing: 'أنشطة استثمارية أخرى',
+                capital_injection: 'زيادة رأس المال',
+                loan_received: 'قرض مستلم',
+                loan_payment: 'سداد قرض',
+                dividend_payment: 'توزيع أرباح'
+            };
+            return map[value] || 'غير محدد';
+        }
+
+        function translateRiskLevel(value) {
+            const map = { HIGH: 'مرتفع', MEDIUM: 'متوسط', LOW: 'منخفض', CRITICAL: 'حرج' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateEntityType(value) {
+            const map = { HQ: 'مركز رئيسي', BRANCH: 'فرع', PLATFORM: 'منصة', INCUBATOR: 'حاضنة', PROGRAM: 'برنامج' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateForecastType(value) {
+            const map = { REVENUE: 'إيرادات', EXPENSE: 'مصروفات', CASHFLOW: 'تدفقات نقدية', DEFAULT: 'تعثر' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function formatPeriod(value) {
+            return value ? sanitizeText(value) : 'غير محدد';
+        }
+
+        function formatPercent(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            const num = parseFloat(value || 0);
+            return `${num.toFixed(1)}%`;
+        }
+
+        function sanitizeText(value) {
+            if (value === null || value === undefined) return '-';
+            const text = typeof value === 'string' ? value : JSON.stringify(value);
+            const cleaned = text.replace(/[A-Za-z]+/g, '').replace(/\s{2,}/g, ' ').trim();
+            return cleaned || '-';
+        }
+
+        function buildCustomerStatement() {
+            const groupedInvoices = invoices.reduce((acc, inv) => {
+                const key = inv.customer_id || 'غير محدد';
+                if (!acc[key]) acc[key] = { invoices: [], payments: [] };
+                acc[key].invoices.push(inv);
+                return acc;
+            }, {});
+
+            payments.forEach(p => {
+                const key = p.customer_id || 'غير محدد';
+                if (!groupedInvoices[key]) groupedInvoices[key] = { invoices: [], payments: [] };
+                groupedInvoices[key].payments.push(p);
+            });
+
+            return { customer_statements: groupedInvoices };
+        }
+
+        function groupSum(rows, key, valueKey) {
+            return rows.reduce((acc, row) => {
+                const label = row[key] ?? 'غير محدد';
+                acc[label] = (acc[label] || 0) + parseFloat(row[valueKey] || 0);
+                return acc;
+            }, {});
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function downloadEnhancementPack() {
+            const payload = {
+                generated_at: new Date().toISOString(),
+                cashflow_overview: cashflowOverview,
+                cashflow_operating: cashflowOperating,
+                cashflow_investing: cashflowInvesting,
+                cashflow_financing: cashflowFinancing,
+                forecasts,
+                risk_scores: riskScores,
+                invoices,
+                payments,
+                ar_aging: arAging,
+                indicators: {
+                    net_liquidity: mergeCashflows().reduce((sum, row) => sum + parseFloat(row.amount || 0), 0),
+                    collection_rate: invoices.length ? (payments.reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0) / invoices.reduce((sum, i) => sum + parseFloat(i.total_amount || 0), 0)) * 100 : 0
+                }
+            };
+            downloadBlob(JSON.stringify(payload, null, 2), 'تعزيزات-التدفقات-والمخاطر.json', 'application/json');
+        }
+
+        function refreshData() {
+            loadData();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

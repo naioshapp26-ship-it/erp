@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💰 العربون والدفعات المتقدمة - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;600;700&family=Tajawal:wght@300;400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ink: #0f172a;
+            --muted: #6b7280;
+            --panel: rgba(255, 255, 255, 0.92);
+            --accent: #0ea5a4;
+            --accent-2: #f97316;
+            --accent-3: #ec4899;
+            --glow: rgba(14, 165, 164, 0.22);
+            --shadow: 0 25px 45px rgba(15, 23, 42, 0.12);
+        }
+        body {
+            font-family: 'Tajawal', sans-serif;
+            color: var(--ink);
+            background: radial-gradient(circle at 15% 20%, #e0f2fe, transparent 45%),
+                        radial-gradient(circle at 85% 15%, #fee2e2, transparent 45%),
+                        radial-gradient(circle at 70% 80%, #fef9c3, transparent 40%),
+                        #f8fafc;
+            min-height: 100vh;
+        }
+        .headline { font-family: 'El Messiri', sans-serif; }
+        .card-glass { background: var(--panel); border: 1px solid #e2e8f0; box-shadow: var(--shadow); }
+        .stat-card { background: #fff; border: 1px solid #e2e8f0; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 18px 30px rgba(15, 23, 42, 0.16); }
+        .section-accent-emerald { border-top: 4px solid var(--accent); }
+        .section-accent-amber { border-top: 4px solid var(--accent-2); }
+        .section-accent-rose { border-top: 4px solid var(--accent-3); }
+        .table-scroll { max-height: 520px; overflow: auto; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #e2e8f0; color: #1f2937; }
+        .focus-ring:focus { outline: none; box-shadow: 0 0 0 3px var(--glow); border-color: var(--accent); }
+        .shadow-soft { box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12); }
+        .progress-track { background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+        .progress-bar { height: 8px; border-radius: 999px; background: linear-gradient(120deg, var(--accent), #14b8a6); }
+        .modal-backdrop { background: rgba(15, 23, 42, 0.45); }
+        .modal-panel { max-height: 85vh; overflow-y: auto; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-10">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
+            <div>
+                <p class="text-sm text-slate-500">منصة إدارة العربون المتقدم</p>
+                <h1 class="headline text-4xl md:text-5xl font-bold">💰 العربون والدفعات المتقدمة</h1>
+                <p class="text-lg text-slate-600 mt-2">لوحة تشغيلية متكاملة للتسويات، المخاطر، والتحصيل الذكي.</p>
+            </div>
+            <div class="card-glass rounded-3xl p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                <div>
+                    <p class="text-xs text-slate-500">حالة الربط</p>
+                    <div class="flex items-center gap-2">
+                        <span class="badge bg-emerald-100 text-emerald-700">نشط</span>
+                        <span class="text-xs text-slate-500">آخر مزامنة: <span id="lastSync">الآن</span></span>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500">نطاق اليوم</p>
+                    <p class="text-sm font-bold" id="todayRange">--</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="openModal('add')" class="bg-slate-900 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-circle-plus"></i>
+                إضافة دفعة
+            </button>
+            <button onclick="refreshData()" class="bg-white text-emerald-700 border border-emerald-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث السجلات
+            </button>
+            <button onclick="exportCSV()" class="bg-amber-500 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-export"></i>
+                تصدير CSV
+            </button>
+            <button onclick="printPage()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة التقرير
+            </button>
+            <button onclick="copySummary()" class="bg-indigo-500 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-copy"></i>
+                نسخ الملخص
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8" id="statsGrid"></div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+            <div class="card-glass rounded-3xl p-6 section-accent-emerald xl:col-span-2">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">🧾 الخصائص الذكية للعربون</h2>
+                        <p class="text-sm text-slate-500">نظام متكامل للموافقات، المخاطر، وتسوية تلقائية متعددة العملات.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="chip">SLA تلقائي</span>
+                        <span class="chip">تحليل مخاطر</span>
+                        <span class="chip">توقيع رقمي</span>
+                        <span class="chip">توزيع بنكي</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                    <div class="bg-emerald-50 p-4 rounded-2xl">حدود عربية ديناميكية حسب الخدمة والعميل</div>
+                    <div class="bg-amber-50 p-4 rounded-2xl">تسوية تلقائية متعددة الفواتير حسب الأولوية</div>
+                    <div class="bg-rose-50 p-4 rounded-2xl">تصنيف العربون إلى قابل للاسترداد أو محجوز ضماني</div>
+                    <div class="bg-indigo-50 p-4 rounded-2xl">ربط العربون بعقد + مشروع + جهة محاسبية</div>
+                    <div class="bg-slate-50 p-4 rounded-2xl">تنبيهات استحقاق مع SLA ومؤشر مخاطر</div>
+                    <div class="bg-emerald-50 p-4 rounded-2xl">لوحة تسوية فورية + سجل تدقيق كامل</div>
+                </div>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-rose">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">⚡ مؤشرات تشغيلية فورية</h3>
+                <div class="space-y-4">
+                    <div class="p-4 rounded-2xl bg-slate-50">
+                        <p class="text-xs text-slate-500">مستوى المخاطر العام</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-lg font-bold" id="riskScore">--</span>
+                            <span class="badge bg-rose-100 text-rose-700">مراقبة</span>
+                        </div>
+                        <div class="progress-track mt-2"><div class="progress-bar" id="riskBar" style="width: 0%"></div></div>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-slate-50">
+                        <p class="text-xs text-slate-500">أكبر عميل حاليا</p>
+                        <p class="text-lg font-bold" id="topClient">--</p>
+                        <p class="text-xs text-slate-500">حسب الرصيد المتاح</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-slate-50">
+                        <p class="text-xs text-slate-500">دفعات تحتاج متابعة</p>
+                        <p class="text-lg font-bold" id="followUps">--</p>
+                        <p class="text-xs text-slate-500">آخر 7 أيام</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 section-accent-amber mb-8">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800">📋 سجل العربون والدفعات المتقدمة</h3>
+                    <p class="text-sm text-slate-500">بحث متقدم، تصفية ديناميكية، وإدارة كاملة من نفس الشاشة.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <span class="badge bg-amber-100 text-amber-700" id="tableCount">0 سجل</span>
+                    <span class="badge bg-emerald-100 text-emerald-700">متصل محليا</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+                <input id="searchInput" type="text" placeholder="ابحث بالعميل، رقم العقد، الوسم..." class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                <select id="statusFilter" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                    <option value="">كل الحالات</option>
+                    <option value="قابل للتسوية">قابل للتسوية</option>
+                    <option value="قيد التسوية">قيد التسوية</option>
+                    <option value="مسوى">مسوى</option>
+                    <option value="متأخر">متأخر</option>
+                    <option value="منتهي">منتهي</option>
+                </select>
+                <select id="typeFilter" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                    <option value="">كل الأنواع</option>
+                    <option value="عربون">عربون</option>
+                    <option value="دفعة مقدمة">دفعة مقدمة</option>
+                </select>
+                <select id="refundFilter" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                    <option value="">الاسترداد</option>
+                    <option value="yes">قابل للاسترداد</option>
+                    <option value="no">غير قابل</option>
+                </select>
+                <input id="minAmount" type="number" placeholder="حد أدنى" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                <input id="maxAmount" type="number" placeholder="حد أقصى" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                <input id="fromDate" type="date" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                <input id="toDate" type="date" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 mb-4">
+                <button onclick="clearFilters()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-full text-sm font-bold">مسح الفلاتر</button>
+                <button onclick="bulkSettle()" class="bg-emerald-600 text-white px-4 py-2 rounded-full text-sm font-bold">تسوية جماعية</button>
+                <button onclick="bulkReminder()" class="bg-slate-900 text-white px-4 py-2 rounded-full text-sm font-bold">إرسال تذكير</button>
+                <span class="text-xs text-slate-500">* اختر سجلات من الجدول لتفعيل الإجراءات</span>
+            </div>
+
+            <div class="table-scroll">
+                <table class="w-full text-sm">
+                    <thead class="bg-amber-50 text-amber-700">
+                        <tr>
+                            <th class="px-3 py-3 text-right"><input type="checkbox" id="selectAll" /></th>
+                            <th class="px-3 py-3 text-right cursor-pointer" onclick="sortBy('client')">العميل</th>
+                            <th class="px-3 py-3 text-right cursor-pointer" onclick="sortBy('type')">النوع</th>
+                            <th class="px-3 py-3 text-right cursor-pointer" onclick="sortBy('amount')">القيمة</th>
+                            <th class="px-3 py-3 text-right">العملة</th>
+                            <th class="px-3 py-3 text-right cursor-pointer" onclick="sortBy('dueDate')">تاريخ الاستحقاق</th>
+                            <th class="px-3 py-3 text-right">الحالة</th>
+                            <th class="px-3 py-3 text-right">المخاطر</th>
+                            <th class="px-3 py-3 text-right">التسوية</th>
+                            <th class="px-3 py-3 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100" id="recordsTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div class="card-glass rounded-3xl p-6 section-accent-emerald">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">🧠 مركز الذكاء التشغيلي</h3>
+                <div class="space-y-4" id="insightsList"></div>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-amber">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">✅ المهام والموافقات</h3>
+                <div class="space-y-3" id="tasksList"></div>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-rose">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">📌 سجل النشاط الحي</h3>
+                <div class="space-y-3" id="auditLog"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="fixed inset-0 hidden items-center justify-center z-50">
+        <div class="absolute inset-0 modal-backdrop" onclick="closeModal()"></div>
+        <div class="relative card-glass rounded-3xl p-6 w-full max-w-3xl shadow-soft modal-panel">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold" id="modalTitle">إضافة دفعة</h3>
+                <button onclick="closeModal()" class="text-slate-500 hover:text-slate-800"><i class="fas fa-xmark"></i></button>
+            </div>
+            <form id="paymentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" id="recordId">
+                <div>
+                    <label class="text-sm text-slate-500">العميل</label>
+                    <input id="clientInput" required class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200" />
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">نوع الدفعة</label>
+                    <select id="typeInput" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                        <option value="عربون">عربون</option>
+                        <option value="دفعة مقدمة">دفعة مقدمة</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">القيمة</label>
+                    <input id="amountInput" type="number" required class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200" />
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">العملة</label>
+                    <select id="currencyInput" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                        <option value="SAR">SAR</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">تاريخ الاستحقاق</label>
+                    <input id="dueDateInput" type="date" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200" />
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">الحالة</label>
+                    <select id="statusInput" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                        <option value="قابل للتسوية">قابل للتسوية</option>
+                        <option value="قيد التسوية">قيد التسوية</option>
+                        <option value="مسوى">مسوى</option>
+                        <option value="متأخر">متأخر</option>
+                        <option value="منتهي">منتهي</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">رقم العقد</label>
+                    <input id="contractInput" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200" />
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">المشروع</label>
+                    <input id="projectInput" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200" />
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">وسيلة الدفع</label>
+                    <select id="methodInput" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                        <option value="تحويل بنكي">تحويل بنكي</option>
+                        <option value="بطاقة">بطاقة</option>
+                        <option value="نقدي">نقدي</option>
+                        <option value="محفظة رقمية">محفظة رقمية</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">قابل للاسترداد</label>
+                    <select id="refundInput" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200">
+                        <option value="true">نعم</option>
+                        <option value="false">لا</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-slate-500">مؤشر المخاطر (0-100)</label>
+                    <input id="riskInput" type="number" min="0" max="100" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200" />
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-sm text-slate-500">ملاحظات</label>
+                    <textarea id="notesInput" rows="3" class="focus-ring w-full px-4 py-3 rounded-2xl border border-slate-200"></textarea>
+                </div>
+                <div class="md:col-span-2 flex items-center gap-3 justify-end">
+                    <button type="button" onclick="closeModal()" class="bg-slate-100 text-slate-700 px-5 py-2 rounded-full font-bold">إلغاء</button>
+                    <button type="submit" class="bg-slate-900 text-white px-6 py-2 rounded-full font-bold">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const storageKey = 'depositAdvancePayments.v1';
+        const state = {
+            records: [],
+            filtered: [],
+            selected: new Set(),
+            sortKey: 'dueDate',
+            sortDir: 'asc',
+            audit: []
+        };
+
+        const defaultRecords = [
+            {
+                id: 'DAP-2401',
+                client: 'شركة المستقبل الذكي',
+                type: 'عربون',
+                amount: 45000,
+                currency: 'SAR',
+                dueDate: '2026-03-10',
+                status: 'قابل للتسوية',
+                refundable: true,
+                contract: 'C-2026-019',
+                project: 'مجمع التقنية',
+                method: 'تحويل بنكي',
+                risk: 28,
+                settlement: { invoice: 'INV-9821', settled: 20000, remaining: 25000 },
+                notes: 'تم استلام العربون مع تأكيد بنكي.'
+            },
+            {
+                id: 'DAP-2402',
+                client: 'مؤسسة الريادة',
+                type: 'دفعة مقدمة',
+                amount: 120000,
+                currency: 'SAR',
+                dueDate: '2026-04-01',
+                status: 'قيد التسوية',
+                refundable: false,
+                contract: 'C-2026-031',
+                project: 'مركز الريادة',
+                method: 'بطاقة',
+                risk: 52,
+                settlement: { invoice: 'INV-9913', settled: 60000, remaining: 60000 },
+                notes: 'دفعة مرتبطة بمراحل تنفيذ متعددة.'
+            },
+            {
+                id: 'DAP-2403',
+                client: 'شركة الأفق',
+                type: 'عربون',
+                amount: 30000,
+                currency: 'SAR',
+                dueDate: '2026-02-25',
+                status: 'متأخر',
+                refundable: true,
+                contract: 'C-2025-118',
+                project: 'مركز الأفق',
+                method: 'تحويل بنكي',
+                risk: 73,
+                settlement: { invoice: 'INV-9654', settled: 0, remaining: 30000 },
+                notes: 'تم إرسال إشعار متابعة.'
+            },
+            {
+                id: 'DAP-2404',
+                client: 'شركة النخبة القابضة',
+                type: 'دفعة مقدمة',
+                amount: 210000,
+                currency: 'USD',
+                dueDate: '2026-03-20',
+                status: 'قابل للتسوية',
+                refundable: false,
+                contract: 'C-2026-044',
+                project: 'بوابة النخبة',
+                method: 'تحويل بنكي',
+                risk: 35,
+                settlement: { invoice: 'INV-9955', settled: 125000, remaining: 85000 },
+                notes: 'سعر صرف ثابت مع ملحق عقدي.'
+            },
+            {
+                id: 'DAP-2405',
+                client: 'مبادرة كيان',
+                type: 'عربون',
+                amount: 68000,
+                currency: 'SAR',
+                dueDate: '2026-03-05',
+                status: 'قيد التسوية',
+                refundable: true,
+                contract: 'C-2026-052',
+                project: 'حاضنة كيان',
+                method: 'محفظة رقمية',
+                risk: 40,
+                settlement: { invoice: 'INV-9988', settled: 48000, remaining: 20000 },
+                notes: 'تم جدولة الجزء المتبقي على فواتير مارس.'
+            },
+            {
+                id: 'DAP-2406',
+                client: 'مجموعة السحاب',
+                type: 'دفعة مقدمة',
+                amount: 95000,
+                currency: 'EUR',
+                dueDate: '2026-04-12',
+                status: 'قابل للتسوية',
+                refundable: false,
+                contract: 'C-2026-063',
+                project: 'بوابة السحاب',
+                method: 'تحويل بنكي',
+                risk: 22,
+                settlement: { invoice: 'INV-10002', settled: 0, remaining: 95000 },
+                notes: 'بانتظار توقيع ملحق الضمان.'
+            },
+            {
+                id: 'DAP-2407',
+                client: 'شركة أطياف',
+                type: 'عربون',
+                amount: 52000,
+                currency: 'SAR',
+                dueDate: '2026-02-18',
+                status: 'مسوى',
+                refundable: false,
+                contract: 'C-2025-097',
+                project: 'استوديو الأطياف',
+                method: 'نقدي',
+                risk: 12,
+                settlement: { invoice: 'INV-9601', settled: 52000, remaining: 0 },
+                notes: 'تمت التسوية بالكامل.'
+            },
+            {
+                id: 'DAP-2408',
+                client: 'مؤسسة المنار',
+                type: 'دفعة مقدمة',
+                amount: 150000,
+                currency: 'SAR',
+                dueDate: '2026-03-28',
+                status: 'قابل للتسوية',
+                refundable: true,
+                contract: 'C-2026-072',
+                project: 'المنار الرقمي',
+                method: 'تحويل بنكي',
+                risk: 48,
+                settlement: { invoice: 'INV-10010', settled: 30000, remaining: 120000 },
+                notes: 'طلب العميل تفصيلات إضافية قبل التسوية.'
+            }
+        ];
+
+        function loadData() {
+            const stored = localStorage.getItem(storageKey);
+            state.records = stored ? JSON.parse(stored) : defaultRecords;
+            state.audit = [];
+            addAudit('تم تحميل البيانات وتشغيل لوحة العربون.');
+        }
+
+        function saveData() {
+            localStorage.setItem(storageKey, JSON.stringify(state.records));
+        }
+
+        function formatCurrency(amount, currency) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+        }
+
+        function addAudit(message) {
+            const now = new Date().toLocaleString('en-US');
+            state.audit.unshift({ message, time: now });
+            state.audit = state.audit.slice(0, 6);
+            renderAudit();
+        }
+
+        function renderStats() {
+            const total = state.records.reduce((sum, r) => sum + r.amount, 0);
+            const totalAdvances = state.records.filter((r) => r.type === 'دفعة مقدمة').length;
+            const settled = state.records.filter((r) => r.status === 'مسوى').length;
+            const overdue = state.records.filter((r) => r.status === 'متأخر').length;
+            const available = state.records.reduce((sum, r) => sum + (r.settlement?.remaining || 0), 0);
+            const refundables = state.records.filter((r) => r.refundable).length;
+            const settlementRate = state.records.length ? Math.round((settled / state.records.length) * 100) : 0;
+
+            const stats = [
+                { label: 'إجمالي العربون والدفعات', value: formatCurrency(total, 'SAR'), sub: 'محفظة التشغيل', icon: 'fa-sack-dollar', color: 'emerald' },
+                { label: 'دفعات متقدمة نشطة', value: totalAdvances, sub: 'معاملة', icon: 'fa-arrow-trend-up', color: 'amber' },
+                { label: 'نسبة التسوية', value: `${settlementRate}%`, sub: 'حتى اليوم', icon: 'fa-scale-balanced', color: 'rose' },
+                { label: 'الرصيد المتاح', value: formatCurrency(available, 'SAR'), sub: 'جاهز للتخصيص', icon: 'fa-wallet', color: 'indigo' },
+                { label: 'سجلات متأخرة', value: overdue, sub: 'تحتاج متابعة', icon: 'fa-triangle-exclamation', color: 'orange' },
+                { label: 'قابل للاسترداد', value: refundables, sub: 'سجل', icon: 'fa-rotate-left', color: 'cyan' }
+            ];
+
+            document.getElementById('statsGrid').innerHTML = stats.map((stat) => `
+                <div class="stat-card p-5 rounded-2xl border-t-4 border-${stat.color}-500">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-slate-500">${stat.label}</span>
+                        <i class="fas ${stat.icon} text-${stat.color}-500"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-slate-800">${stat.value}</div>
+                    <div class="text-xs text-slate-500">${stat.sub}</div>
+                </div>
+            `).join('');
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.trim();
+            const status = document.getElementById('statusFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            const refund = document.getElementById('refundFilter').value;
+            const min = parseFloat(document.getElementById('minAmount').value) || 0;
+            const max = parseFloat(document.getElementById('maxAmount').value) || Infinity;
+            const from = document.getElementById('fromDate').value;
+            const to = document.getElementById('toDate').value;
+
+            state.filtered = state.records.filter((r) => {
+                const matchesSearch = !search || [r.client, r.contract, r.project, r.id, r.notes].join(' ').includes(search);
+                const matchesStatus = !status || r.status === status;
+                const matchesType = !type || r.type === type;
+                const matchesRefund = refund === '' || (refund === 'yes' ? r.refundable : !r.refundable);
+                const matchesAmount = r.amount >= min && r.amount <= max;
+                const matchesFrom = !from || r.dueDate >= from;
+                const matchesTo = !to || r.dueDate <= to;
+                return matchesSearch && matchesStatus && matchesType && matchesRefund && matchesAmount && matchesFrom && matchesTo;
+            });
+
+            sortRecords();
+            renderTable();
+            renderInsights();
+        }
+
+        function sortRecords() {
+            const key = state.sortKey;
+            const dir = state.sortDir === 'asc' ? 1 : -1;
+            state.filtered.sort((a, b) => {
+                const valA = a[key];
+                const valB = b[key];
+                if (valA === valB) return 0;
+                return valA > valB ? dir : -dir;
+            });
+        }
+
+        function sortBy(key) {
+            if (state.sortKey === key) {
+                state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                state.sortKey = key;
+                state.sortDir = 'asc';
+            }
+            applyFilters();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('recordsTable');
+            tbody.innerHTML = state.filtered.map((r) => {
+                const riskColor = r.risk >= 70 ? 'bg-rose-100 text-rose-700' : r.risk >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+                const statusColor = r.status === 'مسوى' ? 'bg-emerald-100 text-emerald-700' : r.status === 'متأخر' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700';
+                const settlementText = `${formatCurrency(r.settlement.settled, r.currency)} / ${formatCurrency(r.settlement.remaining, r.currency)}`;
+                return `
+                <tr>
+                    <td class="px-3 py-3"><input type="checkbox" class="record-check" data-id="${r.id}" ${state.selected.has(r.id) ? 'checked' : ''}></td>
+                    <td class="px-3 py-3">
+                        <p class="font-bold">${r.client}</p>
+                        <p class="text-xs text-slate-500">${r.contract} • ${r.project}</p>
+                    </td>
+                    <td class="px-3 py-3">${r.type}</td>
+                    <td class="px-3 py-3 font-bold">${formatCurrency(r.amount, r.currency)}</td>
+                    <td class="px-3 py-3">${r.currency}</td>
+                    <td class="px-3 py-3">${r.dueDate}</td>
+                    <td class="px-3 py-3"><span class="badge ${statusColor}">${r.status}</span></td>
+                    <td class="px-3 py-3"><span class="badge ${riskColor}">${r.risk}%</span></td>
+                    <td class="px-3 py-3">
+                        <p class="text-xs">${settlementText}</p>
+                        <p class="text-xs text-slate-500">فاتورة: ${r.settlement.invoice}</p>
+                    </td>
+                    <td class="px-3 py-3">
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="viewRecord('${r.id}')" class="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-xs font-bold">معاينة</button>
+                            <button onclick="openModal('edit','${r.id}')" class="bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold">تعديل</button>
+                            <button onclick="deleteRecord('${r.id}')" class="bg-rose-500 text-white px-3 py-1 rounded-full text-xs font-bold">حذف</button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+
+            document.getElementById('tableCount').textContent = `${state.filtered.length} سجل`;
+            bindCheckboxes();
+        }
+
+        function bindCheckboxes() {
+            document.querySelectorAll('.record-check').forEach((el) => {
+                el.addEventListener('change', (event) => {
+                    const id = event.target.dataset.id;
+                    if (event.target.checked) state.selected.add(id);
+                    else state.selected.delete(id);
+                });
+            });
+
+            const selectAll = document.getElementById('selectAll');
+            selectAll.checked = state.selected.size && state.selected.size === state.filtered.length;
+            selectAll.onchange = () => {
+                if (selectAll.checked) {
+                    state.filtered.forEach((r) => state.selected.add(r.id));
+                } else {
+                    state.selected.clear();
+                }
+                renderTable();
+            };
+        }
+
+        function renderInsights() {
+            const maxRisk = Math.max(...state.filtered.map((r) => r.risk), 0);
+            const upcoming = state.filtered.filter((r) => r.dueDate >= new Date().toISOString().slice(0, 10) && r.dueDate <= addDays(7));
+            const refundableSum = state.filtered.filter((r) => r.refundable).reduce((sum, r) => sum + r.amount, 0);
+            const highBalance = state.filtered.reduce((max, r) => (r.settlement.remaining > max.settlement.remaining ? r : max), state.filtered[0] || { settlement: { remaining: 0 } });
+
+            const insights = [
+                { title: 'أعلى مستوى مخاطر', value: `${maxRisk}%`, note: 'مطلوب مراجعة الموافقات' },
+                { title: 'دفعات تقترب خلال 7 أيام', value: `${upcoming.length} دفعة`, note: 'يمكن تفعيل تذكير تلقائي' },
+                { title: 'إجمالي قابل للاسترداد', value: formatCurrency(refundableSum, 'SAR'), note: 'يؤثر على السيولة المتاحة' },
+                { title: 'أعلى رصيد متاح', value: highBalance?.client || '--', note: 'مرشح للتسوية الجزئية' }
+            ];
+
+            document.getElementById('insightsList').innerHTML = insights.map((item) => `
+                <div class="p-4 rounded-2xl bg-slate-50">
+                    <p class="text-xs text-slate-500">${item.title}</p>
+                    <p class="text-lg font-bold">${item.value}</p>
+                    <p class="text-xs text-slate-500">${item.note}</p>
+                </div>
+            `).join('');
+
+            const avgRisk = state.records.length ? Math.round(state.records.reduce((sum, r) => sum + r.risk, 0) / state.records.length) : 0;
+            document.getElementById('riskScore').textContent = `${avgRisk}%`;
+            document.getElementById('riskBar').style.width = `${avgRisk}%`;
+            document.getElementById('topClient').textContent = highBalance?.client || '--';
+            document.getElementById('followUps').textContent = `${state.records.filter((r) => r.status === 'متأخر').length} حالة`;
+        }
+
+        function renderTasks() {
+            const tasks = [
+                { title: 'مراجعة موافقة دفعة النخبة', owner: 'قسم المخاطر', status: 'جاري' },
+                { title: 'توقيع ملحق الضمان - السحاب', owner: 'العقود', status: 'بانتظار' },
+                { title: 'إرسال إشعار الاستحقاق - الأفق', owner: 'التحصيل', status: 'مستعجل' }
+            ];
+
+            document.getElementById('tasksList').innerHTML = tasks.map((task) => `
+                <div class="p-4 rounded-2xl bg-slate-50">
+                    <p class="font-bold">${task.title}</p>
+                    <p class="text-xs text-slate-500">${task.owner} • ${task.status}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderAudit() {
+            document.getElementById('auditLog').innerHTML = state.audit.map((item) => `
+                <div class="p-4 rounded-2xl bg-slate-50">
+                    <p class="text-sm">${item.message}</p>
+                    <p class="text-xs text-slate-500">${item.time}</p>
+                </div>
+            `).join('');
+        }
+
+        function refreshData() {
+            loadData();
+            saveData();
+            applyFilters();
+            renderStats();
+            addAudit('تم تحديث السجلات يدويا.');
+            document.getElementById('lastSync').textContent = 'الآن';
+        }
+
+        function printPage() { window.print(); }
+
+        function copySummary() {
+            const summaryText = generateSummary();
+            navigator.clipboard.writeText(summaryText).then(() => {
+                alert('تم نسخ ملخص العربون والدفعات المتقدمة.');
+            });
+        }
+
+        function generateSummary() {
+            const total = state.records.reduce((sum, r) => sum + r.amount, 0);
+            const overdue = state.records.filter((r) => r.status === 'متأخر').length;
+            return `ملخص العربون: إجمالي ${formatCurrency(total, 'SAR')}، متأخر ${overdue}، نسبة التسوية ${document.getElementById('riskScore').textContent}.`;
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('typeFilter').value = '';
+            document.getElementById('refundFilter').value = '';
+            document.getElementById('minAmount').value = '';
+            document.getElementById('maxAmount').value = '';
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            applyFilters();
+        }
+
+        function openModal(mode, id) {
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('modal').classList.add('flex');
+            if (mode === 'edit') {
+                const record = state.records.find((r) => r.id === id);
+                document.getElementById('modalTitle').textContent = 'تعديل دفعة';
+                document.getElementById('recordId').value = record.id;
+                document.getElementById('clientInput').value = record.client;
+                document.getElementById('typeInput').value = record.type;
+                document.getElementById('amountInput').value = record.amount;
+                document.getElementById('currencyInput').value = record.currency;
+                document.getElementById('dueDateInput').value = record.dueDate;
+                document.getElementById('statusInput').value = record.status;
+                document.getElementById('contractInput').value = record.contract;
+                document.getElementById('projectInput').value = record.project;
+                document.getElementById('methodInput').value = record.method;
+                document.getElementById('refundInput').value = record.refundable ? 'true' : 'false';
+                document.getElementById('riskInput').value = record.risk;
+                document.getElementById('notesInput').value = record.notes;
+            } else {
+                document.getElementById('modalTitle').textContent = 'إضافة دفعة';
+                document.getElementById('paymentForm').reset();
+                document.getElementById('recordId').value = '';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+            document.getElementById('modal').classList.remove('flex');
+        }
+
+        function generateId() {
+            const base = String(state.records.length + 1).padStart(2, '0');
+            return `DAP-${new Date().getFullYear().toString().slice(2)}${base}`;
+        }
+
+        function saveRecord(event) {
+            event.preventDefault();
+            const id = document.getElementById('recordId').value || generateId();
+            const record = {
+                id,
+                client: document.getElementById('clientInput').value.trim(),
+                type: document.getElementById('typeInput').value,
+                amount: parseFloat(document.getElementById('amountInput').value),
+                currency: document.getElementById('currencyInput').value,
+                dueDate: document.getElementById('dueDateInput').value,
+                status: document.getElementById('statusInput').value,
+                contract: document.getElementById('contractInput').value.trim() || 'بدون',
+                project: document.getElementById('projectInput').value.trim() || 'غير محدد',
+                method: document.getElementById('methodInput').value,
+                refundable: document.getElementById('refundInput').value === 'true',
+                risk: parseInt(document.getElementById('riskInput').value || '0', 10),
+                settlement: { invoice: 'INV-AUTO', settled: 0, remaining: parseFloat(document.getElementById('amountInput').value) },
+                notes: document.getElementById('notesInput').value.trim() || '---'
+            };
+
+            const existingIndex = state.records.findIndex((r) => r.id === id);
+            if (existingIndex >= 0) {
+                state.records[existingIndex] = record;
+                addAudit(`تم تحديث السجل ${id}.`);
+            } else {
+                state.records.unshift(record);
+                addAudit(`تم إضافة سجل جديد ${id}.`);
+            }
+
+            saveData();
+            applyFilters();
+            renderStats();
+            closeModal();
+        }
+
+        function deleteRecord(id) {
+            if (!confirm('هل تريد حذف السجل؟')) return;
+            state.records = state.records.filter((r) => r.id !== id);
+            state.selected.delete(id);
+            saveData();
+            applyFilters();
+            renderStats();
+            addAudit(`تم حذف السجل ${id}.`);
+        }
+
+        function viewRecord(id) {
+            const record = state.records.find((r) => r.id === id);
+            alert(`معاينة سريعة\nالعميل: ${record.client}\nالقيمة: ${formatCurrency(record.amount, record.currency)}\nالحالة: ${record.status}\nملاحظات: ${record.notes}`);
+        }
+
+        function exportCSV() {
+            const rows = [
+                ['ID', 'Client', 'Type', 'Amount', 'Currency', 'DueDate', 'Status', 'Refundable', 'Contract', 'Project', 'Risk']
+            ];
+            state.filtered.forEach((r) => {
+                rows.push([r.id, r.client, r.type, r.amount, r.currency, r.dueDate, r.status, r.refundable ? 'Yes' : 'No', r.contract, r.project, r.risk]);
+            });
+            const csvContent = rows.map((row) => row.map((item) => `"${item}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'deposits-advance-payments.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            addAudit('تم تصدير ملف CSV.');
+        }
+
+        function bulkSettle() {
+            if (state.selected.size === 0) {
+                alert('يرجى اختيار السجلات أولا.');
+                return;
+            }
+            state.records = state.records.map((r) => {
+                if (state.selected.has(r.id)) {
+                    return {
+                        ...r,
+                        status: 'مسوى',
+                        settlement: { ...r.settlement, settled: r.amount, remaining: 0 }
+                    };
+                }
+                return r;
+            });
+            state.selected.clear();
+            saveData();
+            applyFilters();
+            renderStats();
+            addAudit('تمت التسوية الجماعية للسجلات المحددة.');
+        }
+
+        function bulkReminder() {
+            if (state.selected.size === 0) {
+                alert('يرجى اختيار السجلات أولا.');
+                return;
+            }
+            addAudit(`تم إرسال تذكير إلى ${state.selected.size} سجل.`);
+            state.selected.clear();
+            renderTable();
+        }
+
+        function addDays(days) {
+            const date = new Date();
+            date.setDate(date.getDate() + days);
+            return date.toISOString().slice(0, 10);
+        }
+
+        document.getElementById('paymentForm').addEventListener('submit', saveRecord);
+        ['searchInput', 'statusFilter', 'typeFilter', 'refundFilter', 'minAmount', 'maxAmount', 'fromDate', 'toDate'].forEach((id) => {
+            document.getElementById(id).addEventListener('input', applyFilters);
+        });
+
+        function init() {
+            loadData();
+            renderStats();
+            renderTasks();
+            applyFilters();
+            const now = new Date();
+            document.getElementById('todayRange').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        init();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

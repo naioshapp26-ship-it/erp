@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧾 الدورة المحاسبية الكاملة - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb; /* Slate-50 */
+            min-height: 100vh;
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98));
+            backdrop-filter: blur(10px);
+        }
+        .stat-card { transition: transform 0.3s, box-shadow 0.3s; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 14px 28px rgba(15,23,42,0.15); }
+        .shape-pill { border-radius: 999px; }
+        .shape-angle { border-radius: 28px 8px 28px 8px; }
+        .shape-wave { border-radius: 28px 28px 6px 28px; }
+        .shape-arc { border-radius: 18px 40px 18px 40px; }
+        .chart-container { position: relative; height: 280px; }
+        .table-scroll { max-height: 520px; overflow: auto; }
+        .section-accent-sky { border-top: 4px solid #0ea5e9; }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .section-accent-amber { border-top: 4px solid #f59e0b; }
+        .section-accent-indigo { border-top: 4px solid #6366f1; }
+        .section-accent-rose { border-top: 4px solid #f43f5e; }
+        .badge { padding: 6px 12px; border-radius: 999px; font-weight: 700; }
+        details > summary { cursor: pointer; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🧾 الدورة المحاسبية الكاملة داخل نايوش</h1>
+            <p class="text-lg opacity-90">العمليات اليومية + إقفال الفترة + القوائم الختامية (الصفحة 29)</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-emerald-500 group">
+                <i class="fas fa-rotate text-xl text-emerald-600 group-hover:text-emerald-700 transition"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="downloadJSON()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-indigo-500 group">
+                <i class="fas fa-file-code text-xl text-indigo-600 group-hover:text-indigo-700 transition"></i>
+                تنزيل ملف البيانات
+            </button>
+            <button onclick="downloadCSV()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-blue-500 group">
+                <i class="fas fa-file-csv text-xl text-blue-600 group-hover:text-blue-700 transition"></i>
+                تنزيل ملف الجدول
+            </button>
+            <button onclick="printReport()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print text-xl text-gray-600 group-hover:text-gray-700 transition"></i>
+                طباعة
+            </button>
+        </div>
+
+        <div class="card-gradient rounded-xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-2xl font-bold text-slate-800">🧭 لوحة التحكم السريع</h2>
+                <span id="demoBadge" class="badge bg-amber-100 text-amber-700 hidden">بيانات تجريبية</span>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-600 mb-1">اختر الجدول</label>
+                        <select id="actionTable" class="w-full border border-slate-200 rounded-xl px-3 py-2 bg-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-600 mb-1">اختر السجل</label>
+                        <select id="actionRow" class="w-full border border-slate-200 rounded-xl px-3 py-2 bg-white"></select>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-3 items-start">
+                    <button id="actionAdd" class="bg-slate-900 text-white px-5 py-2 rounded-xl font-bold shadow-sm hover:shadow-md transition flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        إضافة
+                    </button>
+                    <button id="actionView" class="bg-indigo-600 text-white px-5 py-2 rounded-xl font-bold shadow-sm hover:shadow-md transition flex items-center gap-2">
+                        <i class="fas fa-eye"></i>
+                        معاينة
+                    </button>
+                    <button id="actionEdit" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold shadow-sm hover:shadow-md transition flex items-center gap-2">
+                        <i class="fas fa-pen"></i>
+                        تعديل
+                    </button>
+                    <button id="actionDelete" class="bg-rose-600 text-white px-5 py-2 rounded-xl font-bold shadow-sm hover:shadow-md transition flex items-center gap-2">
+                        <i class="fas fa-trash"></i>
+                        حذف
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Operations -->
+        <div class="card-gradient rounded-xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">📌 إثبات العمليات المالية اليومية</h2>
+                <span class="text-sm text-slate-500">كل عملية تُسجل بقيد محاسبي تلقائي</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+                <div class="stat-card shape-pill bg-gradient-to-br from-sky-500 to-blue-600 text-white p-5">
+                    <div class="flex justify-between mb-3"><span>المبيعات</span><i class="fas fa-file-invoice-dollar text-2xl opacity-70"></i></div>
+                    <div id="salesKpi" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-angle bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-5">
+                    <div class="flex justify-between mb-3"><span>المصروفات</span><i class="fas fa-receipt text-2xl opacity-70"></i></div>
+                    <div id="expensesKpi" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-wave bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-5">
+                    <div class="flex justify-between mb-3"><span>التحصيل</span><i class="fas fa-sack-dollar text-2xl opacity-70"></i></div>
+                    <div id="collectionsKpi" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-arc bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5">
+                    <div class="flex justify-between mb-3"><span>المدفوعات</span><i class="fas fa-credit-card text-2xl opacity-70"></i></div>
+                    <div id="paymentsKpi" class="text-3xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-emerald">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">📊 توزيع العمليات اليومية</h3>
+                    <div class="chart-container">
+                        <canvas id="dailyOpsChart"></canvas>
+                    </div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">🧠 أمثلة قيود تلقائية</h3>
+                    <div id="autoEntries" class="space-y-3 text-sm text-slate-700">
+                        <div class="animate-pulse">جاري التحميل...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Period Closing -->
+        <div class="card-gradient rounded-xl shadow-2xl p-6 mb-8 section-accent-indigo">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧾 إقفال الفترة المحاسبية</h2>
+                <span class="text-sm text-slate-500">حالة الإقفال وفق البيانات الحالية</span>
+            </div>
+            <div id="closingChecklist" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- Final Statements -->
+        <div class="card-gradient rounded-xl shadow-2xl p-6 mb-8 section-accent-emerald">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">📈 القوائم المالية الختامية</h2>
+                <span class="text-sm text-slate-500">قائمة الدخل + الميزانية العمومية + التدفقات النقدية</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+                <div class="stat-card shape-pill bg-white text-slate-800 p-5 shadow-lg">
+                    <div class="flex justify-between mb-3"><span>الإيرادات</span><i class="fas fa-arrow-up text-emerald-600"></i></div>
+                    <div id="totalRevenue" class="text-2xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-angle bg-white text-slate-800 p-5 shadow-lg">
+                    <div class="flex justify-between mb-3"><span>المصروفات</span><i class="fas fa-arrow-down text-rose-600"></i></div>
+                    <div id="totalExpenses" class="text-2xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-wave bg-white text-slate-800 p-5 shadow-lg">
+                    <div class="flex justify-between mb-3"><span>صافي الربح</span><i class="fas fa-chart-line text-indigo-600"></i></div>
+                    <div id="netIncome" class="text-2xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+                <div class="stat-card shape-arc bg-white text-slate-800 p-5 shadow-lg">
+                    <div class="flex justify-between mb-3"><span>إجمالي الأصول</span><i class="fas fa-building-columns text-sky-600"></i></div>
+                    <div id="totalAssets" class="text-2xl font-bold"><div class="animate-pulse">...</div></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-amber">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">💧 قائمة التدفقات النقدية</h3>
+                    <div class="chart-container">
+                        <canvas id="cashflowStatementChart"></canvas>
+                    </div>
+                </div>
+                <div class="card-gradient rounded-2xl p-5 shadow-lg section-accent-rose">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">⚖️ قائمة المركز المالي</h3>
+                    <div id="balanceSummary" class="space-y-3 text-sm text-slate-700"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Tables -->
+        <div class="space-y-6">
+            <details class="card-gradient rounded-xl shadow-2xl p-6 section-accent-sky" open>
+                <summary class="text-xl font-bold text-slate-800">🧾 العمليات اليومية (فواتير + مصروفات + مدفوعات)</summary>
+                <div class="mt-4 space-y-6">
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">الفواتير</h4><span id="invoicesCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="invoicesHead" class="bg-sky-50 text-sky-700"></thead><tbody id="invoicesTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">المصروفات</h4><span id="expensesCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="expensesHead" class="bg-rose-50 text-rose-700"></thead><tbody id="expensesTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">التحصيل</h4><span id="paymentsCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="paymentsHead" class="bg-emerald-50 text-emerald-700"></thead><tbody id="paymentsTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-xl shadow-2xl p-6 section-accent-indigo">
+                <summary class="text-xl font-bold text-slate-800">📚 القيود المحاسبية الآلية</summary>
+                <div class="mt-4 space-y-6">
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">قيود اليومية</h4><span id="entriesCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="entriesHead" class="bg-indigo-50 text-indigo-700"></thead><tbody id="entriesTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">سطور القيود</h4><span id="linesCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="linesHead" class="bg-sky-50 text-sky-700"></thead><tbody id="linesTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="card-gradient rounded-xl shadow-2xl p-6 section-accent-amber">
+                <summary class="text-xl font-bold text-slate-800">📊 القوائم المالية</summary>
+                <div class="mt-4 space-y-6">
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">قائمة الدخل - الإيرادات</h4><span id="incomeRevenueCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="incomeRevenueHead" class="bg-emerald-50 text-emerald-700"></thead><tbody id="incomeRevenueTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">قائمة الدخل - المصروفات</h4><span id="incomeExpenseCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="incomeExpenseHead" class="bg-rose-50 text-rose-700"></thead><tbody id="incomeExpenseTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-2"><h4 class="font-bold text-slate-700">الميزانية العمومية</h4><span id="balanceSheetCount" class="text-sm text-slate-500"></span></div>
+                        <div class="table-scroll"><table class="w-full text-xs"><thead id="balanceSheetHead" class="bg-amber-50 text-amber-700"></thead><tbody id="balanceSheetTable" class="divide-y divide-slate-100"></tbody></table></div>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
+        const FALLBACK_ENTITY_ID = 'HQ001';
+        const DEMO_ALLOWED = new URLSearchParams(window.location.search).get('demo') === 'true';
+
+        let dataStore = {
+            invoices: [],
+            expenses: [],
+            payments: [],
+            entries: [],
+            lines: [],
+            incomeRevenue: [],
+            incomeExpenses: [],
+            balanceSheet: null,
+            cashflowOverview: null,
+            cashflowOperating: [],
+            cashflowInvesting: [],
+            cashflowFinancing: []
+        };
+
+        let isDemoMode = false;
+
+        const DEMO_DATA = {
+            invoices: [
+                { invoice_id: 101, invoice_number: 'INV-HQ001-001', invoice_date: '2026-01-05', due_date: '2026-02-04', customer_id: 1, customer_name: 'مجموعة الشروق للتجارة', total_amount: 185000, paid_amount: 25000, remaining_amount: 160000, status: 'ISSUED', payment_status: 'PARTIAL', entity_type: 'HQ', entity_id: 'HQ001' },
+                { invoice_id: 102, invoice_number: 'INV-HQ001-002', invoice_date: '2026-01-12', due_date: '2026-02-11', customer_id: 2, customer_name: 'شركة المدى للخدمات', total_amount: 98000, paid_amount: 0, remaining_amount: 98000, status: 'OVERDUE', payment_status: 'UNPAID', entity_type: 'HQ', entity_id: 'HQ001' },
+                { invoice_id: 103, invoice_number: 'INV-HQ001-003', invoice_date: '2026-01-18', due_date: '2026-02-17', customer_id: 3, customer_name: 'مؤسسة النخبة', total_amount: 72000, paid_amount: 20000, remaining_amount: 52000, status: 'ISSUED', payment_status: 'PARTIAL', entity_type: 'HQ', entity_id: 'HQ001' },
+                { invoice_id: 104, invoice_number: 'INV-HQ001-004', invoice_date: '2026-01-22', due_date: '2026-02-21', customer_id: 4, customer_name: 'مصنع التميز الصناعي', total_amount: 56000, paid_amount: 15000, remaining_amount: 41000, status: 'ISSUED', payment_status: 'PARTIAL', entity_type: 'HQ', entity_id: 'HQ001' },
+                { invoice_id: 105, invoice_number: 'INV-HQ001-005', invoice_date: '2026-01-27', due_date: '2026-02-26', customer_id: 5, customer_name: 'رواد التقنية المتقدمة', total_amount: 120000, paid_amount: 60000, remaining_amount: 60000, status: 'PAID', payment_status: 'PAID', entity_type: 'HQ', entity_id: 'HQ001' }
+            ],
+            expenses: [
+                { expense_id: 501, expense_date: '2026-01-04', expense_amount: 18500, vendor_id: 21, vendor_name: 'بيت السفر الراقي', status: 'APPROVED', notes: 'حجوزات طيران وفنادق لفريق المبيعات', total_amount: 21275, entity_type: 'HQ', entity_id: 'HQ001' },
+                { expense_id: 502, expense_date: '2026-01-08', expense_amount: 24000, vendor_id: 22, vendor_name: 'شركة المدار للمرافق', status: 'APPROVED', notes: 'فواتير كهرباء ومياه', total_amount: 27600, entity_type: 'HQ', entity_id: 'HQ001' },
+                { expense_id: 503, expense_date: '2026-01-12', expense_amount: 64000, vendor_id: 23, vendor_name: 'شركة الريادة للطاقة', status: 'APPROVED', notes: 'إيجار مستودع الخدمات اللوجستية', total_amount: 73600, entity_type: 'HQ', entity_id: 'HQ001' },
+                { expense_id: 504, expense_date: '2026-01-18', expense_amount: 9800, vendor_id: 24, vendor_name: 'مستلزمات الأعمال', status: 'APPROVED', notes: 'توريد مستلزمات مكتبية', total_amount: 11270, entity_type: 'HQ', entity_id: 'HQ001' },
+                { expense_id: 505, expense_date: '2026-01-24', expense_amount: 14200, vendor_id: 25, vendor_name: 'شركة أمان للاتصالات', status: 'APPROVED', notes: 'خدمات خطوط البيانات والصوت', total_amount: 16330, entity_type: 'HQ', entity_id: 'HQ001' }
+            ],
+            payments: [
+                { payment_id: 901, payment_number: 'PAY-HQ-0001', payment_date: '2026-01-10', payment_amount: 25000, payment_method: 'BANK', payment_type: 'PARTIAL', status: 'COMPLETED', customer_id: 1, customer_name: 'مجموعة الشروق للتجارة', entity_type: 'HQ', entity_id: 'HQ001' },
+                { payment_id: 902, payment_number: 'PAY-HQ-0002', payment_date: '2026-01-15', payment_amount: 15000, payment_method: 'CASH', payment_type: 'PARTIAL', status: 'COMPLETED', customer_id: 4, customer_name: 'مصنع التميز الصناعي', entity_type: 'HQ', entity_id: 'HQ001' },
+                { payment_id: 903, payment_number: 'PAY-HQ-0003', payment_date: '2026-01-20', payment_amount: 60000, payment_method: 'BANK', payment_type: 'FULL', status: 'COMPLETED', customer_id: 5, customer_name: 'رواد التقنية المتقدمة', entity_type: 'HQ', entity_id: 'HQ001' },
+                { payment_id: 904, payment_number: 'PAY-HQ-0004', payment_date: '2026-01-25', payment_amount: 20000, payment_method: 'ONLINE', payment_type: 'PARTIAL', status: 'COMPLETED', customer_id: 3, customer_name: 'مؤسسة النخبة', entity_type: 'HQ', entity_id: 'HQ001' }
+            ],
+            entries: [
+                { entry_id: 701, entry_number: 'JE-2026-001', entry_date: '2026-01-10', entry_type: 'AUTO', description: 'قيد تحصيل دفعة PAY-HQ-0001', reference_number: 'PAY-HQ-0001', status: 'POSTED', entity_type: 'HQ', entity_id: 'HQ001' },
+                { entry_id: 702, entry_number: 'JE-2026-002', entry_date: '2026-01-12', entry_type: 'AUTO', description: 'قيد مصروف مرافق', reference_number: 'EXP-502', status: 'POSTED', entity_type: 'HQ', entity_id: 'HQ001' },
+                { entry_id: 703, entry_number: 'JE-2026-003', entry_date: '2026-01-15', entry_type: 'AUTO', description: 'قيد تحصيل دفعة PAY-HQ-0002', reference_number: 'PAY-HQ-0002', status: 'POSTED', entity_type: 'HQ', entity_id: 'HQ001' },
+                { entry_id: 704, entry_number: 'JE-2026-004', entry_date: '2026-01-20', entry_type: 'AUTO', description: 'قيد تحصيل دفعة PAY-HQ-0003', reference_number: 'PAY-HQ-0003', status: 'POSTED', entity_type: 'HQ', entity_id: 'HQ001' },
+                { entry_id: 705, entry_number: 'JE-2026-005', entry_date: '2026-01-24', entry_type: 'AUTO', description: 'قيد مصروف اتصالات', reference_number: 'EXP-505', status: 'POSTED', entity_type: 'HQ', entity_id: 'HQ001' }
+            ],
+            lines: [
+                { line_id: 801, line_number: 1, entry_id: 701, account_id: 1001, account_name_ar: 'النقدية', debit_amount: 25000, credit_amount: 0, description: 'تحصيل من العميل', entity_type: 'HQ', entity_id: 'HQ001' },
+                { line_id: 802, line_number: 2, entry_id: 701, account_id: 2001, account_name_ar: 'الذمم المدينة', debit_amount: 0, credit_amount: 25000, description: 'تخفيض الذمم', entity_type: 'HQ', entity_id: 'HQ001' },
+                { line_id: 803, line_number: 1, entry_id: 702, account_id: 5101, account_name_ar: 'مصروف مرافق', debit_amount: 24000, credit_amount: 0, description: 'قيد مصروف', entity_type: 'HQ', entity_id: 'HQ001' },
+                { line_id: 804, line_number: 2, entry_id: 702, account_id: 1002, account_name_ar: 'البنك', debit_amount: 0, credit_amount: 24000, description: 'سداد للمورد', entity_type: 'HQ', entity_id: 'HQ001' },
+                { line_id: 805, line_number: 1, entry_id: 704, account_id: 1002, account_name_ar: 'البنك', debit_amount: 60000, credit_amount: 0, description: 'تحصيل دفعة', entity_type: 'HQ', entity_id: 'HQ001' },
+                { line_id: 806, line_number: 2, entry_id: 704, account_id: 2001, account_name_ar: 'الذمم المدينة', debit_amount: 0, credit_amount: 60000, description: 'تخفيض الذمم', entity_type: 'HQ', entity_id: 'HQ001' }
+            ],
+            incomeRevenue: [
+                { account_code: '4100', account_name_ar: 'إيرادات المبيعات', balance: 531000 },
+                { account_code: '4200', account_name_ar: 'إيرادات الخدمات', balance: 185000 },
+                { account_code: '4300', account_name_ar: 'إيرادات أخرى', balance: 62000 }
+            ],
+            incomeExpenses: [
+                { account_code: '5100', account_name_ar: 'مصروفات تشغيل', balance: 186000 },
+                { account_code: '5200', account_name_ar: 'مصروفات تسويق', balance: 74000 },
+                { account_code: '5300', account_name_ar: 'مصروفات إدارية', balance: 56000 }
+            ],
+            balanceSheet: {
+                sheet: {
+                    sheet_date: '2026-01-31',
+                    total_assets: 1250000,
+                    total_liabilities: 420000,
+                    total_equity: 830000,
+                    is_balanced: true,
+                    difference: 0,
+                    notes: 'ميزانية تجريبية'
+                },
+                totals: {
+                    total_assets: 1250000,
+                    total_liabilities: 420000,
+                    total_equity: 830000,
+                    is_balanced: true,
+                    difference: 0
+                }
+            },
+            cashflowOverview: { total_net_cashflow: 172000 },
+            cashflowOperating: [
+                { amount: 215000, description: 'تحصيلات العملاء' },
+                { amount: -82000, description: 'مدفوعات الموردين' },
+                { amount: -31000, description: 'رواتب وأجور' }
+            ],
+            cashflowInvesting: [
+                { amount: -45000, description: 'شراء معدات تشغيل' },
+                { amount: -12000, description: 'ترقية الأنظمة' }
+            ],
+            cashflowFinancing: [
+                { amount: 150000, description: 'تمويل بنكي' },
+                { amount: -23000, description: 'سداد أقساط قرض' }
+            ]
+        };
+
+        let dailyOpsChartInstance = null;
+        let cashflowChartInstance = null;
+
+        function getFinanceHeaders() {
+            const external = window.getFinanceHeaders;
+            if (typeof external === 'function' && external !== getFinanceHeaders) {
+                return external();
+            }
+            return { 'x-entity-id': ENTITY_ID, 'x-entity-type': ENTITY_TYPE };
+        }
+
+        function setDataWarning(message) {
+            let warning = document.getElementById('financeDataWarning');
+            if (!warning) {
+                warning = document.createElement('div');
+                warning.id = 'financeDataWarning';
+                warning.className = 'mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 text-sm';
+
+                const container = document.querySelector('.container');
+                if (container) {
+                    const header = container.querySelector('div.mb-8');
+                    if (header) {
+                        header.insertAdjacentElement('afterend', warning);
+                    } else {
+                        container.prepend(warning);
+                    }
+                }
+            }
+
+            warning.textContent = message || '';
+            warning.style.display = message ? 'block' : 'none';
+        }
+
+        async function fetchJson(url, options = {}) {
+            try {
+                const headers = { ...(options.headers || {}), ...getFinanceHeaders() };
+                const res = await fetch(url, { ...options, headers });
+                const text = await res.text();
+                let data = {};
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch {
+                    data = {};
+                }
+                return { ok: res.ok, status: res.status, data };
+            } catch (error) {
+                return { ok: false, status: 0, data: {}, error };
+            }
+        }
+
+        async function fetchWithFallback(primaryUrl, fallbackUrl) {
+            const primary = await fetchJson(primaryUrl);
+            if (primary.ok && hasRows(primary.data)) return primary;
+            if (!fallbackUrl) return primary;
+            const fallback = await fetchJson(fallbackUrl);
+            return fallback.ok ? fallback : primary;
+        }
+
+        async function deleteInvoicePlans(invoiceId, entityId) {
+            const plansRes = await fetchJson(`${API_BASE}/finance/payment-plans?entity_id=${encodeURIComponent(entityId)}`);
+            if (!plansRes.ok) {
+                return { ok: false, error: 'تعذر تحميل خطط الدفع المرتبطة بالفاتورة.' };
+            }
+            const plans = (plansRes.data.plans || []).filter(plan => String(plan.invoice_id) === String(invoiceId));
+            for (const plan of plans) {
+                const delRes = await fetchJson(`${API_BASE}/finance/payment-plans/${plan.plan_id}`, { method: 'DELETE' });
+                if (!delRes.ok) {
+                    return { ok: false, error: 'تعذر حذف خطط الدفع المرتبطة بالفاتورة.' };
+                }
+            }
+            return { ok: true, count: plans.length };
+        }
+
+        async function deleteInvoiceAllocations(invoiceId, entityId) {
+            const allocationsRes = await fetchJson(`${API_BASE}/finance/payment-plans?entity_id=${encodeURIComponent(entityId)}`);
+            if (!allocationsRes.ok) {
+                return { ok: false, error: 'تعذر تحميل تخصيصات التحصيل المرتبطة بالفاتورة.' };
+            }
+            const allocations = (allocationsRes.data.allocations || []).filter(a => String(a.invoice_id) === String(invoiceId));
+            for (const allocation of allocations) {
+                const delRes = await fetchJson(`${API_BASE}/finance/payment-allocations/${allocation.allocation_id}`, { method: 'DELETE' });
+                if (!delRes.ok) {
+                    return { ok: false, error: 'تعذر حذف تخصيصات التحصيل المرتبطة بالفاتورة.' };
+                }
+            }
+            return { ok: true, count: allocations.length };
+        }
+
+        function hasRows(data) {
+            const arrays = ['entries','lines','rows','invoices','payments','expenses','revenue_accounts','expense_accounts','assets','liabilities','equity'];
+            return arrays.some(key => Array.isArray(data[key]) && data[key].length > 0);
+        }
+
+        async function loadData() {
+            try {
+                const results = await Promise.all([
+                    fetchJson(`${API_BASE}/finance/invoices?entity_id=${ENTITY_ID}`),
+                    fetchWithFallback(`${API_BASE}/finance/expenses?entity_id=${ENTITY_ID}`, `${API_BASE}/finance/expenses?entity_id=${FALLBACK_ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/payments?entity_id=${ENTITY_ID}`),
+                    fetchWithFallback(`${API_BASE}/finance/journal/entries?entity_id=${ENTITY_ID}`, `${API_BASE}/finance/journal/entries?entity_id=${FALLBACK_ENTITY_ID}`),
+                    fetchWithFallback(`${API_BASE}/finance/journal-lines?entity_id=${ENTITY_ID}`, `${API_BASE}/finance/journal-lines?entity_id=${FALLBACK_ENTITY_ID}`),
+                    fetchWithFallback(`${API_BASE}/finance/income-statement?entity_id=${ENTITY_ID}`, `${API_BASE}/finance/income-statement?entity_id=${FALLBACK_ENTITY_ID}`),
+                    fetchWithFallback(`${API_BASE}/finance/balance-sheet/complete?entity_id=${ENTITY_ID}`, `${API_BASE}/finance/balance-sheet/complete?entity_id=${FALLBACK_ENTITY_ID}`),
+                    fetchWithFallback(`${API_BASE}/finance/cashflow/overview?entity_id=${ENTITY_ID}`, `${API_BASE}/finance/cashflow/overview?entity_id=${FALLBACK_ENTITY_ID}`),
+                    fetchWithFallback(`${API_BASE}/finance/cashflow/operating?entity_id=${ENTITY_ID}`, `${API_BASE}/finance/cashflow/operating?entity_id=${FALLBACK_ENTITY_ID}`),
+                    fetchWithFallback(`${API_BASE}/finance/cashflow/investing?entity_id=${ENTITY_ID}`, `${API_BASE}/finance/cashflow/investing?entity_id=${FALLBACK_ENTITY_ID}`),
+                    fetchWithFallback(`${API_BASE}/finance/cashflow/financing?entity_id=${ENTITY_ID}`, `${API_BASE}/finance/cashflow/financing?entity_id=${FALLBACK_ENTITY_ID}`)
+                ]);
+
+                const [invoicesRes, expensesRes, paymentsRes, entriesRes, linesRes, incomeRes, balanceRes, overviewRes, operatingRes, investingRes, financingRes] = results;
+
+                dataStore.invoices = invoicesRes.data.invoices || [];
+                dataStore.expenses = expensesRes.data.expenses || [];
+                dataStore.payments = paymentsRes.data.payments || [];
+                dataStore.entries = entriesRes.data.entries || [];
+                dataStore.lines = linesRes.data.lines || [];
+                dataStore.incomeRevenue = incomeRes.data.revenue_accounts || [];
+                dataStore.incomeExpenses = incomeRes.data.expense_accounts || [];
+                dataStore.balanceSheet = balanceRes.ok ? balanceRes.data : null;
+                dataStore.cashflowOverview = overviewRes.data || null;
+                dataStore.cashflowOperating = operatingRes.data.cashflows || [];
+                dataStore.cashflowInvesting = investingRes.data.cashflows || [];
+                dataStore.cashflowFinancing = financingRes.data.cashflows || [];
+
+                const apiHealthy = results.every(res => res.ok);
+                if (!apiHealthy) {
+                    if (DEMO_ALLOWED) {
+                        applyDemoData();
+                        setDataWarning('تم عرض بيانات تجريبية لعدم اكتمال الاتصال بقاعدة البيانات.');
+                    } else {
+                        isDemoMode = false;
+                        setDemoBadge(false);
+                        setDataWarning('تعذر تحميل البيانات من قاعدة البيانات. تحقق من الاتصال أو صلاحيات الكيان.');
+                    }
+                } else {
+                    isDemoMode = false;
+                    setDemoBadge(false);
+                    setDataWarning('');
+                }
+
+                renderAll();
+            } catch (error) {
+                console.error('❌ خطأ في تحميل البيانات:', error);
+                if (DEMO_ALLOWED) {
+                    applyDemoData();
+                    setDataWarning('تم عرض بيانات تجريبية بسبب خطأ في الاتصال بقاعدة البيانات.');
+                } else {
+                    isDemoMode = false;
+                    setDemoBadge(false);
+                    setDataWarning('تعذر تحميل البيانات من قاعدة البيانات. تحقق من الاتصال أو صلاحيات الكيان.');
+                }
+                renderAll();
+            }
+        }
+
+        function applyDemoData() {
+            isDemoMode = true;
+            setDemoBadge(true);
+            dataStore = JSON.parse(JSON.stringify(DEMO_DATA));
+        }
+
+        function setDemoBadge(show) {
+            const badge = document.getElementById('demoBadge');
+            if (!badge) return;
+            badge.classList.toggle('hidden', !show);
+        }
+
+        function renderAll() {
+            renderKPIs();
+            renderDailyOpsChart();
+            renderAutoEntries();
+            renderClosingChecklist();
+            renderStatements();
+            renderTables();
+            renderActionPanel();
+        }
+
+        function renderKPIs() {
+            const sales = sum(dataStore.invoices, 'total_amount');
+            const expenses = sum(dataStore.expenses, 'total_amount');
+            const collections = sum(dataStore.payments, 'payment_amount');
+
+            document.getElementById('salesKpi').textContent = formatMoney(sales);
+            document.getElementById('expensesKpi').textContent = formatMoney(expenses);
+            document.getElementById('collectionsKpi').textContent = formatMoney(collections);
+            document.getElementById('paymentsKpi').textContent = formatMoney(expenses);
+        }
+
+        function renderDailyOpsChart() {
+            const ctx = document.getElementById('dailyOpsChart').getContext('2d');
+            if (dailyOpsChartInstance) dailyOpsChartInstance.destroy();
+            dailyOpsChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['المبيعات', 'المصروفات', 'التحصيل'],
+                    datasets: [{
+                        data: [
+                            sum(dataStore.invoices, 'total_amount'),
+                            sum(dataStore.expenses, 'total_amount'),
+                            sum(dataStore.payments, 'payment_amount')
+                        ],
+                        backgroundColor: ['#0ea5e9', '#f43f5e', '#10b981']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderAutoEntries() {
+            const samplePayment = dataStore.payments[0];
+            const sampleExpense = dataStore.expenses[0];
+
+            const paymentText = samplePayment
+                ? `مثال: تحصيل فاتورة جزئيًا - من: النقدية إلى: حساب العميل (${samplePayment.customer_name || 'عميل'})`
+                : 'مثال: تحصيل فاتورة جزئيًا - من: النقدية إلى: حساب العميل';
+            const expenseText = sampleExpense
+                ? `مثال: مصروف تشغيل - من: مصروفات تشغيل إلى: البنك (${sampleExpense.vendor_name || 'مزود'})`
+                : 'مثال: مصروف تشغيل - من: مصروفات تشغيل إلى: البنك';
+
+            document.getElementById('autoEntries').innerHTML = `
+                <div class="bg-slate-50 p-3 rounded-xl">${paymentText}</div>
+                <div class="bg-slate-50 p-3 rounded-xl">${expenseText}</div>
+            `;
+        }
+
+        function renderClosingChecklist() {
+            const checklist = [
+                { label: 'إقفال الإيرادات في حساب الأرباح والخسائر', done: dataStore.incomeRevenue.length > 0 },
+                { label: 'إقفال المصروفات', done: dataStore.incomeExpenses.length > 0 },
+                { label: 'احتساب الإهلاك', done: dataStore.cashflowInvesting.length > 0 },
+                { label: 'تسوية العهد', done: dataStore.entries.length > 0 },
+                { label: 'تسوية المخزون', done: dataStore.entries.length > 0 },
+                { label: 'تسوية الذمم', done: dataStore.payments.length > 0 }
+            ];
+
+            document.getElementById('closingChecklist').innerHTML = checklist.map(item => `
+                <div class="flex items-center justify-between p-4 bg-white rounded-2xl shadow">
+                    <span>${item.label}</span>
+                    <span class="badge ${item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
+                        ${item.done ? 'مكتمل' : 'قيد المتابعة'}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function renderStatements() {
+            const totals = dataStore.cashflowOverview || { total_net_cashflow: 0 };
+            const incomeRevenue = sum(dataStore.incomeRevenue, 'balance');
+            const incomeExpenses = sum(dataStore.incomeExpenses, 'balance');
+            const netIncome = incomeRevenue - incomeExpenses;
+
+            document.getElementById('totalRevenue').textContent = formatMoney(incomeRevenue);
+            document.getElementById('totalExpenses').textContent = formatMoney(incomeExpenses);
+            document.getElementById('netIncome').textContent = formatMoney(netIncome);
+            document.getElementById('totalAssets').textContent = formatMoney(dataStore.balanceSheet?.totals?.total_assets || 0);
+
+            const ctx = document.getElementById('cashflowStatementChart').getContext('2d');
+            if (cashflowChartInstance) cashflowChartInstance.destroy();
+            cashflowChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['تشغيلي', 'استثماري', 'تمويلي'],
+                    datasets: [{
+                        data: [
+                            sum(dataStore.cashflowOperating, 'amount'),
+                            sum(dataStore.cashflowInvesting, 'amount'),
+                            sum(dataStore.cashflowFinancing, 'amount')
+                        ],
+                        backgroundColor: ['#0ea5e9', '#8b5cf6', '#14b8a6']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const bs = dataStore.balanceSheet?.totals;
+            document.getElementById('balanceSummary').innerHTML = bs ? `
+                <div class="bg-slate-50 p-3 rounded-xl">الأصول: ${formatMoney(bs.total_assets)}</div>
+                <div class="bg-slate-50 p-3 rounded-xl">الالتزامات: ${formatMoney(bs.total_liabilities)}</div>
+                <div class="bg-slate-50 p-3 rounded-xl">حقوق الملكية: ${formatMoney(bs.total_equity)}</div>
+                <div class="bg-slate-50 p-3 rounded-xl">متوازن: ${bs.is_balanced ? 'نعم' : 'لا'} (${formatMoney(bs.difference)})</div>
+            ` : '<div class="text-slate-500">لا توجد بيانات</div>';
+        }
+
+        const TABLE_CONFIGS = {
+            invoices: { endpoint: '/finance/invoices', idField: 'invoice_id' },
+            expenses: { endpoint: '/finance/expenses', idField: 'expense_id' },
+            payments: { endpoint: '/finance/payments', idField: 'payment_id' },
+            entries: { endpoint: '/finance/journal/entries', idField: 'entry_id' },
+            lines: { endpoint: '/finance/journal-lines', idField: 'line_id' },
+            incomeRevenue: { readOnly: true },
+            incomeExpenses: { readOnly: true },
+            balanceSheet: { readOnly: true }
+        };
+
+        const TABLE_LABELS = {
+            invoices: 'الفواتير',
+            expenses: 'المصروفات',
+            payments: 'المدفوعات',
+            entries: 'قيود اليومية',
+            lines: 'سطور القيود',
+            incomeRevenue: 'قائمة الدخل - الإيرادات',
+            incomeExpenses: 'قائمة الدخل - المصروفات',
+            balanceSheet: 'الميزانية العمومية'
+        };
+
+        const DEFAULT_COLUMNS = {
+            invoices: ['invoice_number','invoice_date','due_date','customer_id','customer_name','total_amount','paid_amount','remaining_amount','status','payment_status','entity_type','entity_id'],
+            expenses: ['expense_number','expense_date','expense_amount','vendor_id','vendor_name','total_amount','status','notes','entity_type','entity_id'],
+            payments: ['payment_number','payment_date','customer_id','customer_name','payment_amount','payment_method','payment_type','status','notes','entity_type','entity_id'],
+            entries: ['entry_number','entry_date','entry_type','description','reference_number','status','entity_type','entity_id'],
+            lines: ['entry_id','line_number','account_id','account_name_ar','debit_amount','credit_amount','description','entity_type','entity_id'],
+            incomeRevenue: ['account_code','account_name_ar','balance'],
+            incomeExpenses: ['account_code','account_name_ar','balance'],
+            balanceSheet: ['sheet_date','total_assets','total_liabilities','total_equity','is_balanced','difference','notes']
+        };
+
+        const COLUMN_LABELS = {
+            invoice_id: 'معرّف الفاتورة',
+            invoice_number: 'رقم الفاتورة',
+            invoice_date: 'تاريخ الفاتورة',
+            due_date: 'تاريخ الاستحقاق',
+            customer_id: 'معرّف العميل',
+            customer_name_ar: 'اسم العميل بالعربية',
+            customer_name_en: 'اسم العميل بالإنجليزية',
+            customer_name: 'اسم العميل',
+            customer_code: 'كود العميل',
+            total_amount: 'إجمالي المبلغ',
+            paid_amount: 'المبلغ المدفوع',
+            remaining_amount: 'المبلغ المتبقي',
+            payment_status: 'حالة السداد',
+            expense_id: 'معرّف المصروف',
+            expense_date: 'تاريخ المصروف',
+            expense_amount: 'مبلغ المصروف',
+            vendor_id: 'معرّف المورد',
+            vendor_name: 'اسم المورد',
+            payment_id: 'معرّف الدفعة',
+            payment_number: 'رقم الدفعة',
+            payment_date: 'تاريخ السداد',
+            payment_amount: 'مبلغ السداد',
+            payment_method: 'طريقة السداد',
+            payment_type: 'نوع السداد',
+            status: 'الحالة',
+            notes: 'ملاحظات',
+            entry_id: 'معرّف القيد',
+            entry_number: 'رقم القيد',
+            entry_date: 'تاريخ القيد',
+            entry_type: 'نوع القيد',
+            description: 'الوصف',
+            reference_number: 'رقم المرجع',
+            reference_type: 'نوع المرجع',
+            line_id: 'معرّف السطر',
+            line_number: 'رقم السطر',
+            account_id: 'معرّف الحساب',
+            account_code: 'كود الحساب',
+            account_name_ar: 'اسم الحساب بالعربية',
+            account_name_en: 'اسم الحساب بالإنجليزية',
+            debit_amount: 'المبلغ المدين',
+            credit_amount: 'المبلغ الدائن',
+            created_at: 'تاريخ الإنشاء',
+            updated_at: 'تاريخ التحديث',
+            balance: 'الرصيد',
+            entity_type: 'نوع الكيان',
+            entity_id: 'معرّف الكيان'
+        };
+
+        const STATUS_LABELS = {
+            APPROVED: 'معتمدة',
+            COMPLETED: 'مكتملة',
+            PENDING: 'معلقة',
+            CANCELLED: 'ملغاة',
+            FAILED: 'فاشلة',
+            PAID: 'مدفوعة',
+            UNPAID: 'غير مدفوعة',
+            PARTIAL: 'مدفوعة جزئياً',
+            DRAFT: 'مسودة',
+            ISSUED: 'مصدرة',
+            OVERDUE: 'متأخرة',
+            HIGH: 'مرتفع',
+            MEDIUM: 'متوسط',
+            LOW: 'منخفض',
+            HQ: 'الإدارة العامة',
+            BRANCH: 'فرع',
+            INCUBATOR: 'حاضنة',
+            PLATFORM: 'منصة',
+            OFFICE: 'مكتب'
+        };
+
+        const PAYMENT_METHOD_LABELS = {
+            CASH: 'نقدي',
+            BANK: 'تحويل بنكي',
+            CARD: 'بطاقة',
+            CHECK: 'شيك',
+            ONLINE: 'دفع إلكتروني'
+        };
+
+        const PAYMENT_TYPE_LABELS = {
+            FULL: 'كاملة',
+            PARTIAL: 'جزئية',
+            ADVANCE: 'مقدمة'
+        };
+
+        const WORD_TRANSLATIONS = {
+            id: 'معرّف',
+            number: 'رقم',
+            date: 'تاريخ',
+            due: 'استحقاق',
+            customer: 'عميل',
+            name: 'اسم',
+            ar: 'عربي',
+            en: 'إنجليزي',
+            type: 'نوع',
+            status: 'حالة',
+            payment: 'سداد',
+            amount: 'مبلغ',
+            total: 'إجمالي',
+            paid: 'مدفوع',
+            remaining: 'متبقي',
+            notes: 'ملاحظات',
+            created: 'إنشاء',
+            updated: 'تحديث',
+            account: 'حساب',
+            balance: 'رصيد',
+            debit: 'مدين',
+            credit: 'دائن',
+            description: 'وصف',
+            reference: 'مرجع',
+            entry: 'قيد',
+            line: 'سطر',
+            code: 'كود',
+            method: 'طريقة',
+            invoice: 'فاتورة',
+            expense: 'مصروف',
+            vendor: 'مورد',
+            revenue: 'إيراد',
+            income: 'دخل',
+            entity: 'كيان'
+        };
+
+        const TABLE_ROWS_MAP = {};
+        const TABLE_COLUMNS_MAP = {};
+
+        function renderTables() {
+            renderDynamicTable('invoicesHead', 'invoicesTable', dataStore.invoices, 'invoicesCount', 'invoices');
+            renderDynamicTable('expensesHead', 'expensesTable', dataStore.expenses, 'expensesCount', 'expenses');
+            renderDynamicTable('paymentsHead', 'paymentsTable', dataStore.payments, 'paymentsCount', 'payments');
+            renderDynamicTable('entriesHead', 'entriesTable', dataStore.entries, 'entriesCount', 'entries');
+            renderDynamicTable('linesHead', 'linesTable', dataStore.lines, 'linesCount', 'lines');
+
+            renderDynamicTable('incomeRevenueHead', 'incomeRevenueTable', dataStore.incomeRevenue, 'incomeRevenueCount', 'incomeRevenue');
+            renderDynamicTable('incomeExpenseHead', 'incomeExpenseTable', dataStore.incomeExpenses, 'incomeExpenseCount', 'incomeExpenses');
+
+            const bsRows = dataStore.balanceSheet ? [dataStore.balanceSheet.sheet] : [];
+            renderDynamicTable('balanceSheetHead', 'balanceSheetTable', bsRows, 'balanceSheetCount', 'balanceSheet');
+        }
+
+        function renderActionPanel() {
+            const tableSelect = document.getElementById('actionTable');
+            const rowSelect = document.getElementById('actionRow');
+            if (!tableSelect || !rowSelect) return;
+
+            const options = Object.keys(TABLE_LABELS).map(key => `<option value="${key}">${TABLE_LABELS[key]}</option>`).join('');
+            tableSelect.innerHTML = options;
+            if (!tableSelect.value) tableSelect.value = 'invoices';
+            updateRowSelect(tableSelect.value);
+        }
+
+        function updateRowSelect(tableKey) {
+            const rowSelect = document.getElementById('actionRow');
+            const addBtn = document.getElementById('actionAdd');
+            const editBtn = document.getElementById('actionEdit');
+            const viewBtn = document.getElementById('actionView');
+            const deleteBtn = document.getElementById('actionDelete');
+            if (!rowSelect) return;
+
+            const rows = TABLE_ROWS_MAP[tableKey] || [];
+            const config = TABLE_CONFIGS[tableKey] || { readOnly: true };
+            rowSelect.innerHTML = rows.length
+                ? rows.map((row, idx) => `<option value="${idx}">${getRowLabel(tableKey, row, idx)}</option>`).join('')
+                : '<option value="">لا توجد سجلات</option>';
+
+            const hasRows = rows.length > 0;
+            [editBtn, viewBtn, deleteBtn].forEach(btn => {
+                if (!btn) return;
+                btn.disabled = !hasRows;
+                btn.classList.toggle('opacity-50', !hasRows);
+                btn.classList.toggle('cursor-not-allowed', !hasRows);
+            });
+
+            if (addBtn) {
+                addBtn.disabled = !!config.readOnly;
+                addBtn.classList.toggle('opacity-50', !!config.readOnly);
+                addBtn.classList.toggle('cursor-not-allowed', !!config.readOnly);
+            }
+        }
+
+        function getRowLabel(tableKey, row, idx) {
+            if (!row) return `سجل ${idx + 1}`;
+            const config = TABLE_CONFIGS[tableKey] || {};
+            const idValue = config.idField ? row[config.idField] : null;
+            const label = row.invoice_number || row.expense_number || row.payment_number || row.entry_number || row.line_number || row.account_name_ar || row.customer_name || row.vendor_name || row.description || row.notes;
+            const idText = idValue ? `#${idValue}` : `#${idx + 1}`;
+            return label ? `${idText} - ${label}` : idText;
+        }
+
+        function renderDynamicTable(headId, bodyId, rows, countId, tableKey) {
+            const head = document.getElementById(headId);
+            const body = document.getElementById(bodyId);
+            const count = document.getElementById(countId);
+            const config = TABLE_CONFIGS[tableKey] || { readOnly: true };
+
+            count.textContent = `عدد الصفوف: ${rows.length}`;
+            const columns = Array.from(new Set(rows.flatMap(row => Object.keys(row))));
+            const finalColumns = columns.length ? columns : (DEFAULT_COLUMNS[tableKey] || []);
+            TABLE_ROWS_MAP[tableKey] = rows;
+            TABLE_COLUMNS_MAP[tableKey] = finalColumns;
+
+            const addButton = config.readOnly
+                ? `<button class="px-3 py-1 rounded-lg border text-slate-400 cursor-not-allowed" disabled>إضافة</button>`
+                : `<button onclick="openAddModal('${tableKey}')" class="px-3 py-1 rounded-lg bg-slate-900 text-white">إضافة</button>`;
+
+            head.innerHTML = `
+                <tr>
+                    ${finalColumns.map((c, idx) => `<th class="px-3 py-2 text-right">${getArabicLabel(c, idx)}</th>`).join('')}
+                    <th class="px-3 py-2 text-right">إجراءات</th>
+                </tr>
+                <tr>
+                    <th colspan="${finalColumns.length + 1}" class="px-3 py-2 text-left">${addButton}</th>
+                </tr>
+            `;
+
+            if (!rows.length) {
+                body.innerHTML = `<tr><td colspan="${finalColumns.length + 1}" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+                return;
+            }
+
+            body.innerHTML = rows.map((row, rowIndex) => `
+                <tr class="hover:bg-slate-50">
+                    ${finalColumns.map(c => `<td class="px-3 py-2">${formatValue(row[c], c)}</td>`).join('')}
+                    <td class="px-3 py-2">
+                        <div class="flex gap-2">
+                            <button onclick="openViewModal('${tableKey}', ${rowIndex})" class="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة">
+                                <i class="fas fa-eye text-lg"></i>
+                            </button>
+                            <button onclick="openEditModal('${tableKey}', ${rowIndex})" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold ${config.readOnly ? 'opacity-50 cursor-not-allowed' : ''}" title="تعديل" ${config.readOnly ? 'disabled' : ''}>
+                                <i class="fas fa-pen text-lg"></i>
+                            </button>
+                            <button onclick="deleteRow('${tableKey}', ${rowIndex})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold ${config.readOnly ? 'opacity-50 cursor-not-allowed' : ''}" title="حذف" ${config.readOnly ? 'disabled' : ''}>
+                                <i class="fas fa-trash text-lg"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function sum(rows, key) {
+            return rows.reduce((acc, r) => acc + parseFloat(r[key] || 0), 0);
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDateValue(value) {
+            if (!value) return '-';
+            const d = new Date(value);
+            if (Number.isNaN(d.getTime())) return String(value);
+            return d.toLocaleDateString('en-US');
+        }
+
+        function formatDateTimeValue(value) {
+            if (!value) return '-';
+            const d = new Date(value);
+            if (Number.isNaN(d.getTime())) return String(value);
+            return d.toLocaleString('en-US');
+        }
+
+        function toIsoDate(value) {
+            if (value) return value;
+            return new Date().toISOString().slice(0, 10);
+        }
+
+        function addDays(dateString, days) {
+            const base = dateString ? new Date(dateString) : new Date();
+            base.setDate(base.getDate() + days);
+            return base.toISOString().slice(0, 10);
+        }
+
+        function translateValue(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            const key = String(value).toUpperCase();
+            return STATUS_LABELS[key] || PAYMENT_METHOD_LABELS[key] || PAYMENT_TYPE_LABELS[key] || value;
+        }
+
+        function getArabicLabel(key, index) {
+            if (!key) return `حقل ${index + 1}`;
+            if (COLUMN_LABELS[key]) return COLUMN_LABELS[key];
+            if (key.endsWith('_en')) {
+                const base = key.replace(/_en$/, '');
+                return `${getArabicLabel(base, index)} بالإنجليزية`;
+            }
+            if (key.endsWith('_ar')) {
+                const base = key.replace(/_ar$/, '');
+                return `${getArabicLabel(base, index)} بالعربية`;
+            }
+            const parts = key.split('_');
+            const mapped = parts.map(part => WORD_TRANSLATIONS[part]).filter(Boolean);
+            if (!mapped.length) return `حقل ${index + 1}`;
+            return mapped.join(' ');
+        }
+
+        function formatValue(value, key) {
+            if (value === null || value === undefined || value === '') return '-';
+            if (key && /_en$/i.test(key)) return '-';
+
+            if (typeof value === 'boolean') return value ? 'نعم' : 'لا';
+
+            if (key && /(date|_at)$/i.test(key)) {
+                return key.endsWith('_at') ? formatDateTimeValue(value) : formatDateValue(value);
+            }
+
+            if (key && /(amount|total|paid|remaining|cost|price|value|balance|debit|credit)/i.test(key)) {
+                const num = parseFloat(value);
+                return Number.isFinite(num) ? formatMoney(num) : translateValue(value);
+            }
+
+            if (key && /(status|level|method|type)/i.test(key)) {
+                return translateValue(value);
+            }
+
+            if (typeof value === 'number') return value.toLocaleString('en-US');
+            if (typeof value === 'object') return 'تفاصيل';
+            if (typeof value === 'string') {
+                const translated = translateValue(value);
+                if (typeof translated === 'string' && /[A-Za-z]/.test(translated)) return '-';
+                return translated;
+            }
+            return String(value);
+        }
+
+        function createModal(title, contentHtml, footerHtml = '') {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-6">
+                    <div class="p-5 border-b flex items-center justify-between">
+                        <h3 class="font-bold text-lg">${title}</h3>
+                        <button onclick="this.closest('.modal-overlay').remove()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+                    </div>
+                    <div class="p-5 space-y-3 text-sm">${contentHtml}</div>
+                    ${footerHtml ? `<div class="p-5 border-t flex items-center justify-end gap-2">${footerHtml}</div>` : ''}
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function getEditableColumns(tableKey, columns) {
+            const config = TABLE_CONFIGS[tableKey] || {};
+            const excluded = new Set([
+                config.idField,
+                'created_at',
+                'updated_at',
+                'approved_at',
+                'cancelled_at',
+                'posted_at',
+                'posted_by'
+            ].filter(Boolean));
+            return columns.filter(col => !excluded.has(col));
+        }
+
+        function formatInputDate(value, withTime) {
+            if (!value) return '';
+            const d = new Date(value);
+            if (Number.isNaN(d.getTime())) return '';
+            return withTime ? d.toISOString().slice(0, 16) : d.toISOString().slice(0, 10);
+        }
+
+        function buildInputField(key, value) {
+            const label = getArabicLabel(key, 0);
+            const isDateTime = key.endsWith('_at');
+            const isDate = !isDateTime && /date/i.test(key);
+            const isNumber = /amount|total|paid|remaining|cost|price|value|balance|debit|credit|score|count|ratio|percentage/i.test(key);
+
+            if (value && typeof value === 'object') {
+                return `
+                    <div>
+                        <label class="block mb-1 text-gray-600">${label}</label>
+                        <textarea data-field="${key}" data-type="json" class="w-full border rounded-lg px-3 py-2" rows="2">${JSON.stringify(value)}</textarea>
+                    </div>
+                `;
+            }
+
+            if (isDateTime) {
+                return `
+                    <div>
+                        <label class="block mb-1 text-gray-600">${label}</label>
+                        <input data-field="${key}" type="datetime-local" class="w-full border rounded-lg px-3 py-2" value="${formatInputDate(value, true)}">
+                    </div>
+                `;
+            }
+
+            if (isDate) {
+                return `
+                    <div>
+                        <label class="block mb-1 text-gray-600">${label}</label>
+                        <input data-field="${key}" type="date" class="w-full border rounded-lg px-3 py-2" value="${formatInputDate(value, false)}">
+                    </div>
+                `;
+            }
+
+            if (typeof value === 'boolean') {
+                return `
+                    <div>
+                        <label class="block mb-1 text-gray-600">${label}</label>
+                        <select data-field="${key}" class="w-full border rounded-lg px-3 py-2">
+                            <option value="true" ${value ? 'selected' : ''}>نعم</option>
+                            <option value="false" ${!value ? 'selected' : ''}>لا</option>
+                        </select>
+                    </div>
+                `;
+            }
+
+            return `
+                <div>
+                    <label class="block mb-1 text-gray-600">${label}</label>
+                    <input data-field="${key}" type="${isNumber ? 'number' : 'text'}" ${isNumber ? 'step="0.01"' : ''} class="w-full border rounded-lg px-3 py-2" value="${value ?? ''}">
+                </div>
+            `;
+        }
+
+        function collectFormValues(form, columns) {
+            const payload = {};
+            columns.forEach(key => {
+                const input = form.querySelector(`[data-field="${key}"]`);
+                if (!input) return;
+                let value = input.value;
+                if (value === '') return;
+                if (input.dataset.type === 'json') {
+                    try {
+                        value = JSON.parse(value);
+                    } catch {
+                        value = value;
+                    }
+                } else if (input.type === 'number') {
+                    const num = parseFloat(value);
+                    value = Number.isFinite(num) ? num : value;
+                } else if (input.tagName === 'SELECT' && (value === 'true' || value === 'false')) {
+                    value = value === 'true';
+                }
+                payload[key] = value;
+            });
+
+            if (!('entity_id' in payload)) payload.entity_id = ENTITY_ID;
+            if (!('entity_type' in payload)) payload.entity_type = ENTITY_TYPE;
+            return payload;
+        }
+
+        async function ensureCustomerId(payload) {
+            if (payload.customer_id) return payload.customer_id;
+            const customerName = payload.customer_name_ar || payload.customer_name || payload.customer_name_en;
+            if (!customerName) return null;
+
+            const details = collectRequiredCustomerDetails(customerName);
+            if (!details) return null;
+
+            const res = await fetch(`${API_BASE}/finance/customers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getFinanceHeaders() },
+                body: JSON.stringify({
+                    entity_id: payload.entity_id || ENTITY_ID,
+                    customer_name_ar: customerName,
+                    customer_name_en: payload.customer_name_en || null,
+                    customer_type: payload.customer_type || 'COMPANY',
+                    ...details
+                })
+            });
+
+            if (!res.ok) return null;
+            const data = await res.json().catch(() => ({}));
+            return data?.customer?.customer_id || null;
+        }
+
+        function collectRequiredCustomerDetails(defaultName) {
+            const taxNumber = prompt('الرقم الضريبي للعميل:', '');
+            if (!taxNumber) return null;
+
+            const companyName = prompt('اسم المنشأة:', defaultName || '') || '';
+            if (!companyName.trim()) return null;
+
+            const website = prompt('الموقع الإلكتروني:', 'https://') || '';
+            if (!website.trim()) return null;
+
+            const primaryEmail = prompt('البريد الإلكتروني الأساسي:', '') || '';
+            if (!primaryEmail.trim()) return null;
+
+            const secondaryEmail = prompt('البريد الإلكتروني الثانوي:', '') || '';
+            if (!secondaryEmail.trim()) return null;
+
+            const primaryMobile = prompt('رقم الجوال الأساسي:', '') || '';
+            if (!primaryMobile.trim()) return null;
+
+            const secondaryMobile = prompt('رقم الجوال الثانوي:', '') || '';
+            if (!secondaryMobile.trim()) return null;
+
+            const billingStreet = prompt('اسم الشارع (عنوان الفوترة):', '') || '';
+            const billingCity = prompt('المدينة (عنوان الفوترة):', '') || '';
+            const billingRegion = prompt('المنطقة (عنوان الفوترة):', '') || '';
+            const billingBuilding = prompt('رقم المبنى (عنوان الفوترة):', '') || '';
+            const billingPostal = prompt('الرمز البريدي (عنوان الفوترة):', '') || '';
+            const billingCountry = prompt('الدولة (عنوان الفوترة):', '') || '';
+
+            if (!billingStreet.trim() || !billingCity.trim() || !billingRegion.trim() || !billingBuilding.trim() || !billingPostal.trim() || !billingCountry.trim()) {
+                return null;
+            }
+
+            const copyShipping = (prompt('نسخ عنوان الفوترة إلى عنوان الشحن؟ (نعم/لا)', 'نعم') || 'نعم').trim() !== 'لا';
+            let shippingStreet = '';
+            let shippingCity = '';
+            let shippingRegion = '';
+            let shippingPostal = '';
+
+            if (!copyShipping) {
+                shippingStreet = prompt('اسم الشارع (عنوان الشحن):', '') || '';
+                shippingCity = prompt('المدينة (عنوان الشحن):', '') || '';
+                shippingRegion = prompt('المنطقة (عنوان الشحن):', '') || '';
+                shippingPostal = prompt('الرمز البريدي (عنوان الشحن):', '') || '';
+
+                if (!shippingStreet.trim() || !shippingCity.trim() || !shippingRegion.trim() || !shippingPostal.trim()) {
+                    return null;
+                }
+            }
+
+            return {
+                company_name: companyName.trim(),
+                website: website.trim(),
+                email: primaryEmail.trim(),
+                email_secondary: secondaryEmail.trim(),
+                mobile: primaryMobile.trim(),
+                mobile_secondary: secondaryMobile.trim(),
+                tax_number: taxNumber.trim(),
+                street_name: billingStreet.trim(),
+                city: billingCity.trim(),
+                district: billingRegion.trim(),
+                building_number: billingBuilding.trim(),
+                postal_code: billingPostal.trim(),
+                country: billingCountry.trim(),
+                shipping_copy_billing: copyShipping,
+                shipping_street_name: copyShipping ? billingStreet.trim() : shippingStreet.trim(),
+                shipping_city: copyShipping ? billingCity.trim() : shippingCity.trim(),
+                shipping_region: copyShipping ? billingRegion.trim() : shippingRegion.trim(),
+                shipping_postal_code: copyShipping ? billingPostal.trim() : shippingPostal.trim()
+            };
+        }
+
+        async function ensureVendorId(payload) {
+            if (payload.vendor_id) return payload.vendor_id;
+            const vendorName = payload.vendor_name || payload.vendor_name_ar;
+            if (!vendorName) return null;
+
+            const res = await fetch(`${API_BASE}/finance/vendors`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getFinanceHeaders() },
+                body: JSON.stringify({
+                    vendor_code: payload.vendor_code || `VND-${Date.now()}`,
+                    vendor_name_ar: vendorName,
+                    vendor_name_en: payload.vendor_name_en || null,
+                    vendor_type: payload.vendor_type || null,
+                    entity_id: payload.entity_id || ENTITY_ID,
+                    entity_type: payload.entity_type || ENTITY_TYPE
+                })
+            });
+
+            if (!res.ok) return null;
+            const data = await res.json().catch(() => ({}));
+            return data?.vendor?.vendor_id || null;
+        }
+
+        async function normalizePayload(tableKey, payload) {
+            if (tableKey === 'invoices') {
+                payload.invoice_date = toIsoDate(payload.invoice_date);
+                payload.due_date = payload.due_date || addDays(payload.invoice_date, 30);
+
+                const customerId = await ensureCustomerId(payload);
+                if (!customerId) {
+                    return { ok: false, error: 'يرجى إدخال معرّف العميل أو اسم العميل بشكل صحيح.' };
+                }
+                payload.customer_id = customerId;
+
+                if (!Array.isArray(payload.lines) || payload.lines.length === 0) {
+                    const baseAmount = parseFloat(payload.total_amount || payload.subtotal || payload.amount || 0);
+                    payload.lines = [
+                        {
+                            item_code: payload.item_code || 'GEN',
+                            item_name: payload.item_name || 'خدمة عامة',
+                            description: payload.description || 'بند افتراضي',
+                            quantity: 1,
+                            unit_price: baseAmount,
+                            discount_percentage: 0,
+                            tax_percentage: 0
+                        }
+                    ];
+                }
+            }
+
+            if (tableKey === 'expenses') {
+                payload.expense_number = payload.expense_number || `EXP-${Date.now()}`;
+                payload.expense_date = toIsoDate(payload.expense_date);
+                payload.expense_category = payload.expense_category || 'تشغيل';
+                payload.expense_type = payload.expense_type || 'تشغيلي';
+                payload.amount = payload.amount ?? payload.expense_amount ?? payload.total_amount ?? 0;
+                payload.tax_amount = payload.tax_amount ?? payload.tax ?? 0;
+
+                const vendorId = await ensureVendorId(payload);
+                if (!vendorId) {
+                    return { ok: false, error: 'يرجى إدخال معرّف المورد أو اسم المورد بشكل صحيح.' };
+                }
+                payload.vendor_id = vendorId;
+                payload.vendor_name = payload.vendor_name || payload.vendor_name_ar;
+            }
+
+            if (tableKey === 'payments') {
+                payload.payment_number = payload.payment_number || `PAY-${Date.now()}`;
+                payload.payment_date = toIsoDate(payload.payment_date);
+                payload.payment_method = payload.payment_method || 'BANK';
+                payload.payment_type = payload.payment_type || 'FULL';
+
+                const customerId = await ensureCustomerId(payload);
+                if (!customerId) {
+                    return { ok: false, error: 'يرجى إدخال معرّف العميل أو اسم العميل بشكل صحيح.' };
+                }
+                payload.customer_id = customerId;
+            }
+
+            return { ok: true, payload };
+        }
+
+        function openViewModal(tableKey, rowIndex) {
+            const rows = TABLE_ROWS_MAP[tableKey] || [];
+            const row = rows[rowIndex];
+            if (!row) return;
+            const columns = TABLE_COLUMNS_MAP[tableKey] || Object.keys(row);
+            const content = columns.map((key, idx) => `
+                <div class="flex items-center justify-between border-b pb-2">
+                    <span class="font-semibold text-gray-700">${getArabicLabel(key, idx)}</span>
+                    <span class="text-gray-900">${formatValue(row[key], key)}</span>
+                </div>
+            `).join('');
+            createModal('تفاصيل السجل', content);
+        }
+
+        function openAddModal(tableKey) {
+            const config = TABLE_CONFIGS[tableKey] || { readOnly: true };
+            if (config.readOnly || !config.endpoint) {
+                alert('هذه البيانات للعرض فقط داخل هذه الصفحة.');
+                return;
+            }
+            const columns = TABLE_COLUMNS_MAP[tableKey] || [];
+            const editable = getEditableColumns(tableKey, columns);
+            const fields = editable.length
+                ? editable.map(key => buildInputField(key, '')).join('')
+                : `<div class="text-slate-500">لا توجد حقول جاهزة للإضافة حالياً.</div>`;
+            const content = `<form id="modal-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">${fields}</form>`;
+            const footer = `
+                <button onclick="this.closest('.modal-overlay').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                <button onclick="submitModal('${tableKey}', 'add')" class="px-4 py-2 rounded-lg bg-slate-900 text-white">حفظ</button>
+            `;
+            createModal('إضافة سجل جديد', content, footer);
+        }
+
+        function openEditModal(tableKey, rowIndex) {
+            const config = TABLE_CONFIGS[tableKey] || { readOnly: true };
+            if (config.readOnly || !config.endpoint) {
+                alert('هذه البيانات للعرض فقط داخل هذه الصفحة.');
+                return;
+            }
+            const rows = TABLE_ROWS_MAP[tableKey] || [];
+            const row = rows[rowIndex];
+            if (!row) return;
+            const columns = TABLE_COLUMNS_MAP[tableKey] || Object.keys(row);
+            const editable = getEditableColumns(tableKey, columns);
+            const fields = editable.map(key => buildInputField(key, row[key])).join('');
+            const content = `<form id="modal-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">${fields}</form>`;
+            const footer = `
+                <button onclick="this.closest('.modal-overlay').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                <button onclick="submitModal('${tableKey}', 'edit', ${rowIndex})" class="px-4 py-2 rounded-lg bg-slate-900 text-white">حفظ</button>
+            `;
+            createModal('تعديل السجل', content, footer);
+        }
+
+        async function submitModal(tableKey, mode, rowIndex) {
+            const config = TABLE_CONFIGS[tableKey] || {};
+            if (!config.endpoint) return;
+            const form = document.getElementById('modal-form');
+            if (!form) return;
+            const columns = TABLE_COLUMNS_MAP[tableKey] || [];
+            const editable = getEditableColumns(tableKey, columns);
+            let payload = collectFormValues(form, editable);
+            if (mode === 'edit') {
+                const row = (TABLE_ROWS_MAP[tableKey] || [])[rowIndex] || {};
+                editable.forEach(key => {
+                    if (payload[key] === undefined && row[key] !== undefined) {
+                        payload[key] = row[key];
+                    }
+                });
+            }
+
+            const normalized = await normalizePayload(tableKey, payload);
+            if (!normalized.ok) {
+                alert(normalized.error || 'يرجى استكمال البيانات المطلوبة قبل الحفظ.');
+                return;
+            }
+            payload = normalized.payload;
+
+            let url = `${API_BASE}${config.endpoint}`;
+            let method = 'POST';
+            if (mode === 'edit') {
+                const row = (TABLE_ROWS_MAP[tableKey] || [])[rowIndex];
+                const id = row ? row[config.idField] : null;
+                if (!id) {
+                    alert('تعذر تحديد المعرّف للتعديل');
+                    return;
+                }
+                url = `${API_BASE}${config.endpoint}/${id}`;
+                method = 'PUT';
+            }
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json', ...getFinanceHeaders() },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                document.querySelector('.modal-overlay')?.remove();
+                await loadData();
+            } else {
+                let message = mode === 'edit' ? 'تعذر تحديث السجل' : 'تعذر إضافة السجل';
+                try {
+                    const text = await res.text();
+                    const data = text ? JSON.parse(text) : null;
+                    if (data && data.error) message = data.error;
+                    if (!data && text) message = text;
+                } catch (e) {
+                    // ignore
+                }
+                if (res.status) message = `${message} (HTTP ${res.status})`;
+                alert(message);
+            }
+        }
+
+        async function deleteRow(tableKey, rowIndex) {
+            const config = TABLE_CONFIGS[tableKey] || {};
+            if (config.readOnly || !config.endpoint) {
+                alert('هذه البيانات للعرض فقط داخل هذه الصفحة.');
+                return;
+            }
+            if (!confirm('هل تريد حذف هذا السجل؟')) return;
+            const row = (TABLE_ROWS_MAP[tableKey] || [])[rowIndex];
+            const id = row ? row[config.idField] : null;
+            if (!id) {
+                alert('تعذر تحديد المعرّف للحذف');
+                return;
+            }
+            if (tableKey === 'invoices') {
+                const entityId = row?.entity_id || ENTITY_ID;
+                const allocCleanup = await deleteInvoiceAllocations(id, entityId);
+                if (!allocCleanup.ok) {
+                    alert(allocCleanup.error || 'تعذر حذف السجل');
+                    return;
+                }
+                const cleanup = await deleteInvoicePlans(id, entityId);
+                if (!cleanup.ok) {
+                    alert(cleanup.error || 'تعذر حذف السجل');
+                    return;
+                }
+            }
+            let deleteUrl = `${API_BASE}${config.endpoint}/${id}`;
+            if (tableKey === 'payments') {
+                const entityId = row?.entity_id || ENTITY_ID;
+                deleteUrl = `${deleteUrl}?entity_id=${encodeURIComponent(entityId)}`;
+            }
+
+            const res = await fetch(deleteUrl, {
+                method: 'DELETE',
+                headers: getFinanceHeaders()
+            });
+
+            if (res.ok) {
+                await loadData();
+            } else {
+                let message = 'تعذر حذف السجل';
+                try {
+                    const data = await res.json();
+                    if (data && data.error) message = data.error;
+                } catch (e) {
+                    // ignore
+                }
+                alert(message);
+            }
+        }
+
+        function downloadJSON() {
+            downloadBlob(JSON.stringify(dataStore, null, 2), 'الدورة-المحاسبية.json', 'application/json');
+        }
+
+        function downloadCSV() {
+            const sections = [
+                ['الفواتير', dataStore.invoices],
+                ['المصروفات', dataStore.expenses],
+                ['المدفوعات', dataStore.payments],
+                ['قيود اليومية', dataStore.entries],
+                ['سطور القيود', dataStore.lines],
+                ['قائمة الدخل - الإيرادات', dataStore.incomeRevenue],
+                ['قائمة الدخل - المصروفات', dataStore.incomeExpenses],
+                ['الميزانية العمومية', dataStore.balanceSheet ? [dataStore.balanceSheet.sheet] : []]
+            ];
+            const rows = [];
+            sections.forEach(([title, data]) => {
+                rows.push([title]);
+                if (data.length) {
+                    const cols = Array.from(new Set(data.flatMap(row => Object.keys(row))));
+                    rows.push(cols.map((c, idx) => getArabicLabel(c, idx)));
+                    data.forEach(row => rows.push(cols.map(c => formatValue(row[c], c))));
+                }
+                rows.push([]);
+            });
+            const csvContent = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            downloadBlob(csvContent, 'الدورة-المحاسبية.csv', 'text/csv;charset=utf-8;');
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function refreshData() {
+            loadData();
+        }
+
+        function bindActionPanel() {
+            const tableSelect = document.getElementById('actionTable');
+            const rowSelect = document.getElementById('actionRow');
+            const addBtn = document.getElementById('actionAdd');
+            const viewBtn = document.getElementById('actionView');
+            const editBtn = document.getElementById('actionEdit');
+            const deleteBtn = document.getElementById('actionDelete');
+            if (!tableSelect || !rowSelect) return;
+
+            tableSelect.addEventListener('change', () => updateRowSelect(tableSelect.value));
+
+            addBtn?.addEventListener('click', () => openAddModal(tableSelect.value));
+            viewBtn?.addEventListener('click', () => {
+                if (!rowSelect.value) return alert('لا توجد سجلات للمعاينة');
+                openViewModal(tableSelect.value, Number(rowSelect.value));
+            });
+            editBtn?.addEventListener('click', () => {
+                if (!rowSelect.value) return alert('لا توجد سجلات للتعديل');
+                openEditModal(tableSelect.value, Number(rowSelect.value));
+            });
+            deleteBtn?.addEventListener('click', () => {
+                if (!rowSelect.value) return alert('لا توجد سجلات للحذف');
+                deleteRow(tableSelect.value, Number(rowSelect.value));
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            bindActionPanel();
+            loadData();
+        });
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

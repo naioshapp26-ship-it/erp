@@ -1,0 +1,111 @@
+# نظام حاضنة السلامة - دليل البدء السريع
+## Quick Start Guide
+
+---
+
+## 🚀 التشغيل
+
+```bash
+# 1. تثبيت المتطلبات
+npm install
+
+# 2. إعداد قاعدة البيانات
+node init-db.js
+node add-approval-system.js
+node add-incubator-system.js
+
+# 3. تشغيل السيرفر
+node server.js
+
+# 4. افتح المتصفح
+http://localhost:3000
+```
+
+---
+
+## 📊 الوصول السريع
+
+### تسجيل الدخول
+- المستخدم: أي مستخدم من قاعدة البيانات
+- للوصول لحاضنة السلامة: سجل دخول بمستخدم من كيان `INC03`
+
+### الحاضنة
+1. انتقل لقائمة "🎓 حاضنة السلامة"
+2. تصفح التبويبات الخمس:
+   - البرامج التدريبية
+   - المستفيدون
+   - الدفعات
+   - الشهادات
+   - السجل التدريبي
+
+---
+
+## 🔗 API أمثلة سريعة
+
+### البرامج التدريبية
+```bash
+curl http://localhost:3000/api/training-programs?entity_id=INC03
+```
+
+### المستفيدون
+```bash
+curl http://localhost:3000/api/beneficiaries?entity_id=INC03
+```
+
+### الشهادات
+```bash
+curl http://localhost:3000/api/certificates
+```
+
+### التحقق من شهادة
+```bash
+curl http://localhost:3000/api/certificates/verify/INC03-SAF101-2024-001
+```
+
+### إحصائيات الحاضنة
+```bash
+curl http://localhost:3000/api/incubator/stats?entity_id=INC03
+```
+
+---
+
+## 🧪 الاختبار
+
+```bash
+node test-incubator.js
+```
+
+النتيجة المتوقعة:
+```
+✅ 4 برامج تدريبية
+✅ 4 مستفيدين
+✅ 4 دفعات
+✅ 3 شهادات صادرة
+✅ التحقق من الشهادات يعمل
+```
+
+---
+
+## 📚 التوثيق الكامل
+
+- [INCUBATOR_SYSTEM.md](./INCUBATOR_SYSTEM.md) - الدليل الشامل
+- [API_DOCS.md](./API_DOCS.md) - توثيق API
+- [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) - ملخص المشروع
+
+---
+
+## ✨ الميزات الرئيسية
+
+✅ تسجيل مستفيدين  
+✅ برامج تدريبية متنوعة  
+✅ دفعات تدريبية منظمة  
+✅ نظام تقييم شامل  
+✅ شهادات بـ QR Code  
+✅ سجل تدريبي كامل  
+✅ التحقق من الشهادات  
+
+---
+
+**السرعة. البساطة. الفعالية.**
+
+© 2024 NAIOSH ERP

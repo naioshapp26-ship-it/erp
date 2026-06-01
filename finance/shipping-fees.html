@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📦 مركز أجور الشحن - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@500;600;700&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ink: #0b1120;
+            --slate: #1f2937;
+            --sky: #0ea5e9;
+            --mint: #10b981;
+            --amber: #f59e0b;
+            --rose: #f43f5e;
+            --violet: #7c3aed;
+            --sand: #fef3c7;
+        }
+        body {
+            font-family: 'Tajawal', sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 8% 10%, rgba(14, 165, 233, 0.18), transparent 40%),
+                radial-gradient(circle at 85% 15%, rgba(124, 58, 237, 0.18), transparent 42%),
+                linear-gradient(135deg, #f8fafc 0%, #eef2ff 40%, #fff7ed 100%);
+            min-height: 100vh;
+        }
+        .hero-title {
+            font-family: 'El Messiri', sans-serif;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.93);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+            backdrop-filter: blur(12px);
+        }
+        .stat-card {
+            background: white;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+        }
+        .tag {
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            display: inline-block;
+        }
+        .table-scroll {
+            max-height: 460px;
+            overflow: auto;
+        }
+        .fade-up {
+            animation: fadeUp 0.6s ease both;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .grid-lines {
+            background-image: linear-gradient(rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(15, 23, 42, 0.05) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .chip-btn {
+            border: 1px solid rgba(148, 163, 184, 0.4);
+        }
+        .modal-backdrop {
+            background: rgba(15, 23, 42, 0.55);
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .chart-bar {
+            height: 8px;
+            border-radius: 999px;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <header class="glass rounded-[28px] p-6 mb-8 grid-lines fade-up">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="tag bg-emerald-100 text-emerald-700"><span class="status-dot" style="background: var(--mint);"></span>نظام حي</span>
+                        <span class="tag bg-amber-100 text-amber-700">Workflow متعدد المراحل</span>
+                        <span class="tag bg-violet-100 text-violet-700">تحليلات تسعير</span>
+                    </div>
+                    <h1 class="text-3xl md:text-4xl font-bold hero-title">📦 مركز أجور الشحن</h1>
+                    <p class="text-slate-600 mt-2">إدارة الرسوم الثابتة والمتغيرة، الموافقات، المخاطر، والتحكم في الشرائح مع أتمتة كاملة للقرارات.</p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-rotate"></i>
+                        تحديث البيانات
+                    </button>
+                    <button onclick="openFeeModal()" class="bg-slate-900 text-white px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        إضافة تعرفة
+                    </button>
+                    <button onclick="seedDemo()" class="bg-emerald-600 text-white px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-flask"></i>
+                        بيانات تجريبية
+                    </button>
+                    <button onclick="exportCsv()" class="bg-amber-500 text-white px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-file-export"></i>
+                        تصدير CSV
+                    </button>
+                    <button onclick="printPage()" class="bg-rose-600 text-white px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-print"></i>
+                        طباعة التقرير
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div id="statusBanner" class="hidden mb-6 rounded-2xl px-4 py-3 text-sm font-semibold"></div>
+
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-sky-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">التعريفات النشطة</span>
+                    <i class="fas fa-bolt text-sky-500"></i>
+                </div>
+                <div id="stat-active" class="text-2xl font-bold text-slate-900">0</div>
+                <div class="text-xs text-slate-500">مفعلة للبيع حالياً</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-emerald-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">متوسط الرسوم الثابتة</span>
+                    <i class="fas fa-coins text-emerald-500"></i>
+                </div>
+                <div id="stat-base" class="text-2xl font-bold text-slate-900">0</div>
+                <div class="text-xs text-slate-500">بالريال لكل طلب</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-amber-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">متوسط SLA</span>
+                    <i class="fas fa-stopwatch text-amber-500"></i>
+                </div>
+                <div id="stat-sla" class="text-2xl font-bold text-slate-900">0 ساعة</div>
+                <div class="text-xs text-slate-500">زمن تسليم متوقع</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-rose-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">المخاطر العليا</span>
+                    <i class="fas fa-shield-halved text-rose-500"></i>
+                </div>
+                <div id="stat-risk" class="text-2xl font-bold text-slate-900">0</div>
+                <div class="text-xs text-slate-500">تعريفات مرتفعة المخاطر</div>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6 mb-8">
+            <div class="glass rounded-3xl p-6 fade-up">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900">📋 تعريفات الشحن التشغيلية</h2>
+                        <p class="text-sm text-slate-500">مصفوفة الرسوم المرتبطة بالمناطق، الأوزان، والسعات مع محرك موافقات.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="copySummary()" class="chip-btn bg-white text-slate-700 px-4 py-2 rounded-full text-sm font-semibold hover:shadow">نسخ الملخص</button>
+                        <button onclick="clearFilters()" class="chip-btn bg-white text-slate-700 px-4 py-2 rounded-full text-sm font-semibold hover:shadow">إعادة الضبط</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200">
+                        <label class="text-xs text-slate-500">بحث سريع</label>
+                        <input id="searchInput" type="text" placeholder="ابحث بالاسم أو الناقل" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                    </div>
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200">
+                        <label class="text-xs text-slate-500">الحالة</label>
+                        <select id="statusFilter" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="">الكل</option>
+                            <option value="نشط">نشط</option>
+                            <option value="قيد المراجعة">قيد المراجعة</option>
+                            <option value="معلق">معلق</option>
+                            <option value="مسودة">مسودة</option>
+                        </select>
+                    </div>
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200">
+                        <label class="text-xs text-slate-500">المنطقة</label>
+                        <select id="zoneFilter" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="">الكل</option>
+                            <option value="محلي">محلي</option>
+                            <option value="مركزي">مركزي</option>
+                            <option value="بعيد">بعيد</option>
+                            <option value="سريع">سريع</option>
+                            <option value="خليجي">خليجي</option>
+                        </select>
+                    </div>
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200">
+                        <label class="text-xs text-slate-500">المخاطر</label>
+                        <select id="riskFilter" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="">الكل</option>
+                            <option value="منخفض">منخفض</option>
+                            <option value="متوسط">متوسط</option>
+                            <option value="مرتفع">مرتفع</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-100 text-slate-600 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 text-right">التعرفة</th>
+                                <th class="px-3 py-2 text-right">الناقل</th>
+                                <th class="px-3 py-2 text-right">المنطقة</th>
+                                <th class="px-3 py-2 text-right">الرسوم</th>
+                                <th class="px-3 py-2 text-right">SLA</th>
+                                <th class="px-3 py-2 text-right">الحالة</th>
+                                <th class="px-3 py-2 text-right">المخاطر</th>
+                                <th class="px-3 py-2 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feesTable" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+                <div id="emptyState" class="hidden text-center py-10 text-slate-500">
+                    <div class="text-3xl mb-3">📭</div>
+                    <div class="font-semibold">لا توجد تعريفات بعد</div>
+                    <p class="text-sm mt-2">أنشئ تعريفات جديدة أو أضف بيانات تجريبية لعرض النظام بالكامل.</p>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="glass rounded-3xl p-6 fade-up">
+                    <h3 class="text-xl font-bold text-slate-900 mb-4">⚙️ محاكاة التسعير الفوري</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-slate-500">الوزن (كجم)</label>
+                            <input id="simWeight" type="number" value="5" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">المنطقة</label>
+                            <select id="simZone" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                                <option value="محلي">محلي</option>
+                                <option value="مركزي">مركزي</option>
+                                <option value="بعيد">بعيد</option>
+                                <option value="سريع">سريع</option>
+                                <option value="خليجي">خليجي</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">الدفع عند الاستلام</label>
+                            <select id="simCod" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                                <option value="no">لا</option>
+                                <option value="yes">نعم</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">رسوم المناطق البعيدة</label>
+                            <select id="simRemote" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                                <option value="no">لا</option>
+                                <option value="yes">نعم</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="runSimulation()" class="mt-4 w-full bg-slate-900 text-white rounded-2xl py-3 font-bold">حساب تكلفة الشحن</button>
+                    <div class="mt-4 bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                        <div class="text-xs text-slate-500">أفضل تعرفة مطابقة</div>
+                        <div id="simBest" class="text-base font-bold text-slate-900">-</div>
+                        <div id="simCost" class="text-sm text-slate-600">-</div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-3xl p-6 fade-up">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-slate-900">✅ Workflow الموافقات</h3>
+                        <span id="workflowStatus" class="pill bg-amber-100 text-amber-700">اختر تعرفة</span>
+                    </div>
+                    <div id="workflowMeta" class="text-sm text-slate-500 mb-3">-</div>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button onclick="pushWorkflow('إرسال للمراجعة', 'قيد المراجعة')" class="chip-btn bg-white text-slate-700 px-3 py-2 rounded-full text-xs font-semibold">إرسال للمراجعة</button>
+                        <button onclick="pushWorkflow('اعتماد', 'نشط')" class="chip-btn bg-white text-emerald-700 px-3 py-2 rounded-full text-xs font-semibold">اعتماد</button>
+                        <button onclick="pushWorkflow('إيقاف مؤقت', 'معلق')" class="chip-btn bg-white text-amber-700 px-3 py-2 rounded-full text-xs font-semibold">إيقاف مؤقت</button>
+                        <button onclick="pushWorkflow('رفض', 'مرفوض')" class="chip-btn bg-white text-rose-700 px-3 py-2 rounded-full text-xs font-semibold">رفض</button>
+                    </div>
+                    <div id="workflowList" class="space-y-3"></div>
+                </div>
+
+                <div class="glass rounded-3xl p-6 fade-up">
+                    <h3 class="text-xl font-bold text-slate-900 mb-4">📊 تحليلات الأداء</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between text-sm text-slate-600">
+                                <span>توزيع الحالات</span>
+                                <span id="statusSummary">-</span>
+                            </div>
+                            <div class="mt-2 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div id="statusBar" class="chart-bar bg-sky-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between text-sm text-slate-600">
+                                <span>معدل الرسوم الإضافية</span>
+                                <span id="surchargeSummary">-</span>
+                            </div>
+                            <div class="mt-2 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div id="surchargeBar" class="chart-bar bg-amber-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between text-sm text-slate-600">
+                                <span>ملف المخاطر</span>
+                                <span id="riskSummary">-</span>
+                            </div>
+                            <div class="mt-2 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div id="riskBar" class="chart-bar bg-rose-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-3xl p-6 fade-up">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xl font-bold text-slate-900">🧾 سجل العمليات</h3>
+                        <button onclick="clearActivity()" class="text-xs text-slate-500">مسح السجل</button>
+                    </div>
+                    <div id="activityLog" class="space-y-3 text-sm text-slate-600"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div id="feeModal" class="hidden fixed inset-0 z-50 items-center justify-center">
+        <div class="modal-backdrop absolute inset-0" onclick="closeFeeModal()"></div>
+        <div class="relative bg-white rounded-3xl shadow-xl w-[90%] max-w-3xl p-6 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="feeModalTitle" class="text-2xl font-bold text-slate-900">إضافة تعرفة</h3>
+                <button onclick="closeFeeModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-xmark"></i></button>
+            </div>
+            <form id="feeForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" id="feeId" />
+                <div>
+                    <label class="text-xs text-slate-500">اسم التعرفة</label>
+                    <input id="feeName" required class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الناقل</label>
+                    <input id="feeCarrier" required class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">مستوى الخدمة</label>
+                    <input id="feeService" required class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">المنطقة</label>
+                    <input id="feeZone" required class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الوزن الأدنى</label>
+                    <input id="feeWeightMin" type="number" step="0.1" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الوزن الأقصى</label>
+                    <input id="feeWeightMax" type="number" step="0.1" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الرسوم الثابتة</label>
+                    <input id="feeBase" type="number" step="0.01" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">رسوم لكل كجم</label>
+                    <input id="feePerKg" type="number" step="0.01" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">رسوم الوقود</label>
+                    <input id="feeFuel" type="number" step="0.01" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">رسوم المناطق البعيدة</label>
+                    <input id="feeRemote" type="number" step="0.01" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">رسوم الدفع عند الاستلام</label>
+                    <input id="feeCod" type="number" step="0.01" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">العملة</label>
+                    <input id="feeCurrency" value="SAR" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الحالة</label>
+                    <select id="feeStatus" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <option value="مسودة">مسودة</option>
+                        <option value="قيد المراجعة">قيد المراجعة</option>
+                        <option value="نشط">نشط</option>
+                        <option value="معلق">معلق</option>
+                        <option value="مرفوض">مرفوض</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">SLA (ساعات)</label>
+                    <input id="feeSla" type="number" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الطاقة القصوى</label>
+                    <input id="feeMaxOrders" type="number" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">مستوى المخاطر</label>
+                    <select id="feeRisk" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <option value="منخفض">منخفض</option>
+                        <option value="متوسط">متوسط</option>
+                        <option value="مرتفع">مرتفع</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">ساري من</label>
+                    <input id="feeEffectiveFrom" type="date" required class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">ساري حتى</label>
+                    <input id="feeEffectiveTo" type="date" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">المالك</label>
+                    <input id="feeOwner" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                </div>
+                <div class="md:col-span-2 border-t border-slate-200 pt-4">
+                    <h4 class="text-sm font-bold text-slate-800 mb-3">بيانات العنوان</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="text-xs text-slate-500">اسم الشارع</label>
+                            <input id="feeStreetName" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">الرمز البريدي</label>
+                            <input id="feePostalCode" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">رقم المبنى</label>
+                            <input id="feeBuildingNumber" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="text-xs text-slate-500">اسم المدينة</label>
+                            <input id="feeCity" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">اسم المنطقة</label>
+                            <input id="feeDistrict" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500">الرمز الوطني</label>
+                            <input id="feeNationalAddress" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="text-xs text-slate-500">العنوان المختصر</label>
+                            <input id="feeShortAddress" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                        </div>
+                    </div>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs text-slate-500">ملاحظات</label>
+                    <textarea id="feeNotes" rows="2" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"></textarea>
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-3">
+                    <button type="button" onclick="closeFeeModal()" class="px-4 py-2 rounded-full border border-slate-200">إلغاء</button>
+                    <button type="submit" class="px-6 py-2 rounded-full bg-slate-900 text-white">حفظ التعرفة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="detailsModal" class="hidden fixed inset-0 z-50 items-center justify-center">
+        <div class="modal-backdrop absolute inset-0" onclick="closeDetailsModal()"></div>
+        <div class="relative bg-white rounded-3xl shadow-xl w-[90%] max-w-2xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-2xl font-bold text-slate-900">تفاصيل التعرفة</h3>
+                <button onclick="closeDetailsModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div id="detailsContent" class="space-y-3 text-sm text-slate-600"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/finance/shipping-fees';
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+
+        const state = {
+            fees: [],
+            metrics: null,
+            workflow: [],
+            selectedFee: null,
+            activity: []
+        };
+
+        const elements = {
+            feesTable: document.getElementById('feesTable'),
+            emptyState: document.getElementById('emptyState'),
+            statusBanner: document.getElementById('statusBanner'),
+            statActive: document.getElementById('stat-active'),
+            statBase: document.getElementById('stat-base'),
+            statSla: document.getElementById('stat-sla'),
+            statRisk: document.getElementById('stat-risk'),
+            workflowList: document.getElementById('workflowList'),
+            workflowMeta: document.getElementById('workflowMeta'),
+            workflowStatus: document.getElementById('workflowStatus'),
+            statusSummary: document.getElementById('statusSummary'),
+            statusBar: document.getElementById('statusBar'),
+            surchargeSummary: document.getElementById('surchargeSummary'),
+            surchargeBar: document.getElementById('surchargeBar'),
+            riskSummary: document.getElementById('riskSummary'),
+            riskBar: document.getElementById('riskBar'),
+            activityLog: document.getElementById('activityLog'),
+            simBest: document.getElementById('simBest'),
+            simCost: document.getElementById('simCost')
+        };
+
+        const filters = {
+            searchInput: document.getElementById('searchInput'),
+            statusFilter: document.getElementById('statusFilter'),
+            zoneFilter: document.getElementById('zoneFilter'),
+            riskFilter: document.getElementById('riskFilter')
+        };
+
+        const feeModal = document.getElementById('feeModal');
+        const detailsModal = document.getElementById('detailsModal');
+
+        const formatCurrency = (value) => `${Number(value || 0).toFixed(2)} SAR`;
+        const formatNumber = (value) => Number(value || 0).toFixed(2);
+
+        const setBanner = (message, tone = 'info') => {
+            const toneStyles = {
+                info: 'bg-sky-50 text-sky-700 border border-sky-100',
+                success: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+                warning: 'bg-amber-50 text-amber-700 border border-amber-100',
+                danger: 'bg-rose-50 text-rose-700 border border-rose-100'
+            };
+            elements.statusBanner.className = `mb-6 rounded-2xl px-4 py-3 text-sm font-semibold ${toneStyles[tone] || toneStyles.info}`;
+            elements.statusBanner.textContent = message;
+            elements.statusBanner.classList.remove('hidden');
+            setTimeout(() => elements.statusBanner.classList.add('hidden'), 4200);
+        };
+
+        const addActivity = (text) => {
+            state.activity.unshift({ time: new Date().toLocaleTimeString('en-US'), text });
+            renderActivity();
+        };
+
+        const renderActivity = () => {
+            elements.activityLog.innerHTML = '';
+            if (state.activity.length === 0) {
+                elements.activityLog.innerHTML = '<div class="text-xs text-slate-400">لا يوجد نشاط بعد</div>';
+                return;
+            }
+            state.activity.slice(0, 6).forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between gap-3';
+                div.innerHTML = `<span>${item.text}</span><span class="text-xs text-slate-400">${item.time}</span>`;
+                elements.activityLog.appendChild(div);
+            });
+        };
+
+        const renderStats = () => {
+            const metrics = state.metrics || {};
+            const riskHigh = state.fees.filter((fee) => fee.risk_level === 'مرتفع').length;
+            elements.statActive.textContent = metrics.active_count ?? 0;
+            elements.statBase.textContent = formatNumber(metrics.avg_base_fee || 0);
+            elements.statSla.textContent = `${formatNumber(metrics.avg_sla_hours || 0)} ساعة`;
+            elements.statRisk.textContent = riskHigh;
+        };
+
+        const statusPill = (status) => {
+            const map = {
+                'نشط': 'bg-emerald-100 text-emerald-700',
+                'قيد المراجعة': 'bg-amber-100 text-amber-700',
+                'معلق': 'bg-slate-100 text-slate-600',
+                'مسودة': 'bg-indigo-100 text-indigo-700',
+                'مرفوض': 'bg-rose-100 text-rose-700'
+            };
+            return `<span class="pill ${map[status] || 'bg-slate-100 text-slate-600'}">${status}</span>`;
+        };
+
+        const riskPill = (risk) => {
+            const map = {
+                'منخفض': 'bg-emerald-100 text-emerald-700',
+                'متوسط': 'bg-amber-100 text-amber-700',
+                'مرتفع': 'bg-rose-100 text-rose-700'
+            };
+            return `<span class="pill ${map[risk] || 'bg-slate-100 text-slate-600'}">${risk}</span>`;
+        };
+
+        const renderTable = () => {
+            elements.feesTable.innerHTML = '';
+
+            if (state.fees.length === 0) {
+                elements.emptyState.classList.remove('hidden');
+                return;
+            }
+
+            elements.emptyState.classList.add('hidden');
+
+            state.fees.forEach((fee) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50';
+                row.innerHTML = `
+                    <td class="px-3 py-3">
+                        <div class="font-semibold text-slate-900">${fee.fee_name}</div>
+                        <div class="text-xs text-slate-400">${fee.fee_id} • ${fee.service_level}</div>
+                    </td>
+                    <td class="px-3 py-3">${fee.carrier}</td>
+                    <td class="px-3 py-3">${fee.zone}</td>
+                    <td class="px-3 py-3">
+                        <div class="font-semibold">${formatCurrency(fee.base_fee)}</div>
+                        <div class="text-xs text-slate-400">+${formatNumber(fee.per_kg_fee)} / كجم</div>
+                    </td>
+                    <td class="px-3 py-3">${fee.sla_hours} ساعة</td>
+                    <td class="px-3 py-3">${statusPill(fee.status)}</td>
+                    <td class="px-3 py-3">${riskPill(fee.risk_level)}</td>
+                    <td class="px-3 py-3">
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="openDetails('${fee.fee_id}')" class="text-xs text-slate-600">معاينة</button>
+                            <button onclick="editFee('${fee.fee_id}')" class="text-xs text-sky-700">تعديل</button>
+                            <button onclick="selectFee('${fee.fee_id}')" class="text-xs text-amber-700">Workflow</button>
+                            <button onclick="deleteFee('${fee.fee_id}')" class="text-xs text-rose-600">حذف</button>
+                        </div>
+                    </td>
+                `;
+                elements.feesTable.appendChild(row);
+            });
+        };
+
+        const renderWorkflow = () => {
+            elements.workflowList.innerHTML = '';
+            const fee = state.selectedFee;
+
+            if (!fee) {
+                elements.workflowMeta.textContent = '-';
+                elements.workflowStatus.textContent = 'اختر تعرفة';
+                return;
+            }
+
+            elements.workflowMeta.textContent = `${fee.fee_name} • ${fee.fee_id}`;
+            const statusTone = {
+                'نشط': 'bg-emerald-100 text-emerald-700',
+                'قيد المراجعة': 'bg-amber-100 text-amber-700',
+                'معلق': 'bg-slate-100 text-slate-600',
+                'مسودة': 'bg-indigo-100 text-indigo-700',
+                'مرفوض': 'bg-rose-100 text-rose-700'
+            };
+            elements.workflowStatus.textContent = fee.status || 'غير محدد';
+            elements.workflowStatus.className = `pill ${statusTone[fee.status] || 'bg-slate-100 text-slate-600'}`;
+
+            if (state.workflow.length === 0) {
+                elements.workflowList.innerHTML = '<div class="text-xs text-slate-400">لا يوجد سجل Workflow بعد</div>';
+                return;
+            }
+
+            state.workflow.forEach((step) => {
+                const row = document.createElement('div');
+                row.className = 'bg-slate-50 border border-slate-200 rounded-2xl p-3';
+                row.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold text-slate-800">${step.step}</div>
+                        <div class="text-xs text-slate-400">${new Date(step.created_at).toLocaleDateString('en-US')}</div>
+                    </div>
+                    <div class="text-xs text-slate-500 mt-1">${step.status} • ${step.actor || 'system'}</div>
+                    ${step.comment ? `<div class="text-xs text-slate-500 mt-1">${step.comment}</div>` : ''}
+                `;
+                elements.workflowList.appendChild(row);
+            });
+        };
+
+        const renderAnalytics = () => {
+            const metrics = state.metrics || {};
+            const total = metrics.total_count || state.fees.length || 0;
+            const active = metrics.active_count || 0;
+            const pending = metrics.pending_count || 0;
+            const statusPercent = total ? Math.round((active / total) * 100) : 0;
+            const surchargeAvg = metrics.avg_surcharges || 0;
+            const riskHigh = state.fees.filter((fee) => fee.risk_level === 'مرتفع').length;
+            const riskPercent = total ? Math.round((riskHigh / total) * 100) : 0;
+
+            elements.statusSummary.textContent = `${active} نشط • ${pending} قيد المراجعة`;
+            elements.statusBar.style.width = `${statusPercent}%`;
+
+            elements.surchargeSummary.textContent = `${formatNumber(surchargeAvg)} SAR`;
+            elements.surchargeBar.style.width = `${Math.min(100, surchargeAvg * 5)}%`;
+
+            elements.riskSummary.textContent = `${riskHigh} مرتفع`;
+            elements.riskBar.style.width = `${riskPercent}%`;
+        };
+
+        const buildQuery = () => {
+            const params = new URLSearchParams({ entity_id: ENTITY_ID });
+            if (filters.searchInput.value) params.set('q', filters.searchInput.value);
+            if (filters.statusFilter.value) params.set('status', filters.statusFilter.value);
+            if (filters.zoneFilter.value) params.set('zone', filters.zoneFilter.value);
+            if (filters.riskFilter.value) params.set('risk', filters.riskFilter.value);
+            return params.toString();
+        };
+
+        const loadFees = async () => {
+            const response = await fetch(`${API_BASE}?${buildQuery()}`);
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to fetch fees');
+            state.fees = data.fees || [];
+        };
+
+        const loadMetrics = async () => {
+            const response = await fetch(`${API_BASE}/metrics?${buildQuery()}`);
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to fetch metrics');
+            state.metrics = data.metrics || {};
+        };
+
+        const loadWorkflow = async (feeId) => {
+            if (!feeId) return;
+            const response = await fetch(`${API_BASE}/${feeId}/workflow`);
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to fetch workflow');
+            state.workflow = data.workflow || [];
+        };
+
+        const loadAll = async () => {
+            try {
+                await Promise.all([loadFees(), loadMetrics()]);
+                if (state.selectedFee) {
+                    state.selectedFee = state.fees.find((fee) => fee.fee_id === state.selectedFee.fee_id) || null;
+                }
+                renderStats();
+                renderTable();
+                renderAnalytics();
+                if (state.selectedFee) {
+                    await loadWorkflow(state.selectedFee.fee_id);
+                }
+                renderWorkflow();
+            } catch (error) {
+                setBanner(`تعذر تحميل البيانات: ${error.message}`, 'danger');
+                renderTable();
+                renderWorkflow();
+            }
+        };
+
+        const openFeeModal = () => {
+            document.getElementById('feeModalTitle').textContent = 'إضافة تعرفة';
+            document.getElementById('feeForm').reset();
+            document.getElementById('feeId').value = '';
+            feeModal.classList.remove('hidden');
+            feeModal.classList.add('flex');
+        };
+
+        const closeFeeModal = () => {
+            feeModal.classList.add('hidden');
+            feeModal.classList.remove('flex');
+        };
+
+        const openDetailsModal = () => {
+            detailsModal.classList.remove('hidden');
+            detailsModal.classList.add('flex');
+        };
+
+        const closeDetailsModal = () => {
+            detailsModal.classList.add('hidden');
+            detailsModal.classList.remove('flex');
+        };
+
+        const openDetails = (feeId) => {
+            const fee = state.fees.find((item) => item.fee_id === feeId);
+            if (!fee) return;
+            const detailItems = [
+                ['التعرفة', fee.fee_name],
+                ['المعرف', fee.fee_id],
+                ['الناقل', fee.carrier],
+                ['مستوى الخدمة', fee.service_level],
+                ['المنطقة', fee.zone],
+                ['الرسوم الثابتة', formatCurrency(fee.base_fee)],
+                ['الرسوم لكل كجم', `${formatNumber(fee.per_kg_fee)} SAR`],
+                ['رسوم الوقود', formatCurrency(fee.fuel_surcharge)],
+                ['رسوم مناطق بعيدة', formatCurrency(fee.remote_area_fee)],
+                ['رسوم الدفع عند الاستلام', formatCurrency(fee.cod_fee)],
+                ['الحالة', fee.status],
+                ['المخاطر', fee.risk_level],
+                ['SLA', `${fee.sla_hours} ساعة`],
+                ['الطاقة القصوى', fee.max_orders],
+                ['سارية من', fee.effective_from],
+                ['سارية حتى', fee.effective_to || '-'],
+                ['المالك', fee.owner_name || '-'],
+                ['اسم الشارع', fee.street_name || '-'],
+                ['الرمز البريدي', fee.postal_code || '-'],
+                ['رقم المبنى', fee.building_number || '-'],
+                ['المدينة', fee.city || '-'],
+                ['المنطقة', fee.district || '-'],
+                ['الرمز الوطني', fee.national_address_number || '-'],
+                ['العنوان المختصر', fee.short_address || '-'],
+                ['ملاحظات', fee.notes || '-']
+            ];
+            const content = detailItems
+                .map(([label, value]) => `<div class="flex items-center justify-between gap-3"><span class="text-slate-500">${label}</span><span class="font-semibold text-slate-900">${value}</span></div>`)
+                .join('');
+            document.getElementById('detailsContent').innerHTML = content;
+            openDetailsModal();
+        };
+
+        const editFee = (feeId) => {
+            const fee = state.fees.find((item) => item.fee_id === feeId);
+            if (!fee) return;
+            document.getElementById('feeModalTitle').textContent = 'تعديل تعرفة';
+            document.getElementById('feeId').value = fee.fee_id;
+            document.getElementById('feeName').value = fee.fee_name;
+            document.getElementById('feeCarrier').value = fee.carrier;
+            document.getElementById('feeService').value = fee.service_level;
+            document.getElementById('feeZone').value = fee.zone;
+            document.getElementById('feeWeightMin').value = fee.weight_min;
+            document.getElementById('feeWeightMax').value = fee.weight_max;
+            document.getElementById('feeBase').value = fee.base_fee;
+            document.getElementById('feePerKg').value = fee.per_kg_fee;
+            document.getElementById('feeFuel').value = fee.fuel_surcharge;
+            document.getElementById('feeRemote').value = fee.remote_area_fee;
+            document.getElementById('feeCod').value = fee.cod_fee;
+            document.getElementById('feeCurrency').value = fee.currency;
+            document.getElementById('feeStatus').value = fee.status;
+            document.getElementById('feeSla').value = fee.sla_hours;
+            document.getElementById('feeMaxOrders').value = fee.max_orders;
+            document.getElementById('feeRisk').value = fee.risk_level;
+            document.getElementById('feeEffectiveFrom').value = fee.effective_from;
+            document.getElementById('feeEffectiveTo').value = fee.effective_to || '';
+            document.getElementById('feeOwner').value = fee.owner_name || '';
+            document.getElementById('feeStreetName').value = fee.street_name || '';
+            document.getElementById('feePostalCode').value = fee.postal_code || '';
+            document.getElementById('feeBuildingNumber').value = fee.building_number || '';
+            document.getElementById('feeCity').value = fee.city || '';
+            document.getElementById('feeDistrict').value = fee.district || '';
+            document.getElementById('feeNationalAddress').value = fee.national_address_number || '';
+            document.getElementById('feeShortAddress').value = fee.short_address || '';
+            document.getElementById('feeNotes').value = fee.notes || '';
+            feeModal.classList.remove('hidden');
+            feeModal.classList.add('flex');
+        };
+
+        const selectFee = async (feeId) => {
+            const fee = state.fees.find((item) => item.fee_id === feeId);
+            if (!fee) return;
+            state.selectedFee = fee;
+            await loadWorkflow(feeId);
+            renderWorkflow();
+            addActivity(`تم اختيار تعرفة ${fee.fee_name} للمتابعة`);
+        };
+
+        const deleteFee = async (feeId) => {
+            const fee = state.fees.find((item) => item.fee_id === feeId);
+            if (!fee) return;
+            if (!confirm(`هل تريد حذف التعرفة ${fee.fee_name}؟`)) return;
+            const response = await fetch(`${API_BASE}/${feeId}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (!data.success) {
+                setBanner(data.error || 'تعذر حذف التعرفة', 'danger');
+                return;
+            }
+            addActivity(`تم حذف التعرفة ${fee.fee_name}`);
+            if (state.selectedFee && state.selectedFee.fee_id === feeId) {
+                state.selectedFee = null;
+                state.workflow = [];
+            }
+            await loadAll();
+        };
+
+        const pushWorkflow = async (step, status) => {
+            if (!state.selectedFee) {
+                setBanner('اختر تعرفة أولاً لتفعيل Workflow', 'warning');
+                return;
+            }
+            const response = await fetch(`${API_BASE}/${state.selectedFee.fee_id}/workflow`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    step,
+                    status,
+                    actor: 'مدير التسعير',
+                    comment: `تم تنفيذ خطوة ${step} عبر لوحة التحكم`
+                })
+            });
+            const data = await response.json();
+            if (!data.success) {
+                setBanner(data.error || 'تعذر تحديث Workflow', 'danger');
+                return;
+            }
+            addActivity(`تم تحديث Workflow للتعرفة ${state.selectedFee.fee_name} إلى ${status}`);
+            await loadAll();
+        };
+
+        const exportCsv = () => {
+            if (state.fees.length === 0) {
+                setBanner('لا توجد بيانات للتصدير', 'warning');
+                return;
+            }
+            const headers = ['ID', 'Name', 'Carrier', 'Service', 'Zone', 'Base', 'PerKg', 'Fuel', 'Remote', 'COD', 'Status', 'Risk', 'SLA', 'Capacity', 'From', 'To'];
+            const rows = state.fees.map((fee) => [
+                fee.fee_id,
+                fee.fee_name,
+                fee.carrier,
+                fee.service_level,
+                fee.zone,
+                fee.base_fee,
+                fee.per_kg_fee,
+                fee.fuel_surcharge,
+                fee.remote_area_fee,
+                fee.cod_fee,
+                fee.status,
+                fee.risk_level,
+                fee.sla_hours,
+                fee.max_orders,
+                fee.effective_from,
+                fee.effective_to || ''
+            ]);
+            const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'shipping-fees.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            addActivity('تم تصدير ملف CSV للتعريفات');
+        };
+
+        const refreshData = () => {
+            loadAll();
+            addActivity('تم تحديث بيانات التعريفات');
+        };
+
+        const printPage = () => window.print();
+
+        const copySummary = () => {
+            const summary = `إجمالي التعريفات: ${state.fees.length} | النشطة: ${state.fees.filter((f) => f.status === 'نشط').length} | متوسط الرسوم الثابتة: ${formatNumber(state.metrics?.avg_base_fee || 0)} SAR`;
+            navigator.clipboard.writeText(summary).then(() => {
+                setBanner('تم نسخ ملخص أجور الشحن', 'success');
+            });
+        };
+
+        const clearFilters = () => {
+            filters.searchInput.value = '';
+            filters.statusFilter.value = '';
+            filters.zoneFilter.value = '';
+            filters.riskFilter.value = '';
+            loadAll();
+        };
+
+        const seedDemo = async () => {
+            const response = await fetch(`${API_BASE}/seed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entity_id: ENTITY_ID })
+            });
+            const data = await response.json();
+            if (!data.success) {
+                setBanner(data.error || 'تعذر إدخال البيانات التجريبية', 'danger');
+                return;
+            }
+            addActivity(`تم إدخال ${data.inserted_count} تعريفات تجريبية`);
+            await loadAll();
+        };
+
+        const runSimulation = () => {
+            const weight = Number(document.getElementById('simWeight').value || 0);
+            const zone = document.getElementById('simZone').value;
+            const includeCod = document.getElementById('simCod').value === 'yes';
+            const includeRemote = document.getElementById('simRemote').value === 'yes';
+
+            const candidates = state.fees.filter((fee) =>
+                fee.zone === zone &&
+                weight >= Number(fee.weight_min || 0) &&
+                weight <= Number(fee.weight_max || weight)
+            );
+
+            const best = candidates.sort((a, b) => (a.base_fee + a.per_kg_fee) - (b.base_fee + b.per_kg_fee))[0];
+
+            if (!best) {
+                elements.simBest.textContent = 'لا توجد تعرفة مناسبة';
+                elements.simCost.textContent = 'جرّب منطقة أو وزن مختلف.';
+                return;
+            }
+
+            const extraCod = includeCod ? Number(best.cod_fee || 0) : 0;
+            const extraRemote = includeRemote ? Number(best.remote_area_fee || 0) : 0;
+            const cost = Number(best.base_fee || 0)
+                + (Number(best.per_kg_fee || 0) * weight)
+                + Number(best.fuel_surcharge || 0)
+                + extraCod
+                + extraRemote;
+
+            elements.simBest.textContent = `${best.fee_name} • ${best.carrier}`;
+            elements.simCost.textContent = `التكلفة التقديرية: ${formatCurrency(cost)} | SLA ${best.sla_hours} ساعة`;
+        };
+
+        const clearActivity = () => {
+            state.activity = [];
+            renderActivity();
+        };
+
+        document.getElementById('feeForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const feeId = document.getElementById('feeId').value;
+            const payload = {
+                fee_name: document.getElementById('feeName').value,
+                carrier: document.getElementById('feeCarrier').value,
+                service_level: document.getElementById('feeService').value,
+                zone: document.getElementById('feeZone').value,
+                weight_min: Number(document.getElementById('feeWeightMin').value || 0),
+                weight_max: Number(document.getElementById('feeWeightMax').value || 0),
+                base_fee: Number(document.getElementById('feeBase').value || 0),
+                per_kg_fee: Number(document.getElementById('feePerKg').value || 0),
+                fuel_surcharge: Number(document.getElementById('feeFuel').value || 0),
+                remote_area_fee: Number(document.getElementById('feeRemote').value || 0),
+                cod_fee: Number(document.getElementById('feeCod').value || 0),
+                currency: document.getElementById('feeCurrency').value || 'SAR',
+                status: document.getElementById('feeStatus').value,
+                sla_hours: Number(document.getElementById('feeSla').value || 0),
+                max_orders: Number(document.getElementById('feeMaxOrders').value || 0),
+                risk_level: document.getElementById('feeRisk').value,
+                effective_from: document.getElementById('feeEffectiveFrom').value,
+                effective_to: document.getElementById('feeEffectiveTo').value || null,
+                owner_name: document.getElementById('feeOwner').value || null,
+                street_name: document.getElementById('feeStreetName').value || null,
+                postal_code: document.getElementById('feePostalCode').value || null,
+                building_number: document.getElementById('feeBuildingNumber').value || null,
+                city: document.getElementById('feeCity').value || null,
+                district: document.getElementById('feeDistrict').value || null,
+                national_address_number: document.getElementById('feeNationalAddress').value || null,
+                short_address: document.getElementById('feeShortAddress').value || null,
+                notes: document.getElementById('feeNotes').value || null,
+                entity_id: ENTITY_ID
+            };
+
+            const response = await fetch(feeId ? `${API_BASE}/${feeId}` : API_BASE, {
+                method: feeId ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!data.success) {
+                setBanner(data.error || 'تعذر حفظ التعرفة', 'danger');
+                return;
+            }
+            addActivity(feeId ? 'تم تحديث تعرفة بنجاح' : 'تمت إضافة تعرفة جديدة');
+            closeFeeModal();
+            await loadAll();
+        });
+
+        filters.searchInput.addEventListener('input', loadAll);
+        filters.statusFilter.addEventListener('change', loadAll);
+        filters.zoneFilter.addEventListener('change', loadAll);
+        filters.riskFilter.addEventListener('change', loadAll);
+
+        window.refreshData = refreshData;
+        window.openFeeModal = openFeeModal;
+        window.seedDemo = seedDemo;
+        window.exportCsv = exportCsv;
+        window.printPage = printPage;
+        window.copySummary = copySummary;
+        window.clearFilters = clearFilters;
+        window.runSimulation = runSimulation;
+        window.pushWorkflow = pushWorkflow;
+        window.clearActivity = clearActivity;
+        window.closeFeeModal = closeFeeModal;
+        window.closeDetailsModal = closeDetailsModal;
+        window.openDetails = openDetails;
+        window.editFee = editFee;
+        window.selectFee = selectFee;
+        window.deleteFee = deleteFee;
+
+        loadAll();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

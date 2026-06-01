@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧮 ضرائب متعددة - مركز التحكم الضريبي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&family=Changa:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ink: #0b1220;
+            --muted: #4b5563;
+            --card: rgba(255, 255, 255, 0.93);
+            --accent: #0f766e;
+            --accent-2: #f59e0b;
+            --accent-3: #ef4444;
+            --shadow: 0 22px 45px rgba(15, 23, 42, 0.12);
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            color: var(--ink);
+            background: radial-gradient(circle at top, #dbeafe 0%, #f8fafc 45%, #fef3c7 100%);
+            min-height: 100vh;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Changa', sans-serif;
+        }
+
+        .page-orb {
+            position: absolute;
+            width: 320px;
+            height: 320px;
+            border-radius: 50%;
+            filter: blur(0px);
+            opacity: 0.2;
+            animation: float 12s ease-in-out infinite;
+        }
+
+        .page-orb.orb-1 { background: #0ea5e9; top: -80px; right: -60px; }
+        .page-orb.orb-2 { background: #f97316; bottom: -120px; left: -80px; animation-delay: 2s; }
+        .page-orb.orb-3 { background: #10b981; top: 40%; left: -140px; animation-delay: 4s; }
+
+        .card-glass {
+            background: var(--card);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(14px);
+        }
+
+        .stat-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 12px 25px rgba(15, 23, 42, 0.15);
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .table-scroll { max-height: 480px; overflow: auto; }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .modal.active { display: flex; }
+
+        .fade-up {
+            animation: fadeUp 0.6s ease forwards;
+            opacity: 0;
+        }
+
+        .fade-up.delay-1 { animation-delay: 0.1s; }
+        .fade-up.delay-2 { animation-delay: 0.2s; }
+        .fade-up.delay-3 { animation-delay: 0.3s; }
+
+        @keyframes fadeUp {
+            from { transform: translateY(18px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(16px); }
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="relative overflow-hidden">
+        <div class="page-orb orb-1"></div>
+        <div class="page-orb orb-2"></div>
+        <div class="page-orb orb-3"></div>
+        <div class="container mx-auto px-4 py-10 relative z-10">
+            <div class="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <h1 class="text-4xl lg:text-5xl font-bold mb-2">🧮 مركز التحكم الضريبي المتعدد</h1>
+                    <p class="text-lg text-slate-600 max-w-2xl">
+                        منصة عمليات ضريبية عالية الدقة: قواعد متعددة، تتبع الامتثال، محاكاة فورية، وسجل تدقيق كامل — كل شيء يعمل مباشرة.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button id="addRuleBtn" class="bg-teal-700 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        إضافة شريحة جديدة
+                    </button>
+                    <button onclick="exportCsv()" class="bg-white text-slate-700 border border-slate-200 px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-file-export"></i>
+                        تصدير CSV
+                    </button>
+                    <button onclick="refreshData()" class="bg-white text-teal-700 border border-teal-100 px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-rotate"></i>
+                        تحديث الشرائح
+                    </button>
+                    <button onclick="printPage()" class="bg-rose-600 text-white px-5 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                        <i class="fas fa-print"></i>
+                        طباعة التقرير
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3 mb-8">
+                <span class="chip bg-teal-50 text-teal-700">قواعد مركبة ذكية</span>
+                <span class="chip bg-amber-50 text-amber-700">امتثال تلقائي</span>
+                <span class="chip bg-rose-50 text-rose-700">كشف تضارب فوري</span>
+                <span class="chip bg-slate-100 text-slate-700">إصدارات قابلة للرجوع</span>
+                <span class="chip bg-emerald-50 text-emerald-700">توزيع ضريبة متعدد القنوات</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-10">
+                <div class="stat-card p-4 rounded-2xl border-t-4 border-teal-600 fade-up">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-slate-500">شرائح نشطة</span>
+                        <i class="fas fa-layer-group text-teal-600"></i>
+                    </div>
+                    <div id="statActive" class="text-2xl font-bold text-slate-900">0</div>
+                    <div class="text-xs text-slate-500">جاهزة للتطبيق</div>
+                </div>
+                <div class="stat-card p-4 rounded-2xl border-t-4 border-amber-500 fade-up delay-1">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-slate-500">متوسط النسبة</span>
+                        <i class="fas fa-percent text-amber-500"></i>
+                    </div>
+                    <div id="statAverage" class="text-2xl font-bold text-slate-900">0%</div>
+                    <div class="text-xs text-slate-500">للشرائح النشطة</div>
+                </div>
+                <div class="stat-card p-4 rounded-2xl border-t-4 border-sky-500 fade-up delay-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-slate-500">تغطية المناطق</span>
+                        <i class="fas fa-map text-sky-500"></i>
+                    </div>
+                    <div id="statRegions" class="text-2xl font-bold text-slate-900">0</div>
+                    <div class="text-xs text-slate-500">منطقة ضريبية</div>
+                </div>
+                <div class="stat-card p-4 rounded-2xl border-t-4 border-rose-500 fade-up delay-3">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-slate-500">حالات تضارب</span>
+                        <i class="fas fa-triangle-exclamation text-rose-500"></i>
+                    </div>
+                    <div id="statConflicts" class="text-2xl font-bold text-slate-900">0</div>
+                    <div class="text-xs text-slate-500">تحتاج مراجعة</div>
+                </div>
+                <div class="stat-card p-4 rounded-2xl border-t-4 border-indigo-500 fade-up delay-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-slate-500">طلبات موافقة</span>
+                        <i class="fas fa-user-check text-indigo-500"></i>
+                    </div>
+                    <div id="statPending" class="text-2xl font-bold text-slate-900">0</div>
+                    <div class="text-xs text-slate-500">قيد الاعتماد</div>
+                </div>
+                <div class="stat-card p-4 rounded-2xl border-t-4 border-emerald-500 fade-up delay-1">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-slate-500">آخر مزامنة</span>
+                        <i class="fas fa-clipboard-check text-emerald-500"></i>
+                    </div>
+                    <div id="statSync" class="text-xl font-bold text-slate-900">الآن</div>
+                    <div class="text-xs text-slate-500">تحديثات التشريع</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+                <div class="card-glass rounded-3xl p-6 lg:col-span-2 fade-up">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold text-slate-800">🧠 محرك القواعد الذكي</h2>
+                        <span class="badge bg-teal-100 text-teal-700">جاهز للإنتاج</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div class="bg-teal-50 p-4 rounded-2xl">تحديد الأولويات تلقائيا مع تضارب القواعد</div>
+                        <div class="bg-amber-50 p-4 rounded-2xl">تطبيق ضريبة مركبة ومتسلسلة حسب الخطوات</div>
+                        <div class="bg-rose-50 p-4 rounded-2xl">تتبع الإعفاءات بحسب العميل والمنتج</div>
+                        <div class="bg-indigo-50 p-4 rounded-2xl">سجل تدقيق للمعايير والتعديلات</div>
+                        <div class="bg-slate-100 p-4 rounded-2xl">إصدارات قابلة للرجوع بنقرة واحدة</div>
+                        <div class="bg-emerald-50 p-4 rounded-2xl">تنبيهات فورية لانتهاء صلاحية القاعدة</div>
+                    </div>
+                </div>
+
+                <div class="card-glass rounded-3xl p-6 fade-up delay-1">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">⚙️ محاكاة فورية</h3>
+                    <div class="space-y-3 text-sm">
+                        <div>
+                            <label class="text-slate-600">سعر الوحدة</label>
+                            <input id="simPrice" type="number" class="w-full mt-1 p-2 rounded-xl border border-slate-200" value="1200">
+                        </div>
+                        <div>
+                            <label class="text-slate-600">الكمية</label>
+                            <input id="simQty" type="number" class="w-full mt-1 p-2 rounded-xl border border-slate-200" value="3">
+                        </div>
+                        <div>
+                            <label class="text-slate-600">المنطقة</label>
+                            <select id="simRegion" class="w-full mt-1 p-2 rounded-xl border border-slate-200"></select>
+                        </div>
+                        <div>
+                            <label class="text-slate-600">المنتج</label>
+                            <select id="simProduct" class="w-full mt-1 p-2 rounded-xl border border-slate-200"></select>
+                        </div>
+                        <div>
+                            <label class="text-slate-600">قناة البيع</label>
+                            <select id="simChannel" class="w-full mt-1 p-2 rounded-xl border border-slate-200"></select>
+                        </div>
+                        <button onclick="simulateTax()" class="w-full bg-teal-700 text-white py-2 rounded-xl font-bold">تشغيل المحاكاة</button>
+                        <div id="simResult" class="bg-slate-100 p-3 rounded-xl text-slate-700">حدد المعطيات ثم اضغط تشغيل.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-glass rounded-3xl p-6 mb-8 fade-up">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">🎛️ فلاتر وتشخيص متقدم</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <label class="text-slate-600">بحث سريع</label>
+                        <input id="filterSearch" type="text" class="w-full mt-1 p-2 rounded-xl border border-slate-200" placeholder="المنطقة / المنتج / القناة">
+                    </div>
+                    <div>
+                        <label class="text-slate-600">المنطقة</label>
+                        <select id="filterRegion" class="w-full mt-1 p-2 rounded-xl border border-slate-200"></select>
+                    </div>
+                    <div>
+                        <label class="text-slate-600">القناة</label>
+                        <select id="filterChannel" class="w-full mt-1 p-2 rounded-xl border border-slate-200"></select>
+                    </div>
+                    <div>
+                        <label class="text-slate-600">الحالة</label>
+                        <select id="filterStatus" class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                            <option value="">الكل</option>
+                            <option value="نشط">نشط</option>
+                            <option value="موقوف">موقوف</option>
+                            <option value="بانتظار الموافقة">بانتظار الموافقة</option>
+                            <option value="منتهي">منتهي</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-600">أقل نسبة</label>
+                        <input id="filterMinRate" type="number" class="w-full mt-1 p-2 rounded-xl border border-slate-200" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="text-slate-600">أعلى نسبة</label>
+                        <input id="filterMaxRate" type="number" class="w-full mt-1 p-2 rounded-xl border border-slate-200" placeholder="25">
+                    </div>
+                    <div>
+                        <label class="text-slate-600">بداية الصلاحية</label>
+                        <input id="filterStart" type="date" class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                    </div>
+                    <div>
+                        <label class="text-slate-600">نهاية الصلاحية</label>
+                        <input id="filterEnd" type="date" class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="card-glass rounded-3xl p-6 lg:col-span-2 fade-up">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <h3 class="text-xl font-bold text-slate-800">📊 سجل الشرائح الضريبية</h3>
+                        <div class="flex flex-wrap gap-2">
+                            <select id="sortRules" class="p-2 rounded-xl border border-slate-200 text-sm">
+                                <option value="priority-desc">الأولوية الأعلى</option>
+                                <option value="rate-desc">النسبة الأعلى</option>
+                                <option value="rate-asc">النسبة الأقل</option>
+                                <option value="recent">الأحدث تحديثا</option>
+                            </select>
+                            <button onclick="copySummary()" class="bg-amber-500 text-white px-4 py-2 rounded-full font-bold text-sm">
+                                نسخ الملخص
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-100 text-slate-700">
+                                <tr>
+                                    <th class="px-3 py-2 text-right">الكود</th>
+                                    <th class="px-3 py-2 text-right">المنطقة</th>
+                                    <th class="px-3 py-2 text-right">المنتج</th>
+                                    <th class="px-3 py-2 text-right">القناة</th>
+                                    <th class="px-3 py-2 text-right">النوع</th>
+                                    <th class="px-3 py-2 text-right">النسبة</th>
+                                    <th class="px-3 py-2 text-right">الصلاحية</th>
+                                    <th class="px-3 py-2 text-right">الحالة</th>
+                                    <th class="px-3 py-2 text-right">التعيين</th>
+                                    <th class="px-3 py-2 text-right">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rulesTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="card-glass rounded-3xl p-6 fade-up delay-1">
+                        <h3 class="text-xl font-bold text-slate-800 mb-3">🚨 تنبيهات التضارب</h3>
+                        <div id="conflictList" class="space-y-3 text-sm text-slate-600"></div>
+                    </div>
+                    <div class="card-glass rounded-3xl p-6 fade-up delay-2">
+                        <h3 class="text-xl font-bold text-slate-800 mb-3">📈 تغطية المناطق</h3>
+                        <div id="coverageList" class="space-y-3 text-sm"></div>
+                    </div>
+                    <div class="card-glass rounded-3xl p-6 fade-up delay-3">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-xl font-bold text-slate-800">🧾 سجل التدقيق</h3>
+                            <button onclick="clearAudit()" class="text-xs text-rose-600 font-bold">مسح السجل</button>
+                        </div>
+                        <div id="auditLog" class="space-y-2 text-xs text-slate-600 max-h-60 overflow-auto"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ruleModal" class="modal">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="modalTitle" class="text-2xl font-bold text-slate-800">إضافة شريحة</h3>
+                <button onclick="closeModal()" class="text-slate-500"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="ruleForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <label class="text-slate-600">المنطقة</label>
+                    <input id="formRegion" required class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">المنتج</label>
+                    <input id="formProduct" required class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">القناة</label>
+                    <input id="formChannel" required class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">نوع الضريبة</label>
+                    <input id="formType" required class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">النسبة (%)</label>
+                    <input id="formRate" type="number" step="0.01" required class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">الأولوية</label>
+                    <input id="formPriority" type="number" required class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">بداية الصلاحية</label>
+                    <input id="formStart" type="date" required class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">نهاية الصلاحية</label>
+                    <input id="formEnd" type="date" required class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">الحالة</label>
+                    <select id="formStatus" class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                        <option value="نشط">نشط</option>
+                        <option value="موقوف">موقوف</option>
+                        <option value="بانتظار الموافقة">بانتظار الموافقة</option>
+                        <option value="منتهي">منتهي</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600">الجهة المعينة</label>
+                    <input id="formAssigned" class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">كود الجهة</label>
+                    <input id="formJurisdiction" class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600">ملاحظات</label>
+                    <input id="formNotes" class="w-full mt-1 p-2 rounded-xl border border-slate-200">
+                </div>
+                <div class="md:col-span-2 flex items-center justify-between">
+                    <label class="flex items-center gap-2 text-slate-600">
+                        <input id="formInclusive" type="checkbox">
+                        شامل الضريبة
+                    </label>
+                    <label class="flex items-center gap-2 text-slate-600">
+                        <input id="formCompound" type="checkbox">
+                        ضريبة مركبة
+                    </label>
+                </div>
+                <div class="md:col-span-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-full border border-slate-200">إلغاء</button>
+                    <button type="submit" class="px-6 py-2 rounded-full bg-teal-700 text-white font-bold">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'multipleTaxes.rules';
+        const AUDIT_KEY = 'multipleTaxes.audit';
+        const DEFAULT_RULES = [
+            {
+                id: 'TX-001',
+                region: 'الرياض',
+                product: 'خدمات رقمية',
+                channel: 'منصة الويب',
+                type: 'قيمة مضافة',
+                rate: 15,
+                priority: 1,
+                status: 'نشط',
+                effectiveFrom: '2025-01-01',
+                effectiveTo: '2026-12-31',
+                assignedTo: 'الفرع الرئيسي',
+                jurisdictionCode: 'SA-RYD',
+                notes: 'معتمد للمنصات الرقمية',
+                inclusive: false,
+                compound: true,
+                updatedAt: '2026-02-01'
+            },
+            {
+                id: 'TX-002',
+                region: 'جدة',
+                product: 'خدمات لوجستية',
+                channel: 'مبيعات مباشرة',
+                type: 'قيمة مضافة',
+                rate: 12,
+                priority: 2,
+                status: 'نشط',
+                effectiveFrom: '2024-11-01',
+                effectiveTo: '2026-10-31',
+                assignedTo: 'فرع جدة',
+                jurisdictionCode: 'SA-JED',
+                notes: 'تطبيق جزئي على عقود الشحن',
+                inclusive: false,
+                compound: false,
+                updatedAt: '2026-01-15'
+            },
+            {
+                id: 'TX-003',
+                region: 'الدمام',
+                product: 'حلول برمجية',
+                channel: 'شركاء',
+                type: 'قيمة مضافة',
+                rate: 10,
+                priority: 3,
+                status: 'بانتظار الموافقة',
+                effectiveFrom: '2025-06-01',
+                effectiveTo: '2026-06-01',
+                assignedTo: 'مكتب الشرقية',
+                jurisdictionCode: 'SA-DMM',
+                notes: 'يحتاج اعتماد المدير المالي',
+                inclusive: true,
+                compound: false,
+                updatedAt: '2026-02-05'
+            },
+            {
+                id: 'TX-004',
+                region: 'منطقة حرة',
+                product: 'خدمات استشارية',
+                channel: 'منصة الويب',
+                type: 'معفى',
+                rate: 0,
+                priority: 1,
+                status: 'نشط',
+                effectiveFrom: '2023-01-01',
+                effectiveTo: '2027-12-31',
+                assignedTo: 'الفرع الرئيسي',
+                jurisdictionCode: 'SA-FREE',
+                notes: 'إعفاء للكيانات الأجنبية',
+                inclusive: false,
+                compound: false,
+                updatedAt: '2025-12-20'
+            },
+            {
+                id: 'TX-005',
+                region: 'الخبر',
+                product: 'اشتراكات شهرية',
+                channel: 'تطبيق الجوال',
+                type: 'قيمة مضافة',
+                rate: 14.5,
+                priority: 2,
+                status: 'نشط',
+                effectiveFrom: '2025-03-15',
+                effectiveTo: '2026-09-15',
+                assignedTo: 'فرع الخبر',
+                jurisdictionCode: 'SA-KBR',
+                notes: 'يشمل الفواتير الدورية',
+                inclusive: true,
+                compound: true,
+                updatedAt: '2026-01-18'
+            },
+            {
+                id: 'TX-006',
+                region: 'الرياض',
+                product: 'أجهزة ذكية',
+                channel: 'متجر فعلي',
+                type: 'رسوم بلدية',
+                rate: 5,
+                priority: 4,
+                status: 'نشط',
+                effectiveFrom: '2024-08-01',
+                effectiveTo: '2026-08-01',
+                assignedTo: 'فرع العليا',
+                jurisdictionCode: 'SA-RYD-02',
+                notes: 'مستوى رسوم محلي',
+                inclusive: false,
+                compound: true,
+                updatedAt: '2026-01-05'
+            },
+            {
+                id: 'TX-007',
+                region: 'أبوظبي',
+                product: 'حلول سحابية',
+                channel: 'شركاء',
+                type: 'قيمة مضافة',
+                rate: 9,
+                priority: 2,
+                status: 'نشط',
+                effectiveFrom: '2025-02-01',
+                effectiveTo: '2026-12-01',
+                assignedTo: 'فرع الإمارات',
+                jurisdictionCode: 'AE-AUH',
+                notes: 'حسب قانون الإمارات',
+                inclusive: false,
+                compound: false,
+                updatedAt: '2026-01-30'
+            },
+            {
+                id: 'TX-008',
+                region: 'القاهرة',
+                product: 'تدريب حضوري',
+                channel: 'مبيعات مباشرة',
+                type: 'رسوم تعليمية',
+                rate: 8,
+                priority: 3,
+                status: 'موقوف',
+                effectiveFrom: '2024-05-01',
+                effectiveTo: '2025-12-31',
+                assignedTo: 'فرع مصر',
+                jurisdictionCode: 'EG-CAI',
+                notes: 'موقوف لحين التحديث',
+                inclusive: true,
+                compound: false,
+                updatedAt: '2025-12-01'
+            },
+            {
+                id: 'TX-009',
+                region: 'الرياض',
+                product: 'خدمات رقمية',
+                channel: 'شركاء',
+                type: 'قيمة مضافة',
+                rate: 13,
+                priority: 1,
+                status: 'نشط',
+                effectiveFrom: '2025-07-01',
+                effectiveTo: '2026-07-01',
+                assignedTo: 'الفرع الرئيسي',
+                jurisdictionCode: 'SA-RYD-PRT',
+                notes: 'تطبيق خاص بالشركاء',
+                inclusive: false,
+                compound: true,
+                updatedAt: '2026-02-03'
+            },
+            {
+                id: 'TX-010',
+                region: 'الدوحة',
+                product: 'خدمات استشارية',
+                channel: 'منصة الويب',
+                type: 'قيمة مضافة',
+                rate: 7.5,
+                priority: 2,
+                status: 'نشط',
+                effectiveFrom: '2025-04-01',
+                effectiveTo: '2026-04-01',
+                assignedTo: 'فرع قطر',
+                jurisdictionCode: 'QA-DOH',
+                notes: 'تجربة لأسواق الخليج',
+                inclusive: false,
+                compound: false,
+                updatedAt: '2026-01-10'
+            }
+        ];
+
+        const state = {
+            rules: [],
+            audit: [],
+            filters: {
+                search: '',
+                region: '',
+                channel: '',
+                status: '',
+                minRate: '',
+                maxRate: '',
+                start: '',
+                end: ''
+            },
+            sort: 'priority-desc'
+        };
+
+        function refreshData() {
+            state.rules = DEFAULT_RULES.map(rule => ({ ...rule }));
+            saveRules();
+            addAudit('تحديث البيانات', 'تمت إعادة تحميل البيانات الافتراضية.');
+            renderAll();
+        }
+
+        function printPage() {
+            window.print();
+        }
+
+        function exportCsv() {
+            const headers = ['الكود', 'المنطقة', 'المنتج', 'القناة', 'النوع', 'النسبة', 'الحالة', 'الصلاحية', 'التعيين'];
+            const rows = getFilteredRules().map(rule => [
+                rule.id,
+                rule.region,
+                rule.product,
+                rule.channel,
+                rule.type,
+                `${rule.rate}%`,
+                rule.status,
+                `${rule.effectiveFrom} - ${rule.effectiveTo}`,
+                rule.assignedTo || '-'
+            ]);
+            const content = [headers, ...rows].map(row => row.join(',')).join('\n');
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'multiple-taxes.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+            addAudit('تصدير', 'تم تصدير البيانات بصيغة CSV.');
+        }
+
+        function copySummary() {
+            const summaryText = `شرائح نشطة: ${document.getElementById('statActive').textContent} | متوسط النسبة: ${document.getElementById('statAverage').textContent} | تضارب: ${document.getElementById('statConflicts').textContent}`;
+            navigator.clipboard.writeText(summaryText).then(() => {
+                alert('تم نسخ ملخص مركز الضرائب.');
+            });
+        }
+
+        function loadRules() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                state.rules = saved ? JSON.parse(saved) : DEFAULT_RULES.map(rule => ({ ...rule }));
+            } catch (error) {
+                state.rules = DEFAULT_RULES.map(rule => ({ ...rule }));
+            }
+        }
+
+        function saveRules() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.rules));
+        }
+
+        function loadAudit() {
+            try {
+                const saved = localStorage.getItem(AUDIT_KEY);
+                state.audit = saved ? JSON.parse(saved) : [];
+            } catch (error) {
+                state.audit = [];
+            }
+        }
+
+        function saveAudit() {
+            localStorage.setItem(AUDIT_KEY, JSON.stringify(state.audit));
+        }
+
+        function addAudit(title, detail) {
+            const timestamp = new Date().toLocaleString('en-US');
+            state.audit.unshift({ title, detail, timestamp });
+            state.audit = state.audit.slice(0, 20);
+            saveAudit();
+            renderAudit();
+        }
+
+        function clearAudit() {
+            state.audit = [];
+            saveAudit();
+            renderAudit();
+        }
+
+        function getFilteredRules() {
+            const { search, region, channel, status, minRate, maxRate, start, end } = state.filters;
+            return state.rules
+                .filter(rule => {
+                    if (search) {
+                        const haystack = `${rule.region} ${rule.product} ${rule.channel} ${rule.type} ${rule.id} ${rule.jurisdictionCode}`.toLowerCase();
+                        if (!haystack.includes(search.toLowerCase())) {
+                            return false;
+                        }
+                    }
+                    if (region && rule.region !== region) return false;
+                    if (channel && rule.channel !== channel) return false;
+                    if (status && rule.status !== status) return false;
+                    if (minRate !== '' && rule.rate < Number(minRate)) return false;
+                    if (maxRate !== '' && rule.rate > Number(maxRate)) return false;
+                    if (start && rule.effectiveFrom < start) return false;
+                    if (end && rule.effectiveTo > end) return false;
+                    return true;
+                })
+                .sort(sortRules);
+        }
+
+        function sortRules(a, b) {
+            switch (state.sort) {
+                case 'rate-desc':
+                    return b.rate - a.rate;
+                case 'rate-asc':
+                    return a.rate - b.rate;
+                case 'recent':
+                    return new Date(b.updatedAt) - new Date(a.updatedAt);
+                default:
+                    return a.priority - b.priority;
+            }
+        }
+
+        function renderTable() {
+            const table = document.getElementById('rulesTable');
+            const rules = getFilteredRules();
+            table.innerHTML = '';
+            if (!rules.length) {
+                table.innerHTML = '<tr><td colspan="10" class="text-center py-6 text-slate-400">لا توجد شرائح مطابقة للفلاتر الحالية.</td></tr>';
+                return;
+            }
+            rules.forEach(rule => {
+                const statusColor = rule.status === 'نشط' ? 'bg-emerald-100 text-emerald-700' : rule.status === 'بانتظار الموافقة' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-3 py-2 font-bold text-slate-800">${rule.id}</td>
+                    <td class="px-3 py-2">${rule.region}</td>
+                    <td class="px-3 py-2">${rule.product}</td>
+                    <td class="px-3 py-2">${rule.channel}</td>
+                    <td class="px-3 py-2">${rule.type}</td>
+                    <td class="px-3 py-2">${rule.rate}%</td>
+                    <td class="px-3 py-2">${rule.effectiveFrom} ➜ ${rule.effectiveTo}</td>
+                    <td class="px-3 py-2"><span class="badge ${statusColor}">${rule.status}</span></td>
+                    <td class="px-3 py-2">${rule.assignedTo || '-'}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2">
+                            <button data-action="assign" data-id="${rule.id}" class="px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-xs font-bold">تعيين</button>
+                            <button data-action="edit" data-id="${rule.id}" class="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">تعديل</button>
+                            <button data-action="delete" data-id="${rule.id}" class="px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold">حذف</button>
+                        </div>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+        }
+
+        function renderStats() {
+            const activeRules = state.rules.filter(rule => rule.status === 'نشط');
+            const avgRate = activeRules.length ? (activeRules.reduce((sum, rule) => sum + rule.rate, 0) / activeRules.length).toFixed(1) : '0.0';
+            const regionsCount = new Set(state.rules.map(rule => rule.region)).size;
+            const conflicts = detectConflicts();
+            const pending = state.rules.filter(rule => rule.status === 'بانتظار الموافقة').length;
+            document.getElementById('statActive').textContent = activeRules.length;
+            document.getElementById('statAverage').textContent = `${avgRate}%`;
+            document.getElementById('statRegions').textContent = regionsCount;
+            document.getElementById('statConflicts').textContent = conflicts.length;
+            document.getElementById('statPending').textContent = pending;
+            document.getElementById('statSync').textContent = new Date().toLocaleDateString('en-US');
+        }
+
+        function detectConflicts() {
+            const conflicts = [];
+            state.rules.forEach((rule, idx) => {
+                state.rules.slice(idx + 1).forEach(other => {
+                    if (rule.region === other.region && rule.product === other.product && rule.channel === other.channel) {
+                        const overlap = !(rule.effectiveTo < other.effectiveFrom || other.effectiveTo < rule.effectiveFrom);
+                        if (overlap && rule.rate !== other.rate) {
+                            conflicts.push({ rule, other });
+                        }
+                    }
+                });
+            });
+            return conflicts;
+        }
+
+        function renderConflicts() {
+            const list = document.getElementById('conflictList');
+            const conflicts = detectConflicts();
+            if (!conflicts.length) {
+                list.innerHTML = '<div class="text-emerald-700">لا يوجد تضارب حاليا.</div>';
+                return;
+            }
+            list.innerHTML = conflicts.slice(0, 4).map(conflict => `
+                <div class="bg-rose-50 p-3 rounded-xl">
+                    تضارب بين ${conflict.rule.id} و ${conflict.other.id} في ${conflict.rule.region} (${conflict.rule.product}).
+                </div>
+            `).join('');
+        }
+
+        function renderCoverage() {
+            const list = document.getElementById('coverageList');
+            const grouped = {};
+            state.rules.forEach(rule => {
+                grouped[rule.region] = (grouped[rule.region] || 0) + 1;
+            });
+            const total = state.rules.length || 1;
+            list.innerHTML = Object.entries(grouped).map(([region, count]) => {
+                const percent = Math.round((count / total) * 100);
+                return `
+                    <div>
+                        <div class="flex items-center justify-between text-xs text-slate-600 mb-1">
+                            <span>${region}</span>
+                            <span>${count} قاعدة</span>
+                        </div>
+                        <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div class="h-full bg-teal-600" style="width: ${percent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAudit() {
+            const log = document.getElementById('auditLog');
+            if (!state.audit.length) {
+                log.innerHTML = '<div class="text-slate-400">لا يوجد نشاط مسجل بعد.</div>';
+                return;
+            }
+            log.innerHTML = state.audit.map(entry => `
+                <div class="bg-slate-100 p-2 rounded-xl">
+                    <div class="font-bold text-slate-700">${entry.title}</div>
+                    <div>${entry.detail}</div>
+                    <div class="text-xs text-slate-400">${entry.timestamp}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderFilters() {
+            const regions = [''].concat([...new Set(state.rules.map(rule => rule.region))]);
+            const channels = [''].concat([...new Set(state.rules.map(rule => rule.channel))]);
+            const regionSelect = document.getElementById('filterRegion');
+            const channelSelect = document.getElementById('filterChannel');
+            regionSelect.innerHTML = regions.map(item => `<option value="${item}">${item || 'الكل'}</option>`).join('');
+            channelSelect.innerHTML = channels.map(item => `<option value="${item}">${item || 'الكل'}</option>`).join('');
+        }
+
+        function renderSimulationOptions() {
+            const regions = [...new Set(state.rules.map(rule => rule.region))];
+            const products = [...new Set(state.rules.map(rule => rule.product))];
+            const channels = [...new Set(state.rules.map(rule => rule.channel))];
+            document.getElementById('simRegion').innerHTML = regions.map(item => `<option value="${item}">${item}</option>`).join('');
+            document.getElementById('simProduct').innerHTML = products.map(item => `<option value="${item}">${item}</option>`).join('');
+            document.getElementById('simChannel').innerHTML = channels.map(item => `<option value="${item}">${item}</option>`).join('');
+        }
+
+        function renderAll() {
+            renderStats();
+            renderFilters();
+            renderTable();
+            renderConflicts();
+            renderCoverage();
+            renderAudit();
+            renderSimulationOptions();
+        }
+
+        function simulateTax() {
+            const price = Number(document.getElementById('simPrice').value || 0);
+            const qty = Number(document.getElementById('simQty').value || 0);
+            const region = document.getElementById('simRegion').value;
+            const product = document.getElementById('simProduct').value;
+            const channel = document.getElementById('simChannel').value;
+            const match = state.rules.find(rule => rule.region === region && rule.product === product && rule.channel === channel && rule.status === 'نشط');
+            const subtotal = price * qty;
+            const rate = match ? match.rate : 0;
+            const tax = subtotal * (rate / 100);
+            const total = subtotal + tax;
+            document.getElementById('simResult').innerHTML = match
+                ? `تطبيق القاعدة ${match.id}: ضريبة ${rate}% = ${tax.toFixed(2)}. الإجمالي ${total.toFixed(2)}.`
+                : 'لا توجد قاعدة مطابقة للمعايير الحالية.';
+        }
+
+        function openModal(rule = null) {
+            document.getElementById('ruleModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = rule ? `تعديل ${rule.id}` : 'إضافة شريحة';
+            document.getElementById('ruleForm').dataset.editingId = rule ? rule.id : '';
+            document.getElementById('formRegion').value = rule ? rule.region : '';
+            document.getElementById('formProduct').value = rule ? rule.product : '';
+            document.getElementById('formChannel').value = rule ? rule.channel : '';
+            document.getElementById('formType').value = rule ? rule.type : '';
+            document.getElementById('formRate').value = rule ? rule.rate : '';
+            document.getElementById('formPriority').value = rule ? rule.priority : 1;
+            document.getElementById('formStart').value = rule ? rule.effectiveFrom : '';
+            document.getElementById('formEnd').value = rule ? rule.effectiveTo : '';
+            const startVal = document.getElementById('formStart').value;
+            if (startVal) document.getElementById('formEnd').min = startVal;
+            document.getElementById('formStatus').value = rule ? rule.status : 'نشط';
+            document.getElementById('formAssigned').value = rule ? rule.assignedTo || '' : '';
+            document.getElementById('formJurisdiction').value = rule ? rule.jurisdictionCode || '' : '';
+            document.getElementById('formNotes').value = rule ? rule.notes || '' : '';
+            document.getElementById('formInclusive').checked = rule ? rule.inclusive : false;
+            document.getElementById('formCompound').checked = rule ? rule.compound : false;
+        }
+
+        function closeModal() {
+            document.getElementById('ruleModal').classList.remove('active');
+        }
+
+        function handleAssign(ruleId) {
+            const rule = state.rules.find(item => item.id === ruleId);
+            if (!rule) return;
+            const assignment = prompt('حدد الجهة أو الفرع المطلوب:', rule.assignedTo || 'الفرع الرئيسي');
+            if (assignment === null) return;
+            rule.assignedTo = assignment.trim() || 'الفرع الرئيسي';
+            rule.updatedAt = new Date().toISOString().slice(0, 10);
+            saveRules();
+            addAudit('تعيين شريحة', `تم تعيين ${rule.id} إلى ${rule.assignedTo}.`);
+            renderAll();
+        }
+
+        function handleDelete(ruleId) {
+            const rule = state.rules.find(item => item.id === ruleId);
+            if (!rule) return;
+            if (!confirm(`هل تريد حذف ${rule.id} نهائيا؟`)) return;
+            state.rules = state.rules.filter(item => item.id !== ruleId);
+            saveRules();
+            addAudit('حذف شريحة', `تم حذف ${rule.id}.`);
+            renderAll();
+        }
+
+        document.getElementById('addRuleBtn').addEventListener('click', () => openModal());
+
+        document.getElementById('rulesTable').addEventListener('click', event => {
+            const action = event.target.dataset.action;
+            const ruleId = event.target.dataset.id;
+            if (!action || !ruleId) return;
+            if (action === 'edit') {
+                const rule = state.rules.find(item => item.id === ruleId);
+                if (rule) openModal(rule);
+            }
+            if (action === 'delete') handleDelete(ruleId);
+            if (action === 'assign') handleAssign(ruleId);
+        });
+
+        document.getElementById('formStart').addEventListener('change', function () {
+            const formEnd = document.getElementById('formEnd');
+            formEnd.min = this.value;
+            if (formEnd.value && formEnd.value <= this.value) {
+                formEnd.value = '';
+                formEnd.setCustomValidity('تاريخ النهاية يجب أن يكون بعد تاريخ البداية');
+            } else {
+                formEnd.setCustomValidity('');
+            }
+        });
+
+        document.getElementById('formEnd').addEventListener('change', function () {
+            const startVal = document.getElementById('formStart').value;
+            if (startVal && this.value <= startVal) {
+                this.setCustomValidity('تاريخ النهاية يجب أن يكون بعد تاريخ البداية');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+
+        document.getElementById('ruleForm').addEventListener('submit', event => {
+            event.preventDefault();
+            const editingId = event.target.dataset.editingId;
+            const startDate = document.getElementById('formStart').value;
+            const endDate = document.getElementById('formEnd').value;
+            if (startDate && endDate && endDate <= startDate) {
+                const formEnd = document.getElementById('formEnd');
+                formEnd.setCustomValidity('تاريخ النهاية يجب أن يكون بعد تاريخ البداية');
+                formEnd.reportValidity();
+                return;
+            }
+            const newRule = {
+                id: editingId || `TX-${String(state.rules.length + 1).padStart(3, '0')}`,
+                region: document.getElementById('formRegion').value.trim(),
+                product: document.getElementById('formProduct').value.trim(),
+                channel: document.getElementById('formChannel').value.trim(),
+                type: document.getElementById('formType').value.trim(),
+                rate: Number(document.getElementById('formRate').value || 0),
+                priority: Number(document.getElementById('formPriority').value || 1),
+                status: document.getElementById('formStatus').value,
+                effectiveFrom: document.getElementById('formStart').value,
+                effectiveTo: document.getElementById('formEnd').value,
+                assignedTo: document.getElementById('formAssigned').value.trim(),
+                jurisdictionCode: document.getElementById('formJurisdiction').value.trim(),
+                notes: document.getElementById('formNotes').value.trim(),
+                inclusive: document.getElementById('formInclusive').checked,
+                compound: document.getElementById('formCompound').checked,
+                updatedAt: new Date().toISOString().slice(0, 10)
+            };
+
+            if (editingId) {
+                const index = state.rules.findIndex(item => item.id === editingId);
+                state.rules[index] = { ...state.rules[index], ...newRule };
+                addAudit('تعديل شريحة', `تم تحديث ${editingId}.`);
+            } else {
+                state.rules.unshift(newRule);
+                addAudit('إضافة شريحة', `تمت إضافة ${newRule.id}.`);
+            }
+
+            saveRules();
+            closeModal();
+            renderAll();
+        });
+
+        ['filterSearch', 'filterRegion', 'filterChannel', 'filterStatus', 'filterMinRate', 'filterMaxRate', 'filterStart', 'filterEnd'].forEach(id => {
+            document.getElementById(id).addEventListener('input', event => {
+                const keyMap = {
+                    filterSearch: 'search',
+                    filterRegion: 'region',
+                    filterChannel: 'channel',
+                    filterStatus: 'status',
+                    filterMinRate: 'minRate',
+                    filterMaxRate: 'maxRate',
+                    filterStart: 'start',
+                    filterEnd: 'end'
+                };
+                state.filters[keyMap[id]] = event.target.value;
+                renderTable();
+            });
+        });
+
+        document.getElementById('sortRules').addEventListener('change', event => {
+            state.sort = event.target.value;
+            renderTable();
+        });
+
+        loadRules();
+        loadAudit();
+        renderAll();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

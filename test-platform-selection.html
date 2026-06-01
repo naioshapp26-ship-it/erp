@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار نظام اختيار المنصات - Platform Selection Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .test-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .test-list {
+            list-style: none;
+        }
+
+        .test-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background: #f5f5f5;
+            border-left: 4px solid #ccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .test-item.pass {
+            border-left-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .test-item.fail {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .test-item.loading {
+            border-left-color: #3b82f6;
+            background: #f0f9ff;
+        }
+
+        .test-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .test-status {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .test-status.pass {
+            color: #10b981;
+        }
+
+        .test-status.fail {
+            color: #ef4444;
+        }
+
+        .test-status.loading {
+            color: #3b82f6;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #059669;
+        }
+
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .results pre {
+            background: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            color: #333;
+            line-height: 1.6;
+            border: 1px solid #e5e7eb;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-badge.pass {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.fail {
+            background: #fee2e2;
+            color: #7f1d1d;
+        }
+
+        .status-badge.loading {
+            background: #dbeafe;
+            color: #1e3a8a;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.6s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .app-link {
+            background: #764ba2;
+            color: white;
+            text-decoration: none;
+            padding: 15px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+
+        .app-link:hover {
+            background: #6a3d94;
+            transform: translateY(-2px);
+        }
+
+        .summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .summary h3 {
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-cols-3;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-box .number {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .stat-box .label {
+            font-size: 12px;
+            margin-top: 5px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 اختبار نظام اختيار المنصات</h1>
+            <p>Platform Selection System Integration Test</p>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 فحوصات النظام - System Tests</h2>
+            <ul class="test-list" id="test-list">
+                <li class="test-item loading">
+                    <span class="test-label">جاري تحميل الاختبارات...</span>
+                    <span class="test-status loading">جاري... <span class="spinner"></span></span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>⚙️ الإجراءات - Actions</h2>
+            <div class="action-buttons">
+                <button class="btn-primary" onclick="runAllTests()">
+                    🧪 تشغيل جميع الاختبارات
+                </button>
+                <button class="btn-secondary" onclick="testAPIEndpoint()">
+                    🔌 اختبار API
+                </button>
+                <button class="btn-secondary" onclick="testLocalStorage()">
+                    💾 اختبار التخزين المحلي
+                </button>
+                <button class="btn-primary" onclick="openApp()">
+                    🚀 فتح التطبيق
+                </button>
+            </div>
+
+            <a href="https://super-cmk2wuy9-production.up.railway.app" target="_blank" class="app-link">
+                ➡️ الذهاب إلى التطبيق الكامل - Go to Full Application
+            </a>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 النتائج - Results</h2>
+            <div class="results">
+                <pre id="results">الرجاء تشغيل الاختبارات أولاً...
+
+Please run tests first...</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const baseURL = 'https://super-cmk2wuy9-production.up.railway.app/api';
+        let testResults = [];
+
+        function setTestStatus(id, status, message) {
+            const item = document.querySelector(`[data-test-id="${id}"]`);
+            if (!item) return;
+
+            item.className = `test-item ${status}`;
+            item.innerHTML = `
+                <span class="test-label">${message.label}</span>
+                <span class="test-status ${status}">${message.status}</span>
+            `;
+        }
+
+        function addTest(id, label, status = 'loading') {
+            const testList = document.getElementById('test-list');
+            const item = document.createElement('li');
+            item.className = `test-item ${status}`;
+            item.setAttribute('data-test-id', id);
+            item.innerHTML = `
+                <span class="test-label">${label}</span>
+                <span class="test-status ${status}">${status === 'loading' ? 'جاري... <span class="spinner"></span>' : status}</span>
+            `;
+            if (testList.children[0].classList.contains('loading')) {
+                testList.innerHTML = '';
+            }
+            testList.appendChild(item);
+        }
+
+        async function testAPIEndpoint() {
+            console.log('🔌 اختبار API Endpoint...');
+            addTest('api-test', 'اختبار API - GET /incubators/1/platforms', 'loading');
+
+            try {
+                const res = await fetch(`${baseURL}/incubators/1/platforms`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setTestStatus('api-test', 'pass', {
+                        label: 'اختبار API - تم تحميل المنصات',
+                        status: `✅ ${data.length} منصة`
+                    });
+                    updateResults(`API Response:\n${JSON.stringify(data, null, 2)}`);
+                    testResults.push({ name: 'API Endpoint', status: 'PASS', platforms: data });
+                } else {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+            } catch (error) {
+                setTestStatus('api-test', 'fail', {
+                    label: 'اختبار API - خطأ',
+                    status: `❌ ${error.message}`
+                });
+                testResults.push({ name: 'API Endpoint', status: 'FAIL', error: error.message });
+            }
+        }
+
+        async function testLocalStorage() {
+            console.log('💾 اختبار LocalStorage...');
+            addTest('storage-test', 'اختبار التخزين المحلي - localStorage', 'loading');
+
+            try {
+                const testKey = 'nayosh_test_' + Date.now();
+                const testValue = 'test_value_' + Math.random();
+
+                localStorage.setItem(testKey, testValue);
+                const retrieved = localStorage.getItem(testKey);
+                localStorage.removeItem(testKey);
+
+                if (retrieved === testValue) {
+                    setTestStatus('storage-test', 'pass', {
+                        label: 'اختبار التخزين المحلي - نجح',
+                        status: '✅ يعمل بشكل صحيح'
+                    });
+                    testResults.push({ name: 'localStorage', status: 'PASS' });
+                } else {
+                    throw new Error('Values do not match');
+                }
+            } catch (error) {
+                setTestStatus('storage-test', 'fail', {
+                    label: 'اختبار التخزين المحلي - خطأ',
+                    status: `❌ ${error.message}`
+                });
+                testResults.push({ name: 'localStorage', status: 'FAIL', error: error.message });
+            }
+        }
+
+        async function testPlatformPersistence() {
+            console.log('📌 اختبار حفظ المنصة...');
+            addTest('persist-test', 'اختبار حفظ المنصة المختارة', 'loading');
+
+            try {
+                const platformId = 1;
+                const platformName = 'منصة التدريب المهني';
+
+                localStorage.setItem('nayosh_selected_platform', platformId);
+                localStorage.setItem('nayosh_selected_platform_name', platformName);
+
+                const savedId = localStorage.getItem('nayosh_selected_platform');
+                const savedName = localStorage.getItem('nayosh_selected_platform_name');
+
+                if (savedId === String(platformId) && savedName === platformName) {
+                    setTestStatus('persist-test', 'pass', {
+                        label: 'اختبار حفظ المنصة - نجح',
+                        status: '✅ تم حفظ بيانات المنصة'
+                    });
+                    testResults.push({ name: 'Platform Persistence', status: 'PASS' });
+                } else {
+                    throw new Error('Persistence failed');
+                }
+            } catch (error) {
+                setTestStatus('persist-test', 'fail', {
+                    label: 'اختبار حفظ المنصة - خطأ',
+                    status: `❌ ${error.message}`
+                });
+                testResults.push({ name: 'Platform Persistence', status: 'FAIL' });
+            }
+        }
+
+        async function testMultipleIncubators() {
+            console.log('🏢 اختبار حاضنات متعددة...');
+            addTest('multi-incubator', 'اختبار المنصات لجميع الحاضنات', 'loading');
+
+            try {
+                const results = [];
+                for (let id = 1; id <= 5; id++) {
+                    const res = await fetch(`${baseURL}/incubators/${id}/platforms`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        results.push(`حاضنة ${id}: ${data.length} منصة`);
+                    }
+                }
+
+                if (results.length === 5) {
+                    setTestStatus('multi-incubator', 'pass', {
+                        label: 'اختبار حاضنات متعددة - نجح',
+                        status: `✅ جميع الحاضنات متاحة`
+                    });
+                    testResults.push({ name: 'Multiple Incubators', status: 'PASS' });
+                }
+            } catch (error) {
+                setTestStatus('multi-incubator', 'fail', {
+                    label: 'اختبار حاضنات متعددة - خطأ',
+                    status: `❌ ${error.message}`
+                });
+                testResults.push({ name: 'Multiple Incubators', status: 'FAIL' });
+            }
+        }
+
+        function updateResults(text) {
+            document.getElementById('results').textContent = text;
+        }
+
+        function generateSummary() {
+            const passed = testResults.filter(t => t.status === 'PASS').length;
+            const failed = testResults.filter(t => t.status === 'FAIL').length;
+            const total = testResults.length;
+
+            let summary = `\n📊 ملخص النتائج - Summary\n`;
+            summary += `${'='.repeat(50)}\n`;
+            summary += `✅ نجح: ${passed}/${total}\n`;
+            summary += `❌ فشل: ${failed}/${total}\n`;
+            summary += `${'='.repeat(50)}\n\n`;
+
+            testResults.forEach(result => {
+                const icon = result.status === 'PASS' ? '✅' : '❌';
+                summary += `${icon} ${result.name}: ${result.status}\n`;
+            });
+
+            summary += `\n📋 تفاصيل:\n`;
+            summary += `${'='.repeat(50)}\n`;
+
+            testResults.forEach((result, idx) => {
+                summary += `${idx + 1}. ${result.name}\n`;
+                summary += `   Status: ${result.status}\n`;
+                if (result.error) {
+                    summary += `   Error: ${result.error}\n`;
+                }
+                if (result.platforms) {
+                    summary += `   Platforms: ${result.platforms.length}\n`;
+                    result.platforms.forEach(p => {
+                        summary += `      - ${p.name} (ID: ${p.id})\n`;
+                    });
+                }
+                summary += '\n';
+            });
+
+            return summary;
+        }
+
+        async function runAllTests() {
+            testResults = [];
+            document.getElementById('test-list').innerHTML = '';
+
+            console.log('🧪 تشغيل جميع الاختبارات...\n');
+
+            await testAPIEndpoint();
+            await new Promise(r => setTimeout(r, 500));
+
+            await testLocalStorage();
+            await new Promise(r => setTimeout(r, 500));
+
+            await testPlatformPersistence();
+            await new Promise(r => setTimeout(r, 500));
+
+            await testMultipleIncubators();
+            await new Promise(r => setTimeout(r, 500));
+
+            const summary = generateSummary();
+            updateResults(summary);
+
+            console.log(summary);
+        }
+
+        function openApp() {
+            window.open('https://super-cmk2wuy9-production.up.railway.app', '_blank');
+        }
+
+        // Run initial check
+        window.addEventListener('load', () => {
+            console.log('✅ اختبار التطبيق محمّل وجاهز');
+        });
+    </script>
+</body>
+</html>

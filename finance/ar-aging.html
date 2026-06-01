@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧮 أعمار الذمم المدينة - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb; /* Slate-50 */
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        .card-gradient {
+            background: #f9fafb; /* Slate-50 */
+            backdrop-filter: blur(10px);
+        }
+        .stat-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+        .table-scroll {
+            max-height: 520px;
+            overflow: auto;
+        }
+        .section-accent-sky {
+            border-top: 4px solid #0ea5e9;
+        }
+        .section-accent-teal {
+            border-top: 4px solid #14b8a6;
+        }
+        .section-accent-violet {
+            border-top: 4px solid #8b5cf6;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900">
+            <h1 class="text-4xl font-bold mb-2">🧮 أعمار الذمم المدينة</h1>
+            <p class="text-lg opacity-90">تحليل فئات الاستحقاق للأرصدة المدينة</p>
+        </div>
+
+        <div class="mb-6 flex gap-3 flex-wrap">
+            <button onclick="downloadCSV()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-blue-500 group">
+                <i class="fas fa-file-csv text-xl text-blue-600 group-hover:text-blue-700 transition"></i>
+                تنزيل ملف الجدول
+            </button>
+            <button onclick="downloadJSON()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-purple-500 group">
+                <i class="fas fa-file-code text-xl text-purple-600 group-hover:text-purple-700 transition"></i>
+                تنزيل ملف البيانات
+            </button>
+            <button onclick="printReport()" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة
+            </button>
+            <button onclick="refreshData()" class="bg-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="openAddInvoice()" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus"></i>
+                إضافة فاتورة ذمم
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-file-invoice text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">عدد الفواتير</span>
+                </div>
+                <div id="totalInvoices" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-purple-500 to-fuchsia-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-coins text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المبلغ</span>
+                </div>
+                <div id="totalAmount" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-hand-holding-dollar text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المدفوع</span>
+                </div>
+                <div id="totalPaid" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="stat-card bg-gradient-to-br from-violet-500 to-purple-700 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <i class="fas fa-hourglass-half text-4xl opacity-70"></i>
+                    <span class="text-sm opacity-90">إجمالي المتبقي</span>
+                </div>
+                <div id="totalRemaining" class="text-4xl font-bold">
+                    <div class="animate-pulse">جاري التحميل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h3 class="text-lg font-bold text-gray-800">🔎 فلاتر البحث</h3>
+                <button onclick="resetFilters()" class="text-sm text-sky-700 hover:text-sky-900 font-semibold">إعادة ضبط الفلاتر</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">رقم الفاتورة</label>
+                    <input id="invoiceNumber" type="text" placeholder="فاتورة-0001" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">اسم العميل</label>
+                    <input id="customerName" type="text" placeholder="اسم العميل" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">كود العميل</label>
+                    <input id="customerCode" type="text" placeholder="عميل-0001" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">حالة الفاتورة</label>
+                    <input id="status" type="text" placeholder="متأخرة / مصدرة" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">فئة العمر</label>
+                    <input id="agingCategory" type="text" placeholder="1-30 يوم" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 outline-none" oninput="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">من تاريخ الفاتورة</label>
+                    <input id="fromDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 outline-none" onchange="applyFilters()">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">إلى تاريخ الفاتورة</label>
+                    <input id="toDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 outline-none" onchange="applyFilters()">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card-gradient rounded-2xl shadow-2xl p-6 section-accent-teal">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📊 توزيع الفئات</h3>
+                <div class="chart-container">
+                    <canvas id="bucketChart"></canvas>
+                </div>
+            </div>
+            <div class="card-gradient rounded-2xl shadow-2xl p-6 section-accent-violet">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📈 حالات الفواتير</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl p-6 mb-8 section-accent-sky">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">💡 ملخص سريع</h3>
+            <div id="infoPanel" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="animate-pulse text-gray-500">جاري التحميل...</div>
+            </div>
+        </div>
+
+        <div class="card-gradient rounded-2xl shadow-2xl overflow-hidden section-accent-sky">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">📋 جدول أعمار الذمم</h3>
+                    <span id="rowsCount" class="text-sm text-gray-600"></span>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 text-slate-700 text-xs">
+                            <tr>
+                                <th class="px-3 py-2 text-right">معرّف الفاتورة</th>
+                                <th class="px-3 py-2 text-right">رقم الفاتورة</th>
+                                <th class="px-3 py-2 text-right">تاريخ الفاتورة</th>
+                                <th class="px-3 py-2 text-right">تاريخ الاستحقاق</th>
+                                <th class="px-3 py-2 text-right">رقم العميل</th>
+                                <th class="px-3 py-2 text-right">كود العميل</th>
+                                <th class="px-3 py-2 text-right">اسم العميل (عربي)</th>
+                                <th class="px-3 py-2 text-right">اسم العميل (إنجليزي)</th>
+                                <th class="px-3 py-2 text-right">نوع العميل</th>
+                                <th class="px-3 py-2 text-right">إجمالي الفاتورة</th>
+                                <th class="px-3 py-2 text-right">المدفوع</th>
+                                <th class="px-3 py-2 text-right">المتبقي</th>
+                                <th class="px-3 py-2 text-right">حالة الفاتورة</th>
+                                <th class="px-3 py-2 text-right">حالة السداد</th>
+                                <th class="px-3 py-2 text-right">أيام التأخير</th>
+                                <th class="px-3 py-2 text-right">فئة العمر</th>
+                                <th class="px-3 py-2 text-right">نوع الكيان</th>
+                                <th class="px-3 py-2 text-right">معرّف الكيان</th>
+                                <th class="px-3 py-2 text-right">الفرع</th>
+                                <th class="px-3 py-2 text-right">الحاضنة</th>
+                                <th class="px-3 py-2 text-right">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agingTable" class="text-xs divide-y divide-gray-100">
+                            <tr>
+                                <td colspan="21" class="px-4 py-12 text-center text-gray-500">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-3 opacity-30"></i>
+                                    <div>جاري تحميل البيانات...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <datalist id="status-options">
+            <option value="مصدرة"></option>
+            <option value="مدفوعة جزئياً"></option>
+            <option value="متأخرة"></option>
+            <option value="مسودة"></option>
+            <option value="ملغاة"></option>
+            <option value="مدفوعة"></option>
+        </datalist>
+        <datalist id="payment-status-options">
+            <option value="غير مدفوعة"></option>
+            <option value="مدفوعة جزئياً"></option>
+            <option value="مدفوعة"></option>
+        </datalist>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        let rows = [];
+        let customers = [];
+        const STATUS_LABELS = {
+            ISSUED: 'مصدرة',
+            PARTIAL: 'مدفوعة جزئياً',
+            OVERDUE: 'متأخرة',
+            DRAFT: 'مسودة',
+            CANCELLED: 'ملغاة',
+            PAID: 'مدفوعة'
+        };
+        const PAYMENT_STATUS_LABELS = {
+            UNPAID: 'غير مدفوعة',
+            PARTIAL: 'مدفوعة جزئياً',
+            PAID: 'مدفوعة'
+        };
+        const AGING_LABELS = {
+            CURRENT: 'غير مستحقة',
+            '1-30_DAYS': '1-30 يوم',
+            '31-60_DAYS': '31-60 يوم',
+            '61-90_DAYS': '61-90 يوم',
+            OVER_90_DAYS: 'أكثر من 90 يوم'
+        };
+        const STATUS_VALUE_MAP = {
+            'مصدرة': 'ISSUED',
+            'مدفوعة جزئياً': 'PARTIAL',
+            'مدفوعة جزئيا': 'PARTIAL',
+            'متأخرة': 'OVERDUE',
+            'مسودة': 'DRAFT',
+            'ملغاة': 'CANCELLED',
+            'مدفوعة': 'PAID'
+        };
+        const AGING_VALUE_MAP = {
+            'غير مستحقة': 'CURRENT',
+            '1-30 يوم': '1-30_DAYS',
+            '31-60 يوم': '31-60_DAYS',
+            '61-90 يوم': '61-90_DAYS',
+            'أكثر من 90 يوم': 'OVER_90_DAYS'
+        };
+        const PAYMENT_STATUS_VALUE_MAP = {
+            'غير مدفوعة': 'UNPAID',
+            'مدفوعة جزئياً': 'PARTIAL',
+            'مدفوعة جزئيا': 'PARTIAL',
+            'مدفوعة': 'PAID'
+        };
+        let bucketChartInstance = null;
+        let statusChartInstance = null;
+
+        function translateStatus(value) {
+            if (!value) return '-';
+            const key = String(value).toUpperCase();
+            return STATUS_LABELS[key] || value;
+        }
+
+        function translatePaymentStatus(value) {
+            if (!value) return '-';
+            const key = String(value).toUpperCase();
+            return PAYMENT_STATUS_LABELS[key] || value;
+        }
+
+        function translateAging(value) {
+            if (!value) return '-';
+            const key = String(value).toUpperCase();
+            return AGING_LABELS[key] || value;
+        }
+
+        function normalizeStatus(value) {
+            if (!value) return value;
+            const trimmed = String(value).trim();
+            return STATUS_VALUE_MAP[trimmed] || trimmed;
+        }
+
+        function normalizeAging(value) {
+            if (!value) return value;
+            const trimmed = String(value).trim();
+            return AGING_VALUE_MAP[trimmed] || trimmed;
+        }
+
+        function normalizePaymentStatus(value) {
+            if (!value) return value;
+            const trimmed = String(value).trim();
+            return PAYMENT_STATUS_VALUE_MAP[trimmed] || trimmed;
+        }
+
+        async function loadCustomers() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/customers?entity_id=${ENTITY_ID}` , {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await response.json();
+                customers = data.customers || [];
+            } catch (error) {
+                console.error('❌ خطأ في تحميل العملاء:', error);
+                customers = [];
+            }
+        }
+
+        async function loadReport() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/ar-aging?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await response.json();
+
+                if (!data.success) throw new Error(data.error || 'تعذر تحميل التقرير');
+
+                rows = data.rows || [];
+                renderSummary(data.summary || {});
+                renderTable(rows);
+                renderCharts(data.summary || {});
+                renderInfo(data.summary || {});
+            } catch (error) {
+                console.error('❌ خطأ في تحميل التقرير:', error);
+                document.getElementById('agingTable').innerHTML = `
+                    <tr>
+                        <td colspan="21" class="px-4 py-12 text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+                            <div>فشل تحميل بيانات الذمم</div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function applyFilters() {
+            const params = new URLSearchParams({ entity_id: ENTITY_ID });
+            const status = normalizeStatus(document.getElementById('status').value);
+            const agingCategory = normalizeAging(document.getElementById('agingCategory').value);
+            const invoiceNumber = document.getElementById('invoiceNumber').value;
+            const customerName = document.getElementById('customerName').value;
+            const customerCode = document.getElementById('customerCode').value;
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+
+            if (status) params.append('status', status);
+            if (agingCategory) params.append('aging_category', agingCategory);
+            if (invoiceNumber) params.append('invoice_number', invoiceNumber);
+            if (customerName) params.append('customer_name', customerName);
+            if (customerCode) params.append('customer_code', customerCode);
+            if (fromDate) params.append('from_date', fromDate);
+            if (toDate) params.append('to_date', toDate);
+
+            fetch(`${API_BASE}/finance/ar-aging?${params.toString()}`, {
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'تعذر تحميل التقرير');
+                    rows = data.rows || [];
+                    renderSummary(data.summary || {});
+                    renderTable(rows);
+                    renderCharts(data.summary || {});
+                    renderInfo(data.summary || {});
+                })
+                .catch(err => console.error('❌', err));
+        }
+
+        function resetFilters() {
+            document.getElementById('invoiceNumber').value = '';
+            document.getElementById('customerName').value = '';
+            document.getElementById('customerCode').value = '';
+            document.getElementById('status').value = '';
+            document.getElementById('agingCategory').value = '';
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            applyFilters();
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('totalInvoices').textContent = summary.total_invoices ?? 0;
+            document.getElementById('totalAmount').textContent = formatMoney(summary.total_amount || 0);
+            document.getElementById('totalPaid').textContent = formatMoney(summary.total_paid || 0);
+            document.getElementById('totalRemaining').textContent = formatMoney(summary.total_remaining || 0);
+        }
+
+        function renderTable(rowsData) {
+            const body = rowsData.map(r => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-3 py-2">${r.invoice_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.invoice_number ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.invoice_date)}</td>
+                    <td class="px-3 py-2">${formatDate(r.due_date)}</td>
+                    <td class="px-3 py-2">${r.customer_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_code ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_name_ar ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_name_en ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_type ?? '-'}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(r.total_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.paid_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(r.remaining_amount)}</td>
+                    <td class="px-3 py-2">${translateStatus(r.status)}</td>
+                    <td class="px-3 py-2">${translatePaymentStatus(r.payment_status)}</td>
+                    <td class="px-3 py-2">${r.days_overdue ?? '-'}</td>
+                    <td class="px-3 py-2">${translateAging(r.aging_category)}</td>
+                    <td class="px-3 py-2">${r.entity_type ?? '-'}</td>
+                    <td class="px-3 py-2">${r.entity_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.branch_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.incubator_id ?? '-'}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex gap-2">
+                            <button onclick="openViewInvoice(${r.invoice_id})" class="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition shadow-md font-semibold" title="معاينة">
+                                <i class="fas fa-eye text-lg"></i>
+                            </button>
+                            <button onclick="openEditInvoice(${r.invoice_id})" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="تعديل">
+                                <i class="fas fa-pen text-lg"></i>
+                            </button>
+                            <button onclick="deleteInvoice(${r.invoice_id})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف">
+                                <i class="fas fa-trash text-lg"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('agingTable').innerHTML = body.length ? body : `
+                <tr>
+                    <td colspan="21" class="px-4 py-12 text-center text-gray-500">لا توجد بيانات</td>
+                </tr>
+            `;
+            document.getElementById('rowsCount').textContent = `عدد الصفوف: ${rowsData.length}`;
+        }
+
+        function buildCustomerOptions(selectedId) {
+            if (!customers.length) {
+                return '<option value="">لا توجد بيانات عملاء</option>';
+            }
+            return customers.map(c => `
+                <option value="${c.customer_id}" ${String(c.customer_id) === String(selectedId) ? 'selected' : ''}>
+                    ${c.customer_name_ar} - ${c.customer_code}
+                </option>
+            `).join('');
+        }
+
+        function openAddInvoice() {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-6">
+                    <div class="p-5 border-b flex items-center justify-between">
+                        <h3 class="font-bold text-lg">إضافة فاتورة ذمم</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+                    </div>
+                    <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <label class="block mb-1 text-gray-600">العميل</label>
+                            <select id="add-customer-id" class="w-full border rounded-lg px-3 py-2">
+                                ${buildCustomerOptions()}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">تاريخ الفاتورة</label>
+                            <input id="add-invoice-date" type="date" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">تاريخ الاستحقاق</label>
+                            <input id="add-due-date" type="date" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">إجمالي الفاتورة</label>
+                            <input id="add-total-amount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">المدفوع</label>
+                            <input id="add-paid-amount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" value="0">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">حالة الفاتورة</label>
+                            <input id="add-status" type="text" class="w-full border rounded-lg px-3 py-2" list="status-options" placeholder="مصدرة / متأخرة">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">حالة السداد</label>
+                            <input id="add-payment-status" type="text" class="w-full border rounded-lg px-3 py-2" list="payment-status-options" placeholder="غير مدفوعة / مدفوعة جزئياً">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block mb-1 text-gray-600">ملاحظات</label>
+                            <textarea id="add-notes" class="w-full border rounded-lg px-3 py-2" rows="2"></textarea>
+                        </div>
+                        <div class="md:col-span-2 border-t border-slate-200 pt-3">
+                            <div class="text-sm font-semibold text-gray-700 mb-2">بيانات العنوان</div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block mb-1 text-gray-600">اسم الشارع</label>
+                                    <input id="add-invoice-street" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم الشارع">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-gray-600">الرمز البريدي</label>
+                                    <input id="add-invoice-postal" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز البريدي">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-gray-600">رقم المبنى</label>
+                                    <input id="add-invoice-building" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="رقم المبنى">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                <div>
+                                    <label class="block mb-1 text-gray-600">اسم المدينة</label>
+                                    <input id="add-invoice-city" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المدينة">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-gray-600">اسم المنطقة</label>
+                                    <input id="add-invoice-district" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="المنطقة">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-gray-600">الرمز الوطني</label>
+                                    <input id="add-invoice-national" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="الرمز الوطني">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                <div>
+                                    <label class="block mb-1 text-gray-600">العنوان المختصر</label>
+                                    <input id="add-invoice-short" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="العنوان المختصر">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5 border-t flex items-center justify-end gap-2">
+                        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                        <button onclick="submitAddInvoice()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white">حفظ</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function openViewInvoice(invoiceId) {
+            const invoice = rows.find(r => r.invoice_id === invoiceId);
+            if (!invoice) return;
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+            const details = [
+                ['رقم الفاتورة', invoice.invoice_number],
+                ['تاريخ الفاتورة', formatDate(invoice.invoice_date)],
+                ['تاريخ الاستحقاق', formatDate(invoice.due_date)],
+                ['اسم العميل', invoice.customer_name_ar],
+                ['إجمالي الفاتورة', formatMoney(invoice.total_amount)],
+                ['المدفوع', formatMoney(invoice.paid_amount)],
+                ['المتبقي', formatMoney(invoice.remaining_amount)],
+                ['حالة الفاتورة', translateStatus(invoice.status)],
+                ['حالة السداد', translatePaymentStatus(invoice.payment_status)],
+                ['فئة العمر', translateAging(invoice.aging_category)],
+                ['أيام التأخير', invoice.days_overdue ?? '-']
+            ];
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl my-6">
+                    <div class="p-5 border-b flex items-center justify-between">
+                        <h3 class="font-bold text-lg">تفاصيل الفاتورة</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+                    </div>
+                    <div class="p-5 space-y-2 text-sm">
+                        ${details.map(([label, value]) => `
+                            <div class="flex items-center justify-between border-b pb-2">
+                                <span class="font-semibold text-gray-700">${label}</span>
+                                <span class="text-gray-900">${value ?? '-'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function openEditInvoice(invoiceId) {
+            const invoice = rows.find(r => r.invoice_id === invoiceId);
+            if (!invoice) return;
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-6">
+                    <div class="p-5 border-b flex items-center justify-between">
+                        <h3 class="font-bold text-lg">تعديل فاتورة ذمم</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="text-slate-800 hover:text-red-600 font-bold"><i class="fas fa-times text-2xl"></i></button>
+                    </div>
+                    <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <label class="block mb-1 text-gray-600">تاريخ الفاتورة</label>
+                            <input id="edit-invoice-date" type="date" class="w-full border rounded-lg px-3 py-2" value="${invoice.invoice_date ? new Date(invoice.invoice_date).toISOString().slice(0,10) : ''}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">تاريخ الاستحقاق</label>
+                            <input id="edit-due-date" type="date" class="w-full border rounded-lg px-3 py-2" value="${invoice.due_date ? new Date(invoice.due_date).toISOString().slice(0,10) : ''}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">إجمالي الفاتورة</label>
+                            <input id="edit-total-amount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" value="${invoice.total_amount ?? 0}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">المدفوع</label>
+                            <input id="edit-paid-amount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" value="${invoice.paid_amount ?? 0}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">حالة الفاتورة</label>
+                            <input id="edit-status" type="text" class="w-full border rounded-lg px-3 py-2" list="status-options" value="${translateStatus(invoice.status)}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-gray-600">حالة السداد</label>
+                            <input id="edit-payment-status" type="text" class="w-full border rounded-lg px-3 py-2" list="payment-status-options" value="${translatePaymentStatus(invoice.payment_status)}">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block mb-1 text-gray-600">ملاحظات</label>
+                            <textarea id="edit-notes" class="w-full border rounded-lg px-3 py-2" rows="2">${invoice.notes ?? ''}</textarea>
+                        </div>
+                        <div class="md:col-span-2 border-t border-slate-200 pt-3">
+                            <div class="text-sm font-semibold text-gray-700 mb-2">بيانات العنوان</div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block mb-1 text-gray-600">اسم الشارع</label>
+                                    <input id="edit-invoice-street" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.street_name || ''}">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-gray-600">الرمز البريدي</label>
+                                    <input id="edit-invoice-postal" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.postal_code || ''}">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-gray-600">رقم المبنى</label>
+                                    <input id="edit-invoice-building" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.building_number || ''}">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                <div>
+                                    <label class="block mb-1 text-gray-600">اسم المدينة</label>
+                                    <input id="edit-invoice-city" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.city || ''}">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-gray-600">اسم المنطقة</label>
+                                    <input id="edit-invoice-district" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.district || ''}">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-gray-600">الرمز الوطني</label>
+                                    <input id="edit-invoice-national" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.national_address_number || ''}">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                                <div>
+                                    <label class="block mb-1 text-gray-600">العنوان المختصر</label>
+                                    <input id="edit-invoice-short" type="text" class="w-full border rounded-lg px-3 py-2" value="${invoice.short_address || ''}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-5 border-t flex items-center justify-end gap-2">
+                        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                        <button onclick="submitEditInvoice(${invoiceId})" class="px-4 py-2 rounded-lg bg-indigo-600 text-white">حفظ</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function submitAddInvoice() {
+            const customerIdValue = document.getElementById('add-customer-id').value;
+            const invoiceDateValue = document.getElementById('add-invoice-date').value;
+            const dueDateValue = document.getElementById('add-due-date').value;
+            const totalValue = parseFloat(document.getElementById('add-total-amount').value || 0);
+            const paidValue = parseFloat(document.getElementById('add-paid-amount').value || 0);
+
+            if (!customerIdValue) {
+                alert('اختر العميل أولاً');
+                return;
+            }
+            if (!invoiceDateValue || !dueDateValue) {
+                alert('أدخل تاريخ الفاتورة وتاريخ الاستحقاق');
+                return;
+            }
+            if (!Number.isFinite(totalValue) || totalValue <= 0) {
+                alert('إجمالي الفاتورة يجب أن يكون أكبر من صفر');
+                return;
+            }
+            if (!Number.isFinite(paidValue) || paidValue < 0) {
+                alert('قيمة المدفوع غير صحيحة');
+                return;
+            }
+            if (paidValue >= totalValue) {
+                alert('قيمة المدفوع يجب أن تكون أقل من الإجمالي ليظهر في جدول أعمار الذمم');
+                return;
+            }
+
+            const payload = {
+                customer_id: Number(customerIdValue),
+                invoice_date: invoiceDateValue,
+                due_date: dueDateValue,
+                total_amount: totalValue,
+                paid_amount: paidValue,
+                status: normalizeStatus(document.getElementById('add-status').value),
+                payment_status: normalizePaymentStatus(document.getElementById('add-payment-status').value),
+                entity_id: ENTITY_ID,
+                notes: document.getElementById('add-notes').value,
+                street_name: document.getElementById('add-invoice-street').value,
+                postal_code: document.getElementById('add-invoice-postal').value,
+                building_number: document.getElementById('add-invoice-building').value,
+                city: document.getElementById('add-invoice-city').value,
+                district: document.getElementById('add-invoice-district').value,
+                national_address_number: document.getElementById('add-invoice-national').value,
+                short_address: document.getElementById('add-invoice-short').value,
+                created_by: 'لوحة التحكم'
+            };
+
+            const res = await fetch(`${API_BASE}/finance/ar-aging/invoices`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                document.querySelector('.fixed')?.remove();
+                await loadReport();
+            } else {
+                let message = 'تعذر إضافة الفاتورة';
+                try {
+                    const data = await res.json();
+                    if (data && data.error) message = data.error;
+                } catch (e) {
+                    // ignore
+                }
+                alert(message);
+            }
+        }
+
+        async function submitEditInvoice(invoiceId) {
+            const payload = {
+                invoice_date: document.getElementById('edit-invoice-date').value,
+                due_date: document.getElementById('edit-due-date').value,
+                total_amount: parseFloat(document.getElementById('edit-total-amount').value || 0),
+                paid_amount: parseFloat(document.getElementById('edit-paid-amount').value || 0),
+                status: normalizeStatus(document.getElementById('edit-status').value),
+                payment_status: normalizePaymentStatus(document.getElementById('edit-payment-status').value),
+                notes: document.getElementById('edit-notes').value,
+                street_name: document.getElementById('edit-invoice-street').value,
+                postal_code: document.getElementById('edit-invoice-postal').value,
+                building_number: document.getElementById('edit-invoice-building').value,
+                city: document.getElementById('edit-invoice-city').value,
+                district: document.getElementById('edit-invoice-district').value,
+                national_address_number: document.getElementById('edit-invoice-national').value,
+                short_address: document.getElementById('edit-invoice-short').value
+            };
+
+            const res = await fetch(`${API_BASE}/finance/ar-aging/invoices/${invoiceId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                document.querySelector('.fixed')?.remove();
+                await loadReport();
+            } else {
+                let message = 'تعذر تحديث الفاتورة';
+                try {
+                    const data = await res.json();
+                    if (data && data.error) message = data.error;
+                } catch (e) {
+                    // ignore
+                }
+                alert(message);
+            }
+        }
+
+        async function deleteInvoice(invoiceId) {
+            if (!confirm('هل تريد حذف هذه الفاتورة؟')) return;
+            const res = await fetch(`${API_BASE}/finance/ar-aging/invoices/${invoiceId}`, {
+                method: 'DELETE',
+                headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+            });
+
+            if (res.ok) {
+                await loadReport();
+            } else {
+                let message = 'تعذر حذف الفاتورة';
+                try {
+                    const data = await res.json();
+                    if (data && data.error) message = data.error;
+                } catch (e) {
+                    // ignore
+                }
+                alert(message);
+            }
+        }
+
+        function renderCharts(summary) {
+            const bucketData = summary.by_bucket || {};
+            const bucketKeys = Object.keys(bucketData);
+            const bucketLabels = bucketKeys.map(k => translateAging(k));
+            const bucketValues = bucketKeys.map(k => bucketData[k]);
+
+            const bucketCtx = document.getElementById('bucketChart').getContext('2d');
+            if (bucketChartInstance) bucketChartInstance.destroy();
+            bucketChartInstance = new Chart(bucketCtx, {
+                type: 'bar',
+                data: {
+                    labels: bucketLabels.length ? bucketLabels : ['لا يوجد'],
+                    datasets: [{
+                        label: 'المتبقي',
+                        data: bucketValues.length ? bucketValues : [0],
+                        backgroundColor: 'rgba(14, 165, 233, 0.7)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const statusData = summary.by_status || {};
+            const statusKeys = Object.keys(statusData);
+            const statusLabels = statusKeys.map(k => translateStatus(k));
+            const statusValues = statusKeys.map(k => statusData[k]);
+
+            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            if (statusChartInstance) statusChartInstance.destroy();
+            statusChartInstance = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: statusLabels.length ? statusLabels : ['لا يوجد'],
+                    datasets: [{
+                        data: statusValues.length ? statusValues : [1],
+                        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444', '#8b5cf6']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString('en-US');
+        }
+
+        function downloadCSV() {
+            const csvRows = [
+                ['معرّف الفاتورة','رقم الفاتورة','تاريخ الفاتورة','تاريخ الاستحقاق','رقم العميل','كود العميل','اسم العميل (عربي)','اسم العميل (إنجليزي)','نوع العميل','إجمالي الفاتورة','المدفوع','المتبقي','حالة الفاتورة','حالة السداد','أيام التأخير','فئة العمر','نوع الكيان','معرّف الكيان','الفرع','الحاضنة']
+            ];
+            rows.forEach(r => csvRows.push([
+                r.invoice_id, r.invoice_number, r.invoice_date, r.due_date, r.customer_id, r.customer_code,
+                r.customer_name_ar, r.customer_name_en, r.customer_type, r.total_amount, r.paid_amount, r.remaining_amount,
+                translateStatus(r.status), translatePaymentStatus(r.payment_status), r.days_overdue, translateAging(r.aging_category),
+                r.entity_type, r.entity_id, r.branch_id, r.incubator_id
+            ]));
+            const csvContent = csvRows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'تقرير-اعمار-الذمم-المدينة.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadJSON() {
+            const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'تقرير-اعمار-الذمم-المدينة.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function renderInfo(summary) {
+            document.getElementById('infoPanel').innerHTML = `
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-database text-sky-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">الكيان</div>
+                        <div class="font-bold">${summary.entity_id ?? '-'}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-clock text-sky-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">آخر تحديث</div>
+                        <div class="font-bold">${summary.generated_at ? formatDateTime(summary.generated_at) : '-'}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-hourglass-half text-sky-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">إجمالي المتبقي</div>
+                        <div class="font-bold">${formatMoney(summary.total_remaining || 0)}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <i class="fas fa-file-invoice text-sky-600 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-600">عدد الفواتير</div>
+                        <div class="font-bold">${summary.total_invoices ?? 0}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function refreshData() {
+            loadReport();
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadCustomers();
+            await loadReport();
+        });
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة الابتكارات</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0b1220;
+      --muted: #6b7280;
+      --indigo: #4338ca;
+      --sky: #0ea5e9;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --line: #e5e7eb;
+      --card: #ffffff;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(67, 56, 202, 0.16), transparent 46%),
+        radial-gradient(circle at 88% 14%, rgba(14, 165, 233, 0.18), transparent 42%),
+        linear-gradient(180deg, #f8fafc 0%, #f1f5f9 60%, #eef2ff 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 22px;
+      box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 16px;
+    }
+
+    .panel-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 18px;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 18px 30px -18px rgba(15, 23, 42, 0.6);
+      display: none;
+      z-index: 50;
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div class="max-w-2xl">
+        <span class="chip bg-white text-slate-700 border border-slate-200">ثقافة الابتكار</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">إدارة الابتكارات</h1>
+        <p class="text-slate-600">منصة استراتيجية لتحويل أفكار الموظفين إلى مشاريع تطوير قابلة للتنفيذ.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="printReportBtn" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-print"></i>
+          طباعة تقرير الابتكار
+        </button>
+        <button id="addIdeaBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة فكرة جديدة
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">إجمالي الأفكار المقدمة</div>
+        <div id="totalIdeas" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">مجموع المبادرات</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">الأفكار المعتمدة</div>
+        <div id="approvedIdeas" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-emerald-600 mt-1">جاهزة للتنفيذ</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">قيد المراجعة</div>
+        <div id="reviewIdeas" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-amber-600 mt-1">تحت التقييم</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">الأفكار المنفذة</div>
+        <div id="implementedIdeas" class="text-3xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">تم التنفيذ</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">نسبة التحسن الناتجة</div>
+        <div id="improvementRate" class="text-3xl font-extrabold mt-2">0%</div>
+        <div class="text-xs text-slate-500 mt-1">أثر الابتكار</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="panel-card">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">الأقسام الأكثر ابتكارًا</h2>
+          <span class="chip bg-indigo-100 text-indigo-700">Top 4</span>
+        </div>
+        <div id="topDepartments" class="mt-4 space-y-3 text-sm"></div>
+      </div>
+      <div class="panel-card">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">أفضل المبتكرين</h2>
+          <span class="chip bg-emerald-100 text-emerald-700">الأكثر تأثيرًا</span>
+        </div>
+        <div id="topInnovators" class="mt-4 space-y-3 text-sm"></div>
+      </div>
+      <div class="panel-card">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">تصنيف الأفكار حسب التأثير</h2>
+          <span class="chip bg-sky-100 text-sky-700">حسب الأثر</span>
+        </div>
+        <div id="impactBuckets" class="mt-4 flex flex-wrap gap-2"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="panel-card">
+        <h2 class="text-lg font-bold">الأثر المالي المتوقع</h2>
+        <p class="text-sm text-slate-500">تقدير القيمة المالية الإجمالية للأفكار الحالية.</p>
+        <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div class="border border-slate-200 rounded-2xl p-3 bg-white">
+            <div class="text-slate-500">الإجمالي المتوقع</div>
+            <div id="totalImpact" class="text-2xl font-extrabold mt-2">0</div>
+          </div>
+          <div class="border border-slate-200 rounded-2xl p-3 bg-white">
+            <div class="text-slate-500">متوسط التأثير للفكرة</div>
+            <div id="avgImpact" class="text-2xl font-extrabold mt-2">0</div>
+          </div>
+          <div class="border border-slate-200 rounded-2xl p-3 bg-white col-span-2">
+            <div class="text-slate-500">أعلى فكرة تأثيرًا</div>
+            <div id="topImpactIdea" class="text-xl font-extrabold mt-2">-</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-card">
+        <h2 class="text-lg font-bold">سجل تطوير الأفكار</h2>
+        <p class="text-sm text-slate-500">آخر التحديثات على مسار الابتكار.</p>
+        <div id="recentHistory" class="mt-4 space-y-3 text-sm"></div>
+      </div>
+    </div>
+
+    <div class="glass p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">جدول إدارة الابتكارات</h2>
+          <p class="text-sm text-slate-500">متابعة الأفكار من لحظة التقديم حتى التحويل لخطة تنفيذ.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث بالعنوان أو صاحب الفكرة" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-60">
+          </div>
+          <select id="statusFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل الحالات</option>
+            <option value="جديدة">جديدة</option>
+            <option value="قيد التقييم">قيد التقييم</option>
+            <option value="معتمدة">معتمدة</option>
+            <option value="منفذة">منفذة</option>
+            <option value="مرفوضة">مرفوضة</option>
+          </select>
+          <select id="typeFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل الأنواع</option>
+          </select>
+          <select id="impactFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل التأثيرات</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4 overflow-x-auto">
+        <table class="min-w-[1100px] w-full text-sm">
+          <thead class="bg-slate-50 text-xs font-bold text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-right">صاحب الفكرة</th>
+              <th class="px-4 py-3 text-right">عنوان الفكرة</th>
+              <th class="px-4 py-3 text-right">القسم</th>
+              <th class="px-4 py-3 text-right">نوع الابتكار</th>
+              <th class="px-4 py-3 text-right">التأثير المتوقع</th>
+              <th class="px-4 py-3 text-right">الحالة</th>
+              <th class="px-4 py-3 text-right">تاريخ التقديم</th>
+              <th class="px-4 py-3 text-right">تقييم الفكرة</th>
+              <th class="px-4 py-3 text-right">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة للبحث.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ideaModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center z-40">
+    <div class="bg-white rounded-2xl border border-slate-200 w-[92%] max-w-3xl p-0 overflow-hidden">
+      <div class="max-h-[85vh] overflow-y-auto p-6">
+      <div class="flex items-center justify-between">
+        <h3 id="ideaModalTitle" class="text-xl font-extrabold">إضافة فكرة جديدة</h3>
+        <button id="closeModalBtn" class="text-slate-500"><i class="fas fa-xmark"></i></button>
+      </div>
+      <p id="ideaModalHint" class="text-sm text-slate-500 mt-1">أدخل تفاصيل الفكرة لتقييمها بشكل دقيق.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label class="text-sm text-slate-600">صاحب الفكرة</label>
+          <input id="ideaOwnerInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: لينا خالد">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">عنوان الفكرة</label>
+          <input id="ideaTitleInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: أتمتة التحقق من الساعات">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">القسم</label>
+          <input id="ideaDepartmentInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: العمليات">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">نوع الابتكار</label>
+          <select id="ideaTypeInput" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+            <option>تشغيلي</option>
+            <option>إداري</option>
+            <option>تقني</option>
+            <option>توفير تكلفة</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">التأثير المتوقع</label>
+          <select id="ideaImpactInput" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+            <option>رفع الإنتاجية</option>
+            <option>خفض التكلفة</option>
+            <option>زيادة الإيرادات</option>
+            <option>تحسين تجربة العميل</option>
+            <option>خفض الوقت التشغيلي</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">الحالة</label>
+          <select id="ideaStatusInput" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+            <option>جديدة</option>
+            <option>قيد التقييم</option>
+            <option>معتمدة</option>
+            <option>منفذة</option>
+            <option>مرفوضة</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">تاريخ التقديم</label>
+          <input id="ideaDateInput" type="date" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">تقييم الإدارة</label>
+          <input id="ideaRatingInput" type="number" step="0.1" min="0" max="5" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 4.2">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">الأثر المالي المتوقع</label>
+          <input id="ideaFinancialInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 1500000">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">عدد الأصوات</label>
+          <input id="ideaVotesInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 40">
+        </div>
+      </div>
+      <div class="mt-4">
+        <label class="text-sm text-slate-600">سجل تطوير الفكرة</label>
+        <textarea id="ideaHistoryInput" rows="3" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="أضف ملاحظة تطوير واحدة مختصرة"></textarea>
+      </div>
+      <div id="ideaHistoryList" class="mt-4 space-y-2 text-sm"></div>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button id="saveIdeaBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-check"></i>
+          حفظ الفكرة
+        </button>
+        <button id="cancelIdeaBtn" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">تم حفظ الفكرة بنجاح.</div>
+
+  <script>
+    const apiBase = '/api/hr-innovation-ideas';
+    const ratingMax = 5;
+     let ideas = [];
+     let currentMode = 'add';
+     let currentEditId = null;
+
+     const searchInput = document.getElementById('searchInput');
+     const statusFilter = document.getElementById('statusFilter');
+     const typeFilter = document.getElementById('typeFilter');
+     const impactFilter = document.getElementById('impactFilter');
+     const tableBody = document.getElementById('tableBody');
+     const emptyState = document.getElementById('emptyState');
+     const totalIdeas = document.getElementById('totalIdeas');
+     const approvedIdeas = document.getElementById('approvedIdeas');
+     const reviewIdeas = document.getElementById('reviewIdeas');
+     const implementedIdeas = document.getElementById('implementedIdeas');
+     const improvementRate = document.getElementById('improvementRate');
+     const topDepartments = document.getElementById('topDepartments');
+     const topInnovators = document.getElementById('topInnovators');
+     const impactBuckets = document.getElementById('impactBuckets');
+     const totalImpact = document.getElementById('totalImpact');
+     const avgImpact = document.getElementById('avgImpact');
+     const topImpactIdea = document.getElementById('topImpactIdea');
+     const recentHistory = document.getElementById('recentHistory');
+     const printReportBtn = document.getElementById('printReportBtn');
+     const addIdeaBtn = document.getElementById('addIdeaBtn');
+     const ideaModal = document.getElementById('ideaModal');
+     const ideaModalTitle = document.getElementById('ideaModalTitle');
+     const ideaModalHint = document.getElementById('ideaModalHint');
+     const closeModalBtn = document.getElementById('closeModalBtn');
+     const cancelIdeaBtn = document.getElementById('cancelIdeaBtn');
+     const saveIdeaBtn = document.getElementById('saveIdeaBtn');
+     const ideaOwnerInput = document.getElementById('ideaOwnerInput');
+     const ideaTitleInput = document.getElementById('ideaTitleInput');
+     const ideaDepartmentInput = document.getElementById('ideaDepartmentInput');
+     const ideaTypeInput = document.getElementById('ideaTypeInput');
+     const ideaImpactInput = document.getElementById('ideaImpactInput');
+     const ideaStatusInput = document.getElementById('ideaStatusInput');
+     const ideaDateInput = document.getElementById('ideaDateInput');
+     const ideaRatingInput = document.getElementById('ideaRatingInput');
+     const ideaFinancialInput = document.getElementById('ideaFinancialInput');
+     const ideaVotesInput = document.getElementById('ideaVotesInput');
+     const ideaHistoryInput = document.getElementById('ideaHistoryInput');
+     const ideaHistoryList = document.getElementById('ideaHistoryList');
+     const toast = document.getElementById('toast');
+
+     const showToast = (message) => {
+       toast.textContent = message;
+       toast.style.display = 'block';
+       setTimeout(() => {
+         toast.style.display = 'none';
+       }, 2500);
+     };
+
+     const formatNumber = (value) => Number(value || 0).toLocaleString('en-US');
+
+     const normalizeIdea = (item) => ({
+       id: item.id,
+       owner: item.owner_name,
+       title: item.idea_title,
+       department: item.department,
+       type: item.innovation_type,
+       impact: item.expected_impact,
+       status: item.status,
+       submittedOn: item.submitted_on ? String(item.submitted_on).slice(0, 10) : '',
+       rating: Number(item.rating || 0),
+       votes: Number(item.votes || 0),
+       financialImpact: Number(item.financial_impact || 0),
+       history: Array.isArray(item.history) ? item.history : []
+     });
+
+     const fetchIdeas = async () => {
+       const response = await fetch(apiBase);
+       if (!response.ok) throw new Error('تعذر تحميل بيانات الابتكار.');
+       const data = await response.json();
+       return data.map(normalizeIdea);
+     };
+
+     const createIdea = async (payload) => {
+       const response = await fetch(apiBase, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(payload)
+       });
+       if (!response.ok) throw new Error('تعذر حفظ الفكرة.');
+       const data = await response.json();
+       return normalizeIdea(data);
+     };
+
+     const updateIdea = async (id, payload) => {
+       const response = await fetch(`${apiBase}/${id}`, {
+         method: 'PUT',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(payload)
+       });
+       if (!response.ok) throw new Error('تعذر تحديث الفكرة.');
+       const data = await response.json();
+       return normalizeIdea(data);
+     };
+
+     const removeIdea = async (id) => {
+       const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+       if (!response.ok) throw new Error('تعذر حذف الفكرة.');
+       return response.json();
+     };
+
+     const statusClass = (status) => {
+       switch (status) {
+         case 'معتمدة':
+           return 'bg-emerald-100 text-emerald-700';
+         case 'قيد التقييم':
+           return 'bg-amber-100 text-amber-700';
+         case 'منفذة':
+           return 'bg-indigo-100 text-indigo-700';
+         case 'مرفوضة':
+           return 'bg-rose-100 text-rose-700';
+         default:
+           return 'bg-sky-100 text-sky-700';
+       }
+     };
+
+     const updateSummary = () => {
+       totalIdeas.textContent = formatNumber(ideas.length);
+       approvedIdeas.textContent = formatNumber(ideas.filter((item) => item.status === 'معتمدة').length);
+       reviewIdeas.textContent = formatNumber(ideas.filter((item) => item.status === 'قيد التقييم').length);
+       implementedIdeas.textContent = formatNumber(ideas.filter((item) => item.status === 'منفذة').length);
+
+       const totalFinancial = ideas.reduce((sum, item) => sum + item.financialImpact, 0);
+       const implementedImpact = ideas
+         .filter((item) => item.status === 'منفذة')
+         .reduce((sum, item) => sum + item.financialImpact, 0);
+       const rate = totalFinancial ? ((implementedImpact / totalFinancial) * 100).toFixed(1) : 0;
+       improvementRate.textContent = `${rate}%`;
+    };
+
+     const renderTopDepartments = () => {
+       topDepartments.innerHTML = '';
+       const grouped = ideas.reduce((acc, item) => {
+         acc[item.department] = (acc[item.department] || 0) + 1;
+         return acc;
+       }, {});
+
+       Object.entries(grouped)
+         .sort((a, b) => b[1] - a[1])
+         .slice(0, 4)
+         .forEach(([department, count]) => {
+           const row = document.createElement('div');
+           row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+           row.innerHTML = `
+             <div class="flex items-center justify-between">
+               <span>${department}</span>
+               <span class="font-bold text-slate-700">${formatNumber(count)}</span>
+             </div>
+             <div class="h-2 bg-slate-100 rounded-full overflow-hidden mt-2">
+               <div class="h-full bg-indigo-500" style="width: ${Math.min(count * 18, 100)}%"></div>
+             </div>
+           `;
+           topDepartments.appendChild(row);
+         });
+     };
+
+     const renderTopInnovators = () => {
+       topInnovators.innerHTML = '';
+       const grouped = ideas.reduce((acc, item) => {
+         const entry = acc[item.owner] || { count: 0, rating: 0 };
+         entry.count += 1;
+         entry.rating += item.rating;
+         acc[item.owner] = entry;
+         return acc;
+       }, {});
+
+       Object.entries(grouped)
+         .map(([owner, data]) => ({ owner, count: data.count, rating: data.rating / data.count }))
+         .sort((a, b) => b.rating - a.rating)
+         .slice(0, 4)
+         .forEach((item) => {
+           const row = document.createElement('div');
+           row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+           row.innerHTML = `
+             <div class="flex items-center justify-between">
+               <span>${item.owner}</span>
+               <span class="font-bold text-emerald-700">${item.rating.toFixed(1)}/${ratingMax}</span>
+             </div>
+             <div class="text-xs text-slate-500 mt-1">عدد الأفكار: ${formatNumber(item.count)}</div>
+           `;
+           topInnovators.appendChild(row);
+         });
+     };
+
+     const renderImpactBuckets = () => {
+       impactBuckets.innerHTML = '';
+       const grouped = ideas.reduce((acc, item) => {
+         acc[item.impact] = (acc[item.impact] || 0) + 1;
+         return acc;
+       }, {});
+       Object.entries(grouped).forEach(([impact, count]) => {
+         const chip = document.createElement('div');
+         chip.className = 'chip bg-white text-slate-700 border border-slate-200';
+         chip.textContent = `${impact} (${formatNumber(count)})`;
+         impactBuckets.appendChild(chip);
+       });
+     };
+
+    const renderFinancialImpact = () => {
+      if (!ideas.length) {
+        totalImpact.textContent = formatNumber(0);
+        avgImpact.textContent = formatNumber(0);
+        topImpactIdea.textContent = '-';
+        return;
+      }
+
+      const total = ideas.reduce((sum, item) => sum + item.financialImpact, 0);
+      const avg = total / ideas.length;
+      const top = ideas.reduce((prev, curr) => (curr.financialImpact > prev.financialImpact ? curr : prev), ideas[0]);
+
+      totalImpact.textContent = formatNumber(total);
+      avgImpact.textContent = formatNumber(avg.toFixed(0));
+      topImpactIdea.textContent = top ? `${top.title} (${formatNumber(top.financialImpact)})` : '-';
+     };
+
+     const renderRecentHistory = () => {
+       recentHistory.innerHTML = '';
+       const entries = ideas
+         .flatMap((item) => item.history.map((history) => ({
+           title: item.title,
+           date: history.date,
+           note: history.note,
+           action: history.title
+         })))
+         .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+         .slice(0, 5);
+
+       if (!entries.length) {
+         const row = document.createElement('div');
+         row.className = 'p-3 rounded-2xl border border-slate-200 bg-white text-sm text-slate-500';
+         row.textContent = 'لا توجد تحديثات جديدة.';
+         recentHistory.appendChild(row);
+         return;
+       }
+
+       entries.forEach((entry) => {
+         const row = document.createElement('div');
+         row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+         row.innerHTML = `
+           <div class="text-xs text-slate-500">${entry.date || '--'}</div>
+           <div class="font-bold mt-1">${entry.action}</div>
+           <div class="text-sm text-slate-600">${entry.title}</div>
+           <div class="text-xs text-slate-500 mt-1">${entry.note}</div>
+         `;
+         recentHistory.appendChild(row);
+       });
+     };
+
+     const renderFilters = () => {
+       const types = [...new Set(ideas.map((item) => item.type))];
+       const impacts = [...new Set(ideas.map((item) => item.impact))];
+       typeFilter.innerHTML = '<option value="all">كل الأنواع</option>';
+       impactFilter.innerHTML = '<option value="all">كل التأثيرات</option>';
+
+       types.forEach((type) => {
+         const option = document.createElement('option');
+         option.value = type;
+         option.textContent = type;
+         typeFilter.appendChild(option);
+       });
+       impacts.forEach((impact) => {
+         const option = document.createElement('option');
+         option.value = impact;
+         option.textContent = impact;
+         impactFilter.appendChild(option);
+       });
+     };
+
+     const renderHistoryList = (history) => {
+       ideaHistoryList.innerHTML = '';
+       if (!history.length) {
+         const row = document.createElement('div');
+         row.className = 'p-3 rounded-2xl border border-slate-200 bg-white text-sm text-slate-500';
+         row.textContent = 'لا توجد تحديثات مسجلة.';
+         ideaHistoryList.appendChild(row);
+         return;
+       }
+
+       history.forEach((entry) => {
+         const row = document.createElement('div');
+         row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+         row.innerHTML = `
+           <div class="text-xs text-slate-500">${entry.date || '--'}</div>
+           <div class="font-bold mt-1">${entry.title}</div>
+           <div class="text-sm text-slate-600">${entry.note}</div>
+         `;
+         ideaHistoryList.appendChild(row);
+       });
+     };
+
+     const renderTable = (data) => {
+       tableBody.innerHTML = '';
+       if (!data.length) {
+         emptyState.style.display = 'block';
+         return;
+       }
+       emptyState.style.display = 'none';
+
+       data.forEach((idea) => {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-slate-100';
+        row.dataset.id = idea.id;
+         row.innerHTML = `
+           <td class="px-4 py-3 font-bold text-slate-700">${idea.owner}</td>
+           <td class="px-4 py-3">${idea.title}</td>
+           <td class="px-4 py-3">${idea.department}</td>
+           <td class="px-4 py-3">${idea.type}</td>
+           <td class="px-4 py-3">
+             <div class="text-sm text-slate-700">${idea.impact}</div>
+             <div class="text-xs text-slate-500 mt-1">${formatNumber(idea.financialImpact)}</div>
+             <button data-action="vote" class="mt-2 text-xs px-3 py-1 rounded-full border border-slate-200 bg-white">تصويت (${formatNumber(idea.votes)})</button>
+           </td>
+           <td class="px-4 py-3">
+             <span class="chip ${statusClass(idea.status)}">${idea.status}</span>
+           </td>
+           <td class="px-4 py-3">${idea.submittedOn || '--'}</td>
+           <td class="px-4 py-3">${idea.rating.toFixed(1)}/${ratingMax}</td>
+          <td class="px-4 py-3 row-actions">
+             <div class="flex flex-wrap gap-1">
+               <button data-action="view">عرض</button>
+               <button data-action="preview">معاينة</button>
+               <button data-action="edit">تعديل</button>
+               <button data-action="delete" class="text-rose-600">حذف</button>
+               <button data-action="approve" class="text-emerald-600">اعتماد</button>
+               <button data-action="reject" class="text-rose-600">رفض</button>
+               <button data-action="plan" class="text-indigo-600">تحويل لخطة تنفيذ</button>
+             </div>
+           </td>
+         `;
+         tableBody.appendChild(row);
+       });
+     };
+
+     const applyFilters = () => {
+       const searchValue = searchInput.value.trim().toLowerCase();
+       const statusValue = statusFilter.value;
+       const typeValue = typeFilter.value;
+       const impactValue = impactFilter.value;
+
+       const filtered = ideas.filter((idea) => {
+         const matchesSearch =
+           idea.title.toLowerCase().includes(searchValue) ||
+           idea.owner.toLowerCase().includes(searchValue) ||
+           idea.department.toLowerCase().includes(searchValue);
+         const matchesStatus = statusValue === 'all' || idea.status === statusValue;
+         const matchesType = typeValue === 'all' || idea.type === typeValue;
+         const matchesImpact = impactValue === 'all' || idea.impact === impactValue;
+         return matchesSearch && matchesStatus && matchesType && matchesImpact;
+       });
+
+       renderTable(filtered);
+     };
+
+     const resetModal = () => {
+       ideaOwnerInput.value = '';
+       ideaTitleInput.value = '';
+       ideaDepartmentInput.value = '';
+       ideaTypeInput.value = 'تشغيلي';
+       ideaImpactInput.value = 'رفع الإنتاجية';
+       ideaStatusInput.value = 'جديدة';
+       ideaDateInput.value = '';
+       ideaRatingInput.value = '';
+       ideaFinancialInput.value = '';
+       ideaVotesInput.value = '';
+       ideaHistoryInput.value = '';
+     };
+
+     const setModalDisabled = (disabled) => {
+       [
+         ideaOwnerInput,
+         ideaTitleInput,
+         ideaDepartmentInput,
+         ideaTypeInput,
+         ideaImpactInput,
+         ideaStatusInput,
+         ideaDateInput,
+         ideaRatingInput,
+         ideaFinancialInput,
+         ideaVotesInput,
+         ideaHistoryInput
+       ].forEach((input) => {
+         input.disabled = disabled;
+         input.classList.toggle('bg-slate-100', disabled);
+       });
+     };
+
+     const openModal = (mode, idea = null) => {
+       currentMode = mode;
+       currentEditId = idea ? idea.id : null;
+
+       if (!idea) {
+         resetModal();
+         renderHistoryList([]);
+       } else {
+         ideaOwnerInput.value = idea.owner;
+         ideaTitleInput.value = idea.title;
+         ideaDepartmentInput.value = idea.department;
+         ideaTypeInput.value = idea.type;
+         ideaImpactInput.value = idea.impact;
+         ideaStatusInput.value = idea.status;
+         ideaDateInput.value = idea.submittedOn || '';
+         ideaRatingInput.value = idea.rating;
+         ideaFinancialInput.value = idea.financialImpact;
+         ideaVotesInput.value = idea.votes;
+         renderHistoryList(idea.history);
+       }
+
+       const isReadOnly = mode === 'view' || mode === 'preview';
+       setModalDisabled(isReadOnly);
+       saveIdeaBtn.classList.toggle('hidden', isReadOnly);
+       ideaModalTitle.textContent = mode === 'edit' ? 'تعديل الفكرة' : mode === 'preview' ? 'معاينة الفكرة' : mode === 'view' ? 'عرض الفكرة' : 'إضافة فكرة جديدة';
+       ideaModalHint.textContent = isReadOnly ? 'عرض تفاصيل الفكرة وسجل التطوير.' : 'أدخل تفاصيل الفكرة لتقييمها بشكل دقيق.';
+       ideaModal.classList.remove('hidden');
+       ideaModal.classList.add('flex');
+     };
+
+     const closeModal = () => {
+       ideaModal.classList.add('hidden');
+       ideaModal.classList.remove('flex');
+     };
+
+     const addHistoryEntry = (idea, title, note) => {
+       const today = new Date().toISOString().slice(0, 10);
+       return [...idea.history, { date: today, title, note }];
+     };
+
+     searchInput.addEventListener('input', applyFilters);
+     statusFilter.addEventListener('change', applyFilters);
+     typeFilter.addEventListener('change', applyFilters);
+     impactFilter.addEventListener('change', applyFilters);
+
+     tableBody.addEventListener('click', (event) => {
+       const action = event.target.getAttribute('data-action');
+       if (!action) return;
+       const row = event.target.closest('[data-id]');
+       const id = row ? Number(row.dataset.id) : null;
+       const ideaIndex = ideas.findIndex((item) => item.id === id);
+      if (id === null || ideaIndex === -1) return;
+      const idea = ideas[ideaIndex];
+
+       if (action === 'vote') {
+         const updatedIdea = { ...idea, votes: idea.votes + 1 };
+         updateIdea(id, {
+           owner_name: updatedIdea.owner,
+           idea_title: updatedIdea.title,
+           department: updatedIdea.department,
+           innovation_type: updatedIdea.type,
+           expected_impact: updatedIdea.impact,
+           status: updatedIdea.status,
+           submitted_on: updatedIdea.submittedOn,
+           rating: updatedIdea.rating,
+           votes: updatedIdea.votes,
+           financial_impact: updatedIdea.financialImpact,
+           history: updatedIdea.history
+         })
+           .then((saved) => {
+             ideas[ideaIndex] = saved;
+             applyFilters();
+             showToast('تم تسجيل التصويت بنجاح.');
+           })
+           .catch((error) => showToast(error.message));
+         return;
+       }
+
+       if (action === 'delete') {
+         const confirmed = window.confirm('هل تريد حذف الفكرة؟');
+         if (!confirmed) return;
+         removeIdea(id)
+           .then(() => {
+             ideas = ideas.filter((item) => item.id !== id);
+             updateSummary();
+             renderTopDepartments();
+             renderTopInnovators();
+             renderImpactBuckets();
+             renderFinancialImpact();
+             renderRecentHistory();
+             renderFilters();
+             applyFilters();
+             showToast('تم حذف الفكرة بنجاح.');
+           })
+           .catch((error) => showToast(error.message));
+         return;
+       }
+
+       if (action === 'edit') {
+         openModal('edit', idea);
+         return;
+       }
+
+       if (action === 'view') {
+         openModal('view', idea);
+         return;
+       }
+
+       if (action === 'preview') {
+         openModal('preview', idea);
+         return;
+       }
+
+       if (action === 'approve' || action === 'reject' || action === 'plan') {
+         const statusMap = {
+           approve: 'معتمدة',
+           reject: 'مرفوضة',
+           plan: 'منفذة'
+         };
+         const nextStatus = statusMap[action];
+         const historyTitle = action === 'approve' ? 'اعتماد الفكرة' : action === 'reject' ? 'رفض الفكرة' : 'تحويل لخطة تنفيذ';
+         const historyNote = action === 'approve'
+           ? 'تم اعتماد الفكرة وبدء التحضير للتنفيذ.'
+           : action === 'reject'
+             ? 'تم رفض الفكرة بعد مراجعة الجدوى.'
+             : 'تم تحويل الفكرة إلى خطة تنفيذ.';
+
+         const updatedIdea = {
+           ...idea,
+           status: nextStatus,
+           history: addHistoryEntry(idea, historyTitle, historyNote)
+         };
+
+         updateIdea(id, {
+           owner_name: updatedIdea.owner,
+           idea_title: updatedIdea.title,
+           department: updatedIdea.department,
+           innovation_type: updatedIdea.type,
+           expected_impact: updatedIdea.impact,
+           status: updatedIdea.status,
+           submitted_on: updatedIdea.submittedOn,
+           rating: updatedIdea.rating,
+           votes: updatedIdea.votes,
+           financial_impact: updatedIdea.financialImpact,
+           history: updatedIdea.history
+         })
+           .then((saved) => {
+             ideas[ideaIndex] = saved;
+             updateSummary();
+             renderTopDepartments();
+             renderTopInnovators();
+             renderImpactBuckets();
+             renderFinancialImpact();
+             renderRecentHistory();
+             applyFilters();
+             showToast(action === 'reject' ? 'تم رفض الفكرة.' : action === 'approve' ? 'تم اعتماد الفكرة.' : 'تم تحويل الفكرة لخطة تنفيذ.');
+           })
+           .catch((error) => showToast(error.message));
+         return;
+       }
+     });
+
+     addIdeaBtn.addEventListener('click', () => openModal('add'));
+     closeModalBtn.addEventListener('click', closeModal);
+     cancelIdeaBtn.addEventListener('click', closeModal);
+
+     saveIdeaBtn.addEventListener('click', () => {
+       if (!ideaOwnerInput.value.trim() || !ideaTitleInput.value.trim() || !ideaDepartmentInput.value.trim()) {
+         showToast('يرجى إدخال البيانات الأساسية للفكرة.');
+         return;
+       }
+
+       const baseHistory = currentMode === 'edit'
+         ? (ideas.find((item) => item.id === currentEditId)?.history || [])
+         : [{ date: new Date().toISOString().slice(0, 10), title: 'تقديم الفكرة', note: 'تم تسجيل الفكرة ضمن سجل الابتكار.' }];
+
+       const extraNote = ideaHistoryInput.value.trim();
+       const history = extraNote
+         ? [...baseHistory, { date: new Date().toISOString().slice(0, 10), title: 'تحديث الفكرة', note: extraNote }]
+         : baseHistory;
+
+       const payload = {
+         owner_name: ideaOwnerInput.value.trim(),
+         idea_title: ideaTitleInput.value.trim(),
+         department: ideaDepartmentInput.value.trim(),
+         innovation_type: ideaTypeInput.value,
+         expected_impact: ideaImpactInput.value,
+         status: ideaStatusInput.value,
+         submitted_on: ideaDateInput.value || null,
+         rating: ideaRatingInput.value ? Number(ideaRatingInput.value) : 0,
+         votes: ideaVotesInput.value ? Number(ideaVotesInput.value) : 0,
+         financial_impact: ideaFinancialInput.value ? Number(ideaFinancialInput.value) : 0,
+         history
+       };
+
+       const request = currentMode === 'edit'
+         ? updateIdea(currentEditId, payload)
+         : createIdea(payload);
+
+       request
+         .then((saved) => {
+           if (currentMode === 'edit') {
+             const index = ideas.findIndex((item) => item.id === saved.id);
+             if (index !== -1) ideas[index] = saved;
+           } else {
+             ideas.unshift(saved);
+           }
+           updateSummary();
+           renderTopDepartments();
+           renderTopInnovators();
+           renderImpactBuckets();
+           renderFinancialImpact();
+           renderRecentHistory();
+           renderFilters();
+           applyFilters();
+           closeModal();
+           showToast('تم حفظ الفكرة بنجاح.');
+         })
+         .catch((error) => showToast(error.message));
+     });
+
+     printReportBtn.addEventListener('click', () => {
+       showToast('تم تجهيز تقرير الابتكار للطباعة.');
+       window.print();
+     });
+
+     fetchIdeas()
+       .then((data) => {
+         ideas = data;
+         updateSummary();
+         renderTopDepartments();
+         renderTopInnovators();
+         renderImpactBuckets();
+         renderFinancialImpact();
+         renderRecentHistory();
+         renderFilters();
+         applyFilters();
+       })
+       .catch((error) => {
+        ideas = [];
+        updateSummary();
+        renderTopDepartments();
+        renderTopInnovators();
+        renderImpactBuckets();
+        renderFinancialImpact();
+        renderRecentHistory();
+        renderFilters();
+        applyFilters();
+         showToast(error.message);
+       });
+  </script>
+</body>
+</html>

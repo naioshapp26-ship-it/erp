@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔄 إدارة الاستبدال - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ink: #0f172a;
+            --muted: #64748b;
+            --accent: #111827;
+            --accent-2: #ef4444;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --outline: #e2e8f0;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: radial-gradient(circle at top right, rgba(148, 163, 184, 0.18), transparent 45%),
+                        radial-gradient(circle at 20% 20%, rgba(239, 68, 68, 0.08), transparent 50%),
+                        #f8fafc;
+            color: var(--ink);
+        }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid var(--outline);
+            box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08);
+        }
+        .stat-card {
+            background: #fff;
+            border: 1px solid var(--outline);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12); }
+        .section-accent-dark { border-top: 4px solid #111827; }
+        .section-accent-rose { border-top: 4px solid #f43f5e; }
+        .section-accent-emerald { border-top: 4px solid #10b981; }
+        .table-scroll { max-height: 520px; overflow: auto; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .input {
+            background: #fff;
+            border: 1px solid var(--outline);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 14px;
+            width: 100%;
+        }
+        .input:focus { outline: 2px solid rgba(15, 23, 42, 0.15); border-color: #111827; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 999px;
+            font-weight: 700;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12); }
+        .btn-dark { background: #111827; color: #fff; }
+        .btn-outline { background: #fff; border: 1px solid var(--outline); color: #111827; }
+        .btn-rose { background: #ef4444; color: #fff; }
+        .btn-amber { background: #f59e0b; color: #fff; }
+        .btn-emerald { background: #10b981; color: #fff; }
+        .btn-slate { background: #e2e8f0; color: #0f172a; }
+        .divider { height: 1px; background: var(--outline); }
+        .fade-in { animation: fadeIn 0.6s ease both; }
+        .slide-up { animation: slideUp 0.6s ease both; }
+        .drawer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: min(520px, 92vw);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 50;
+        }
+        .drawer-open .drawer { transform: translateX(0); }
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 40;
+        }
+        .drawer-open .drawer-overlay { opacity: 1; pointer-events: auto; }
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .step-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            font-weight: 700;
+            border: 1px solid var(--outline);
+            background: #fff;
+        }
+        .step-active .step-dot { background: #111827; color: #fff; border-color: #111827; }
+        .step-line { flex: 1; height: 2px; background: #e2e8f0; }
+        .step-line.active { background: #111827; }
+        .suggestions {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            left: 0;
+            background: #fff;
+            border: 1px solid var(--outline);
+            border-radius: 14px;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+            z-index: 20;
+            max-height: 260px;
+            overflow: auto;
+        }
+        .suggestions button {
+            width: 100%;
+            text-align: right;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: #0f172a;
+        }
+        .suggestions button:hover { background: #f8fafc; }
+        .action-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #0f172a;
+            background: #0f172a;
+            color: #ffffff;
+        }
+        .action-btn *, .action-btn i, .action-btn svg { color: #fff !important; fill: #fff !important; stroke: #fff !important; }
+        .action-btn:hover { background: #1f2937; color: #fff; }
+        .action-btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #111827;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 60;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+    <style>
+        .action-btn {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #0f172a;
+        }
+        .action-btn i,
+        .action-btn svg,
+        .action-btn * {
+            color: #0f172a !important;
+            fill: currentColor !important;
+            stroke: currentColor !important;
+        }
+        .action-btn:hover { background: #f8fafc; }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-slate-900 fade-in">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-4xl font-bold mb-2">🔄 مركز إدارة الاستبدال والاسترجاع</h1>
+                    <p class="text-lg text-slate-600">نظام متكامل لإدارة الطلبات، الموافقات، والعمليات الفنية حتى التسليم النهائي.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="bg-white border border-slate-200 rounded-full px-4 py-2 text-sm font-bold text-slate-700">
+                        الدور الحالي
+                    </div>
+                    <select id="roleSelector" class="input rounded-full text-sm font-bold">
+                        <option value="admin">Admin</option>
+                        <option value="finance">Finance</option>
+                        <option value="technical">Technical</option>
+                        <option value="customer-service">Customer Service</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3 slide-up">
+            <button onclick="refreshData()" class="btn btn-outline">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="addNewOrder()" class="btn btn-emerald">
+                <i class="fas fa-plus"></i>
+                إضافة طلب استبدال
+            </button>
+            <button onclick="exportCSV()" class="btn btn-dark">
+                <i class="fas fa-file-excel"></i>
+                تصدير Excel
+            </button>
+            <button onclick="exportPDF()" class="btn btn-slate">
+                <i class="fas fa-file-pdf"></i>
+                تصدير PDF
+            </button>
+            <button onclick="printPage()" class="btn btn-rose">
+                <i class="fas fa-print"></i>
+                طباعة تقرير
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8 slide-up" id="kpiGrid"></div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+            <div class="card-glass rounded-3xl p-6 section-accent-dark">
+                <h3 class="text-lg font-bold mb-4">الطلبات شهرياً</h3>
+                <canvas id="ordersMonthlyChart" height="180"></canvas>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-emerald">
+                <h3 class="text-lg font-bold mb-4">الطلبات حسب الحالة</h3>
+                <canvas id="ordersStatusChart" height="180"></canvas>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-rose">
+                <h3 class="text-lg font-bold mb-4">الطلبات حسب الفروع</h3>
+                <canvas id="ordersBranchChart" height="180"></canvas>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 mb-8 section-accent-dark">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-2xl font-bold">لوحة الفلاتر والبحث الذكي</h2>
+                <span class="chip bg-slate-100 text-slate-700">تصفية فورية</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div>
+                    <label class="text-xs text-slate-500">نطاق التاريخ</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="date" id="dateFrom" class="input" />
+                        <input type="date" id="dateTo" class="input" />
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الفرع</label>
+                    <select id="filterBranch" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">المنتج</label>
+                    <select id="filterProduct" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">حالة الموافقة</label>
+                    <select id="filterApproval" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">نوع الاستبدال</label>
+                    <select id="filterType" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الأولوية</label>
+                    <select id="filterPriority" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">الموظف</label>
+                    <select id="filterOwner" class="input"></select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">حالة الضمان</label>
+                    <select id="filterWarranty" class="input"></select>
+                </div>
+            </div>
+            <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="relative">
+                    <label class="text-xs text-slate-500">البحث الذكي</label>
+                    <input id="smartSearch" type="text" class="input" placeholder="ابحث عن عميل / منتج / موظف / رقم طلب" autocomplete="off" />
+                    <div id="searchSuggestions" class="suggestions hidden"></div>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-500">سبب الاستبدال</label>
+                    <select id="filterReason" class="input"></select>
+                </div>
+                <div class="flex items-end gap-3">
+                    <button onclick="resetFilters()" class="btn btn-outline w-full">
+                        <i class="fas fa-eraser"></i>
+                        إعادة تعيين
+                    </button>
+                    <button onclick="applyFilters()" class="btn btn-dark w-full">
+                        <i class="fas fa-filter"></i>
+                        تطبيق الفلاتر
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+            <div class="card-glass rounded-3xl p-6 xl:col-span-2 section-accent-emerald">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h3 class="text-xl font-bold">تتبع مراحل الطلب</h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-slate-500">الطلب المحدد:</span>
+                        <span id="selectedOrderBadge" class="chip bg-emerald-100 text-emerald-700">-</span>
+                    </div>
+                </div>
+                <div id="workflowTracker" class="space-y-4"></div>
+                <div class="mt-6 flex items-center gap-3">
+                    <button onclick="moveStage('prev')" class="btn btn-outline">
+                        <i class="fas fa-arrow-right"></i>
+                        المرحلة السابقة
+                    </button>
+                    <button onclick="moveStage('next')" class="btn btn-dark">
+                        <i class="fas fa-arrow-left"></i>
+                        المرحلة التالية
+                    </button>
+                </div>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-rose">
+                <h3 class="text-xl font-bold mb-4">الأتمتة الذكية</h3>
+                <ul class="text-sm text-slate-600 space-y-3">
+                    <li class="flex items-center gap-2"><i class="fas fa-microchip text-rose-500"></i> تحديث المخزون تلقائياً بعد الموافقة.</li>
+                    <li class="flex items-center gap-2"><i class="fas fa-bell text-rose-500"></i> إشعار الموظف فور تغيير المرحلة.</li>
+                    <li class="flex items-center gap-2"><i class="fas fa-calculator text-rose-500"></i> احتساب تكلفة الاستبدال تلقائياً.</li>
+                    <li class="flex items-center gap-2"><i class="fas fa-user-shield text-rose-500"></i> تعيين مسؤول حسب الفرع.</li>
+                </ul>
+                <div class="divider my-4"></div>
+                <div class="text-xs text-slate-500">يتم تنفيذ الأتمتة على الطلب المحدد ضمن الجدول.</div>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 section-accent-dark">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h3 class="text-xl font-bold">📋 جدول طلبات الاستبدال</h3>
+                <div class="flex items-center gap-2">
+                    <span class="chip bg-slate-100 text-slate-700" id="tableCount">0 طلب</span>
+                    <span class="chip bg-emerald-100 text-emerald-700" id="reviewCount">0 قيد المراجعة</span>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-100 text-slate-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم الطلب</th>
+                            <th class="px-3 py-2 text-right">تاريخ الطلب</th>
+                            <th class="px-3 py-2 text-right">اسم العميل</th>
+                            <th class="px-3 py-2 text-right">الفرع / القسم</th>
+                            <th class="px-3 py-2 text-right">اسم المنتج</th>
+                            <th class="px-3 py-2 text-right">الرقم التسلسلي</th>
+                            <th class="px-3 py-2 text-right">نوع الاستبدال</th>
+                            <th class="px-3 py-2 text-right">سبب الاستبدال</th>
+                            <th class="px-3 py-2 text-right">حالة الضمان</th>
+                            <th class="px-3 py-2 text-right">الأولوية</th>
+                            <th class="px-3 py-2 text-right">نتيجة الفحص الفني</th>
+                            <th class="px-3 py-2 text-right">حالة الموافقة</th>
+                            <th class="px-3 py-2 text-right">تكلفة الاستبدال</th>
+                            <th class="px-3 py-2 text-right">الموظف المسؤول</th>
+                            <th class="px-3 py-2 text-right">تاريخ التسليم</th>
+                            <th class="px-3 py-2 text-right">المرحلة الحالية</th>
+                            <th class="px-3 py-2 text-right">تم الإنشاء بواسطة</th>
+                            <th class="px-3 py-2 text-right">آخر تحديث</th>
+                            <th class="px-3 py-2 text-right">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requestsTable" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="drawer-overlay" onclick="closeDrawer()"></div>
+    <aside class="drawer bg-white shadow-xl">
+        <div class="h-full flex flex-col">
+            <div class="p-6 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h3 class="text-xl font-bold" id="drawerTitle">تفاصيل الطلب</h3>
+                    <div class="text-xs text-slate-500" id="drawerSubtitle">-</div>
+                </div>
+                <button onclick="closeDrawer()" class="action-btn"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-6" id="drawerContent"></div>
+        </div>
+    </aside>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const summaryText = 'نظام إدارة الاستبدال والاسترجاع: طلبات متكاملة + فحص فني + موافقات + مراحل تسليم.';
+        const API_BASE = window.location.origin;
+        const workflowStages = [
+            'تسجيل الطلب',
+            'الفحص الفني',
+            'اتخاذ قرار الموافقة',
+            'تحديث المخزون',
+            'تسليم البديل',
+            'إغلاق الطلب'
+        ];
+
+        const reasons = ['عيب تصنيع', 'تلف أثناء الشحن', 'عدم مطابقة المواصفات', 'طلب استرجاع مبلغ', 'فشل إصلاح سابق'];
+        const branches = ['الرياض - الأجهزة', 'جدة - الصيانة', 'الدمام - المبيعات', 'المدينة - الدعم'];
+        const products = ['حاسب محمول X9', 'جهاز نقاط بيع Pro', 'طابعة ليزر MX', 'سيرفر Edge 4U'];
+        const employees = ['أحمد عبدالعزيز', 'سارة الشمري', 'هبة القحطاني', 'محمد الدوسري'];
+        const approvals = ['قيد المراجعة', 'موافق عليه', 'مرفوض'];
+        const types = ['استبدال كامل', 'استبدال جزئي', 'استرجاع مبلغ', 'إصلاح'];
+        const priorities = ['عادي', 'متوسط', 'عالي', 'عاجل'];
+        const warrantyStates = ['داخل الضمان', 'خارج الضمان'];
+
+        const fallbackOrders = [
+            {
+                id: 'EX-7011',
+                date: '2026-02-04',
+                customer: 'شركة المدار الذكية',
+                branch: 'الرياض - الأجهزة',
+                product: 'حاسب محمول X9',
+                serial: 'SN-9821-AX',
+                type: 'استبدال كامل',
+                reason: 'عيب تصنيع',
+                warranty: 'داخل الضمان',
+                priority: 'عالي',
+                inspection: 'مشكلة في اللوحة الأم',
+                approval: 'قيد المراجعة',
+                cost: 1800,
+                owner: 'أحمد عبدالعزيز',
+                delivery: '2026-02-12',
+                stage: 'الفحص الفني',
+                createdBy: 'خدمة العملاء',
+                updatedAt: '2026-02-10 10:45'
+            },
+            {
+                id: 'EX-7012',
+                date: '2026-02-06',
+                customer: 'مؤسسة الحلول المتقدمة',
+                branch: 'جدة - الصيانة',
+                product: 'طابعة ليزر MX',
+                serial: 'SN-4410-MX',
+                type: 'إصلاح',
+                reason: 'تلف أثناء الشحن',
+                warranty: 'داخل الضمان',
+                priority: 'متوسط',
+                inspection: 'استبدال وحدة التغذية',
+                approval: 'موافق عليه',
+                cost: 420,
+                owner: 'سارة الشمري',
+                delivery: '2026-02-15',
+                stage: 'تحديث المخزون',
+                createdBy: 'خدمة العملاء',
+                updatedAt: '2026-02-12 16:10'
+            },
+            {
+                id: 'EX-7013',
+                date: '2026-02-08',
+                customer: 'شركة الريادة التجارية',
+                branch: 'الدمام - المبيعات',
+                product: 'جهاز نقاط بيع Pro',
+                serial: 'POS-3391-PR',
+                type: 'استرجاع مبلغ',
+                reason: 'عدم مطابقة المواصفات',
+                warranty: 'خارج الضمان',
+                priority: 'عاجل',
+                inspection: 'مطابقة غير مكتملة للمواصفات',
+                approval: 'قيد المراجعة',
+                cost: 920,
+                owner: 'هبة القحطاني',
+                delivery: '2026-02-18',
+                stage: 'اتخاذ قرار الموافقة',
+                createdBy: 'خدمة العملاء',
+                updatedAt: '2026-02-13 09:25'
+            },
+            {
+                id: 'EX-7014',
+                date: '2026-02-09',
+                customer: 'مستشفى النخبة',
+                branch: 'المدينة - الدعم',
+                product: 'سيرفر Edge 4U',
+                serial: 'SRV-7719-ED',
+                type: 'استبدال جزئي',
+                reason: 'فشل إصلاح سابق',
+                warranty: 'خارج الضمان',
+                priority: 'عالي',
+                inspection: 'استبدال وحدات تبريد',
+                approval: 'موافق عليه',
+                cost: 3200,
+                owner: 'محمد الدوسري',
+                delivery: '2026-02-20',
+                stage: 'تسليم البديل',
+                createdBy: 'الدعم الفني',
+                updatedAt: '2026-02-14 13:00'
+            },
+            {
+                id: 'EX-7015',
+                date: '2026-02-10',
+                customer: 'شركة نواة التقنية',
+                branch: 'الرياض - الأجهزة',
+                product: 'حاسب محمول X9',
+                serial: 'SN-1152-X9',
+                type: 'استبدال جزئي',
+                reason: 'عيب تصنيع',
+                warranty: 'داخل الضمان',
+                priority: 'متوسط',
+                inspection: 'استبدال لوحة مفاتيح',
+                approval: 'موافق عليه',
+                cost: 650,
+                owner: 'أحمد عبدالعزيز',
+                delivery: '2026-02-19',
+                stage: 'تحديث المخزون',
+                createdBy: 'خدمة العملاء',
+                updatedAt: '2026-02-15 09:30'
+            },
+            {
+                id: 'EX-7016',
+                date: '2026-02-11',
+                customer: 'مركز الرواد',
+                branch: 'جدة - الصيانة',
+                product: 'طابعة ليزر MX',
+                serial: 'SN-5221-MX',
+                type: 'إصلاح',
+                reason: 'تلف أثناء الشحن',
+                warranty: 'خارج الضمان',
+                priority: 'عادي',
+                inspection: 'تنظيف وحدة الليزر واستبدال رول',
+                approval: 'قيد المراجعة',
+                cost: 280,
+                owner: 'سارة الشمري',
+                delivery: '2026-02-23',
+                stage: 'الفحص الفني',
+                createdBy: 'خدمة العملاء',
+                updatedAt: '2026-02-15 11:05'
+            },
+            {
+                id: 'EX-7017',
+                date: '2026-02-11',
+                customer: 'مؤسسة الريادة الرقمية',
+                branch: 'الدمام - المبيعات',
+                product: 'جهاز نقاط بيع Pro',
+                serial: 'POS-4450-PR',
+                type: 'استبدال كامل',
+                reason: 'عدم مطابقة المواصفات',
+                warranty: 'داخل الضمان',
+                priority: 'عاجل',
+                inspection: 'تأكيد عيب في اللوحة الرئيسية',
+                approval: 'موافق عليه',
+                cost: 2100,
+                owner: 'هبة القحطاني',
+                delivery: '2026-02-21',
+                stage: 'تسليم البديل',
+                createdBy: 'خدمة العملاء',
+                updatedAt: '2026-02-15 14:20'
+            },
+            {
+                id: 'EX-7018',
+                date: '2026-02-12',
+                customer: 'شركة الاتقان',
+                branch: 'المدينة - الدعم',
+                product: 'سيرفر Edge 4U',
+                serial: 'SRV-8801-ED',
+                type: 'استرجاع مبلغ',
+                reason: 'فشل إصلاح سابق',
+                warranty: 'خارج الضمان',
+                priority: 'عالي',
+                inspection: 'عدم استقرار مزود الطاقة',
+                approval: 'قيد المراجعة',
+                cost: 1450,
+                owner: 'محمد الدوسري',
+                delivery: '2026-02-26',
+                stage: 'اتخاذ قرار الموافقة',
+                createdBy: 'الدعم الفني',
+                updatedAt: '2026-02-15 15:45'
+            },
+            {
+                id: 'EX-7019',
+                date: '2026-02-12',
+                customer: 'مجموعة المستقبل',
+                branch: 'الرياض - الأجهزة',
+                product: 'سيرفر Edge 4U',
+                serial: 'SRV-9912-ED',
+                type: 'إصلاح',
+                reason: 'عيب تصنيع',
+                warranty: 'داخل الضمان',
+                priority: 'عالي',
+                inspection: 'استبدال مراوح تبريد',
+                approval: 'موافق عليه',
+                cost: 520,
+                owner: 'أحمد عبدالعزيز',
+                delivery: '2026-02-20',
+                stage: 'تحديث المخزون',
+                createdBy: 'خدمة العملاء',
+                updatedAt: '2026-02-15 16:30'
+            },
+            {
+                id: 'EX-7020',
+                date: '2026-02-13',
+                customer: 'مؤسسة النخبة الرقمية',
+                branch: 'جدة - الصيانة',
+                product: 'جهاز نقاط بيع Pro',
+                serial: 'POS-7720-PR',
+                type: 'استبدال جزئي',
+                reason: 'عدم مطابقة المواصفات',
+                warranty: 'داخل الضمان',
+                priority: 'متوسط',
+                inspection: 'استبدال شاشة لمس',
+                approval: 'قيد المراجعة',
+                cost: 780,
+                owner: 'سارة الشمري',
+                delivery: '2026-02-24',
+                stage: 'الفحص الفني',
+                createdBy: 'خدمة العملاء',
+                updatedAt: '2026-02-15 17:05'
+            },
+            {
+                id: 'EX-7021',
+                date: '2026-02-14',
+                customer: 'شركة المدار الطبية',
+                branch: 'الدمام - المبيعات',
+                product: 'طابعة ليزر MX',
+                serial: 'SN-6633-MX',
+                type: 'استبدال كامل',
+                reason: 'تلف أثناء الشحن',
+                warranty: 'داخل الضمان',
+                priority: 'عاجل',
+                inspection: 'تلف كامل في الوحدة الداخلية',
+                approval: 'موافق عليه',
+                cost: 1550,
+                owner: 'هبة القحطاني',
+                delivery: '2026-02-22',
+                stage: 'تسليم البديل',
+                createdBy: 'خدمة العملاء',
+                updatedAt: '2026-02-15 18:10'
+            },
+            {
+                id: 'EX-7022',
+                date: '2026-02-14',
+                customer: 'شركة المدار التجارية',
+                branch: 'المدينة - الدعم',
+                product: 'حاسب محمول X9',
+                serial: 'SN-3344-X9',
+                type: 'استرجاع مبلغ',
+                reason: 'عدم مطابقة المواصفات',
+                warranty: 'خارج الضمان',
+                priority: 'عادي',
+                inspection: 'رفض العميل المواصفات النهائية',
+                approval: 'مرفوض',
+                cost: 0,
+                owner: 'محمد الدوسري',
+                delivery: '2026-02-27',
+                stage: 'إغلاق الطلب',
+                createdBy: 'الدعم الفني',
+                updatedAt: '2026-02-15 19:00'
+            }
+        ];
+
+        let orders = [];
+
+        let selectedOrder = orders[0];
+        let filteredOrders = [...orders];
+
+        async function refreshData() {
+            await loadOrders();
+            selectedOrder = orders[0] || null;
+            filteredOrders = [...orders];
+            initFilters();
+            renderAll();
+            showToast('تم تحديث البيانات.');
+        }
+        function printPage() { window.print(); }
+        function exportPDF() { window.print(); }
+        function exportCSV() {
+            const headers = ['رقم الطلب', 'تاريخ الطلب', 'العميل', 'الفرع', 'المنتج', 'النوع', 'حالة الموافقة', 'التكلفة'];
+            const rows = filteredOrders.map(o => [o.id, o.date, o.customer, o.branch, o.product, o.type, o.approval, o.cost]);
+            const csvContent = [headers, ...rows].map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'exchange-requests.csv';
+            link.click();
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2200);
+        }
+
+        function fillSelect(id, items, placeholder = 'الكل') {
+            const select = document.getElementById(id);
+            select.innerHTML = `<option value="">${placeholder}</option>` + items.map(i => `<option value="${i}">${i}</option>`).join('');
+        }
+
+        function getOrdersThisMonth(list) {
+            const now = new Date();
+            return list.filter(order => {
+                const date = new Date(order.date);
+                return !Number.isNaN(date.getTime()) && date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+            });
+        }
+
+        function calculateAverageCycleDays(list) {
+            const durations = list
+                .map(order => {
+                    if (!order.date || !order.delivery || order.delivery === '-') return null;
+                    const start = new Date(order.date);
+                    const end = new Date(order.delivery);
+                    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+                    const diff = Math.max(0, end - start);
+                    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+                })
+                .filter(value => value !== null);
+
+            if (!durations.length) return 0;
+            const avg = durations.reduce((sum, value) => sum + value, 0) / durations.length;
+            return Math.round(avg * 10) / 10;
+        }
+
+        function getTopValue(list, key) {
+            if (!list.length) return '';
+            const counts = list.reduce((acc, item) => {
+                const value = item[key];
+                if (!value) return acc;
+                acc[value] = (acc[value] || 0) + 1;
+                return acc;
+            }, {});
+            return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+        }
+
+        function getLastMonthsLabels(count) {
+            const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+            const labels = [];
+            const now = new Date();
+            for (let i = count - 1; i >= 0; i -= 1) {
+                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                labels.push(monthNames[date.getMonth()]);
+            }
+            return labels;
+        }
+
+        function getMonthlyCounts(list, count) {
+            const now = new Date();
+            const buckets = [];
+            for (let i = count - 1; i >= 0; i -= 1) {
+                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const year = date.getFullYear();
+                const month = date.getMonth();
+                const total = list.filter(order => {
+                    const orderDate = new Date(order.date);
+                    return !Number.isNaN(orderDate.getTime()) && orderDate.getFullYear() === year && orderDate.getMonth() === month;
+                }).length;
+                buckets.push(total);
+            }
+            return buckets;
+        }
+
+        function renderKPIs() {
+            const total = orders.length;
+            const review = orders.filter(o => o.approval === 'قيد المراجعة').length;
+            const avgDays = calculateAverageCycleDays(orders);
+            const costTotal = orders.reduce((sum, o) => sum + (Number(o.cost) || 0), 0);
+            const topProduct = getTopValue(orders, 'product');
+            const topBranch = getTopValue(orders, 'branch');
+            const monthCount = getOrdersThisMonth(orders).length;
+
+            const kpis = [
+                { label: 'متوسط زمن التنفيذ', value: avgDays ? `${avgDays} يوم` : '-', icon: 'fa-stopwatch', color: 'text-rose-500' },
+                { label: 'طلبات هذا الشهر', value: monthCount, icon: 'fa-clipboard-list', color: 'text-slate-700' },
+                { label: 'قيد المراجعة', value: review, icon: 'fa-hourglass-half', color: 'text-amber-500' },
+                { label: 'تكلفة الاستبدال', value: `${costTotal.toLocaleString('en-US')} SAR`, icon: 'fa-coins', color: 'text-emerald-500' },
+                { label: 'الأكثر استبدالاً', value: topProduct || '-', icon: 'fa-box-open', color: 'text-indigo-500' },
+                { label: 'الأكثر نشاطاً', value: topBranch || '-', icon: 'fa-location-dot', color: 'text-blue-500' }
+            ];
+
+            const grid = document.getElementById('kpiGrid');
+            grid.innerHTML = kpis.map(k => `
+                <div class="stat-card p-4 rounded-2xl">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">${k.label}</span>
+                        <i class="fas ${k.icon} ${k.color}"></i>
+                    </div>
+                    <div class="text-lg font-bold text-slate-900 mt-2">${k.value}</div>
+                </div>
+            `).join('');
+        }
+
+        let ordersMonthlyChart = null;
+        let ordersStatusChart = null;
+        let ordersBranchChart = null;
+
+        function renderCharts() {
+            const monthLabels = getLastMonthsLabels(6);
+            const monthlyData = getMonthlyCounts(orders, 6);
+            const statusCounts = approvals.map(a => orders.filter(o => o.approval === a).length);
+            const branchLabels = uniqueFromOrders('branch', branches);
+            const branchCounts = branchLabels.map(b => orders.filter(o => o.branch === b).length);
+
+            if (ordersMonthlyChart) ordersMonthlyChart.destroy();
+            if (ordersStatusChart) ordersStatusChart.destroy();
+            if (ordersBranchChart) ordersBranchChart.destroy();
+
+            ordersMonthlyChart = new Chart(document.getElementById('ordersMonthlyChart'), {
+                type: 'line',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: 'طلبات',
+                        data: monthlyData,
+                        borderColor: '#111827',
+                        backgroundColor: 'rgba(17, 24, 39, 0.08)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            ordersStatusChart = new Chart(document.getElementById('ordersStatusChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: approvals,
+                    datasets: [{
+                        data: statusCounts,
+                        backgroundColor: ['#f59e0b', '#10b981', '#ef4444']
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            ordersBranchChart = new Chart(document.getElementById('ordersBranchChart'), {
+                type: 'bar',
+                data: {
+                    labels: branchLabels,
+                    datasets: [{
+                        data: branchCounts,
+                        backgroundColor: '#111827'
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderWorkflow() {
+            const container = document.getElementById('workflowTracker');
+            document.getElementById('selectedOrderBadge').textContent = selectedOrder?.id || '-';
+
+            if (!selectedOrder) {
+                container.innerHTML = '<div class="text-sm text-slate-500">اختر طلباً من الجدول لعرض المراحل.</div>';
+                return;
+            }
+
+            const stageIndex = Math.max(0, workflowStages.indexOf(selectedOrder.stage));
+            const steps = workflowStages.map((stage, index) => {
+                const active = index <= stageIndex;
+                return `
+                    <div class="step ${active ? 'step-active' : ''}">
+                        <div class="step-dot">${index + 1}</div>
+                        <div class="flex-1">
+                            <div class="text-sm font-bold text-slate-900">${stage}</div>
+                            <div class="text-xs text-slate-500">${active ? 'تم الإنجاز / نشط' : 'قادم'}</div>
+                        </div>
+                    </div>
+                    ${index < workflowStages.length - 1 ? `<div class="step-line ${index < stageIndex ? 'active' : ''}"></div>` : ''}
+                `;
+            }).join('');
+            container.innerHTML = steps;
+        }
+
+        function formatCurrency(value) {
+            const safeValue = Number(value) || 0;
+            return `${safeValue.toLocaleString('en-US')} SAR`;
+        }
+
+        function statusBadge(value) {
+            const map = {
+                'قيد المراجعة': 'bg-amber-100 text-amber-700',
+                'موافق عليه': 'bg-emerald-100 text-emerald-700',
+                'مرفوض': 'bg-rose-100 text-rose-700'
+            };
+            return `<span class="badge ${map[value] || 'bg-slate-100 text-slate-700'}">${value}</span>`;
+        }
+
+        function priorityBadge(value) {
+            const map = {
+                'عادي': 'bg-slate-100 text-slate-700',
+                'متوسط': 'bg-blue-100 text-blue-700',
+                'عالي': 'bg-amber-100 text-amber-700',
+                'عاجل': 'bg-rose-100 text-rose-700'
+            };
+            return `<span class="badge ${map[value] || 'bg-slate-100 text-slate-700'}">${value}</span>`;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('requestsTable');
+            if (!filteredOrders.length) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td class="px-3 py-6 text-center text-slate-500" colspan="19">لا توجد طلبات حالياً. استخدم زر "إضافة طلب استبدال" للبدء.</td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = filteredOrders.map(order => `
+                    <tr class="hover:bg-slate-50 cursor-pointer" onclick="selectOrder('${order.id}')">
+                        <td class="px-3 py-2 font-bold">${order.id}</td>
+                        <td class="px-3 py-2">${order.date}</td>
+                        <td class="px-3 py-2">${order.customer}</td>
+                        <td class="px-3 py-2">${order.branch}</td>
+                        <td class="px-3 py-2">${order.product}</td>
+                        <td class="px-3 py-2">${order.serial}</td>
+                        <td class="px-3 py-2">${order.type}</td>
+                        <td class="px-3 py-2">${order.reason}</td>
+                        <td class="px-3 py-2">${order.warranty}</td>
+                        <td class="px-3 py-2">${priorityBadge(order.priority)}</td>
+                        <td class="px-3 py-2">${order.inspection}</td>
+                        <td class="px-3 py-2">${statusBadge(order.approval)}</td>
+                        <td class="px-3 py-2">${formatCurrency(order.cost)}</td>
+                        <td class="px-3 py-2">${order.owner}</td>
+                        <td class="px-3 py-2">${order.delivery}</td>
+                        <td class="px-3 py-2">${order.stage}</td>
+                        <td class="px-3 py-2">${order.createdBy}</td>
+                        <td class="px-3 py-2">${order.updatedAt}</td>
+                        <td class="px-3 py-2">
+                            <div class="flex flex-wrap gap-2">
+                                <button class="action-btn" onclick="event.stopPropagation(); editOrder('${order.id}')" title="تعديل"><i class="fas fa-pen"></i></button>
+                                <button class="action-btn" onclick="event.stopPropagation(); deleteOrder('${order.id}')" title="حذف"><i class="fas fa-trash"></i></button>
+                                <button class="action-btn" onclick="event.stopPropagation(); openDrawer('${order.id}')" title="عرض التفاصيل"><i class="fas fa-eye"></i></button>
+                                <button class="action-btn" onclick="event.stopPropagation(); approveOrder('${order.id}')" title="موافقة"><i class="fas fa-check"></i></button>
+                                <button class="action-btn" onclick="event.stopPropagation(); rejectOrder('${order.id}')" title="رفض"><i class="fas fa-xmark"></i></button>
+                                <button class="action-btn" onclick="event.stopPropagation(); changeStage('${order.id}')" title="تغيير المرحلة"><i class="fas fa-repeat"></i></button>
+                                <button class="action-btn" onclick="event.stopPropagation(); printOrder('${order.id}')" title="طباعة"><i class="fas fa-print"></i></button>
+                                <button class="action-btn" onclick="event.stopPropagation(); attachFiles('${order.id}')" title="إرفاق ملفات"><i class="fas fa-paperclip"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            document.getElementById('tableCount').textContent = `${filteredOrders.length} طلب`;
+            document.getElementById('reviewCount').textContent = `${filteredOrders.filter(o => o.approval === 'قيد المراجعة').length} قيد المراجعة`;
+            applyRolePermissions();
+        }
+
+        function selectOrder(id) {
+            const order = orders.find(o => o.id === id);
+            if (!order) return;
+            selectedOrder = order;
+            renderWorkflow();
+        }
+
+        async function moveStage(direction) {
+            if (!selectedOrder) return;
+            const currentIndex = workflowStages.indexOf(selectedOrder.stage);
+            const nextIndex = direction === 'next' ? Math.min(workflowStages.length - 1, currentIndex + 1) : Math.max(0, currentIndex - 1);
+            selectedOrder.stage = workflowStages[nextIndex];
+            selectedOrder.updatedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+            await updateOrder(selectedOrder.id, { workflow_stage: selectedOrder.stage });
+            renderWorkflow();
+            renderTable();
+            showToast(`تم نقل الطلب إلى مرحلة: ${selectedOrder.stage}`);
+        }
+
+        function changeStage(id) {
+            selectOrder(id);
+            moveStage('next');
+        }
+
+        async function approveOrder(id) {
+            const order = orders.find(o => o.id === id);
+            if (!order) return;
+            order.approval = 'موافق عليه';
+            order.cost = calculateCost(order);
+            updateInventory(order);
+            notifyOwner(order, 'تمت الموافقة على الطلب.');
+            order.updatedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+            await updateOrder(order.id, {
+                approval_status: order.approval,
+                exchange_cost: order.cost,
+                workflow_stage: order.stage
+            });
+            renderAll();
+            showToast(`تمت الموافقة على ${order.id}`);
+        }
+
+        async function rejectOrder(id) {
+            const order = orders.find(o => o.id === id);
+            if (!order) return;
+            order.approval = 'مرفوض';
+            notifyOwner(order, 'تم رفض الطلب.');
+            order.updatedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+            await updateOrder(order.id, { approval_status: order.approval });
+            renderAll();
+            showToast(`تم رفض ${order.id}`);
+        }
+
+        function editOrder(id) {
+            selectOrder(id);
+            showToast(`وضع تعديل للطلب ${id}`);
+            openDrawer(id);
+        }
+
+        function getCreatedByLabel() {
+            const role = document.getElementById('roleSelector').value;
+            const labels = {
+                admin: 'الإدارة',
+                finance: 'المالية',
+                technical: 'الدعم الفني',
+                'customer-service': 'خدمة العملاء'
+            };
+            return labels[role] || 'خدمة العملاء';
+        }
+
+        async function addNewOrder() {
+            const newOrder = {
+                id: null,
+                date: new Date().toISOString().slice(0, 10),
+                customer: 'عميل جديد',
+                branch: branches[0],
+                product: products[0],
+                serial: `SN-${Math.floor(1000 + Math.random() * 9000)}-NX`,
+                type: types[0],
+                reason: reasons[0],
+                warranty: warrantyStates[0],
+                updatedAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+            };
+            autoAssignOwner(newOrder);
+            newOrder.cost = calculateCost(newOrder);
+            const created = await createOrder(newOrder);
+            const finalOrder = created || newOrder;
+            orders.unshift(finalOrder);
+            filteredOrders = [...orders];
+            selectOrder(finalOrder.id);
+            renderAll();
+            showToast('تم إضافة طلب استبدال جديد.');
+        }
+
+        async function deleteOrder(id) {
+            const index = orders.findIndex(o => o.id === id);
+            if (index === -1) return;
+            if (!confirm('هل تريد حذف الطلب؟')) return;
+            await removeOrder(id);
+            orders.splice(index, 1);
+            filteredOrders = [...orders];
+            renderAll();
+            showToast('تم حذف الطلب.');
+        }
+
+        function printOrder(id) {
+            selectOrder(id);
+            window.print();
+        }
+
+        function attachFiles(id) {
+            selectOrder(id);
+            showToast('تم فتح نافذة إرفاق الملفات.');
+        }
+
+        function calculateCost(order) {
+            const base = order.type === 'استبدال كامل' ? 1600 : order.type === 'استبدال جزئي' ? 900 : order.type === 'إصلاح' ? 400 : 700;
+            return base + (order.priority === 'عاجل' ? 300 : 0);
+        }
+
+        function updateInventory(order) {
+            order.inventoryStatus = 'تم تحديث المخزون';
+        }
+
+        function notifyOwner(order, message) {
+            order.lastNotification = message;
+        }
+
+        function autoAssignOwner(order) {
+            if (order.owner) return;
+            const map = {
+                'الرياض - الأجهزة': 'أحمد عبدالعزيز',
+                'جدة - الصيانة': 'سارة الشمري',
+                'الدمام - المبيعات': 'هبة القحطاني',
+                'المدينة - الدعم': 'محمد الدوسري'
+            };
+            order.owner = map[order.branch] || employees[0];
+        }
+
+        function openDrawer(id) {
+            const order = orders.find(o => o.id === id) || selectedOrder;
+            if (!order) return;
+            document.body.classList.add('drawer-open');
+            document.getElementById('drawerTitle').textContent = `طلب ${order.id}`;
+            document.getElementById('drawerSubtitle').textContent = `${order.customer} • ${order.product}`;
+            const content = document.getElementById('drawerContent');
+            content.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-slate-50 rounded-2xl">
+                        <h4 class="text-sm font-bold mb-2">بيانات العميل</h4>
+                        <p class="text-sm text-slate-600">الاسم: ${order.customer}</p>
+                        <p class="text-sm text-slate-600">الفرع: ${order.branch}</p>
+                        <p class="text-sm text-slate-600">الموظف: ${order.owner}</p>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-2xl">
+                        <h4 class="text-sm font-bold mb-2">بيانات المنتج</h4>
+                        <p class="text-sm text-slate-600">${order.product}</p>
+                        <p class="text-sm text-slate-600">الرقم التسلسلي: ${order.serial}</p>
+                        <p class="text-sm text-slate-600">النوع: ${order.type}</p>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-2xl">
+                        <h4 class="text-sm font-bold mb-2">بيانات الضمان</h4>
+                        <p class="text-sm text-slate-600">${order.warranty}</p>
+                        <p class="text-sm text-slate-600">الأولوية: ${order.priority}</p>
+                        <p class="text-sm text-slate-600">السبب: ${order.reason}</p>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-2xl">
+                        <h4 class="text-sm font-bold mb-2">ملاحظات الفحص الفني</h4>
+                        <p class="text-sm text-slate-600">${order.inspection}</p>
+                        <p class="text-sm text-slate-600">التكلفة: ${formatCurrency(order.cost)}</p>
+                    </div>
+                </div>
+                <div class="p-4 bg-white border border-slate-200 rounded-2xl">
+                    <h4 class="text-sm font-bold mb-2">المرفقات</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="chip bg-slate-100 text-slate-700"><i class="fas fa-paperclip"></i> تقرير فحص.pdf</span>
+                        <span class="chip bg-slate-100 text-slate-700"><i class="fas fa-paperclip"></i> صور المنتج.zip</span>
+                    </div>
+                </div>
+                <div class="p-4 bg-slate-50 rounded-2xl">
+                    <h4 class="text-sm font-bold mb-2">السجل الزمني (Audit Log)</h4>
+                    <ul class="text-sm text-slate-600 space-y-2">
+                        <li>✅ ${order.date} - تم إنشاء الطلب بواسطة ${order.createdBy}</li>
+                        <li>🔍 ${order.updatedAt} - تحديث حالة الفحص الفني</li>
+                        <li>🔔 ${order.updatedAt} - ${order.lastNotification || 'تم إشعار الفريق تلقائياً'}</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        function closeDrawer() {
+            document.body.classList.remove('drawer-open');
+        }
+
+        function applyFilters() {
+            const filters = {
+                branch: document.getElementById('filterBranch').value,
+                product: document.getElementById('filterProduct').value,
+                approval: document.getElementById('filterApproval').value,
+                type: document.getElementById('filterType').value,
+                priority: document.getElementById('filterPriority').value,
+                owner: document.getElementById('filterOwner').value,
+                warranty: document.getElementById('filterWarranty').value,
+                reason: document.getElementById('filterReason').value,
+                dateFrom: document.getElementById('dateFrom').value,
+                dateTo: document.getElementById('dateTo').value,
+                query: document.getElementById('smartSearch').value.trim().toLowerCase()
+            };
+
+            filteredOrders = orders.filter(order => {
+                const match = [
+                    !filters.branch || order.branch === filters.branch,
+                    !filters.product || order.product === filters.product,
+                    !filters.approval || order.approval === filters.approval,
+                    !filters.type || order.type === filters.type,
+                    !filters.priority || order.priority === filters.priority,
+                    !filters.owner || order.owner === filters.owner,
+                    !filters.warranty || order.warranty === filters.warranty,
+                    !filters.reason || order.reason === filters.reason,
+                    !filters.dateFrom || order.date >= filters.dateFrom,
+                    !filters.dateTo || order.date <= filters.dateTo,
+                    !filters.query || [order.id, order.customer, order.product, order.owner, order.serial]
+                        .filter(Boolean)
+                        .some(value => value.toString().toLowerCase().includes(filters.query))
+                ];
+                return match.every(Boolean);
+            });
+
+            renderTable();
+        }
+
+        function mapRowToOrder(row) {
+            return {
+                id: row.id,
+                date: row.request_date?.slice(0, 10),
+                customer: row.customer_name,
+                branch: row.branch_name,
+                product: row.product_name,
+                serial: row.serial_number,
+                type: row.exchange_type,
+                reason: row.reason,
+                warranty: row.warranty_status,
+                priority: row.priority,
+                inspection: row.technical_result,
+                approval: row.approval_status,
+                cost: Number(row.exchange_cost || 0),
+                owner: row.owner_name,
+                delivery: row.delivery_date ? row.delivery_date.slice(0, 10) : '-',
+                stage: row.workflow_stage,
+                createdBy: row.created_by,
+                updatedAt: row.updated_at ? row.updated_at.replace('T', ' ').slice(0, 16) : '-'
+            };
+        }
+
+        function mapOrderToPayload(order) {
+            return {
+                id: order.id,
+                request_date: order.date,
+                customer_name: order.customer,
+                branch_name: order.branch,
+                product_name: order.product,
+                serial_number: order.serial,
+                exchange_type: order.type,
+                reason: order.reason,
+                warranty_status: order.warranty,
+                priority: order.priority,
+                technical_result: order.inspection,
+                approval_status: order.approval,
+                exchange_cost: order.cost,
+                owner_name: order.owner,
+                delivery_date: order.delivery === '-' ? null : order.delivery,
+                workflow_stage: order.stage,
+                created_by: order.createdBy
+            };
+        }
+
+        async function loadOrders() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/exchange-requests`);
+                if (!response.ok) throw new Error('Failed to load exchange requests');
+                const data = await response.json();
+                orders = (data.requests || []).map(mapRowToOrder);
+                if (!orders.length) {
+                    await seedOrdersFromFallback();
+                    const seededResponse = await fetch(`${API_BASE}/finance/exchange-requests`);
+                    const seededData = await seededResponse.json();
+                    orders = (seededData.requests || []).map(mapRowToOrder);
+                }
+            } catch (error) {
+                console.error(error);
+                orders = [...fallbackOrders];
+            }
+            filteredOrders = [...orders];
+        }
+
+        async function seedOrdersFromFallback() {
+            try {
+                const seedPayloads = fallbackOrders.map(order => {
+                    const payload = mapOrderToPayload(order);
+                    delete payload.id;
+                    return payload;
+                });
+                for (const payload of seedPayloads) {
+                    await fetch(`${API_BASE}/finance/exchange-requests`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function createOrder(order) {
+            try {
+                const response = await fetch(`${API_BASE}/finance/exchange-requests`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(mapOrderToPayload(order))
+                });
+                if (!response.ok) throw new Error('Failed to create order');
+                const data = await response.json();
+                return mapRowToOrder(data.request);
+            } catch (error) {
+                console.error(error);
+                showToast('تعذر حفظ الطلب في قاعدة البيانات.');
+                return null;
+            }
+        }
+
+        async function updateOrder(id, payload) {
+            try {
+                const response = await fetch(`${API_BASE}/finance/exchange-requests/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error('Failed to update order');
+            } catch (error) {
+                console.error(error);
+                showToast('تعذر تحديث الطلب في قاعدة البيانات.');
+            }
+        }
+
+        async function removeOrder(id) {
+            try {
+                const response = await fetch(`${API_BASE}/finance/exchange-requests/${id}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) throw new Error('Failed to delete order');
+            } catch (error) {
+                console.error(error);
+                showToast('تعذر حذف الطلب من قاعدة البيانات.');
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            document.getElementById('smartSearch').value = '';
+            ['filterBranch','filterProduct','filterApproval','filterType','filterPriority','filterOwner','filterWarranty','filterReason']
+                .forEach(id => document.getElementById(id).value = '');
+            filteredOrders = [...orders];
+            renderTable();
+        }
+
+        function buildSuggestions(query) {
+            const list = [
+                ...orders.map(o => o.id),
+                ...orders.map(o => o.customer),
+                ...orders.map(o => o.product),
+                ...orders.map(o => o.owner),
+                ...orders.map(o => o.serial)
+            ];
+            const lowered = query.toLowerCase();
+            return list
+                .filter(Boolean)
+                .filter(item => item.toLowerCase().includes(lowered))
+                .slice(0, 8);
+        }
+
+        function handleSearchInput() {
+            const input = document.getElementById('smartSearch');
+            const suggestions = document.getElementById('searchSuggestions');
+            const value = input.value.trim();
+            if (value.length < 2) {
+                suggestions.classList.add('hidden');
+                return;
+            }
+            const matches = buildSuggestions(value);
+            if (!matches.length) {
+                suggestions.classList.add('hidden');
+                return;
+            }
+            suggestions.innerHTML = matches.map(item => `<button type="button" onclick="selectSuggestion('${item.replace(/'/g, "\\'")}')">${item}</button>`).join('');
+            suggestions.classList.remove('hidden');
+        }
+
+        function selectSuggestion(value) {
+            const input = document.getElementById('smartSearch');
+            input.value = value;
+            document.getElementById('searchSuggestions').classList.add('hidden');
+            applyFilters();
+        }
+
+        function applyRolePermissions() {
+            const role = document.getElementById('roleSelector').value;
+            const buttons = document.querySelectorAll('.action-btn');
+            buttons.forEach(btn => btn.removeAttribute('disabled'));
+
+            if (role === 'customer-service') {
+                buttons.forEach(btn => btn.setAttribute('disabled', 'disabled'));
+            }
+            if (role === 'finance') {
+                document.querySelectorAll('[title="تعديل"],[title="حذف"],[title="تغيير المرحلة"]').forEach(btn => btn.setAttribute('disabled', 'disabled'));
+            }
+            if (role === 'technical') {
+                document.querySelectorAll('[title="حذف"],[title="موافقة"],[title="رفض"]').forEach(btn => btn.setAttribute('disabled', 'disabled'));
+            }
+        }
+
+        function renderAll() {
+            orders.forEach(autoAssignOwner);
+            renderKPIs();
+            renderWorkflow();
+            renderTable();
+            renderCharts();
+        }
+
+        function uniqueFromOrders(key, fallback) {
+            const values = [...new Set(orders.map(o => o[key]).filter(Boolean))];
+            return values.length ? values : fallback;
+        }
+
+        function initFilters() {
+            fillSelect('filterBranch', uniqueFromOrders('branch', branches), 'كل الفروع');
+            fillSelect('filterProduct', uniqueFromOrders('product', products), 'كل المنتجات');
+            fillSelect('filterApproval', uniqueFromOrders('approval', approvals), 'كل الحالات');
+            fillSelect('filterType', uniqueFromOrders('type', types), 'كل الأنواع');
+            fillSelect('filterPriority', uniqueFromOrders('priority', priorities), 'كل الأولويات');
+            fillSelect('filterOwner', uniqueFromOrders('owner', employees), 'كل الموظفين');
+            fillSelect('filterWarranty', uniqueFromOrders('warranty', warrantyStates), 'كل حالات الضمان');
+            fillSelect('filterReason', uniqueFromOrders('reason', reasons), 'كل الأسباب');
+        }
+
+        document.getElementById('smartSearch').addEventListener('input', handleSearchInput);
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('#smartSearch')) {
+                document.getElementById('searchSuggestions').classList.add('hidden');
+            }
+        });
+        document.getElementById('roleSelector').addEventListener('change', applyRolePermissions);
+
+        (async () => {
+            await loadOrders();
+            if (!orders.length) {
+                orders = [...fallbackOrders];
+            }
+            selectedOrder = orders[0] || null;
+            filteredOrders = [...orders];
+            initFilters();
+            renderAll();
+            renderCharts();
+        })();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

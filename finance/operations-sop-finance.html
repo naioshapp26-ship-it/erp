@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧭 إجراءات التشغيل المالي - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f9fafb; color: #0f172a; }
+        
+        .card-gradient {
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    
+        .shape-rounded { border-radius: 26px; }
+        .shape-angled { border-radius: 34px 10px 34px 10px; }
+        .shape-pill { border-radius: 999px; }
+        .shape-cut { border-radius: 18px 18px 42px 8px; }
+        .table-scroll { max-height: 520px; overflow: auto; }
+        .chart-box { position: relative; height: 260px; }
+        .accent-sky { border-top: 4px solid #0ea5e9; }
+        .accent-indigo { border-top: 4px solid #6366f1; }
+        .accent-emerald { border-top: 4px solid #10b981; }
+        .accent-rose { border-top: 4px solid #f43f5e; }
+        .accent-amber { border-top: 4px solid #f59e0b; }
+        .toolbar-btn { border: 1px solid #e2e8f0; box-shadow: 0 4px 14px -6px rgba(15, 23, 42, 0.25); }
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 12px 18px; border-radius: 999px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.45); opacity: 0; pointer-events: none; transition: opacity 0.3s ease, bottom 0.3s ease; z-index: 50; }
+        .toast.show { opacity: 1; bottom: 32px; pointer-events: auto; }
+        .pill { border-radius: 999px; }
+        .input { width: 100%; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; background: #fff; }
+        .label { font-size: 12px; color: #475569; font-weight: 700; margin-bottom: 6px; display: block; }
+        .soft-card { border: 1px dashed #e2e8f0; }
+        .mini-btn { font-size: 12px; padding: 6px 10px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-slate-900 mb-8">
+            <h1 class="text-4xl font-bold mb-2">🧭 إجراءات التشغيل المالي</h1>
+            <p class="text-lg text-slate-600">إصدار الفواتير والتحصيل والمصروفات والإقفال الشهري (الصفحة 40)</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="downloadAllJSON()" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-code"></i>
+                تنزيل ملف بيانات شامل
+            </button>
+            <button onclick="downloadAllCSV()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-csv"></i>
+                تنزيل ملف جدولي شامل
+            </button>
+            <button onclick="printPage()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة الصفحة
+            </button>
+            <button onclick="copySummary()" class="bg-amber-500 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-copy"></i>
+                نسخ ملخص الإجراءات
+            </button>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-indigo">
+            <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">⚡ لوحة التحكم الفورية</h2>
+                    <p class="text-sm text-slate-600">إضافة وتعديل وحذف البيانات مع حفظ فوري في قاعدة البيانات وتجهيز الصفحة للعمل الآن.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="autoSeedIfEmpty(true)" class="bg-sky-600 text-white px-4 py-2 rounded-full font-bold hover:shadow-md transition flex items-center gap-2 toolbar-btn">
+                        <i class="fas fa-magic"></i>
+                        ملء بيانات تجريبية فورية
+                    </button>
+                    <button onclick="refreshData()" class="bg-white text-slate-800 px-4 py-2 rounded-full font-bold hover:shadow-md transition toolbar-btn flex items-center gap-2">
+                        <i class="fas fa-bolt"></i>
+                        إعادة تحميل فورية
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <form id="invoiceForm" onsubmit="handleInvoiceSubmit(event)" class="soft-card card-gradient p-4 rounded-2xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <div class="text-xs text-slate-500">الفواتير</div>
+                            <div class="font-bold">إضافة / تعديل فاتورة</div>
+                        </div>
+                        <span class="text-[11px] px-3 py-1 bg-sky-50 text-sky-700 rounded-full">حفظ آلي</span>
+                    </div>
+                    <input type="hidden" id="invoiceId">
+                    <label class="label" for="invoiceCustomer">اسم العميل</label>
+                    <input class="input mb-2" id="invoiceCustomer" placeholder="اسم العميل" required>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="label" for="invoiceDate">تاريخ الإصدار</label>
+                            <input class="input" id="invoiceDate" type="date" required>
+                        </div>
+                        <div>
+                            <label class="label" for="invoiceDue">تاريخ الاستحقاق</label>
+                            <input class="input" id="invoiceDue" type="date" required>
+                        </div>
+                    </div>
+                    <label class="label" for="invoiceService">الخدمة / الوصف</label>
+                    <input class="input mb-2" id="invoiceService" placeholder="مثل: اشتراك برنامج">
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="label" for="invoiceQty">الكمية</label>
+                            <input class="input" id="invoiceQty" type="number" step="0.01" value="1">
+                        </div>
+                        <div>
+                            <label class="label" for="invoicePrice">سعر الوحدة</label>
+                            <input class="input" id="invoicePrice" type="number" step="0.01" value="1000">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="label" for="invoiceTax">نسبة الضريبة %</label>
+                            <input class="input" id="invoiceTax" type="number" step="0.01" value="15">
+                        </div>
+                        <div>
+                            <label class="label" for="invoiceStatus">حالة الفاتورة</label>
+                            <select class="input" id="invoiceStatus">
+                                <option value="ISSUED">صادرة</option>
+                                <option value="PAID">مدفوعة</option>
+                                <option value="PARTIAL">مدفوعة جزئياً</option>
+                                <option value="OVERDUE">متأخرة</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label class="label" for="invoiceNotes">ملاحظات</label>
+                    <textarea class="input mb-3" id="invoiceNotes" rows="2" placeholder="تفاصيل إضافية"></textarea>
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="flex-1 bg-sky-600 text-white py-2 rounded-full font-bold hover:shadow-md transition">حفظ / إضافة</button>
+                        <button type="button" onclick="resetForm('invoice')" class="mini-btn">تفريغ</button>
+                    </div>
+                </form>
+
+                <form id="paymentForm" onsubmit="handlePaymentSubmit(event)" class="soft-card card-gradient p-4 rounded-2xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <div class="text-xs text-slate-500">التحصيل</div>
+                            <div class="font-bold">إضافة / تعديل دفعة</div>
+                        </div>
+                        <span class="text-[11px] px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full">حفظ آلي</span>
+                    </div>
+                    <input type="hidden" id="paymentId">
+                    <label class="label" for="paymentCustomer">اسم العميل</label>
+                    <input class="input mb-2" id="paymentCustomer" placeholder="اسم العميل" required>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="label" for="paymentDate">تاريخ الدفعة</label>
+                            <input class="input" id="paymentDate" type="date" required>
+                        </div>
+                        <div>
+                            <label class="label" for="paymentAmount">المبلغ</label>
+                            <input class="input" id="paymentAmount" type="number" step="0.01" value="1000" required>
+                        </div>
+                    </div>
+                    <label class="label" for="paymentMethod">طريقة التحصيل</label>
+                    <select class="input mb-2" id="paymentMethod">
+                        <option value="BANK_TRANSFER">تحويل بنكي</option>
+                        <option value="CARD">بطاقة</option>
+                        <option value="POS">نقاط بيع</option>
+                        <option value="CASH">نقد</option>
+                        <option value="CHEQUE">شيك</option>
+                    </select>
+                    <label class="label" for="paymentStatus">حالة الدفعة</label>
+                    <select class="input mb-3" id="paymentStatus">
+                        <option value="COMPLETED">مكتملة</option>
+                        <option value="PENDING">قيد المراجعة</option>
+                        <option value="REJECTED">مرفوضة</option>
+                    </select>
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-full font-bold hover:shadow-md transition">حفظ / إضافة</button>
+                        <button type="button" onclick="resetForm('payment')" class="mini-btn">تفريغ</button>
+                    </div>
+                </form>
+
+                <form id="expenseForm" onsubmit="handleExpenseSubmit(event)" class="soft-card card-gradient p-4 rounded-2xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <div class="text-xs text-slate-500">المصروفات</div>
+                            <div class="font-bold">إضافة / تعديل مصروف</div>
+                        </div>
+                        <span class="text-[11px] px-3 py-1 bg-amber-50 text-amber-700 rounded-full">حفظ آلي</span>
+                    </div>
+                    <input type="hidden" id="expenseId">
+                    <label class="label" for="expenseNumber">رقم المصروف</label>
+                    <input class="input mb-2" id="expenseNumber" placeholder="يُولد تلقائياً إن تُرك فارغ">
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="label" for="expenseDate">تاريخ المصروف</label>
+                            <input class="input" id="expenseDate" type="date" required>
+                        </div>
+                        <div>
+                            <label class="label" for="expenseAmount">المبلغ</label>
+                            <input class="input" id="expenseAmount" type="number" step="0.01" value="500" required>
+                        </div>
+                    </div>
+                    <label class="label" for="expenseType">نوع / فئة المصروف</label>
+                    <input class="input mb-2" id="expenseType" placeholder="مثل: مصاريف تشغيل" required>
+                    <label class="label" for="expenseVendor">المورد</label>
+                    <input class="input mb-2" id="expenseVendor" placeholder="اسم المورد" required>
+                    <label class="label" for="expenseStatus">الحالة</label>
+                    <select class="input mb-3" id="expenseStatus">
+                        <option value="approved">معتمد</option>
+                        <option value="pending">قيد المراجعة</option>
+                        <option value="rejected">مرفوض</option>
+                    </select>
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="flex-1 bg-amber-500 text-white py-2 rounded-full font-bold hover:shadow-md transition">حفظ / إضافة</button>
+                        <button type="button" onclick="resetForm('expense')" class="mini-btn">تفريغ</button>
+                    </div>
+                </form>
+
+                <form id="assetForm" onsubmit="handleAssetSubmit(event)" class="soft-card card-gradient p-4 rounded-2xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <div class="text-xs text-slate-500">الأصول الثابتة</div>
+                            <div class="font-bold">إضافة / تعديل أصل</div>
+                        </div>
+                        <span class="text-[11px] px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full">حفظ آلي</span>
+                    </div>
+                    <input type="hidden" id="assetId">
+                    <label class="label" for="assetCode">كود الأصل</label>
+                    <input class="input mb-2" id="assetCode" placeholder="مثل: FA-0001" required>
+                    <label class="label" for="assetName">اسم الأصل</label>
+                    <input class="input mb-2" id="assetName" placeholder="حاسوب محمول" required>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="label" for="assetCategory">الفئة</label>
+                            <input class="input" id="assetCategory" placeholder="تجهيزات" required>
+                        </div>
+                        <div>
+                            <label class="label" for="assetType">النوع</label>
+                            <input class="input" id="assetType" placeholder="أصل تقني" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="label" for="assetDate">تاريخ الشراء</label>
+                            <input class="input" id="assetDate" type="date" required>
+                        </div>
+                        <div>
+                            <label class="label" for="assetCost">تكلفة الشراء</label>
+                            <input class="input" id="assetCost" type="number" step="0.01" value="2500" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                            <label class="label" for="assetMethod">طريقة الإهلاك</label>
+                            <select class="input" id="assetMethod">
+                                <option value="SL">القسط الثابت</option>
+                                <option value="DDB">متناقص مزدوج</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label" for="assetLife">العمر (سنوات)</label>
+                            <input class="input" id="assetLife" type="number" value="3" required>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-full font-bold hover:shadow-md transition">حفظ / إضافة</button>
+                        <button type="button" onclick="resetForm('asset')" class="mini-btn">تفريغ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-sky">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧾 إصدار الفواتير</h2>
+                <span class="text-sm text-slate-500">ضمان فواتير دقيقة وموحدة وقابلة للتتبع</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div class="card-gradient shape-angled p-5 shadow-lg border border-sky-100">
+                    <h3 class="font-bold text-slate-800 mb-2">الهدف</h3>
+                    <p class="text-sm text-slate-600">ضمان إصدار فواتير دقيقة وموحدة وقابلة للتتبع.</p>
+                </div>
+                <div class="card-gradient shape-cut p-5 shadow-lg border border-emerald-100">
+                    <h3 class="font-bold text-slate-800 mb-2">النطاق</h3>
+                    <p class="text-sm text-slate-600">جميع الفروع والحاضنات والبرامج.</p>
+                </div>
+                <div class="card-gradient shape-pill p-5 shadow-lg border border-rose-100">
+                    <h3 class="font-bold text-slate-800 mb-2">المسؤوليات</h3>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>موظف البرنامج: إدخال الطلب</li>
+                        <li>المالية: المراجعة</li>
+                        <li>النظام: إصدار الفاتورة</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="card-gradient shape-rounded p-5 border border-sky-100">
+                    <h4 class="font-bold text-slate-800 mb-2">الإجراءات</h4>
+                    <ol class="text-sm text-slate-600 space-y-1 list-decimal list-inside">
+                        <li>استلام طلب خدمة من العميل</li>
+                        <li>التحقق من بيانات العميل</li>
+                        <li>إدخال تفاصيل الخدمة</li>
+                        <li>تحديد سياسة الدفع (كامل/جزئي/خطة دفع)</li>
+                        <li>إصدار الفاتورة</li>
+                        <li>إرسالها للعميل عبر البريد ولوحة العميل</li>
+                        <li>تسجيلها في الدفتر العام</li>
+                    </ol>
+                </div>
+                <div class="card-gradient shape-rounded p-5 border border-emerald-100">
+                    <h4 class="font-bold text-slate-800 mb-2">ملخص الفواتير الحالية</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="bg-sky-50 rounded-xl p-3">
+                            <div class="text-xs text-slate-500">إجمالي الفواتير</div>
+                            <div id="totalInvoices" class="text-lg font-bold text-slate-800">0</div>
+                        </div>
+                        <div class="bg-rose-50 rounded-xl p-3">
+                            <div class="text-xs text-slate-500">فواتير متأخرة</div>
+                            <div id="overdueInvoices" class="text-lg font-bold text-slate-800">0</div>
+                        </div>
+                        <div class="bg-emerald-50 rounded-xl p-3">
+                            <div class="text-xs text-slate-500">إجمالي المدفوع</div>
+                            <div id="totalPaid" class="text-lg font-bold text-slate-800">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-emerald">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">💳 التحصيل</h2>
+                <span class="text-sm text-slate-500">تحصيل مستحقات نايوش بكفاءة وشفافية</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div class="card-gradient shape-angled p-5 shadow-lg border border-emerald-100">
+                    <h3 class="font-bold text-slate-800 mb-2">خطوات التحصيل</h3>
+                    <ol class="text-sm text-slate-600 space-y-1 list-decimal list-inside">
+                        <li>فتح شاشة التحصيل</li>
+                        <li>البحث عن العميل</li>
+                        <li>عرض الفواتير المفتوحة</li>
+                        <li>اختيار نوع الدفع (كامل/جزئي/خطة دفع)</li>
+                        <li>إدخال المبلغ وتحديد وسيلة الدفع</li>
+                        <li>تأكيد العملية</li>
+                    </ol>
+                </div>
+                <div class="card-gradient shape-cut p-5 shadow-lg border border-amber-100">
+                    <h3 class="font-bold text-slate-800 mb-2">النظام يقوم بـ</h3>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>تسجيل الدفعة</li>
+                        <li>تحديث الرصيد</li>
+                        <li>إنشاء القيد المحاسبي</li>
+                        <li>إرسال إيصال للعميل</li>
+                    </ul>
+                </div>
+                <div class="card-gradient shape-pill p-5 shadow-lg border border-rose-100">
+                    <h3 class="font-bold text-slate-800 mb-2">مؤشرات التحصيل</h3>
+                    <div class="text-sm text-slate-600 space-y-2">
+                        <div>إجمالي المدفوعات: <span id="totalPayments" class="font-bold">0</span></div>
+                        <div>خطط السداد: <span id="plansCount" class="font-bold">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-amber">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">🧾 المصروفات</h2>
+                <span class="text-sm text-slate-500">معالجة المصروفات خطوة بخطوة</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div class="card-gradient shape-angled p-5 shadow-lg border border-amber-100">
+                    <h3 class="font-bold text-slate-800 mb-2">الإجراءات</h3>
+                    <ol class="text-sm text-slate-600 space-y-1 list-decimal list-inside">
+                        <li>تقديم طلب شراء</li>
+                        <li>مراجعة الطلب</li>
+                        <li>الحصول على عروض أسعار</li>
+                        <li>اعتماد الطلب</li>
+                        <li>استلام الفاتورة</li>
+                        <li>تسجيلها في النظام</li>
+                        <li>إصدار أمر دفع</li>
+                        <li>إنشاء القيد المحاسبي</li>
+                    </ol>
+                </div>
+                <div class="card-gradient shape-cut p-5 shadow-lg border border-emerald-100">
+                    <h3 class="font-bold text-slate-800 mb-2">مؤشرات المصروفات</h3>
+                    <div class="text-sm text-slate-600 space-y-2">
+                        <div>إجمالي المصروفات: <span id="totalExpenses" class="font-bold">0</span></div>
+                        <div>عدد المصروفات: <span id="expensesCountSummary" class="font-bold">0</span></div>
+                    </div>
+                </div>
+                <div class="card-gradient shape-pill p-5 shadow-lg border border-rose-100">
+                    <h3 class="font-bold text-slate-800 mb-2">ملخص الاعتماد</h3>
+                    <p class="text-sm text-slate-600">تُعتمد المصروفات وفق الطلبات والعروض والفواتير المعتمدة.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-rose">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">📆 الإقفال الشهري</h2>
+                <span class="text-sm text-slate-500">تنفيذ الإقفال بانتظام وانضباط</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div class="card-gradient shape-angled p-5 shadow-lg border border-rose-100">
+                    <h3 class="font-bold text-slate-800 mb-2">الإجراءات</h3>
+                    <ol class="text-sm text-slate-600 space-y-1 list-decimal list-inside">
+                        <li>تسوية البنك</li>
+                        <li>تسوية الذمم</li>
+                        <li>تسوية العهد</li>
+                        <li>احتساب الإهلاك</li>
+                        <li>مراجعة القيود</li>
+                        <li>إعداد ميزان المراجعة</li>
+                        <li>اعتماد الإقفال</li>
+                    </ol>
+                </div>
+                <div class="card-gradient shape-cut p-5 shadow-lg border border-emerald-100">
+                    <h3 class="font-bold text-slate-800 mb-2">مؤشرات الإقفال</h3>
+                    <div class="text-sm text-slate-600 space-y-2">
+                        <div>عدد القيود: <span id="totalEntries" class="font-bold">0</span></div>
+                        <div>إجمالي الإهلاك: <span id="totalDepreciation" class="font-bold">0</span></div>
+                    </div>
+                </div>
+                <div class="card-gradient shape-pill p-5 shadow-lg border border-amber-100">
+                    <h3 class="font-bold text-slate-800 mb-2">انضباط الإقفال</h3>
+                    <p class="text-sm text-slate-600">لا يتم إدخال قيود بعد الإقفال إلا وفق الموافقات المعتمدة.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card-gradient shape-rounded shadow-2xl p-6 accent-sky">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">📊 توزيع حالات الفواتير</h3>
+                <div class="chart-box"><canvas id="invoiceStatusChart"></canvas></div>
+            </div>
+            <div class="card-gradient shape-rounded shadow-2xl p-6 accent-emerald">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">💳 توزيع طرق التحصيل</h3>
+                <div class="chart-box"><canvas id="paymentMethodChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card-gradient shape-rounded shadow-2xl p-6 accent-amber">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">🧾 توزيع أنواع المصروفات</h3>
+                <div class="chart-box"><canvas id="expensesTypeChart"></canvas></div>
+            </div>
+            <div class="card-gradient shape-rounded shadow-2xl p-6 accent-indigo">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">🏢 ملخص الأصول والإهلاك</h3>
+                <div class="chart-box"><canvas id="assetsChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-sky">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">📄 جدول الفواتير</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="handleAddClick('invoice')" class="bg-sky-600 text-white px-3 py-1 rounded-full text-xs font-bold hover:shadow-md transition">إضافة فاتورة</button>
+                    <span id="invoicesCount" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-sky-50 text-sky-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم الفاتورة</th>
+                            <th class="px-3 py-2 text-right">تاريخ الإصدار</th>
+                            <th class="px-3 py-2 text-right">تاريخ الاستحقاق</th>
+                            <th class="px-3 py-2 text-right">العميل</th>
+                            <th class="px-3 py-2 text-right">الإجمالي</th>
+                            <th class="px-3 py-2 text-right">المتبقي</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoicesTable" class="divide-y divide-slate-100">
+                        <tr><td colspan="8" class="px-4 py-10 text-center text-slate-500">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-emerald">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">💳 جدول المدفوعات</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="handleAddClick('payment')" class="bg-emerald-600 text-white px-3 py-1 rounded-full text-xs font-bold hover:shadow-md transition">إضافة دفعة</button>
+                    <span id="paymentsCount" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-emerald-50 text-emerald-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم الدفعة</th>
+                            <th class="px-3 py-2 text-right">العميل</th>
+                            <th class="px-3 py-2 text-right">قيمة الدفعة</th>
+                            <th class="px-3 py-2 text-right">تاريخ الدفعة</th>
+                            <th class="px-3 py-2 text-right">طريقة التحصيل</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsTable" class="divide-y divide-slate-100">
+                        <tr><td colspan="7" class="px-4 py-10 text-center text-slate-500">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-amber">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">🧾 جدول المصروفات</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="handleAddClick('expense')" class="bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold hover:shadow-md transition">إضافة مصروف</button>
+                    <span id="expensesCount" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-amber-50 text-amber-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم المصروف</th>
+                            <th class="px-3 py-2 text-right">تاريخ المصروف</th>
+                            <th class="px-3 py-2 text-right">النوع</th>
+                            <th class="px-3 py-2 text-right">المورد</th>
+                            <th class="px-3 py-2 text-right">الإجمالي</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expensesTable" class="divide-y divide-slate-100">
+                        <tr><td colspan="7" class="px-4 py-10 text-center text-slate-500">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-indigo">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">🏢 جدول الأصول الثابتة</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="handleAddClick('asset')" class="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-bold hover:shadow-md transition">إضافة أصل</button>
+                    <span id="assetsCount" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-indigo-50 text-indigo-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم الأصل</th>
+                            <th class="px-3 py-2 text-right">اسم الأصل</th>
+                            <th class="px-3 py-2 text-right">تاريخ الشراء</th>
+                            <th class="px-3 py-2 text-right">تكلفة الشراء</th>
+                            <th class="px-3 py-2 text-right">القيمة الدفترية</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assetsTable" class="divide-y divide-slate-100">
+                        <tr><td colspan="7" class="px-4 py-10 text-center text-slate-500">جاري تحميل البيانات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Use live API host when the page is served from a different origin (e.g., static hosting)
+        const API_BASE = (window.API_BASE || '').trim() ||
+            (window.location.origin && window.location.origin.startsWith('http')
+                ? window.location.origin
+                : '');
+
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
+
+        let store = {
+            invoices: [],
+            payments: [],
+            expenses: [],
+            assets: [],
+            plans: [],
+            entries: []
+        };
+
+        let invoiceChartInstance = null;
+        let paymentChartInstance = null;
+        let expensesChartInstance = null;
+        let assetsChartInstance = null;
+        let seeded = false;
+
+        const toastEl = document.getElementById('toast');
+
+        const today = (plusDays = 0) => {
+            const d = new Date();
+            d.setDate(d.getDate() + plusDays);
+            return d.toISOString().slice(0, 10);
+        };
+
+        function setDefaultDates() {
+            document.getElementById('invoiceDate').value = today();
+            document.getElementById('invoiceDue').value = today(7);
+            document.getElementById('paymentDate').value = today();
+            document.getElementById('expenseDate').value = today();
+            document.getElementById('assetDate').value = today();
+        }
+
+        function showToast(message) {
+            if (!toastEl) return;
+            toastEl.textContent = message;
+            toastEl.classList.add('show');
+            setTimeout(() => toastEl.classList.remove('show'), 3200);
+        }
+
+        function setText(id, value) {
+            const el = document.getElementById(id);
+            if (!el) {
+                console.warn('لم يتم العثور على العنصر:', id);
+                return;
+            }
+            el.textContent = value;
+        }
+
+        function getVal(id) {
+            const el = document.getElementById(id);
+            return (el?.value || '').trim();
+        }
+
+        function resetForm(type) {
+            if (type === 'invoice') {
+                ['invoiceId','invoiceCustomer','invoiceService','invoiceNotes'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('invoiceQty').value = 1;
+                document.getElementById('invoicePrice').value = 1000;
+                document.getElementById('invoiceTax').value = 15;
+                document.getElementById('invoiceStatus').value = 'ISSUED';
+                setDefaultDates();
+            }
+            if (type === 'payment') {
+                ['paymentId','paymentCustomer'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('paymentAmount').value = 1000;
+                document.getElementById('paymentMethod').value = 'BANK_TRANSFER';
+                document.getElementById('paymentStatus').value = 'COMPLETED';
+                document.getElementById('paymentDate').value = today();
+            }
+            if (type === 'expense') {
+                ['expenseId','expenseNumber','expenseType','expenseVendor'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('expenseAmount').value = 500;
+                document.getElementById('expenseStatus').value = 'approved';
+                document.getElementById('expenseDate').value = today();
+            }
+            if (type === 'asset') {
+                ['assetId','assetCode','assetName','assetCategory','assetType'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('assetCost').value = 2500;
+                document.getElementById('assetMethod').value = 'SL';
+                document.getElementById('assetLife').value = 3;
+                document.getElementById('assetDate').value = today();
+            }
+        }
+
+        function handleAddClick(type) {
+            resetForm(type);
+            const formMap = {
+                invoice: { formId: 'invoiceForm', focusId: 'invoiceCustomer' },
+                payment: { formId: 'paymentForm', focusId: 'paymentCustomer' },
+                expense: { formId: 'expenseForm', focusId: 'expenseNumber' },
+                asset: { formId: 'assetForm', focusId: 'assetCode' }
+            };
+            const target = formMap[type];
+            if (target) {
+                const formEl = document.getElementById(target.formId);
+                formEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const focusEl = document.getElementById(target.focusId);
+                focusEl?.focus();
+            }
+        }
+
+        function findRecord(type, id) {
+            const numericId = Number(id);
+            if (type === 'invoice') return store.invoices.find(r => Number(r.invoice_id) === numericId);
+            if (type === 'payment') return store.payments.find(r => Number(r.payment_id) === numericId || Number(r.id) === numericId);
+            if (type === 'expense') return store.expenses.find(r => Number(r.expense_id) === numericId);
+            if (type === 'asset') return store.assets.find(r => Number(r.asset_id) === numericId);
+            return null;
+        }
+
+        function startEdit(type, id) {
+            const record = findRecord(type, id);
+            if (!record) return showToast('لم يتم العثور على السجل المطلوب');
+
+            if (type === 'invoice') {
+                document.getElementById('invoiceId').value = record.invoice_id;
+                document.getElementById('invoiceCustomer').value = record.customer_name_ar || record.customer_name || '';
+                document.getElementById('invoiceDate').value = record.invoice_date ? record.invoice_date.slice(0,10) : today();
+                document.getElementById('invoiceDue').value = record.due_date ? record.due_date.slice(0,10) : today(7);
+                document.getElementById('invoiceService').value = record.notes || 'خدمة تشغيل';
+                document.getElementById('invoiceQty').value = record.lines?.[0]?.quantity || 1;
+                document.getElementById('invoicePrice').value = record.lines?.[0]?.unit_price || record.subtotal || 1000;
+                document.getElementById('invoiceTax').value = record.lines?.[0]?.tax_percentage || 15;
+                document.getElementById('invoiceStatus').value = record.status || 'ISSUED';
+                document.getElementById('invoiceNotes').value = record.notes || '';
+            }
+
+            if (type === 'payment') {
+                document.getElementById('paymentId').value = record.payment_id;
+                document.getElementById('paymentCustomer').value = record.customer_name_ar || record.customer_name || '';
+                document.getElementById('paymentDate').value = record.payment_date ? record.payment_date.slice(0,10) : today();
+                document.getElementById('paymentAmount').value = record.payment_amount || 0;
+                document.getElementById('paymentMethod').value = record.payment_method || 'BANK_TRANSFER';
+                document.getElementById('paymentStatus').value = record.status || 'COMPLETED';
+            }
+
+            if (type === 'expense') {
+                document.getElementById('expenseId').value = record.expense_id;
+                document.getElementById('expenseNumber').value = record.expense_number || '';
+                document.getElementById('expenseDate').value = record.expense_date ? record.expense_date.slice(0,10) : today();
+                document.getElementById('expenseAmount').value = record.amount || record.total_amount || 0;
+                document.getElementById('expenseType').value = record.expense_type || record.expense_category || '';
+                document.getElementById('expenseVendor').value = record.vendor_name || '';
+                document.getElementById('expenseStatus').value = record.status || 'approved';
+            }
+
+            if (type === 'asset') {
+                document.getElementById('assetId').value = record.asset_id;
+                document.getElementById('assetCode').value = record.asset_code || record.asset_id;
+                document.getElementById('assetName').value = record.asset_name_ar || record.asset_name_en || record.asset_name || '';
+                document.getElementById('assetCategory').value = record.asset_category || '';
+                document.getElementById('assetType').value = record.asset_type || '';
+                document.getElementById('assetDate').value = record.purchase_date ? record.purchase_date.slice(0,10) : today();
+                document.getElementById('assetCost').value = record.purchase_cost || 0;
+                document.getElementById('assetMethod').value = record.depreciation_method || 'SL';
+                document.getElementById('assetLife').value = record.useful_life_years || 3;
+            }
+
+            showToast('تم تحميل البيانات للتحرير');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function openPreview(type, id) {
+            const record = findRecord(type, id);
+            if (!record) return showToast('لا توجد بيانات لعرضها');
+            const lines = Object.entries(record).slice(0, 18).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
+            alert(`معاينة سريعة:\n${lines}`);
+        }
+
+        async function deleteRecord(type, id) {
+            if (!confirm('تأكيد الحذف النهائي؟')) return;
+            try {
+                const endpoints = {
+                    invoice: `/finance/invoices/${id}`,
+                    payment: `/finance/payments/${id}?entity_id=${ENTITY_ID}`,
+                    expense: `/finance/expenses/${id}?entity_id=${ENTITY_ID}`,
+                    asset: `/finance/fixed-assets/${id}?entity_id=${ENTITY_ID}`
+                };
+                await apiFetch(endpoints[type], 'DELETE');
+                showToast('تم الحذف بنجاح');
+                await loadData();
+            } catch (error) {
+                showToast(error.message || 'حدث خطأ أثناء الحذف');
+            }
+        }
+
+        async function ensureCustomer(name) {
+            const cleanName = name || 'عميل التشغيل القياسي';
+            const listRes = await fetch(`/finance/customers?entity_id=${ENTITY_ID}`);
+            const listData = await listRes.json();
+            const existing = listData.customers?.find(c => (c.customer_name_ar || '').trim() === cleanName.trim());
+            if (existing) return existing;
+
+            const details = collectRequiredCustomerDetails(cleanName);
+            if (!details) throw new Error('يلزم إدخال البيانات الأساسية للعميل أولاً.');
+
+            const created = await apiFetch('/finance/customers', 'POST', {
+                entity_id: ENTITY_ID,
+                customer_name_ar: cleanName,
+                customer_name_en: cleanName,
+                customer_type: 'COMPANY',
+                payment_terms: 'فوري',
+                credit_limit: 0,
+                is_active: true,
+                ...details
+            });
+            return created.customer;
+        }
+
+        function collectRequiredCustomerDetails(defaultName) {
+            const taxNumber = prompt('الرقم الضريبي للعميل:', '');
+            if (!taxNumber) return null;
+
+            const companyName = prompt('اسم المنشأة:', defaultName || '') || '';
+            if (!companyName.trim()) return null;
+
+            const website = prompt('الموقع الإلكتروني:', 'https://') || '';
+            if (!website.trim()) return null;
+
+            const primaryEmail = prompt('البريد الإلكتروني الأساسي:', '') || '';
+            if (!primaryEmail.trim()) return null;
+
+            const secondaryEmail = prompt('البريد الإلكتروني الثانوي:', '') || '';
+            if (!secondaryEmail.trim()) return null;
+
+            const primaryMobile = prompt('رقم الجوال الأساسي:', '') || '';
+            if (!primaryMobile.trim()) return null;
+
+            const secondaryMobile = prompt('رقم الجوال الثانوي:', '') || '';
+            if (!secondaryMobile.trim()) return null;
+
+            const billingStreet = prompt('اسم الشارع (عنوان الفوترة):', '') || '';
+            const billingCity = prompt('المدينة (عنوان الفوترة):', '') || '';
+            const billingRegion = prompt('المنطقة (عنوان الفوترة):', '') || '';
+            const billingBuilding = prompt('رقم المبنى (عنوان الفوترة):', '') || '';
+            const billingPostal = prompt('الرمز البريدي (عنوان الفوترة):', '') || '';
+            const billingCountry = prompt('الدولة (عنوان الفوترة):', '') || '';
+
+            if (!billingStreet.trim() || !billingCity.trim() || !billingRegion.trim() || !billingBuilding.trim() || !billingPostal.trim() || !billingCountry.trim()) {
+                return null;
+            }
+
+            const copyShipping = (prompt('نسخ عنوان الفوترة إلى عنوان الشحن؟ (نعم/لا)', 'نعم') || 'نعم').trim() !== 'لا';
+            let shippingStreet = '';
+            let shippingCity = '';
+            let shippingRegion = '';
+            let shippingPostal = '';
+
+            if (!copyShipping) {
+                shippingStreet = prompt('اسم الشارع (عنوان الشحن):', '') || '';
+                shippingCity = prompt('المدينة (عنوان الشحن):', '') || '';
+                shippingRegion = prompt('المنطقة (عنوان الشحن):', '') || '';
+                shippingPostal = prompt('الرمز البريدي (عنوان الشحن):', '') || '';
+
+                if (!shippingStreet.trim() || !shippingCity.trim() || !shippingRegion.trim() || !shippingPostal.trim()) {
+                    return null;
+                }
+            }
+
+            return {
+                company_name: companyName.trim(),
+                website: website.trim(),
+                email: primaryEmail.trim(),
+                email_secondary: secondaryEmail.trim(),
+                mobile: primaryMobile.trim(),
+                mobile_secondary: secondaryMobile.trim(),
+                tax_number: taxNumber.trim(),
+                street_name: billingStreet.trim(),
+                city: billingCity.trim(),
+                district: billingRegion.trim(),
+                building_number: billingBuilding.trim(),
+                postal_code: billingPostal.trim(),
+                country: billingCountry.trim(),
+                shipping_copy_billing: copyShipping,
+                shipping_street_name: copyShipping ? billingStreet.trim() : shippingStreet.trim(),
+                shipping_city: copyShipping ? billingCity.trim() : shippingCity.trim(),
+                shipping_region: copyShipping ? billingRegion.trim() : shippingRegion.trim(),
+                shipping_postal_code: copyShipping ? billingPostal.trim() : shippingPostal.trim()
+            };
+        }
+
+        function generateVendorId(vendorName) {
+            return `V-${(vendorName || 'SUP').replace(/[^\dA-Za-zأ-ي]/g, '').slice(0, 6) || 'SUP'}-${Date.now().toString().slice(-3)}`;
+        }
+
+        async function apiFetch(url, method = 'GET', body) {
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: body ? JSON.stringify(body) : undefined
+            });
+            let data = {};
+            try { data = await res.json(); } catch (_) {}
+            if (!res.ok) {
+                const msg = data.error || data.message || 'خطأ غير متوقع';
+                throw new Error(msg);
+            }
+            return data;
+        }
+
+        async function handleInvoiceSubmit(event) {
+            event.preventDefault();
+            try {
+                const invoiceId = getVal('invoiceId');
+                const customerName = getVal('invoiceCustomer');
+                if (!customerName) return showToast('أدخل اسم العميل');
+
+                const customer = await ensureCustomer(customerName);
+                const invoiceDate = getVal('invoiceDate') || today();
+                const dueDate = getVal('invoiceDue') || today(7);
+                const service = getVal('invoiceService') || 'خدمة تشغيل';
+                const qty = Number(getVal('invoiceQty') || 1);
+                const price = Number(getVal('invoicePrice') || 0);
+                const tax = Number(getVal('invoiceTax') || 0);
+                const status = getVal('invoiceStatus') || 'ISSUED';
+                const notes = document.getElementById('invoiceNotes').value || '';
+                const total = (qty * price) * (1 + (tax / 100));
+
+                if (invoiceId) {
+                    await apiFetch(`/finance/invoices/${invoiceId}`, 'PUT', {
+                        invoice_date: invoiceDate,
+                        due_date: dueDate,
+                        status,
+                        notes,
+                        total_amount: total,
+                        remaining_amount: status === 'PAID' ? 0 : total,
+                        paid_amount: status === 'PAID' ? total : 0
+                    });
+                } else {
+                    await apiFetch('/finance/invoices', 'POST', {
+                        customer_id: customer.customer_id,
+                        invoice_date: invoiceDate,
+                        due_date: dueDate,
+                        entity_type: 'HQ',
+                        entity_id: ENTITY_ID,
+                        allow_partial_payment: true,
+                        allow_installments: true,
+                        notes,
+                        lines: [{
+                            item_code: 'SRV-OPS',
+                            item_name: service,
+                            description: notes || service,
+                            quantity: qty,
+                            unit_price: price,
+                            discount_percentage: 0,
+                            discount_amount: 0,
+                            tax_percentage: tax,
+                            tax_amount: price * qty * (tax / 100),
+                            line_total: total,
+                            revenue_account_id: null
+                        }]
+                    });
+                }
+
+                showToast(invoiceId ? 'تم تحديث الفاتورة' : 'تم إضافة فاتورة جديدة');
+                resetForm('invoice');
+                await loadData();
+            } catch (error) {
+                showToast(error.message || 'تعذر حفظ الفاتورة');
+            }
+        }
+
+        async function handlePaymentSubmit(event) {
+            event.preventDefault();
+            try {
+                const paymentId = getVal('paymentId');
+                const customerName = getVal('paymentCustomer');
+                if (!customerName) return showToast('أدخل اسم العميل');
+                const customer = await ensureCustomer(customerName);
+
+                const payload = {
+                    entity_id: ENTITY_ID,
+                    payment_date: getVal('paymentDate') || today(),
+                    customer_id: customer.customer_id,
+                    customer_name: customer.customer_name_ar,
+                    payment_amount: Number(getVal('paymentAmount') || 0),
+                    payment_method: getVal('paymentMethod') || 'BANK_TRANSFER',
+                    payment_type: 'FULL',
+                    status: getVal('paymentStatus') || 'COMPLETED'
+                };
+
+                if (paymentId) {
+                    await apiFetch(`/finance/payments/${paymentId}`, 'PUT', payload);
+                } else {
+                    await apiFetch('/finance/payments', 'POST', payload);
+                }
+
+                showToast(paymentId ? 'تم تحديث الدفعة' : 'تم إضافة دفعة');
+                resetForm('payment');
+                await loadData();
+            } catch (error) {
+                showToast(error.message || 'تعذر حفظ الدفعة');
+            }
+        }
+
+        async function handleExpenseSubmit(event) {
+            event.preventDefault();
+            try {
+                const expenseId = getVal('expenseId');
+                const vendorName = getVal('expenseVendor') || 'مورد تشغيل';
+                const payload = {
+                    expense_number: getVal('expenseNumber') || `EXP-${Date.now()}`,
+                    expense_date: getVal('expenseDate') || today(),
+                    expense_category: getVal('expenseType') || 'تشغيل',
+                    expense_type: getVal('expenseType') || 'تشغيل',
+                    vendor_name: vendorName,
+                    amount: Number(getVal('expenseAmount') || 0),
+                    tax_amount: 0,
+                    total_amount: Number(getVal('expenseAmount') || 0),
+                    status: getVal('expenseStatus') || 'approved',
+                    entity_type: 'HQ',
+                    entity_id: ENTITY_ID,
+                    notes: 'تم الإدخال من لوحة التشغيل'
+                };
+
+                if (expenseId) {
+                    await apiFetch(`/finance/expenses/${expenseId}`, 'PUT', payload);
+                } else {
+                    await apiFetch('/finance/expenses', 'POST', payload);
+                }
+
+                showToast(expenseId ? 'تم تحديث المصروف' : 'تم إضافة مصروف');
+                resetForm('expense');
+                await loadData();
+            } catch (error) {
+                showToast(error.message || 'تعذر حفظ المصروف');
+            }
+        }
+
+        async function handleAssetSubmit(event) {
+            event.preventDefault();
+            try {
+                const assetId = getVal('assetId');
+                const payload = {
+                    asset_code: getVal('assetCode') || `FA-${Date.now().toString().slice(-5)}`,
+                    asset_name_ar: getVal('assetName') || 'أصل تشغيلي',
+                    asset_category: getVal('assetCategory') || 'تجهيزات',
+                    asset_type: getVal('assetType') || 'تشغيلي',
+                    purchase_date: getVal('assetDate') || today(),
+                    purchase_cost: Number(getVal('assetCost') || 0),
+                    depreciation_method: getVal('assetMethod') || 'SL',
+                    useful_life_years: Number(getVal('assetLife') || 3),
+                    status: 'active',
+                    entity_type: 'HQ',
+                    entity_id: ENTITY_ID,
+                    accumulated_depreciation: 0,
+                    net_book_value: Number(getVal('assetCost') || 0)
+                };
+
+                if (assetId) {
+                    await apiFetch(`/finance/fixed-assets/${assetId}`, 'PUT', payload);
+                } else {
+                    await apiFetch('/finance/fixed-assets', 'POST', payload);
+                }
+
+                showToast(assetId ? 'تم تحديث الأصل' : 'تم إضافة أصل');
+                resetForm('asset');
+                await loadData();
+            } catch (error) {
+                showToast(error.message || 'تعذر حفظ الأصل');
+            }
+        }
+
+        async function autoSeedIfEmpty(force = false) {
+            const noData = !store.invoices.length && !store.payments.length && !store.expenses.length && !store.assets.length;
+            if ((!noData && !force) || seeded) return;
+            seeded = true;
+            try {
+                const customer = await ensureCustomer('عميل التشغيل القياسي');
+                const invoiceDate = today();
+                const dueDate = today(10);
+
+                await apiFetch('/finance/invoices', 'POST', {
+                    customer_id: customer.customer_id,
+                    invoice_date: invoiceDate,
+                    due_date: dueDate,
+                    entity_type: 'HQ',
+                    entity_id: ENTITY_ID,
+                    allow_partial_payment: true,
+                    allow_installments: true,
+                    notes: 'فاتورة جاهزية التشغيل',
+                    lines: [{
+                        item_code: 'SRV-SEED',
+                        item_name: 'باقة تشغيل مالية',
+                        description: 'تمهيد للعرض',
+                        quantity: 1,
+                        unit_price: 1200,
+                        discount_percentage: 0,
+                        discount_amount: 0,
+                        tax_percentage: 15,
+                        tax_amount: 180,
+                        line_total: 1380,
+                        revenue_account_id: null
+                    }]
+                });
+
+                await apiFetch('/finance/payments', 'POST', {
+                    entity_id: ENTITY_ID,
+                    payment_date: invoiceDate,
+                    customer_id: customer.customer_id,
+                    customer_name: customer.customer_name_ar,
+                    payment_amount: 800,
+                    payment_method: 'BANK_TRANSFER',
+                    payment_type: 'PARTIAL',
+                    status: 'COMPLETED'
+                });
+
+                await apiFetch('/finance/expenses', 'POST', {
+                    expense_number: `EXP-${Date.now()}`,
+                    expense_date: invoiceDate,
+                    expense_category: 'تشغيل',
+                    expense_type: 'مصاريف تشغيلية',
+                    vendor_name: 'مورد تجهيز',
+                    amount: 600,
+                    tax_amount: 0,
+                    total_amount: 600,
+                    status: 'approved',
+                    entity_type: 'HQ',
+                    entity_id: ENTITY_ID,
+                    notes: 'ملء تلقائي لضمان وجود بيانات'
+                });
+
+                await apiFetch('/finance/fixed-assets', 'POST', {
+                    asset_code: `FA-${Date.now().toString().slice(-4)}`,
+                    asset_name_ar: 'حاسوب تشغيلي',
+                    asset_category: 'معدات تقنية',
+                    asset_type: 'تشغيلي',
+                    purchase_date: invoiceDate,
+                    purchase_cost: 3200,
+                    depreciation_method: 'SL',
+                    useful_life_years: 3,
+                    accumulated_depreciation: 0,
+                    net_book_value: 3200,
+                    status: 'active',
+                    entity_type: 'HQ',
+                    entity_id: ENTITY_ID
+                });
+
+                showToast('تم ملء بيانات تجريبية لضمان جاهزية الصفحة');
+                await loadData();
+            } catch (error) {
+                showToast('تعذر الملء التلقائي: ' + (error.message || 'خطأ غير معروف'));
+            }
+        }
+
+        async function loadData() {
+            try {
+                const [invoiceRes, paymentRes, expenseRes, assetRes, planRes, entryRes] = await Promise.all([
+                    fetchWithEntity(`${API_BASE}/finance/invoices?entity_id=${ENTITY_ID}`),
+                    fetchWithEntity(`${API_BASE}/finance/payments?entity_id=${ENTITY_ID}`),
+                    fetchWithEntity(`${API_BASE}/finance/expenses?entity_id=${ENTITY_ID}`),
+                    fetchWithEntity(`${API_BASE}/finance/fixed-assets?entity_id=${ENTITY_ID}`),
+                    fetchWithEntity(`${API_BASE}/finance/payment-plans?entity_id=${ENTITY_ID}`),
+                    fetchWithEntity(`${API_BASE}/finance/journal/entries?entity_id=${ENTITY_ID}`)
+                ]);
+
+                [invoiceRes, paymentRes, expenseRes, assetRes, planRes, entryRes].forEach(res => {
+                    if (!res.ok) throw new Error(`فشل تحميل: ${res.url} (${res.status})`);
+                });
+
+                const [invoiceData, paymentData, expenseData, assetData, planData, entryData] = await Promise.all([
+                    invoiceRes.json(),
+                    paymentRes.json(),
+                    expenseRes.json(),
+                    assetRes.json(),
+                    planRes.json(),
+                    entryRes.json()
+                ]);
+
+                store.invoices = invoiceData.invoices || [];
+                store.payments = paymentData.payments || [];
+                store.expenses = expenseData.expenses || [];
+                store.assets = assetData.assets || [];
+                store.plans = planData.plans || [];
+                store.entries = entryData.entries || entryData.rows || [];
+
+                renderStats();
+                renderCharts();
+                renderTables();
+                renderSummaryInsights();
+                await autoSeedIfEmpty();
+            } catch (error) {
+                console.error('خطأ في تحميل البيانات:', error);
+                showToast('تعذر تحميل البيانات');
+                setTablesMessage('تعذر تحميل البيانات، أعد المحاولة');
+            }
+        }
+
+        function fetchWithEntity(url, options = {}) {
+            const headers = Object.assign({}, options.headers || {}, {
+                'x-entity-id': ENTITY_ID,
+                'x-entity-type': ENTITY_TYPE
+            });
+            return fetch(url, { ...options, headers });
+        }
+
+        function setTablesMessage(message) {
+            document.getElementById('invoicesTable').innerHTML = `<tr><td colspan="8" class="px-4 py-6 text-center text-rose-600 font-bold">${message}</td></tr>`;
+            document.getElementById('paymentsTable').innerHTML = `<tr><td colspan="7" class="px-4 py-6 text-center text-rose-600 font-bold">${message}</td></tr>`;
+            document.getElementById('expensesTable').innerHTML = `<tr><td colspan="7" class="px-4 py-6 text-center text-rose-600 font-bold">${message}</td></tr>`;
+            document.getElementById('assetsTable').innerHTML = `<tr><td colspan="7" class="px-4 py-6 text-center text-rose-600 font-bold">${message}</td></tr>`;
+        }
+
+        function renderStats() {
+            const totalInvoices = store.invoices.length;
+            const overdueInvoices = store.invoices.filter(i => String(i.status || '').toUpperCase() === 'OVERDUE').length;
+            const totalPaid = sum(store.invoices, 'paid_amount');
+            const totalPayments = sum(store.payments, 'payment_amount');
+            const totalExpenses = sum(store.expenses, 'total_amount');
+            const totalAssets = store.assets.length;
+            const totalDep = sum(store.assets, 'accumulated_depreciation');
+            const totalPlans = store.plans.length;
+            const totalEntries = store.entries.length;
+
+            setText('totalInvoices', totalInvoices.toLocaleString('en-US'));
+            setText('overdueInvoices', overdueInvoices.toLocaleString('en-US'));
+            setText('totalPaid', formatMoney(totalPaid));
+            setText('totalPayments', formatMoney(totalPayments));
+            setText('plansCount', totalPlans.toLocaleString('en-US'));
+            setText('totalExpenses', formatMoney(totalExpenses));
+            setText('expensesCountSummary', store.expenses.length.toLocaleString('en-US'));
+            setText('totalEntries', totalEntries.toLocaleString('en-US'));
+            setText('totalDepreciation', formatMoney(totalDep));
+            setText('invoicesCount', `عدد الصفوف: ${totalInvoices}`);
+            setText('paymentsCount', `عدد الصفوف: ${store.payments.length}`);
+            setText('expensesCount', `عدد الصفوف: ${store.expenses.length}`);
+            setText('assetsCount', `عدد الصفوف: ${store.assets.length}`);
+            setText('totalAssets', totalAssets.toLocaleString('en-US'));
+        }
+
+        function renderSummaryInsights() {
+            // الحفاظ على النصوص عربية فقط
+        }
+
+        function renderCharts() {
+            const statusCounts = store.invoices.reduce((acc, inv) => {
+                const status = translateStatus(inv.status);
+                acc[status] = (acc[status] || 0) + 1;
+                return acc;
+            }, {});
+
+            const invoiceCtx = document.getElementById('invoiceStatusChart').getContext('2d');
+            if (invoiceChartInstance) invoiceChartInstance.destroy();
+            invoiceChartInstance = new Chart(invoiceCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(statusCounts).length ? Object.keys(statusCounts) : ['لا توجد بيانات'],
+                    datasets: [{
+                        data: Object.values(statusCounts).length ? Object.values(statusCounts) : [0],
+                        backgroundColor: ['#0ea5e9', '#f59e0b', '#10b981', '#ef4444', '#6366f1']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const methodCounts = store.payments.reduce((acc, p) => {
+                const method = translatePaymentMethod(p.payment_method);
+                acc[method] = (acc[method] || 0) + 1;
+                return acc;
+            }, {});
+
+            const paymentCtx = document.getElementById('paymentMethodChart').getContext('2d');
+            if (paymentChartInstance) paymentChartInstance.destroy();
+            paymentChartInstance = new Chart(paymentCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(methodCounts).length ? Object.keys(methodCounts) : ['لا توجد بيانات'],
+                    datasets: [{
+                        data: Object.values(methodCounts).length ? Object.values(methodCounts) : [0],
+                        backgroundColor: '#10b981'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const expenseTypeCounts = store.expenses.reduce((acc, e) => {
+                const type = sanitizeText(e.expense_type || e.expense_category);
+                acc[type] = (acc[type] || 0) + 1;
+                return acc;
+            }, {});
+
+            const expensesCtx = document.getElementById('expensesTypeChart').getContext('2d');
+            if (expensesChartInstance) expensesChartInstance.destroy();
+            expensesChartInstance = new Chart(expensesCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(expenseTypeCounts).length ? Object.keys(expenseTypeCounts) : ['لا توجد بيانات'],
+                    datasets: [{
+                        data: Object.values(expenseTypeCounts).length ? Object.values(expenseTypeCounts) : [0],
+                        backgroundColor: '#f59e0b'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const assetsSummary = {
+                total: store.assets.length,
+                active: store.assets.filter(a => String(a.status || '').toUpperCase() === 'ACTIVE').length,
+                disposed: store.assets.filter(a => String(a.status || '').toUpperCase() === 'DISPOSED').length
+            };
+
+            const assetsCtx = document.getElementById('assetsChart').getContext('2d');
+            if (assetsChartInstance) assetsChartInstance.destroy();
+            assetsChartInstance = new Chart(assetsCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['إجمالي الأصول', 'أصول نشطة', 'أصول مستبعدة'],
+                    datasets: [{
+                        data: [assetsSummary.total, assetsSummary.active, assetsSummary.disposed],
+                        backgroundColor: ['#6366f1', '#10b981', '#ef4444']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderTables() {
+            const invoiceRows = store.invoices.map(inv => `
+                <tr class="hover:bg-sky-50">
+                    <td class="px-3 py-2">${sanitizeText(inv.invoice_number)}</td>
+                    <td class="px-3 py-2">${formatDate(inv.invoice_date)}</td>
+                    <td class="px-3 py-2">${formatDate(inv.due_date)}</td>
+                    <td class="px-3 py-2">${sanitizeText(inv.customer_name_ar || inv.customer_name)}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(inv.total_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(inv.remaining_amount)}</td>
+                    <td class="px-3 py-2">${translateStatus(inv.status)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2 justify-end">
+                            <button class="mini-btn" onclick="openPreview('invoice', ${inv.invoice_id})">معاينة</button>
+                            <button class="mini-btn bg-sky-50" onclick="startEdit('invoice', ${inv.invoice_id})">تعديل</button>
+                            <button class="mini-btn bg-rose-50 text-rose-700" onclick="deleteRecord('invoice', ${inv.invoice_id})">حذف</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('invoicesTable').innerHTML = invoiceRows || `<tr><td colspan="8" class="px-4 py-10 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+
+            const paymentRows = store.payments.map(p => `
+                <tr class="hover:bg-emerald-50">
+                    <td class="px-3 py-2">${sanitizeText(p.payment_number || p.payment_id)}</td>
+                    <td class="px-3 py-2">${sanitizeText(p.customer_name_ar || p.customer_name || p.customer_id)}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(p.payment_amount)}</td>
+                    <td class="px-3 py-2">${formatDate(p.payment_date)}</td>
+                    <td class="px-3 py-2">${translatePaymentMethod(p.payment_method)}</td>
+                    <td class="px-3 py-2">${translateStatus(p.status)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2 justify-end">
+                            <button class="mini-btn" onclick="openPreview('payment', ${p.payment_id})">معاينة</button>
+                            <button class="mini-btn bg-emerald-50" onclick="startEdit('payment', ${p.payment_id})">تعديل</button>
+                            <button class="mini-btn bg-rose-50 text-rose-700" onclick="deleteRecord('payment', ${p.payment_id})">حذف</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('paymentsTable').innerHTML = paymentRows || `<tr><td colspan="7" class="px-4 py-10 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+
+            const expenseRows = store.expenses.map(e => `
+                <tr class="hover:bg-amber-50">
+                    <td class="px-3 py-2">${sanitizeText(e.expense_number || e.expense_id)}</td>
+                    <td class="px-3 py-2">${formatDate(e.expense_date)}</td>
+                    <td class="px-3 py-2">${sanitizeText(e.expense_type || e.expense_category)}</td>
+                    <td class="px-3 py-2">${sanitizeText(e.vendor_name)}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(e.total_amount || e.amount)}</td>
+                    <td class="px-3 py-2">${translateStatus(e.status)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2 justify-end">
+                            <button class="mini-btn" onclick="openPreview('expense', ${e.expense_id})">معاينة</button>
+                            <button class="mini-btn bg-amber-50" onclick="startEdit('expense', ${e.expense_id})">تعديل</button>
+                            <button class="mini-btn bg-rose-50 text-rose-700" onclick="deleteRecord('expense', ${e.expense_id})">حذف</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('expensesTable').innerHTML = expenseRows || `<tr><td colspan="7" class="px-4 py-10 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+
+            const assetRows = store.assets.map(a => `
+                <tr class="hover:bg-indigo-50">
+                    <td class="px-3 py-2">${sanitizeText(a.asset_code || a.asset_id)}</td>
+                    <td class="px-3 py-2">${sanitizeText(a.asset_name_ar || a.asset_name_en || a.asset_name)}</td>
+                    <td class="px-3 py-2">${formatDate(a.purchase_date)}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(a.purchase_cost)}</td>
+                    <td class="px-3 py-2">${formatMoney(a.net_book_value)}</td>
+                    <td class="px-3 py-2">${translateStatus(a.status)}</td>
+                    <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2 justify-end">
+                            <button class="mini-btn" onclick="openPreview('asset', ${a.asset_id})">معاينة</button>
+                            <button class="mini-btn bg-indigo-50" onclick="startEdit('asset', ${a.asset_id})">تعديل</button>
+                            <button class="mini-btn bg-rose-50 text-rose-700" onclick="deleteRecord('asset', ${a.asset_id})">حذف</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('assetsTable').innerHTML = assetRows || `<tr><td colspan="7" class="px-4 py-10 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+        }
+
+        function translateStatus(value) {
+            const map = {
+                PAID: 'مدفوعة',
+                UNPAID: 'غير مدفوعة',
+                PARTIAL: 'مدفوعة جزئيًا',
+                OVERDUE: 'متأخرة',
+                ISSUED: 'صادرة',
+                COMPLETED: 'مكتملة',
+                ACTIVE: 'نشطة',
+                CLOSED: 'مغلقة',
+                DRAFT: 'مسودة',
+                PENDING: 'قيد المراجعة',
+                APPROVED: 'معتمدة',
+                REJECTED: 'مرفوضة',
+                DISPOSED: 'مستبعدة'
+            };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translatePaymentMethod(value) {
+            const map = {
+                BANK_TRANSFER: 'تحويل بنكي',
+                CARD: 'بطاقة',
+                POS: 'نقاط بيع',
+                CASH: 'نقد',
+                GATEWAY: 'بوابة الدفع',
+                CHEQUE: 'شيك'
+            };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        function sanitizeText(value) {
+            if (value === null || value === undefined) return 'غير محدد';
+            const text = typeof value === 'string' ? value : JSON.stringify(value);
+            const cleaned = text.replace(/[A-Za-z]+/g, '').replace(/\s{2,}/g, ' ').trim();
+            return cleaned || 'غير محدد';
+        }
+
+        function sum(rows, key) {
+            return rows.reduce((acc, row) => acc + parseFloat(row[key] || 0), 0);
+        }
+
+        function downloadAllJSON() {
+            const payload = {
+                invoices: store.invoices,
+                payments: store.payments,
+                expenses: store.expenses,
+                fixed_assets: store.assets,
+                payment_plans: store.plans,
+                journal_entries: store.entries
+            };
+            downloadBlob(JSON.stringify(payload, null, 2), 'إجراءات-التشغيل-المالي.json', 'application/json');
+        }
+
+        function downloadAllCSV() {
+            const rows = [];
+            rows.push(['الفواتير']);
+            rows.push(['رقم الفاتورة','تاريخ الإصدار','تاريخ الاستحقاق','العميل','الإجمالي','المتبقي','الحالة']);
+            store.invoices.forEach(inv => rows.push([
+                sanitizeText(inv.invoice_number), inv.invoice_date, inv.due_date, sanitizeText(inv.customer_name_ar || inv.customer_name),
+                inv.total_amount, inv.remaining_amount, translateStatus(inv.status)
+            ]));
+
+            rows.push([]);
+            rows.push(['المدفوعات']);
+            rows.push(['رقم الدفعة','العميل','قيمة الدفعة','تاريخ الدفعة','طريقة التحصيل','الحالة']);
+            store.payments.forEach(p => rows.push([
+                p.payment_number || p.payment_id, sanitizeText(p.customer_name_ar || p.customer_name || p.customer_id), p.payment_amount,
+                p.payment_date, translatePaymentMethod(p.payment_method), translateStatus(p.status)
+            ]));
+
+            rows.push([]);
+            rows.push(['المصروفات']);
+            rows.push(['رقم المصروف','تاريخ المصروف','النوع','المورد','الإجمالي','الحالة']);
+            store.expenses.forEach(e => rows.push([
+                e.expense_number || e.expense_id, e.expense_date, sanitizeText(e.expense_type || e.expense_category), sanitizeText(e.vendor_name),
+                e.total_amount || e.amount, translateStatus(e.status)
+            ]));
+
+            rows.push([]);
+            rows.push(['الأصول الثابتة']);
+            rows.push(['رقم الأصل','اسم الأصل','تاريخ الشراء','تكلفة الشراء','القيمة الدفترية','الحالة']);
+            store.assets.forEach(a => rows.push([
+                a.asset_code || a.asset_id, sanitizeText(a.asset_name_ar || a.asset_name_en || a.asset_name), a.purchase_date,
+                a.purchase_cost, a.net_book_value, translateStatus(a.status)
+            ]));
+
+            const csv = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            downloadBlob(csv, 'إجراءات-التشغيل-المالي.csv', 'text/csv;charset=utf-8;');
+        }
+
+        function copySummary() {
+            const summary = `ملخص إجراءات التشغيل المالي\n` +
+                `إجمالي الفواتير: ${store.invoices.length}\n` +
+                `الفواتير المتأخرة: ${store.invoices.filter(i => String(i.status || '').toUpperCase() === 'OVERDUE').length}\n` +
+                `إجمالي المدفوعات: ${formatMoney(sum(store.payments, 'payment_amount'))}\n` +
+                `إجمالي المصروفات: ${formatMoney(sum(store.expenses, 'total_amount'))}\n` +
+                `عدد الأصول: ${store.assets.length}\n` +
+                `عدد القيود: ${store.entries.length}`;
+            navigator.clipboard.writeText(summary).catch(() => {});
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printPage() {
+            window.print();
+        }
+
+        function refreshData() {
+            loadData();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setDefaultDates();
+            loadData();
+        });
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

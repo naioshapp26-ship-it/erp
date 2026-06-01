@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏦 حسابات البنوك - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="finance-context.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: #f9fafb;
+            color: #111827;
+            min-height: 100vh;
+        }
+        .card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+        }
+        .chip {
+            border-radius: 999px;
+            padding: 4px 12px;
+            font-weight: 700;
+            font-size: 12px;
+        }
+        .banner {
+            background: #fef2f2;
+            border: 1px dashed #ef4444;
+            color: #991b1b;
+        }
+        .soft-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .soft-scroll::-webkit-scrollbar-track {
+            background: #f3f4f6;
+        }
+        .soft-scroll::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 999px;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold mb-2">🏦 حسابات البنوك</h1>
+            <p class="text-lg text-slate-600">لوحة إدارة الحسابات البنكية، المراقبة الذكية، والتنبيهات الاستباقية</p>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mb-6">
+            <button onclick="loadBankAccounts()" class="bg-white text-slate-800 border border-slate-200 px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="openAddBankModal()" class="bg-black text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus"></i>
+                إضافة بنك
+            </button>
+            <button onclick="exportBankAccounts()" class="bg-slate-900 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-export"></i>
+                تصدير البيانات
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+            <div class="card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-sm text-slate-500">إجمالي الحسابات البنكية</div>
+                    <span class="chip bg-black text-white">نشط</span>
+                </div>
+                <div class="text-3xl font-bold" id="totalBanks">0</div>
+                <div class="text-xs text-slate-500 mt-2">عدد الحسابات التي تم ربطها بالمنشأة</div>
+            </div>
+            <div class="card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-sm text-slate-500">إجمالي الرصيد البنكي</div>
+                    <span class="chip bg-red-100 text-red-700">سيولة</span>
+                </div>
+                <div class="text-3xl font-bold" id="totalBalance">0 SAR</div>
+                <div class="text-xs text-slate-500 mt-2">الرصيد المتاح بعد التسويات</div>
+            </div>
+            <div class="card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-sm text-slate-500">مؤشر التركز البنكي</div>
+                    <span class="chip bg-slate-100 text-slate-700">تحليل</span>
+                </div>
+                <div class="text-3xl font-bold" id="concentrationIndex">0%</div>
+                <div class="text-xs text-slate-500 mt-2">نسبة أكبر حساب إلى إجمالي الرصيد</div>
+            </div>
+            <div class="card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-sm text-slate-500">آخر تسوية بنكية</div>
+                    <span class="chip bg-black text-white">مباشر</span>
+                </div>
+                <div class="text-2xl font-bold" id="lastReconciled">-</div>
+                <div class="text-xs text-slate-500 mt-2">آخر تاريخ مراجعة للحسابات البنكية</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+            <div class="card rounded-2xl p-6 xl:col-span-2">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold">📊 لوحة المؤشرات البنكية المتقدمة</h2>
+                    <span class="chip bg-slate-100 text-slate-700">تحسينات غير مسبوقة</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="bg-slate-50 rounded-xl p-4">
+                        <div class="text-slate-500">معدل تغطية الالتزامات</div>
+                        <div class="text-2xl font-bold" id="coverageRatio">0%</div>
+                        <div class="text-xs text-slate-500">يقيس قدرة الحسابات البنكية على تغطية المصروفات الشهرية</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-4">
+                        <div class="text-slate-500">تنبيه السيولة الحرجة</div>
+                        <div class="text-2xl font-bold text-red-600" id="criticalAlert">-</div>
+                        <div class="text-xs text-slate-500">يعتمد على حدود الإنذار المحددة لكل حساب</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-4">
+                        <div class="text-slate-500">مؤشر الاستقرار البنكي</div>
+                        <div class="text-2xl font-bold" id="stabilityIndex">0%</div>
+                        <div class="text-xs text-slate-500">يوازن بين التركز والتنويع البنكي</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-4">
+                        <div class="text-slate-500">رصيد الاحتياطي الاستراتيجي</div>
+                        <div class="text-2xl font-bold" id="reserveBuffer">0 SAR</div>
+                        <div class="text-xs text-slate-500">الرصيد الموصى بحجزه للحالات الطارئة</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold">🤖 توصيات ذكية</h2>
+                </div>
+                <div id="aiInsights" class="space-y-3 text-sm text-slate-700">
+                    <div class="animate-pulse text-slate-400">جاري التحليل...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card rounded-2xl p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-xl font-bold">💳 قائمة الحسابات البنكية</h2>
+                <div class="flex items-center gap-2">
+                    <input id="searchInput" oninput="renderTable()" class="border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="بحث باسم البنك أو الحساب">
+                    <select id="statusFilter" onchange="renderTable()" class="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                        <option value="all">كل الحالات</option>
+                        <option value="active">نشط</option>
+                        <option value="paused">مجمّد</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-auto soft-scroll">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-100 text-slate-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">كود الحساب</th>
+                            <th class="px-3 py-2 text-right">البنك</th>
+                            <th class="px-3 py-2 text-right">الحساب</th>
+                            <th class="px-3 py-2 text-right">الرصيد</th>
+                            <th class="px-3 py-2 text-right">العملة</th>
+                            <th class="px-3 py-2 text-right">IBAN</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">آخر تسوية</th>
+                            <th class="px-3 py-2 text-right">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bankTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="9" class="px-4 py-8 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="bankModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl w-full max-w-3xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="bankModalTitle" class="text-xl font-bold">إضافة بنك جديد</h3>
+                <button onclick="closeAddBankModal()" class="text-slate-500 hover:text-slate-800">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <input id="bankIdInput" type="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <label class="text-slate-600">اسم البنك</label>
+                    <input id="bankNameInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="مثال: البنك الأهلي">
+                </div>
+                <div>
+                    <label class="text-slate-600">اسم الحساب</label>
+                    <input id="accountNameInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="حساب التشغيل الرئيسي">
+                </div>
+                <div>
+                    <label class="text-slate-600">كود الحساب</label>
+                    <input id="accountCodeInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="1120xxxx">
+                </div>
+                <div>
+                    <label class="text-slate-600">العملة</label>
+                    <input id="currencyInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" value="SAR">
+                </div>
+                <div>
+                    <label class="text-slate-600">IBAN</label>
+                    <input id="ibanInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="SA...">
+                </div>
+                <div>
+                    <label class="text-slate-600">SWIFT</label>
+                    <input id="swiftInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="XXXXSA">
+                </div>
+                <div>
+                    <label class="text-slate-600">رقم الحساب</label>
+                    <input id="accountNumberInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="000123456">
+                </div>
+                <div>
+                    <label class="text-slate-600">الفرع</label>
+                    <input id="branchInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="فرع الرياض">
+                </div>
+                <div>
+                    <label class="text-slate-600">حد الإنذار</label>
+                    <input id="alertThresholdInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" type="number" placeholder="100000">
+                </div>
+                <div>
+                    <label class="text-slate-600">تاريخ آخر تسوية</label>
+                    <input id="reconcileInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" type="date">
+                </div>
+                <div>
+                    <label class="text-slate-600">الحالة</label>
+                    <select id="statusInput" class="w-full border border-slate-200 rounded-lg px-3 py-2">
+                        <option value="active">نشط</option>
+                        <option value="paused">مجمّد</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-slate-600">ملاحظات</label>
+                    <textarea id="notesInput" class="w-full border border-slate-200 rounded-lg px-3 py-2" rows="3" placeholder="ملاحظات تشغيلية أو تعليمات خاصة"></textarea>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 mt-6">
+                <button onclick="closeAddBankModal()" class="px-5 py-2 rounded-lg border border-slate-200">إلغاء</button>
+                <button id="bankModalSubmit" onclick="submitBankAccount()" class="px-5 py-2 rounded-lg bg-black text-white">حفظ البنك</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="viewModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl w-full max-w-2xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold">معاينة الحساب البنكي</h3>
+                <button onclick="closeViewModal()" class="text-slate-500 hover:text-slate-800">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <div class="text-slate-500">اسم البنك</div>
+                    <div id="viewBankName" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">اسم الحساب</div>
+                    <div id="viewAccountName" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">كود الحساب</div>
+                    <div id="viewAccountCode" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">الرصيد</div>
+                    <div id="viewBalance" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">العملة</div>
+                    <div id="viewCurrency" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">IBAN</div>
+                    <div id="viewIban" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">SWIFT</div>
+                    <div id="viewSwift" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">رقم الحساب</div>
+                    <div id="viewAccountNumber" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">الفرع</div>
+                    <div id="viewBranch" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">حد الإنذار</div>
+                    <div id="viewThreshold" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">آخر تسوية</div>
+                    <div id="viewReconciled" class="font-bold"></div>
+                </div>
+                <div>
+                    <div class="text-slate-500">الحالة</div>
+                    <div id="viewStatus" class="font-bold"></div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="text-slate-500">ملاحظات</div>
+                    <div id="viewNotes" class="font-bold"></div>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 mt-6">
+                <button onclick="closeViewModal()" class="px-5 py-2 rounded-lg border border-slate-200">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
+        const FINANCE_HEADERS = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+
+        let bankAccounts = [];
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function parseMetadata(description) {
+            if (!description) return {};
+            if (typeof description === 'object') return description;
+            if (typeof description !== 'string') return {};
+            try {
+                return JSON.parse(description);
+            } catch {
+                return { note: description };
+            }
+        }
+
+        function maskIban(iban) {
+            if (!iban) return '-';
+            if (iban.length < 8) return iban;
+            return iban.slice(0, 4) + '••••••' + iban.slice(-4);
+        }
+
+        function getStatusChip(status) {
+            if (status === 'paused') {
+                return '<span class="chip bg-red-100 text-red-700">مجمّد</span>';
+            }
+            return '<span class="chip bg-black text-white">نشط</span>';
+        }
+
+        async function fetchJsonSafe(url, fallback) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) return fallback;
+                return await res.json();
+            } catch {
+                return fallback;
+            }
+        }
+
+        async function loadBankAccounts() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/chart-of-accounts?entity_id=${ENTITY_ID}`, {
+                    headers: FINANCE_HEADERS
+                });
+                if (!response.ok) {
+                    throw new Error('no data');
+                }
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'no data');
+                }
+
+                const accounts = data.accounts || [];
+                bankAccounts = accounts
+                    .filter(account => {
+                        const name = String(account.account_name_ar || '');
+                        const code = String(account.account_code || '');
+                        const metadata = parseMetadata(account.description);
+                        const bankName = String(metadata.bank_name || '');
+                        const hasMetadata = Boolean(metadata.bank_name || metadata.account_name || metadata.iban || metadata.swift);
+                        const isAsset = String(account.account_type || '').toUpperCase() === 'ASSET';
+                        return isAsset && (hasMetadata || name.includes('بنك') || bankName.includes('بنك') || code.startsWith('112'));
+                    })
+                    .map(account => {
+                        const metadata = parseMetadata(account.description);
+                        return {
+                            account_id: account.account_id,
+                            account_code: account.account_code,
+                            bank_name: metadata.bank_name || account.account_name_ar,
+                            account_name: metadata.account_name || account.account_name_ar,
+                            balance: account.balance || 0,
+                            currency: metadata.currency || 'SAR',
+                            status: account.is_active === false ? 'paused' : 'active',
+                            reconciled_at: metadata.reconciled_at || null,
+                            metadata
+                        };
+                    });
+            } catch {
+                bankAccounts = [];
+            }
+
+            renderInsights();
+            renderSummary();
+            renderTable();
+        }
+
+
+        function renderSummary() {
+            const totalBanks = bankAccounts.length;
+            const totalBalance = bankAccounts.reduce((sum, a) => sum + parseFloat(a.balance || 0), 0);
+            const topBalance = bankAccounts.reduce((max, a) => Math.max(max, parseFloat(a.balance || 0)), 0);
+            const concentration = totalBalance ? ((topBalance / totalBalance) * 100) : 0;
+            const lastRec = bankAccounts.map(a => a.reconciled_at).filter(Boolean).sort().pop();
+
+            document.getElementById('totalBanks').textContent = totalBanks;
+            document.getElementById('totalBalance').textContent = formatMoney(totalBalance);
+            document.getElementById('concentrationIndex').textContent = `${concentration.toFixed(1)}%`;
+            document.getElementById('lastReconciled').textContent = lastRec || '-';
+
+            const coverageRatio = totalBalance ? Math.min(100, (totalBalance / 1200000) * 100) : 0;
+            document.getElementById('coverageRatio').textContent = `${coverageRatio.toFixed(1)}%`;
+
+            const critical = bankAccounts.some(a => parseFloat(a.balance || 0) < parseFloat(a.metadata?.threshold || 0)) ? 'مرتفع' : 'مستقر';
+            document.getElementById('criticalAlert').textContent = critical;
+
+            const stability = Math.max(10, 100 - concentration);
+            document.getElementById('stabilityIndex').textContent = `${stability.toFixed(0)}%`;
+
+            const reserve = totalBalance * 0.18;
+            document.getElementById('reserveBuffer').textContent = formatMoney(reserve);
+        }
+
+        function renderInsights() {
+            const totalBalance = bankAccounts.reduce((sum, a) => sum + parseFloat(a.balance || 0), 0);
+            const top = bankAccounts.slice().sort((a, b) => b.balance - a.balance)[0];
+            const insights = [];
+
+            if (top) {
+                insights.push(`أكبر حساب بنكي هو ${top.bank_name} برصيد ${formatMoney(top.balance)}.`);
+            }
+            if (totalBalance < 500000) {
+                insights.push('السيولة البنكية أقل من الحد الآمن المقترح. يوصى برفع الاحتياطي.' );
+            } else {
+                insights.push('السيولة البنكية ضمن النطاق الآمن ويمكن استثمار الفائض قصير الأجل.' );
+            }
+            if (bankAccounts.filter(a => a.status === 'paused').length) {
+                insights.push('يوجد حسابات مجمدة تحتاج مراجعة ضوابط التشغيل.' );
+            }
+
+            const insightsEl = document.getElementById('aiInsights');
+            insightsEl.innerHTML = insights.map(text => `<div class="bg-slate-50 rounded-xl p-3">${text}</div>`).join('') || '<div class="text-slate-500">لا توجد توصيات إضافية حالياً</div>';
+        }
+
+        function renderTable() {
+            const searchValue = document.getElementById('searchInput').value.trim();
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            const filtered = bankAccounts.filter(acc => {
+                const matchesSearch = !searchValue || `${acc.bank_name} ${acc.account_name}`.includes(searchValue);
+                const matchesStatus = statusFilter === 'all' || acc.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+
+            const rows = filtered.map(acc => {
+                const meta = acc.metadata || {};
+                const iban = meta.iban || acc.iban || '-';
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-3 py-3">${acc.account_code || '-'}</td>
+                        <td class="px-3 py-3">${acc.bank_name || '-'}</td>
+                        <td class="px-3 py-3">${acc.account_name || '-'}</td>
+                        <td class="px-3 py-3 font-bold">${formatMoney(acc.balance)}</td>
+                        <td class="px-3 py-3">${acc.currency || 'SAR'}</td>
+                        <td class="px-3 py-3">${maskIban(iban)}</td>
+                        <td class="px-3 py-3">${getStatusChip(acc.status)}</td>
+                        <td class="px-3 py-3">${acc.reconciled_at || '-'}</td>
+                        <td class="px-3 py-3">
+                            <div class="flex items-center gap-2">
+                                <button onclick="openViewModal('${acc.account_id}')" class="px-3 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">معاينة</button>
+                                <button onclick="openEditBankModal('${acc.account_id}')" class="px-3 py-1 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">تعديل</button>
+                                <button onclick="deleteBankAccount('${acc.account_id}')" class="px-3 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">حذف</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('bankTable').innerHTML = rows || `<tr><td colspan="9" class="px-4 py-8 text-center text-slate-500">لا توجد حسابات مطابقة</td></tr>`;
+        }
+
+        function openAddBankModal() {
+            resetBankForm();
+            setBankFormMode('add');
+            document.getElementById('bankModal').classList.remove('hidden');
+            document.getElementById('bankModal').classList.add('flex');
+        }
+
+        function closeAddBankModal() {
+            document.getElementById('bankModal').classList.add('hidden');
+            document.getElementById('bankModal').classList.remove('flex');
+        }
+
+        function openEditBankModal(accountId) {
+            const account = bankAccounts.find(acc => String(acc.account_id) === String(accountId));
+            if (!account) {
+                alert('تعذر العثور على الحساب');
+                return;
+            }
+            fillBankForm(account);
+            setBankFormMode('edit');
+            document.getElementById('bankModal').classList.remove('hidden');
+            document.getElementById('bankModal').classList.add('flex');
+        }
+
+        function openViewModal(accountId) {
+            const account = bankAccounts.find(acc => String(acc.account_id) === String(accountId));
+            if (!account) {
+                alert('تعذر العثور على الحساب');
+                return;
+            }
+            const meta = account.metadata || {};
+            document.getElementById('viewBankName').textContent = account.bank_name || '-';
+            document.getElementById('viewAccountName').textContent = account.account_name || '-';
+            document.getElementById('viewAccountCode').textContent = account.account_code || '-';
+            document.getElementById('viewBalance').textContent = formatMoney(account.balance || 0);
+            document.getElementById('viewCurrency').textContent = account.currency || 'SAR';
+            document.getElementById('viewIban').textContent = meta.iban || '-';
+            document.getElementById('viewSwift').textContent = meta.swift || '-';
+            document.getElementById('viewAccountNumber').textContent = meta.account_number || '-';
+            document.getElementById('viewBranch').textContent = meta.branch || '-';
+            document.getElementById('viewThreshold').textContent = meta.threshold ? formatMoney(meta.threshold) : '-';
+            document.getElementById('viewReconciled').textContent = meta.reconciled_at || '-';
+            document.getElementById('viewStatus').textContent = account.status === 'paused' ? 'مجمّد' : 'نشط';
+            document.getElementById('viewNotes').textContent = meta.notes || '-';
+
+            document.getElementById('viewModal').classList.remove('hidden');
+            document.getElementById('viewModal').classList.add('flex');
+        }
+
+        function closeViewModal() {
+            document.getElementById('viewModal').classList.add('hidden');
+            document.getElementById('viewModal').classList.remove('flex');
+        }
+
+        function setBankFormMode(mode) {
+            const title = document.getElementById('bankModalTitle');
+            const submitBtn = document.getElementById('bankModalSubmit');
+            if (mode === 'edit') {
+                title.textContent = 'تعديل الحساب البنكي';
+                submitBtn.textContent = 'تحديث البيانات';
+            } else {
+                title.textContent = 'إضافة بنك جديد';
+                submitBtn.textContent = 'حفظ البنك';
+            }
+        }
+
+        function resetBankForm() {
+            document.getElementById('bankIdInput').value = '';
+            document.getElementById('bankNameInput').value = '';
+            document.getElementById('accountNameInput').value = '';
+            document.getElementById('accountCodeInput').value = '';
+            document.getElementById('currencyInput').value = 'SAR';
+            document.getElementById('ibanInput').value = '';
+            document.getElementById('swiftInput').value = '';
+            document.getElementById('accountNumberInput').value = '';
+            document.getElementById('branchInput').value = '';
+            document.getElementById('alertThresholdInput').value = '';
+            document.getElementById('reconcileInput').value = '';
+            document.getElementById('statusInput').value = 'active';
+            document.getElementById('notesInput').value = '';
+        }
+
+        function fillBankForm(account) {
+            const meta = account.metadata || {};
+            document.getElementById('bankIdInput').value = account.account_id || '';
+            document.getElementById('bankNameInput').value = account.bank_name || '';
+            document.getElementById('accountNameInput').value = account.account_name || '';
+            document.getElementById('accountCodeInput').value = account.account_code || '';
+            document.getElementById('currencyInput').value = account.currency || 'SAR';
+            document.getElementById('ibanInput').value = meta.iban || '';
+            document.getElementById('swiftInput').value = meta.swift || '';
+            document.getElementById('accountNumberInput').value = meta.account_number || '';
+            document.getElementById('branchInput').value = meta.branch || '';
+            document.getElementById('alertThresholdInput').value = meta.threshold || '';
+            document.getElementById('reconcileInput').value = meta.reconciled_at || '';
+            document.getElementById('statusInput').value = account.status || 'active';
+            document.getElementById('notesInput').value = meta.notes || '';
+        }
+
+        function nextBankCode() {
+            const codes = bankAccounts.map(a => parseInt(String(a.account_code || '').replace(/\D/g, ''), 10)).filter(Boolean);
+            const maxCode = codes.length ? Math.max(...codes) : 112000;
+            return String(maxCode + 1);
+        }
+
+        async function submitBankAccount() {
+            const accountId = document.getElementById('bankIdInput').value;
+            const bankName = document.getElementById('bankNameInput').value.trim();
+            const accountName = document.getElementById('accountNameInput').value.trim();
+            const accountCode = document.getElementById('accountCodeInput').value.trim() || nextBankCode();
+            const currency = document.getElementById('currencyInput').value.trim() || 'SAR';
+            const iban = document.getElementById('ibanInput').value.trim();
+            const swift = document.getElementById('swiftInput').value.trim();
+            const accountNumber = document.getElementById('accountNumberInput').value.trim();
+            const branch = document.getElementById('branchInput').value.trim();
+            const threshold = parseFloat(document.getElementById('alertThresholdInput').value || 0);
+            const reconciled = document.getElementById('reconcileInput').value;
+            const status = document.getElementById('statusInput').value;
+            const notes = document.getElementById('notesInput').value.trim();
+
+            if (!bankName || !accountName) {
+                alert('يرجى إدخال اسم البنك واسم الحساب');
+                return;
+            }
+
+            const metadata = {
+                bank_name: bankName,
+                account_name: accountName,
+                iban,
+                swift,
+                account_number: accountNumber,
+                branch,
+                currency,
+                threshold,
+                reconciled_at: reconciled,
+                notes
+            };
+
+            try {
+                const payload = {
+                    entity_id: ENTITY_ID,
+                    account_code: accountCode,
+                    account_name_ar: accountName,
+                    account_name_en: accountName,
+                    account_type: 'ASSET',
+                    parent_account_id: null,
+                    level: 4,
+                    is_active: status !== 'paused',
+                    is_header: false,
+                    normal_balance: 'DEBIT',
+                    description: JSON.stringify(metadata),
+                    notes: notes || null
+                };
+
+                const response = await fetch(
+                    accountId ? `${API_BASE}/finance/chart-of-accounts/${accountId}` : `${API_BASE}/finance/chart-of-accounts`,
+                    {
+                        method: accountId ? 'PUT' : 'POST',
+                        headers: { 'Content-Type': 'application/json', ...FINANCE_HEADERS },
+                        body: JSON.stringify(payload)
+                    }
+                );
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'تعذر حفظ الحساب');
+                }
+
+                closeAddBankModal();
+                await loadBankAccounts();
+                alert(accountId ? 'تم تحديث الحساب البنكي بنجاح' : 'تمت إضافة الحساب البنكي بنجاح');
+            } catch (error) {
+                console.error(error);
+                alert('تعذر حفظ الحساب البنكي في قاعدة البيانات');
+            }
+        }
+
+        async function deleteBankAccount(accountId) {
+            if (!accountId) {
+                alert('تعذر تحديد الحساب');
+                return;
+            }
+            if (!confirm('هل أنت متأكد من حذف الحساب البنكي؟')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/chart-of-accounts/${accountId}?entity_id=${ENTITY_ID}`, {
+                    method: 'DELETE',
+                    headers: FINANCE_HEADERS
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'تعذر حذف الحساب');
+                }
+                await loadBankAccounts();
+                alert('تم حذف الحساب البنكي بنجاح');
+            } catch (error) {
+                console.error(error);
+                alert('تعذر حذف الحساب البنكي');
+            }
+        }
+
+        function exportBankAccounts() {
+            const rows = [
+                ['كود الحساب', 'البنك', 'الحساب', 'الرصيد', 'العملة', 'IBAN', 'SWIFT', 'الحالة', 'آخر تسوية']
+            ];
+            bankAccounts.forEach(acc => {
+                const meta = acc.metadata || {};
+                rows.push([
+                    acc.account_code || '',
+                    acc.bank_name || '',
+                    acc.account_name || '',
+                    acc.balance || 0,
+                    acc.currency || 'SAR',
+                    meta.iban || '',
+                    meta.swift || '',
+                    acc.status || 'active',
+                    acc.reconciled_at || ''
+                ]);
+            });
+            const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'bank-accounts.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        document.addEventListener('DOMContentLoaded', loadBankAccounts);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة خفض التكاليف التشغيلية</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0b1220;
+      --muted: #6b7280;
+      --teal: #0f766e;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --line: #e5e7eb;
+      --card: #ffffff;
+      --slate: #0f172a;
+      --sand: #f8faf6;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 12%, rgba(16, 185, 129, 0.18), transparent 46%),
+        radial-gradient(circle at 88% 10%, rgba(15, 118, 110, 0.18), transparent 42%),
+        linear-gradient(180deg, #fefce8 0%, #f8fafc 45%, #ecfdf5 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 22px;
+      box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.45);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .stat-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 16px;
+    }
+
+    .panel-card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 18px;
+    }
+
+    .table-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .row-actions button {
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+
+    .row-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 18px 30px -18px rgba(15, 23, 42, 0.6);
+      display: none;
+      z-index: 50;
+    }
+
+    .empty-state {
+      display: none;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div class="max-w-2xl">
+        <span class="chip bg-white text-slate-700 border border-slate-200">التحكم في التكاليف</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">إدارة خفض التكاليف التشغيلية</h1>
+        <p class="text-slate-600">لوحة استراتيجية تربط التكلفة بالأداء وتكشف فرص تحسين الكفاءة دون التأثير على النتائج.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <button id="addPlanBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة خطة تحسين
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">إجمالي تكلفة الرواتب الشهرية</div>
+        <div id="monthlyPayroll" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-emerald-600 mt-1">توازن مقبول</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">إجمالي تكلفة الساعات الإضافية</div>
+        <div id="overtimeCost" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-amber-600 mt-1">بحاجة للضبط</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">تكلفة الغياب</div>
+        <div id="absenceCost" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-rose-600 mt-1">أثر مباشر</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">تكلفة انخفاض الأداء</div>
+        <div id="performanceCost" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">فرص تحسين</div>
+      </div>
+      <div class="glass stat-card">
+        <div class="text-sm text-slate-500">نسبة التحسن / الزيادة</div>
+        <div id="costChange" class="text-2xl font-extrabold mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">مقارنة بالشهر السابق</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="panel-card lg:col-span-2">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold">تحليل تكلفة كل قسم</h2>
+          <span class="chip bg-emerald-100 text-emerald-700">مقارنة شهرية</span>
+        </div>
+        <div id="departmentCostList" class="mt-4 space-y-3 text-sm"></div>
+      </div>
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">تنبيهات ذكية</h2>
+        <p class="text-sm text-slate-500">عند تجاوز حدود المصروفات أو تراجع الأداء.</p>
+        <div id="alertList" class="mt-4 space-y-3"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">مقارنة التكلفة مقابل الأداء</h2>
+        <p class="text-sm text-slate-500">تحديد الأقسام الأعلى تكلفة والأقل عائدًا.</p>
+        <div id="costPerformanceMatrix" class="mt-4 grid grid-cols-2 gap-3"></div>
+      </div>
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">فرص التحسين والتوزيع الوظيفي</h2>
+        <p class="text-sm text-slate-500">نقاط سريعة لخفض الهدر وتحسين التوزيع.</p>
+        <div id="opportunityList" class="mt-4 space-y-3"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">الهدر في الساعات الإضافية</h2>
+        <p class="text-sm text-slate-500">تحليل أسبوعي لأقسام تتحمل ساعات إضافية غير فعالة.</p>
+        <div id="overtimeWaste" class="mt-4 space-y-3"></div>
+      </div>
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">التكلفة المخططة مقابل الفعلية</h2>
+        <p class="text-sm text-slate-500">قياس الفرق بين الميزانية والإنفاق.</p>
+        <div id="plannedVsActual" class="mt-4 space-y-4"></div>
+      </div>
+      <div class="panel-card">
+        <h2 class="text-xl font-bold">تأثير التخفيض على الأداء</h2>
+        <p class="text-sm text-slate-500">محاكاة أثر القرارات المقترحة.</p>
+        <div class="mt-4">
+          <input id="impactSlider" type="range" min="0" max="20" value="6" class="w-full accent-emerald-600">
+          <div class="flex justify-between text-sm text-slate-500 mt-2">
+            <span>0%</span>
+            <span id="impactValue" class="font-bold text-slate-700">6%</span>
+            <span>20%</span>
+          </div>
+          <div class="mt-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+            <div class="text-sm text-emerald-700">التأثير المتوقع على الأداء</div>
+            <div id="impactOutput" class="text-2xl font-extrabold text-emerald-700 mt-2">-1.2%</div>
+            <div class="text-xs text-emerald-600 mt-1">توصية: خفض تدريجي مع إعادة توزيع المهام.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">جدول إدارة التكلفة حسب القسم</h2>
+          <p class="text-sm text-slate-500">تفاصيل تشغيلية تقود قرارات خفض التكاليف.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <div class="relative">
+            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="searchInput" type="text" placeholder="بحث باسم القسم" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-56">
+          </div>
+          <select id="costFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل التكاليف</option>
+            <option value="high">أعلى من 50000</option>
+            <option value="medium">30000 - 50000</option>
+            <option value="low">أقل من 30000</option>
+          </select>
+          <select id="efficiencyFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
+            <option value="all">كل الكفاءة</option>
+            <option value="high">أعلى من 85%</option>
+            <option value="medium">70% - 85%</option>
+            <option value="low">أقل من 70%</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-shell mt-4 overflow-x-auto">
+        <table class="min-w-[900px] w-full text-sm">
+          <thead class="bg-slate-50 text-xs font-bold text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-right">اسم القسم</th>
+              <th class="px-4 py-3 text-right">عدد الموظفين</th>
+              <th class="px-4 py-3 text-right">إجمالي التكلفة</th>
+              <th class="px-4 py-3 text-right">متوسط الأداء</th>
+              <th class="px-4 py-3 text-right">نسبة الكفاءة</th>
+              <th class="px-4 py-3 text-right">توصية</th>
+              <th class="px-4 py-3 text-right">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state">لا توجد نتائج مطابقة للبحث.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="costModalBackdrop" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center z-40">
+    <div class="bg-white rounded-2xl border border-slate-200 w-[92%] max-w-2xl p-6">
+      <div class="flex items-center justify-between">
+        <h3 id="costModalTitle" class="text-xl font-extrabold">إضافة خطة تحسين</h3>
+        <button id="closeModalBtn" class="text-slate-500"><i class="fas fa-xmark"></i></button>
+      </div>
+      <p id="costModalHint" class="text-sm text-slate-500 mt-1">أدخل تفاصيل التكلفة بدقة لضمان دقة التحليل.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label class="text-sm text-slate-600">اسم القسم</label>
+          <input id="deptNameInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: العمليات الإدارية">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">عدد الموظفين</label>
+          <input id="deptEmployeesInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 24">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">إجمالي التكلفة</label>
+          <input id="deptCostInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 54000">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">متوسط الأداء</label>
+          <input id="deptPerformanceInput" type="number" min="0" max="100" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 86">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">نسبة الكفاءة</label>
+          <input id="deptEfficiencyInput" type="number" min="0" max="100" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 82">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">هدر الساعات الإضافية</label>
+          <input id="deptOvertimeInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 12">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">التكلفة المخططة</label>
+          <input id="deptPlannedInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 50000">
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">التكلفة الفعلية</label>
+          <input id="deptActualInput" type="number" min="0" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: 54000">
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-sm text-slate-600">التوصية</label>
+          <textarea id="deptRecommendationInput" rows="3" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: أتمتة العمليات المتكررة"></textarea>
+        </div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button id="savePlanBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-check"></i>
+          حفظ الخطة
+        </button>
+        <button id="cancelPlanBtn" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">تم حفظ الخطة بنجاح.</div>
+
+  <script>
+    const apiBase = '/api/hr-cost-optimization-departments';
+    let departments = [];
+    let currentMode = 'add';
+    let currentEditId = null;
+
+    const searchInput = document.getElementById('searchInput');
+    const costFilter = document.getElementById('costFilter');
+    const efficiencyFilter = document.getElementById('efficiencyFilter');
+    const tableBody = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+    const monthlyPayroll = document.getElementById('monthlyPayroll');
+    const overtimeCost = document.getElementById('overtimeCost');
+    const absenceCost = document.getElementById('absenceCost');
+    const performanceCost = document.getElementById('performanceCost');
+    const costChange = document.getElementById('costChange');
+    const departmentCostList = document.getElementById('departmentCostList');
+    const costPerformanceMatrix = document.getElementById('costPerformanceMatrix');
+    const overtimeWaste = document.getElementById('overtimeWaste');
+    const opportunityList = document.getElementById('opportunityList');
+    const plannedVsActual = document.getElementById('plannedVsActual');
+    const alertList = document.getElementById('alertList');
+    const impactSlider = document.getElementById('impactSlider');
+    const impactValue = document.getElementById('impactValue');
+    const impactOutput = document.getElementById('impactOutput');
+    const addPlanBtn = document.getElementById('addPlanBtn');
+    const toast = document.getElementById('toast');
+    const costModalBackdrop = document.getElementById('costModalBackdrop');
+    const costModalTitle = document.getElementById('costModalTitle');
+    const costModalHint = document.getElementById('costModalHint');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelPlanBtn = document.getElementById('cancelPlanBtn');
+    const savePlanBtn = document.getElementById('savePlanBtn');
+    const deptNameInput = document.getElementById('deptNameInput');
+    const deptEmployeesInput = document.getElementById('deptEmployeesInput');
+    const deptCostInput = document.getElementById('deptCostInput');
+    const deptPerformanceInput = document.getElementById('deptPerformanceInput');
+    const deptEfficiencyInput = document.getElementById('deptEfficiencyInput');
+    const deptOvertimeInput = document.getElementById('deptOvertimeInput');
+    const deptPlannedInput = document.getElementById('deptPlannedInput');
+    const deptActualInput = document.getElementById('deptActualInput');
+    const deptRecommendationInput = document.getElementById('deptRecommendationInput');
+
+    const showToast = (message) => {
+      toast.textContent = message;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 2400);
+    };
+
+    const formatNumber = (value) => value.toLocaleString('en-US');
+
+    const normalizeDepartment = (item) => ({
+      id: item.id,
+      name: item.department_name,
+      employees: Number(item.employee_count || 0),
+      cost: Number(item.total_cost || 0),
+      performance: Number(item.avg_performance || 0),
+      efficiency: Number(item.efficiency_percent || 0),
+      recommendation: item.recommendation || 'بدون توصية',
+      planned: item.planned_cost !== null ? Number(item.planned_cost) : 0,
+      actual: item.actual_cost !== null ? Number(item.actual_cost) : 0,
+      overtimeWaste: Number(item.overtime_waste_hours || 0)
+    });
+
+    const fetchDepartments = async () => {
+      const response = await fetch(apiBase);
+      if (!response.ok) throw new Error('تعذر تحميل بيانات الأقسام.');
+      const data = await response.json();
+      return data.map(normalizeDepartment);
+    };
+
+    const createDepartment = async (payload) => {
+      const response = await fetch(apiBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error('تعذر حفظ الخطة.');
+      const data = await response.json();
+      return normalizeDepartment(data);
+    };
+
+    const updateDepartment = async (id, payload) => {
+      const response = await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error('تعذر تحديث الخطة.');
+      const data = await response.json();
+      return normalizeDepartment(data);
+    };
+
+    const removeDepartment = async (id) => {
+      const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('تعذر حذف الخطة.');
+      return response.json();
+    };
+
+    const updateSummary = () => {
+      const payroll = departments.reduce((sum, item) => sum + item.cost, 0);
+      const overtime = departments.reduce((sum, item) => sum + item.overtimeWaste * 120, 0);
+      const absence = Math.round(payroll * 0.07);
+      const performance = Math.round(payroll * 0.09);
+      const plannedTotal = departments.reduce((sum, item) => sum + (item.planned || 0), 0);
+      const actualTotal = departments.reduce((sum, item) => sum + (item.actual || 0), 0);
+      const change = plannedTotal ? (((actualTotal - plannedTotal) / plannedTotal) * 100).toFixed(1) : 0;
+
+      monthlyPayroll.textContent = formatNumber(payroll);
+      overtimeCost.textContent = formatNumber(overtime);
+      absenceCost.textContent = formatNumber(absence);
+      performanceCost.textContent = formatNumber(performance);
+      costChange.textContent = `${change}%`;
+    };
+
+    const renderDepartmentCosts = () => {
+      departmentCostList.innerHTML = '';
+      departments.forEach((dept) => {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+        row.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm text-slate-500">${dept.name}</div>
+              <div class="text-xl font-extrabold text-slate-800 mt-1">${formatNumber(dept.cost)}</div>
+            </div>
+            <div class="text-right text-xs text-slate-500">
+              <div>موظفون: ${dept.employees}</div>
+              <div>أداء: ${dept.performance}%</div>
+            </div>
+          </div>
+          <div class="h-2 bg-slate-100 rounded-full overflow-hidden mt-3">
+            <div class="h-full bg-emerald-500" style="width: ${Math.min(dept.efficiency, 100)}%"></div>
+          </div>
+        `;
+        departmentCostList.appendChild(row);
+      });
+    };
+
+    const renderMatrix = () => {
+      costPerformanceMatrix.innerHTML = '';
+      departments.forEach((dept) => {
+        const card = document.createElement('div');
+        card.className = 'border border-slate-200 rounded-2xl p-3 bg-white';
+        card.innerHTML = `
+          <div class="text-sm text-slate-500">${dept.name}</div>
+          <div class="text-lg font-bold mt-2">${formatNumber(dept.cost)}</div>
+          <div class="text-xs text-slate-500">أداء ${dept.performance}% | كفاءة ${dept.efficiency}%</div>
+          <div class="mt-2 text-xs ${dept.cost > 60000 && dept.performance < 80 ? 'text-rose-600' : 'text-emerald-600'}">
+            ${dept.cost > 60000 && dept.performance < 80 ? 'مخاطر تكلفة مرتفعة' : 'تكلفة تحت السيطرة'}
+          </div>
+        `;
+        costPerformanceMatrix.appendChild(card);
+      });
+    };
+
+    const renderOvertimeWaste = () => {
+      overtimeWaste.innerHTML = '';
+      [...departments]
+        .sort((a, b) => b.overtimeWaste - a.overtimeWaste)
+        .slice(0, 4)
+        .forEach((dept) => {
+          const row = document.createElement('div');
+          row.className = 'p-3 rounded-2xl border border-slate-200 bg-white';
+          row.innerHTML = `
+            <div class="flex items-center justify-between text-sm">
+              <span>${dept.name}</span>
+              <span class="font-bold text-rose-600">${dept.overtimeWaste}h</span>
+            </div>
+            <div class="h-2 bg-slate-100 rounded-full overflow-hidden mt-2">
+              <div class="h-full bg-rose-500" style="width: ${Math.min(dept.overtimeWaste * 4, 100)}%"></div>
+            </div>
+          `;
+          overtimeWaste.appendChild(row);
+        });
+    };
+
+    const renderOpportunities = () => {
+      opportunityList.innerHTML = '';
+      const opportunities = [
+        'دمج المهام المتكررة عبر التشغيل الذكي',
+        'تحويل الأدوار ذات الأداء المنخفض إلى مشاريع قصيرة',
+        'توجيه الميزانية إلى الفرق ذات العائد الأعلى',
+        'إعادة جدولة الورديات لتقليل ساعات الذروة'
+      ];
+      opportunities.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl border border-slate-200 bg-white text-sm';
+        row.innerHTML = `<i class="fas fa-circle-check text-emerald-500 ml-2"></i>${item}`;
+        opportunityList.appendChild(row);
+      });
+    };
+
+    const renderPlannedActual = () => {
+      plannedVsActual.innerHTML = '';
+      departments.forEach((dept) => {
+        const ratio = dept.planned ? Math.round((dept.actual / dept.planned) * 100) : 0;
+        const row = document.createElement('div');
+        row.innerHTML = `
+          <div class="flex items-center justify-between text-sm">
+            <span>${dept.name}</span>
+            <span class="font-bold ${ratio > 100 ? 'text-rose-600' : 'text-emerald-600'}">${ratio}%</span>
+          </div>
+          <div class="h-2 bg-slate-100 rounded-full overflow-hidden mt-2">
+            <div class="h-full ${ratio > 100 ? 'bg-rose-500' : 'bg-emerald-500'}" style="width: ${Math.min(ratio, 120)}%"></div>
+          </div>
+        `;
+        plannedVsActual.appendChild(row);
+      });
+    };
+
+    const renderAlerts = () => {
+      alertList.innerHTML = '';
+      const alerts = departments
+        .filter((dept) => dept.cost > 60000 || dept.efficiency < 70)
+        .map((dept) => {
+          if (dept.cost > 60000 && dept.efficiency < 70) {
+            return `${dept.name}: تكلفة مرتفعة وكفاءة منخفضة.`;
+          }
+          if (dept.cost > 60000) {
+            return `${dept.name}: تجاوز حد التكلفة الشهري.`;
+          }
+          return `${dept.name}: كفاءة أقل من 70%.`;
+        });
+
+      alerts.forEach((alert) => {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl border border-rose-200 bg-rose-50 text-sm text-rose-700';
+        row.innerHTML = `<i class="fas fa-triangle-exclamation ml-2"></i>${alert}`;
+        alertList.appendChild(row);
+      });
+
+      if (!alerts.length) {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl border border-emerald-200 bg-emerald-50 text-sm text-emerald-700';
+        row.innerHTML = '<i class="fas fa-shield-check ml-2"></i>لا توجد تجاوزات حالياً.';
+        alertList.appendChild(row);
+      }
+    };
+
+    const renderTable = (data) => {
+      tableBody.innerHTML = '';
+      if (!data.length) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      data.forEach((dept) => {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-slate-100';
+        row.innerHTML = `
+          <td class="px-4 py-3 font-bold text-slate-700">${dept.name}</td>
+          <td class="px-4 py-3">${dept.employees}</td>
+          <td class="px-4 py-3">${formatNumber(dept.cost)}</td>
+          <td class="px-4 py-3">${dept.performance}%</td>
+          <td class="px-4 py-3">${dept.efficiency}%</td>
+          <td class="px-4 py-3 text-slate-600">${dept.recommendation}</td>
+          <td class="px-4 py-3 row-actions" data-id="${dept.id}">
+            <div class="flex flex-wrap gap-1">
+              <button data-action="view">عرض</button>
+              <button data-action="preview">معاينة</button>
+              <button data-action="edit">تعديل</button>
+              <button data-action="delete" class="text-rose-600">حذف</button>
+              <button data-action="plan" class="text-emerald-600">إضافة خطة تحسين</button>
+            </div>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    };
+
+    const applyFilters = () => {
+      const searchValue = searchInput.value.trim().toLowerCase();
+      const costValue = costFilter.value;
+      const efficiencyValue = efficiencyFilter.value;
+
+      const filtered = departments.filter((dept) => {
+        const matchesSearch = dept.name.toLowerCase().includes(searchValue);
+        const matchesCost = costValue === 'all'
+          || (costValue === 'high' && dept.cost > 50000)
+          || (costValue === 'medium' && dept.cost >= 30000 && dept.cost <= 50000)
+          || (costValue === 'low' && dept.cost < 30000);
+        const matchesEfficiency = efficiencyValue === 'all'
+          || (efficiencyValue === 'high' && dept.efficiency > 85)
+          || (efficiencyValue === 'medium' && dept.efficiency >= 70 && dept.efficiency <= 85)
+          || (efficiencyValue === 'low' && dept.efficiency < 70);
+        return matchesSearch && matchesCost && matchesEfficiency;
+      });
+
+      renderTable(filtered);
+    };
+
+    const resetModal = () => {
+      deptNameInput.value = '';
+      deptEmployeesInput.value = '';
+      deptCostInput.value = '';
+      deptPerformanceInput.value = '';
+      deptEfficiencyInput.value = '';
+      deptOvertimeInput.value = '';
+      deptPlannedInput.value = '';
+      deptActualInput.value = '';
+      deptRecommendationInput.value = '';
+    };
+
+    const setModalDisabled = (disabled) => {
+      [
+        deptNameInput,
+        deptEmployeesInput,
+        deptCostInput,
+        deptPerformanceInput,
+        deptEfficiencyInput,
+        deptOvertimeInput,
+        deptPlannedInput,
+        deptActualInput,
+        deptRecommendationInput
+      ].forEach((input) => {
+        input.disabled = disabled;
+        input.classList.toggle('bg-slate-100', disabled);
+      });
+    };
+
+    const openModal = (mode, item = null) => {
+      currentMode = mode;
+      currentEditId = item ? item.id : null;
+
+      if (!item) {
+        resetModal();
+      } else {
+        deptNameInput.value = item.name;
+        deptEmployeesInput.value = item.employees;
+        deptCostInput.value = item.cost;
+        deptPerformanceInput.value = item.performance;
+        deptEfficiencyInput.value = item.efficiency;
+        deptOvertimeInput.value = item.overtimeWaste;
+        deptPlannedInput.value = item.planned || '';
+        deptActualInput.value = item.actual || '';
+        deptRecommendationInput.value = item.recommendation === 'بدون توصية' ? '' : item.recommendation;
+      }
+
+      const isReadOnly = mode === 'view' || mode === 'preview';
+      setModalDisabled(isReadOnly);
+      savePlanBtn.classList.toggle('hidden', isReadOnly);
+      costModalTitle.textContent = mode === 'edit' ? 'تعديل خطة التحسين' : mode === 'preview' ? 'معاينة الخطة' : mode === 'view' ? 'عرض الخطة' : 'إضافة خطة تحسين';
+      costModalHint.textContent = isReadOnly ? 'عرض تفاصيل القسم والخطة الحالية.' : 'أدخل تفاصيل التكلفة بدقة لضمان دقة التحليل.';
+      costModalBackdrop.classList.remove('hidden');
+      costModalBackdrop.classList.add('flex');
+    };
+
+    const closeModal = () => {
+      costModalBackdrop.classList.add('hidden');
+      costModalBackdrop.classList.remove('flex');
+    };
+
+    const updateImpact = () => {
+      impactValue.textContent = `${impactSlider.value}%`;
+      const impact = (Number(impactSlider.value) * -0.2).toFixed(1);
+      impactOutput.textContent = `${impact}%`;
+    };
+
+    searchInput.addEventListener('input', applyFilters);
+    costFilter.addEventListener('change', applyFilters);
+    efficiencyFilter.addEventListener('change', applyFilters);
+    impactSlider.addEventListener('input', updateImpact);
+
+    tableBody.addEventListener('click', (event) => {
+      const action = event.target.getAttribute('data-action');
+      if (!action) return;
+      const row = event.target.closest('[data-id]');
+      const id = row ? Number(row.dataset.id) : null;
+      const item = departments.find((dept) => dept.id === id);
+      if (action === 'delete') {
+        const confirmed = window.confirm('هل تريد حذف خطة القسم؟');
+        if (!confirmed) return;
+        removeDepartment(id)
+          .then(() => {
+            departments = departments.filter((dept) => dept.id !== id);
+            updateSummary();
+            renderDepartmentCosts();
+            renderMatrix();
+            renderOvertimeWaste();
+            renderPlannedActual();
+            renderAlerts();
+            applyFilters();
+            showToast('تم حذف الخطة بنجاح.');
+          })
+          .catch((error) => showToast(error.message));
+        return;
+      }
+      if (action === 'plan') {
+        if (item) openModal('edit', item);
+        return;
+      }
+      if (action === 'edit') {
+        if (item) openModal('edit', item);
+        return;
+      }
+      if (action === 'view' && item) {
+        openModal('view', item);
+        return;
+      }
+      if (action === 'preview' && item) {
+        openModal('preview', item);
+        return;
+      }
+    });
+
+    addPlanBtn.addEventListener('click', () => openModal('add'));
+    closeModalBtn.addEventListener('click', closeModal);
+    cancelPlanBtn.addEventListener('click', closeModal);
+
+    savePlanBtn.addEventListener('click', () => {
+      if (!deptNameInput.value.trim() || !deptEmployeesInput.value || !deptCostInput.value || !deptPerformanceInput.value || !deptEfficiencyInput.value) {
+        showToast('يرجى إدخال البيانات الأساسية للقسم.');
+        return;
+      }
+
+      const payload = {
+        department_name: deptNameInput.value.trim(),
+        employee_count: Number(deptEmployeesInput.value),
+        total_cost: Number(deptCostInput.value),
+        avg_performance: Number(deptPerformanceInput.value),
+        efficiency_percent: Number(deptEfficiencyInput.value),
+        recommendation: deptRecommendationInput.value.trim() || null,
+        planned_cost: deptPlannedInput.value ? Number(deptPlannedInput.value) : null,
+        actual_cost: deptActualInput.value ? Number(deptActualInput.value) : null,
+        overtime_waste_hours: deptOvertimeInput.value ? Number(deptOvertimeInput.value) : 0
+      };
+
+      const request = currentMode === 'edit'
+        ? updateDepartment(currentEditId, payload)
+        : createDepartment(payload);
+
+      request
+        .then((saved) => {
+          if (currentMode === 'edit') {
+            const index = departments.findIndex((dept) => dept.id === saved.id);
+            if (index !== -1) departments[index] = saved;
+          } else {
+            departments.unshift(saved);
+          }
+          updateSummary();
+          renderDepartmentCosts();
+          renderMatrix();
+          renderOvertimeWaste();
+          renderPlannedActual();
+          renderAlerts();
+          applyFilters();
+          closeModal();
+          showToast('تم حفظ الخطة بنجاح.');
+        })
+        .catch((error) => showToast(error.message));
+    });
+
+    fetchDepartments()
+      .then((data) => {
+        departments = data;
+        updateSummary();
+        renderDepartmentCosts();
+        renderMatrix();
+        renderOvertimeWaste();
+        renderOpportunities();
+        renderPlannedActual();
+        renderAlerts();
+        applyFilters();
+        updateImpact();
+      })
+      .catch((error) => {
+        showToast(error.message);
+        renderOpportunities();
+        updateImpact();
+      });
+  </script>
+</body>
+</html>

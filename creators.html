@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>اكتشف الصفحات | NAIOSH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root{--red:#d70000;--red-dark:#6a0009;--line:#2b2f3a;--bg:#07090d;--card:#12151d;--txt:#f7f8fb;--muted:#b0b7c8;}
+    *{box-sizing:border-box} body{margin:0;font-family:'Cairo',sans-serif;color:var(--txt);background:radial-gradient(circle at 80% 0,#2e0a12 0,#090b11 35%,#06070a 100%)}
+    .container{width:min(1100px,100% - 32px);margin:20px auto}
+    .head{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;padding:10px 14px;text-decoration:none;font-weight:800}
+    .btn-primary{color:#fff;background:linear-gradient(135deg,var(--red),var(--red-dark))}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid var(--line);border-radius:18px;padding:14px}
+    .search{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    input{flex:1;min-width:220px;border-radius:12px;border:1px solid #303646;background:#10141b;color:#fff;padding:10px 12px;font-family:inherit}
+    .grid{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+    .creator{display:flex;flex-direction:column;gap:10px}
+    .row{display:flex;align-items:center;gap:10px}
+    .avatar{width:54px;height:54px;border-radius:50%;background:#1a2030 center/cover no-repeat;border:2px solid #fff}
+    .muted{color:var(--muted);font-size:13px}
+    .link{margin-top:auto;text-decoration:none;color:#fff;background:#1b2230;border:1px solid #333a4a;border-radius:10px;padding:8px 10px;text-align:center;font-weight:800}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="head">
+      <div>
+        <h1 style="margin:0">اكتشف الصفحات</h1>
+        <p class="muted" style="margin:4px 0 0">ابحث عن صناع المحتوى وروابطهم</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a class="btn btn-primary" href="/create-page"><i class="fas fa-plus"></i> أنشئ صفحتك</a>
+      </div>
+    </div>
+
+    <section class="card search">
+      <input id="searchInput" placeholder="ابحث بالاسم أو اسم المستخدم" />
+      <button class="btn btn-primary" id="searchBtn" type="button"><i class="fas fa-magnifying-glass"></i> بحث</button>
+    </section>
+
+    <section class="grid" id="creatorsGrid"></section>
+  </div>
+
+  <script>
+    const creatorsGrid = document.getElementById('creatorsGrid');
+    const searchInput = document.getElementById('searchInput');
+
+    const render = (creators = []) => {
+      creatorsGrid.innerHTML = creators.map((creator) => `
+        <article class="card creator">
+          <div class="row">
+            <div class="avatar" style="background-image:url('${creator.profile_image_url || ''}')"></div>
+            <div>
+              <strong>${creator.name || ''}</strong>
+              <div class="muted">@${creator.username || ''}</div>
+            </div>
+          </div>
+          <div class="muted">${creator.bio || 'بدون نبذة'}</div>
+          <div class="muted"><i class="fas fa-user-group"></i> ${Number(creator.followers_count || 0).toLocaleString('ar-SA')} متابع</div>
+          <a class="link" href="/u/${encodeURIComponent(creator.username || '')}">عرض الصفحة</a>
+        </article>
+      `).join('') || '<article class="card"><p class="muted">لا توجد نتائج</p></article>';
+    };
+
+    const loadCreators = async () => {
+      const query = searchInput.value.trim();
+      const res = await fetch(`/api/creator-pages/discover?query=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      render(data.creators || []);
+    };
+
+    document.getElementById('searchBtn').addEventListener('click', loadCreators);
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadCreators(); });
+    loadCreators();
+  </script>
+</body>
+</html>

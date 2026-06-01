@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ الحوكمة المالية والصلاحيات والتقارير - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="./finance-context.js"></script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f9fafb; color: #0f172a; }
+        
+        .card-gradient {
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    
+        .shape-rounded { border-radius: 28px; }
+        .shape-angled { border-radius: 32px 8px 32px 8px; }
+        .shape-pill { border-radius: 999px; }
+        .shape-cut { border-radius: 18px 18px 40px 8px; }
+        .chart-box { position: relative; height: 260px; }
+        .table-scroll { max-height: 520px; overflow: auto; }
+        .accent-sky { border-top: 4px solid #0ea5e9; }
+        .accent-indigo { border-top: 4px solid #6366f1; }
+        .accent-emerald { border-top: 4px solid #10b981; }
+        .accent-rose { border-top: 4px solid #f43f5e; }
+        .accent-amber { border-top: 4px solid #f59e0b; }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-slate-900 mb-8">
+            <h1 class="text-4xl font-bold mb-2">🛡️ الحوكمة المالية والصلاحيات والتقارير</h1>
+            <p class="text-lg text-slate-600">بناء نظام الحوكمة المالية وربط الصلاحيات والموافقات والتقارير (الصفحة 36)</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-rotate"></i>
+                تحديث البيانات
+            </button>
+            <button onclick="downloadAllJSON()" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-code"></i>
+                تنزيل ملف بيانات شامل
+            </button>
+            <button onclick="downloadAllCSV()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-file-csv"></i>
+                تنزيل ملف جدولي شامل
+            </button>
+            <button onclick="printPage()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-print"></i>
+                طباعة الصفحة
+            </button>
+            <button onclick="copySummary()" class="bg-amber-500 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-copy"></i>
+                نسخ ملخص الحوكمة
+            </button>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-sky">
+            <div class="flex flex-wrap items-center justify-between mb-6 gap-3">
+                <h2 class="text-2xl font-bold text-slate-800">🧩 مستويات الصلاحيات</h2>
+                <span class="text-sm text-slate-500">ربط الوحدات وفق الأدوار والمسؤوليات</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="card-gradient shape-angled p-5 shadow-lg border border-sky-100">
+                    <h3 class="font-bold text-slate-800 mb-2">المدير المالي للمجموعة</h3>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>يرى كل الفروع والحاضنات والبرامج</li>
+                        <li>يعتمد الميزانيات النهائية</li>
+                        <li>يقرّ سياسات التحصيل والخصم وخطط الدفع</li>
+                    </ul>
+                </div>
+                <div class="card-gradient shape-cut p-5 shadow-lg border border-indigo-100">
+                    <h3 class="font-bold text-slate-800 mb-2">مدير مالية الفرع/الحاضنة</h3>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>يرفع ميزانية مقترحة</li>
+                        <li>يتابع التحصيل اليومي</li>
+                        <li>يتعامل مع العملاء المتأخرين</li>
+                    </ul>
+                </div>
+                <div class="card-gradient shape-rounded p-5 shadow-lg border border-emerald-100">
+                    <h3 class="font-bold text-slate-800 mb-2">محاسب</h3>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>إدخال القيود المحاسبية</li>
+                        <li>مراجعة الفواتير والمدفوعات</li>
+                        <li>تسويات نهاية الشهر</li>
+                    </ul>
+                </div>
+                <div class="card-gradient shape-pill p-5 shadow-lg border border-rose-100">
+                    <h3 class="font-bold text-slate-800 mb-2">مسؤول التحصيل</h3>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>التعامل مع شاشة التحصيل وخطط الدفع</li>
+                        <li>يتلقى إشعارات التعثر</li>
+                        <li>متابعة التزام العملاء</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-indigo">
+            <div class="flex flex-wrap items-center justify-between mb-6 gap-3">
+                <h2 class="text-2xl font-bold text-slate-800">📜 سياسات العمل</h2>
+                <span class="text-sm text-slate-500">حوكمة الفوترة والتحصيل والإقفال والذكاء الاصطناعي</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="card-gradient shape-angled p-5 shadow-lg border border-amber-100">
+                    <h4 class="font-bold text-slate-800 mb-2">سياسة الفوترة</h4>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>لا تُصدر فاتورة إلا مرتبطة: عميل + برنامج/خدمة + حاضنة/فرع</li>
+                        <li>لا تُعدّل فاتورة بعد إصدارها إلا بصلاحية أعلى مع أثر محاسبي واضح</li>
+                    </ul>
+                </div>
+                <div class="card-gradient shape-cut p-5 shadow-lg border border-sky-100">
+                    <h4 class="font-bold text-slate-800 mb-2">سياسة التحصيل</h4>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>نسبة خصم قصوى تشجيعية تعتمدها الإدارة المالية للمجموعة</li>
+                        <li>لا يُنشأ خطة دفع إلا بعد تحقق الحد الأدنى وسياسة البرنامج</li>
+                    </ul>
+                </div>
+                <div class="card-gradient shape-rounded p-5 shadow-lg border border-emerald-100">
+                    <h4 class="font-bold text-slate-800 mb-2">سياسة الإقفال الشهري</h4>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>إيقاف إدخال القيود بعد يوم محدد من الشهر التالي إلا بسماح خاص</li>
+                        <li>فرض تسويات بنك/ذمم/أصول قبل اعتماد التقارير الشهرية</li>
+                    </ul>
+                </div>
+                <div class="card-gradient shape-pill p-5 shadow-lg border border-rose-100">
+                    <h4 class="font-bold text-slate-800 mb-2">سياسة الذكاء الاصطناعي</h4>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>الذكاء الاصطناعي يقدم توصيات ودرجات مخاطر فقط</li>
+                        <li>لا يتم إيقاف خدمة عميل دون موافقة بشرية</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-emerald">
+            <div class="flex flex-wrap items-center justify-between mb-6 gap-3">
+                <h2 class="text-2xl font-bold text-slate-800">✅ دورة الموافقات</h2>
+                <span class="text-sm text-slate-500">سير العمل المعتمد للموافقات</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div class="card-gradient shape-angled p-5 shadow-lg border border-emerald-100">
+                    <h4 class="font-bold text-slate-800 mb-2">فاتورة كبيرة فوق حد معين</h4>
+                    <p class="text-sm text-slate-600">تحتاج موافقة مدير الفرع + المالية المركزية.</p>
+                </div>
+                <div class="card-gradient shape-cut p-5 shadow-lg border border-indigo-100">
+                    <h4 class="font-bold text-slate-800 mb-2">خطة دفع لعميل عالي المخاطر</h4>
+                    <p class="text-sm text-slate-600">موافقة مزدوجة: التحصيل + مدير المالية.</p>
+                </div>
+                <div class="card-gradient shape-pill p-5 shadow-lg border border-amber-100">
+                    <h4 class="font-bold text-slate-800 mb-2">تعديل ميزانية بعد الاعتماد</h4>
+                    <p class="text-sm text-slate-600">طلب تغيير رسمي + سبب + أثر على التدفقات + موافقة الإدارة المالية للمجموعة.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-rose">
+            <div class="flex flex-wrap items-center justify-between mb-6 gap-3">
+                <h2 class="text-2xl font-bold text-slate-800">📊 طبقات التقارير الذكية</h2>
+                <span class="text-sm text-slate-500">تشغيلية • تكتيكية • استراتيجية</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div class="card-gradient shape-angled p-5 shadow-lg border border-sky-100">
+                    <h4 class="font-bold text-slate-800 mb-2">تقارير تشغيلية (يومي/أسبوعي)</h4>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>تقرير التحصيل اليومي مقابل الهدف</li>
+                        <li>الفواتير المسددة جزئيًا</li>
+                        <li>الفواتير المتأخرة ذات مؤشر خطر</li>
+                        <li>تقرير أعمار الذمم حسب الفرع والحاضنة والبرنامج</li>
+                    </ul>
+                </div>
+                <div class="card-gradient shape-cut p-5 shadow-lg border border-indigo-100">
+                    <h4 class="font-bold text-slate-800 mb-2">تقارير تكتيكية (شهري/ربع سنوي)</h4>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>إيرادات فعلية مقابل الميزانية</li>
+                        <li>مصروفات فعلية مقابل الميزانية</li>
+                        <li>صافي هامش الربح</li>
+                        <li>نسبة التحصيل ونسبة التعثر</li>
+                    </ul>
+                </div>
+                <div class="card-gradient shape-pill p-5 shadow-lg border border-rose-100">
+                    <h4 class="font-bold text-slate-800 mb-2">تقارير استراتيجية (للإدارة العليا)</h4>
+                    <ul class="text-sm text-slate-600 space-y-1">
+                        <li>انحراف الميزانية لكل حساب رئيسي</li>
+                        <li>انحراف الميزانية لكل برنامج رئيسي</li>
+                        <li>تفسير آلي للانحرافات اعتمادًا على الأنماط</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div class="card-gradient shape-angled p-5 shadow-lg accent-sky">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">إجمالي الفواتير</span>
+                    <i class="fas fa-file-invoice text-sky-500 text-2xl"></i>
+                </div>
+                <div id="totalInvoices" class="text-3xl font-bold text-slate-800">0</div>
+            </div>
+            <div class="card-gradient shape-cut p-5 shadow-lg accent-rose">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">فواتير متأخرة</span>
+                    <i class="fas fa-triangle-exclamation text-rose-500 text-2xl"></i>
+                </div>
+                <div id="overdueInvoices" class="text-3xl font-bold text-slate-800">0</div>
+            </div>
+            <div class="card-gradient shape-rounded p-5 shadow-lg accent-emerald">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">خطط سداد نشطة</span>
+                    <i class="fas fa-calendar-check text-emerald-500 text-2xl"></i>
+                </div>
+                <div id="totalPlans" class="text-3xl font-bold text-slate-800">0</div>
+            </div>
+            <div class="card-gradient shape-pill p-5 shadow-lg accent-indigo">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">تقييمات المخاطر</span>
+                    <i class="fas fa-shield-halved text-indigo-500 text-2xl"></i>
+                </div>
+                <div id="totalRisks" class="text-3xl font-bold text-slate-800">0</div>
+            </div>
+            <div class="card-gradient shape-angled p-5 shadow-lg accent-amber">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">العملاء المرتبطون</span>
+                    <i class="fas fa-users text-amber-500 text-2xl"></i>
+                </div>
+                <div id="totalCustomers" class="text-3xl font-bold text-slate-800">0</div>
+            </div>
+            <div class="card-gradient shape-cut p-5 shadow-lg accent-sky">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">إجمالي المدفوعات</span>
+                    <i class="fas fa-credit-card text-sky-500 text-2xl"></i>
+                </div>
+                <div id="totalPayments" class="text-3xl font-bold text-slate-800">0</div>
+            </div>
+            <div class="card-gradient shape-rounded p-5 shadow-lg accent-emerald">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">الميزانيات المعتمدة</span>
+                    <i class="fas fa-file-invoice-dollar text-emerald-500 text-2xl"></i>
+                </div>
+                <div id="totalBudgets" class="text-3xl font-bold text-slate-800">0</div>
+            </div>
+            <div class="card-gradient shape-pill p-5 shadow-lg accent-indigo">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">التوقعات الذكية</span>
+                    <i class="fas fa-brain text-indigo-500 text-2xl"></i>
+                </div>
+                <div id="totalForecasts" class="text-3xl font-bold text-slate-800">0</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="card-gradient shape-rounded shadow-2xl p-6 accent-sky">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">📈 توزيع حالات الفواتير</h3>
+                <div class="chart-box"><canvas id="invoiceStatusChart"></canvas></div>
+            </div>
+            <div class="card-gradient shape-rounded shadow-2xl p-6 accent-rose">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">🧭 توزيع مستويات المخاطر</h3>
+                <div class="chart-box"><canvas id="riskLevelChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-sky">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h3 class="text-xl font-bold text-slate-800">📄 جدول الفواتير الخاضعة للحوكمة</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="addInvoice()" class="bg-sky-600 text-white px-4 py-2 rounded-full text-xs font-bold hover:shadow-lg">إضافة فاتورة</button>
+                    <span id="invoicesCount" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-sky-50 text-sky-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم الفاتورة</th>
+                            <th class="px-3 py-2 text-right">تاريخ الفاتورة</th>
+                            <th class="px-3 py-2 text-right">رقم العميل</th>
+                            <th class="px-3 py-2 text-right">اسم العميل</th>
+                            <th class="px-3 py-2 text-right">المبلغ الإجمالي</th>
+                            <th class="px-3 py-2 text-right">المدفوع</th>
+                            <th class="px-3 py-2 text-right">المتبقي</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">الفرع</th>
+                            <th class="px-3 py-2 text-right">البرنامج</th>
+                            <th class="px-3 py-2 text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoicesTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="11" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-indigo">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h3 class="text-xl font-bold text-slate-800">📑 جدول خطط السداد المعتمدة</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="addPlan()" class="bg-indigo-600 text-white px-4 py-2 rounded-full text-xs font-bold hover:shadow-lg">إضافة خطة سداد</button>
+                    <span id="plansCount" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-indigo-50 text-indigo-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم الخطة</th>
+                            <th class="px-3 py-2 text-right">رقم العميل</th>
+                            <th class="px-3 py-2 text-right">اسم العميل</th>
+                            <th class="px-3 py-2 text-right">رقم الفاتورة</th>
+                            <th class="px-3 py-2 text-right">تاريخ البداية</th>
+                            <th class="px-3 py-2 text-right">تاريخ النهاية</th>
+                            <th class="px-3 py-2 text-right">إجمالي الخطة</th>
+                            <th class="px-3 py-2 text-right">المتبقي</th>
+                            <th class="px-3 py-2 text-right">عدد الأقساط</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">مستوى المخاطر</th>
+                            <th class="px-3 py-2 text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="plansTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="12" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-emerald">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h3 class="text-xl font-bold text-slate-800">📌 جدول الميزانيات والانحرافات</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="addBudget()" class="bg-emerald-600 text-white px-4 py-2 rounded-full text-xs font-bold hover:shadow-lg">إضافة ميزانية</button>
+                    <span id="budgetsCount" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-emerald-50 text-emerald-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">كود الميزانية</th>
+                            <th class="px-3 py-2 text-right">اسم الميزانية</th>
+                            <th class="px-3 py-2 text-right">النوع</th>
+                            <th class="px-3 py-2 text-right">السنة المالية</th>
+                            <th class="px-3 py-2 text-right">الحالة</th>
+                            <th class="px-3 py-2 text-right">السيناريو</th>
+                            <th class="px-3 py-2 text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="budgetsTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="7" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-6">
+                <div class="flex flex-wrap items-center justify-between mb-2 gap-3">
+                    <h4 class="text-lg font-bold text-slate-800">📈 جدول الانحرافات</h4>
+                    <div class="flex items-center gap-3">
+                        <button onclick="addVariance()" class="bg-emerald-700 text-white px-4 py-2 rounded-full text-xs font-bold hover:shadow-lg">إضافة انحراف</button>
+                        <span id="variancesCount" class="text-sm text-slate-500"></span>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table class="w-full text-xs">
+                        <thead class="bg-emerald-100 text-emerald-800">
+                            <tr>
+                                <th class="px-3 py-2 text-right">الفترة</th>
+                                <th class="px-3 py-2 text-right">الحساب</th>
+                                <th class="px-3 py-2 text-right">المخطط</th>
+                                <th class="px-3 py-2 text-right">الفعلي</th>
+                                <th class="px-3 py-2 text-right">الانحراف</th>
+                                <th class="px-3 py-2 text-right">النسبة</th>
+                                <th class="px-3 py-2 text-right">مستوى الأهمية</th>
+                                <th class="px-3 py-2 text-center">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="variancesTable" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="8" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-gradient shape-rounded shadow-2xl p-6 mb-8 accent-rose">
+            <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h3 class="text-xl font-bold text-slate-800">🛡️ جدول تقييمات المخاطر والتوقعات</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="addRisk()" class="bg-rose-600 text-white px-4 py-2 rounded-full text-xs font-bold hover:shadow-lg">إضافة تقييم مخاطر</button>
+                    <span id="risksCount" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+            <div class="table-scroll mb-6">
+                <table class="w-full text-xs">
+                    <thead class="bg-rose-50 text-rose-700">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم المخاطر</th>
+                            <th class="px-3 py-2 text-right">رقم العميل</th>
+                            <th class="px-3 py-2 text-right">تاريخ التقييم</th>
+                            <th class="px-3 py-2 text-right">درجة المخاطرة</th>
+                            <th class="px-3 py-2 text-right">مستوى المخاطرة</th>
+                            <th class="px-3 py-2 text-right">التوصيات</th>
+                            <th class="px-3 py-2 text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="risksTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="7" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between mb-2 gap-3">
+                <h4 class="text-lg font-bold text-slate-800">🔮 جدول التوقعات الذكية</h4>
+                <div class="flex items-center gap-3">
+                    <button onclick="addForecast()" class="bg-rose-700 text-white px-4 py-2 rounded-full text-xs font-bold hover:shadow-lg">إضافة توقع ذكي</button>
+                    <span id="forecastsCount" class="text-sm text-slate-500"></span>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-xs">
+                    <thead class="bg-rose-100 text-rose-800">
+                        <tr>
+                            <th class="px-3 py-2 text-right">رقم التوقع</th>
+                            <th class="px-3 py-2 text-right">فترة التوقع</th>
+                            <th class="px-3 py-2 text-right">نوع التوقع</th>
+                            <th class="px-3 py-2 text-right">قيمة التوقع</th>
+                            <th class="px-3 py-2 text-right">مستوى الثقة</th>
+                            <th class="px-3 py-2 text-right">ملاحظات الذكاء</th>
+                            <th class="px-3 py-2 text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="forecastsTable" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="7" class="px-4 py-12 text-center text-slate-500">جاري تحميل البيانات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
+        const API_HEADERS = window.getFinanceHeaders ? window.getFinanceHeaders() : { 'x-entity-id': ENTITY_ID, 'x-entity-type': ENTITY_TYPE };
+
+        let store = {
+            invoices: [],
+            payments: [],
+            plans: [],
+            budgets: [],
+            variances: [],
+            risks: [],
+            forecasts: [],
+            customers: []
+        };
+
+        let invoiceChartInstance = null;
+        let riskChartInstance = null;
+
+        async function fetchJson(url) {
+            const res = await fetch(url, { headers: API_HEADERS });
+            const data = await res.json();
+            return { ok: res.ok, data };
+        }
+
+        async function loadData() {
+            try {
+                const [invoiceRes, paymentRes, planRes, budgetRes, riskRes, forecastRes, customerRes] = await Promise.all([
+                    fetchJson(`${API_BASE}/finance/invoices`),
+                    fetchJson(`${API_BASE}/finance/payments`),
+                    fetchJson(`${API_BASE}/finance/payment-plans?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/budgets?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/ai-risk-scores?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/ai-forecasts?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/customers`)
+                ]);
+
+                store.invoices = invoiceRes.data.invoices || [];
+                store.payments = paymentRes.data.payments || [];
+                store.plans = planRes.data.plans || [];
+                store.budgets = budgetRes.data.budgets || [];
+                store.variances = budgetRes.data.variances || [];
+                store.risks = riskRes.data.rows || [];
+                store.forecasts = forecastRes.data.forecasts || [];
+                store.customers = customerRes.data.customers || customerRes.data.rows || [];
+
+                renderStats();
+                renderCharts();
+                renderTables();
+            } catch (error) {
+                console.error('خطأ في تحميل البيانات:', error);
+            }
+        }
+
+        function renderStats() {
+            const totalInvoices = store.invoices.length;
+            const overdueInvoices = store.invoices.filter(i => String(i.status || '').toUpperCase() === 'OVERDUE').length;
+            const totalPlans = store.plans.length;
+            const totalRisks = store.risks.length;
+            const totalCustomers = store.customers.length;
+            const totalPayments = sum(store.payments, 'payment_amount');
+            const totalBudgets = store.budgets.length;
+            const totalForecasts = store.forecasts.length;
+
+            document.getElementById('totalInvoices').textContent = totalInvoices.toLocaleString('en-US');
+            document.getElementById('overdueInvoices').textContent = overdueInvoices.toLocaleString('en-US');
+            document.getElementById('totalPlans').textContent = totalPlans.toLocaleString('en-US');
+            document.getElementById('totalRisks').textContent = totalRisks.toLocaleString('en-US');
+            document.getElementById('totalCustomers').textContent = totalCustomers.toLocaleString('en-US');
+            document.getElementById('totalPayments').textContent = formatMoney(totalPayments);
+            document.getElementById('totalBudgets').textContent = totalBudgets.toLocaleString('en-US');
+            document.getElementById('totalForecasts').textContent = totalForecasts.toLocaleString('en-US');
+        }
+
+        function renderCharts() {
+            const statusCounts = store.invoices.reduce((acc, inv) => {
+                const status = translateStatus(inv.status);
+                acc[status] = (acc[status] || 0) + 1;
+                return acc;
+            }, {});
+
+            const statusLabels = Object.keys(statusCounts);
+            const statusValues = Object.values(statusCounts);
+
+            const invoiceCtx = document.getElementById('invoiceStatusChart').getContext('2d');
+            if (invoiceChartInstance) invoiceChartInstance.destroy();
+            invoiceChartInstance = new Chart(invoiceCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: statusLabels.length ? statusLabels : ['لا توجد بيانات'],
+                    datasets: [{
+                        data: statusValues.length ? statusValues : [0],
+                        backgroundColor: ['#0ea5e9', '#f59e0b', '#10b981', '#ef4444', '#6366f1']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const riskCounts = store.risks.reduce((acc, r) => {
+                const level = translateRiskLevel(r.risk_level) || 'غير محدد';
+                acc[level] = (acc[level] || 0) + 1;
+                return acc;
+            }, {});
+
+            const riskLabels = Object.keys(riskCounts);
+            const riskValues = Object.values(riskCounts);
+
+            const riskCtx = document.getElementById('riskLevelChart').getContext('2d');
+            if (riskChartInstance) riskChartInstance.destroy();
+            riskChartInstance = new Chart(riskCtx, {
+                type: 'bar',
+                data: {
+                    labels: riskLabels.length ? riskLabels : ['لا توجد بيانات'],
+                    datasets: [{
+                        data: riskValues.length ? riskValues : [0],
+                        backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#6366f1']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderTables() {
+            const invoiceRows = store.invoices.map(inv => `
+                <tr class="hover:bg-sky-50">
+                    <td class="px-3 py-2">${sanitizeText(inv.invoice_number)}</td>
+                    <td class="px-3 py-2">${formatDate(inv.invoice_date)}</td>
+                    <td class="px-3 py-2">${sanitizeText(inv.customer_id)}</td>
+                    <td class="px-3 py-2">${sanitizeText(inv.customer_name_ar || inv.customer_name)}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(inv.total_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(inv.paid_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(inv.remaining_amount)}</td>
+                    <td class="px-3 py-2">${translateStatus(inv.status)}</td>
+                    <td class="px-3 py-2">${sanitizeText(inv.branch_id)}</td>
+                    <td class="px-3 py-2">${sanitizeText(inv.program_id)}</td>
+                    <td class="px-3 py-2 text-center">${renderActions('invoices', inv.invoice_id)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('invoicesTable').innerHTML = invoiceRows || `<tr><td colspan="11" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('invoicesCount').textContent = `عدد الصفوف: ${store.invoices.length}`;
+
+            const planRows = store.plans.map(plan => `
+                <tr class="hover:bg-indigo-50">
+                    <td class="px-3 py-2">${plan.plan_number ?? plan.plan_id ?? '-'}</td>
+                    <td class="px-3 py-2">${plan.customer_id ?? '-'}</td>
+                    <td class="px-3 py-2">${sanitizeText(plan.customer_name_ar || plan.customer_name_en)}</td>
+                    <td class="px-3 py-2">${sanitizeText(plan.invoice_number)}</td>
+                    <td class="px-3 py-2">${formatDate(plan.start_date)}</td>
+                    <td class="px-3 py-2">${formatDate(plan.end_date)}</td>
+                    <td class="px-3 py-2 font-semibold text-emerald-700">${formatMoney(plan.total_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(plan.remaining_amount)}</td>
+                    <td class="px-3 py-2">${plan.number_of_installments ?? '-'}</td>
+                    <td class="px-3 py-2">${translateStatus(plan.status)}</td>
+                    <td class="px-3 py-2">${translateRiskLevel(plan.risk_level_at_creation)}</td>
+                    <td class="px-3 py-2 text-center">${renderActions('plans', plan.plan_id)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('plansTable').innerHTML = planRows || `<tr><td colspan="12" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('plansCount').textContent = `عدد الصفوف: ${store.plans.length}`;
+
+            const budgetRows = store.budgets.map(b => `
+                <tr class="hover:bg-emerald-50">
+                    <td class="px-3 py-2">${sanitizeText(b.budget_code)}</td>
+                    <td class="px-3 py-2">${sanitizeText(b.budget_name_ar || b.budget_name_en)}</td>
+                    <td class="px-3 py-2">${translateBudgetType(b.budget_type)}</td>
+                    <td class="px-3 py-2">${b.fiscal_year ?? '-'}</td>
+                    <td class="px-3 py-2">${translateStatus(b.status)}</td>
+                    <td class="px-3 py-2">${sanitizeText(b.scenario)}</td>
+                    <td class="px-3 py-2 text-center">${renderActions('budgets', b.budget_id)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('budgetsTable').innerHTML = budgetRows || `<tr><td colspan="7" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('budgetsCount').textContent = `عدد الصفوف: ${store.budgets.length}`;
+
+            const varianceRows = store.variances.map(v => `
+                <tr class="hover:bg-emerald-50">
+                    <td class="px-3 py-2">${sanitizeText(v.period_name) || `${v.fiscal_year || ''}-${v.fiscal_period || ''}`}</td>
+                    <td class="px-3 py-2">${sanitizeText(v.account_code)} ${sanitizeText(v.account_id)}</td>
+                    <td class="px-3 py-2">${formatMoney(v.budgeted_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(v.actual_amount)}</td>
+                    <td class="px-3 py-2">${formatMoney(v.variance_amount)}</td>
+                    <td class="px-3 py-2">${formatPercent(v.variance_percentage)}</td>
+                    <td class="px-3 py-2">${sanitizeText(v.significance_level)}</td>
+                    <td class="px-3 py-2 text-center">${renderActions('variances', v.variance_id)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('variancesTable').innerHTML = varianceRows || `<tr><td colspan="8" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('variancesCount').textContent = `عدد الصفوف: ${store.variances.length}`;
+
+            const riskRows = store.risks.map(r => `
+                <tr class="hover:bg-rose-50">
+                    <td class="px-3 py-2">${r.risk_id ?? '-'}</td>
+                    <td class="px-3 py-2">${r.customer_id ?? '-'}</td>
+                    <td class="px-3 py-2">${formatDate(r.assessment_date)}</td>
+                    <td class="px-3 py-2">${formatPercent(r.risk_score)}</td>
+                    <td class="px-3 py-2">${translateRiskLevel(r.risk_level)}</td>
+                    <td class="px-3 py-2">${truncate(sanitizeText(r.recommendations))}</td>
+                    <td class="px-3 py-2 text-center">${renderActions('risks', r.risk_id)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('risksTable').innerHTML = riskRows || `<tr><td colspan="7" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('risksCount').textContent = `عدد الصفوف: ${store.risks.length}`;
+
+            const forecastRows = store.forecasts.map(f => `
+                <tr class="hover:bg-rose-50">
+                    <td class="px-3 py-2">${f.forecast_id ?? '-'}</td>
+                    <td class="px-3 py-2">${sanitizeText(f.forecast_period)}</td>
+                    <td class="px-3 py-2">${translateForecastType(f.forecast_type)}</td>
+                    <td class="px-3 py-2">${formatMoney(f.forecast_amount)}</td>
+                    <td class="px-3 py-2">${formatPercent(f.confidence_level)}</td>
+                    <td class="px-3 py-2">${truncate(sanitizeText(f.ai_insights))}</td>
+                    <td class="px-3 py-2 text-center">${renderActions('forecasts', f.forecast_id)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('forecastsTable').innerHTML = forecastRows || `<tr><td colspan="7" class="px-4 py-12 text-center text-slate-500">لا توجد بيانات</td></tr>`;
+            document.getElementById('forecastsCount').textContent = `عدد الصفوف: ${store.forecasts.length}`;
+        }
+
+        function renderActions(tableName, id) {
+            if (!id) return '-';
+            return `
+                <div class="flex gap-1 justify-center">
+                    <button onclick="viewRecord('${tableName}', ${id})" class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600" title="معاينة"><i class="fas fa-eye"></i></button>
+                    <button onclick="editRecord('${tableName}', ${id})" class="bg-amber-500 text-white px-2 py-1 rounded text-xs hover:bg-amber-600" title="تعديل"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteRecord('${tableName}', ${id})" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600" title="حذف"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+        }
+
+        function translateStatus(value) {
+            const map = {
+                PAID: 'مدفوعة',
+                UNPAID: 'غير مدفوعة',
+                PARTIAL: 'مدفوعة جزئيًا',
+                OVERDUE: 'متأخرة',
+                ACTIVE: 'نشطة',
+                CLOSED: 'مغلقة',
+                PENDING: 'قيد المراجعة',
+                APPROVED: 'معتمدة',
+                REJECTED: 'مرفوضة'
+            };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateRiskLevel(value) {
+            const map = { HIGH: 'مرتفع', MEDIUM: 'متوسط', LOW: 'منخفض', CRITICAL: 'حرج' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateBudgetType(value) {
+            const map = {
+                OPERATING: 'تشغيلية',
+                CAPITAL: 'رأسمالية',
+                MASTER: 'شاملة',
+                PROJECT: 'مشروع'
+            };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function translateForecastType(value) {
+            const map = { REVENUE: 'إيرادات', EXPENSE: 'مصروفات', CASHFLOW: 'تدفقات نقدية', DEFAULT: 'تعثر' };
+            return map[String(value || '').toUpperCase()] || 'غير محدد';
+        }
+
+        function formatMoney(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US') + ' SAR';
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleDateString('en-US');
+        }
+
+        function formatPercent(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            const num = parseFloat(value || 0);
+            return `${num.toFixed(1)}%`;
+        }
+
+        function truncate(value) {
+            if (value === null || value === undefined) return '-';
+            const text = typeof value === 'string' ? value : JSON.stringify(value);
+            return text.length > 120 ? text.slice(0, 120) + '...' : text;
+        }
+
+        function sanitizeText(value) {
+            if (value === null || value === undefined) return '-';
+            const text = typeof value === 'string' ? value : JSON.stringify(value);
+            const cleaned = text.replace(/[A-Za-z]+/g, '').replace(/\s{2,}/g, ' ').trim();
+            return cleaned || '-';
+        }
+
+        function sum(rows, key) {
+            return rows.reduce((acc, row) => acc + parseFloat(row[key] || 0), 0);
+        }
+
+        function downloadAllJSON() {
+            const payload = {
+                invoices: store.invoices,
+                payments: store.payments,
+                payment_plans: store.plans,
+                budgets: store.budgets,
+                variances: store.variances,
+                risk_scores: store.risks,
+                forecasts: store.forecasts,
+                customers: store.customers
+            };
+            downloadBlob(JSON.stringify(payload, null, 2), 'حوكمة-مالية-وصلاحيات-وتقارير.json', 'application/json');
+        }
+
+        function downloadAllCSV() {
+            const rows = [];
+            rows.push(['الفواتير']);
+            rows.push(['رقم الفاتورة','تاريخ الفاتورة','رقم العميل','اسم العميل','المبلغ الإجمالي','المدفوع','المتبقي','الحالة','الفرع','البرنامج']);
+            store.invoices.forEach(inv => rows.push([
+                sanitizeText(inv.invoice_number), inv.invoice_date, inv.customer_id, sanitizeText(inv.customer_name_ar || inv.customer_name), inv.total_amount,
+                inv.paid_amount, inv.remaining_amount, translateStatus(inv.status), inv.branch_id, inv.program_id
+            ]));
+
+            rows.push([]);
+            rows.push(['خطط السداد']);
+            rows.push(['رقم الخطة','رقم العميل','اسم العميل','رقم الفاتورة','تاريخ البداية','تاريخ النهاية','إجمالي الخطة','المتبقي','عدد الأقساط','الحالة','مستوى المخاطر']);
+            store.plans.forEach(plan => rows.push([
+                plan.plan_number ?? plan.plan_id, plan.customer_id, sanitizeText(plan.customer_name_ar || plan.customer_name_en), sanitizeText(plan.invoice_number),
+                plan.start_date, plan.end_date, plan.total_amount, plan.remaining_amount, plan.number_of_installments,
+                translateStatus(plan.status), translateRiskLevel(plan.risk_level_at_creation)
+            ]));
+
+            rows.push([]);
+            rows.push(['الميزانيات']);
+            rows.push(['كود الميزانية','اسم الميزانية','النوع','السنة المالية','الحالة','السيناريو']);
+            store.budgets.forEach(b => rows.push([
+                sanitizeText(b.budget_code), sanitizeText(b.budget_name_ar || b.budget_name_en), translateBudgetType(b.budget_type), b.fiscal_year,
+                translateStatus(b.status), sanitizeText(b.scenario)
+            ]));
+
+            rows.push([]);
+            rows.push(['الانحرافات']);
+            rows.push(['الفترة','الحساب','المخطط','الفعلي','الانحراف','النسبة','مستوى الأهمية']);
+            store.variances.forEach(v => rows.push([
+                sanitizeText(v.period_name) || `${v.fiscal_year || ''}-${v.fiscal_period || ''}`, `${sanitizeText(v.account_code)} ${sanitizeText(v.account_id)}`,
+                v.budgeted_amount, v.actual_amount, v.variance_amount, v.variance_percentage, sanitizeText(v.significance_level)
+            ]));
+
+            rows.push([]);
+            rows.push(['المخاطر']);
+            rows.push(['رقم المخاطر','رقم العميل','تاريخ التقييم','درجة المخاطرة','مستوى المخاطرة','التوصيات']);
+            store.risks.forEach(r => rows.push([
+                r.risk_id, r.customer_id, r.assessment_date, r.risk_score, translateRiskLevel(r.risk_level), sanitizeText(r.recommendations)
+            ]));
+
+            rows.push([]);
+            rows.push(['التوقعات الذكية']);
+            rows.push(['رقم التوقع','فترة التوقع','نوع التوقع','قيمة التوقع','مستوى الثقة','ملاحظات الذكاء']);
+            store.forecasts.forEach(f => rows.push([
+                f.forecast_id, sanitizeText(f.forecast_period), translateForecastType(f.forecast_type), f.forecast_amount, f.confidence_level, sanitizeText(f.ai_insights)
+            ]));
+
+            const csv = rows.map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+            downloadBlob(csv, 'حوكمة-مالية-وصلاحيات-وتقارير.csv', 'text/csv;charset=utf-8;');
+        }
+
+        function downloadBlob(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function printPage() {
+            window.print();
+        }
+
+        function copySummary() {
+            const summary = `ملخص الحوكمة\n` +
+                `إجمالي الفواتير: ${store.invoices.length}\n` +
+                `الفواتير المتأخرة: ${store.invoices.filter(i => String(i.status || '').toUpperCase() === 'OVERDUE').length}\n` +
+                `خطط السداد: ${store.plans.length}\n` +
+                `الميزانيات: ${store.budgets.length}\n` +
+                `تقييمات المخاطر: ${store.risks.length}\n` +
+                `التوقعات الذكية: ${store.forecasts.length}`;
+            navigator.clipboard.writeText(summary).catch(() => {});
+        }
+
+        function refreshData() {
+            loadData();
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-sm text-white shadow-lg ${type === 'success' ? 'bg-emerald-600' : 'bg-slate-700'}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        function getStoreList(tableName) {
+            const map = {
+                invoices: store.invoices,
+                plans: store.plans,
+                budgets: store.budgets,
+                variances: store.variances,
+                risks: store.risks,
+                forecasts: store.forecasts
+            };
+            return map[tableName] || [];
+        }
+
+        function getRecordById(tableName, id) {
+            const list = getStoreList(tableName);
+            return list.find(row => Number(row[`${tableName.slice(0, -1)}_id`]) === Number(id)) || list.find(row => Number(row.id) === Number(id)) || null;
+        }
+
+        async function addInvoice() {
+            const customerId = prompt('رقم العميل:');
+            if (!customerId) return;
+            const amount = prompt('قيمة الفاتورة:');
+            if (!amount) return;
+            const dueDate = prompt('تاريخ الاستحقاق (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+
+            const lineName = prompt('اسم البند:', 'خدمة مالية');
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/invoices`, {
+                    method: 'POST',
+                    headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customer_id: Number(customerId),
+                        invoice_date: new Date().toISOString().split('T')[0],
+                        due_date: dueDate,
+                        entity_type: ENTITY_TYPE,
+                        entity_id: ENTITY_ID,
+                        lines: [{
+                            item_code: 'SRV-001',
+                            item_name: lineName || 'خدمة مالية',
+                            description: 'فاتورة حوكمة مالية',
+                            quantity: 1,
+                            unit_price: parseFloat(amount),
+                            tax_percentage: 15,
+                            discount_percentage: 0
+                        }]
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم إضافة الفاتورة بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل إضافة الفاتورة: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ في إضافة الفاتورة: ' + error.message, 'info');
+            }
+        }
+
+        async function addPlan() {
+            const customerId = prompt('رقم العميل:');
+            if (!customerId) return;
+            const invoiceId = prompt('رقم الفاتورة:');
+            if (!invoiceId) return;
+            const totalAmount = prompt('إجمالي الخطة:');
+            if (!totalAmount) return;
+            const installments = prompt('عدد الأقساط:', '3');
+            if (!installments) return;
+            const installmentAmount = prompt('قيمة القسط:', String((parseFloat(totalAmount) / parseInt(installments, 10)).toFixed(2)));
+            if (!installmentAmount) return;
+
+            const planNumber = `PLAN-${Date.now()}`;
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/payment-plans`, {
+                    method: 'POST',
+                    headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        plan_number: planNumber,
+                        customer_id: Number(customerId),
+                        invoice_id: Number(invoiceId),
+                        start_date: new Date().toISOString().split('T')[0],
+                        end_date: null,
+                        total_amount: parseFloat(totalAmount),
+                        paid_amount: 0,
+                        number_of_installments: parseInt(installments, 10),
+                        installment_amount: parseFloat(installmentAmount),
+                        installment_frequency: 'MONTHLY',
+                        status: 'active',
+                        entity_type: ENTITY_TYPE,
+                        entity_id: ENTITY_ID
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم إضافة خطة السداد بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل إضافة الخطة: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ في إضافة الخطة: ' + error.message, 'info');
+            }
+        }
+
+        async function addBudget() {
+            const budgetName = prompt('اسم الميزانية:');
+            if (!budgetName) return;
+            const fiscalYear = prompt('السنة المالية:', new Date().getFullYear());
+            if (!fiscalYear) return;
+
+            const budgetCode = `BUD-${fiscalYear}-${Date.now().toString().slice(-4)}`;
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/budgets`, {
+                    method: 'POST',
+                    headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        budget_code: budgetCode,
+                        budget_name_ar: budgetName,
+                        budget_type: 'operational',
+                        fiscal_year: parseInt(fiscalYear, 10),
+                        scenario: 'base',
+                        status: 'draft',
+                        entity_type: ENTITY_TYPE,
+                        entity_id: ENTITY_ID
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم إضافة الميزانية بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل إضافة الميزانية: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ في إضافة الميزانية: ' + error.message, 'info');
+            }
+        }
+
+        async function addVariance() {
+            const fiscalYear = prompt('السنة المالية:', new Date().getFullYear());
+            if (!fiscalYear) return;
+            const fiscalPeriod = prompt('الفترة المالية (1-12):', '1');
+            if (!fiscalPeriod) return;
+            const accountId = prompt('رقم الحساب:');
+            if (!accountId) return;
+            const budgeted = prompt('المخطط:');
+            if (!budgeted) return;
+            const actual = prompt('الفعلي:');
+            if (!actual) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/budget-variances`, {
+                    method: 'POST',
+                    headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fiscal_year: parseInt(fiscalYear, 10),
+                        fiscal_period: parseInt(fiscalPeriod, 10),
+                        account_id: Number(accountId),
+                        budgeted_amount: parseFloat(budgeted),
+                        actual_amount: parseFloat(actual),
+                        entity_type: ENTITY_TYPE,
+                        entity_id: ENTITY_ID
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم إضافة الانحراف بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل إضافة الانحراف: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ في إضافة الانحراف: ' + error.message, 'info');
+            }
+        }
+
+        async function addRisk() {
+            const customerId = prompt('رقم العميل:');
+            if (!customerId) return;
+            const score = prompt('درجة المخاطرة (0-100):', '50');
+            if (!score) return;
+            const level = prompt('مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL):', 'MEDIUM');
+            if (!level) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/ai-risk-scores`, {
+                    method: 'POST',
+                    headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customer_id: Number(customerId),
+                        assessment_date: new Date().toISOString().split('T')[0],
+                        risk_score: parseFloat(score),
+                        risk_level: String(level).toUpperCase(),
+                        recommendations: 'متابعة دورية وتحديث خطة التحصيل',
+                        entity_type: ENTITY_TYPE,
+                        entity_id: ENTITY_ID
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم إضافة تقييم المخاطر بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل إضافة المخاطر: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ في إضافة المخاطر: ' + error.message, 'info');
+            }
+        }
+
+        async function addForecast() {
+            const period = prompt('فترة التوقع (MONTHLY/QUARTERLY/ANNUAL):', 'MONTHLY');
+            if (!period) return;
+            const amount = prompt('قيمة التوقع:');
+            if (!amount) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/finance/ai-forecasts`, {
+                    method: 'POST',
+                    headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_id: ENTITY_ID,
+                        forecast_period: period,
+                        forecast_type: 'REVENUE',
+                        forecast_amount: parseFloat(amount),
+                        confidence_level: 0.7,
+                        ai_model: 'v1',
+                        ai_insights: 'توقع نمو تدريجي مع ضبط التحصيل'
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم إضافة التوقع بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل إضافة التوقع: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ في إضافة التوقع: ' + error.message, 'info');
+            }
+        }
+
+        async function viewRecord(tableName, id) {
+            const row = getRecordById(tableName, id);
+            if (!row) {
+                showToast('لم يتم العثور على السجل', 'info');
+                return;
+            }
+            alert(JSON.stringify(row, null, 2));
+        }
+
+        async function editRecord(tableName, id) {
+            const row = getRecordById(tableName, id);
+            if (!row) return showToast('لم يتم العثور على السجل', 'info');
+
+            try {
+                if (tableName === 'invoices') {
+                    const status = prompt('الحالة الجديدة (PAID/UNPAID/PARTIAL/OVERDUE):', row.status || 'UNPAID');
+                    if (!status) return;
+                    await updateRecord(`/finance/invoices/${id}`, { status });
+                } else if (tableName === 'plans') {
+                    const status = prompt('حالة الخطة (ACTIVE/CLOSED/PENDING):', row.status || 'ACTIVE');
+                    if (!status) return;
+                    await updateRecord(`/finance/payment-plans/${id}`, { status });
+                } else if (tableName === 'budgets') {
+                    const status = prompt('حالة الميزانية (DRAFT/APPROVED/REJECTED):', row.status || 'DRAFT');
+                    if (!status) return;
+                    await updateRecord(`/finance/budgets/${id}`, { status });
+                } else if (tableName === 'variances') {
+                    const budgeted = prompt('المخطط:', row.budgeted_amount ?? 0);
+                    const actual = prompt('الفعلي:', row.actual_amount ?? 0);
+                    if (!budgeted || !actual) return;
+                    await updateRecord(`/finance/budget-variances/${id}`, {
+                        budgeted_amount: parseFloat(budgeted),
+                        actual_amount: parseFloat(actual),
+                        entity_id: ENTITY_ID,
+                        entity_type: ENTITY_TYPE
+                    });
+                } else if (tableName === 'risks') {
+                    const score = prompt('درجة المخاطرة:', row.risk_score ?? 0);
+                    const level = prompt('مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL):', row.risk_level || 'MEDIUM');
+                    if (!score || !level) return;
+                    await updateRecord(`/finance/ai-risk-scores/${id}`, {
+                        customer_id: row.customer_id,
+                        assessment_date: row.assessment_date || new Date().toISOString().split('T')[0],
+                        risk_score: parseFloat(score),
+                        risk_level: String(level).toUpperCase(),
+                        entity_id: ENTITY_ID,
+                        entity_type: ENTITY_TYPE
+                    });
+                } else if (tableName === 'forecasts') {
+                    const amount = prompt('قيمة التوقع:', row.forecast_amount ?? 0);
+                    const period = prompt('فترة التوقع (MONTHLY/QUARTERLY/ANNUAL):', row.forecast_period || 'MONTHLY');
+                    if (!amount || !period) return;
+                    await updateRecord(`/finance/ai-forecasts/${id}`, {
+                        entity_id: ENTITY_ID,
+                        forecast_period: period,
+                        forecast_type: row.forecast_type || 'REVENUE',
+                        forecast_amount: parseFloat(amount),
+                        confidence_level: row.confidence_level ?? 0.7
+                    });
+                } else {
+                    showToast('تعديل غير مدعوم لهذا الجدول', 'info');
+                }
+            } catch (error) {
+                showToast('خطأ في التعديل: ' + error.message, 'info');
+            }
+        }
+
+        async function updateRecord(endpoint, payload) {
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                method: 'PUT',
+                headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('تم التعديل بنجاح', 'success');
+                await loadData();
+            } else {
+                showToast('فشل التعديل: ' + data.error, 'info');
+            }
+        }
+
+        async function deleteRecord(tableName, id) {
+            if (!confirm('هل أنت متأكد من الحذف؟')) return;
+            const map = {
+                invoices: `/finance/invoices/${id}`,
+                plans: `/finance/payment-plans/${id}`,
+                budgets: `/finance/budgets/${id}`,
+                variances: `/finance/budget-variances/${id}`,
+                risks: `/finance/ai-risk-scores/${id}?entity_id=${ENTITY_ID}`,
+                forecasts: `/finance/ai-forecasts/${id}?entity_id=${ENTITY_ID}`
+            };
+            const endpoint = map[tableName];
+            if (!endpoint) return showToast('حذف غير مدعوم لهذا الجدول', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, { method: 'DELETE', headers: API_HEADERS });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('تم الحذف بنجاح', 'success');
+                    await loadData();
+                } else {
+                    showToast('فشل الحذف: ' + data.error, 'info');
+                }
+            } catch (error) {
+                showToast('خطأ في الحذف: ' + error.message, 'info');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

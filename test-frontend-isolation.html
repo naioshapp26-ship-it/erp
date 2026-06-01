@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 اختبار عزل البيانات - Frontend</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn {
+            padding: 12px 24px;
+            margin: 5px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .warning { color: #f59e0b; }
+        .info { color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <h1>🧪 اختبار عزل البيانات في Frontend</h1>
+    
+    <div class="test-section">
+        <h2>1️⃣ اختيار الكيان</h2>
+        <button class="btn btn-primary" onclick="selectEntity('HQ001', 'HQ')">🏛️ HQ001 (المقر الرئيسي)</button>
+        <button class="btn btn-success" onclick="selectEntity('BR015', 'BRANCH')">🏪 BR015 (فرع العليا مول)</button>
+        <button class="btn btn-danger" onclick="clearEntity()">🗑️ مسح البيانات</button>
+        <div id="currentEntity" class="results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2️⃣ اختبار API Endpoints</h2>
+        <button class="btn btn-primary" onclick="testEmployees()">👥 الموظفين</button>
+        <button class="btn btn-primary" onclick="testInvoices()">💰 الفواتير</button>
+        <button class="btn btn-primary" onclick="testAds()">📢 الإعلانات</button>
+        <button class="btn btn-success" onclick="testAll()">✨ اختبار الكل</button>
+        <div id="apiResults" class="results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3️⃣ فحص window.currentUserData</h2>
+        <button class="btn btn-primary" onclick="checkWindowData()">🔍 فحص البيانات</button>
+        <div id="windowData" class="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        
+        function log(msg, type = 'info') {
+            const colors = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+            console.log(`${colors[type]} ${msg}`);
+        }
+        
+        function selectEntity(entityId, entityType) {
+            window.currentUserData = {
+                id: 1,
+                name: entityId === 'HQ001' ? 'المقر الرئيسي - مسؤول' : 'فرع العليا مول - مسؤول',
+                role: 'مسؤول النظام',
+                tenantType: entityType,
+                entityId: entityId,
+                entityName: entityId === 'HQ001' ? 'المقر الرئيسي' : 'فرع العليا مول'
+            };
+            
+            const display = document.getElementById('currentEntity');
+            display.innerHTML = `<span class="success">✅ تم تعيين الكيان:</span>\n${JSON.stringify(window.currentUserData, null, 2)}`;
+            log(`Selected entity: ${entityId}`, 'success');
+        }
+        
+        function clearEntity() {
+            window.currentUserData = null;
+            document.getElementById('currentEntity').innerHTML = '<span class="warning">⚠️ لا يوجد كيان محدد</span>';
+            log('Entity cleared', 'warning');
+        }
+        
+        async function fetchWithHeaders(endpoint) {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (window.currentUserData) {
+                headers['x-entity-type'] = window.currentUserData.tenantType;
+                headers['x-entity-id'] = window.currentUserData.entityId;
+            }
+            
+            log(`Fetching ${endpoint} with headers: ${JSON.stringify(headers)}`, 'info');
+            
+            const response = await fetch(`${API_BASE}${endpoint}`, { headers });
+            const data = await response.json();
+            return data;
+        }
+        
+        async function testEmployees() {
+            try {
+                const data = await fetchWithHeaders('/employees');
+                const result = document.getElementById('apiResults');
+                result.innerHTML = `<span class="success">✅ الموظفين (${data.length}):</span>\n${JSON.stringify(data.map(e => ({id: e.id, name: e.full_name, entity: e.entity_id})), null, 2)}`;
+                log(`Employees: ${data.length}`, 'success');
+            } catch (error) {
+                document.getElementById('apiResults').innerHTML = `<span class="error">❌ خطأ: ${error.message}</span>`;
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testInvoices() {
+            try {
+                const data = await fetchWithHeaders('/invoices');
+                const result = document.getElementById('apiResults');
+                result.innerHTML = `<span class="success">✅ الفواتير (${data.length}):</span>\n${JSON.stringify(data.map(i => ({id: i.id, title: i.title, entity: i.entity_id})), null, 2)}`;
+                log(`Invoices: ${data.length}`, 'success');
+            } catch (error) {
+                document.getElementById('apiResults').innerHTML = `<span class="error">❌ خطأ: ${error.message}</span>`;
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAds() {
+            try {
+                const data = await fetchWithHeaders('/ads');
+                const result = document.getElementById('apiResults');
+                result.innerHTML = `<span class="success">✅ الإعلانات (${data.length}):</span>\n${JSON.stringify(data.map(a => ({id: a.id, title: a.title, entity: a.entity_id})), null, 2)}`;
+                log(`Ads: ${data.length}`, 'success');
+            } catch (error) {
+                document.getElementById('apiResults').innerHTML = `<span class="error">❌ خطأ: ${error.message}</span>`;
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAll() {
+            const results = {};
+            try {
+                results.employees = await fetchWithHeaders('/employees');
+                results.invoices = await fetchWithHeaders('/invoices');
+                results.ads = await fetchWithHeaders('/ads');
+                
+                const summary = `
+<span class="success">✅ نتائج الاختبار الشامل:</span>
+👥 الموظفين: ${results.employees.length}
+💰 الفواتير: ${results.invoices.length}
+📢 الإعلانات: ${results.ads.length}
+
+الكيان الحالي: ${window.currentUserData ? window.currentUserData.entityId : 'غير محدد'}
+                `;
+                
+                document.getElementById('apiResults').innerHTML = summary;
+                log(`Test complete - Employees: ${results.employees.length}, Invoices: ${results.invoices.length}, Ads: ${results.ads.length}`, 'success');
+            } catch (error) {
+                document.getElementById('apiResults').innerHTML = `<span class="error">❌ خطأ: ${error.message}</span>`;
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function checkWindowData() {
+            const display = document.getElementById('windowData');
+            if (window.currentUserData) {
+                display.innerHTML = `<span class="success">✅ window.currentUserData موجودة:</span>\n${JSON.stringify(window.currentUserData, null, 2)}`;
+            } else {
+                display.innerHTML = '<span class="error">❌ window.currentUserData غير موجودة!</span>';
+            }
+        }
+        
+        // Auto-check on load
+        window.addEventListener('load', () => {
+            checkWindowData();
+            log('Test page loaded', 'info');
+        });
+    </script>
+</body>
+</html>

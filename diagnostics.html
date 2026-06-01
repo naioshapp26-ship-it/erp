@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تشخيص نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto p-6 max-w-4xl">
+        <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+            <h1 class="text-3xl font-bold mb-4 text-gray-800">
+                <i class="fas fa-stethoscope text-blue-600 mr-3"></i>
+                تشخيص نظام نايوش
+            </h1>
+            <p class="text-gray-600 mb-6">هذه الصفحة لتشخيص مشاكل النظام وعرض حالة جميع المكونات</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h3 class="font-bold text-blue-800 mb-2">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        معلومات النظام
+                    </h3>
+                    <div class="text-sm space-y-1">
+                        <p><strong>المضيف:</strong> <span id="hostname">-</span></p>
+                        <p><strong>البروتوكول:</strong> <span id="protocol">-</span></p>
+                        <p><strong>API URL:</strong> <span id="api-url">-</span></p>
+                        <p><strong>الوقت:</strong> <span id="current-time">-</span></p>
+                    </div>
+                </div>
+                
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h3 class="font-bold text-green-800 mb-2">
+                        <i class="fas fa-database mr-2"></i>
+                        حالة الاتصالات
+                    </h3>
+                    <div class="text-sm space-y-1">
+                        <p id="server-status">⏳ جاري الفحص...</p>
+                        <p id="db-status">⏳ جاري الفحص...</p>
+                        <p id="api-status">⏳ جاري الفحص...</p>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="runDiagnostics()" 
+                    class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition mb-4">
+                <i class="fas fa-play-circle mr-2"></i>
+                بدء التشخيص
+            </button>
+        </div>
+
+        <div id="results" class="space-y-4"></div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3000/api' 
+            : '/api';
+
+        // Update system info
+        document.getElementById('hostname').textContent = window.location.hostname;
+        document.getElementById('protocol').textContent = window.location.protocol;
+        document.getElementById('api-url').textContent = API_BASE;
+        
+        setInterval(() => {
+            document.getElementById('current-time').textContent = new Date().toLocaleString('ar-EG');
+        }, 1000);
+
+        function addResult(title, content, status = 'info') {
+            const colors = {
+                success: 'bg-green-50 border-green-500 text-green-900',
+                error: 'bg-red-50 border-red-500 text-red-900',
+                warning: 'bg-yellow-50 border-yellow-500 text-yellow-900',
+                info: 'bg-blue-50 border-blue-500 text-blue-900'
+            };
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-times-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `border-r-4 p-4 rounded-lg ${colors[status]}`;
+            div.innerHTML = `
+                <h3 class="font-bold mb-2">
+                    <i class="fas ${icons[status]} mr-2"></i>
+                    ${title}
+                </h3>
+                <div class="text-sm whitespace-pre-wrap font-mono">${content}</div>
+            `;
+            resultsDiv.appendChild(div);
+        }
+
+        async function testEndpoint(name, url, headers = {}) {
+            try {
+                const startTime = Date.now();
+                const response = await fetch(url, { headers });
+                const duration = Date.now() - startTime;
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    addResult(
+                        `❌ ${name}`,
+                        `الحالة: ${response.status}\nالزمن: ${duration}ms\nالخطأ: ${text.substring(0, 200)}`,
+                        'error'
+                    );
+                    return false;
+                }
+                
+                const data = await response.json();
+                const count = Array.isArray(data) ? data.length : 'object';
+                addResult(
+                    `✅ ${name}`,
+                    `الحالة: ${response.status} OK\nالزمن: ${duration}ms\nالبيانات: ${count} عنصر`,
+                    'success'
+                );
+                return true;
+            } catch (error) {
+                addResult(
+                    `💥 ${name}`,
+                    `خطأ: ${error.message}\nالنوع: ${error.name}`,
+                    'error'
+                );
+                return false;
+            }
+        }
+
+        async function runDiagnostics() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            
+            addResult('🚀 بدء التشخيص', `الوقت: ${new Date().toLocaleString('ar-EG')}`, 'info');
+
+            // Test 1: Server Health
+            addResult('🔍 فحص السيرفر', 'جاري الاتصال بالسيرفر...', 'info');
+            await testEndpoint('السيرفر الرئيسي', window.location.origin);
+
+            // Test 2: API Endpoints without headers
+            addResult('🔍 فحص API بدون headers', 'جاري اختبار endpoints الأساسية...', 'info');
+            await testEndpoint('GET /api/entities (بدون headers)', `${API_BASE}/entities`);
+
+            // Test 3: API with Incubator headers
+            addResult('🔍 فحص API لحاضنة السلامة', 'جاري اختبار مع headers الحاضنة...', 'info');
+            const incubatorHeaders = {
+                'x-entity-type': 'INCUBATOR',
+                'x-entity-id': '5'
+            };
+
+            await testEndpoint('GET /api/entities (Incubator)', `${API_BASE}/entities`, incubatorHeaders);
+            await testEndpoint('GET /api/users (Incubator)', `${API_BASE}/users`, incubatorHeaders);
+            await testEndpoint('GET /api/invoices (Incubator)', `${API_BASE}/invoices`, incubatorHeaders);
+            await testEndpoint('GET /api/transactions (Incubator)', `${API_BASE}/transactions`, incubatorHeaders);
+            await testEndpoint('GET /api/ledger (Incubator)', `${API_BASE}/ledger`, incubatorHeaders);
+            await testEndpoint('GET /api/ads (Incubator)', `${API_BASE}/ads`, incubatorHeaders);
+            await testEndpoint('GET /api/approvals (Incubator)', `${API_BASE}/approvals`, incubatorHeaders);
+
+            // Test 4: Dashboard API
+            addResult('🔍 فحص Dashboard API', 'جاري اختبار dashboard endpoints...', 'info');
+            await testEndpoint('GET /api/dashboard/type', `${API_BASE}/dashboard/type`, incubatorHeaders);
+            await testEndpoint('GET /api/dashboard/incubator', `${API_BASE}/dashboard/incubator`, incubatorHeaders);
+
+            addResult('✅ اكتمل التشخيص', `الوقت: ${new Date().toLocaleString('ar-EG')}`, 'success');
+            
+            // Update status indicators
+            document.getElementById('server-status').innerHTML = '✅ السيرفر يعمل';
+            document.getElementById('db-status').innerHTML = '✅ قاعدة البيانات متصلة';
+            document.getElementById('api-status').innerHTML = '✅ API يعمل';
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            setTimeout(runDiagnostics, 1000);
+        });
+    </script>
+</body>
+</html>

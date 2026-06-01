@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء حساب - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#990e1e',
+                            dark: '#7a0b18',
+                            50: '#fdf2f3'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        .loading-spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-start sm:items-center justify-center min-h-screen px-3 py-6 sm:p-4">
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div class="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-3xl"></div>
+        <div class="absolute top-[40%] -left-[10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-3xl"></div>
+    </div>
+
+    <div class="max-w-2xl w-full bg-white rounded-xl sm:rounded-2xl shadow-xl overflow-hidden z-10 relative border border-gray-100">
+        <div class="bg-primary px-5 py-6 sm:p-8 text-center relative overflow-hidden">
+            <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIvPjwvc3ZnPg==')] opacity-30"></div>
+            <div class="relative z-10">
+                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/90 mb-4 border border-white/60 shadow-xl">
+                    <img src="/لوجو%20نايوش%20خلفيه.png" alt="شعار نايوش" class="w-16 h-16 object-contain drop-shadow">
+                </div>
+                <div class="text-white text-3xl md:text-4xl font-extrabold tracking-wide">NAIOSH</div>
+                <p class="text-white/80 text-sm mt-2">إنشاء حساب جديد وإرساله للإدارة</p>
+            </div>
+        </div>
+
+        <div class="p-5 sm:p-8">
+            <div id="alertMessage" class="hidden mb-6 p-4 rounded-lg text-sm font-medium border"></div>
+
+            <form id="registerForm" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">الاسم الكامل</label>
+                    <input type="text" id="name" name="name" class="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition" placeholder="الاسم الكامل" required>
+                </div>
+
+                <div>
+                    <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">البريد الإلكتروني</label>
+                    <input type="email" id="email" name="email" class="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition" placeholder="name@company.com" required autocomplete="email">
+                </div>
+
+                <div>
+                    <label for="entity_name" class="block text-sm font-semibold text-gray-700 mb-2">اسم الجهة / المكتب</label>
+                    <input type="text" id="entity_name" name="entity_name" class="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition" placeholder="مثال: مكتب التسويق أو فرع جدة" required>
+                </div>
+
+                <div>
+                    <label for="tenant_type" class="block text-sm font-semibold text-gray-700 mb-2">نوع الحساب</label>
+                    <select id="tenant_type" name="tenant_type" class="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition" required>
+                        <option value="">جاري التحميل...</option>
+                    </select>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="job_title_code" class="block text-sm font-semibold text-gray-700 mb-2">المسمى الوظيفي</label>
+                    <select id="job_title_code" name="job_title_code" class="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition" required>
+                        <option value="">جاري تحميل المسميات...</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">كلمة المرور</label>
+                    <input type="password" id="password" name="password" class="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition" placeholder="8 أحرف على الأقل" required autocomplete="new-password">
+                </div>
+
+                <div>
+                    <label for="confirm_password" class="block text-sm font-semibold text-gray-700 mb-2">تأكيد كلمة المرور</label>
+                    <input type="password" id="confirm_password" name="confirm_password" class="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white transition" placeholder="أعد كتابة كلمة المرور" required autocomplete="new-password">
+                </div>
+
+                <div class="md:col-span-2">
+                    <div class="bg-primary-50 border border-primary/10 rounded-xl p-4 text-sm text-gray-700">
+                        سيتم إنشاء الحساب في قاعدة البيانات مباشرة، وبعدها يستطيع الأدمن أو السوبر أدمن تعيين الدور الفعلي والصلاحيات وما يظهر في القائمة الجانبية حسب نوع الحساب.
+                    </div>
+                </div>
+
+                <div class="md:col-span-2">
+                    <button type="submit" id="registerBtn" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200 shadow-md hover:shadow-lg">
+                        <span class="btn-text flex items-center gap-2">
+                            إنشاء الحساب
+                            <i class="fa-solid fa-user-plus"></i>
+                        </span>
+                        <span class="loading-spinner hidden"></span>
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-5 text-center text-sm text-gray-600">
+                لديك حساب بالفعل؟
+                <a href="/login-page.html" class="font-bold text-primary hover:text-primary-dark transition-colors">
+                    اضغط هنا لتسجيل الدخول
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const registerForm = document.getElementById('registerForm');
+        const registerBtn = document.getElementById('registerBtn');
+        const btnText = registerBtn.querySelector('.btn-text');
+        const loadingSpinner = registerBtn.querySelector('.loading-spinner');
+        const alertMessage = document.getElementById('alertMessage');
+        const tenantTypeSelect = document.getElementById('tenant_type');
+        const jobTitleSelect = document.getElementById('job_title_code');
+        const REDIRECT_DELAY_MS = 800;
+
+        function showAlert(message, type = 'error') {
+            alertMessage.className = 'mb-6 p-4 rounded-lg text-sm font-medium border';
+            alertMessage.innerHTML = `${type === 'success' ? '<i class="fa-solid fa-check-circle ml-2"></i>' : '<i class="fa-solid fa-circle-exclamation ml-2"></i>'}${message}`;
+            if (type === 'success') {
+                alertMessage.classList.add('bg-green-50', 'text-green-700', 'border-green-200');
+            } else {
+                alertMessage.classList.add('bg-red-50', 'text-red-700', 'border-red-200');
+            }
+            alertMessage.classList.remove('hidden');
+        }
+
+        function showSuccessLoginPrompt() {
+            alertMessage.className = 'mb-6 p-4 rounded-lg text-sm font-medium border bg-green-50 text-green-700 border-green-200';
+            alertMessage.innerHTML = `
+                <div class="flex flex-col gap-3">
+                    <div><i class="fa-solid fa-check-circle ml-2"></i>تم إنشاء الحساب بنجاح، لكن تعذر تسجيل دخولك تلقائياً. يمكنك المتابعة من صفحة تسجيل الدخول.</div>
+                    <div>
+                        <a href="/login-page.html" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white font-bold hover:bg-primary-dark transition-colors">
+                            <i class="fa-solid fa-arrow-left"></i>
+                            الانتقال إلى تسجيل الدخول
+                        </a>
+                    </div>
+                </div>
+            `;
+            alertMessage.classList.remove('hidden');
+        }
+
+        function setLoading(isLoading) {
+            registerBtn.disabled = isLoading;
+            registerBtn.classList.toggle('opacity-75', isLoading);
+            registerBtn.classList.toggle('cursor-not-allowed', isLoading);
+            btnText.classList.toggle('hidden', isLoading);
+            loadingSpinner.classList.toggle('hidden', !isLoading);
+        }
+
+        function persistSession(data) {
+            sessionStorage.setItem('authToken', data.session.token);
+            sessionStorage.setItem('user', JSON.stringify(data.user));
+            sessionStorage.setItem('menu', JSON.stringify(data.menu || []));
+            const secureFlag = window.location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = `authToken=${encodeURIComponent(data.session.token)}; Path=/; SameSite=Lax${secureFlag}`;
+        }
+
+        function redirectAuthenticatedUser(user) {
+            window.location.href = user.entity_id === 'HQ001' ? '/super-admin-page.html' : '/index.html';
+        }
+
+        async function loadRegisterOptions() {
+            try {
+                const response = await fetch('/api/auth/register-options');
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.message || 'تعذر تحميل البيانات');
+                }
+
+                tenantTypeSelect.innerHTML = '<option value="">اختر نوع الحساب</option>';
+                (result.office_types || []).forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.value;
+                    option.textContent = type.label;
+                    tenantTypeSelect.appendChild(option);
+                });
+
+                jobTitleSelect.innerHTML = '<option value="">اختر المسمى الوظيفي</option>';
+                (result.roles || []).forEach(role => {
+                    const option = document.createElement('option');
+                    option.value = role.code;
+                    option.textContent = role.title_ar || role.code;
+                    jobTitleSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error(error);
+                tenantTypeSelect.innerHTML = '<option value="">تعذر تحميل الأنواع</option>';
+                jobTitleSelect.innerHTML = '<option value="">تعذر تحميل المسميات</option>';
+                showAlert('تعذر تحميل خيارات إنشاء الحساب. حاول تحديث الصفحة.');
+            }
+        }
+
+        registerForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            alertMessage.classList.add('hidden');
+
+            const payload = {
+                name: document.getElementById('name').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                entity_name: document.getElementById('entity_name').value.trim(),
+                tenant_type: tenantTypeSelect.value,
+                job_title_code: jobTitleSelect.value,
+                password: document.getElementById('password').value,
+                confirm_password: document.getElementById('confirm_password').value
+            };
+
+            if (!payload.name || !payload.email || !payload.entity_name || !payload.tenant_type || !payload.job_title_code || !payload.password || !payload.confirm_password) {
+                showAlert('يرجى تعبئة جميع الحقول المطلوبة');
+                return;
+            }
+
+            setLoading(true);
+
+            let response;
+            let result;
+            try {
+                response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                result = await response.json();
+            } catch (error) {
+                console.error(error);
+                showAlert('حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى');
+                setLoading(false);
+                return;
+            }
+
+            if (!response.ok || !result.success) {
+                showAlert(result.message || 'تعذر إنشاء الحساب');
+                setLoading(false);
+                return;
+            }
+
+            registerForm.reset();
+            if (!result.data?.session?.token || !result.data?.user) {
+                showSuccessLoginPrompt();
+                setLoading(false);
+                return;
+            }
+
+            persistSession(result.data);
+            showAlert('تم إنشاء الحساب وتسجيل دخولك تلقائياً. جاري تحويلك...', 'success');
+            setTimeout(() => redirectAuthenticatedUser(result.data.user), REDIRECT_DELAY_MS);
+        });
+
+        loadRegisterOptions();
+    </script>
+</body>
+</html>

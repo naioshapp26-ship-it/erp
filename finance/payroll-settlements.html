@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>التسويات المالية | نظام نايوش</title>
+    
+    <!-- External Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#475569',
+                        success: '#16a34a',
+                        danger: '#dc2626',
+                        warning: '#ca8a04',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #eef2ff;
+            background-image: radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 40%),
+                radial-gradient(circle at 20% 20%, rgba(14, 116, 144, 0.08), transparent 35%),
+                linear-gradient(135deg, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.9) 100%);
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .mesh-panel {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+        }
+
+        .mesh-panel,
+        .mesh-panel * {
+            color: #ffffff !important;
+        }
+
+        .soft-shadow {
+            box-shadow: 0 18px 40px -32px rgba(30, 41, 59, 0.35);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            display: inline-block;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body class="text-slate-800 font-sans antialiased">
+
+    <!-- Navigation Bar -->
+    <nav class="glass-effect fixed top-0 w-full z-40 border-b border-slate-200 shadow-sm transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <!-- Logo & Breadcrumbs -->
+                <div class="flex items-center gap-4">
+                    <div class="flex-shrink-0 flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg text-white">
+                            <i class="fas fa-handshake-slash text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600">
+                                التسويات المالية
+                            </h1>
+                            <p class="text-xs text-gray-500 font-medium">إدارة مخالصات نهاية الخدمة</p>
+                        </div>
+                    </div>
+
+                    <div class="hidden md:flex items-center text-sm text-gray-400 mx-4">
+                        <i class="fas fa-chevron-left text-xs mx-2"></i>
+                        <span class="text-gray-600 font-medium">المالية</span>
+                        <i class="fas fa-chevron-left text-xs mx-2"></i>
+                        <span class="text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-full">التسويات</span>
+                    </div>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-reverse space-x-2">
+                    <a href="/finance/index.html" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors">
+                        <i class="fas fa-home ml-2"></i>الرئيسية
+                    </a>
+                    <a href="/finance/payroll-employees.html" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors">
+                        الموظفون
+                    </a>
+                    <a href="/finance/payroll-runs.html" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors">
+                        الدورات
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
+        
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <div class="bg-white rounded-xl p-4 border border-gray-100 soft-shadow">
+                <p class="text-xs font-medium text-gray-500 mb-1">العدد</p>
+                <h3 class="text-lg font-bold text-gray-800" id="statTotal">--</h3>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 soft-shadow">
+                <p class="text-xs font-medium text-gray-500 mb-1">معتمدة</p>
+                <h3 class="text-lg font-bold text-emerald-600" id="statApproved">--</h3>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 soft-shadow">
+                <p class="text-xs font-medium text-gray-500 mb-1">مدفوعة</p>
+                <h3 class="text-lg font-bold text-blue-600" id="statPaid">--</h3>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 soft-shadow">
+                <p class="text-xs font-medium text-gray-500 mb-1">إجمالي المبالغ</p>
+                <h3 class="text-lg font-bold text-gray-800" id="statAmount">--</h3>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 soft-shadow">
+                <p class="text-xs font-medium text-gray-500 mb-1">إجمالي الصافي</p>
+                <h3 class="text-lg font-bold text-gray-800" id="statNetAmount">--</h3>
+            </div>
+            <div class="bg-white rounded-xl p-4 border border-gray-100 soft-shadow">
+                <p class="text-xs font-medium text-gray-500 mb-1">مسودات متأخرة</p>
+                <h3 class="text-lg font-bold text-amber-600" id="statOverdue">--</h3>
+            </div>
+        </div>
+
+        <div id="fallbackBanner" class="hidden mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            <span class="font-semibold">تنبيه:</span> البيانات المعروضة حالياً تجريبية لعدم توفر الاتصال بالخادم. بعض الإجراءات ستعمل محلياً فقط.
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-filter text-gray-400"></i>
+                    تصفية البحث
+                </h2>
+                <div class="flex gap-2">
+                    <button onclick="resetFilters()" class="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                        إعادة ضبط
+                    </button>
+                    <button onclick="openSettlementModal()" class="px-4 py-2 text-sm bg-white text-slate-900 rounded-lg hover:bg-slate-50 shadow-sm transition-all border-2 border-blue-500">
+                        <i class="fas fa-plus ml-1"></i>
+                        إضافة تسوية
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">بحث سريع</label>
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input id="filterSearch" type="text" placeholder="ابحث بالاسم، الكود، أو السبب" class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">الموظف</label>
+                    <select id="filterEmployee" class="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none transition-all"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+                    <select id="filterStatus" class="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none transition-all">
+                        <option value="">الكل</option>
+                        <option value="DRAFT">مسودة</option>
+                        <option value="APPROVED">معتمد</option>
+                        <option value="PAID">مدفوع</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">دورة الرواتب</label>
+                    <select id="filterRun" class="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none transition-all"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">من تاريخ</label>
+                    <input id="filterFrom" type="date" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">إلى تاريخ</label>
+                    <input id="filterTo" type="date" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">الحد الأدنى للمبلغ</label>
+                    <input id="filterMinAmount" type="number" placeholder="0" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">الحد الأعلى للمبلغ</label>
+                    <input id="filterMaxAmount" type="number" placeholder="99999" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all">
+                </div>
+                <div class="flex items-center gap-2 pt-2">
+                    <input id="filterOverdue" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <label for="filterOverdue" class="text-sm font-medium text-gray-700">مسودات متأخرة فقط</label>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">الفرز</label>
+                    <select id="filterSort" class="w-full pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none transition-all">
+                        <option value="date_desc">الأحدث</option>
+                        <option value="date_asc">الأقدم</option>
+                        <option value="amount_desc">الأعلى قيمة</option>
+                        <option value="amount_asc">الأقل قيمة</option>
+                        <option value="net_desc">الأعلى صافي</option>
+                        <option value="net_asc">الأقل صافي</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fas fa-chart-line text-emerald-500"></i>
+                        مؤشرات التشغيل الذكية
+                    </h3>
+                    <div id="lastSyncLabel" class="text-xs text-gray-400">آخر تحديث: --</div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-600">نسبة الاعتماد</span>
+                            <span id="approvalRateLabel" class="text-sm font-bold text-emerald-600">--%</span>
+                        </div>
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="approvalRateBar" class="h-full bg-emerald-500 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-600">نسبة الصرف</span>
+                            <span id="paidRateLabel" class="text-sm font-bold text-blue-600">--%</span>
+                        </div>
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="paidRateBar" class="h-full bg-blue-500 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-600">متوسط عمر التسوية</span>
+                            <span id="avgAgeLabel" class="text-sm font-bold text-gray-800">-- يوم</span>
+                        </div>
+                        <div class="text-xs text-gray-500">يُقاس بالأيام من تاريخ التسوية حتى الآن.</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-600">أعلى 3 تسويات</span>
+                            <span id="topAmountLabel" class="text-xs text-gray-400">قيمة صافية</span>
+                        </div>
+                        <div id="topSettlementsList" class="space-y-2 text-sm text-gray-700"></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4 md:col-span-2">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-600">تنبيهات المخاطر</span>
+                            <span id="riskCountLabel" class="text-xs text-gray-400">-- عناصر</span>
+                        </div>
+                        <div id="riskAlertsList" class="space-y-2 text-sm text-gray-700"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mesh-panel rounded-2xl p-6 text-white shadow-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-white">مركز القرارات السريعة</h3>
+                    <span id="dataModeBadge" class="text-xs px-2 py-1 rounded-full bg-white/10">وضع مباشر</span>
+                </div>
+                <p class="text-sm text-white/80 mb-5">قم باعتماد أو صرف التسويات مباشرة، مع تتبع التحديدات والتصدير.</p>
+                <div class="space-y-3">
+                    <button onclick="bulkUpdateStatus('APPROVED')" class="w-full py-2.5 rounded-lg bg-emerald-500/90 hover:bg-emerald-500 text-sm font-bold">اعتماد المحدد</button>
+                    <button onclick="bulkUpdateStatus('PAID')" class="w-full py-2.5 rounded-lg bg-blue-500/90 hover:bg-blue-500 text-sm font-bold">تحويل المحدد إلى مدفوع</button>
+                    <button onclick="exportSettlementsCsv()" class="w-full py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">تصدير CSV</button>
+                    <button onclick="bulkDeleteSettlements()" class="w-full py-2.5 rounded-lg bg-red-500/90 hover:bg-red-500 text-sm font-semibold">حذف المحدد</button>
+                </div>
+                <div class="mt-6 p-4 rounded-xl bg-white/10">
+                    <div class="flex items-center justify-between text-sm">
+                        <span>التحديد الحالي</span>
+                        <span id="selectionCount" class="font-bold">0</span>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2 text-xs text-white/80">
+                        <span class="status-dot" style="background: #22c55e"></span> معتمد
+                        <span class="status-dot" style="background: #3b82f6"></span> مدفوع
+                        <span class="status-dot" style="background: #f59e0b"></span> متأخر
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settlements Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-list text-blue-500"></i>
+                    قائمة التسويات
+                </h2>
+                <span id="recordsCount" class="bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">-- تسوية</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right" style="min-width: 1200px">
+                    <thead class="bg-gray-50 text-gray-600 font-medium text-sm">
+                        <tr>
+                            <th class="px-4 py-3">
+                                <input id="selectAll" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            </th>
+                            <th class="px-4 py-3">الموظف</th>
+                            <th class="px-4 py-3">التاريخ</th>
+                            <th class="px-4 py-3">الأساسي</th>
+                            <th class="px-4 py-3">نهاية الخدمة</th>
+                            <th class="px-4 py-3">صرف الإجازات</th>
+                            <th class="px-4 py-3">الخصومات</th>
+                            <th class="px-4 py-3">الصافي</th>
+                            <th class="px-4 py-3">العمر (يوم)</th>
+                            <th class="px-4 py-3">السبب</th>
+                            <th class="px-4 py-3">الحالة</th>
+                            <th class="px-4 py-3">المخاطر</th>
+                            <th class="px-4 py-3">الدورة</th>
+                            <th class="px-4 py-3 w-48">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="settlementsTable" class="divide-y divide-gray-100 text-sm text-gray-700">
+                        <tr>
+                            <td colspan="14" class="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Create/Edit Modal -->
+    <div id="settlementModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="settlementModalBackdrop"></div>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-2xl bg-white text-right shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-xl opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" id="settlementModalPanel">
+                    
+                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4 border-b border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xl font-bold leading-6 text-gray-900" id="settlementModalTitle">
+                                إضافة تسوية
+                            </h3>
+                            <button onclick="closeSettlementModal()" class="text-gray-400 hover:text-gray-500 transition-colors">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="px-4 py-6 sm:p-8">
+                        <div class="grid grid-cols-1 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">الموظف <span class="text-red-500">*</span></label>
+                                <select id="settlementEmployee" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"></select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">تاريخ التسوية <span class="text-red-500">*</span></label>
+                                <input type="date" id="settlementDate" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">المبلغ الأساسي <span class="text-red-500">*</span></label>
+                                <input type="number" id="settlementAmount" placeholder="0.00" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">الحالة</label>
+                                    <select id="settlementStatus" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+                                        <option value="DRAFT">مسودة</option>
+                                        <option value="APPROVED">معتمد</option>
+                                        <option value="PAID">مدفوع</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">دورة الرواتب</label>
+                                    <select id="settlementRun" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"></select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">سبب التسوية</label>
+                                <textarea id="settlementReason" rows="3" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+                        <button type="button" onclick="saveSettlement()" class="inline-flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-500 sm:w-auto">
+                            حفظ
+                        </button>
+                        <button type="button" onclick="closeSettlementModal()" class="mt-3 inline-flex w-full justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">
+                            إلغاء
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="previewModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="previewModalBackdrop"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-2xl bg-white text-right shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" id="previewModalPanel">
+                    
+                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4 border-b border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xl font-bold leading-6 text-gray-900">
+                                <i class="fas fa-eye text-blue-500 ml-2"></i>معاينة التسوية
+                            </h3>
+                            <button onclick="closePreviewModal()" class="text-gray-400 hover:text-gray-500 transition-colors">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="px-4 py-6 sm:p-8 text-sm">
+                        <div class="grid grid-cols-2 gap-y-4 gap-x-8">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">الموظف</label>
+                                <div id="previewEmployee" class="font-medium text-gray-900"></div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">كود الموظف</label>
+                                <div id="previewCode" class="font-mono text-gray-600"></div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">تاريخ التسوية</label>
+                                <div id="previewDate" class="text-gray-900"></div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">دورة الرواتب</label>
+                                <div id="previewRun" class="text-gray-900"></div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">الحالة</label>
+                                <div id="previewStatus" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"></div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">سنوات الخدمة</label>
+                                <div id="previewServiceYears" class="text-gray-900"></div>
+                            </div>
+                             <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">رصيد الإجازات</label>
+                                <div id="previewLeaveDays" class="text-gray-900"></div>
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">السبب</label>
+                                <div id="previewReason" class="text-gray-700 bg-gray-50 p-2 rounded"></div>
+                            </div>
+
+                            <div class="col-span-2 border-t border-gray-100 my-2 pt-4"></div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">المبلغ الأساسي</label>
+                                <div id="previewAmount" class="font-medium text-gray-900"></div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">مكافأة نهاية الخدمة</label>
+                                <div id="previewGratuity" class="font-medium text-emerald-600"></div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">صرف الإجازات</label>
+                                <div id="previewLeave" class="font-medium text-blue-600"></div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">الخصومات</label>
+                                <div id="previewDeductions" class="font-medium text-red-600"></div>
+                            </div>
+
+                             <div class="col-span-2 mt-4">
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">ملاحظات</label>
+                                <div id="previewNotes" class="text-gray-600 italic"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+                        <button type="button" onclick="editSettlement(previewSettlementId); closePreviewModal()" class="inline-flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-500 sm:w-auto">
+                            تعديل
+                        </button>
+                        <button type="button" onclick="addFromSettlement(previewSettlementId); closePreviewModal()" class="mt-3 inline-flex w-full justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">
+                            نسخ كجديد
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/finance/finance-context.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+                const fallbackSettlements = [
+                    {
+                        settlement_id: 9001,
+                        employee_id: 201,
+                        full_name_ar: 'أحمد العتيبي',
+                        employee_code: 'EMP-201',
+                        settlement_date: '2026-02-01',
+                        amount: 18500,
+                        gratuity_amount: 12000,
+                        leave_payout: 4000,
+                        deductions: 1500,
+                        status: 'APPROVED',
+                        payroll_run_id: 'PR-202602',
+                        reason: 'نهاية عقد - مكافأة خدمة 7 سنوات',
+                        service_years: 7,
+                        leave_balance_days: 12,
+                        notes: 'تمت مراجعة كل المستندات وصرفها الأسبوع القادم.'
+                    },
+                    {
+                        settlement_id: 9002,
+                        employee_id: 305,
+                        full_name_ar: 'سارة الشمري',
+                        employee_code: 'EMP-305',
+                        settlement_date: '2026-01-20',
+                        amount: 14250,
+                        gratuity_amount: 9500,
+                        leave_payout: 3200,
+                        deductions: 450,
+                        status: 'PAID',
+                        payroll_run_id: 'PR-202601',
+                        reason: 'استقالة بعد 5 سنوات - صرف بدل إجازات',
+                        service_years: 5,
+                        leave_balance_days: 8,
+                        notes: 'محسوب معها تعويض الإشعار.'
+                    },
+                    {
+                        settlement_id: 9003,
+                        employee_id: 412,
+                        full_name_ar: 'محمد الزهراني',
+                        employee_code: 'EMP-412',
+                        settlement_date: '2025-12-28',
+                        amount: 21300,
+                        gratuity_amount: 15000,
+                        leave_payout: 3800,
+                        deductions: 500,
+                        status: 'DRAFT',
+                        payroll_run_id: 'PR-202512',
+                        reason: 'إنهاء خدمات لأسباب تنظيمية',
+                        service_years: 9,
+                        leave_balance_days: 15,
+                        notes: 'بانتظار موافقة الموارد البشرية والمالية.'
+                    },
+                    {
+                        settlement_id: 9004,
+                        employee_id: 517,
+                        full_name_ar: 'نورة القحطاني',
+                        employee_code: 'EMP-517',
+                        settlement_date: '2026-01-12',
+                        amount: 16800,
+                        gratuity_amount: 10200,
+                        leave_payout: 2200,
+                        deductions: 800,
+                        status: 'APPROVED',
+                        payroll_run_id: 'PR-202601',
+                        reason: 'انتهاء عقد محدد المدة - صرف مستحقات',
+                        service_years: 6,
+                        leave_balance_days: 6,
+                        notes: 'نقص توقيع اعتماد المدير المباشر.'
+                    },
+                    {
+                        settlement_id: 9005,
+                        employee_id: 608,
+                        full_name_ar: 'عبدالله الحربي',
+                        employee_code: 'EMP-608',
+                        settlement_date: '2025-11-18',
+                        amount: 25500,
+                        gratuity_amount: 17500,
+                        leave_payout: 4300,
+                        deductions: 1200,
+                        status: 'DRAFT',
+                        payroll_run_id: 'PR-202511',
+                        reason: 'إنهاء خدمات بسبب إعادة هيكلة',
+                        service_years: 11,
+                        leave_balance_days: 18,
+                        notes: 'قيد المراجعة القانونية وموارد بشرية.'
+                    },
+                    {
+                        settlement_id: 9006,
+                        employee_id: 712,
+                        full_name_ar: 'ريم السبيعي',
+                        employee_code: 'EMP-712',
+                        settlement_date: '2026-02-05',
+                        amount: 11800,
+                        gratuity_amount: 7200,
+                        leave_payout: 1800,
+                        deductions: 250,
+                        status: 'DRAFT',
+                        payroll_run_id: 'PR-202602',
+                        reason: 'نهاية فترة تجربة - صرف مستحقات',
+                        service_years: 1,
+                        leave_balance_days: 4,
+                        notes: 'بانتظار مستند إخلاء طرف من التقنية.'
+                    },
+                    {
+                        settlement_id: 9007,
+                        employee_id: 823,
+                        full_name_ar: 'فهد الدوسري',
+                        employee_code: 'EMP-823',
+                        settlement_date: '2026-01-28',
+                        amount: 19750,
+                        gratuity_amount: 11200,
+                        leave_payout: 3500,
+                        deductions: 900,
+                        status: 'PAID',
+                        payroll_run_id: 'PR-202601',
+                        reason: 'تقاعد مبكر - صرف كامل المستحقات',
+                        service_years: 8,
+                        leave_balance_days: 9,
+                        notes: 'تم التحويل إلى الحساب البنكي.'
+                    },
+                    {
+                        settlement_id: 9008,
+                        employee_id: 934,
+                        full_name_ar: 'هند العازمي',
+                        employee_code: 'EMP-934',
+                        settlement_date: '2025-12-03',
+                        amount: 22600,
+                        gratuity_amount: 15500,
+                        leave_payout: 3000,
+                        deductions: 1800,
+                        status: 'APPROVED',
+                        payroll_run_id: 'PR-202512',
+                        reason: 'إنهاء خدمات بالتراضي',
+                        service_years: 10,
+                        leave_balance_days: 14,
+                        notes: 'تمت مطابقة المخالصة مع المالية.'
+                    },
+                    {
+                        settlement_id: 9009,
+                        employee_id: 1055,
+                        full_name_ar: 'خالد الغامدي',
+                        employee_code: 'EMP-1055',
+                        settlement_date: '2026-02-08',
+                        amount: 13200,
+                        gratuity_amount: 7900,
+                        leave_payout: 2100,
+                        deductions: 300,
+                        status: 'DRAFT',
+                        payroll_run_id: 'PR-202602',
+                        reason: 'استقالة - تسوية خلال 30 يوم',
+                        service_years: 4,
+                        leave_balance_days: 7,
+                        notes: 'بانتظار موافقة الموارد البشرية.'
+                    },
+                    {
+                        settlement_id: 9010,
+                        employee_id: 1166,
+                        full_name_ar: 'جود السليمان',
+                        employee_code: 'EMP-1166',
+                        settlement_date: '2025-10-22',
+                        amount: 27400,
+                        gratuity_amount: 18200,
+                        leave_payout: 4800,
+                        deductions: 2200,
+                        status: 'APPROVED',
+                        payroll_run_id: 'PR-202510',
+                        reason: 'تصفية عقد مشروع - تسوية كاملة',
+                        service_years: 12,
+                        leave_balance_days: 20,
+                        notes: 'تحتاج توقيع المدير التنفيذي.'
+                    },
+                    {
+                        settlement_id: 9011,
+                        employee_id: 1277,
+                        full_name_ar: 'تركي المطيري',
+                        employee_code: 'EMP-1277',
+                        settlement_date: '2026-01-06',
+                        amount: 15900,
+                        gratuity_amount: 10100,
+                        leave_payout: 2600,
+                        deductions: 650,
+                        status: 'PAID',
+                        payroll_run_id: 'PR-202601',
+                        reason: 'إنهاء خدمات لأسباب تشغيلية',
+                        service_years: 6,
+                        leave_balance_days: 10,
+                        notes: 'تم إرسال إشعار مالي للفرع.'
+                    },
+                    {
+                        settlement_id: 9012,
+                        employee_id: 1388,
+                        full_name_ar: 'مي العتيبي',
+                        employee_code: 'EMP-1388',
+                        settlement_date: '2025-09-12',
+                        amount: 29800,
+                        gratuity_amount: 19500,
+                        leave_payout: 5200,
+                        deductions: 2400,
+                        status: 'DRAFT',
+                        payroll_run_id: 'PR-202509',
+                        reason: 'مخالصة نهائية - تغيير كيان',
+                        service_years: 13,
+                        leave_balance_days: 22,
+                        notes: 'قيد استكمال إخلاء الطرف من المخازن.'
+                    }
+                ];
+    
+                const fallbackEmployees = [
+                    { employee_id: 201, full_name_ar: 'أحمد العتيبي', employee_code: 'EMP-201' },
+                    { employee_id: 305, full_name_ar: 'سارة الشمري', employee_code: 'EMP-305' },
+                    { employee_id: 412, full_name_ar: 'محمد الزهراني', employee_code: 'EMP-412' },
+                    { employee_id: 517, full_name_ar: 'نورة القحطاني', employee_code: 'EMP-517' },
+                    { employee_id: 608, full_name_ar: 'عبدالله الحربي', employee_code: 'EMP-608' },
+                    { employee_id: 712, full_name_ar: 'ريم السبيعي', employee_code: 'EMP-712' },
+                    { employee_id: 823, full_name_ar: 'فهد الدوسري', employee_code: 'EMP-823' },
+                    { employee_id: 934, full_name_ar: 'هند العازمي', employee_code: 'EMP-934' },
+                    { employee_id: 1055, full_name_ar: 'خالد الغامدي', employee_code: 'EMP-1055' },
+                    { employee_id: 1166, full_name_ar: 'جود السليمان', employee_code: 'EMP-1166' },
+                    { employee_id: 1277, full_name_ar: 'تركي المطيري', employee_code: 'EMP-1277' },
+                    { employee_id: 1388, full_name_ar: 'مي العتيبي', employee_code: 'EMP-1388' }
+                ];
+
+                const fallbackRuns = [
+                    { run_id: 'PR-202602', run_number: 'دورة فبراير 2026' },
+                    { run_id: 'PR-202601', run_number: 'دورة يناير 2026' },
+                    { run_id: 'PR-202512', run_number: 'دورة ديسمبر 2025' },
+                    { run_id: 'PR-202511', run_number: 'دورة نوفمبر 2025' },
+                    { run_id: 'PR-202510', run_number: 'دورة أكتوبر 2025' },
+                    { run_id: 'PR-202509', run_number: 'دورة سبتمبر 2025' }
+                ];
+    
+        let settlementRows = [];
+        let filteredRows = [];
+        let employees = [];
+        let runs = [];
+        let editingSettlementId = null;
+        let previewSettlementId = null;
+        let usingFallback = false;
+        let lastSyncAt = null;
+        const selectedSettlementIds = new Set();
+    
+        async function loadReferenceData() {
+          const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+          try {
+            const [employeesRes, runsRes] = await Promise.all([
+              fetch(`${API_BASE}/finance/payroll/employees`, { headers }),
+              fetch(`${API_BASE}/finance/payroll/runs`, { headers })
+            ]);
+            const employeesData = await employeesRes.json();
+            const runsData = await runsRes.json();
+                        employees = employeesData.employees || fallbackEmployees;
+                        runs = runsData.runs || fallbackRuns;
+          } catch (error) {
+            console.warn('Using fallback employees/runs for settlements page.', error);
+            employees = fallbackEmployees;
+                        runs = fallbackRuns;
+          }
+    
+          renderSelectors();
+        }
+    
+        function renderSelectors() {
+          const employeeOptions = ['<option value="">الكل</option>']
+            .concat(employees.map((e) => `<option value="${e.employee_id}">${e.full_name_ar} (${e.employee_code})</option>`))
+            .join('');
+          document.getElementById('filterEmployee').innerHTML = employeeOptions;
+          document.getElementById('settlementEmployee').innerHTML = employeeOptions.replace('<option value="">الكل</option>', '<option value="">اختر الموظف</option>');
+    
+                    const runOptions = ['<option value="">بدون دورة</option>']
+                        .concat(runs.map((run) => `<option value="${run.run_id}">${run.run_number}</option>`))
+                        .join('');
+                    document.getElementById('settlementRun').innerHTML = runOptions;
+                    document.getElementById('filterRun').innerHTML = ['<option value="">الكل</option>']
+                        .concat(runs.map((run) => `<option value="${run.run_id}">${run.run_number}</option>`))
+                        .join('');
+        }
+    
+        async function loadSettlements() {
+          const params = new URLSearchParams();
+          const employeeId = document.getElementById('filterEmployee').value;
+          const status = document.getElementById('filterStatus').value;
+          const fromDate = document.getElementById('filterFrom').value;
+          const toDate = document.getElementById('filterTo').value;
+          const payrollRunId = document.getElementById('filterRun').value;
+          if (employeeId) params.set('employee_id', employeeId);
+          if (status) params.set('status', status);
+          if (fromDate) params.set('from_date', fromDate);
+          if (toDate) params.set('to_date', toDate);
+          if (payrollRunId) params.set('payroll_run_id', payrollRunId);
+    
+          const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+          try {
+            const response = await fetch(`${API_BASE}/finance/payroll/settlements?${params.toString()}`, { headers });
+            const data = await response.json();
+                        if (!data.success) throw new Error(data.error || 'تعذر تحميل التسويات');
+                        usingFallback = false;
+                        settlementRows = data.settlements || [];
+                        lastSyncAt = new Date();
+                        selectedSettlementIds.clear();
+                        applyFilters();
+          } catch (error) {
+            console.error('Error loading settlements:', error);
+            usingFallback = true;
+            settlementRows = fallbackSettlements;
+                        lastSyncAt = new Date();
+                        selectedSettlementIds.clear();
+                        applyFilters();
+          }
+        }
+
+                function formatNumber(value) {
+                    return Number(value || 0).toFixed(2);
+                }
+
+                function getNetAmount(row) {
+                    const gratuity = Number(row.gratuity_amount || 0);
+                    const leavePayout = Number(row.leave_payout || 0);
+                    const deductions = Number(row.deductions || 0);
+                    const baseAmount = Number(row.amount || 0);
+                    return baseAmount + leavePayout + gratuity - deductions;
+                }
+
+                function getAgeDays(row) {
+                    if (!row.settlement_date) return 0;
+                    const date = new Date(row.settlement_date);
+                    if (Number.isNaN(date.getTime())) return 0;
+                    const diff = Date.now() - date.getTime();
+                    return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+                }
+
+                function getRiskInfo(row) {
+                    const ageDays = getAgeDays(row);
+                    const amount = Number(row.amount || 0);
+                    const net = getNetAmount(row);
+                    let score = 0;
+                    if (row.status === 'DRAFT') score += 20;
+                    if (ageDays > 20) score += 25;
+                    if (ageDays > 45) score += 20;
+                    if (amount > 20000) score += 20;
+                    if (net > 25000) score += 15;
+
+                    if (score >= 60) {
+                        return { label: 'مرتفع', className: 'bg-red-100 text-red-700' };
+                    }
+                    if (score >= 35) {
+                        return { label: 'متوسط', className: 'bg-amber-100 text-amber-700' };
+                    }
+                    return { label: 'منخفض', className: 'bg-emerald-100 text-emerald-700' };
+                }
+
+                function getStatusLabel(status) {
+                    if (status === 'APPROVED') return 'معتمد';
+                    if (status === 'PAID') return 'مدفوع';
+                    return 'مسودة';
+                }
+
+                function getStatusClass(status) {
+                    if (status === 'APPROVED') return 'bg-emerald-100 text-emerald-800';
+                    if (status === 'PAID') return 'bg-blue-100 text-blue-800';
+                    return 'bg-gray-100 text-gray-800';
+                }
+
+                function applyFilters() {
+                    const searchValue = document.getElementById('filterSearch').value.trim().toLowerCase();
+                    const minAmount = Number(document.getElementById('filterMinAmount').value || 0);
+                    const maxAmount = Number(document.getElementById('filterMaxAmount').value || 0);
+                    const overdueOnly = document.getElementById('filterOverdue').checked;
+                    const sortValue = document.getElementById('filterSort').value;
+
+                    filteredRows = settlementRows.filter((row) => {
+                        const baseAmount = Number(row.amount || 0);
+                        const net = getNetAmount(row);
+                        const ageDays = getAgeDays(row);
+                        const isOverdue = row.status === 'DRAFT' && ageDays >= 14;
+
+                        if (minAmount && baseAmount < minAmount) return false;
+                        if (maxAmount && baseAmount > maxAmount) return false;
+                        if (overdueOnly && !isOverdue) return false;
+
+                        if (searchValue) {
+                            const text = `${row.full_name_ar || ''} ${row.employee_code || ''} ${row.reason || ''}`.toLowerCase();
+                            if (!text.includes(searchValue)) return false;
+                        }
+
+                        return true;
+                    });
+
+                    filteredRows.sort((a, b) => {
+                        if (sortValue === 'date_asc') {
+                            return new Date(a.settlement_date) - new Date(b.settlement_date);
+                        }
+                        if (sortValue === 'date_desc') {
+                            return new Date(b.settlement_date) - new Date(a.settlement_date);
+                        }
+                        if (sortValue === 'amount_asc') {
+                            return Number(a.amount || 0) - Number(b.amount || 0);
+                        }
+                        if (sortValue === 'amount_desc') {
+                            return Number(b.amount || 0) - Number(a.amount || 0);
+                        }
+                        if (sortValue === 'net_asc') {
+                            return getNetAmount(a) - getNetAmount(b);
+                        }
+                        if (sortValue === 'net_desc') {
+                            return getNetAmount(b) - getNetAmount(a);
+                        }
+                        return 0;
+                    });
+
+                    renderStats();
+                    renderInsights();
+                    renderTable();
+                    updateSelectionUi();
+                    updateDataModeUi();
+                }
+
+                function renderStats() {
+                    const total = filteredRows.length;
+                    const approved = filteredRows.filter((row) => row.status === 'APPROVED').length;
+                    const paid = filteredRows.filter((row) => row.status === 'PAID').length;
+                    const amount = filteredRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+                    const netAmount = filteredRows.reduce((sum, row) => sum + getNetAmount(row), 0);
+                    const overdue = filteredRows.filter((row) => row.status === 'DRAFT' && getAgeDays(row) >= 14).length;
+
+                    document.getElementById('statTotal').textContent = total;
+                    document.getElementById('statApproved').textContent = approved;
+                    document.getElementById('statPaid').textContent = paid;
+                    document.getElementById('statAmount').textContent = formatNumber(amount);
+                    document.getElementById('statNetAmount').textContent = formatNumber(netAmount);
+                    document.getElementById('statOverdue').textContent = overdue;
+
+                    const totalAll = settlementRows.length;
+                    if (totalAll && total !== totalAll) {
+                        document.getElementById('recordsCount').textContent = `${total} من ${totalAll} تسوية`;
+                    } else {
+                        document.getElementById('recordsCount').textContent = `${total} تسوية`;
+                    }
+                }
+
+                function renderInsights() {
+                    const total = filteredRows.length || 1;
+                    const approved = filteredRows.filter((row) => row.status === 'APPROVED').length;
+                    const paid = filteredRows.filter((row) => row.status === 'PAID').length;
+                    const approvalRate = Math.round((approved / total) * 100);
+                    const paidRate = Math.round((paid / total) * 100);
+                    const avgAge = filteredRows.length
+                        ? Math.round(filteredRows.reduce((sum, row) => sum + getAgeDays(row), 0) / filteredRows.length)
+                        : 0;
+
+                    document.getElementById('approvalRateLabel').textContent = `${approvalRate}%`;
+                    document.getElementById('approvalRateBar').style.width = `${approvalRate}%`;
+                    document.getElementById('paidRateLabel').textContent = `${paidRate}%`;
+                    document.getElementById('paidRateBar').style.width = `${paidRate}%`;
+                    document.getElementById('avgAgeLabel').textContent = `${avgAge} يوم`;
+
+                    const topSettlements = [...filteredRows]
+                        .sort((a, b) => getNetAmount(b) - getNetAmount(a))
+                        .slice(0, 3);
+                    document.getElementById('topSettlementsList').innerHTML = topSettlements.length
+                        ? topSettlements
+                            .map((row) => `
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-700">${row.full_name_ar || '—'}</span>
+                                    <span class="font-semibold text-gray-900">${formatNumber(getNetAmount(row))}</span>
+                                </div>
+                            `)
+                            .join('')
+                        : '<div class="text-xs text-gray-400">لا توجد بيانات حالياً</div>';
+
+                    const riskAlerts = filteredRows
+                        .filter((row) => getRiskInfo(row).label === 'مرتفع')
+                        .slice(0, 4);
+                    document.getElementById('riskCountLabel').textContent = `${riskAlerts.length} عناصر`;
+                    document.getElementById('riskAlertsList').innerHTML = riskAlerts.length
+                        ? riskAlerts
+                            .map((row) => `
+                                <div class="flex items-center justify-between">
+                                    <span>${row.full_name_ar || '—'}</span>
+                                    <span class="text-xs text-red-600">${getAgeDays(row)} يوم</span>
+                                </div>
+                            `)
+                            .join('')
+                        : '<div class="text-xs text-gray-400">لا توجد مخاطر مرتفعة</div>';
+
+                    document.getElementById('lastSyncLabel').textContent = lastSyncAt
+                        ? `آخر تحديث: ${lastSyncAt.toLocaleString('en-US')}`
+                        : 'آخر تحديث: --';
+                }
+
+                function updateDataModeUi() {
+                    document.getElementById('fallbackBanner').classList.toggle('hidden', !usingFallback);
+                    document.getElementById('dataModeBadge').textContent = usingFallback ? 'وضع تجريبي' : 'وضع مباشر';
+                }
+
+                function renderTable() {
+                    if (!filteredRows.length) {
+                        document.getElementById('settlementsTable').innerHTML = '<tr><td colspan="14" class="px-6 py-8 text-center text-gray-500">لا توجد بيانات مطابقة للبحث</td></tr>';
+                        return;
+                    }
+                    const rows = filteredRows.map((row) => {
+                        let statusBadge;
+                        if (row.status === 'APPROVED') {
+                            statusBadge = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">معتمد</span>';
+                        } else if (row.status === 'PAID') {
+                            statusBadge = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">مدفوع</span>';
+                        } else {
+                            statusBadge = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">مسودة</span>';
+                        }
+
+                        const gratuity = Number(row.gratuity_amount || 0);
+                        const leavePayout = Number(row.leave_payout || 0);
+                        const deductions = Number(row.deductions || 0);
+                        const baseAmount = Number(row.amount || 0);
+                        const net = getNetAmount(row);
+                        const ageDays = getAgeDays(row);
+                        const riskInfo = getRiskInfo(row);
+                        const isSelected = selectedSettlementIds.has(row.settlement_id);
+                        const approveAction = row.status === 'DRAFT'
+                            ? `<button onclick="updateSettlementStatus(${row.settlement_id}, 'APPROVED')" class="px-2.5 py-1.5 text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow-sm" title="اعتماد"><i class="fas fa-check"></i></button>`
+                            : '';
+                        const payAction = row.status !== 'PAID'
+                            ? `<button onclick="updateSettlementStatus(${row.settlement_id}, 'PAID')" class="px-2.5 py-1.5 text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm" title="صرف"><i class="fas fa-coins"></i></button>`
+                            : '';
+
+                        return `
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 border-b border-gray-100">
+                                    <input type="checkbox" class="row-select h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-id="${row.settlement_id}" ${isSelected ? 'checked' : ''}>
+                                </td>
+                                <td class="px-4 py-3 border-b border-gray-100 font-medium text-gray-800">${row.full_name_ar || '-'}</td>
+                                <td class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500">${row.settlement_date ? row.settlement_date.slice(0, 10) : '-'}</td>
+                                <td class="px-4 py-3 border-b border-gray-100">${formatNumber(baseAmount)}</td>
+                                <td class="px-4 py-3 border-b border-gray-100 text-emerald-600">${formatNumber(gratuity)}</td>
+                                <td class="px-4 py-3 border-b border-gray-100 text-blue-600">${formatNumber(leavePayout)}</td>
+                                <td class="px-4 py-3 border-b border-gray-100 text-red-600">${formatNumber(deductions)}</td>
+                                <td class="px-4 py-3 border-b border-gray-100 font-bold text-gray-800">${formatNumber(net)}</td>
+                                <td class="px-4 py-3 border-b border-gray-100 text-xs text-gray-500">${ageDays}</td>
+                                <td class="px-4 py-3 border-b border-gray-100 text-xs text-gray-500 max-w-[150px] truncate">${row.reason || '-'}</td>
+                                <td class="px-4 py-3 border-b border-gray-100">${statusBadge}</td>
+                                <td class="px-4 py-3 border-b border-gray-100">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${riskInfo.className}">${riskInfo.label}</span>
+                                </td>
+                                <td class="px-4 py-3 border-b border-gray-100 text-xs">${row.payroll_run_id || '-'}</td>
+                                <td class="px-4 py-3 border-b border-gray-100">
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        <button onclick="previewSettlement(${row.settlement_id})" class="px-2.5 py-1.5 text-white bg-slate-600 hover:bg-slate-700 rounded-md shadow-sm" title="متابعة"><i class="fas fa-eye"></i></button>
+                                        <button onclick="editSettlement(${row.settlement_id})" class="px-2.5 py-1.5 text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm" title="تعديل"><i class="fas fa-edit"></i></button>
+                                        ${approveAction}
+                                        ${payAction}
+                                        <button onclick="addFromSettlement(${row.settlement_id})" class="px-2.5 py-1.5 text-white bg-teal-600 hover:bg-teal-700 rounded-md shadow-sm" title="نسخ"><i class="fas fa-copy"></i></button>
+                                        <button onclick="deleteSettlement(${row.settlement_id})" class="px-2.5 py-1.5 text-white bg-rose-600 hover:bg-rose-700 rounded-md shadow-sm" title="حذف"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                    document.getElementById('settlementsTable').innerHTML = rows;
+
+                    document.querySelectorAll('.row-select').forEach((checkbox) => {
+                        checkbox.addEventListener('change', (event) => {
+                            const id = Number(event.target.dataset.id);
+                            if (event.target.checked) {
+                                selectedSettlementIds.add(id);
+                            } else {
+                                selectedSettlementIds.delete(id);
+                            }
+                            updateSelectionUi();
+                        });
+                    });
+                }
+
+                function updateSelectionUi() {
+                    const visibleIds = new Set(filteredRows.map((row) => row.settlement_id));
+                    const selectedVisible = [...selectedSettlementIds].filter((id) => visibleIds.has(id));
+                    document.getElementById('selectionCount').textContent = selectedVisible.length;
+                    const selectAll = document.getElementById('selectAll');
+                    if (selectAll) {
+                        selectAll.checked = selectedVisible.length && selectedVisible.length === visibleIds.size;
+                        selectAll.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visibleIds.size;
+                    }
+                }
+
+                async function updateSettlementStatus(id, status) {
+                    if (usingFallback) {
+                        const row = settlementRows.find((item) => item.settlement_id === id);
+                        if (row) {
+                            row.status = status;
+                            applyFilters();
+                        }
+                        return;
+                    }
+
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+                    };
+
+                    try {
+                        const response = await fetch(`${API_BASE}/finance/payroll/settlements/${id}`, {
+                            method: 'PUT',
+                            headers,
+                            body: JSON.stringify({ status })
+                        });
+                        if (!response.ok) {
+                            const text = await response.text();
+                            throw new Error(text || 'تعذر تحديث الحالة');
+                        }
+                        const data = await response.json();
+                        if (!data.success) throw new Error(data.error || 'تعذر تحديث الحالة');
+                        await loadSettlements();
+                    } catch (error) {
+                        console.error('Error updating settlement status:', error);
+                        alert(`تعذر تحديث الحالة: ${error.message || error}`);
+                    }
+                }
+
+                async function bulkUpdateStatus(status) {
+                    if (!selectedSettlementIds.size) {
+                        alert('يرجى تحديد تسوية واحدة على الأقل.');
+                        return;
+                    }
+
+                    if (usingFallback) {
+                        settlementRows.forEach((row) => {
+                            if (selectedSettlementIds.has(row.settlement_id)) {
+                                row.status = status;
+                            }
+                        });
+                        applyFilters();
+                        return;
+                    }
+
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+                    };
+                    try {
+                        await Promise.all(
+                            [...selectedSettlementIds].map((id) =>
+                                fetch(`${API_BASE}/finance/payroll/settlements/${id}`, {
+                                    method: 'PUT',
+                                    headers,
+                                    body: JSON.stringify({ status })
+                                })
+                            )
+                        );
+                        await loadSettlements();
+                    } catch (error) {
+                        console.error('Error bulk updating settlements:', error);
+                        alert('تعذر تنفيذ التحديث الجماعي.');
+                    }
+                }
+
+                async function bulkDeleteSettlements() {
+                    if (!selectedSettlementIds.size) {
+                        alert('يرجى تحديد تسوية واحدة على الأقل.');
+                        return;
+                    }
+                    if (!confirm('هل تريد حذف التسويات المحددة؟')) return;
+
+                    if (usingFallback) {
+                        settlementRows = settlementRows.filter((row) => !selectedSettlementIds.has(row.settlement_id));
+                        selectedSettlementIds.clear();
+                        applyFilters();
+                        return;
+                    }
+
+                    const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+                    try {
+                        await Promise.all(
+                            [...selectedSettlementIds].map((id) =>
+                                fetch(`${API_BASE}/finance/payroll/settlements/${id}`, {
+                                    method: 'DELETE',
+                                    headers
+                                })
+                            )
+                        );
+                        selectedSettlementIds.clear();
+                        await loadSettlements();
+                    } catch (error) {
+                        console.error('Error bulk deleting settlements:', error);
+                        alert('تعذر حذف بعض التسويات.');
+                    }
+                }
+
+                function exportSettlementsCsv() {
+                    const rows = selectedSettlementIds.size
+                        ? filteredRows.filter((row) => selectedSettlementIds.has(row.settlement_id))
+                        : filteredRows;
+                    if (!rows.length) {
+                        alert('لا توجد بيانات للتصدير.');
+                        return;
+                    }
+
+                    const headers = [
+                        'ID',
+                        'Employee',
+                        'Code',
+                        'Date',
+                        'Base Amount',
+                        'Gratuity',
+                        'Leave Payout',
+                        'Deductions',
+                        'Net',
+                        'Status',
+                        'Run',
+                        'Reason'
+                    ];
+                    const csvRows = rows.map((row) => [
+                        row.settlement_id,
+                        row.full_name_ar || '',
+                        row.employee_code || '',
+                        row.settlement_date || '',
+                        row.amount || 0,
+                        row.gratuity_amount || 0,
+                        row.leave_payout || 0,
+                        row.deductions || 0,
+                        getNetAmount(row),
+                        row.status || '',
+                        row.payroll_run_id || '',
+                        row.reason || ''
+                    ]);
+
+                    const csvContent = [headers, ...csvRows]
+                        .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
+                        .join('\n');
+
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'payroll-settlements.csv';
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }
+    
+        function openSettlementModal() {
+            const modal = document.getElementById('settlementModal');
+            const backdrop = document.getElementById('settlementModalBackdrop');
+            const panel = document.getElementById('settlementModalPanel');
+            
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; // trigger reflow
+            backdrop.classList.remove('opacity-0');
+            panel.classList.remove('opacity-0', 'translate-y-4', 'sm:translate-y-0', 'sm:scale-95');
+            panel.classList.add('opacity-100', 'translate-y-0', 'sm:scale-100');
+
+          editingSettlementId = null;
+          document.getElementById('settlementModalTitle').textContent = 'إضافة تسوية';
+          clearSettlementForm();
+        }
+    
+        function closeSettlementModal() {
+            const modal = document.getElementById('settlementModal');
+            const backdrop = document.getElementById('settlementModalBackdrop');
+            const panel = document.getElementById('settlementModalPanel');
+            
+            backdrop.classList.add('opacity-0');
+            panel.classList.remove('opacity-100', 'translate-y-0', 'sm:scale-100');
+            panel.classList.add('opacity-0', 'translate-y-4', 'sm:translate-y-0', 'sm:scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    
+        function clearSettlementForm() {
+          document.getElementById('settlementEmployee').value = '';
+          document.getElementById('settlementDate').value = '';
+          document.getElementById('settlementAmount').value = '';
+          document.getElementById('settlementStatus').value = 'DRAFT';
+          document.getElementById('settlementRun').value = '';
+          document.getElementById('settlementReason').value = '';
+        }
+    
+        function editSettlement(id) {
+          const row = settlementRows.find((item) => item.settlement_id === id);
+          if (!row) return;
+          
+          openSettlementModal(); // handle UI opening first
+
+          editingSettlementId = id;
+          document.getElementById('settlementModalTitle').textContent = 'تعديل تسوية';
+          document.getElementById('settlementEmployee').value = row.employee_id || '';
+          document.getElementById('settlementDate').value = row.settlement_date ? row.settlement_date.slice(0, 10) : '';
+          document.getElementById('settlementAmount').value = row.amount || 0;
+          document.getElementById('settlementStatus').value = row.status || 'DRAFT';
+          document.getElementById('settlementRun').value = row.payroll_run_id || '';
+          document.getElementById('settlementReason').value = row.reason || '';
+        }
+    
+        function addFromSettlement(id) {
+          const row = settlementRows.find((item) => item.settlement_id === id);
+          if (!row) return;
+
+          openSettlementModal();
+
+          editingSettlementId = null;
+          document.getElementById('settlementEmployee').value = row.employee_id || '';
+          document.getElementById('settlementDate').value = row.settlement_date ? row.settlement_date.slice(0, 10) : '';
+          document.getElementById('settlementAmount').value = row.amount || 0;
+          document.getElementById('settlementStatus').value = 'DRAFT';
+          document.getElementById('settlementRun').value = row.payroll_run_id || '';
+          document.getElementById('settlementReason').value = row.reason || '';
+        }
+    
+        async function saveSettlement() {
+          const payload = {
+            employee_id: document.getElementById('settlementEmployee').value,
+            settlement_date: document.getElementById('settlementDate').value,
+            amount: Number(document.getElementById('settlementAmount').value || 0),
+            status: document.getElementById('settlementStatus').value,
+            payroll_run_id: document.getElementById('settlementRun').value || null,
+            reason: document.getElementById('settlementReason').value.trim(),
+            entity_id: window.getFinanceEntityId ? window.getFinanceEntityId() : undefined,
+            entity_type: window.getFinanceEntityType ? window.getFinanceEntityType() : undefined
+          };
+    
+          if (!payload.employee_id || !payload.settlement_date || !payload.amount) {
+            alert('يرجى إدخال الموظف والتاريخ والمبلغ');
+            return;
+          }
+
+                    if (usingFallback) {
+                        const employee = employees.find((item) => String(item.employee_id) === String(payload.employee_id));
+                        if (editingSettlementId) {
+                            const row = settlementRows.find((item) => item.settlement_id === editingSettlementId);
+                            if (row) {
+                                row.employee_id = Number(payload.employee_id);
+                                row.full_name_ar = employee ? employee.full_name_ar : row.full_name_ar;
+                                row.employee_code = employee ? employee.employee_code : row.employee_code;
+                                row.settlement_date = payload.settlement_date;
+                                row.amount = payload.amount;
+                                row.status = payload.status;
+                                row.payroll_run_id = payload.payroll_run_id;
+                                row.reason = payload.reason;
+                            }
+                        } else {
+                            const newId = Math.max(...settlementRows.map((row) => row.settlement_id || 0), 9000) + 1;
+                            settlementRows.unshift({
+                                settlement_id: newId,
+                                employee_id: Number(payload.employee_id),
+                                full_name_ar: employee ? employee.full_name_ar : '—',
+                                employee_code: employee ? employee.employee_code : '—',
+                                settlement_date: payload.settlement_date,
+                                amount: payload.amount,
+                                gratuity_amount: 0,
+                                leave_payout: 0,
+                                deductions: 0,
+                                status: payload.status,
+                                payroll_run_id: payload.payroll_run_id,
+                                reason: payload.reason,
+                                service_years: 0,
+                                leave_balance_days: 0,
+                                notes: 'تمت إضافتها في الوضع التجريبي.'
+                            });
+                        }
+                        closeSettlementModal();
+                        applyFilters();
+                        return;
+                    }
+    
+          const headers = {
+            'Content-Type': 'application/json',
+            ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {})
+          };
+          const url = editingSettlementId
+            ? `${API_BASE}/finance/payroll/settlements/${editingSettlementId}`
+            : `${API_BASE}/finance/payroll/settlements`;
+          const method = editingSettlementId ? 'PUT' : 'POST';
+    
+          try {
+            const response = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+            if (!response.ok) {
+              const text = await response.text();
+              throw new Error(text || 'تعذر حفظ التسوية');
+            }
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'تعذر حفظ التسوية');
+            usingFallback = false;
+            closeSettlementModal();
+            await loadSettlements();
+          } catch (error) {
+            console.error('Error saving settlement:', error);
+            alert(`تعذر حفظ التسوية على الخادم: ${error.message || error}`);
+          }
+        }
+    
+        async function deleteSettlement(id) {
+          if (!confirm('هل تريد حذف التسوية؟')) return;
+          if (usingFallback) {
+                        settlementRows = settlementRows.filter((row) => row.settlement_id !== id);
+                        selectedSettlementIds.delete(id);
+                        applyFilters();
+                        return;
+          }
+          const headers = window.getFinanceHeaders ? window.getFinanceHeaders() : {};
+          try {
+            const response = await fetch(`${API_BASE}/finance/payroll/settlements/${id}`, {
+              method: 'DELETE',
+              headers
+            });
+            if (!response.ok) {
+              const text = await response.text();
+              throw new Error(text || 'تعذر حذف التسوية');
+            }
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'تعذر حذف التسوية');
+            usingFallback = false;
+            await loadSettlements();
+          } catch (error) {
+            console.error('Error deleting settlement:', error);
+            alert(`تعذر حذف التسوية من الخادم: ${error.message || error}`);
+          }
+        }
+    
+        function resetFilters() {
+          document.getElementById('filterEmployee').value = '';
+          document.getElementById('filterStatus').value = '';
+          document.getElementById('filterFrom').value = '';
+          document.getElementById('filterTo').value = '';
+                    document.getElementById('filterRun').value = '';
+                    document.getElementById('filterSearch').value = '';
+                    document.getElementById('filterMinAmount').value = '';
+                    document.getElementById('filterMaxAmount').value = '';
+                    document.getElementById('filterOverdue').checked = false;
+                    document.getElementById('filterSort').value = 'date_desc';
+          loadSettlements();
+        }
+    
+        function previewSettlement(id) {
+          const row = settlementRows.find((item) => item.settlement_id === id);
+          if (!row) return;
+          previewSettlementId = id;
+          document.getElementById('previewEmployee').textContent = row.full_name_ar || '-';
+          document.getElementById('previewCode').textContent = row.employee_code || row.employee_id || '-';
+          document.getElementById('previewDate').textContent = row.settlement_date ? row.settlement_date.slice(0, 10) : '-';
+          document.getElementById('previewRun').textContent = row.payroll_run_id || 'بدون دورة';
+          document.getElementById('previewReason').textContent = row.reason || '—';
+                    const statusLabel = getStatusLabel(row.status);
+                    const statusClass = getStatusClass(row.status);
+                    const statusElement = document.getElementById('previewStatus');
+                    statusElement.textContent = statusLabel;
+                    statusElement.className = `inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusClass}`;
+          
+          document.getElementById('previewAmount').textContent = Number(row.amount || 0).toFixed(2);
+          document.getElementById('previewGratuity').textContent = Number(row.gratuity_amount || 0).toFixed(2);
+          document.getElementById('previewLeave').textContent = Number(row.leave_payout || 0).toFixed(2);
+          document.getElementById('previewDeductions').textContent = Number(row.deductions || 0).toFixed(2);
+          
+          document.getElementById('previewServiceYears').textContent = row.service_years ? `${row.service_years} سنة` : '-';
+          document.getElementById('previewLeaveDays').textContent = row.leave_balance_days ? `${row.leave_balance_days} يوم` : '-';
+          document.getElementById('previewNotes').textContent = row.notes || 'لا توجد ملاحظات';
+          
+            const modal = document.getElementById('previewModal');
+            const backdrop = document.getElementById('previewModalBackdrop');
+            const panel = document.getElementById('previewModalPanel');
+            
+            modal.classList.remove('hidden');
+            // Trigger reflow
+            void modal.offsetWidth;
+            
+            backdrop.classList.remove('opacity-0');
+            panel.classList.remove('opacity-0', 'translate-y-4', 'sm:translate-y-0', 'sm:scale-95');
+            panel.classList.add('opacity-100', 'translate-y-0', 'sm:scale-100');
+        }
+    
+        function closePreviewModal() {
+            const modal = document.getElementById('previewModal');
+            const backdrop = document.getElementById('previewModalBackdrop');
+            const panel = document.getElementById('previewModalPanel');
+            
+            backdrop.classList.add('opacity-0');
+            panel.classList.remove('opacity-100', 'translate-y-0', 'sm:scale-100');
+            panel.classList.add('opacity-0', 'translate-y-4', 'sm:translate-y-0', 'sm:scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+            previewSettlementId = null;
+        }
+
+        // Close modals on backdrop click
+        document.getElementById('settlementModalBackdrop').addEventListener('click', closeSettlementModal);
+        document.getElementById('previewModalBackdrop').addEventListener('click', closePreviewModal);
+    
+                document.getElementById('filterEmployee').addEventListener('change', loadSettlements);
+                document.getElementById('filterStatus').addEventListener('change', loadSettlements);
+                document.getElementById('filterFrom').addEventListener('change', loadSettlements);
+                document.getElementById('filterTo').addEventListener('change', loadSettlements);
+                document.getElementById('filterRun').addEventListener('change', loadSettlements);
+                document.getElementById('filterSearch').addEventListener('input', applyFilters);
+                document.getElementById('filterMinAmount').addEventListener('input', applyFilters);
+                document.getElementById('filterMaxAmount').addEventListener('input', applyFilters);
+                document.getElementById('filterOverdue').addEventListener('change', applyFilters);
+                document.getElementById('filterSort').addEventListener('change', applyFilters);
+                document.getElementById('selectAll').addEventListener('change', (event) => {
+                    if (event.target.checked) {
+                        filteredRows.forEach((row) => selectedSettlementIds.add(row.settlement_id));
+                    } else {
+                        filteredRows.forEach((row) => selectedSettlementIds.delete(row.settlement_id));
+                    }
+                    renderTable();
+                    updateSelectionUi();
+                });
+    
+        async function initPage() {
+          await loadReferenceData();
+          await loadSettlements();
+        }
+    
+        initPage();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

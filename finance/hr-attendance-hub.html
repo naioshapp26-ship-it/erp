@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⏱️ مركز الحضور والورديات - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --sky: #0ea5e9;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --sun: #f59e0b;
+      --paper: #f8fafc;
+      --card: #ffffff;
+      --line: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(14, 165, 233, 0.18), transparent 42%),
+        radial-gradient(circle at 88% 8%, rgba(245, 158, 11, 0.14), transparent 40%),
+        linear-gradient(180deg, #fef9c3 0%, #f8fafc 55%, #eef2f7 100%);
+      min-height: 100vh;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 26px;
+      box-shadow: 0 20px 50px -30px rgba(15, 23, 42, 0.4);
+    }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 10px 16px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.4);
+    }
+
+    .tag {
+      border-radius: 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+
+    .input:focus {
+      outline: 2px solid var(--sky);
+      border-color: transparent;
+    }
+
+    .table-scroll {
+      max-height: 520px;
+      overflow: auto;
+    }
+
+    .table-scroll thead th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      z-index: 2;
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: 16px;
+    }
+
+    .modal-card {
+      width: min(900px, 96vw);
+      max-height: 90vh;
+      overflow: auto;
+      border-radius: 26px;
+    }
+
+    @media (max-width: 1024px) {
+      .btn { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="chip bg-white text-slate-700 border border-slate-200">مركز الحضور</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">⏱️ مركز الحضور والورديات الذكي</h1>
+        <p class="text-slate-600">متابعة دقيقة للحضور والانصراف وإدارة الورديات.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-arrow-right"></i>
+          العودة للموارد البشرية
+        </a>
+        <a href="/hr/operations" class="btn bg-slate-900 text-white">
+          <i class="fas fa-diagram-project"></i>
+          بوابة العمليات
+        </a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">إجمالي الموظفين اليوم</div>
+        <div id="statTotal" class="text-3xl font-extrabold">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">الحاضرون</div>
+        <div id="statPresent" class="text-3xl font-extrabold text-emerald-600">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">المتأخرون</div>
+        <div id="statLate" class="text-3xl font-extrabold text-amber-600">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">الغائبون</div>
+        <div id="statAbsent" class="text-3xl font-extrabold text-rose-600">0</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm text-slate-500">الورديات النشطة</div>
+        <div id="statActive" class="text-3xl font-extrabold text-sky-700">0</div>
+      </div>
+    </div>
+
+    <div class="glass p-5 mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold">سجل الحضور والورديات اليومي</h2>
+          <p class="text-sm text-slate-500">بيانات تجريبية واقعية قابلة للتعديل والبحث والترتيب.</p>
+        </div>
+        <button id="addRecordBtn" class="btn bg-slate-900 text-white">
+          <i class="fas fa-plus"></i>
+          إضافة سجل جديد
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[1.1fr,1fr,1fr,1fr] gap-3 mt-4">
+        <input id="searchInput" class="input" placeholder="بحث باسم الموظف">
+        <select id="departmentFilter" class="input">
+          <option value="all">كل الأقسام</option>
+        </select>
+        <select id="statusFilter" class="input">
+          <option value="all">كل الحالات</option>
+          <option value="حاضر">حاضر</option>
+          <option value="متأخر">متأخر</option>
+          <option value="غائب">غائب</option>
+          <option value="إجازة">إجازة</option>
+        </select>
+        <select id="shiftFilter" class="input">
+          <option value="all">كل الورديات</option>
+          <option value="صباحية">صباحية</option>
+          <option value="مسائية">مسائية</option>
+          <option value="ليلية">ليلية</option>
+          <option value="مرنة">مرنة</option>
+        </select>
+      </div>
+
+      <div class="table-scroll mt-4">
+        <table class="min-w-full text-sm">
+          <thead class="text-slate-600">
+            <tr>
+              <th class="px-4 py-3 text-right">
+                <button class="font-bold" data-sort="name">اسم الموظف</button>
+              </th>
+              <th class="px-4 py-3 text-right">
+                <button class="font-bold" data-sort="department">القسم</button>
+              </th>
+              <th class="px-4 py-3 text-right">
+                <button class="font-bold" data-sort="shift">نوع الوردية</button>
+              </th>
+              <th class="px-4 py-3 text-right">
+                <button class="font-bold" data-sort="checkIn">وقت الدخول</button>
+              </th>
+              <th class="px-4 py-3 text-right">
+                <button class="font-bold" data-sort="checkOut">وقت الخروج</button>
+              </th>
+              <th class="px-4 py-3 text-right">
+                <button class="font-bold" data-sort="hours">عدد الساعات</button>
+              </th>
+              <th class="px-4 py-3 text-right">
+                <button class="font-bold" data-sort="status">حالة الحضور</button>
+              </th>
+              <th class="px-4 py-3 text-right">ملاحظات</th>
+              <th class="px-4 py-3 text-right">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="attendanceTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="viewModal" class="modal-backdrop hidden">
+    <div class="glass modal-card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 id="viewTitle" class="text-2xl font-bold">تفاصيل السجل</h3>
+          <p class="text-sm text-slate-500">عرض كامل بيانات السجل.</p>
+        </div>
+        <button id="closeView" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-xmark"></i>
+          إغلاق
+        </button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="viewDetails"></div>
+    </div>
+  </div>
+
+  <div id="editModal" class="modal-backdrop hidden">
+    <div class="glass modal-card p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 id="editTitle" class="text-2xl font-bold">إضافة سجل جديد</h3>
+          <p class="text-sm text-slate-500">تعديل بيانات الحضور والورديات.</p>
+        </div>
+        <button id="closeEdit" class="btn bg-white text-slate-700 border border-slate-200">
+          <i class="fas fa-xmark"></i>
+          إغلاق
+        </button>
+      </div>
+
+      <form id="editForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="text-sm text-slate-500">اسم الموظف</label>
+          <input id="formName" class="input" required>
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">القسم</label>
+          <input id="formDepartment" class="input" required>
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">نوع الوردية</label>
+          <select id="formShift" class="input" required>
+            <option value="صباحية">صباحية</option>
+            <option value="مسائية">مسائية</option>
+            <option value="ليلية">ليلية</option>
+            <option value="مرنة">مرنة</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">حالة الحضور</label>
+          <select id="formStatus" class="input" required>
+            <option value="حاضر">حاضر</option>
+            <option value="متأخر">متأخر</option>
+            <option value="غائب">غائب</option>
+            <option value="إجازة">إجازة</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">وقت الدخول</label>
+          <input id="formCheckIn" type="time" class="input">
+        </div>
+        <div>
+          <label class="text-sm text-slate-500">وقت الخروج</label>
+          <input id="formCheckOut" type="time" class="input">
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-sm text-slate-500">ملاحظات</label>
+          <textarea id="formNotes" class="input" rows="3"></textarea>
+        </div>
+        <div class="md:col-span-2 flex flex-wrap gap-2">
+          <button type="submit" class="btn bg-sky-700 text-white">
+            <i class="fas fa-save"></i>
+            حفظ البيانات
+          </button>
+          <button type="button" id="cancelEdit" class="btn bg-white text-slate-700 border border-slate-200">
+            <i class="fas fa-rotate-left"></i>
+            إلغاء
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3000/api'
+      : '/api';
+
+    let attendanceRecords = [];
+    let currentRecords = [];
+    let sortState = { key: 'employee_name', dir: 'asc' };
+    let editingId = null;
+    let editingRecord = null;
+
+    const statusStyles = {
+      'حاضر': 'bg-emerald-100 text-emerald-700',
+      'متأخر': 'bg-amber-100 text-amber-700',
+      'غائب': 'bg-rose-100 text-rose-700',
+      'إجازة': 'bg-slate-100 text-slate-700'
+    };
+
+    const tableBody = document.getElementById('attendanceTable');
+    const departmentFilter = document.getElementById('departmentFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const shiftFilter = document.getElementById('shiftFilter');
+    const searchInput = document.getElementById('searchInput');
+
+    const apiFetch = async (endpoint, options = {}) => {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Request failed');
+      }
+      return response.json();
+    };
+
+    const formatTime = (value) => {
+      if (!value) return '';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+      return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const buildDateTime = (date, time) => {
+      if (!time) return null;
+      return `${date}T${time}:00`;
+    };
+
+    const calculateHours = (checkIn, checkOut) => {
+      if (!checkIn || !checkOut) return 0;
+      const start = new Date(checkIn);
+      const end = new Date(checkOut);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+      let diff = end.getTime() - start.getTime();
+      if (diff < 0) diff += 24 * 60 * 60 * 1000;
+      return Math.round((diff / (1000 * 60 * 60)) * 10) / 10;
+    };
+
+    const normalizeRecord = (record) => ({
+      ...record,
+      displayCheckIn: formatTime(record.check_in),
+      displayCheckOut: formatTime(record.check_out),
+      displayShift: record.shift_type || '—'
+    });
+
+    const seedDemoRecords = async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const demo = [
+        { employee_name: 'أحمد العتيبي', department: 'الموارد البشرية', shift_type: 'صباحية', check_in: '08:05', check_out: '16:10', status: 'متأخر', notes: 'تأخر بسبب ازدحام مروري.' },
+        { employee_name: 'سارة الحربي', department: 'المالية', shift_type: 'صباحية', check_in: '08:00', check_out: '16:00', status: 'حاضر', notes: 'ملتزمة بالدوام.' },
+        { employee_name: 'محمد الزهراني', department: 'التشغيل', shift_type: 'مسائية', check_in: '15:45', check_out: '23:30', status: 'حاضر', notes: 'تسليم نوبة سلس.' },
+        { employee_name: 'ريم السلمي', department: 'المبيعات', shift_type: 'مرنة', check_in: '09:10', check_out: '17:20', status: 'متأخر', notes: 'تم إشعار المدير.' },
+        { employee_name: 'خالد القحطاني', department: 'الدعم الفني', shift_type: 'ليلية', check_in: '22:00', check_out: '06:00', status: 'حاضر', notes: 'مناوبة طوارئ.' },
+        { employee_name: 'نورة الشمري', department: 'التشغيل', shift_type: 'صباحية', check_in: '', check_out: '', status: 'إجازة', notes: 'إجازة سنوية معتمدة.' },
+        { employee_name: 'يوسف المطيري', department: 'المالية', shift_type: 'مسائية', check_in: '16:05', check_out: '00:00', status: 'متأخر', notes: 'حضر بعد اجتماع خارجي.' },
+        { employee_name: 'هند الفهد', department: 'الموارد البشرية', shift_type: 'صباحية', check_in: '', check_out: '', status: 'غائب', notes: 'غياب بدون إشعار.' },
+        { employee_name: 'عبدالله السبيعي', department: 'المبيعات', shift_type: 'مسائية', check_in: '15:30', check_out: '23:15', status: 'حاضر', notes: 'إغلاق صفقات جديدة.' },
+        { employee_name: 'منى العسيري', department: 'التشغيل', shift_type: 'مرنة', check_in: '10:00', check_out: '18:00', status: 'حاضر', notes: 'تحضير تقرير الأداء.' },
+        { employee_name: 'فهد الدوسري', department: 'الدعم الفني', shift_type: 'صباحية', check_in: '07:55', check_out: '16:05', status: 'حاضر', notes: 'مباشرة باكرا.' },
+        { employee_name: 'ليلى الشريف', department: 'المبيعات', shift_type: 'صباحية', check_in: '08:00', check_out: '', status: 'حاضر', notes: 'نوبة مستمرة حتى إشعار آخر.' }
+      ];
+
+      await Promise.all(
+        demo.map(entry => apiFetch('/attendance-logs', {
+          method: 'POST',
+          body: JSON.stringify({
+            employee_name: entry.employee_name,
+            department: entry.department,
+            shift_type: entry.shift_type,
+            attendance_date: today,
+            check_in: buildDateTime(today, entry.check_in),
+            check_out: buildDateTime(today, entry.check_out),
+            status: entry.status,
+            notes: entry.notes
+          })
+        }))
+      );
+    };
+
+    const loadRecords = async () => {
+      const records = await apiFetch('/attendance-logs');
+      if (records.length === 0) {
+        await seedDemoRecords();
+        attendanceRecords = await apiFetch('/attendance-logs');
+      } else {
+        attendanceRecords = records;
+      }
+      refreshDepartmentFilter();
+      applyFilters();
+    };
+
+    const updateStats = (records) => {
+      const total = records.length;
+      const present = records.filter(r => r.status === 'حاضر').length;
+      const late = records.filter(r => r.status === 'متأخر').length;
+      const absent = records.filter(r => r.status === 'غائب').length;
+      const active = records.filter(r => ['حاضر', 'متأخر'].includes(r.status) && !r.check_out).length;
+
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statPresent').textContent = present;
+      document.getElementById('statLate').textContent = late;
+      document.getElementById('statAbsent').textContent = absent;
+      document.getElementById('statActive').textContent = active;
+    };
+
+    const renderTable = (records) => {
+      tableBody.innerHTML = records.map(record => {
+        const normalized = normalizeRecord(record);
+        const hours = calculateHours(record.check_in, record.check_out);
+        const statusStyle = statusStyles[record.status] || 'bg-slate-100 text-slate-700';
+        return `
+          <tr class="border-b border-slate-100">
+            <td class="px-4 py-3 font-bold text-slate-800">${record.employee_name}</td>
+            <td class="px-4 py-3 text-slate-600">${record.department || '—'}</td>
+            <td class="px-4 py-3 text-slate-600">${normalized.displayShift}</td>
+            <td class="px-4 py-3 text-slate-600">${normalized.displayCheckIn || '—'}</td>
+            <td class="px-4 py-3 text-slate-600">${normalized.displayCheckOut || '—'}</td>
+            <td class="px-4 py-3 text-slate-600">${hours}</td>
+            <td class="px-4 py-3">
+              <span class="badge ${statusStyle}">${record.status}</span>
+            </td>
+            <td class="px-4 py-3 text-slate-600">${record.notes || '—'}</td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-2">
+                <button class="btn bg-white text-slate-700 border border-slate-200" onclick="openView(${record.id}, 'عرض')">
+                  <i class="fas fa-eye"></i>
+                  عرض
+                </button>
+                <button class="btn bg-white text-slate-700 border border-slate-200" onclick="openView(${record.id}, 'معاينة')">
+                  <i class="fas fa-up-right-from-square"></i>
+                  معاينة
+                </button>
+                <button class="btn bg-sky-700 text-white" onclick="openEdit(${record.id})">
+                  <i class="fas fa-pen"></i>
+                  تعديل
+                </button>
+                <button class="btn bg-rose-600 text-white" onclick="deleteRecord(${record.id})">
+                  <i class="fas fa-trash"></i>
+                  حذف
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      updateStats(records);
+    };
+
+    const applyFilters = () => {
+      const searchTerm = searchInput.value.trim();
+      const dept = departmentFilter.value;
+      const status = statusFilter.value;
+      const shift = shiftFilter.value;
+
+      currentRecords = attendanceRecords.filter(record => {
+        const matchesSearch = !searchTerm || record.employee_name.includes(searchTerm);
+        const matchesDept = dept === 'all' || record.department === dept;
+        const matchesStatus = status === 'all' || record.status === status;
+        const matchesShift = shift === 'all' || record.shift_type === shift;
+        return matchesSearch && matchesDept && matchesStatus && matchesShift;
+      });
+
+      sortRecords(sortState.key, sortState.dir, false);
+    };
+
+    const sortRecords = (key, dir, rerender = true) => {
+      const sorted = [...currentRecords].sort((a, b) => {
+        let aVal = a[key];
+        let bVal = b[key];
+        if (key === 'hours') {
+          aVal = calculateHours(a.check_in, a.check_out);
+          bVal = calculateHours(b.check_in, b.check_out);
+        }
+        if (aVal === null || aVal === undefined) aVal = '';
+        if (bVal === null || bVal === undefined) bVal = '';
+        if (aVal < bVal) return dir === 'asc' ? -1 : 1;
+        if (aVal > bVal) return dir === 'asc' ? 1 : -1;
+        return 0;
+      });
+      currentRecords = sorted;
+      if (rerender) renderTable(currentRecords);
+      else renderTable(sorted);
+    };
+
+    const refreshDepartmentFilter = () => {
+      const departments = [...new Set(attendanceRecords.map(r => r.department).filter(Boolean))];
+      departmentFilter.innerHTML = '<option value="all">كل الأقسام</option>' +
+        departments.map(dep => `<option value="${dep}">${dep}</option>`).join('');
+    };
+
+    window.openView = (id, mode) => {
+      const record = attendanceRecords.find(r => r.id === id);
+      if (!record) return;
+      const normalized = normalizeRecord(record);
+      document.getElementById('viewTitle').textContent = mode === 'معاينة' ? 'معاينة السجل' : 'تفاصيل السجل';
+      const details = document.getElementById('viewDetails');
+      details.innerHTML = `
+        <div class="tag"><strong>اسم الموظف:</strong> ${record.employee_name}</div>
+        <div class="tag"><strong>القسم:</strong> ${record.department || '—'}</div>
+        <div class="tag"><strong>نوع الوردية:</strong> ${normalized.displayShift}</div>
+        <div class="tag"><strong>وقت الدخول:</strong> ${normalized.displayCheckIn || '—'}</div>
+        <div class="tag"><strong>وقت الخروج:</strong> ${normalized.displayCheckOut || '—'}</div>
+        <div class="tag"><strong>عدد الساعات:</strong> ${calculateHours(record.check_in, record.check_out)}</div>
+        <div class="tag"><strong>حالة الحضور:</strong> ${record.status}</div>
+        <div class="tag"><strong>ملاحظات:</strong> ${record.notes || '—'}</div>
+      `;
+      document.getElementById('viewModal').classList.remove('hidden');
+    };
+
+    window.openEdit = (id) => {
+      const record = attendanceRecords.find(r => r.id === id);
+      if (!record) return;
+      editingId = id;
+      editingRecord = record;
+      document.getElementById('editTitle').textContent = 'تعديل سجل حضور';
+      document.getElementById('formName').value = record.employee_name;
+      document.getElementById('formDepartment').value = record.department || '';
+      document.getElementById('formShift').value = record.shift_type || 'صباحية';
+      document.getElementById('formStatus').value = record.status || 'حاضر';
+      document.getElementById('formCheckIn').value = formatTime(record.check_in);
+      document.getElementById('formCheckOut').value = formatTime(record.check_out);
+      document.getElementById('formNotes').value = record.notes || '';
+      document.getElementById('editModal').classList.remove('hidden');
+    };
+
+    const openAdd = () => {
+      editingId = null;
+      editingRecord = null;
+      document.getElementById('editTitle').textContent = 'إضافة سجل جديد';
+      document.getElementById('editForm').reset();
+      document.getElementById('editModal').classList.remove('hidden');
+    };
+
+    window.deleteRecord = async (id) => {
+      const record = attendanceRecords.find(r => r.id === id);
+      if (!record) return;
+      const confirmDelete = window.confirm(`هل تريد حذف سجل ${record.employee_name}؟`);
+      if (!confirmDelete) return;
+      await apiFetch(`/attendance-logs/${id}`, { method: 'DELETE' });
+      await loadRecords();
+    };
+
+    document.getElementById('editForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const today = new Date().toISOString().slice(0, 10);
+      const attendanceDate = editingRecord?.attendance_date || today;
+      const payload = {
+        employee_name: document.getElementById('formName').value.trim(),
+        department: document.getElementById('formDepartment').value.trim(),
+        shift_type: document.getElementById('formShift').value,
+        status: document.getElementById('formStatus').value,
+        attendance_date: attendanceDate,
+        check_in: buildDateTime(attendanceDate, document.getElementById('formCheckIn').value),
+        check_out: buildDateTime(attendanceDate, document.getElementById('formCheckOut').value),
+        notes: document.getElementById('formNotes').value.trim()
+      };
+
+      if (editingId) {
+        await apiFetch(`/attendance-logs/${editingId}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+      } else {
+        await apiFetch('/attendance-logs', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+      }
+
+      document.getElementById('editModal').classList.add('hidden');
+      await loadRecords();
+    });
+
+    document.getElementById('addRecordBtn').addEventListener('click', openAdd);
+    document.getElementById('closeView').addEventListener('click', () => document.getElementById('viewModal').classList.add('hidden'));
+    document.getElementById('closeEdit').addEventListener('click', () => document.getElementById('editModal').classList.add('hidden'));
+    document.getElementById('cancelEdit').addEventListener('click', () => document.getElementById('editModal').classList.add('hidden'));
+
+    [searchInput, departmentFilter, statusFilter, shiftFilter].forEach(el => {
+      el.addEventListener('input', applyFilters);
+      el.addEventListener('change', applyFilters);
+    });
+
+    document.querySelectorAll('[data-sort]').forEach(button => {
+      button.addEventListener('click', () => {
+        const keyMap = {
+          name: 'employee_name',
+          department: 'department',
+          shift: 'shift_type',
+          checkIn: 'check_in',
+          checkOut: 'check_out',
+          hours: 'hours',
+          status: 'status'
+        };
+        const key = keyMap[button.dataset.sort];
+        const dir = sortState.key === key && sortState.dir === 'asc' ? 'desc' : 'asc';
+        sortState = { key, dir };
+        sortRecords(key, dir);
+      });
+    });
+
+    loadRecords();
+  </script>
+</body>
+</html>

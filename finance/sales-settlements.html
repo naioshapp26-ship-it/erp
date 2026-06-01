@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧾 تسويات المبيعات - نظام نايوش</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --ink: #0b1324;
+            --muted: #5b6b85;
+            --brand: #0f766e;
+            --brand-soft: #e6f7f4;
+            --warning: #d97706;
+            --danger: #e11d48;
+            --sky: #0ea5e9;
+        }
+        body {
+            font-family: 'Cairo', sans-serif;
+            color: var(--ink);
+            background: radial-gradient(circle at top, #ecfeff 0%, #f8fafc 42%, #fff 100%);
+        }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08);
+        }
+        .stat-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+        }
+        .section-accent-brand { border-top: 4px solid var(--brand); }
+        .section-accent-sky { border-top: 4px solid var(--sky); }
+        .section-accent-amber { border-top: 4px solid var(--warning); }
+        .table-scroll { max-height: 480px; overflow: auto; }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        .progress-pill {
+            height: 10px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .progress-pill span {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, #0f766e, #06b6d4);
+        }
+        .table-head {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .action-btn {
+            border: 1px solid #e2e8f0;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 12px;
+            background: #fff;
+        }
+        .settlements-toggle-btn {
+            color: #0f172a !important;
+            border-color: #0f172a !important;
+            background: #ffffff !important;
+        }
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        .modal.active { display: flex; }
+        .modal-card {
+            width: min(720px, 92vw);
+            background: #fff;
+            border-radius: 24px;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 28px 45px rgba(15, 23, 42, 0.2);
+            max-height: 88vh;
+            overflow: auto;
+        }
+    </style>
+    <link rel="stylesheet" href="contrast-overrides.css">
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+            <div class="text-slate-900">
+                <h1 class="text-4xl font-bold mb-2">🧾 مركز تسويات المبيعات</h1>
+                <p class="text-lg text-slate-600">لوحة قوية لإدارة التسويات، الإنذارات، والتوقعات النقدية في مكان واحد.</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <span class="chip">آخر مزامنة: <span id="lastSync">--</span></span>
+                    <span class="chip">دورة الإغلاق: <span id="closeCycle">--</span></span>
+                    <span class="chip">سقف المخاطر: <span id="riskCap">--</span></span>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <button onclick="runAutoReconcile()" class="bg-emerald-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                    <i class="fas fa-bolt"></i>
+                    تشغيل التسوية الذكية
+                </button>
+                <button onclick="openForm('add')" class="bg-slate-900 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                    <i class="fas fa-plus"></i>
+                    تسوية جديدة
+                </button>
+                <button onclick="refreshData()" class="bg-white text-slate-900 border border-slate-200 px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                    <i class="fas fa-rotate"></i>
+                    تحديث البيانات
+                </button>
+                <button onclick="exportCsv()" class="bg-sky-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                    <i class="fas fa-file-export"></i>
+                    تصدير CSV
+                </button>
+                <button onclick="printPage()" class="bg-rose-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                    <i class="fas fa-print"></i>
+                    طباعة الملخص
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-emerald-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">نسبة المطابقة</span>
+                    <i class="fas fa-check-circle text-emerald-500"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800" id="matchRate">--</div>
+                <div class="text-xs text-slate-500">إجمالي التسويات المكتملة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-amber-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">فروقات حرجة</span>
+                    <i class="fas fa-triangle-exclamation text-amber-500"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800" id="criticalVariance">--</div>
+                <div class="text-xs text-slate-500">بحاجة تصعيد فوري</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-sky-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">التحصيل المتوقع</span>
+                    <i class="fas fa-coins text-sky-500"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800" id="expectedCash">--</div>
+                <div class="text-xs text-slate-500">7 أيام قادمة</div>
+            </div>
+            <div class="stat-card p-5 rounded-2xl border-t-4 border-rose-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-500">أيام التسوية</span>
+                    <i class="fas fa-stopwatch text-rose-500"></i>
+                </div>
+                <div class="text-2xl font-bold text-slate-800" id="avgCycle">--</div>
+                <div class="text-xs text-slate-500">متوسط وقت الإغلاق</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="card-glass rounded-3xl p-6 section-accent-brand">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-slate-800">🚦 سير التسويات</h2>
+                    <span class="badge bg-emerald-100 text-emerald-700">تشغيل مباشر</span>
+                </div>
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span>جمع البيانات البنكية</span>
+                            <span id="stageCollect" class="text-slate-600">--</span>
+                        </div>
+                        <div class="progress-pill"><span id="collectProgress" style="width: 0%"></span></div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span>مطابقة الفواتير</span>
+                            <span id="stageMatch" class="text-slate-600">--</span>
+                        </div>
+                        <div class="progress-pill"><span id="matchProgress" style="width: 0%"></span></div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span>اعتماد الفروقات</span>
+                            <span id="stageApprove" class="text-slate-600">--</span>
+                        </div>
+                        <div class="progress-pill"><span id="approveProgress" style="width: 0%"></span></div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span>إقفال الدورة</span>
+                            <span id="stageClose" class="text-slate-600">--</span>
+                        </div>
+                        <div class="progress-pill"><span id="closeProgress" style="width: 0%"></span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-sky">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-slate-800">📌 تنبيهات ذكية</h2>
+                    <button class="text-sm text-sky-600 font-bold" onclick="refreshAlerts()">تحديث الإنذارات</button>
+                </div>
+                <div id="alertsList" class="space-y-3 text-sm"></div>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-amber">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-slate-800">🧩 قواعد التسوية</h2>
+                    <span class="badge bg-amber-100 text-amber-700">قابلة للتعديل</span>
+                </div>
+                <div class="space-y-4 text-sm">
+                    <label class="flex items-center justify-between gap-3">
+                        <span>دمج التحصيلات المكررة خلال 24 ساعة</span>
+                        <input type="checkbox" checked class="h-4 w-4">
+                    </label>
+                    <label class="flex items-center justify-between gap-3">
+                        <span>رفض تلقائي للرسوم فوق 3.2%</span>
+                        <input type="checkbox" checked class="h-4 w-4">
+                    </label>
+                    <label class="flex items-center justify-between gap-3">
+                        <span>إرسال تنبيه عند تجاوز الفروقات 5,000</span>
+                        <input type="checkbox" checked class="h-4 w-4">
+                    </label>
+                    <label class="flex items-center justify-between gap-3">
+                        <span>ربط التسويات المفتوحة بالمخزون</span>
+                        <input type="checkbox" class="h-4 w-4">
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 mb-8 section-accent-brand">
+            <div class="flex items-center justify-between flex-wrap gap-4 mb-4">
+                <h2 class="text-2xl font-bold text-slate-800">🔎 مركز الفلاتر والتحليلات</h2>
+                <div class="flex gap-2">
+                    <button onclick="resetFilters()" class="bg-slate-100 text-slate-900 px-4 py-2 rounded-full font-bold">إعادة تعيين</button>
+                    <button onclick="applyFilters()" class="bg-slate-900 text-white px-4 py-2 rounded-full font-bold">تطبيق الفلاتر</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <label class="text-slate-600 font-bold">بحث سريع</label>
+                    <input id="searchInput" type="text" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" placeholder="رقم التسوية، العميل، القناة">
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">الحالة</label>
+                    <select id="statusFilter" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                        <option value="">الكل</option>
+                        <option value="مفتوح">مفتوح</option>
+                        <option value="قيد المراجعة">قيد المراجعة</option>
+                        <option value="متأخر">متأخر</option>
+                        <option value="مغلق">مغلق</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">قناة التحصيل</label>
+                    <select id="channelFilter" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                        <option value="">الكل</option>
+                        <option value="بوابة الدفع">بوابة الدفع</option>
+                        <option value="تحويل بنكي">تحويل بنكي</option>
+                        <option value="نقاط بيع">نقاط بيع</option>
+                        <option value="تحصيل نقدي">تحصيل نقدي</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">المسؤول</label>
+                    <select id="ownerFilter" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                        <option value="">الكل</option>
+                        <option value="آمنة الشريف">آمنة الشريف</option>
+                        <option value="خالد أمين">خالد أمين</option>
+                        <option value="ياسمين عز">ياسمين عز</option>
+                        <option value="عمر فضل">عمر فضل</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">من تاريخ</label>
+                    <input id="fromDate" type="date" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">إلى تاريخ</label>
+                    <input id="toDate" type="date" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">حد الفروقات</label>
+                    <input id="varianceLimit" type="number" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" placeholder="مثال: 5000">
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">مستوى المخاطر</label>
+                    <select id="riskFilter" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                        <option value="">الكل</option>
+                        <option value="منخفض">منخفض</option>
+                        <option value="متوسط">متوسط</option>
+                        <option value="مرتفع">مرتفع</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="card-glass rounded-3xl p-6 section-accent-sky">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">📈 توقعات التدفق النقدي</h3>
+                <div class="space-y-4 text-sm">
+                    <div class="flex items-center justify-between">
+                        <span>خلال 24 ساعة</span>
+                        <span id="cash24" class="font-bold text-slate-800">--</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span>خلال 3 أيام</span>
+                        <span id="cash72" class="font-bold text-slate-800">--</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span>خلال أسبوع</span>
+                        <span id="cashWeek" class="font-bold text-slate-800">--</span>
+                    </div>
+                    <div class="bg-sky-50 p-4 rounded-2xl text-sky-700">أولوية التحصيل: <span id="priorityChannel">--</span></div>
+                </div>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-amber">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">🧠 مؤشرات الجودة</h3>
+                <div class="space-y-4 text-sm">
+                    <div class="flex items-center justify-between">
+                        <span>دقة المطابقة</span>
+                        <span id="accuracyScore" class="font-bold text-slate-800">--</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span>نسبة الرسوم</span>
+                        <span id="feeRate" class="font-bold text-slate-800">--</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span>الفواتير غير المطابقة</span>
+                        <span id="unmatchedCount" class="font-bold text-slate-800">--</span>
+                    </div>
+                    <div class="bg-amber-50 p-4 rounded-2xl text-amber-700">أعلى مخاطرة: <span id="topRisk">--</span></div>
+                </div>
+            </div>
+            <div class="card-glass rounded-3xl p-6 section-accent-brand">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">🧾 سجل الاعتمادات</h3>
+                <div id="auditLog" class="space-y-3 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="card-glass rounded-3xl p-6 section-accent-amber">
+            <div class="flex items-center justify-between flex-wrap gap-4 mb-4">
+                <h3 class="text-xl font-bold text-slate-800">📊 سجل التسويات التشغيلية</h3>
+                <div class="flex flex-wrap gap-2">
+                    <span class="badge bg-amber-100 text-amber-700" id="recordsCount">--</span>
+                    <button onclick="toggleCompact()" class="action-btn settlements-toggle-btn" style="color: #0f172a !important; border-color: #0f172a !important; background: #ffffff !important;">تبديل العرض</button>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-sm">
+                    <thead class="bg-amber-50 text-amber-700 table-head">
+                        <tr>
+                            <th class="px-3 py-3 text-right">رقم التسوية</th>
+                            <th class="px-3 py-3 text-right">الفترة</th>
+                            <th class="px-3 py-3 text-right">القناة</th>
+                            <th class="px-3 py-3 text-right">الإجمالي</th>
+                            <th class="px-3 py-3 text-right">الرسوم</th>
+                            <th class="px-3 py-3 text-right">المرتجعات</th>
+                            <th class="px-3 py-3 text-right">الصافي</th>
+                            <th class="px-3 py-3 text-right">التحصيل</th>
+                            <th class="px-3 py-3 text-right">الفروقات</th>
+                            <th class="px-3 py-3 text-right">الحالة</th>
+                            <th class="px-3 py-3 text-right">المخاطر</th>
+                            <th class="px-3 py-3 text-right">المسؤول</th>
+                            <th class="px-3 py-3 text-right">آخر تحديث</th>
+                            <th class="px-3 py-3 text-right">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="settlementsBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="settlementModal" class="modal" aria-hidden="true">
+        <div class="modal-card">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="modalTitle" class="text-xl font-bold text-slate-800">تسوية جديدة</h3>
+                <button onclick="closeModal()" class="text-slate-500 hover:text-slate-900"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="settlementForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <input type="hidden" id="editId">
+                <div>
+                    <label class="text-slate-600 font-bold">رقم التسوية</label>
+                    <input id="formId" type="text" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" required>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">الفترة</label>
+                    <input id="formPeriod" type="text" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" placeholder="مثال: 01-05 فبراير" required>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">العميل</label>
+                    <input id="formCustomer" type="text" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" placeholder="اسم العميل" required>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">القناة</label>
+                    <select id="formChannel" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                        <option value="بوابة الدفع">بوابة الدفع</option>
+                        <option value="تحويل بنكي">تحويل بنكي</option>
+                        <option value="نقاط بيع">نقاط بيع</option>
+                        <option value="تحصيل نقدي">تحصيل نقدي</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">الحالة</label>
+                    <select id="formStatus" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                        <option value="مفتوح">مفتوح</option>
+                        <option value="قيد المراجعة">قيد المراجعة</option>
+                        <option value="متأخر">متأخر</option>
+                        <option value="مغلق">مغلق</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">الإجمالي</label>
+                    <input id="formGross" type="number" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" required>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">الرسوم</label>
+                    <input id="formFees" type="number" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" required>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">المرتجعات</label>
+                    <input id="formRefunds" type="number" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" required>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">التحصيل</label>
+                    <input id="formCollected" type="number" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" required>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">المخاطر</label>
+                    <select id="formRisk" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                        <option value="منخفض">منخفض</option>
+                        <option value="متوسط">متوسط</option>
+                        <option value="مرتفع">مرتفع</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">الأولوية</label>
+                    <select id="formPriority" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                        <option value="عادي">عادي</option>
+                        <option value="عاجل">عاجل</option>
+                        <option value="تصعيد">تصعيد</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">المسؤول</label>
+                    <select id="formOwner" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                        <option value="آمنة الشريف">آمنة الشريف</option>
+                        <option value="خالد أمين">خالد أمين</option>
+                        <option value="ياسمين عز">ياسمين عز</option>
+                        <option value="عمر فضل">عمر فضل</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-600 font-bold">أيام الدورة</label>
+                    <input id="formCycle" type="number" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" min="0" value="1">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-slate-600 font-bold">ملاحظات</label>
+                    <textarea id="formNotes" rows="3" class="w-full mt-2 p-3 rounded-2xl border border-slate-200" placeholder="أي ملاحظات إضافية"></textarea>
+                </div>
+            </form>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="closeModal()" class="bg-slate-100 text-slate-900 px-6 py-2 rounded-full font-bold">إلغاء</button>
+                <button onclick="saveSettlement()" class="bg-slate-900 text-white px-6 py-2 rounded-full font-bold">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="assignModal" class="modal" aria-hidden="true">
+        <div class="modal-card">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">تعيين مسؤول التسوية</h3>
+                <button onclick="closeAssignModal()" class="text-slate-500 hover:text-slate-900"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="text-sm">
+                <input type="hidden" id="assignId">
+                <label class="text-slate-600 font-bold">المسؤول الجديد</label>
+                <select id="assignOwner" class="w-full mt-2 p-3 rounded-2xl border border-slate-200">
+                    <option value="آمنة الشريف">آمنة الشريف</option>
+                    <option value="خالد أمين">خالد أمين</option>
+                    <option value="ياسمين عز">ياسمين عز</option>
+                    <option value="عمر فضل">عمر فضل</option>
+                </select>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="closeAssignModal()" class="bg-slate-100 text-slate-900 px-6 py-2 rounded-full font-bold">إلغاء</button>
+                <button onclick="confirmAssign()" class="bg-emerald-600 text-white px-6 py-2 rounded-full font-bold">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const summaryText = 'مركز تسويات المبيعات: مطابقة التحصيلات، قياس الفروقات، وتحكم كامل في دورات الإغلاق.';
+        const API_BASE = '/finance/sales-settlements';
+        const settlements = [];
+        let filteredSettlements = [];
+        let compactMode = false;
+
+        const auditLogData = [
+            'اعتماد تسوية SET-2402 بواسطة خالد أمين 10:20 صباحا',
+            'تصعيد فروقات SET-2405 للفريق المالي 09:40 صباحا',
+            'مراجعة رسوم بوابة الدفع لمدة أسبوع 08:55 صباحا',
+            'إقفال دورة تحصيل فبراير مع فريق المخزون 08:10 صباحا'
+        ];
+
+        const alertsData = [
+            'رسوم قناة بوابة الدفع تجاوزت 3.2% في تسوية SET-2405',
+            'فروقات متكررة في نقاط البيع لأكثر من 2 يوم',
+            'تحصيل بنكي معلق بقيمة 65,000 في حساب 302-AL',
+            'تسويتان مفتوحتان تجاوزتا 7 أيام بدون اعتماد'
+        ];
+
+        function refreshData() {
+            updateTimestamp();
+            loadSettlements();
+        }
+        function printPage() { window.print(); }
+        function copySummary() {
+            navigator.clipboard.writeText(summaryText).then(() => {
+                alert('تم نسخ ملخص تسويات المبيعات.');
+            });
+        }
+        function getApiHeaders() {
+            const base = { 'Content-Type': 'application/json' };
+            if (window.getFinanceHeaders) {
+                return Object.assign(base, window.getFinanceHeaders());
+            }
+            return base;
+        }
+        function mapSettlementRow(row) {
+            return {
+                dbId: row.settlement_id,
+                id: row.settlement_number,
+                period: row.period_label,
+                channel: row.channel,
+                gross: Number(row.gross_amount || 0),
+                fees: Number(row.fees_amount || 0),
+                refunds: Number(row.refunds_amount || 0),
+                collected: Number(row.collected_amount || 0),
+                status: row.status || 'مفتوح',
+                risk: row.risk_level || 'منخفض',
+                owner: row.owner_name || 'غير محدد',
+                lastUpdate: row.last_update ? String(row.last_update).split('T')[0] : '',
+                customer: row.customer_name || 'غير محدد',
+                variance: Number(row.variance_amount || 0),
+                cycleDays: Number(row.cycle_days || 0),
+                priority: row.priority_level || 'عادي',
+                notes: row.notes || ''
+            };
+        }
+        async function loadSettlements() {
+            try {
+                const response = await fetch(API_BASE, { headers: getApiHeaders() });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'تعذر تحميل التسويات');
+                }
+                settlements.splice(0, settlements.length, ...data.settlements.map(mapSettlementRow));
+                applyFilters();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر تحميل البيانات من قاعدة البيانات.');
+            }
+        }
+        async function createSettlement(payload) {
+            const response = await fetch(API_BASE, {
+                method: 'POST',
+                headers: getApiHeaders(),
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'تعذر حفظ التسوية');
+            }
+        }
+        async function updateSettlement(id, payload) {
+            const response = await fetch(`${API_BASE}/${id}`, {
+                method: 'PUT',
+                headers: getApiHeaders(),
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'تعذر تحديث التسوية');
+            }
+        }
+        async function removeSettlement(id) {
+            const response = await fetch(`${API_BASE}/${id}`, {
+                method: 'DELETE',
+                headers: getApiHeaders()
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'تعذر حذف التسوية');
+            }
+        }
+        function exportCsv() {
+            const headers = ['رقم التسوية', 'الفترة', 'القناة', 'الإجمالي', 'الرسوم', 'المرتجعات', 'الصافي', 'التحصيل', 'الفروقات', 'الحالة', 'المخاطر', 'المسؤول', 'آخر تحديث'];
+            const rows = filteredSettlements.map(item => [
+                item.id,
+                item.period,
+                item.channel,
+                item.gross,
+                item.fees,
+                item.refunds,
+                item.gross - item.fees - item.refunds,
+                item.collected,
+                item.variance,
+                item.status,
+                item.risk,
+                item.owner,
+                item.lastUpdate
+            ]);
+            const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'sales-settlements.csv';
+            link.click();
+        }
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('lastSync').textContent = now.toLocaleString('en-US');
+            document.getElementById('closeCycle').textContent = 'كل 48 ساعة';
+            document.getElementById('riskCap').textContent = '5,000 جنيه';
+        }
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(value);
+        }
+        function renderStats() {
+            const total = filteredSettlements.length || 1;
+            const closed = filteredSettlements.filter(item => item.status === 'مغلق').length;
+            const critical = filteredSettlements.filter(item => Math.abs(item.variance) >= 5000 || item.risk === 'مرتفع').length;
+            const expected = filteredSettlements.reduce((sum, item) => sum + item.collected, 0);
+            const avgCycle = Math.round(filteredSettlements.reduce((sum, item) => sum + item.cycleDays, 0) / total);
+            const grossTotal = filteredSettlements.reduce((sum, item) => sum + item.gross, 0);
+            const feeRate = filteredSettlements.reduce((sum, item) => sum + item.fees, 0) / (grossTotal || 1);
+
+            document.getElementById('matchRate').textContent = `${Math.round((closed / total) * 100)}%`;
+            document.getElementById('criticalVariance').textContent = critical.toString();
+            document.getElementById('expectedCash').textContent = formatCurrency(expected);
+            document.getElementById('avgCycle').textContent = `${avgCycle} أيام`;
+            document.getElementById('cash24').textContent = formatCurrency(expected * 0.28);
+            document.getElementById('cash72').textContent = formatCurrency(expected * 0.62);
+            document.getElementById('cashWeek').textContent = formatCurrency(expected);
+            document.getElementById('priorityChannel').textContent = topChannel();
+            document.getElementById('accuracyScore').textContent = `${Math.round(100 - (critical / total) * 25)}%`;
+            document.getElementById('feeRate').textContent = `${(feeRate * 100).toFixed(2)}%`;
+            document.getElementById('unmatchedCount').textContent = filteredSettlements.filter(item => item.status !== 'مغلق').length.toString();
+            document.getElementById('topRisk').textContent = filteredSettlements.find(item => item.risk === 'مرتفع')?.id || 'لا يوجد';
+        }
+        function topChannel() {
+            const counts = {};
+            filteredSettlements.forEach(item => {
+                counts[item.channel] = (counts[item.channel] || 0) + item.collected;
+            });
+            return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'غير محدد';
+        }
+        function renderPipeline() {
+            const total = filteredSettlements.length || 1;
+            const collect = filteredSettlements.filter(item => item.status !== 'مغلق').length;
+            const match = filteredSettlements.filter(item => item.status === 'قيد المراجعة').length;
+            const approve = filteredSettlements.filter(item => item.status === 'متأخر').length;
+            const close = filteredSettlements.filter(item => item.status === 'مغلق').length;
+
+            document.getElementById('stageCollect').textContent = `${collect} تسوية`;
+            document.getElementById('stageMatch').textContent = `${match} تسوية`;
+            document.getElementById('stageApprove').textContent = `${approve} تسوية`;
+            document.getElementById('stageClose').textContent = `${close} تسوية`;
+
+            document.getElementById('collectProgress').style.width = `${Math.min(100, (collect / total) * 100)}%`;
+            document.getElementById('matchProgress').style.width = `${Math.min(100, (match / total) * 100)}%`;
+            document.getElementById('approveProgress').style.width = `${Math.min(100, (approve / total) * 100)}%`;
+            document.getElementById('closeProgress').style.width = `${Math.min(100, (close / total) * 100)}%`;
+        }
+        function renderTable() {
+            const tbody = document.getElementById('settlementsBody');
+            tbody.innerHTML = '';
+            filteredSettlements.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-3 py-3 font-bold text-slate-800">${item.id}</td>
+                    <td class="px-3 py-3">${item.period}</td>
+                    <td class="px-3 py-3">${item.channel}</td>
+                    <td class="px-3 py-3">${formatCurrency(item.gross)}</td>
+                    <td class="px-3 py-3">${formatCurrency(item.fees)}</td>
+                    <td class="px-3 py-3">${formatCurrency(item.refunds)}</td>
+                    <td class="px-3 py-3">${formatCurrency(item.gross - item.fees - item.refunds)}</td>
+                    <td class="px-3 py-3">${formatCurrency(item.collected)}</td>
+                    <td class="px-3 py-3 ${item.variance < 0 ? 'text-rose-600' : 'text-emerald-600'}">${formatCurrency(item.variance)}</td>
+                    <td class="px-3 py-3">
+                        <span class="badge ${statusBadge(item.status)}">${item.status}</span>
+                    </td>
+                    <td class="px-3 py-3">
+                        <span class="badge ${riskBadge(item.risk)}">${item.risk}</span>
+                    </td>
+                    <td class="px-3 py-3">${item.owner}</td>
+                    <td class="px-3 py-3">${item.lastUpdate}</td>
+                    <td class="px-3 py-3">
+                        <div class="flex flex-wrap gap-2">
+                            <button class="action-btn" onclick="openAssign('${item.dbId}')">تعيين</button>
+                            <button class="action-btn" onclick="openForm('edit', '${item.dbId}')">تعديل</button>
+                            <button class="action-btn" onclick="deleteSettlement('${item.dbId}')">حذف</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            document.getElementById('recordsCount').textContent = `${filteredSettlements.length} تسوية نشطة`;
+        }
+        function renderAuditLog() {
+            const logContainer = document.getElementById('auditLog');
+            logContainer.innerHTML = '';
+            auditLogData.forEach(item => {
+                const logItem = document.createElement('div');
+                logItem.className = 'bg-slate-50 p-3 rounded-2xl';
+                logItem.textContent = item;
+                logContainer.appendChild(logItem);
+            });
+        }
+        function renderAlerts() {
+            const list = document.getElementById('alertsList');
+            list.innerHTML = '';
+            alertsData.forEach(text => {
+                const alert = document.createElement('div');
+                alert.className = 'bg-sky-50 text-sky-700 p-3 rounded-2xl flex items-start gap-2';
+                alert.innerHTML = `<i class="fas fa-bell mt-1"></i><span>${text}</span>`;
+                list.appendChild(alert);
+            });
+        }
+        function refreshAlerts() {
+            renderAlerts();
+        }
+        function statusBadge(status) {
+            switch (status) {
+                case 'مغلق':
+                    return 'bg-emerald-100 text-emerald-700';
+                case 'قيد المراجعة':
+                    return 'bg-amber-100 text-amber-700';
+                case 'متأخر':
+                    return 'bg-rose-100 text-rose-700';
+                default:
+                    return 'bg-slate-100 text-slate-700';
+            }
+        }
+        function riskBadge(risk) {
+            switch (risk) {
+                case 'مرتفع':
+                    return 'bg-rose-100 text-rose-700';
+                case 'متوسط':
+                    return 'bg-amber-100 text-amber-700';
+                default:
+                    return 'bg-emerald-100 text-emerald-700';
+            }
+        }
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.trim();
+            const status = document.getElementById('statusFilter').value;
+            const channel = document.getElementById('channelFilter').value;
+            const owner = document.getElementById('ownerFilter').value;
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            const varianceLimit = parseFloat(document.getElementById('varianceLimit').value || '0');
+            const risk = document.getElementById('riskFilter').value;
+
+            filteredSettlements = settlements.filter(item => {
+                const searchValue = search.toLowerCase();
+                const matchesSearch = !searchValue || [item.id, item.customer, item.channel, item.owner]
+                    .some(field => String(field || '').toLowerCase().includes(searchValue));
+                const matchesStatus = !status || item.status === status;
+                const matchesChannel = !channel || item.channel === channel;
+                const matchesOwner = !owner || item.owner === owner;
+                const matchesRisk = !risk || item.risk === risk;
+                const matchesVariance = !varianceLimit || Math.abs(item.variance) >= varianceLimit;
+                const matchesFrom = !fromDate || item.lastUpdate >= fromDate;
+                const matchesTo = !toDate || item.lastUpdate <= toDate;
+                return matchesSearch && matchesStatus && matchesChannel && matchesOwner && matchesRisk && matchesVariance && matchesFrom && matchesTo;
+            });
+
+            renderStats();
+            renderPipeline();
+            renderTable();
+        }
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('channelFilter').value = '';
+            document.getElementById('ownerFilter').value = '';
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            document.getElementById('varianceLimit').value = '';
+            document.getElementById('riskFilter').value = '';
+            applyFilters();
+        }
+        function runAutoReconcile() {
+            const updates = settlements
+                .filter(item => item.status === 'مفتوح')
+                .map(item => updateSettlement(item.dbId, { status: 'قيد المراجعة' }));
+            Promise.all(updates)
+                .then(() => loadSettlements())
+                .then(() => alert('تم تشغيل محرك التسوية الذكية وتحديث الحالات.'))
+                .catch(() => alert('حدث خطا اثناء تحديث التسويات.'));
+        }
+        function openForm(mode, id = '') {
+            document.getElementById('settlementModal').classList.add('active');
+            document.getElementById('modalTitle').textContent = mode === 'edit' ? 'تعديل تسوية' : 'تسوية جديدة';
+            document.getElementById('editId').value = id;
+
+            if (mode === 'edit') {
+                const item = settlements.find(entry => entry.dbId === Number(id));
+                if (!item) return;
+                document.getElementById('formId').value = item.id;
+                document.getElementById('formPeriod').value = item.period;
+                document.getElementById('formCustomer').value = item.customer;
+                document.getElementById('formChannel').value = item.channel;
+                document.getElementById('formStatus').value = item.status;
+                document.getElementById('formGross').value = item.gross;
+                document.getElementById('formFees').value = item.fees;
+                document.getElementById('formRefunds').value = item.refunds;
+                document.getElementById('formCollected').value = item.collected;
+                document.getElementById('formRisk').value = item.risk;
+                document.getElementById('formPriority').value = item.priority;
+                document.getElementById('formOwner').value = item.owner;
+                document.getElementById('formCycle').value = item.cycleDays || 0;
+                document.getElementById('formNotes').value = item.notes || '';
+            } else {
+                document.getElementById('settlementForm').reset();
+            }
+        }
+        function closeModal() {
+            document.getElementById('settlementModal').classList.remove('active');
+        }
+        async function saveSettlement() {
+            const id = document.getElementById('formId').value.trim();
+            const period = document.getElementById('formPeriod').value.trim();
+            const customer = document.getElementById('formCustomer').value.trim();
+            const channel = document.getElementById('formChannel').value;
+            const status = document.getElementById('formStatus').value;
+            const gross = parseFloat(document.getElementById('formGross').value || '0');
+            const fees = parseFloat(document.getElementById('formFees').value || '0');
+            const refunds = parseFloat(document.getElementById('formRefunds').value || '0');
+            const collected = parseFloat(document.getElementById('formCollected').value || '0');
+            const risk = document.getElementById('formRisk').value;
+            const priority = document.getElementById('formPriority').value;
+            const owner = document.getElementById('formOwner').value;
+            const cycleDays = parseInt(document.getElementById('formCycle').value || '0', 10);
+            const notes = document.getElementById('formNotes').value.trim();
+
+            if (!id || !period || !customer) {
+                alert('يرجى إدخال رقم التسوية والفترة واسم العميل.');
+                return;
+            }
+
+            const payload = {
+                settlement_number: id,
+                period_label: period,
+                customer_name: customer,
+                channel,
+                status,
+                gross_amount: gross,
+                fees_amount: fees,
+                refunds_amount: refunds,
+                collected_amount: collected,
+                risk_level: risk,
+                priority_level: priority,
+                owner_name: owner,
+                cycle_days: cycleDays,
+                notes
+            };
+
+            try {
+                const existingId = document.getElementById('editId').value;
+                if (existingId) {
+                    await updateSettlement(existingId, payload);
+                } else {
+                    await createSettlement(payload);
+                }
+                closeModal();
+                loadSettlements();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر حفظ التسوية في قاعدة البيانات.');
+            }
+        }
+        async function deleteSettlement(id) {
+            const ok = window.confirm('هل تريد حذف هذه التسوية؟');
+            if (!ok) return;
+            try {
+                await removeSettlement(id);
+                loadSettlements();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر حذف التسوية من قاعدة البيانات.');
+            }
+        }
+        function openAssign(id) {
+            document.getElementById('assignModal').classList.add('active');
+            document.getElementById('assignId').value = id;
+        }
+        function closeAssignModal() {
+            document.getElementById('assignModal').classList.remove('active');
+        }
+        async function confirmAssign() {
+            const id = document.getElementById('assignId').value;
+            const owner = document.getElementById('assignOwner').value;
+            try {
+                await updateSettlement(id, { owner_name: owner });
+                closeAssignModal();
+                loadSettlements();
+            } catch (error) {
+                console.error(error);
+                alert('تعذر تحديث المسؤول.');
+            }
+        }
+        function toggleCompact() {
+            compactMode = !compactMode;
+            document.body.classList.toggle('compact-table', compactMode);
+        }
+
+        updateTimestamp();
+        renderAuditLog();
+        renderAlerts();
+        loadSettlements();
+    </script>
+    <script src="/finance/finance-smart-search.js"></script>
+  <script src="/finance/finance-related-actions.js"></script>
+</body>
+</html>

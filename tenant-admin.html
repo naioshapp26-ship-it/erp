@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة المستأجرين — لوحة المشرف الأعلى</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: { fontFamily: { sans: ['Cairo', 'sans-serif'] } } }
+    };
+  </script>
+  <style>
+    body { font-family: 'Cairo', sans-serif; background: #f1f5f9; }
+    .modal-backdrop { position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:50 }
+    .modal-card { width:min(680px,96vw);max-height:90vh;overflow-y:auto }
+    .chip { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700 }
+    .chip-green  { background:#d1fae5;color:#065f46 }
+    .chip-yellow { background:#fef9c3;color:#713f12 }
+    .chip-red    { background:#fee2e2;color:#991b1b }
+    .chip-gray   { background:#e2e8f0;color:#475569 }
+    .chip-blue   { background:#dbeafe;color:#1e40af }
+    .btn { display:inline-flex;align-items:center;gap:6px;font-weight:700;border-radius:8px;padding:7px 16px;transition:all .15s;cursor:pointer;border:0 }
+    .btn:hover { opacity:.85;transform:translateY(-1px) }
+    .btn-primary { background:#2563eb;color:#fff }
+    .btn-success { background:#059669;color:#fff }
+    .btn-danger  { background:#dc2626;color:#fff }
+    .btn-warn    { background:#d97706;color:#fff }
+    .btn-gray    { background:#64748b;color:#fff }
+    .btn-sm { padding:5px 10px;font-size:13px;border-radius:6px }
+    input,select,textarea { border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;width:100%;outline:none;transition:border-color .15s }
+    input:focus,select:focus,textarea:focus { border-color:#2563eb }
+    .table-wrap { overflow-x:auto }
+    table { width:100%;border-collapse:collapse }
+    th { background:#f8fafc;font-weight:700;font-size:13px;color:#475569;padding:10px 12px;text-align:right }
+    td { padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;vertical-align:middle }
+    tr:hover td { background:#f8fafc }
+    .log-row { padding:8px 0;border-bottom:1px dashed #e2e8f0 }
+    .log-row:last-child { border-bottom:0 }
+    .toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 24px;border-radius:12px;font-weight:700;z-index:9999;opacity:0;transition:opacity .3s }
+    .toast.show { opacity:1 }
+  </style>
+</head>
+<body class="text-slate-800">
+
+<!-- ============================================================
+     Header
+     ============================================================ -->
+<header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
+  <div class="flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-lg font-black">T</div>
+    <div>
+      <h1 class="text-lg font-black text-slate-800">إدارة المستأجرين</h1>
+      <p class="text-xs text-slate-500">لوحة المشرف الأعلى — Multi-Tenant Control Plane</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <button onclick="openCreateModal()" class="btn btn-primary btn-sm"><i class="fa fa-plus"></i> مستأجر جديد</button>
+    <button onclick="runAllMigrations()" class="btn btn-success btn-sm"><i class="fa fa-database"></i> تشغيل الهجرات للكل</button>
+  </div>
+</header>
+
+<!-- ============================================================
+     Filters
+     ============================================================ -->
+<div class="max-w-7xl mx-auto px-4 py-5">
+  <div class="bg-white rounded-2xl shadow-sm p-4 mb-5 flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-[180px]">
+      <label class="block text-xs font-700 text-slate-500 mb-1">بحث (اسم / نطاق)</label>
+      <input id="search" type="text" placeholder="ابحث..." onkeydown="if(event.key==='Enter') loadTenants()">
+    </div>
+    <div class="min-w-[140px]">
+      <label class="block text-xs font-700 text-slate-500 mb-1">الحالة</label>
+      <select id="filterStatus">
+        <option value="">الكل</option>
+        <option value="active">نشط</option>
+        <option value="suspended">موقوف</option>
+        <option value="pending_payment">بانتظار الدفع</option>
+        <option value="deleted">محذوف</option>
+      </select>
+    </div>
+    <div class="min-w-[140px]">
+      <label class="block text-xs font-700 text-slate-500 mb-1">الخطة</label>
+      <select id="filterPlan">
+        <option value="">الكل</option>
+        <option value="basic">Basic</option>
+        <option value="pro">Pro</option>
+        <option value="enterprise">Enterprise</option>
+      </select>
+    </div>
+    <button onclick="loadTenants(1)" class="btn btn-primary"><i class="fa fa-search"></i> بحث</button>
+    <button onclick="resetFilters()" class="btn btn-gray"><i class="fa fa-rotate-left"></i> إعادة ضبط</button>
+  </div>
+
+  <!-- Stats bar -->
+  <div id="statsBar" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5"></div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-2xl shadow-sm">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>النطاق الفرعي</th>
+            <th>الشركة</th>
+            <th>الخطة</th>
+            <th>الحالة</th>
+            <th>تاريخ الإنشاء</th>
+            <th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="tenantsTable">
+          <tr><td colspan="7" class="text-center py-10 text-slate-400"><i class="fa fa-spinner fa-spin"></i> جارٍ التحميل…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Pagination -->
+    <div id="pagination" class="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-sm text-slate-500"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- ============================================================
+     Modal: تفاصيل المستأجر
+     ============================================================ -->
+<div id="modalDetail" class="modal-backdrop hidden" onclick="if(event.target===this)closeModal('modalDetail')">
+  <div class="modal-card bg-white rounded-2xl shadow-2xl p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="text-lg font-black text-slate-800">تفاصيل المستأجر</h2>
+      <button onclick="closeModal('modalDetail')" class="text-slate-400 hover:text-slate-700 text-xl"><i class="fa fa-times"></i></button>
+    </div>
+    <div id="detailContent"></div>
+
+    <!-- Tabs -->
+    <div class="flex gap-2 border-b border-slate-200 mt-6 mb-4">
+      <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn font-700 text-sm px-4 py-2 border-b-2 border-blue-600 text-blue-600">سجلات التجهيز</button>
+      <button onclick="switchTab('payments')" id="tab-payments" class="tab-btn font-700 text-sm px-4 py-2 border-b-2 border-transparent text-slate-500">الدفعات</button>
+      <button onclick="switchTab('edit')" id="tab-edit" class="tab-btn font-700 text-sm px-4 py-2 border-b-2 border-transparent text-slate-500">تعديل</button>
+    </div>
+    <div id="tabContent"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     Modal: إنشاء مستأجر
+     ============================================================ -->
+<div id="modalCreate" class="modal-backdrop hidden" onclick="if(event.target===this)closeModal('modalCreate')">
+  <div class="modal-card bg-white rounded-2xl shadow-2xl p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="text-lg font-black">إنشاء مستأجر جديد</h2>
+      <button onclick="closeModal('modalCreate')" class="text-slate-400 hover:text-slate-700 text-xl"><i class="fa fa-times"></i></button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-700 text-slate-500 mb-1">النطاق الفرعي *</label>
+        <input id="c_subdomain" type="text" placeholder="acme">
+      </div>
+      <div>
+        <label class="block text-xs font-700 text-slate-500 mb-1">اسم الشركة *</label>
+        <input id="c_company" type="text" placeholder="Acme Corp">
+      </div>
+      <div>
+        <label class="block text-xs font-700 text-slate-500 mb-1">الخطة</label>
+        <select id="c_plan">
+          <option value="basic">Basic</option>
+          <option value="pro">Pro</option>
+          <option value="enterprise">Enterprise</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-700 text-slate-500 mb-1">اسم الأدمن *</label>
+        <input id="c_adminName" type="text" placeholder="محمد أحمد">
+      </div>
+      <div>
+        <label class="block text-xs font-700 text-slate-500 mb-1">بريد الأدمن</label>
+        <input id="c_adminEmail" type="email" placeholder="admin@acme.com">
+      </div>
+      <div>
+        <label class="block text-xs font-700 text-slate-500 mb-1">جوال الأدمن</label>
+        <input id="c_adminPhone" type="tel" placeholder="966500000000">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-xs font-700 text-slate-500 mb-1">كلمة مرور الأدمن *</label>
+        <input id="c_adminPassword" type="password" placeholder="••••••••">
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 mt-6">
+      <button onclick="closeModal('modalCreate')" class="btn btn-gray">إلغاء</button>
+      <button onclick="createTenant()" class="btn btn-primary"><i class="fa fa-plus"></i> إنشاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     Modal: تأكيد الحذف
+     ============================================================ -->
+<div id="modalDelete" class="modal-backdrop hidden" onclick="if(event.target===this)closeModal('modalDelete')">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+    <h2 class="text-lg font-black text-red-700 mb-3"><i class="fa fa-triangle-exclamation"></i> تأكيد الحذف</h2>
+    <p class="text-slate-600 text-sm mb-4" id="deleteMsg">هل أنت متأكد من حذف هذا المستأجر؟</p>
+    <label class="flex items-center gap-2 text-sm text-slate-600 mb-4">
+      <input type="checkbox" id="dropDbCheck"> حذف قاعدة البيانات أيضاً
+    </label>
+    <div class="flex justify-end gap-3">
+      <button onclick="closeModal('modalDelete')" class="btn btn-gray">إلغاء</button>
+      <button onclick="confirmDelete()" class="btn btn-danger"><i class="fa fa-trash"></i> حذف</button>
+    </div>
+  </div>
+</div>
+
+<script src="/public/tenant-context.js"></script>
+<script>
+// ================================================================
+// الحالة العالمية
+// ================================================================
+let _tenants = [], _currentPage = 1, _totalTenants = 0, _perPage = 20;
+let _selectedTenantId = null, _activeTab = 'logs';
+
+// ================================================================
+// تحميل المستأجرين
+// ================================================================
+async function loadTenants(page) {
+  page = page || _currentPage;
+  _currentPage = page;
+  const search = document.getElementById('search').value.trim();
+  const status = document.getElementById('filterStatus').value;
+  const plan   = document.getElementById('filterPlan').value;
+  const params = new URLSearchParams({ page, limit: _perPage });
+  if (search) params.set('search', search);
+  if (status) params.set('status', status);
+  if (plan)   params.set('plan', plan);
+
+  setTableLoading(true);
+  try {
+    const data = await apiGet('/api/tenants?' + params);
+    _tenants = data.tenants || [];
+    _totalTenants = data.total || 0;
+    renderTable();
+    renderPagination();
+    renderStats();
+  } catch (e) {
+    showToast('خطأ في تحميل البيانات: ' + e.message, 'error');
+    setTableLoading(false);
+  }
+}
+
+function setTableLoading(on) {
+  if (on) {
+    document.getElementById('tenantsTable').innerHTML =
+      '<tr><td colspan="7" class="text-center py-10 text-slate-400"><i class="fa fa-spinner fa-spin"></i> جارٍ التحميل…</td></tr>';
+  }
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tenantsTable');
+  if (!_tenants.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-slate-400">لا توجد نتائج.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = _tenants.map(t => `
+    <tr>
+      <td class="text-slate-400">${t.id}</td>
+      <td><span class="font-700 text-blue-700">${esc(t.subdomain)}</span></td>
+      <td>${esc(t.company_name)}</td>
+      <td>${planBadge(t.subscription_plan)}</td>
+      <td>${statusBadge(t.status)}</td>
+      <td class="text-slate-400 text-xs">${formatDate(t.created_at)}</td>
+      <td>
+        <div class="flex gap-1 flex-wrap">
+          <button onclick="viewTenant(${t.id})" class="btn btn-primary btn-sm"><i class="fa fa-eye"></i></button>
+          <button onclick="openEditInline(${t.id})" class="btn btn-warn btn-sm" title="تعديل"><i class="fa fa-pen"></i></button>
+          <button onclick="runMigrations(${t.id})" class="btn btn-success btn-sm" title="تشغيل الهجرات"><i class="fa fa-database"></i></button>
+          <button onclick="promptDelete(${t.id}, '${esc(t.company_name)}')" class="btn btn-danger btn-sm" title="حذف"><i class="fa fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderPagination() {
+  const total = _totalTenants;
+  const pages = Math.ceil(total / _perPage);
+  const el = document.getElementById('pagination');
+  el.innerHTML = `
+    <span>إجمالي: <strong>${total}</strong> مستأجر</span>
+    <div class="flex gap-1">
+      <button onclick="loadTenants(${_currentPage - 1})" ${_currentPage <= 1 ? 'disabled' : ''} class="btn btn-gray btn-sm"><i class="fa fa-chevron-right"></i></button>
+      <span class="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-700 text-sm">${_currentPage} / ${pages || 1}</span>
+      <button onclick="loadTenants(${_currentPage + 1})" ${_currentPage >= pages ? 'disabled' : ''} class="btn btn-gray btn-sm"><i class="fa fa-chevron-left"></i></button>
+    </div>
+  `;
+}
+
+function renderStats() {
+  const active    = _tenants.filter(t => t.status === 'active').length;
+  const suspended = _tenants.filter(t => t.status === 'suspended').length;
+  const pending   = _tenants.filter(t => t.status === 'pending_payment').length;
+  document.getElementById('statsBar').innerHTML = [
+    { label: 'إجمالي المستأجرين', value: _totalTenants, icon: 'fa-building', bg: 'from-blue-500 to-blue-700' },
+    { label: 'نشط في هذه الصفحة',  value: active,        icon: 'fa-circle-check', bg: 'from-emerald-500 to-green-700' },
+    { label: 'موقوف',              value: suspended,      icon: 'fa-ban', bg: 'from-amber-500 to-orange-600' },
+    { label: 'بانتظار الدفع',      value: pending,        icon: 'fa-clock', bg: 'from-slate-400 to-slate-600' }
+  ].map(s => `
+    <div class="bg-gradient-to-br ${s.bg} rounded-2xl p-4 text-white shadow">
+      <div class="flex justify-between items-start mb-2">
+        <span class="text-xs font-700 opacity-80">${s.label}</span>
+        <i class="fa ${s.icon} text-lg opacity-70"></i>
+      </div>
+      <div class="text-3xl font-black">${s.value}</div>
+    </div>
+  `).join('');
+}
+
+function resetFilters() {
+  document.getElementById('search').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterPlan').value = '';
+  loadTenants(1);
+}
+
+// ================================================================
+// تفاصيل المستأجر
+// ================================================================
+async function viewTenant(id) {
+  _selectedTenantId = id;
+  try {
+    const data = await apiGet('/api/tenants/' + id);
+    const t = data.tenant;
+    document.getElementById('detailContent').innerHTML = `
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div><span class="text-slate-400">النطاق الفرعي:</span> <strong class="text-blue-700">${esc(t.subdomain)}</strong></div>
+        <div><span class="text-slate-400">الشركة:</span> <strong>${esc(t.company_name)}</strong></div>
+        <div><span class="text-slate-400">الخطة:</span> ${planBadge(t.subscription_plan)}</div>
+        <div><span class="text-slate-400">الحالة:</span> ${statusBadge(t.status)}</div>
+        <div><span class="text-slate-400">قاعدة البيانات:</span> <code class="bg-slate-100 px-2 py-0.5 rounded text-xs">${esc(t.db_name || '—')}</code></div>
+        <div><span class="text-slate-400">تاريخ الإنشاء:</span> ${formatDate(t.created_at)}</div>
+      </div>
+    `;
+    _activeTab = 'logs';
+    updateTabUI();
+    await loadLogs();
+    openModal('modalDetail');
+  } catch (e) {
+    showToast('خطأ: ' + e.message, 'error');
+  }
+}
+
+function switchTab(tab) {
+  _activeTab = tab;
+  updateTabUI();
+  if (tab === 'logs')     loadLogs();
+  else if (tab === 'payments') loadPayments();
+  else if (tab === 'edit') renderEditForm();
+}
+
+function updateTabUI() {
+  ['logs', 'payments', 'edit'].forEach(t => {
+    const btn = document.getElementById('tab-' + t);
+    if (!btn) return;
+    if (t === _activeTab) {
+      btn.className = 'tab-btn font-700 text-sm px-4 py-2 border-b-2 border-blue-600 text-blue-600';
+    } else {
+      btn.className = 'tab-btn font-700 text-sm px-4 py-2 border-b-2 border-transparent text-slate-500';
+    }
+  });
+}
+
+async function loadLogs() {
+  const c = document.getElementById('tabContent');
+  c.innerHTML = '<div class="text-center py-6 text-slate-400"><i class="fa fa-spinner fa-spin"></i></div>';
+  try {
+    const data = await apiGet('/api/tenants/' + _selectedTenantId + '/provisioning-logs');
+    const logs = data.logs || [];
+    if (!logs.length) { c.innerHTML = '<p class="text-slate-400 text-sm py-4">لا توجد سجلات.</p>'; return; }
+    c.innerHTML = '<div class="log-list max-h-72 overflow-y-auto">' + logs.map(l => `
+      <div class="log-row flex items-start gap-3">
+        <span class="chip ${l.status === 'success' ? 'chip-green' : l.status === 'failed' ? 'chip-red' : l.status === 'running' ? 'chip-blue' : 'chip-gray'}">${esc(l.status)}</span>
+        <div class="flex-1 min-w-0">
+          <span class="font-700 text-slate-700">${esc(l.step)}</span>
+          ${l.message ? `<span class="text-slate-400 text-xs mr-2">${esc(l.message)}</span>` : ''}
+          <div class="text-xs text-slate-400">${formatDate(l.created_at)}</div>
+        </div>
+      </div>
+    `).join('') + '</div>';
+  } catch (e) {
+    c.innerHTML = '<p class="text-red-500 text-sm">' + esc(e.message) + '</p>';
+  }
+}
+
+async function loadPayments() {
+  const c = document.getElementById('tabContent');
+  c.innerHTML = '<div class="text-center py-6 text-slate-400"><i class="fa fa-spinner fa-spin"></i></div>';
+  try {
+    const data = await apiGet('/api/tenants/' + _selectedTenantId + '/payments');
+    const payments = data.payments || [];
+    if (!payments.length) { c.innerHTML = '<p class="text-slate-400 text-sm py-4">لا توجد دفعات.</p>'; return; }
+    c.innerHTML = `
+      <div class="table-wrap max-h-72 overflow-y-auto">
+        <table>
+          <thead><tr>
+            <th>#</th><th>المزود</th><th>المبلغ</th><th>الحالة</th><th>التاريخ</th><th>استرداد</th>
+          </tr></thead>
+          <tbody>
+            ${payments.map(p => `<tr>
+              <td class="text-slate-400">${p.id}</td>
+              <td>${esc(p.provider)}</td>
+              <td class="font-700">${p.amount} ${esc(p.currency)}</td>
+              <td>${statusBadge(p.status)}</td>
+              <td class="text-xs text-slate-400">${formatDate(p.created_at)}</td>
+              <td>${p.status === 'succeeded'
+                ? `<button onclick="refundPayment(${p.id})" class="btn btn-warn btn-sm"><i class="fa fa-rotate-left"></i> استرداد</button>`
+                : '—'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    c.innerHTML = '<p class="text-red-500 text-sm">' + esc(e.message) + '</p>';
+  }
+}
+
+function renderEditForm() {
+  const t = _tenants.find(x => x.id === _selectedTenantId) || {};
+  document.getElementById('tabContent').innerHTML = `
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+      <div>
+        <label class="block text-xs font-700 text-slate-500 mb-1">اسم الشركة</label>
+        <input id="e_company" type="text" value="${esc(t.company_name || '')}">
+      </div>
+      <div>
+        <label class="block text-xs font-700 text-slate-500 mb-1">الخطة</label>
+        <select id="e_plan">
+          <option value="basic" ${t.subscription_plan === 'basic' ? 'selected' : ''}>Basic</option>
+          <option value="pro" ${t.subscription_plan === 'pro' ? 'selected' : ''}>Pro</option>
+          <option value="enterprise" ${t.subscription_plan === 'enterprise' ? 'selected' : ''}>Enterprise</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-700 text-slate-500 mb-1">الحالة</label>
+        <select id="e_status">
+          <option value="active" ${t.status === 'active' ? 'selected' : ''}>نشط</option>
+          <option value="suspended" ${t.status === 'suspended' ? 'selected' : ''}>موقوف</option>
+          <option value="pending_payment" ${t.status === 'pending_payment' ? 'selected' : ''}>بانتظار الدفع</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 mt-5">
+      <button onclick="saveTenantEdit()" class="btn btn-primary"><i class="fa fa-save"></i> حفظ</button>
+    </div>
+  `;
+}
+
+async function saveTenantEdit() {
+  const companyName = document.getElementById('e_company').value.trim();
+  const plan = document.getElementById('e_plan').value;
+  const status = document.getElementById('e_status').value;
+  try {
+    await apiPatch('/api/tenants/' + _selectedTenantId, { companyName, plan, status });
+    showToast('تم الحفظ بنجاح', 'success');
+    closeModal('modalDetail');
+    loadTenants();
+  } catch (e) {
+    showToast('خطأ: ' + e.message, 'error');
+  }
+}
+
+function openEditInline(id) {
+  viewTenant(id).then(() => switchTab('edit'));
+}
+
+// ================================================================
+// إنشاء مستأجر
+// ================================================================
+function openCreateModal() { openModal('modalCreate'); }
+
+async function createTenant() {
+  const body = {
+    subdomain:     document.getElementById('c_subdomain').value.trim(),
+    companyName:   document.getElementById('c_company').value.trim(),
+    plan:          document.getElementById('c_plan').value,
+    adminName:     document.getElementById('c_adminName').value.trim(),
+    adminEmail:    document.getElementById('c_adminEmail').value.trim() || undefined,
+    adminPhone:    document.getElementById('c_adminPhone').value.trim() || undefined,
+    adminPassword: document.getElementById('c_adminPassword').value
+  };
+  if (!body.subdomain || !body.companyName || !body.adminName || !body.adminPassword) {
+    return showToast('يرجى ملء جميع الحقول المطلوبة', 'error');
+  }
+  try {
+    const data = await apiPost('/api/tenants', body);
+    showToast('تم الإنشاء! ' + (data.loginUrl || ''), 'success');
+    closeModal('modalCreate');
+    loadTenants();
+  } catch (e) {
+    showToast('خطأ: ' + (e.data?.message || e.message), 'error');
+  }
+}
+
+// ================================================================
+// حذف المستأجر
+// ================================================================
+let _deleteTenantId = null;
+function promptDelete(id, name) {
+  _deleteTenantId = id;
+  document.getElementById('deleteMsg').textContent = `هل أنت متأكد من حذف المستأجر "${name}"؟`;
+  document.getElementById('dropDbCheck').checked = false;
+  openModal('modalDelete');
+}
+
+async function confirmDelete() {
+  try {
+    await apiDelete('/api/tenants/' + _deleteTenantId, { dropDatabase: document.getElementById('dropDbCheck').checked });
+    showToast('تم الحذف', 'success');
+    closeModal('modalDelete');
+    loadTenants();
+  } catch (e) {
+    showToast('خطأ: ' + (e.data?.message || e.message), 'error');
+  }
+}
+
+// ================================================================
+// الهجرات
+// ================================================================
+async function runMigrations(id) {
+  if (!confirm('تشغيل الهجرات لهذا المستأجر؟')) return;
+  try {
+    const data = await apiPost('/api/tenants/' + id + '/run-migrations', {});
+    showToast(data.message || 'تم', 'success');
+  } catch (e) {
+    showToast('خطأ: ' + (e.data?.message || e.message), 'error');
+  }
+}
+
+async function runAllMigrations() {
+  if (!confirm('تشغيل الهجرات لجميع المستأجرين النشطين؟ قد يستغرق وقتاً.')) return;
+  showToast('جارٍ التشغيل…', 'info');
+  try {
+    const data = await apiPost('/api/tenants/run-all-migrations', {});
+    showToast(data.message || 'اكتمل', 'success');
+  } catch (e) {
+    showToast('خطأ: ' + (e.data?.message || e.message), 'error');
+  }
+}
+
+// ================================================================
+// الاسترداد
+// ================================================================
+async function refundPayment(txnId) {
+  const reason = prompt('سبب الاسترداد (اختياري):');
+  if (reason === null) return; // المستخدم ألغى
+  try {
+    const data = await apiPost('/api/tenants/' + _selectedTenantId + '/refund', { transactionId: txnId, reason });
+    showToast(data.message || 'تم الاسترداد', 'success');
+    loadPayments();
+  } catch (e) {
+    showToast('خطأ: ' + (e.data?.message || e.message), 'error');
+  }
+}
+
+// ================================================================
+// مساعدات HTTP
+// ================================================================
+function _getAuthHeader() {
+  const token = (typeof TenantContext !== 'undefined' && TenantContext.getToken)
+    ? TenantContext.getToken()
+    : (localStorage.getItem('authToken') || localStorage.getItem('tenant_token') || '');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
+async function apiGet(url) {
+  const r = await fetch(url, { headers: _getAuthHeader() });
+  const data = await r.json();
+  if (!r.ok) throw Object.assign(new Error(data.message || 'HTTP ' + r.status), { data });
+  return data;
+}
+
+async function apiPost(url, body) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
+    body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  if (!r.ok) throw Object.assign(new Error(data.message || 'HTTP ' + r.status), { data });
+  return data;
+}
+
+async function apiPatch(url, body) {
+  const r = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
+    body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  if (!r.ok) throw Object.assign(new Error(data.message || 'HTTP ' + r.status), { data });
+  return data;
+}
+
+async function apiDelete(url, body) {
+  const r = await fetch(url, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
+    body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  if (!r.ok) throw Object.assign(new Error(data.message || 'HTTP ' + r.status), { data });
+  return data;
+}
+
+// ================================================================
+// مساعدات UI
+// ================================================================
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+let _toastTimer;
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : '#1e293b';
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function statusBadge(s) {
+  const map = { active: ['chip-green', 'نشط'], suspended: ['chip-red', 'موقوف'],
+                pending_payment: ['chip-yellow', 'بانتظار الدفع'], deleted: ['chip-gray', 'محذوف'],
+                succeeded: ['chip-green', 'ناجح'], failed: ['chip-red', 'فاشل'],
+                refunded: ['chip-gray', 'مُستردّ'], pending: ['chip-yellow', 'معلق'] };
+  const [cls, label] = map[s] || ['chip-gray', s];
+  return `<span class="chip ${cls}">${label}</span>`;
+}
+
+function planBadge(p) {
+  const map = { basic: 'chip-gray', pro: 'chip-blue', enterprise: 'chip-green' };
+  return `<span class="chip ${map[p] || 'chip-gray'}">${(p || '').toUpperCase()}</span>`;
+}
+
+// ================================================================
+// تهيئة الصفحة
+// ================================================================
+document.addEventListener('DOMContentLoaded', () => loadTenants(1));
+</script>
+</body>
+</html>
