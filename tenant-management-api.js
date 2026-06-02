@@ -346,7 +346,7 @@ router.delete('/:id', async (req, res) => {
         try {
           const { Pool } = require('pg');
           const provPool = new Pool({
-            connectionString: process.env.DATABASE_URL || process.env.PROVISION_DB_URL,
+            connectionString: process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL || process.env.PROVISION_DB_URL,
             ssl: false,
             max: 1
           });

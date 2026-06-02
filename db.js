@@ -14,12 +14,13 @@ const normalizeDatabaseUrl = (url) => {
   return url.replace(/@localhost([:/])/gi, '@127.0.0.1$1');
 };
 
-if (!process.env.DATABASE_URL) {
+const rawDatabaseUrl = String(process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL || '').trim().replace(/\s+/g, '');
+if (!rawDatabaseUrl) {
   console.error('❌ DATABASE_URL غير مضبوط في .env أو متغيرات cPanel');
 }
 
 const clientConfig = {
-  connectionString: normalizeDatabaseUrl(process.env.DATABASE_URL),
+  connectionString: normalizeDatabaseUrl(rawDatabaseUrl),
   ssl: resolveSsl()
 };
 

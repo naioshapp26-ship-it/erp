@@ -29,7 +29,7 @@ function _buildTenantConnectionConfig(rawDbUrl) {
 
   try {
     const targetUrl = new URL(rawDbUrl);
-    const appDbUrl = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : null;
+    const appDbUrl = process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL ? new URL(process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL) : null;
     const isProxyHost = targetUrl.hostname.endsWith('.proxy.rlwy.net');
     const isInternalHost = targetUrl.hostname.endsWith('.railway.internal');
 

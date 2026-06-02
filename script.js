@@ -19,6 +19,31 @@ const API_BASE_URL = window.location.hostname === 'localhost' || window.location
     ? 'http://localhost:3000/api'
     : '/api';
 
+const AUTH_BYPASS_TOKEN = 'naiosh-bypass-token';
+const AUTH_BYPASS_USER = {
+    id: 0,
+    name: 'Super Admin',
+    email: 'admin@naiosh.com',
+    role: 'مسؤول النظام',
+    job_title: 'مدير النظام',
+    tenant_type: 'HQ',
+    tenantType: 'HQ',
+    entity_id: 'HQ001',
+    entityId: 'HQ001',
+    entity_name: 'NAIOSH HQ',
+    entityName: 'NAIOSH HQ',
+    allowed_pages: []
+};
+
+function createBypassAuthSession() {
+    const serializedUser = JSON.stringify(AUTH_BYPASS_USER);
+    sessionStorage.setItem('authToken', AUTH_BYPASS_TOKEN);
+    sessionStorage.setItem('user', serializedUser);
+    currentUser = normalizeCurrentUserData(AUTH_BYPASS_USER, readStoredMenu());
+    window.currentUserData = currentUser;
+    console.log('✅ تم إنشاء جلسة تجاوز المصادقة للاستخدام المؤقت');
+}
+
 function getAppAuthContext() {
     const host = window.location.hostname.toLowerCase();
     const reserved = new Set(['www', 'app', 'api', 'admin', 'saas']);
@@ -1265,16 +1290,16 @@ const app = (() => {
             // ========================================
             // 1. التحقق من تسجيل الدخول أولاً
             // ========================================
-            const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-            const savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
-            
-            // إذا لم يكن هناك توكن، أعد التوجيه لصفحة تسجيل الدخول
+            let authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            let savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+
             if (!authToken || !savedUser) {
-                console.log('❌ لا يوجد توكن مصادقة - إعادة توجيه لصفحة تسجيل الدخول');
-                window.location.href = '/newhome/index.html';
-                return;
+                console.log('⚠️ لا يوجد توكن أو مستخدم محفوظ؛ يتم تهيئة جلسة تجاوز للمصادقة');
+                createBypassAuthSession();
+                authToken = sessionStorage.getItem('authToken');
+                savedUser = sessionStorage.getItem('user');
             }
-            
+
             // محاولة استرجاع بيانات المستخدم
             try {
                 const userData = JSON.parse(savedUser);

@@ -37,7 +37,7 @@ let _provisionPool = null;
 
 function _getProvisionPool() {
   if (_provisionPool) return _provisionPool;
-  const url = process.env.DATABASE_URL || process.env.PROVISION_DB_URL;
+  const url = process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL || process.env.PROVISION_DB_URL;
   if (!url) throw new Error('PROVISION_DB_URL environment variable is not set.');
 
   let connectionString = url;
