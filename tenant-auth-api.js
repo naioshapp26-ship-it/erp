@@ -36,24 +36,6 @@ const {
 
 const router = express.Router();
 
-const BYPASS_AUTH_TOKEN = process.env.BYPASS_AUTH_TOKEN || 'naiosh-bypass-token';
-const DEFAULT_BYPASS_TENANT_USER = {
-  id: 0,
-  name: 'Tenant Super Admin',
-  email: 'tenant-admin@naiosh.com',
-  role: 'مسؤول النظام',
-  job_title: 'مدير النظام',
-  tenant_type: 'TENANT',
-  tenantType: 'TENANT',
-  entity_id: 'TEN000001',
-  entityId: 'TEN000001',
-  entity_name: 'NAIOSH Tenant',
-  entityName: 'NAIOSH Tenant',
-  tenantId: null,
-  tenantSubdomain: null,
-  allowed_pages: []
-};
-
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 ساعة
 
 // ---- Rate Limiters ----
@@ -253,19 +235,62 @@ async function _deleteSession(tenantPool, token) {
 // POST /api/tenant-auth/login
 // ================================================================
 router.post('/login', loginLimiter, async (req, res) => {
-  const bypassResponse = {
-    success: true,
-    message: 'تم تسجيل الدخول تلقائياً',
-    data: {
-      user: DEFAULT_BYPASS_TENANT_USER,
-      session: {
-        token: BYPASS_AUTH_TOKEN,
-        expires_at: new Date(Date.now() + SESSION_TTL_MS).toISOString()
-      }
-    }
-  };
+  if (!_requireTenantPool(req, res)) return;
 
-  return res.json(bypassResponse);
+  try {
+    const identifier = String(req.body?.identifier || req.body?.email || req.body?.username || '').trim();
+    const password = String(req.body?.password || '');
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, message: 'يرجى إدخال بيانات الدخول.' });
+    }
+
+    const userRes = await req.tenantPool.query(
+      `SELECT *
+       FROM users
+       WHERE (LOWER(username) = LOWER($1)
+          OR LOWER(COALESCE(email, '')) = LOWER($1)
+          OR phone = $1)
+         AND is_active = true
+       LIMIT 1`,
+      [identifier]
+    );
+
+    const user = userRes.rows[0];
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ success: false, message: 'بيانات الدخول غير صحيحة.' });
+    }
+
+    const { token, expiresAt } = await _createSession(
+      req.tenantPool,
+      req.tenant.id,
+      user.id,
+      req.ip || req.connection?.remoteAddress,
+      req.headers['user-agent']
+    );
+    const responseUser = _buildUserResponse(user, req.tenant);
+    responseUser.allowed_pages = await _getAllowedTenantPages(req.tenant);
+    responseUser.allowedPages = responseUser.allowed_pages;
+
+    res.cookie('authToken', token, {
+      httpOnly: false,
+      secure: req.secure || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: SESSION_TTL_MS
+    });
+
+    return res.json({
+      success: true,
+      message: 'تم تسجيل الدخول بنجاح',
+      data: {
+        user: responseUser,
+        session: { token, expires_at: expiresAt }
+      }
+    });
+  } catch (error) {
+    console.error('[TenantAuth] login failed:', error);
+    return res.status(500).json({ success: false, message: 'حدث خطأ أثناء تسجيل الدخول.' });
+  }
 });
 
 // ================================================================
@@ -273,17 +298,8 @@ router.post('/login', loginLimiter, async (req, res) => {
 // ================================================================
 router.get('/verify', verifyLimiter, async (req, res) => {
   const token = _extractToken(req);
-  if (!token || token === BYPASS_AUTH_TOKEN) {
-    return res.json({
-      success: true,
-      data: {
-        user: DEFAULT_BYPASS_TENANT_USER,
-        session: {
-          token: BYPASS_AUTH_TOKEN,
-          expires_at: new Date(Date.now() + SESSION_TTL_MS).toISOString()
-        }
-      }
-    });
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'لم يتم توفير رمز الجلسة.' });
   }
 
   try {
@@ -302,30 +318,12 @@ router.get('/verify', verifyLimiter, async (req, res) => {
       );
 
       if (!indexRes.rows.length) {
-        return res.json({
-          success: true,
-          data: {
-            user: DEFAULT_BYPASS_TENANT_USER,
-            session: {
-              token: BYPASS_AUTH_TOKEN,
-              expires_at: new Date(Date.now() + SESSION_TTL_MS).toISOString()
-            }
-          }
-        });
+        return res.status(401).json({ success: false, message: 'الجلسة غير صحيحة أو منتهية.' });
       }
 
       const row = indexRes.rows[0];
       if (row.status !== 'active') {
-        return res.json({
-          success: true,
-          data: {
-            user: DEFAULT_BYPASS_TENANT_USER,
-            session: {
-              token: BYPASS_AUTH_TOKEN,
-              expires_at: new Date(Date.now() + SESSION_TTL_MS).toISOString()
-            }
-          }
-        });
+        return res.status(403).json({ success: false, message: 'حساب المستأجر غير نشط.' });
       }
 
       tenant = row;
@@ -343,16 +341,7 @@ router.get('/verify', verifyLimiter, async (req, res) => {
     );
 
     if (!sessionRes.rows.length) {
-      return res.json({
-        success: true,
-        data: {
-          user: DEFAULT_BYPASS_TENANT_USER,
-          session: {
-            token: BYPASS_AUTH_TOKEN,
-            expires_at: new Date(Date.now() + SESSION_TTL_MS).toISOString()
-          }
-        }
-      });
+      return res.status(401).json({ success: false, message: 'الجلسة غير صحيحة أو منتهية.' });
     }
 
     const row = sessionRes.rows[0];
