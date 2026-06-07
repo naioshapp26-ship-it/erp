@@ -15,9 +15,7 @@ function hideGlobalLoading() {
 }
 
 // Global API Configuration (accessible from all functions)
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3000/api'
-    : '/api';
+const API_BASE_URL = '/api';
 
 const AUTH_BYPASS_TOKEN = 'naiosh-bypass-token';
 const AUTH_BYPASS_USER = {
@@ -224,6 +222,10 @@ const app = (() => {
         ads: [],
         approvals: [],
         notifications: [],
+        employeeRequests: [],
+        paymentMethods: [],
+        installmentPlanTypes: [],
+        taxSettings: [],
 
         tasks: [
             { id: 101, title: 'تجديد اشتراك SaaS', dueDate: '2023-11-30', status: 'Pending', priority: 'High', type: 'Billing', entityId: 'BR015' },
@@ -930,6 +932,14 @@ const app = (() => {
     }
 
     // --- DATA LOADING FROM API ---
+    async function loadOptionalDataset(label, loader) {
+        try {
+            await loader();
+        } catch (error) {
+            console.warn(`⚠️ تعذر تحميل ${label}; سيتم استخدام بيانات فارغة`, error);
+        }
+    }
+
     async function loadDataFromAPI(routeName = null) {
         console.log('🔄 Starting loadDataFromAPI for route:', routeName || 'ALL');
         console.log('👤 Current user:', currentUser);
@@ -1124,134 +1134,139 @@ const app = (() => {
             }
 
 
-            // Load employee requests
-            console.log('📥 Loading employee requests...');
-            const employeeRequests = await fetchAPI('/employee-requests');
-            db.employeeRequests = employeeRequests.map(req => ({
-                id: req.id,
-                entityId: req.entity_id,
-                employeeId: req.employee_id,
-                employeeName: req.employee_name,
-                requestType: req.request_type,
-                requestTitle: req.request_title,
-                description: req.description,
-                status: req.status,
-                priority: req.priority,
-                requestData: req.request_data,
-                requiresApproval: req.requires_approval,
-                approverId: req.approver_id,
-                approverName: req.approver_name,
-                approvalDate: req.approval_date,
-                approvalNotes: req.approval_notes,
-                requestedDate: req.requested_date,
-                startDate: req.start_date,
-                endDate: req.end_date,
-                completionDate: req.completion_date,
-                attachments: req.attachments,
-                notes: req.notes,
-                createdBy: req.created_by,
-                createdAt: req.created_at,
-                updatedAt: req.updated_at
-            }));
-            console.log(`✅ Loaded ${db.employeeRequests.length} employee requests`);
-
-            // Load payment methods
-            console.log('📥 Loading payment methods...');
-            const paymentMethods = await fetchAPI('/api/payment-methods?is_active=true');
-            db.paymentMethods = paymentMethods.map(pm => ({
-                id: pm.id,
-                methodCode: pm.method_code,
-                methodNameAr: pm.method_name_ar,
-                methodNameEn: pm.method_name_en,
-                descriptionAr: pm.description_ar,
-                descriptionEn: pm.description_en,
-                icon: pm.icon,
-                color: pm.color,
-                isActive: pm.is_active,
-                requiresBankDetails: pm.requires_bank_details,
-                requiresCardDetails: pm.requires_card_details,
-                processingFeePercentage: pm.processing_fee_percentage,
-                processingFeeFixed: pm.processing_fee_fixed,
-                minAmount: pm.min_amount,
-                maxAmount: pm.max_amount,
-                displayOrder: pm.display_order
-            }));
-            console.log(`✅ Loaded ${db.paymentMethods.length} payment methods`);
-
-            // Load installment plan types
-            console.log('📥 Loading installment plan types...');
-            const installmentPlanTypes = await fetchAPI('/api/installment-plan-types?is_active=true');
-            db.installmentPlanTypes = installmentPlanTypes.map(ipt => ({
-                id: ipt.id,
-                planCode: ipt.plan_code,
-                planNameAr: ipt.plan_name_ar,
-                planNameEn: ipt.plan_name_en,
-                descriptionAr: ipt.description_ar,
-                descriptionEn: ipt.description_en,
-                durationMonths: ipt.duration_months,
-                numberOfPayments: ipt.number_of_payments,
-                paymentFrequency: ipt.payment_frequency,
-                interestRate: ipt.interest_rate,
-                adminFee: ipt.admin_fee,
-                latePaymentFee: ipt.late_payment_fee,
-                minAmount: ipt.min_amount,
-                maxAmount: ipt.max_amount,
-                hasGracePeriod: ipt.has_grace_period,
-                gracePeriodDays: ipt.grace_period_days,
-                earlyPaymentDiscount: ipt.early_payment_discount,
-                icon: ipt.icon,
-                color: ipt.color,
-                badgeText: ipt.badge_text,
-                isActive: ipt.is_active,
-                isFeatured: ipt.is_featured,
-                displayOrder: ipt.display_order
-            }));
-            console.log(`✅ Loaded ${db.installmentPlanTypes.length} installment plan types`);
-
-            // Load tax settings
-            console.log('📥 Loading tax settings...');
-            const taxSettings = await fetchAPI('/api/tax-settings?is_active=true');
-            db.taxSettings = taxSettings.map(ts => ({
-                id: ts.id,
-                taxCode: ts.tax_code,
-                taxNameAr: ts.tax_name_ar,
-                taxNameEn: ts.tax_name_en,
-                descriptionAr: ts.description_ar,
-                descriptionEn: ts.description_en,
-                taxType: ts.tax_type,
-                defaultRate: ts.default_rate,
-                branchId: ts.branch_id,
-                branchNameAr: ts.branch_name_ar,
-                branchSpecificRate: ts.branch_specific_rate,
-                isActive: ts.is_active,
-                applicableOn: ts.applicable_on,
-                calculationMethod: ts.calculation_method,
-                includeInTotal: ts.include_in_total,
-                isDefault: ts.is_default,
-                priority: ts.priority,
-                minAmount: ts.min_amount,
-                maxAmount: ts.max_amount
-            }));
-            console.log(`✅ Loaded ${db.taxSettings.length} tax settings`);
-
-            // Load notifications for current user
-            if (currentUser?.id) {
-                console.log('📥 Loading notifications...');
-                const notifications = await fetchAPI(`/notifications?user_id=${currentUser.id}`);
-                db.notifications = notifications.map(n => ({
-                    id: n.id,
-                    userId: n.user_id,
-                    entityId: n.entity_id,
-                    type: n.type,
-                    title: n.title,
-                    message: n.message,
-                    linkType: n.link_type,
-                    linkId: n.link_id,
-                    isRead: n.is_read,
-                    priority: n.priority,
-                    createdAt: n.created_at
+            await loadOptionalDataset('طلبات الموظفين', async () => {
+                console.log('📥 Loading employee requests...');
+                const employeeRequests = await fetchAPI('/employee-requests');
+                db.employeeRequests = employeeRequests.map(req => ({
+                    id: req.id,
+                    entityId: req.entity_id,
+                    employeeId: req.employee_id,
+                    employeeName: req.employee_name,
+                    requestType: req.request_type,
+                    requestTitle: req.request_title,
+                    description: req.description,
+                    status: req.status,
+                    priority: req.priority,
+                    requestData: req.request_data,
+                    requiresApproval: req.requires_approval,
+                    approverId: req.approver_id,
+                    approverName: req.approver_name,
+                    approvalDate: req.approval_date,
+                    approvalNotes: req.approval_notes,
+                    requestedDate: req.requested_date,
+                    startDate: req.start_date,
+                    endDate: req.end_date,
+                    completionDate: req.completion_date,
+                    attachments: req.attachments,
+                    notes: req.notes,
+                    createdBy: req.created_by,
+                    createdAt: req.created_at,
+                    updatedAt: req.updated_at
                 }));
-                console.log(`✅ Loaded ${db.notifications.length} notifications`);
+                console.log(`✅ Loaded ${db.employeeRequests.length} employee requests`);
+            });
+
+            await loadOptionalDataset('طرق الدفع', async () => {
+                console.log('📥 Loading payment methods...');
+                const paymentMethods = await fetchAPI('/api/payment-methods?is_active=true');
+                db.paymentMethods = paymentMethods.map(pm => ({
+                    id: pm.id,
+                    methodCode: pm.method_code,
+                    methodNameAr: pm.method_name_ar,
+                    methodNameEn: pm.method_name_en,
+                    descriptionAr: pm.description_ar,
+                    descriptionEn: pm.description_en,
+                    icon: pm.icon,
+                    color: pm.color,
+                    isActive: pm.is_active,
+                    requiresBankDetails: pm.requires_bank_details,
+                    requiresCardDetails: pm.requires_card_details,
+                    processingFeePercentage: pm.processing_fee_percentage,
+                    processingFeeFixed: pm.processing_fee_fixed,
+                    minAmount: pm.min_amount,
+                    maxAmount: pm.max_amount,
+                    displayOrder: pm.display_order
+                }));
+                console.log(`✅ Loaded ${db.paymentMethods.length} payment methods`);
+            });
+
+            await loadOptionalDataset('خطط الأقساط', async () => {
+                console.log('📥 Loading installment plan types...');
+                const installmentPlanTypes = await fetchAPI('/api/installment-plan-types?is_active=true');
+                db.installmentPlanTypes = installmentPlanTypes.map(ipt => ({
+                    id: ipt.id,
+                    planCode: ipt.plan_code,
+                    planNameAr: ipt.plan_name_ar,
+                    planNameEn: ipt.plan_name_en,
+                    descriptionAr: ipt.description_ar,
+                    descriptionEn: ipt.description_en,
+                    durationMonths: ipt.duration_months,
+                    numberOfPayments: ipt.number_of_payments,
+                    paymentFrequency: ipt.payment_frequency,
+                    interestRate: ipt.interest_rate,
+                    adminFee: ipt.admin_fee,
+                    latePaymentFee: ipt.late_payment_fee,
+                    minAmount: ipt.min_amount,
+                    maxAmount: ipt.max_amount,
+                    hasGracePeriod: ipt.has_grace_period,
+                    gracePeriodDays: ipt.grace_period_days,
+                    earlyPaymentDiscount: ipt.early_payment_discount,
+                    icon: ipt.icon,
+                    color: ipt.color,
+                    badgeText: ipt.badge_text,
+                    isActive: ipt.is_active,
+                    isFeatured: ipt.is_featured,
+                    displayOrder: ipt.display_order
+                }));
+                console.log(`✅ Loaded ${db.installmentPlanTypes.length} installment plan types`);
+            });
+
+            await loadOptionalDataset('إعدادات الضرائب', async () => {
+                console.log('📥 Loading tax settings...');
+                const taxSettings = await fetchAPI('/api/tax-settings?is_active=true');
+                db.taxSettings = taxSettings.map(ts => ({
+                    id: ts.id,
+                    taxCode: ts.tax_code,
+                    taxNameAr: ts.tax_name_ar,
+                    taxNameEn: ts.tax_name_en,
+                    descriptionAr: ts.description_ar,
+                    descriptionEn: ts.description_en,
+                    taxType: ts.tax_type,
+                    defaultRate: ts.default_rate,
+                    branchId: ts.branch_id,
+                    branchNameAr: ts.branch_name_ar,
+                    branchSpecificRate: ts.branch_specific_rate,
+                    isActive: ts.is_active,
+                    applicableOn: ts.applicable_on,
+                    calculationMethod: ts.calculation_method,
+                    includeInTotal: ts.include_in_total,
+                    isDefault: ts.is_default,
+                    priority: ts.priority,
+                    minAmount: ts.min_amount,
+                    maxAmount: ts.max_amount
+                }));
+                console.log(`✅ Loaded ${db.taxSettings.length} tax settings`);
+            });
+
+            if (currentUser?.id) {
+                await loadOptionalDataset('الإشعارات', async () => {
+                    console.log('📥 Loading notifications...');
+                    const notifications = await fetchAPI(`/notifications?user_id=${currentUser.id}`);
+                    db.notifications = notifications.map(n => ({
+                        id: n.id,
+                        userId: n.user_id,
+                        entityId: n.entity_id,
+                        type: n.type,
+                        title: n.title,
+                        message: n.message,
+                        linkType: n.link_type,
+                        linkId: n.link_id,
+                        isRead: n.is_read,
+                        priority: n.priority,
+                        createdAt: n.created_at
+                    }));
+                    console.log(`✅ Loaded ${db.notifications.length} notifications`);
+                });
             }
 
             console.log('✅ تم تحميل جميع البيانات من قاعدة البيانات', loadedData);
@@ -1733,7 +1748,12 @@ const app = (() => {
         let content = '';
         if (route === 'dashboard') {
             view.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div></div>';
-            content = await renderDashboard();
+            try {
+                content = await renderDashboard();
+            } catch (error) {
+                console.error('❌ Dashboard render failed:', error);
+                content = renderPlaceholder(`تعذر تحميل لوحة التحكم: ${error.message || 'خطأ غير معروف'}`);
+            }
         }
         else if (route === 'records-archive-home') {
             content = renderRecordsArchiveHome();

@@ -7,6 +7,7 @@ const { rateLimit } = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
 const db = require('./db');
+const { ensureDatabaseReady } = require('./database-bootstrap');
 const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
 const {
   DEFAULT_ENTITY_CONTEXT,
@@ -17,6 +18,7 @@ const {
 require('dotenv').config();
 
 const app = express();
+const databaseReady = ensureDatabaseReady();
 // cPanel يمرّر PORT ديناميكياً — لا تثبّته في .env
 const listenHost = process.env.HOST || '0.0.0.0';
 const listenPort = Number(process.env.PORT) || 3000;
@@ -58,13 +60,28 @@ const DEFAULT_BYPASS_USER = {
   entityName: 'NAIOSH HQ'
 };
 
+const assetExists = (assetPath) => {
+  const normalizedPath = String(assetPath || '').replace(/^\/+/, '');
+  return fs.existsSync(path.join(__dirname, normalizedPath));
+};
+
+const injectHeadAssetIfExists = (html, assetPath, tag) => {
+  if (!html || html.includes(tag) || !assetExists(assetPath)) return html;
+  return html.includes('</head>')
+    ? html.replace('</head>', `${tag}</head>`)
+    : `${tag}${html}`;
+};
+
+const injectBodyAssetIfExists = (html, assetPath, tag) => {
+  if (!html || html.includes(tag) || !assetExists(assetPath)) return html;
+  return html.includes('</body>')
+    ? html.replace('</body>', `${tag}</body>`)
+    : `${html}${tag}`;
+};
+
 const injectNumberFormatScript = (html) => {
   const scriptTag = '<script src="/public/number-format.js"></script>';
-  if (!html || html.includes(scriptTag)) return html;
-  if (html.includes('</body>')) {
-    return html.replace('</body>', `${scriptTag}</body>`);
-  }
-  return `${html}${scriptTag}`;
+  return injectBodyAssetIfExists(html, '/public/number-format.js', scriptTag);
 };
 
 const injectGlobalSearchAssets = (html) => {
@@ -107,54 +124,24 @@ const injectPageGuideAssets = (html) => {
   if (!html) return html;
   const cssTag = '<link rel="stylesheet" href="/public/page-guide.css">';
   const scriptTag = '<script src="/public/page-guide.js" defer></script>';
-  let output = html;
-  if (!output.includes(cssTag)) {
-    output = output.includes('</head>')
-      ? output.replace('</head>', `${cssTag}</head>`)
-      : `${cssTag}${output}`;
-  }
-  if (!output.includes(scriptTag)) {
-    output = output.includes('</body>')
-      ? output.replace('</body>', `${scriptTag}</body>`)
-      : `${output}${scriptTag}`;
-  }
-  return output;
+  const withCss = injectHeadAssetIfExists(html, '/public/page-guide.css', cssTag);
+  return injectBodyAssetIfExists(withCss, '/public/page-guide.js', scriptTag);
 };
 
 const injectDarkModeAssets = (html) => {
   if (!html) return html;
   const cssTag = '<link rel="stylesheet" href="/public/global-dark-mode.css">';
   const scriptTag = '<script src="/public/global-dark-mode.js"></script>';
-  let output = html;
-  if (!output.includes(cssTag)) {
-    output = output.includes('</head>')
-      ? output.replace('</head>', `${cssTag}</head>`)
-      : `${cssTag}${output}`;
-  }
-  if (!output.includes(scriptTag)) {
-    output = output.includes('</body>')
-      ? output.replace('</body>', `${scriptTag}</body>`)
-      : `${output}${scriptTag}`;
-  }
-  return output;
+  const withCss = injectHeadAssetIfExists(html, '/public/global-dark-mode.css', cssTag);
+  return injectBodyAssetIfExists(withCss, '/public/global-dark-mode.js', scriptTag);
 };
 
 const injectFormValidationAssets = (html) => {
   if (!html) return html;
   const cssTag = '<link rel="stylesheet" href="/public/form-validation.css">';
   const scriptTag = '<script src="/public/form-validation.js" defer></script>';
-  let output = html;
-  if (!output.includes(cssTag)) {
-    output = output.includes('</head>')
-      ? output.replace('</head>', `${cssTag}</head>`)
-      : `${cssTag}${output}`;
-  }
-  if (!output.includes(scriptTag)) {
-    output = output.includes('</body>')
-      ? output.replace('</body>', `${scriptTag}</body>`)
-      : `${output}${scriptTag}`;
-  }
-  return output;
+  const withCss = injectHeadAssetIfExists(html, '/public/form-validation.css', cssTag);
+  return injectBodyAssetIfExists(withCss, '/public/form-validation.js', scriptTag);
 };
 
 const sendHtmlWithNumberFormat = (res, filePath) => {
@@ -2196,6 +2183,24 @@ ensureRecordsStudentsAffairsTable();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(async (req, res, next) => {
+  if (!req.path.startsWith('/api/')) {
+    return next();
+  }
+
+  try {
+    await databaseReady;
+    return next();
+  } catch (error) {
+    console.error('Database bootstrap failed:', error.message);
+    return res.status(503).json({
+      success: false,
+      message: 'Database initialization failed',
+      detail: error.message
+    });
+  }
+});
 
 // ---- Auth + API diagnostics (قبل tenantResolver — أولوية لـ /api/auth) ----
 app.get('/api/auth/ping', async (req, res) => {
@@ -13817,9 +13822,11 @@ const ensureCreatorPagesTables = async () => {
   await db.query('CREATE INDEX IF NOT EXISTS idx_creator_pages_enabled ON creator_pages(is_enabled, is_deleted)');
 };
 
-ensureCreatorPagesTables().catch((error) => {
-  console.error('Failed to initialize creator pages tables:', error.message);
-});
+databaseReady
+  .then(() => ensureCreatorPagesTables())
+  .catch((error) => {
+    console.error('Failed to initialize creator pages tables:', error.message);
+  });
 
 app.get('/api/creator-pages/check-username', async (req, res) => {
   try {
@@ -14331,6 +14338,13 @@ app.get('/*.html', (req, res, next) => {
 });
 
 app.use(express.static('.', { index: false }));
+
+app.use((req, res, next) => {
+  if (req.method === 'GET' && /\.(?:js|css|mjs|map|png|jpe?g|gif|svg|ico|webmanifest|webp|woff2?|ttf|eot)$/i.test(req.path)) {
+    return res.status(404).type('text/plain').send('Static asset not found');
+  }
+  return next();
+});
 
 // مسارات غير معروفة → الصفحة الرئيسية (لا تفتح الداشبورد تلقائياً)
 app.get('*', (req, res) => {
