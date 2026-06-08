@@ -30,6 +30,18 @@ router.use((req, res, next) => {
 });
 
 const VALID_ACCOUNT_TYPES = ['BRANCH', 'OFFICE', 'INCUBATOR', 'PLATFORM'];
+const DEFAULT_REGISTRATION_ROLES = [
+    { id: 1, code: 'BRANCH_MANAGER', title_ar: 'مدير فرع', title_en: 'Branch Manager', hierarchy_level: 1 },
+    { id: 2, code: 'INCUBATOR_MANAGER', title_ar: 'مدير حاضنة', title_en: 'Incubator Manager', hierarchy_level: 2 },
+    { id: 3, code: 'PLATFORM_MANAGER', title_ar: 'مدير منصة', title_en: 'Platform Manager', hierarchy_level: 3 },
+    { id: 4, code: 'EXECUTIVE_OFFICE_MANAGER', title_ar: 'مسؤول تنفيذي مكاتب', title_en: 'Executive Office Manager', hierarchy_level: 4 },
+    { id: 5, code: 'ADMINISTRATIVE_EXECUTIVE', title_ar: 'إداري تنفيذي', title_en: 'Administrative Executive', hierarchy_level: 4 },
+    { id: 6, code: 'HR_EXECUTIVE', title_ar: 'تنفيذي موارد بشرية', title_en: 'HR Executive', hierarchy_level: 4 },
+    { id: 7, code: 'FINANCE_EXECUTIVE', title_ar: 'تنفيذي مالي', title_en: 'Finance Executive', hierarchy_level: 4 },
+    { id: 8, code: 'SALES_EXECUTIVE', title_ar: 'تنفيذي مبيعات', title_en: 'Sales Executive', hierarchy_level: 4 },
+    { id: 9, code: 'MARKETING_EXECUTIVE', title_ar: 'تنفيذي تسويق', title_en: 'Marketing Executive', hierarchy_level: 4 },
+    { id: 10, code: 'EMPLOYEE', title_ar: 'موظف', title_en: 'Employee', hierarchy_level: 4 }
+];
 const ENTITY_ID_PREFIXES = {
     BRANCH: 'BR',
     OFFICE: 'OFF',
@@ -87,7 +99,47 @@ const registerRateLimiter = rateLimit({
     }
 });
 
+async function ensureRegistrationRolesSchema(client) {
+    await client.query(`
+        CREATE TABLE IF NOT EXISTS roles (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(50) NOT NULL UNIQUE,
+            name_ar VARCHAR(100),
+            description TEXT,
+            level VARCHAR(20),
+            hierarchy_level INTEGER DEFAULT 0,
+            job_title_ar VARCHAR(200),
+            job_title_en VARCHAR(200),
+            is_active BOOLEAN DEFAULT TRUE,
+            is_system BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        );
+    `);
+
+    const countResult = await client.query('SELECT COUNT(*)::int AS count FROM roles');
+    if ((countResult.rows[0]?.count || 0) === 0) {
+        await client.query(`
+            INSERT INTO roles (name, name_ar, description, level, hierarchy_level, job_title_ar, job_title_en, is_active, is_system)
+            VALUES
+                ('BRANCH_MANAGER', 'مدير فرع', 'Branch Manager', 'BRANCH', 1, 'مدير فرع', 'Branch Manager', true, true),
+                ('INCUBATOR_MANAGER', 'مدير حاضنة', 'Incubator Manager', 'INCUBATOR', 2, 'مدير حاضنة', 'Incubator Manager', true, true),
+                ('PLATFORM_MANAGER', 'مدير منصة', 'Platform Manager', 'PLATFORM', 3, 'مدير منصة', 'Platform Manager', true, true),
+                ('EXECUTIVE_OFFICE_MANAGER', 'مسؤول تنفيذي مكاتب', 'Executive Office Manager', 'OFFICE', 4, 'مسؤول تنفيذي مكاتب', 'Executive Office Manager', true, true),
+                ('ADMINISTRATIVE_EXECUTIVE', 'إداري تنفيذي', 'Administrative Executive', 'OFFICE', 4, 'إداري تنفيذي', 'Administrative Executive', true, true),
+                ('HR_EXECUTIVE', 'تنفيذي موارد بشرية', 'HR Executive', 'OFFICE', 4, 'تنفيذي موارد بشرية', 'HR Executive', true, true),
+                ('FINANCE_EXECUTIVE', 'تنفيذي مالي', 'Finance Executive', 'OFFICE', 4, 'تنفيذي مالي', 'Finance Executive', true, true),
+                ('SALES_EXECUTIVE', 'تنفيذي مبيعات', 'Sales Executive', 'OFFICE', 4, 'تنفيذي مبيعات', 'Sales Executive', true, true),
+                ('MARKETING_EXECUTIVE', 'تنفيذي تسويق', 'Marketing Executive', 'OFFICE', 4, 'تنفيذي تسويق', 'Marketing Executive', true, true),
+                ('EMPLOYEE', 'موظف', 'Regular Employee', 'OFFICE', 4, 'موظف', 'Employee', true, true)
+            ON CONFLICT (name) DO NOTHING
+        `);
+    }
+}
+
 async function ensureRegistrationSchema(client) {
+    await ensureRegistrationRolesSchema(client);
+
     await client.query(`
         CREATE TABLE IF NOT EXISTS user_credentials (
             id SERIAL PRIMARY KEY,
@@ -140,19 +192,27 @@ async function comparePassword(password, passwordHash) {
 }
 
 async function getRegistrationRoles(client) {
-    const result = await client.query(`
-        SELECT
-            id,
-            name AS code,
-            COALESCE(NULLIF(job_title_ar, ''), NULLIF(name_ar, ''), name) AS title_ar,
-            COALESCE(NULLIF(job_title_en, ''), name) AS title_en,
-            hierarchy_level
-        FROM roles
-        WHERE COALESCE(is_active, true) = true
-        ORDER BY COALESCE(hierarchy_level, 999), COALESCE(NULLIF(job_title_ar, ''), NULLIF(name_ar, ''), name)
-    `);
+    try {
+        const result = await client.query(`
+            SELECT
+                id,
+                name AS code,
+                COALESCE(NULLIF(job_title_ar, ''), NULLIF(name_ar, ''), name) AS title_ar,
+                COALESCE(NULLIF(job_title_en, ''), name) AS title_en,
+                hierarchy_level
+            FROM roles
+            WHERE COALESCE(is_active, true) = true
+            ORDER BY COALESCE(hierarchy_level, 999), COALESCE(NULLIF(job_title_ar, ''), NULLIF(name_ar, ''), name)
+        `);
 
-    return result.rows;
+        if (result.rows.length > 0) {
+            return result.rows;
+        }
+    } catch (error) {
+        console.warn('⚠️  تعذر جلب الأدوار من قاعدة البيانات، سيتم استخدام الأدوار الافتراضية:', error.message);
+    }
+
+    return DEFAULT_REGISTRATION_ROLES;
 }
 
 function isValidEmail(email) {
@@ -457,15 +517,24 @@ router.post('/register', registerRateLimiter, async (req, res) => {
             LIMIT 1
         `, [normalizedJobTitleCode]);
 
-        if (roleResult.rows.length === 0) {
+        let selectedRole = roleResult.rows[0];
+        if (!selectedRole) {
+            const fallbackRole = DEFAULT_REGISTRATION_ROLES.find((role) => role.code === normalizedJobTitleCode);
+            if (fallbackRole) {
+                selectedRole = {
+                    code: fallbackRole.code,
+                    title_ar: fallbackRole.title_ar
+                };
+            }
+        }
+
+        if (!selectedRole) {
             await client.query('ROLLBACK');
             return res.status(400).json({
                 success: false,
                 message: 'المسمى الوظيفي غير صالح'
             });
         }
-
-        const selectedRole = roleResult.rows[0];
         const passwordHash = await bcrypt.hash(password, 10);
         const entityId = await createRegistrationEntity(client, normalizedTenantType, normalizedEntityName);
 
