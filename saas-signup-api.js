@@ -46,13 +46,43 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref();
 
 // ---- Rate Limiters ----
+const subdomainCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'تم تجاوز عدد محاولات التحقق. يرجى الانتظار قليلاً ثم المحاولة.' }
+});
+
 const signupLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'تم تجاوز عدد المحاولات المسموح بها. يرجى المحاولة لاحقاً.' }
 });
+
+let saasSchemaReady = false;
+async function ensureSaasSchema() {
+  if (saasSchemaReady) return;
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS tenants (
+      id SERIAL PRIMARY KEY,
+      subdomain VARCHAR(63) NOT NULL UNIQUE,
+      company_name VARCHAR(255) NOT NULL DEFAULT '',
+      subscription_plan VARCHAR(100) NOT NULL DEFAULT 'basic',
+      status VARCHAR(30) NOT NULL DEFAULT 'pending_payment',
+      encrypted_db_url TEXT,
+      db_name VARCHAR(100),
+      settings JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_tenants_subdomain ON tenants (subdomain);
+    CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants (status);
+  `);
+  saasSchemaReady = true;
+}
 
 const webhookLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -79,6 +109,7 @@ function _isValidEmail(email) {
 }
 
 async function _isSubdomainAvailable(subdomain) {
+  await ensureSaasSchema();
   const res = await db.query(
     `SELECT 1 FROM tenants WHERE subdomain = $1 AND status != 'deleted' LIMIT 1`,
     [subdomain]
@@ -141,7 +172,7 @@ async function _getProvisioningStepsByTenantId(tenantId) {
 // ================================================================
 // POST /api/saas/validate-subdomain
 // ================================================================
-router.post('/validate-subdomain', signupLimiter, async (req, res) => {
+router.post('/validate-subdomain', subdomainCheckLimiter, async (req, res) => {
   const { subdomain } = req.body || {};
   if (!subdomain) {
     return res.status(400).json({ success: false, message: 'النطاق الفرعي مطلوب.' });

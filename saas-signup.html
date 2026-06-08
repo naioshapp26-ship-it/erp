@@ -287,15 +287,34 @@ const PLAN_AMOUNTS = { basic: 'مجاني', pro: '$49', enterprise: '$199' };
 // الخطوة 1 — التسجيل
 // ================================================================
 let _subdomainTimer = null;
+const SUBDOMAIN_PATTERN = /^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/;
+const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'api', 'admin', 'saas']);
+
+function isClientSubdomainValid(val) {
+  return SUBDOMAIN_PATTERN.test(val) && !RESERVED_SUBDOMAINS.has(val);
+}
+
 function onSubdomainInput() {
   clearTimeout(_subdomainTimer);
   const val = document.getElementById('subdomain').value.trim().toLowerCase();
-  if (!val) { setSubdomainStatus('', 'text-slate-400'); return; }
+  if (!val) {
+    setSubdomainStatus('أدخل النطاق الفرعي للتحقق من توفره', 'text-slate-400');
+    return;
+  }
+  if (val.length < 2) {
+    setSubdomainStatus('أدخل حرفين على الأقل', 'text-slate-400');
+    return;
+  }
+  if (!isClientSubdomainValid(val)) {
+    setSubdomainStatus('<i class="fa fa-circle-xmark"></i> استخدم أحرفاً إنجليزية صغيرة وأرقاماً وشرطات فقط', 'text-red-600');
+    return;
+  }
   setSubdomainStatus('<i class="fa fa-spinner fa-spin"></i> جارٍ التحقق…', 'text-slate-400');
-  _subdomainTimer = setTimeout(() => checkSubdomain(val), 600);
+  _subdomainTimer = setTimeout(() => checkSubdomain(val), 800);
 }
 
 async function checkSubdomain(val) {
+  if (!isClientSubdomainValid(val)) return;
   try {
     const r = await fetch('/api/saas/validate-subdomain', {
       method: 'POST',
@@ -303,11 +322,15 @@ async function checkSubdomain(val) {
       body: JSON.stringify({ subdomain: val })
     });
     const data = await r.json();
-    if (data.available) {
-      setSubdomainStatus('<i class="fa fa-circle-check"></i> متاح!', 'text-green-600');
-    } else {
-      setSubdomainStatus('<i class="fa fa-circle-xmark"></i> ' + (data.message || 'غير متاح'), 'text-red-600');
+    if (r.status === 429) {
+      setSubdomainStatus('<i class="fa fa-circle-xmark"></i> ' + (data.message || 'تم تجاوز عدد المحاولات. انتظر قليلاً ثم أعد المحاولة.'), 'text-red-600');
+      return;
     }
+    if (data.success && data.available) {
+      setSubdomainStatus('<i class="fa fa-circle-check"></i> متاح!', 'text-green-600');
+      return;
+    }
+    setSubdomainStatus('<i class="fa fa-circle-xmark"></i> ' + (data.message || 'غير متاح'), 'text-red-600');
   } catch {
     setSubdomainStatus('تعذّر التحقق، حاول مجدداً', 'text-amber-600');
   }
