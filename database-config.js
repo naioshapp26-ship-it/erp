@@ -250,14 +250,20 @@ const resolveDatabaseConfig = () => {
 };
 
 const resolveSsl = (databaseUrl) => {
-  if (RAILWAY_HOST_PATTERN.test(databaseUrl) || String(databaseUrl).includes('.railway.internal')) {
+  const url = String(databaseUrl || '');
+
+  // Railway private network (*.railway.internal) does not use SSL.
+  if (url.includes('.railway.internal')) {
+    return false;
+  }
+
+  if (RAILWAY_HOST_PATTERN.test(url)) {
     return { rejectUnauthorized: false };
   }
 
   const sslSetting = String(process.env.DATABASE_SSL || '').trim().toLowerCase();
   if (sslSetting === 'true' || sslSetting === '1') return { rejectUnauthorized: false };
   if (sslSetting === 'false' || sslSetting === '0') return false;
-  if (process.env.RAILWAY_ENVIRONMENT) return { rejectUnauthorized: false };
   return false;
 };
 
