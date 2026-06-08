@@ -1193,39 +1193,89 @@ const syncTenantUserFromCentralDirectory = async ({
     };
 };
 
-// ========== Middleware للتحقق من Super Admin ==========
-const verifySuperAdmin = async (req, res, next) => {
-    try {
-        const userId = req.userId || req.headers['x-user-id'];
-        
-        if (!userId) {
-            return res.status(401).json({ success: false, message: 'غير مصرح - مطلوب تسجيل دخول' });
-        }
+const SUPER_ADMIN_ROLE_CODES = new Set([
+    'SUPER_ADMIN',
+    'super_admin',
+    'مسؤول النظام',
+    'مدير النظام'
+]);
 
+const isSuperAdminUserRecord = (user = {}) => {
+    const roleName = String(user.role || '').trim();
+    const roleLower = roleName.toLowerCase();
+    const isHqUser = user.entity_id === 'HQ001' || user.tenant_type === 'HQ';
+    const isSuperRole = SUPER_ADMIN_ROLE_CODES.has(roleName)
+        || roleLower.includes('super')
+        || roleLower.includes('مسؤول')
+        || roleLower.includes('admin');
+    const isKnownAdminEmail = String(user.email || '').toLowerCase() === 'admin@naiosh.com';
+
+    return isHqUser && (isSuperRole || isKnownAdminEmail);
+};
+
+async function resolveSuperAdminRole(userId) {
+    try {
         const result = await pool.query(`
             SELECT r.name, r.hierarchy_level
             FROM user_roles ur
             JOIN roles r ON ur.role_id = r.id
-            WHERE ur.user_id = $1 AND ur.is_active = true
-            ORDER BY r.hierarchy_level ASC
+            WHERE ur.user_id = $1 AND COALESCE(ur.is_active, true) = true
+            ORDER BY COALESCE(r.hierarchy_level, 999) ASC
             LIMIT 1
         `, [userId]);
 
-        if (result.rows.length === 0) {
+        if (result.rows.length > 0) {
+            return result.rows[0];
+        }
+    } catch (error) {
+        if (!/relation .* does not exist|user_roles|roles/i.test(error.message || '')) {
+            throw error;
+        }
+        console.warn('⚠️  Super Admin RBAC tables unavailable, using users fallback:', error.message);
+    }
+
+    const userResult = await pool.query(`
+        SELECT id, role, tenant_type, entity_id, email
+        FROM users
+        WHERE id = $1 AND COALESCE(is_active, true) = true
+        LIMIT 1
+    `, [userId]);
+
+    if (userResult.rows.length === 0) {
+        return null;
+    }
+
+    if (isSuperAdminUserRecord(userResult.rows[0])) {
+        return { name: 'SUPER_ADMIN', hierarchy_level: 0 };
+    }
+
+    return null;
+}
+
+// ========== Middleware للتحقق من Super Admin ==========
+const verifySuperAdmin = async (req, res, next) => {
+    try {
+        const userId = req.userId || req.headers['x-user-id'];
+
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'غير مصرح - مطلوب تسجيل دخول' });
+        }
+
+        const userRole = await resolveSuperAdminRole(userId);
+
+        if (!userRole) {
             return res.status(403).json({ success: false, message: 'غير مصرح - لا يوجد دور نشط' });
         }
 
-        const userRole = result.rows[0];
-
-        // فقط المستخدمين بمستوى 0 (القيادة العليا) لديهم صلاحيات Super Admin
-        if (userRole.hierarchy_level !== 0) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'غير مصرح - يجب أن تكون من القيادة العليا للوصول لهذه الصفحة' 
+        if (Number(userRole.hierarchy_level) !== 0) {
+            return res.status(403).json({
+                success: false,
+                message: 'غير مصرح - يجب أن تكون من القيادة العليا للوصول لهذه الصفحة'
             });
         }
 
         req.userRole = userRole;
+        req.userId = userId;
         next();
     } catch (error) {
         console.error('خطأ في التحقق من Super Admin:', error);
