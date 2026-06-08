@@ -138,6 +138,44 @@
         const jobTitleSelect = document.getElementById('job_title_code');
         const REDIRECT_DELAY_MS = 800;
 
+        const FALLBACK_OFFICE_TYPES = [
+            { value: 'BRANCH', label: 'فرع' },
+            { value: 'OFFICE', label: 'مكتب' },
+            { value: 'INCUBATOR', label: 'حاضنة' },
+            { value: 'PLATFORM', label: 'منصة' }
+        ];
+
+        const FALLBACK_ROLES = [
+            { code: 'BRANCH_MANAGER', title_ar: 'مدير فرع' },
+            { code: 'INCUBATOR_MANAGER', title_ar: 'مدير حاضنة' },
+            { code: 'PLATFORM_MANAGER', title_ar: 'مدير منصة' },
+            { code: 'EXECUTIVE_OFFICE_MANAGER', title_ar: 'مسؤول تنفيذي مكاتب' },
+            { code: 'ADMINISTRATIVE_EXECUTIVE', title_ar: 'إداري تنفيذي' },
+            { code: 'HR_EXECUTIVE', title_ar: 'تنفيذي موارد بشرية' },
+            { code: 'FINANCE_EXECUTIVE', title_ar: 'تنفيذي مالي' },
+            { code: 'SALES_EXECUTIVE', title_ar: 'تنفيذي مبيعات' },
+            { code: 'MARKETING_EXECUTIVE', title_ar: 'تنفيذي تسويق' },
+            { code: 'EMPLOYEE', title_ar: 'موظف' }
+        ];
+
+        function renderRegisterOptions(officeTypes, roles) {
+            tenantTypeSelect.innerHTML = '<option value="">اختر نوع الحساب</option>';
+            officeTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type.value;
+                option.textContent = type.label;
+                tenantTypeSelect.appendChild(option);
+            });
+
+            jobTitleSelect.innerHTML = '<option value="">اختر المسمى الوظيفي</option>';
+            roles.forEach(role => {
+                const option = document.createElement('option');
+                option.value = role.code;
+                option.textContent = role.title_ar || role.code;
+                jobTitleSelect.appendChild(option);
+            });
+        }
+
         function showAlert(message, type = 'error') {
             alertMessage.className = 'mb-6 p-4 rounded-lg text-sm font-medium border';
             alertMessage.innerHTML = `${type === 'success' ? '<i class="fa-solid fa-check-circle ml-2"></i>' : '<i class="fa-solid fa-circle-exclamation ml-2"></i>'}${message}`;
@@ -190,30 +228,21 @@
                 const response = await fetch('/api/auth/register-options');
                 const result = await response.json();
 
+                const officeTypes = (result.success && result.office_types?.length)
+                    ? result.office_types
+                    : FALLBACK_OFFICE_TYPES;
+                const roles = (result.success && result.roles?.length)
+                    ? result.roles
+                    : FALLBACK_ROLES;
+
+                renderRegisterOptions(officeTypes, roles);
+
                 if (!result.success) {
-                    throw new Error(result.message || 'تعذر تحميل البيانات');
+                    console.warn('Register options API returned error, using fallback options');
                 }
-
-                tenantTypeSelect.innerHTML = '<option value="">اختر نوع الحساب</option>';
-                (result.office_types || []).forEach(type => {
-                    const option = document.createElement('option');
-                    option.value = type.value;
-                    option.textContent = type.label;
-                    tenantTypeSelect.appendChild(option);
-                });
-
-                jobTitleSelect.innerHTML = '<option value="">اختر المسمى الوظيفي</option>';
-                (result.roles || []).forEach(role => {
-                    const option = document.createElement('option');
-                    option.value = role.code;
-                    option.textContent = role.title_ar || role.code;
-                    jobTitleSelect.appendChild(option);
-                });
             } catch (error) {
                 console.error(error);
-                tenantTypeSelect.innerHTML = '<option value="">تعذر تحميل الأنواع</option>';
-                jobTitleSelect.innerHTML = '<option value="">تعذر تحميل المسميات</option>';
-                showAlert('تعذر تحميل خيارات إنشاء الحساب. حاول تحديث الصفحة.');
+                renderRegisterOptions(FALLBACK_OFFICE_TYPES, FALLBACK_ROLES);
             }
         }
 

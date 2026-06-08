@@ -7,7 +7,7 @@ const db = require('./db');
 
 const router = express.Router();
 const pool = db.pool;
-const AUTH_API_BUILD = '2026-05-23-login-debug-v2';
+const AUTH_API_BUILD = '2026-06-08-register-options-v2';
 const DEBUG_AUTH = process.env.DEBUG_AUTH === '1' || process.env.DEBUG_AUTH === 'true';
 
 const logAuth = (scope, message, extra) => {
@@ -137,9 +137,23 @@ async function ensureRegistrationRolesSchema(client) {
     }
 }
 
-async function ensureRegistrationSchema(client) {
-    await ensureRegistrationRolesSchema(client);
+function buildRegisterOptionsPayload(roles = DEFAULT_REGISTRATION_ROLES) {
+    return {
+        success: true,
+        roles,
+        office_types: VALID_ACCOUNT_TYPES.map(type => ({
+            value: type,
+            label: {
+                BRANCH: 'فرع',
+                OFFICE: 'مكتب',
+                INCUBATOR: 'حاضنة',
+                PLATFORM: 'منصة'
+            }[type] || type
+        }))
+    };
+}
 
+async function ensureUserAuthSchema(client) {
     await client.query(`
         CREATE TABLE IF NOT EXISTS user_credentials (
             id SERIAL PRIMARY KEY,
@@ -177,6 +191,11 @@ async function ensureRegistrationSchema(client) {
     } catch (error) {
         console.warn('⚠️  تعذر تعديل جدول users (قد يكون مستورداً من Railway):', error.message);
     }
+}
+
+async function ensureRegistrationSchema(client) {
+    await ensureRegistrationRolesSchema(client);
+    await ensureUserAuthSchema(client);
 }
 
 async function comparePassword(password, passwordHash) {
@@ -403,34 +422,28 @@ async function buildAuthenticatedResponse(client, user, req) {
 // 0. بيانات إنشاء الحساب - GET /api/auth/register-options
 // ============================================
 router.get('/register-options', async (req, res) => {
-    const client = await pool.connect();
+    let roles = DEFAULT_REGISTRATION_ROLES;
+    let client;
 
     try {
-        await ensureRegistrationSchema(client);
-        const roles = await getRegistrationRoles(client);
+        client = await pool.connect();
+        try {
+            await ensureRegistrationRolesSchema(client);
+        } catch (schemaError) {
+            console.warn('⚠️  Register options roles schema skipped:', schemaError.message);
+        }
 
-        res.json({
-            success: true,
-            roles,
-            office_types: VALID_ACCOUNT_TYPES.map(type => ({
-                value: type,
-                label: {
-                    BRANCH: 'فرع',
-                    OFFICE: 'مكتب',
-                    INCUBATOR: 'حاضنة',
-                    PLATFORM: 'منصة'
-                }[type] || type
-            }))
-        });
+        roles = await getRegistrationRoles(client);
     } catch (error) {
-        console.error('Register options error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'تعذر تحميل بيانات إنشاء الحساب'
-        });
+        console.warn('⚠️  Register options using defaults:', error.message);
+        roles = DEFAULT_REGISTRATION_ROLES;
     } finally {
-        client.release();
+        if (client) {
+            client.release();
+        }
     }
+
+    res.json(buildRegisterOptionsPayload(roles));
 });
 
 // ============================================
