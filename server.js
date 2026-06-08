@@ -2170,18 +2170,79 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.get('/api/db-env', (_req, res) => {
+app.get('/api/db-env', async (_req, res) => {
   const { getRuntimeEnvDiagnostics } = require('./database-config');
   const diagnostics = getRuntimeEnvDiagnostics();
-  const dbInfo = require('./db').getDatabaseInfo();
-  res.json({
+  const dbModule = require('./db');
+  const dbInfo = dbModule.getDatabaseInfo();
+  const payload = {
     success: dbInfo.configured !== false,
     configured: dbInfo.configured !== false,
     databaseHost: dbInfo.host || null,
     databaseSource: dbInfo.source || null,
     configError: dbInfo.error || null,
     ...diagnostics
-  });
+  };
+
+  if (dbInfo.configured !== false) {
+    try {
+      const live = await dbModule.testConnection();
+      payload.connectionTest = { ok: true, database: live.database, user: live.user };
+    } catch (error) {
+      const isPasswordError = error.code === '28P01' || /password authentication failed/i.test(error.message);
+      payload.connectionTest = {
+        ok: false,
+        code: error.code || null,
+        error: error.message,
+        passwordMismatch: isPasswordError,
+        fix: isPasswordError ? dbModule.getPasswordAuthFixSteps() : null
+      };
+      payload.success = false;
+    }
+  }
+
+  res.json(payload);
+});
+
+app.get('/api/db-connect-test', async (_req, res) => {
+  const dbModule = require('./db');
+  const dbInfo = dbModule.getDatabaseInfo();
+
+  if (dbInfo.configured === false) {
+    return res.status(503).json({
+      success: false,
+      connected: false,
+      configured: false,
+      error: dbInfo.error || 'Database not configured',
+      databaseHost: dbInfo.host || null
+    });
+  }
+
+  try {
+    const live = await dbModule.testConnection();
+    return res.json({
+      success: true,
+      connected: true,
+      databaseHost: dbInfo.host,
+      databaseSource: dbInfo.source,
+      database: live.database,
+      user: live.user,
+      time: live.now
+    });
+  } catch (error) {
+    const isPasswordError = error.code === '28P01' || /password authentication failed/i.test(error.message);
+    return res.status(503).json({
+      success: false,
+      connected: false,
+      configured: true,
+      code: error.code || null,
+      error: error.message,
+      databaseHost: dbInfo.host,
+      databaseSource: dbInfo.source,
+      passwordMismatch: isPasswordError,
+      fix: isPasswordError ? dbModule.getPasswordAuthFixSteps() : null
+    });
+  }
 });
 
 app.get('/api/db-config', (_req, res) => {
@@ -2216,7 +2277,7 @@ app.use(async (req, res, next) => {
     return next();
   }
 
-  if (req.path === '/api/db-config' || req.path === '/api/db-env') {
+  if (req.path === '/api/db-config' || req.path === '/api/db-env' || req.path === '/api/db-connect-test') {
     return next();
   }
 
@@ -2225,18 +2286,25 @@ app.use(async (req, res, next) => {
     return next();
   } catch (error) {
     let databaseHost = error.resolvedHost || null;
+    const dbModule = require('./db');
     try {
-      databaseHost = databaseHost || require('./db').getDatabaseInfo().host;
+      databaseHost = databaseHost || dbModule.getDatabaseInfo().host;
     } catch (_) {
       /* ignore */
     }
 
+    const isPasswordError = error.code === '28P01' || /password authentication failed/i.test(error.message);
     console.error('Database bootstrap failed:', error.message, databaseHost ? `(host: ${databaseHost})` : '');
     return res.status(503).json({
       success: false,
       message: 'Database initialization failed',
       detail: error.message,
-      databaseHost
+      databaseHost,
+      passwordMismatch: isPasswordError,
+      fix: isPasswordError ? dbModule.getPasswordAuthFixSteps() : null,
+      hint: isPasswordError
+        ? 'Do not delete/re-add DATABASE_URL repeatedly. Use Add Reference to Postgres.DATABASE_URL on ERP, then redeploy.'
+        : null
     });
   }
 });

@@ -26,13 +26,24 @@ try {
 
 function buildClientConfig() {
   if (!resolvedConfig) return null;
+
+  const ssl = resolveSsl(resolvedConfig.databaseUrl);
+
+  // Prefer connectionString — handles Railway passwords with special characters correctly.
+  if (resolvedConfig.databaseUrl) {
+    return {
+      connectionString: resolvedConfig.databaseUrl,
+      ssl
+    };
+  }
+
   return {
     host: resolvedConfig.host,
     port: Number(resolvedConfig.port) || 5432,
     user: resolvedConfig.username,
     password: resolvedConfig.password,
     database: resolvedConfig.database,
-    ssl: resolveSsl(resolvedConfig.databaseUrl)
+    ssl
   };
 }
 
@@ -48,8 +59,7 @@ function rejectIfMisconfigured() {
 
 /**
  * بديل pg.Pool — يستخدم Client فقط (أثبت على cPanel؛ Pool كان يسبب core dump).
- * Uses explicit host/port/user/password/database — never empty connectionString,
- * so node-postgres cannot silently fall back to PGHOST env var.
+ * Uses connectionString when available; falls back to explicit fields only without a URL.
  */
 function createClientPool() {
   const maxClients = Number(process.env.PG_POOL_MAX) || 4;
@@ -132,9 +142,44 @@ function createClientPool() {
 
 const pool = createClientPool();
 
+async function testConnection() {
+  rejectIfMisconfigured();
+  const client = new Client(buildClientConfig());
+  try {
+    await client.connect();
+    const result = await client.query('SELECT current_database() AS database, current_user AS user, NOW() AS now');
+    return result.rows[0];
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+function getPasswordAuthFixSteps() {
+  return {
+    ar: [
+      'المشكلة: كلمة مرور Postgres في ERP لا تطابق قاعدة البيانات (ليس نقص DATABASE_URL).',
+      '1) افتح خدمة Postgres (وليس ERP) → Variables → انسخ DATABASE_URL الحالية.',
+      '2) في ERP → Variables: احذف DATABASE_URL و PROVISION_DB_URL وأي PGHOST/PGPASSWORD يدوية.',
+      '3) أضف DATABASE_URL عبر Add Reference → Postgres → DATABASE_URL (لا تلصق قيمة قديمة يدوياً).',
+      '4) عيّن DATABASE_SSL=false ثم Deploy لخدمة ERP.',
+      '5) إن استمر الخطأ: أعد Deploy لخدمة Postgres أولاً، ثم ERP. أو أنشئ PostgreSQL جديدة واربطها.'
+    ],
+    en: [
+      'Issue: ERP DATABASE_URL password does not match the live Postgres credentials.',
+      '1) Open Postgres service → Variables → copy the current DATABASE_URL.',
+      '2) On ERP → Variables: delete DATABASE_URL, PROVISION_DB_URL, and any manual PGHOST/PGPASSWORD.',
+      '3) Re-add DATABASE_URL via Add Reference → Postgres → DATABASE_URL (do not paste a stale value).',
+      '4) Set DATABASE_SSL=false, then Deploy ERP.',
+      '5) If it still fails: redeploy Postgres first, then ERP, or create a fresh PostgreSQL service.'
+    ]
+  };
+}
+
 module.exports = {
   query: (text, params) => pool.query(text, params),
   pool,
+  testConnection,
+  getPasswordAuthFixSteps,
   isConfigured: () => Boolean(resolvedConfig),
   getConfigError: () => configError,
   getDatabaseInfo: () => {
