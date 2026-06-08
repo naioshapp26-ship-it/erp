@@ -1,3 +1,5 @@
+require('./load-env');
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -15,7 +17,6 @@ const {
   getRequestEntityContext,
   buildEntityScopeCondition
 } = require('./entity-context');
-require('dotenv').config();
 
 const app = express();
 const databaseReady = ensureDatabaseReady();
@@ -44,21 +45,6 @@ const getTrustProxySetting = () => {
 };
 
 app.set('trust proxy', getTrustProxySetting());
-
-const BYPASS_AUTH_TOKEN = process.env.BYPASS_AUTH_TOKEN || 'naiosh-bypass-token';
-const DEFAULT_BYPASS_USER = {
-  id: 0,
-  name: 'Super Admin',
-  email: 'admin@naiosh.com',
-  role: 'مسؤول النظام',
-  job_title: 'مدير النظام',
-  tenant_type: 'HQ',
-  tenantType: 'HQ',
-  entity_id: 'HQ001',
-  entityId: 'HQ001',
-  entity_name: 'NAIOSH HQ',
-  entityName: 'NAIOSH HQ'
-};
 
 const assetExists = (assetPath) => {
   const normalizedPath = String(assetPath || '').replace(/^\/+/, '');
@@ -2184,8 +2170,116 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.get('/api/db-env', async (_req, res) => {
+  const { getRuntimeEnvDiagnostics } = require('./database-config');
+  const diagnostics = getRuntimeEnvDiagnostics();
+  const dbModule = require('./db');
+  const dbInfo = dbModule.getDatabaseInfo();
+  const payload = {
+    success: dbInfo.configured !== false,
+    configured: dbInfo.configured !== false,
+    databaseHost: dbInfo.host || null,
+    databaseSource: dbInfo.source || null,
+    configError: dbInfo.error || null,
+    ...diagnostics
+  };
+
+  if (dbInfo.configured !== false) {
+    try {
+      const live = await dbModule.testConnection();
+      payload.connectionTest = { ok: true, database: live.database, user: live.user };
+    } catch (error) {
+      const isPasswordError = error.code === '28P01' || /password authentication failed/i.test(error.message);
+      payload.connectionTest = {
+        ok: false,
+        code: error.code || null,
+        error: error.message,
+        passwordMismatch: isPasswordError,
+        probeFailures: dbModule.getProbeFailures(),
+        fix: isPasswordError ? dbModule.getPasswordAuthFixSteps() : null
+      };
+      payload.success = false;
+    }
+  }
+
+  res.json(payload);
+});
+
+app.get('/api/db-connect-test', async (_req, res) => {
+  const dbModule = require('./db');
+  const dbInfo = dbModule.getDatabaseInfo();
+
+  if (dbInfo.configured === false) {
+    return res.status(503).json({
+      success: false,
+      connected: false,
+      configured: false,
+      error: dbInfo.error || 'Database not configured',
+      databaseHost: dbInfo.host || null
+    });
+  }
+
+  try {
+    const live = await dbModule.testConnection();
+    return res.json({
+      success: true,
+      connected: true,
+      databaseHost: dbInfo.host,
+      databaseSource: dbInfo.source,
+      database: live.database,
+      user: live.user,
+      time: live.now
+    });
+  } catch (error) {
+    const isPasswordError = error.code === '28P01' || /password authentication failed/i.test(error.message);
+    return res.status(503).json({
+      success: false,
+      connected: false,
+      configured: true,
+      code: error.code || null,
+      error: error.message,
+      databaseHost: dbInfo.host,
+      databaseSource: dbInfo.source,
+      passwordMismatch: isPasswordError,
+      probeFailures: dbModule.getProbeFailures(),
+      fix: isPasswordError ? dbModule.getPasswordAuthFixSteps() : null
+    });
+  }
+});
+
+app.get('/api/db-config', (_req, res) => {
+  try {
+    const { getDatabaseInfo } = require('./db');
+    const info = getDatabaseInfo();
+    res.json({
+      success: true,
+      databaseHost: info.host,
+      databasePort: info.port,
+      databaseName: info.database,
+      databaseSource: info.source,
+      databaseSsl: info.ssl,
+      rejectedSources: info.rejectedSources || [],
+      runtimeDiagnostics: info.runtimeDiagnostics || null
+    });
+  } catch (error) {
+    const { getRuntimeEnvDiagnostics } = require('./database-config');
+    res.status(500).json({
+      success: false,
+      message: 'Database configuration invalid',
+      detail: error.message,
+      resolvedHost: error.resolvedHost || null,
+      rejectedSources: error.rejections || [],
+      runtimeDiagnostics: error.diagnostics || getRuntimeEnvDiagnostics()
+    });
+  }
+});
+
 app.use(async (req, res, next) => {
   if (!req.path.startsWith('/api/')) {
+    return next();
+  }
+
+  if (req.path === '/api/db-config' || req.path === '/api/db-env' || req.path === '/api/db-connect-test') {
     return next();
   }
 
@@ -2193,11 +2287,26 @@ app.use(async (req, res, next) => {
     await databaseReady;
     return next();
   } catch (error) {
-    console.error('Database bootstrap failed:', error.message);
+    let databaseHost = error.resolvedHost || null;
+    const dbModule = require('./db');
+    try {
+      databaseHost = databaseHost || dbModule.getDatabaseInfo().host;
+    } catch (_) {
+      /* ignore */
+    }
+
+    const isPasswordError = error.code === '28P01' || /password authentication failed/i.test(error.message);
+    console.error('Database bootstrap failed:', error.message, databaseHost ? `(host: ${databaseHost})` : '');
     return res.status(503).json({
       success: false,
       message: 'Database initialization failed',
-      detail: error.message
+      detail: error.message,
+      databaseHost,
+      passwordMismatch: isPasswordError,
+      fix: isPasswordError ? dbModule.getPasswordAuthFixSteps() : null,
+      hint: isPasswordError
+        ? 'Do not delete/re-add DATABASE_URL repeatedly. Use Add Reference to Postgres.DATABASE_URL on ERP, then redeploy.'
+        : null
     });
   }
 });
@@ -2232,6 +2341,13 @@ app.get('/api/auth/debug', async (req, res) => {
     nodeVersion: process.version,
     hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
     databaseSsl: process.env.DATABASE_SSL,
+    databaseInfo: (() => {
+      try {
+        return require('./db').getDatabaseInfo();
+      } catch (error) {
+        return { error: error.message, resolvedHost: error.resolvedHost || null };
+      }
+    })(),
     steps: []
   };
   const addStep = (name, ok, detail) => report.steps.push({ name, ok, detail });
@@ -2604,15 +2720,38 @@ const shouldGuardHtml = (req) => {
   return isProtectedHtmlPath(req.path);
 };
 
-const requireAuthForHtml = async (_req, _res, next) => {
-  // Temporary bypass for deployment: do not guard HTML pages.
-  return next();
+const requireAuthForHtml = async (req, res, next) => {
+  if (!shouldGuardHtml(req)) {
+    return next();
+  }
+
+  const token = getAuthToken(req);
+  if (!token) {
+    return res.redirect(302, '/login-page.html');
+  }
+
+  try {
+    const resolvedContext = req.tenant && req.tenantPool
+      ? await resolveTenantSessionEntityContext(req, token)
+      : await resolveCentralSessionEntityContext(token);
+    if (!resolvedContext) {
+      return res.redirect(302, '/login-page.html');
+    }
+    return next();
+  } catch (error) {
+    console.error('HTML auth guard failed:', error.message);
+    return res.redirect(302, '/login-page.html');
+  }
 };
 
 app.use(requireAuthForHtml);
 
-app.get(['/login-page.html', '/register.html'], (_req, res) => {
-  return res.redirect('/dashboard.html');
+app.get('/login-page.html', (_req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'login-page.html'));
+});
+
+app.get('/register.html', (_req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'register.html'));
 });
 
 // Serve static files (must come AFTER API routes to avoid conflicts)
@@ -13726,10 +13865,7 @@ const creatorImageUpload = multer({
 const getAuthenticatedUser = async (req) => {
   const token = getAuthToken(req) || (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
   if (!token) {
-    return DEFAULT_BYPASS_USER;
-  }
-  if (token === BYPASS_AUTH_TOKEN) {
-    return DEFAULT_BYPASS_USER;
+    return null;
   }
 
   try {
@@ -13742,10 +13878,10 @@ const getAuthenticatedUser = async (req) => {
        LIMIT 1`,
       [token]
     );
-    return result.rows[0] || DEFAULT_BYPASS_USER;
+    return result.rows[0] || null;
   } catch (error) {
-    console.warn('Authentication DB lookup failed, using bypass user:', error.message);
-    return DEFAULT_BYPASS_USER;
+    console.warn('Authentication DB lookup failed:', error.message);
+    return null;
   }
 };
 

@@ -17,31 +17,6 @@ function hideGlobalLoading() {
 // Global API Configuration (accessible from all functions)
 const API_BASE_URL = '/api';
 
-const AUTH_BYPASS_TOKEN = 'naiosh-bypass-token';
-const AUTH_BYPASS_USER = {
-    id: 0,
-    name: 'Super Admin',
-    email: 'admin@naiosh.com',
-    role: 'مسؤول النظام',
-    job_title: 'مدير النظام',
-    tenant_type: 'HQ',
-    tenantType: 'HQ',
-    entity_id: 'HQ001',
-    entityId: 'HQ001',
-    entity_name: 'NAIOSH HQ',
-    entityName: 'NAIOSH HQ',
-    allowed_pages: []
-};
-
-function createBypassAuthSession() {
-    const serializedUser = JSON.stringify(AUTH_BYPASS_USER);
-    sessionStorage.setItem('authToken', AUTH_BYPASS_TOKEN);
-    sessionStorage.setItem('user', serializedUser);
-    currentUser = normalizeCurrentUserData(AUTH_BYPASS_USER, readStoredMenu());
-    window.currentUserData = currentUser;
-    console.log('✅ تم إنشاء جلسة تجاوز المصادقة للاستخدام المؤقت');
-}
-
 function getAppAuthContext() {
     const host = window.location.hostname.toLowerCase();
     const reserved = new Set(['www', 'app', 'api', 'admin', 'saas']);
@@ -258,7 +233,7 @@ const app = (() => {
         localStorage.clear();
         sessionStorage.clear();
         document.cookie = 'authToken=; Max-Age=0; Path=/; SameSite=Lax';
-        window.location.href = '/newhome/index.html';
+        window.location.href = '/login-page.html';
     };
 
     const readStoredMenu = () => {
@@ -1309,10 +1284,9 @@ const app = (() => {
             let savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
 
             if (!authToken || !savedUser) {
-                console.log('⚠️ لا يوجد توكن أو مستخدم محفوظ؛ يتم تهيئة جلسة تجاوز للمصادقة');
-                createBypassAuthSession();
-                authToken = sessionStorage.getItem('authToken');
-                savedUser = sessionStorage.getItem('user');
+                console.log('⚠️ لا يوجد توكن أو مستخدم محفوظ؛ إعادة توجيه لتسجيل الدخول');
+                clearAuthSessionAndRedirect();
+                return;
             }
 
             // محاولة استرجاع بيانات المستخدم

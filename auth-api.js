@@ -2,26 +2,13 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { rateLimit } = require('express-rate-limit');
-require('dotenv').config();
+require('./load-env');
 const db = require('./db');
 
 const router = express.Router();
 const pool = db.pool;
 const AUTH_API_BUILD = '2026-05-23-login-debug-v2';
 const DEBUG_AUTH = process.env.DEBUG_AUTH === '1' || process.env.DEBUG_AUTH === 'true';
-const BYPASS_AUTH_TOKEN = process.env.BYPASS_AUTH_TOKEN || 'naiosh-bypass-token';
-const DEFAULT_BYPASS_USER = {
-    id: 0,
-    name: 'Super Admin',
-    email: 'admin@naiosh.com',
-    entity_id: 'HQ001',
-    entity_name: 'NAIOSH HQ',
-    role: 'مسؤول النظام',
-    job_title: 'مدير النظام',
-    tenant_type: 'HQ',
-    office_id: null,
-    allowed_pages: []
-};
 
 const logAuth = (scope, message, extra) => {
     const suffix = extra !== undefined ? ` ${JSON.stringify(extra)}` : '';
@@ -52,6 +39,42 @@ const ENTITY_ID_PREFIXES = {
 const ENTITY_ID_SUFFIX_LENGTH = 6;
 const ENTITY_ID_SUFFIX_MAX = 10 ** ENTITY_ID_SUFFIX_LENGTH;
 const MAX_ENTITY_ID_GENERATION_ATTEMPTS = 10;
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+const parseCookies = (cookieHeader = '') => {
+    return String(cookieHeader || '').split(';').reduce((acc, part) => {
+        const [key, ...rest] = part.trim().split('=');
+        if (!key) return acc;
+        acc[key] = decodeURIComponent(rest.join('=') || '');
+        return acc;
+    }, {});
+};
+
+const getRequestToken = (req) => {
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.toLowerCase().startsWith('bearer ')) {
+        return authHeader.slice(7).trim();
+    }
+    return parseCookies(req.headers.cookie || '').authToken || '';
+};
+
+const isSecureRequest = (req) => {
+    return req.secure || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
+};
+
+const setAuthCookie = (req, res, token, maxAge = SESSION_TTL_MS) => {
+    res.cookie('authToken', token, {
+        httpOnly: false,
+        secure: isSecureRequest(req),
+        sameSite: 'lax',
+        path: '/',
+        maxAge
+    });
+};
+
+const clearAuthCookie = (res) => {
+    res.clearCookie('authToken', { path: '/', sameSite: 'lax' });
+};
 
 const registerRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -625,21 +648,93 @@ router.post('/login', async (req, res) => {
     };
 
     try {
-        const bypassResponse = {
+        const identifier = String(req.body?.email || req.body?.identifier || '').trim();
+        const password = String(req.body?.password || '');
+
+        if (!identifier || !password) {
+            return fail(400, 'يرجى إدخال البريد الإلكتروني وكلمة المرور');
+        }
+
+        step = 'connect';
+        client = await pool.connect();
+        await ensureRegistrationSchema(client);
+
+        step = 'lookup_credentials';
+        const userResult = await client.query(`
+            SELECT
+                u.id,
+                u.name,
+                u.email,
+                u.role,
+                u.tenant_type,
+                u.entity_id,
+                u.entity_name,
+                u.job_title,
+                u.office_id,
+                u.is_active AS user_active,
+                uc.id AS credential_id,
+                uc.username,
+                uc.password_hash,
+                uc.is_active AS credential_active,
+                COALESCE(uc.failed_attempts, 0) AS failed_attempts,
+                uc.locked_until
+            FROM user_credentials uc
+            JOIN users u ON u.id = uc.user_id
+            WHERE LOWER(uc.username) = LOWER($1)
+               OR LOWER(u.email) = LOWER($1)
+            ORDER BY u.id
+            LIMIT 1
+        `, [identifier]);
+
+        if (userResult.rows.length === 0) {
+            return fail(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
+        }
+
+        const user = userResult.rows[0];
+        if (!user.user_active || !user.credential_active) {
+            return fail(403, 'هذا الحساب غير مفعل');
+        }
+
+        if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
+            return fail(423, 'تم قفل الحساب مؤقتاً بسبب محاولات فاشلة. يرجى المحاولة لاحقاً.');
+        }
+
+        step = 'validate_password';
+        const passwordValid = await comparePassword(password, user.password_hash);
+        if (!passwordValid) {
+            await client.query(`
+                UPDATE user_credentials
+                SET failed_attempts = COALESCE(failed_attempts, 0) + 1,
+                    locked_until = CASE
+                        WHEN COALESCE(failed_attempts, 0) + 1 >= 5 THEN NOW() + INTERVAL '15 minutes'
+                        ELSE locked_until
+                    END,
+                    updated_at = NOW()
+                WHERE id = $1
+            `, [user.credential_id]);
+            return fail(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
+        }
+
+        step = 'reset_failed_attempts';
+        await client.query(`
+            UPDATE user_credentials
+            SET failed_attempts = 0,
+                locked_until = NULL,
+                last_login = NOW(),
+                updated_at = NOW()
+            WHERE id = $1
+        `, [user.credential_id]);
+
+        step = 'create_session';
+        const data = await buildAuthenticatedResponse(client, user, req);
+        setAuthCookie(req, res, data.session.token);
+
+        return res.json({
             success: true,
             apiBuild: AUTH_API_BUILD,
-            message: 'تم تسجيل الدخول تلقائياً',
-            data: {
-                user: DEFAULT_BYPASS_USER,
-                session: {
-                    token: BYPASS_AUTH_TOKEN,
-                    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                }
-            }
-        };
-
-        logAuth('login', 'bypass-auth-response', { email: req.body?.email || req.body?.identifier });
-        return res.json(bypassResponse);
+            message: 'تم تسجيل الدخول بنجاح',
+            data
+        });
     } catch (error) {
         fail(500, 'حدث خطأ أثناء تسجيل الدخول', error);
     } finally {
@@ -651,15 +746,12 @@ router.post('/login', async (req, res) => {
 // 2. التحقق من الجلسة - GET /api/auth/verify
 // ============================================
 router.get('/verify', async (req, res) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = getRequestToken(req);
 
-    if (!token || token === BYPASS_AUTH_TOKEN) {
-        return res.json({
-            success: true,
-            user: DEFAULT_BYPASS_USER,
-            data: {
-                user: DEFAULT_BYPASS_USER
-            }
+    if (!token) {
+        return res.status(401).json({
+            success: false,
+            message: 'لم يتم توفير رمز الجلسة'
         });
     }
 
@@ -677,12 +769,10 @@ router.get('/verify', async (req, res) => {
         const sessionResult = await client.query(sessionQuery, [token]);
 
         if (sessionResult.rows.length === 0) {
-            return res.json({
-                success: true,
-                user: DEFAULT_BYPASS_USER,
-                data: {
-                    user: DEFAULT_BYPASS_USER
-                }
+            clearAuthCookie(res);
+            return res.status(401).json({
+                success: false,
+                message: 'انتهت صلاحية الجلسة أو أنها غير صحيحة'
             });
         }
 
@@ -795,6 +885,20 @@ router.get('/verify', async (req, res) => {
                 tenant_type: session.tenant_type,
                 office_id: session.office_id,
                 allowed_pages: allowedOfficePages
+            },
+            data: {
+                user: {
+                    id: session.user_id,
+                    name: session.name,
+                    email: session.email,
+                    entity_id: session.entity_id,
+                    entity_name: session.entity_name,
+                    role: session.role,
+                    job_title: session.job_title,
+                    tenant_type: session.tenant_type,
+                    office_id: session.office_id,
+                    allowed_pages: allowedOfficePages
+                }
             }
         });
         
@@ -816,17 +920,13 @@ router.post('/logout', async (req, res) => {
     const client = await pool.connect();
     
     try {
-        const token = req.headers.authorization?.replace('Bearer ', '');
+        const token = getRequestToken(req);
         
-        if (!token) {
-            return res.status(400).json({
-                success: false,
-                message: 'لم يتم توفير رمز الجلسة'
-            });
+        if (token) {
+            await client.query('DELETE FROM user_sessions WHERE session_token = $1', [token]);
         }
-        
-        // حذف الجلسة
-        await client.query('DELETE FROM user_sessions WHERE session_token = $1', [token]);
+
+        clearAuthCookie(res);
         
         res.json({
             success: true,
