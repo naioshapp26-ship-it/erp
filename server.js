@@ -1,3 +1,5 @@
+require('./load-env');
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -15,7 +17,6 @@ const {
   getRequestEntityContext,
   buildEntityScopeCondition
 } = require('./entity-context');
-require('dotenv').config();
 
 const app = express();
 const databaseReady = ensureDatabaseReady();

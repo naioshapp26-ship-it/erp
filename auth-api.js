@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { rateLimit } = require('express-rate-limit');
-require('dotenv').config();
+require('./load-env');
 const db = require('./db');
 
 const router = express.Router();

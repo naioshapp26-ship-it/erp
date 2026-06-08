@@ -2,7 +2,8 @@
  * اختبار بسيط لـ PostgreSQL بدون Pool (لتجنب core dump على بعض سيرفرات cPanel)
  * Usage: node test-pg-connect.js
  */
-require('dotenv').config();
+require('./load-env');
+const { getDatabaseInfo } = require('./db');
 
 const { Client } = require('pg');
 
@@ -11,14 +12,32 @@ const normalizeUrl = (url) => {
   return url.replace(/@localhost([:/])/gi, '@127.0.0.1$1');
 };
 
+const resolveSsl = (connectionString) => {
+  const sslSetting = String(process.env.DATABASE_SSL || '').trim().toLowerCase();
+  if (sslSetting === 'true' || sslSetting === '1') {
+    return { rejectUnauthorized: false };
+  }
+  if (sslSetting === 'false' || sslSetting === '0') {
+    return false;
+  }
+  if (/\.(proxy\.rlwy\.net|railway\.internal)/i.test(connectionString) || process.env.RAILWAY_ENVIRONMENT) {
+    return { rejectUnauthorized: false };
+  }
+  return false;
+};
+
 async function main() {
-  const connectionString = normalizeUrl(process.env.DATABASE_URL);
+  const connectionString = normalizeUrl(
+    process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL || ''
+  );
   if (!connectionString) {
     console.error('❌ DATABASE_URL غير مضبوط');
     process.exit(1);
   }
 
-  const ssl = process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false;
+  const ssl = resolveSsl(connectionString);
+  const dbInfo = getDatabaseInfo();
+  console.log(`ℹ️  Target host: ${dbInfo.host}, ssl: ${ssl ? 'enabled' : 'disabled'}`);
   const client = new Client({ connectionString, ssl });
 
   console.log('🔄 اتصال بـ PostgreSQL (Client واحد)...');
