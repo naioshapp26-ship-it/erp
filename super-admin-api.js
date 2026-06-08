@@ -2432,22 +2432,26 @@ router.get('/audit-log', verifySuperAdmin, async (req, res) => {
 });
 
 // ========== 11. إدارة إعدادات الصفحة الرئيسية ==========
+const loadPublicHomepagePayload = async () => {
+    const now = Date.now();
+    if (publicHomepageCache && (now - publicHomepageCacheAt) < PUBLIC_HOMEPAGE_CACHE_MS) {
+        return publicHomepageCache;
+    }
+
+    const [settings, sections, heroMediaList] = await Promise.all([
+        getHomepageSettings(),
+        getHomepageSections(),
+        getHeroMediaList(true)
+    ]);
+    const payload = { success: true, settings, sections, heroMediaList };
+    publicHomepageCache = payload;
+    publicHomepageCacheAt = now;
+    return payload;
+};
+
 router.get('/homepage-settings/public', homepageSettingsReadLimiter, async (_req, res) => {
     try {
-        const now = Date.now();
-        if (publicHomepageCache && (now - publicHomepageCacheAt) < PUBLIC_HOMEPAGE_CACHE_MS) {
-            res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
-            return res.json(publicHomepageCache);
-        }
-
-        const [settings, sections, heroMediaList] = await Promise.all([
-            getHomepageSettings(),
-            getHomepageSections(),
-            getHeroMediaList(true)
-        ]);
-        const payload = { success: true, settings, sections, heroMediaList };
-        publicHomepageCache = payload;
-        publicHomepageCacheAt = now;
+        const payload = await loadPublicHomepagePayload();
         res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
         res.json(payload);
     } catch (error) {
@@ -3155,3 +3159,4 @@ router.post('/account-type-sidebar', verifySuperAdmin, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.loadPublicHomepagePayload = loadPublicHomepagePayload;

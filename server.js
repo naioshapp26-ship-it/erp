@@ -2413,6 +2413,7 @@ app.use('/api/menu', menuRoutes);
 
 // Super Admin API Routes
 const superAdminRoutes = require('./super-admin-api');
+const { loadPublicHomepagePayload } = require('./super-admin-api');
 app.use('/api/admin', superAdminRoutes);
 
 // Permissions API Routes
@@ -3269,9 +3270,35 @@ const getStrictRequestEntityCondition = (req, column = 'entity_id', paramIndex =
   buildEntityScopeCondition(getRequestEntityContext(req), column, paramIndex, { includeGlobalForHq: false });
 
 
+const injectHomepageBootstrap = (html, payload) => {
+  if (!html || !payload) return html;
+  const safeJson = JSON.stringify(payload).replace(/</g, '\\u003c');
+  const tag = `<script>window.__HOMEPAGE_BOOTSTRAP__=${safeJson};</script>`;
+  if (html.includes('</head>')) {
+    return html.replace('</head>', `${tag}</head>`);
+  }
+  return `${tag}${html}`;
+};
+
 // Root health check for Railway
-app.get('/', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'index.html'));
+app.get('/', async (req, res) => {
+  const filePath = path.join(__dirname, 'newhome', 'index.html');
+  try {
+    const html = await fs.promises.readFile(filePath, 'utf8');
+    let output = html;
+    try {
+      await databaseReady;
+      const payload = await loadPublicHomepagePayload();
+      output = injectHomepageBootstrap(html, payload);
+    } catch (bootstrapError) {
+      console.warn('[homepage] bootstrap injection skipped:', bootstrapError.message);
+    }
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(output);
+  } catch (error) {
+    console.error('[homepage] failed to serve index:', error.message);
+    sendHtmlWithNumberFormat(res, filePath);
+  }
 });
 
 // إن وُجد index.html قديم بالروت (Apache DirectoryIndex) — لا يفتح الداشبورد على /

@@ -8,12 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="/public/naiosh-logo.png" as="image">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
-  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
-  <link rel="stylesheet" href="/newhome/styles.css?v=20260608-perf" />
-  <link rel="stylesheet" href="/newhome/homepage-premium.css?v=20260608-perf" />
-  <link rel="stylesheet" href="/newhome/dark-mode.css" media="print" onload="this.media='all'">
-  <noscript><link rel="stylesheet" href="/newhome/dark-mode.css"></noscript>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/newhome/styles.css?v=20260608-fast-white" />
+  <link rel="stylesheet" href="/newhome/homepage-premium.css?v=20260608-fast-white" />
+  <link rel="stylesheet" href="/newhome/dark-mode.css">
   <style>
     html[data-hide-platform-only="true"] [data-platform-only] {
       display: none !important;
@@ -37,6 +35,32 @@
       margin-inline: 0 !important;
       background: #ffffff !important;
       opacity: 1 !important;
+    }
+
+    body.homepage .site-footer,
+    body.homepage.dark-mode .site-footer {
+      background: #ffffff !important;
+      color: #171a20 !important;
+      border-top: 1px solid #e6e7eb !important;
+    }
+
+    body.homepage .site-footer-brand p,
+    body.homepage .site-footer-col p,
+    body.homepage .site-footer-bottom-inner,
+    body.homepage .site-footer .site-footer-bottom-inner span {
+      color: #5e636d !important;
+    }
+
+    body.homepage .site-footer-col h3,
+    body.homepage .site-footer-col a,
+    body.homepage .site-footer-col p a {
+      color: #171a20 !important;
+    }
+
+    body.homepage #modules .reveal-on-scroll,
+    body.homepage #modules > section {
+      opacity: 1 !important;
+      transform: none !important;
     }
   </style>
   <script>
@@ -277,7 +301,28 @@
       </div>
     </section>
 
-    <section class="cards" id="main-sections-grid"></section>
+    <section class="cards" id="main-sections-grid">
+      <a class="card" href="/newhome/blog.html">
+        <div class="icon-box"><i class="fas fa-newspaper"></i></div>
+        <h3>المدونة</h3>
+        <p>مقالات وتحديثات عن الخدمات والبرامج وأخبار المنصة.</p>
+      </a>
+      <a class="card" href="/newhome/branches.html">
+        <div class="icon-box"><i class="fas fa-building"></i></div>
+        <h3>الفروع</h3>
+        <p>عرض الفروع ومعلوماتها الأساسية وساعات العمل والخدمات.</p>
+      </a>
+      <a class="card" href="/newhome/incubators.html">
+        <div class="icon-box"><i class="fas fa-seedling"></i></div>
+        <h3>الحاضنات</h3>
+        <p>رحلة برامج الاحتضان والحزم ومراحل المتابعة والتطوير.</p>
+      </a>
+      <a class="card" href="/newhome/ads.html">
+        <div class="icon-box"><i class="fas fa-bullhorn"></i></div>
+        <h3>الإعلانات</h3>
+        <p>حملات دعائية منظمة مع تتبع سريع للحالة والأداء.</p>
+      </a>
+    </section>
 
     <section class="section-head" id="about">
       <div>
@@ -1188,22 +1233,22 @@
         }
       };
 
+      const applyHomepagePayload = (payload) => {
+        if (!payload?.success || !payload.settings) return;
+        const heroMediaList = Array.isArray(payload.heroMediaList) && payload.heroMediaList.length
+          ? payload.heroMediaList
+          : null;
+        applyHomepageSettings(payload.settings, heroMediaList);
+        renderMainSections(payload.sections || []);
+      };
+
+      if (window.__HOMEPAGE_BOOTSTRAP__) {
+        applyHomepagePayload(window.__HOMEPAGE_BOOTSTRAP__);
+      }
+
       fetch('/api/admin/homepage-settings/public')
         .then((response) => response.json())
-        .then((payload) => {
-          if (payload?.success && payload.settings) {
-            const fetchedHeroImageUrl = payload.settings?.heroImageUrl || '';
-            if (fetchedHeroImageUrl) {
-              console.log('[homepage hero] fetched image URL:', fetchedHeroImageUrl);
-            }
-            // Use heroMediaList (DB table) if available, otherwise fall back to JSONB settings
-            const heroMediaList = Array.isArray(payload.heroMediaList) && payload.heroMediaList.length
-              ? payload.heroMediaList
-              : null;
-            applyHomepageSettings(payload.settings, heroMediaList);
-            renderMainSections(payload.sections || []);
-          }
-        })
+        .then((payload) => applyHomepagePayload(payload))
         .catch(() => {});
     })();
 
@@ -1232,7 +1277,7 @@
         const parent = el.parentElement;
         const parentCount = parent ? (staggerByParent.get(parent) || 0) : 0;
         const delay = Math.min(parentCount * 55, 330);
-        el.classList.add('reveal-on-scroll');
+        el.classList.add('reveal-on-scroll', 'is-visible');
         el.style.setProperty('--reveal-delay', `${delay}ms`);
         if (parent) staggerByParent.set(parent, parentCount + 1);
       });
@@ -1348,7 +1393,7 @@
       });
     })();
   </script>
-  <script src="/newhome/homepage-premium.js?v=20260608-perf" defer></script>
+  <script src="/newhome/homepage-premium.js?v=20260608-fast-white" defer></script>
   <script src="/newhome/mobile-nav.js" defer></script>
   <script src="/newhome/dark-mode.js" defer></script>
 </body>
