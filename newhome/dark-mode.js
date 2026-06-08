@@ -44,7 +44,23 @@
 
   /* ── Inject into navbars ────────────────────────────── */
   function injectButtons() {
-    /* Prefer the .auth-actions container (index.html) */
+    /* Prefer the auth shell so the toggle stays visible with the dropdown trigger */
+    var authShells = document.querySelectorAll('.auth-actions-shell');
+    if (authShells.length > 0) {
+      authShells.forEach(function (container) {
+        if (!container.querySelector('.dark-mode-toggle')) {
+          var toggle = container.querySelector('.auth-actions-toggle');
+          if (toggle) {
+            container.insertBefore(createButton(), toggle);
+          } else {
+            container.insertBefore(createButton(), container.firstChild);
+          }
+        }
+      });
+      return;
+    }
+
+    /* Fallback: inject directly into .auth-actions */
     var authContainers = document.querySelectorAll('.auth-actions');
     if (authContainers.length > 0) {
       authContainers.forEach(function (container) {
