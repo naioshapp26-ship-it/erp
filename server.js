@@ -2195,6 +2195,7 @@ app.get('/api/db-env', async (_req, res) => {
         code: error.code || null,
         error: error.message,
         passwordMismatch: isPasswordError,
+        probeFailures: dbModule.getProbeFailures(),
         fix: isPasswordError ? dbModule.getPasswordAuthFixSteps() : null
       };
       payload.success = false;
@@ -2240,6 +2241,7 @@ app.get('/api/db-connect-test', async (_req, res) => {
       databaseHost: dbInfo.host,
       databaseSource: dbInfo.source,
       passwordMismatch: isPasswordError,
+      probeFailures: dbModule.getProbeFailures(),
       fix: isPasswordError ? dbModule.getPasswordAuthFixSteps() : null
     });
   }

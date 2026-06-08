@@ -121,12 +121,13 @@ const collectDatabaseCandidates = () => {
   const entries = [
     { source: 'DATABASE_URL', value: process.env.DATABASE_URL },
     { source: 'DATABASE_PUBLIC_URL', value: process.env.DATABASE_PUBLIC_URL },
+    { source: 'PROVISION_DB_URL', value: process.env.PROVISION_DB_URL },
     { source: 'PGHOST+PGPORT', value: buildUrlFromPgVars() }
   ];
 
   for (const [key, value] of Object.entries(process.env)) {
-    if (['DATABASE_URL', 'DATABASE_PUBLIC_URL'].includes(key)) continue;
-    if (TEMPLATE_ENV_KEYS.has(key)) continue;
+    if (['DATABASE_URL', 'DATABASE_PUBLIC_URL', 'PROVISION_DB_URL'].includes(key)) continue;
+    if (TEMPLATE_ENV_KEYS.has(key) && isTemplateDatabaseValue(value)) continue;
     if (isTemplateDatabaseValue(value)) continue;
     const normalized = normalizeDatabaseUrl(value);
     if (!normalized || seen.has(normalized)) continue;
@@ -144,10 +145,83 @@ const getPgImplicitFallbackHost = () => {
   return String(process.env.PGHOST || '').trim() || null;
 };
 
+const buildConfigFromCandidate = (candidate, rejections = [], diagnostics = null) => {
+  const { parsed, source } = candidate;
+  return {
+    databaseUrl: parsed.normalized,
+    host: parsed.host,
+    port: parsed.port,
+    database: parsed.database,
+    username: parsed.username,
+    password: parsed.password,
+    source,
+    rejections,
+    diagnostics
+  };
+};
+
+const collectResolvableCandidates = () => {
+  const rejections = [];
+  const resolved = [];
+
+  for (const candidate of collectDatabaseCandidates()) {
+    const { parsed, source } = candidate;
+
+    if (!parsed.valid) {
+      rejections.push({ source, host: parsed.host || '(invalid)', reason: parsed.reason });
+      continue;
+    }
+
+    if (!isUsableDatabaseHost(parsed.host)) {
+      rejections.push({
+        source,
+        host: parsed.host,
+        reason: `placeholder or invalid host "${parsed.host}"`
+      });
+      continue;
+    }
+
+    resolved.push(candidate);
+  }
+
+  return { candidates: resolved, rejections };
+};
+
+const buildClientConfigFromUrl = (databaseUrl) => {
+  const ssl = resolveSsl(databaseUrl);
+  if (databaseUrl) {
+    return { connectionString: databaseUrl, ssl };
+  }
+  return { ssl };
+};
+
+const probeDatabaseUrl = async (databaseUrl) => {
+  const { Client } = require('pg');
+  const client = new Client(buildClientConfigFromUrl(databaseUrl));
+  try {
+    await client.connect();
+    await client.query('SELECT 1');
+  } finally {
+    await client.end().catch(() => {});
+  }
+};
+
 const getRuntimeEnvDiagnostics = () => {
+  const scanned = collectDatabaseCandidates().map((entry) => ({
+    source: entry.source,
+    set: Boolean(entry.parsed.normalized),
+    redacted: entry.source === 'PGHOST+PGPORT'
+      ? (entry.value ? redactDatabaseUrl(entry.value) : '(empty)')
+      : redactDatabaseUrl(entry.value),
+    parsedHost: entry.parsed.host || null,
+    parsedValid: entry.parsed.valid,
+    parsedReason: entry.parsed.reason || null
+  }));
+
   const candidates = [
     { source: 'DATABASE_URL', value: process.env.DATABASE_URL },
     { source: 'DATABASE_PUBLIC_URL', value: process.env.DATABASE_PUBLIC_URL },
+    { source: 'PROVISION_DB_URL', value: process.env.PROVISION_DB_URL },
     { source: 'PGHOST+PGPORT', value: buildUrlFromPgVars() }
   ].map((entry) => ({
     source: entry.source,
@@ -179,6 +253,7 @@ const getRuntimeEnvDiagnostics = () => {
       hasPGPASSWORD: Boolean(process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD)
     },
     candidates,
+    scannedCandidates: scanned,
     pgImplicitFallback: {
       active: databaseUrlEmpty && Boolean(pgHost),
       host: pgHost,
@@ -275,6 +350,10 @@ module.exports = {
   isUsableDatabaseHost,
   buildUrlFromPgVars,
   collectDatabaseCandidates,
+  collectResolvableCandidates,
+  buildConfigFromCandidate,
+  buildClientConfigFromUrl,
+  probeDatabaseUrl,
   getRuntimeEnvDiagnostics,
   getPgImplicitFallbackHost,
   resolveDatabaseConfig,
