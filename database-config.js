@@ -107,11 +107,21 @@ const buildUrlFromPgVars = () => {
 };
 
 const collectDatabaseCandidates = () => {
+  const seen = new Set();
   const entries = [
     { source: 'DATABASE_URL', value: process.env.DATABASE_URL },
     { source: 'DATABASE_PUBLIC_URL', value: process.env.DATABASE_PUBLIC_URL },
     { source: 'PGHOST+PGPORT', value: buildUrlFromPgVars() }
   ];
+
+  for (const [key, value] of Object.entries(process.env)) {
+    if (['DATABASE_URL', 'DATABASE_PUBLIC_URL'].includes(key)) continue;
+    const normalized = normalizeDatabaseUrl(value);
+    if (!normalized || seen.has(normalized)) continue;
+    if (!/^postgres(ql)?:\/\//i.test(normalized)) continue;
+    entries.push({ source: `env:${key}`, value: normalized });
+    seen.add(normalized);
+  }
 
   return entries
     .map((entry) => ({ ...entry, parsed: parseDatabaseUrl(entry.value) }))
@@ -212,7 +222,7 @@ const resolveDatabaseConfig = () => {
       ? 'Root cause: PGHOST is set to "base". When DATABASE_URL is empty at runtime, node-postgres (pg) silently falls back to PGHOST. Remove PGHOST=base from Railway variables and set DATABASE_URL=${{Postgres.DATABASE_URL}}.'
       : null,
     process.env.RAILWAY_ENVIRONMENT
-      ? 'Railway fix: ERP service → Variables → DATABASE_URL=${{Postgres.DATABASE_URL}}, remove manual PGHOST=base if present.'
+      ? 'Railway fix: open ERP service → Variables → Add Reference → select your PostgreSQL service → DATABASE_URL. The reference name must match the Postgres service name exactly (not "Postgres" unless that is the actual service name). Redeploy after saving.'
       : 'Local fix: set DATABASE_URL in .env.',
     rejections.length ? `Rejected: ${rejections.map((r) => `${r.source}(${r.host}: ${r.reason})`).join('; ')}` : null
   ].filter(Boolean).join(' ');
