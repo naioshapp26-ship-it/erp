@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>شركاتي | NAIOSH ERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/newhome/styles.css" />
+  <link rel="stylesheet" href="/newhome/dark-mode.css" />
+  <link rel="stylesheet" href="/newhome/entity-pages.css" />
+</head>
+<body>
+  <script>try{if(localStorage.getItem('theme')==='dark')document.body.classList.add('dark-mode')}catch(_){}</script>
+  <header class="top-nav">
+    <div class="container inner">
+      <a class="brand" href="/">
+        <img src="/public/naiosh-logo.png" alt="شعار نايوش"/>
+        <span class="logo-text">NAIOSH ERP</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/">الرئيسية</a>
+        <a href="/products">منصتي</a>
+        <a href="/newhome/branches.html">الفروع</a>
+        <a href="/newhome/incubators.html">الحاضنات</a>
+        <a class="active" href="/newhome/companies.html">شركاتي</a>
+        <a href="/newhome/ads.html">الإعلانات</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container entity-page">
+    <header class="entity-page-head">
+      <h1>شركاتي</h1>
+      <p>المنصات والمكاتب والكيانات التجارية المسجلة ضمن شبكة نايوش مع حالة التشغيل والخطة.</p>
+      <div class="entity-page-stats" aria-label="إحصائيات الشركات">
+        <article class="entity-page-stat"><strong id="statTotal">0</strong><span>إجمالي الشركات</span></article>
+        <article class="entity-page-stat"><strong id="statActive">0</strong><span>نشط</span></article>
+        <article class="entity-page-stat"><strong id="statPlatforms">0</strong><span>منصات</span></article>
+      </div>
+    </header>
+    <div class="entity-toolbar">
+      <input id="companySearch" type="search" placeholder="ابحث عن شركة أو منصة..." aria-label="بحث الشركات" />
+      <select id="companyTypeFilter" aria-label="تصفية نوع الشركة">
+        <option value="all">كل الأنواع</option>
+        <option value="PLATFORM">منصة</option>
+        <option value="OFFICE">مكتب</option>
+        <option value="INCUBATOR">حاضنة</option>
+      </select>
+      <button type="button" id="companyReset">الكل</button>
+    </div>
+    <p id="companyStatus" class="sr-only" aria-live="polite"></p>
+    <section class="entity-grid" id="companyGrid">
+      <div class="entity-loading"><i class="fas fa-spinner fa-spin"></i> جاري تحميل الشركات...</div>
+    </section>
+  </main>
+  <nav class="floating-actions" aria-label="أزرار جانبية عائمة">
+    <a href="/newhome/ads.html" aria-label="إضافة"><i class="fas fa-plus"></i></a>
+    <a href="/newhome/blog.html" aria-label="المدونة"><i class="fas fa-heart"></i></a>
+    <a href="/newhome/incubators.html" aria-label="رسائل"><i class="fas fa-comment-dots"></i></a>
+    <button id="to-top" type="button" aria-label="الصعود للأعلى"><i class="fas fa-arrow-up"></i></button>
+  </nav>
+  <script src="/newhome/entity-page-utils.js"></script>
+  <script>
+    (async () => {
+      const { EntityPage } = window;
+      const grid = document.getElementById('companyGrid');
+      const fallbackCompanies = [
+        { name: 'NAIOSH Cloud', type: 'PLATFORM', description: 'منصة سحابية متكاملة لإدارة الأعمال', location: 'Cloud', status: 'Active', plan: 'PRO', users_count: 0 },
+        { name: 'Safety Incubator', type: 'INCUBATOR', description: 'حاضنة أعمال متخصصة في السلامة والامتثال', location: 'جدة', status: 'Active', plan: 'ENTERPRISE', users_count: 0 },
+        { name: 'مكتب الاستشارات المالية', type: 'OFFICE', description: 'مكتب استشاري للخدمات المالية', location: 'الرياض', status: 'Active', plan: 'PRO', users_count: 5 }
+      ];
+
+      const normalizeCompany = (row) => ({
+        name: row.name || 'شركة بدون اسم',
+        type: row.type || 'PLATFORM',
+        description: row.description || `خطة ${row.plan || 'PRO'} • ${row.location || 'موقع غير محدد'}`,
+        location: row.location || 'غير محدد',
+        status: row.status || 'Active',
+        plan: row.plan || 'PRO',
+        users_count: row.users_count ?? 0
+      });
+
+      let companies = [];
+      try {
+        const entities = await EntityPage.fetchJson('/api/entities');
+        companies = (Array.isArray(entities) ? entities : [])
+          .filter((item) => ['PLATFORM', 'OFFICE', 'INCUBATOR'].includes(item.type))
+          .map(normalizeCompany);
+      } catch (_) {
+        companies = fallbackCompanies.map(normalizeCompany);
+      }
+
+      if (!companies.length) {
+        companies = fallbackCompanies.map(normalizeCompany);
+      }
+
+      document.getElementById('statTotal').textContent = String(companies.length);
+      document.getElementById('statActive').textContent = String(companies.filter((item) => item.status === 'Active').length);
+      document.getElementById('statPlatforms').textContent = String(companies.filter((item) => item.type === 'PLATFORM').length);
+
+      const cards = EntityPage.renderEntityCards(grid, companies, {
+        badgeKey: 'type',
+        titleKey: 'name',
+        descKey: 'description',
+        iconClass: 'fa-briefcase',
+        metaBuilder: (item) => `
+          <span><i class="fas fa-location-dot"></i> ${EntityPage.escapeHtml(item.location)}</span>
+          <span><i class="fas fa-layer-group"></i> ${EntityPage.escapeHtml(item.plan)}</span>
+          <span><i class="fas fa-users"></i> ${EntityPage.escapeHtml(String(item.users_count))} مستخدم</span>
+        `
+      });
+
+      const applyFilters = EntityPage.setupToolbar({
+        searchInput: document.getElementById('companySearch'),
+        typeFilter: document.getElementById('companyTypeFilter'),
+        resetButton: document.getElementById('companyReset'),
+        cards,
+        statusEl: document.getElementById('companyStatus'),
+        getSearchText: (card) => card.getAttribute('data-search') || '',
+        getTypeValue: (card) => card.getAttribute('data-type') || ''
+      });
+      applyFilters();
+      EntityPage.setupToTop();
+    })();
+  </script>
+  <script src="/newhome/mobile-nav.js" defer></script>
+  <script src="/newhome/dark-mode.js" defer></script>
+</body>
+</html>

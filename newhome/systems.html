@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>أنظمتي | NAIOSH ERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/newhome/styles.css" />
+  <link rel="stylesheet" href="/newhome/dark-mode.css" />
+  <link rel="stylesheet" href="/newhome/entity-pages.css" />
+</head>
+<body>
+  <script>try{if(localStorage.getItem('theme')==='dark')document.body.classList.add('dark-mode')}catch(_){}</script>
+  <header class="top-nav">
+    <div class="container inner">
+      <a class="brand" href="/">
+        <img src="/public/naiosh-logo.png" alt="شعار نايوش"/>
+        <span class="logo-text">NAIOSH ERP</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/">الرئيسية</a>
+        <a href="/products">منصتي</a>
+        <a href="/newhome/branches.html">الفروع</a>
+        <a href="/newhome/incubators.html">الحاضنات</a>
+        <a class="active" href="/newhome/systems.html">أنظمتي</a>
+        <a href="/newhome/ads.html">الإعلانات</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container entity-page">
+    <header class="entity-page-head">
+      <h1>أنظمتي</h1>
+      <p>جميع أنظمة نايوش ERP المتكاملة لإدارة الموارد البشرية والمالية والمبيعات والمزيد.</p>
+      <div class="entity-page-stats" aria-label="إحصائيات الأنظمة">
+        <article class="entity-page-stat"><strong id="statTotal">0</strong><span>إجمالي الأنظمة</span></article>
+        <article class="entity-page-stat"><strong id="statActive">0</strong><span>نشط</span></article>
+        <article class="entity-page-stat"><strong>ERP</strong><span>متكامل</span></article>
+      </div>
+    </header>
+    <div class="entity-toolbar">
+      <input id="systemSearch" type="search" placeholder="ابحث عن نظام..." aria-label="بحث الأنظمة" />
+      <select id="systemTypeFilter" aria-label="تصفية الأنظمة">
+        <option value="all">كل الأنظمة</option>
+        <option value="إداري">إداري</option>
+        <option value="مالي">مالي</option>
+        <option value="تشغيلي">تشغيلي</option>
+      </select>
+      <button type="button" id="systemReset">الكل</button>
+    </div>
+    <p id="systemStatus" class="sr-only" aria-live="polite"></p>
+    <section class="entity-grid" id="systemGrid">
+      <div class="entity-loading"><i class="fas fa-spinner fa-spin"></i> جاري تحميل الأنظمة...</div>
+    </section>
+  </main>
+  <nav class="floating-actions" aria-label="أزرار جانبية عائمة">
+    <a href="/newhome/ads.html" aria-label="إضافة"><i class="fas fa-plus"></i></a>
+    <a href="/newhome/blog.html" aria-label="المدونة"><i class="fas fa-heart"></i></a>
+    <a href="/newhome/incubators.html" aria-label="رسائل"><i class="fas fa-comment-dots"></i></a>
+    <button id="to-top" type="button" aria-label="الصعود للأعلى"><i class="fas fa-arrow-up"></i></button>
+  </nav>
+  <script src="/newhome/entity-page-utils.js"></script>
+  <script>
+    (async () => {
+      const { EntityPage } = window;
+      const grid = document.getElementById('systemGrid');
+      const fallbackSystems = [
+        { name: 'الإداري والموارد البشرية', description: 'إدارة شؤون الموظفين والهيكل التنظيمي', system_category: 'إداري', status: 'Active', system_code: 'HR_ADMIN' },
+        { name: 'المالي والمحاسبي', description: 'إدارة الحسابات والقوائم المالية', system_category: 'مالي', status: 'Active', system_code: 'FINANCE' },
+        { name: 'المشتريات', description: 'إدارة عمليات الشراء والموردين', system_category: 'تشغيلي', status: 'Active', system_code: 'PROCUREMENT' },
+        { name: 'المبيعات', description: 'إدارة عمليات البيع والعملاء', system_category: 'تشغيلي', status: 'Active', system_code: 'SALES' },
+        { name: 'التسويق', description: 'إدارة الحملات التسويقية والعلامة التجارية', system_category: 'تشغيلي', status: 'Active', system_code: 'MARKETING' },
+        { name: 'سلاسل الإمداد واللوجستيات', description: 'إدارة الشحن والتوزيع', system_category: 'تشغيلي', status: 'Active', system_code: 'SUPPLY_CHAIN' },
+        { name: 'السلامة', description: 'إدارة السلامة المهنية والامتثال', system_category: 'إداري', status: 'Active', system_code: 'SAFETY' },
+        { name: 'المخازن', description: 'إدارة المخزون والمستودعات', system_category: 'تشغيلي', status: 'Active', system_code: 'WAREHOUSE' }
+      ];
+
+      const categoryByCode = {
+        HR_ADMIN: 'إداري',
+        FINANCE: 'مالي',
+        PROCUREMENT: 'تشغيلي',
+        SALES: 'تشغيلي',
+        MARKETING: 'تشغيلي',
+        SUPPLY_CHAIN: 'تشغيلي',
+        SAFETY: 'إداري',
+        WAREHOUSE: 'تشغيلي'
+      };
+
+      const normalizeSystem = (row) => ({
+        name: row.system_name_ar || row.name_ar || row.name || 'نظام',
+        description: row.description_ar || row.description || 'نظام ضمن منصة نايوش ERP',
+        system_category: row.system_category || categoryByCode[row.system_code] || 'تشغيلي',
+        status: row.is_active === false ? 'Inactive' : 'Active',
+        system_code: row.system_code || row.system_code || '',
+        type: row.system_category || categoryByCode[row.system_code] || 'تشغيلي'
+      });
+
+      let systems = [];
+      try {
+        const payload = await EntityPage.fetchJson('/api/permissions/systems');
+        const rows = Array.isArray(payload?.systems) ? payload.systems : [];
+        systems = rows.map(normalizeSystem);
+      } catch (_) {
+        systems = fallbackSystems.map(normalizeSystem);
+      }
+
+      if (!systems.length) {
+        systems = fallbackSystems.map(normalizeSystem);
+      }
+
+      document.getElementById('statTotal').textContent = String(systems.length);
+      document.getElementById('statActive').textContent = String(systems.filter((item) => item.status === 'Active').length);
+
+      const cards = EntityPage.renderEntityCards(grid, systems, {
+        badgeKey: 'system_category',
+        titleKey: 'name',
+        descKey: 'description',
+        iconClass: 'fa-sitemap',
+        metaBuilder: (item) => `
+          <span><i class="fas fa-barcode"></i> ${EntityPage.escapeHtml(item.system_code || 'ERP')}</span>
+          <span><i class="fas fa-circle-check"></i> ${EntityPage.escapeHtml(EntityPage.statusLabels[item.status] || item.status)}</span>
+        `
+      });
+
+      const applyFilters = EntityPage.setupToolbar({
+        searchInput: document.getElementById('systemSearch'),
+        typeFilter: document.getElementById('systemTypeFilter'),
+        resetButton: document.getElementById('systemReset'),
+        cards,
+        statusEl: document.getElementById('systemStatus'),
+        getSearchText: (card) => card.getAttribute('data-search') || '',
+        getTypeValue: (card) => card.getAttribute('data-type') || ''
+      });
+      applyFilters();
+      EntityPage.setupToTop();
+    })();
+  </script>
+  <script src="/newhome/mobile-nav.js" defer></script>
+  <script src="/newhome/dark-mode.js" defer></script>
+</body>
+</html>

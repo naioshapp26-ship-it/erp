@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الأعضاء | NAIOSH ERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/newhome/styles.css" />
+  <link rel="stylesheet" href="/newhome/dark-mode.css" />
+  <link rel="stylesheet" href="/newhome/entity-pages.css" />
+</head>
+<body>
+  <script>try{if(localStorage.getItem('theme')==='dark')document.body.classList.add('dark-mode')}catch(_){}</script>
+  <header class="top-nav">
+    <div class="container inner">
+      <a class="brand" href="/">
+        <img src="/public/naiosh-logo.png" alt="شعار نايوش"/>
+        <span class="logo-text">NAIOSH ERP</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/">الرئيسية</a>
+        <a href="/products">منصتي</a>
+        <a href="/newhome/branches.html">الفروع</a>
+        <a href="/newhome/incubators.html">الحاضنات</a>
+        <a class="active" href="/newhome/members.html">الأعضاء</a>
+        <a href="/newhome/ads.html">الإعلانات</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container entity-page">
+    <header class="entity-page-head">
+      <h1>الأعضاء</h1>
+      <p>قائمة أعضاء مجتمع نايوش مع أدوارهم وكياناتهم المرتبطة وحالة النشاط.</p>
+      <div class="entity-page-stats" aria-label="إحصائيات الأعضاء">
+        <article class="entity-page-stat"><strong id="statTotal">0</strong><span>إجمالي الأعضاء</span></article>
+        <article class="entity-page-stat"><strong id="statActive">0</strong><span>نشط</span></article>
+        <article class="entity-page-stat"><strong id="statRoles">0</strong><span>أدوار</span></article>
+      </div>
+    </header>
+    <div class="entity-toolbar">
+      <input id="memberSearch" type="search" placeholder="ابحث عن عضو أو بريد..." aria-label="بحث الأعضاء" />
+      <select id="memberTypeFilter" aria-label="تصفية الدور">
+        <option value="all">كل الأدوار</option>
+      </select>
+      <button type="button" id="memberReset">الكل</button>
+    </div>
+    <p id="memberStatus" class="sr-only" aria-live="polite"></p>
+    <section class="entity-grid" id="memberGrid">
+      <div class="entity-loading"><i class="fas fa-spinner fa-spin"></i> جاري تحميل الأعضاء...</div>
+    </section>
+  </main>
+  <nav class="floating-actions" aria-label="أزرار جانبية عائمة">
+    <a href="/newhome/ads.html" aria-label="إضافة"><i class="fas fa-plus"></i></a>
+    <a href="/newhome/blog.html" aria-label="المدونة"><i class="fas fa-heart"></i></a>
+    <a href="/newhome/incubators.html" aria-label="رسائل"><i class="fas fa-comment-dots"></i></a>
+    <button id="to-top" type="button" aria-label="الصعود للأعلى"><i class="fas fa-arrow-up"></i></button>
+  </nav>
+  <script src="/newhome/entity-page-utils.js"></script>
+  <script>
+    (async () => {
+      const { EntityPage } = window;
+      const grid = document.getElementById('memberGrid');
+      const typeFilter = document.getElementById('memberTypeFilter');
+      const fallbackMembers = [
+        { name: 'سارة المهنا', role: 'مدير مالي', description: 'عضو نشط في شبكة نايوش', entity_name: 'NAIOSH HQ', status: 'Active', email: 'sara@naiosh.com' },
+        { name: 'فهد الشمري', role: 'مدير عمليات', description: 'عضو نشط في شبكة نايوش', entity_name: 'NAIOSH HQ', status: 'Active', email: 'fahad@naiosh.com' },
+        { name: 'ريم الدوسري', role: 'موارد بشرية', description: 'عضو نشط في شبكة نايوش', entity_name: 'NAIOSH HQ', status: 'Active', email: 'reem@naiosh.com' }
+      ];
+
+      const normalizeMember = (row) => ({
+        name: row.name || 'عضو بدون اسم',
+        role: row.role || row.job_title || 'عضو',
+        description: row.bio || row.job_title || `عضو في ${row.entity_name || 'شبكة نايوش'}`,
+        entity_name: row.entity_name || row.linked_entity_name || 'غير محدد',
+        status: row.is_active === false ? 'Inactive' : 'Active',
+        email: row.email || '',
+        type: row.role || row.job_title || 'عضو'
+      });
+
+      let members = [];
+      try {
+        const rows = await EntityPage.fetchJson('/api/users-with-entity?is_active=true');
+        members = (Array.isArray(rows) ? rows : []).map(normalizeMember);
+      } catch (_) {
+        try {
+          const rows = await EntityPage.fetchJson('/api/users');
+          members = (Array.isArray(rows) ? rows : []).map(normalizeMember);
+        } catch (__) {
+          members = fallbackMembers.map(normalizeMember);
+        }
+      }
+
+      if (!members.length) {
+        members = fallbackMembers.map(normalizeMember);
+      }
+
+      const roles = [...new Set(members.map((item) => item.role).filter(Boolean))];
+      roles.forEach((role) => {
+        const option = document.createElement('option');
+        option.value = role;
+        option.textContent = role;
+        typeFilter.appendChild(option);
+      });
+
+      document.getElementById('statTotal').textContent = String(members.length);
+      document.getElementById('statActive').textContent = String(members.filter((item) => item.status === 'Active').length);
+      document.getElementById('statRoles').textContent = String(roles.length || 1);
+
+      const cards = EntityPage.renderEntityCards(grid, members, {
+        badgeKey: 'role',
+        titleKey: 'name',
+        descKey: 'description',
+        iconClass: 'fa-user',
+        metaBuilder: (item) => `
+          <span><i class="fas fa-building"></i> ${EntityPage.escapeHtml(item.entity_name)}</span>
+          ${item.email ? `<span><i class="fas fa-envelope"></i> ${EntityPage.escapeHtml(item.email)}</span>` : ''}
+          <span><i class="fas fa-circle-check"></i> ${EntityPage.escapeHtml(EntityPage.statusLabels[item.status] || item.status)}</span>
+        `
+      });
+
+      const applyFilters = EntityPage.setupToolbar({
+        searchInput: document.getElementById('memberSearch'),
+        typeFilter,
+        resetButton: document.getElementById('memberReset'),
+        cards,
+        statusEl: document.getElementById('memberStatus'),
+        getSearchText: (card) => card.getAttribute('data-search') || '',
+        getTypeValue: (card) => card.getAttribute('data-type') || ''
+      });
+      applyFilters();
+      EntityPage.setupToTop();
+    })();
+  </script>
+  <script src="/newhome/mobile-nav.js" defer></script>
+  <script src="/newhome/dark-mode.js" defer></script>
+</body>
+</html>
