@@ -417,8 +417,9 @@ async function createPaymentSession() {
     if (!data.success) throw new Error(data.message || 'فشل إنشاء جلسة الدفع');
 
     // إذا كانت الخطة مجانية أو تم التحقق فوراً
-    if (data.alreadyVerified || data.skipPayment) {
-      await pollProvisioningStatus();
+    if (data.alreadyVerified || data.skipPayment || data.provisioning) {
+      setStep(3);
+      pollProvisioningStatus();
       return;
     }
 
@@ -435,7 +436,6 @@ async function createPaymentSession() {
     }
   } catch (e) {
     showToast(e.message, 'error');
-  } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fa fa-credit-card"></i> إنشاء جلسة الدفع';
   }

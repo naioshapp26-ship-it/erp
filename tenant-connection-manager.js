@@ -104,6 +104,11 @@ const _pools = new Map();
  * @returns {Pool}
  */
 function getTenantPool(subdomain, encryptedDbUrl) {
+  if (!encryptedDbUrl || encryptedDbUrl === 'shared://central') {
+    const db = require('./db');
+    return db.pool;
+  }
+
   const now = Date.now();
   const cached = _pools.get(subdomain);
   if (cached && cached.expiresAt > now) {

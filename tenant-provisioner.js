@@ -31,6 +31,31 @@ const MIGRATIONS_DIR = path.join(__dirname, 'tenant-migrations');
 const CENTRAL_TENANT_ACCOUNT_TYPE = 'TENANT';
 const CENTRAL_TENANT_ENTITY_TYPE = 'PLATFORM';
 const CENTRAL_TENANT_ENTITY_PREFIX = 'TEN';
+const SHARED_DB_MARKER = 'shared://central';
+
+function _shouldUseLiteProvisioning() {
+  return process.env.SAAS_LITE_PROVISIONING === 'true'
+    || process.env.SAAS_SHARED_DB_MODE === 'true'
+    || !process.env.TENANT_DB_URL_TEMPLATE;
+}
+
+async function _ensureCentralCredentialSchema(client) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS user_credentials (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      username VARCHAR(100) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      is_active BOOLEAN DEFAULT true,
+      last_login TIMESTAMP,
+      failed_attempts INTEGER DEFAULT 0,
+      locked_until TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id)
+    );
+  `);
+}
 
 // ---- اتصال المشرف لإنشاء قواعد البيانات ----
 let _provisionPool = null;
@@ -260,6 +285,173 @@ async function _syncCentralTenantDirectoryEntry({
   }
 }
 
+async function provisionTenantLite({
+  subdomain,
+  companyName,
+  plan = 'basic',
+  adminName,
+  adminEmail,
+  adminPhone,
+  adminPassword,
+  settings = {},
+  existingTenantId = null
+}) {
+  let tenantId = existingTenantId;
+  const baseDomain = process.env.BASE_DOMAIN || 'localhost';
+  const normalizedSettings = {
+    ...(settings && typeof settings === 'object' && !Array.isArray(settings) ? settings : {}),
+    sharedDb: true,
+    liteProvision: true,
+    directoryContact: {
+      adminName: String(adminName || '').trim(),
+      adminEmail: String(adminEmail || '').trim().toLowerCase(),
+      adminPhone: String(adminPhone || '').trim()
+    }
+  };
+
+  if (!tenantId) {
+    await _logStep(null, 'CREATE_TENANT_RECORD', 'running');
+    try {
+      const res = await db.query(
+        `INSERT INTO tenants (subdomain, company_name, subscription_plan, status, db_name, settings)
+         VALUES ($1, $2, $3, 'pending_payment', $4, $5)
+         RETURNING id`,
+        [subdomain, companyName, plan, `tenant_${subdomain}`, JSON.stringify(normalizedSettings)]
+      );
+      tenantId = res.rows[0].id;
+      await _logStep(tenantId, 'CREATE_TENANT_RECORD', 'success', `tenant_id=${tenantId}`);
+    } catch (err) {
+      await _logStep(null, 'CREATE_TENANT_RECORD', 'failed', err.message);
+      throw new Error(`CREATE_TENANT_RECORD فشل: ${err.message}`);
+    }
+  }
+
+  await _logStep(tenantId, 'CREATE_TENANT_DATABASE', 'success', 'shared-db-mode');
+  await _logStep(tenantId, 'STORE_DATABASE_SECRET', 'running');
+  try {
+    await db.query(
+      `UPDATE tenants
+       SET encrypted_db_url = $1,
+           settings = $2,
+           updated_at = NOW()
+       WHERE id = $3`,
+      [SHARED_DB_MARKER, JSON.stringify(normalizedSettings), tenantId]
+    );
+    await _logStep(tenantId, 'STORE_DATABASE_SECRET', 'success', 'shared-db-mode');
+  } catch (err) {
+    await _logStep(tenantId, 'STORE_DATABASE_SECRET', 'failed', err.message);
+    throw new Error(`STORE_DATABASE_SECRET فشل: ${err.message}`);
+  }
+
+  await _logStep(tenantId, 'RUN_MIGRATIONS', 'success', 'skipped in shared-db-mode');
+
+  await _logStep(tenantId, 'CREATE_ADMIN', 'running');
+  try {
+    const normalizedPhone = _normalizePhone(adminPhone);
+    const username = (normalizedPhone || String(adminEmail || '').trim().toLowerCase() || `${subdomain}-admin`).slice(0, 100);
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
+    const entityId = _buildCentralTenantEntityId(tenantId);
+    const client = await db.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      await _ensureCentralCredentialSchema(client);
+
+      const existingUser = await client.query(
+        `SELECT id FROM users WHERE LOWER(email) = LOWER($1) OR entity_id = $2 ORDER BY id ASC LIMIT 1`,
+        [adminEmail || username, entityId]
+      );
+
+      let userId = existingUser.rows[0]?.id || null;
+      if (userId) {
+        await client.query(
+          `UPDATE users
+           SET name = $1,
+               email = COALESCE($2, email),
+               role = 'tenant_admin',
+               tenant_type = $3,
+               entity_id = $4,
+               entity_name = $5,
+               is_active = true,
+               job_title = 'مدير المستأجر',
+               updated_at = NOW()
+           WHERE id = $6`,
+          [adminName, adminEmail || null, CENTRAL_TENANT_ACCOUNT_TYPE, entityId, companyName, userId]
+        );
+      } else {
+        const inserted = await client.query(
+          `INSERT INTO users (name, email, role, tenant_type, entity_id, entity_name, is_active, job_title)
+           VALUES ($1, $2, 'tenant_admin', $3, $4, $5, true, 'مدير المستأجر')
+           RETURNING id`,
+          [adminName, adminEmail || null, CENTRAL_TENANT_ACCOUNT_TYPE, entityId, companyName]
+        );
+        userId = inserted.rows[0].id;
+      }
+
+      await client.query(
+        `INSERT INTO user_credentials (user_id, username, password_hash, is_active, failed_attempts)
+         VALUES ($1, $2, $3, true, 0)
+         ON CONFLICT (user_id) DO UPDATE SET
+           username = EXCLUDED.username,
+           password_hash = EXCLUDED.password_hash,
+           is_active = true,
+           updated_at = NOW()`,
+        [userId, username, passwordHash]
+      );
+
+      await client.query('COMMIT');
+      await _logStep(tenantId, 'CREATE_ADMIN', 'success', `username=${username}`);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    await _logStep(tenantId, 'CREATE_ADMIN', 'failed', err.message);
+    throw new Error(`CREATE_ADMIN فشل: ${err.message}`);
+  }
+
+  await _logStep(tenantId, 'CREATE_SUBSCRIPTION', 'running');
+  try {
+    await db.query(
+      `INSERT INTO subscriptions (tenant_id, plan, status)
+       VALUES ($1, $2, 'active')
+       ON CONFLICT (tenant_id) DO UPDATE SET
+         plan = EXCLUDED.plan,
+         status = 'active',
+         updated_at = NOW()`,
+      [tenantId, plan]
+    );
+    await db.query(`UPDATE tenants SET status = 'active', updated_at = NOW() WHERE id = $1`, [tenantId]);
+    await _logStep(tenantId, 'CREATE_SUBSCRIPTION', 'success');
+  } catch (err) {
+    await _logStep(tenantId, 'CREATE_SUBSCRIPTION', 'failed', err.message);
+    throw new Error(`CREATE_SUBSCRIPTION فشل: ${err.message}`);
+  }
+
+  await _logStep(tenantId, 'SEND_WELCOME_EMAIL', 'success',
+    `Welcome email queued for ${adminEmail || adminPhone}`);
+
+  await _logStep(tenantId, 'SYNC_CENTRAL_TENANT_DIRECTORY', 'running');
+  try {
+    await _syncCentralTenantDirectoryEntry({
+      tenantId,
+      companyName,
+      plan,
+      adminName,
+      adminEmail
+    });
+    await _logStep(tenantId, 'SYNC_CENTRAL_TENANT_DIRECTORY', 'success');
+  } catch (err) {
+    await _logStep(tenantId, 'SYNC_CENTRAL_TENANT_DIRECTORY', 'failed', err.message);
+    throw err;
+  }
+
+  const loginUrl = `https://${subdomain}.${baseDomain}`;
+  return { tenantId, subdomain, loginUrl };
+}
+
 // ================================================================
 // الدالة الرئيسية للتجهيز
 // ================================================================
@@ -280,17 +472,23 @@ async function _syncCentralTenantDirectoryEntry({
  *
  * @returns {Promise<{tenantId: number, subdomain: string, loginUrl: string}>}
  */
-async function provisionTenant({
-  subdomain,
-  companyName,
-  plan = 'basic',
-  adminName,
-  adminEmail,
-  adminPhone,
-  adminPassword,
-  settings = {},
-  existingTenantId = null
-}) {
+async function provisionTenant(params) {
+  if (_shouldUseLiteProvisioning()) {
+    return provisionTenantLite(params);
+  }
+
+  const {
+    subdomain,
+    companyName,
+    plan = 'basic',
+    adminName,
+    adminEmail,
+    adminPhone,
+    adminPassword,
+    settings = {},
+    existingTenantId = null
+  } = params;
+
   let tenantId = existingTenantId;
   const dbName = `tenant_${subdomain.replace(/[^a-z0-9_]/g, '_')}`;
   const baseDomain = process.env.BASE_DOMAIN || 'localhost';

@@ -63,6 +63,8 @@ const signupLimiter = rateLimit({
 });
 
 let saasSchemaReady = false;
+const _provisioningJobs = new Set();
+
 async function ensureSaasSchema() {
   if (saasSchemaReady) return;
   await db.query(`
@@ -80,8 +82,62 @@ async function ensureSaasSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_tenants_subdomain ON tenants (subdomain);
     CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants (status);
+
+    CREATE TABLE IF NOT EXISTS provisioning_logs (
+      id SERIAL PRIMARY KEY,
+      tenant_id INTEGER REFERENCES tenants (id) ON DELETE CASCADE,
+      step VARCHAR(100) NOT NULL,
+      status VARCHAR(30) NOT NULL DEFAULT 'pending',
+      message TEXT,
+      details JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_provisioning_logs_tenant ON provisioning_logs (tenant_id);
+
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id SERIAL PRIMARY KEY,
+      tenant_id INTEGER NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+      plan VARCHAR(100) NOT NULL,
+      status VARCHAR(30) NOT NULL DEFAULT 'active',
+      settings JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (tenant_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS platform_payment_transactions (
+      id SERIAL PRIMARY KEY,
+      tenant_id INTEGER REFERENCES tenants (id) ON DELETE SET NULL,
+      provider VARCHAR(50) NOT NULL,
+      provider_transaction_id VARCHAR(255),
+      amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+      status VARCHAR(30) NOT NULL DEFAULT 'pending',
+      type VARCHAR(50) NOT NULL DEFAULT 'subscription',
+      metadata JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_platform_txn_tenant ON platform_payment_transactions (tenant_id);
   `);
   saasSchemaReady = true;
+}
+
+function queueProvisioning(registrationToken, provider, transactionId, pricing) {
+  if (_provisioningJobs.has(registrationToken)) {
+    return;
+  }
+
+  _provisioningJobs.add(registrationToken);
+  setImmediate(() => {
+    _handlePostPaymentProvisioning(registrationToken, provider, transactionId, pricing)
+      .catch((error) => {
+        console.error('[SaaS] Background provisioning failed:', error.message);
+      })
+      .finally(() => {
+        _provisioningJobs.delete(registrationToken);
+      });
+  });
 }
 
 const webhookLimiter = rateLimit({
@@ -272,12 +328,8 @@ router.post('/payment/create-session', signupLimiter, async (req, res) => {
   const pricing = await _getPlanPricing(provider, plan);
 
   if ((pricing.amount || 0) <= 0) {
-    const result = await _handlePostPaymentProvisioning(
-      token,
-      provider,
-      `free-${provider}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`,
-      pricing
-    );
+    const freeTransactionId = `free-${provider}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+    queueProvisioning(token, provider, freeTransactionId, pricing);
 
     return res.json({
       success: true,
@@ -287,12 +339,10 @@ router.post('/payment/create-session', signupLimiter, async (req, res) => {
       currency: pricing.currency,
       trialDays: pricing.trialDays,
       skipPayment: true,
-      alreadyVerified: true,
-      tenantId: result.tenantId,
-      loginUrl: result.loginUrl,
+      provisioning: true,
       registrationToken: token,
       verifyEndpoint: '/api/saas/payment/verify',
-      message: 'الخطة المجانية لا تتطلب دفعاً. سيبدأ تجهيز المستأجر مباشرة.'
+      message: 'الخطة المجانية لا تتطلب دفعاً. جارٍ تجهيز حسابك الآن.'
     });
   }
 
@@ -549,9 +599,30 @@ router.get('/signup/status/:token', async (req, res) => {
   ).catch(() => ({ rows: [] }));
 
   if (!txnRes.rows.length) {
-    // ربما لا يزال معلقاً في الذاكرة
     const pending = _pendingRegistrations.get(token);
     if (pending && pending.expiresAt > Date.now()) {
+      if (_provisioningJobs.has(token)) {
+        const tenantLookup = await db.query(
+          `SELECT id, status, subdomain, company_name
+           FROM tenants
+           WHERE subdomain = $1
+           ORDER BY id DESC
+           LIMIT 1`,
+          [pending.data.subdomain]
+        ).catch(() => ({ rows: [] }));
+        const tenantRow = tenantLookup.rows[0];
+        const steps = tenantRow
+          ? await _getProvisioningStepsByTenantId(tenantRow.id)
+          : [];
+        return res.json({
+          success: true,
+          status: 'provisioning',
+          subdomain: pending.data.subdomain,
+          companyName: pending.data.companyName,
+          steps,
+          message: 'جارٍ تجهيز حسابك…'
+        });
+      }
       return res.json({ success: true, status: 'pending_payment', steps: [], message: 'في انتظار الدفع.' });
     }
     return res.status(404).json({ success: false, message: 'لم يُعثر على تسجيل بهذا الرمز.' });
@@ -598,6 +669,8 @@ async function _handlePostPaymentProvisioning(registrationToken, provider, trans
     subdomain, companyName, adminName, adminEmail,
     adminPhone, adminPassword, plan
   } = pending.data;
+
+  await ensureSaasSchema();
 
   // تسجيل معاملة الدفع في الجدول المركزي (بدون tenant_id بعد)
   const txnRes = await db.query(
