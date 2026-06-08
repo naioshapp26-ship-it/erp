@@ -1,31 +1,53 @@
-require('dotenv').config();
+const { resolveDatabaseConfig, resolveSsl, getRuntimeEnvDiagnostics } = require('./database-config');
 
 const { Client } = require('pg');
 
-const resolveSsl = () => {
-  if (process.env.DATABASE_SSL === 'true') {
-    return { rejectUnauthorized: false };
+const startupDiagnostics = getRuntimeEnvDiagnostics();
+console.log('📋 Database environment diagnostics:', JSON.stringify(startupDiagnostics, null, 2));
+
+let resolvedConfig;
+try {
+  resolvedConfig = resolveDatabaseConfig();
+} catch (error) {
+  console.error(`❌ ${error.message}`);
+  if (error.diagnostics) {
+    console.error('📋 Failed database diagnostics:', JSON.stringify(error.diagnostics, null, 2));
   }
-  return false;
-};
-
-const normalizeDatabaseUrl = (url) => {
-  if (!url) return url;
-  return url.replace(/@localhost([:/])/gi, '@127.0.0.1$1');
-};
-
-const rawDatabaseUrl = String(process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL || '').trim().replace(/\s+/g, '');
-if (!rawDatabaseUrl) {
-  console.error('❌ DATABASE_URL غير مضبوط في .env أو متغيرات cPanel');
+  throw error;
 }
 
+const {
+  databaseUrl,
+  host: parsedDatabaseHost,
+  port: parsedDatabasePort,
+  database: parsedDatabaseName,
+  username: parsedDatabaseUser,
+  password: parsedDatabasePassword,
+  source: databaseUrlSource,
+  rejections: databaseUrlRejections
+} = resolvedConfig;
+
 const clientConfig = {
-  connectionString: normalizeDatabaseUrl(rawDatabaseUrl),
-  ssl: resolveSsl()
+  host: parsedDatabaseHost,
+  port: Number(parsedDatabasePort) || 5432,
+  user: parsedDatabaseUser,
+  password: parsedDatabasePassword,
+  database: parsedDatabaseName,
+  ssl: resolveSsl(databaseUrl)
 };
+
+console.log(
+  `✅ Database configured (source: ${databaseUrlSource}, host: ${parsedDatabaseHost}, port: ${parsedDatabasePort}, db: ${parsedDatabaseName}, ssl: ${clientConfig.ssl ? 'enabled' : 'disabled'})`
+);
+
+if (databaseUrlRejections.length > 0) {
+  console.warn('⚠️ Skipped invalid database URL sources:', databaseUrlRejections);
+}
 
 /**
  * بديل pg.Pool — يستخدم Client فقط (أثبت على cPanel؛ Pool كان يسبب core dump).
+ * Uses explicit host/port/user/password/database — never empty connectionString,
+ * so node-postgres cannot silently fall back to PGHOST env var.
  */
 function createClientPool() {
   const maxClients = Number(process.env.PG_POOL_MAX) || 4;
@@ -110,5 +132,15 @@ const pool = createClientPool();
 
 module.exports = {
   query: (text, params) => pool.query(text, params),
-  pool
+  pool,
+  getDatabaseInfo: () => ({
+    host: parsedDatabaseHost,
+    port: parsedDatabasePort,
+    database: parsedDatabaseName,
+    source: databaseUrlSource,
+    ssl: Boolean(clientConfig.ssl),
+    hasDatabaseUrl: Boolean(databaseUrl),
+    rejectedSources: databaseUrlRejections,
+    runtimeDiagnostics: startupDiagnostics
+  })
 };
