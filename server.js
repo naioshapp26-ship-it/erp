@@ -146,7 +146,7 @@ const sendHtmlWithNumberFormat = (res, filePath) => {
     }
     const isNewhomePage = filePath.includes(`${path.sep}newhome${path.sep}`);
     if (isNewhomePage) {
-      res.send(withFormValidation);
+      res.send(html);
       return;
     }
     res.send(injectDarkModeAssets(withFormValidation));

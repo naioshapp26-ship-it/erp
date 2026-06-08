@@ -172,7 +172,9 @@ const normalizeColor = (value, fallback) => {
     return normalized.toLowerCase();
 };
 
+let homepageSettingsTableEnsured = false;
 const ensureHomepageSettingsTable = async () => {
+    if (homepageSettingsTableEnsured) return;
     await pool.query(`
         CREATE TABLE IF NOT EXISTS homepage_settings (
             id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -181,6 +183,7 @@ const ensureHomepageSettingsTable = async () => {
             updated_at TIMESTAMP DEFAULT NOW()
         )
     `);
+    homepageSettingsTableEnsured = true;
 };
 
 const TENANT_LOGIN_BASE_DOMAIN = String(process.env.BASE_DOMAIN || 'localhost').trim().toLowerCase();
@@ -473,7 +476,9 @@ const normalizeSectionRow = (row) => {
     };
 };
 
+let heroMediaTableEnsured = false;
 const ensureHeroMediaTable = async () => {
+    if (heroMediaTableEnsured) return;
     await pool.query(`
         CREATE TABLE IF NOT EXISTS hero_media (
             id SERIAL PRIMARY KEY,
@@ -485,16 +490,15 @@ const ensureHeroMediaTable = async () => {
             created_at TIMESTAMP DEFAULT NOW()
         )
     `);
-    // Add target column if it doesn't exist (safe migration)
     await pool.query(`
         ALTER TABLE hero_media
         ADD COLUMN IF NOT EXISTS target VARCHAR(20) NOT NULL DEFAULT 'frame'
     `);
-    // Add cloudinary_public_id column if it doesn't exist (safe migration)
     await pool.query(`
         ALTER TABLE hero_media
         ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT
     `);
+    heroMediaTableEnsured = true;
 };
 
 const getHeroMediaList = async (activeOnly = false) => {
@@ -675,9 +679,12 @@ const saveHomepageSettings = async (settings) => {
          DO UPDATE SET settings = $1::jsonb, updated_at = NOW()`,
         [JSON.stringify(settings)]
     );
+    invalidatePublicHomepageCache();
 };
 
+let homepageSectionsTableEnsured = false;
 const ensureHomepageSectionsTable = async () => {
+    if (homepageSectionsTableEnsured) return;
     await pool.query(`
         CREATE TABLE IF NOT EXISTS sections (
             id SERIAL PRIMARY KEY,
@@ -699,6 +706,16 @@ const ensureHomepageSectionsTable = async () => {
             );
         }
     }
+    homepageSectionsTableEnsured = true;
+};
+
+const PUBLIC_HOMEPAGE_CACHE_MS = 60 * 1000;
+let publicHomepageCache = null;
+let publicHomepageCacheAt = 0;
+
+const invalidatePublicHomepageCache = () => {
+    publicHomepageCache = null;
+    publicHomepageCacheAt = 0;
 };
 
 const getHomepageSections = async () => {
@@ -2417,12 +2434,22 @@ router.get('/audit-log', verifySuperAdmin, async (req, res) => {
 // ========== 11. إدارة إعدادات الصفحة الرئيسية ==========
 router.get('/homepage-settings/public', homepageSettingsReadLimiter, async (_req, res) => {
     try {
+        const now = Date.now();
+        if (publicHomepageCache && (now - publicHomepageCacheAt) < PUBLIC_HOMEPAGE_CACHE_MS) {
+            res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+            return res.json(publicHomepageCache);
+        }
+
         const [settings, sections, heroMediaList] = await Promise.all([
             getHomepageSettings(),
             getHomepageSections(),
             getHeroMediaList(true)
         ]);
-        res.json({ success: true, settings, sections, heroMediaList });
+        const payload = { success: true, settings, sections, heroMediaList };
+        publicHomepageCache = payload;
+        publicHomepageCacheAt = now;
+        res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+        res.json(payload);
     } catch (error) {
         console.error('خطأ في جلب إعدادات الصفحة الرئيسية (public):', error);
         res.status(500).json({ success: false, message: 'تعذر جلب إعدادات الصفحة الرئيسية' });
@@ -2708,6 +2735,7 @@ router.post('/homepage-sections', verifySuperAdmin, homepageSectionsWriteLimiter
              VALUES ($1, $2, $3, $4, $5)`,
             [title, description, iconUrl, link || null, orderIndex]
         );
+        invalidatePublicHomepageCache();
         const sections = await getHomepageSections();
         res.json({ success: true, sections });
     } catch (error) {
@@ -2740,6 +2768,7 @@ router.put('/homepage-sections/:id', verifySuperAdmin, homepageSectionsWriteLimi
         if (updateResult.rowCount === 0) {
             return res.status(404).json({ success: false, message: 'القسم غير موجود' });
         }
+        invalidatePublicHomepageCache();
         const sections = await getHomepageSections();
         res.json({ success: true, sections });
     } catch (error) {
@@ -2759,6 +2788,7 @@ router.delete('/homepage-sections/:id', verifySuperAdmin, homepageSectionsWriteL
         if (deleteResult.rowCount === 0) {
             return res.status(404).json({ success: false, message: 'القسم غير موجود' });
         }
+        invalidatePublicHomepageCache();
         const sections = await getHomepageSections();
         res.json({ success: true, sections });
     } catch (error) {
@@ -2791,6 +2821,7 @@ router.post('/homepage-sections/:id/icon', homepageSettingsUploadLimiter, verify
         if (updateResult.rowCount > 0 && previousIconUrl && previousIconUrl !== iconUrl) {
             await deleteHomepageUploadByUrl(previousIconUrl);
         }
+        invalidatePublicHomepageCache();
         const sections = await getHomepageSections();
         res.json({ success: true, icon_url: iconUrl, sections });
     } catch (error) {
@@ -2827,6 +2858,7 @@ router.delete('/hero-media/:id', verifySuperAdmin, homepageSettingsWriteLimiter,
         }
         const deletedRow = deleteResult.rows[0];
         await deleteHomepageUploadByUrl(deletedRow.url);
+        invalidatePublicHomepageCache();
         const items = await getHeroMediaList(false);
         res.json({ success: true, message: 'تم حذف الوسائط بنجاح', heroMediaList: items });
     } catch (error) {
@@ -2849,6 +2881,7 @@ router.patch('/hero-media/:id/toggle', verifySuperAdmin, homepageSettingsWriteLi
         if (updateResult.rowCount === 0) {
             return res.status(404).json({ success: false, message: 'الوسائط غير موجودة' });
         }
+        invalidatePublicHomepageCache();
         const items = await getHeroMediaList(false);
         res.json({ success: true, message: 'تم تحديث حالة الوسائط', is_active: updateResult.rows[0].is_active, heroMediaList: items });
     } catch (error) {
@@ -2870,6 +2903,7 @@ router.patch('/hero-media/reorder', verifySuperAdmin, homepageSettingsWriteLimit
             if (!Number.isInteger(id) || id <= 0 || !Number.isFinite(orderIndex)) continue;
             await pool.query('UPDATE hero_media SET order_index = $1 WHERE id = $2', [orderIndex, id]);
         }
+        invalidatePublicHomepageCache();
         const updatedItems = await getHeroMediaList(false);
         res.json({ success: true, message: 'تم إعادة ترتيب الوسائط', heroMediaList: updatedItems });
     } catch (error) {

@@ -254,6 +254,33 @@
     window.setTimeout(ensureHeroVisible, 3200);
   }
 
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        if (existing.dataset.loaded === 'true') resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = src;
+      script.defer = true;
+      script.onload = () => {
+        script.dataset.loaded = 'true';
+        resolve();
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  async function loadGsapBundle() {
+    if (typeof gsap !== 'undefined') return;
+    await loadScript('https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js');
+  }
+
   function initGsap() {
     if (typeof gsap === 'undefined') {
       ensureHeroVisible();
@@ -267,16 +294,38 @@
     initHeroEntrance();
     initCounters();
     initScrollEffects();
+    initMagneticButtons();
+    initParticles(document.getElementById('hero-particles'), 10);
+  }
+
+  function scheduleHeavyAnimations() {
+    if (reduceMotion) {
+      ensureHeroVisible();
+      document.querySelectorAll('body.homepage .reveal-on-scroll, body.homepage #modules > section.section-head').forEach((el) => {
+        el.classList.add('is-visible');
+      });
+      return;
+    }
+
+    const run = () => {
+      loadGsapBundle()
+        .then(initGsap)
+        .catch(() => ensureHeroVisible());
+    };
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(run, { timeout: 1800 });
+    } else {
+      window.setTimeout(run, 900);
+    }
   }
 
   function init() {
     ensureHeroVisible();
-    initParticles(document.getElementById('hero-particles'), 28);
     initNavIndicator();
     initNavScroll();
-    initMagneticButtons();
     initVideoHover();
-    initGsap();
+    scheduleHeavyAnimations();
   }
 
   if (document.readyState === 'loading') {
