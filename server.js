@@ -2170,6 +2170,15 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.get('/api/db-env', (_req, res) => {
+  const { getRuntimeEnvDiagnostics } = require('./database-config');
+  const diagnostics = getRuntimeEnvDiagnostics();
+  res.json({
+    success: true,
+    ...diagnostics
+  });
+});
+
 app.get('/api/db-config', (_req, res) => {
   try {
     const { getDatabaseInfo } = require('./db');
@@ -2181,15 +2190,18 @@ app.get('/api/db-config', (_req, res) => {
       databaseName: info.database,
       databaseSource: info.source,
       databaseSsl: info.ssl,
-      rejectedSources: info.rejectedSources || []
+      rejectedSources: info.rejectedSources || [],
+      runtimeDiagnostics: info.runtimeDiagnostics || null
     });
   } catch (error) {
+    const { getRuntimeEnvDiagnostics } = require('./database-config');
     res.status(500).json({
       success: false,
       message: 'Database configuration invalid',
       detail: error.message,
       resolvedHost: error.resolvedHost || null,
-      rejectedSources: error.rejections || []
+      rejectedSources: error.rejections || [],
+      runtimeDiagnostics: error.diagnostics || getRuntimeEnvDiagnostics()
     });
   }
 });
@@ -2199,7 +2211,7 @@ app.use(async (req, res, next) => {
     return next();
   }
 
-  if (req.path === '/api/db-config') {
+  if (req.path === '/api/db-config' || req.path === '/api/db-env') {
     return next();
   }
 

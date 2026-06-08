@@ -1,12 +1,18 @@
-const { resolveDatabaseConfig, resolveSsl } = require('./database-config');
+const { resolveDatabaseConfig, resolveSsl, getRuntimeEnvDiagnostics } = require('./database-config');
 
 const { Client } = require('pg');
+
+const startupDiagnostics = getRuntimeEnvDiagnostics();
+console.log('📋 Database environment diagnostics:', JSON.stringify(startupDiagnostics, null, 2));
 
 let resolvedConfig;
 try {
   resolvedConfig = resolveDatabaseConfig();
 } catch (error) {
   console.error(`❌ ${error.message}`);
+  if (error.diagnostics) {
+    console.error('📋 Failed database diagnostics:', JSON.stringify(error.diagnostics, null, 2));
+  }
   throw error;
 }
 
@@ -15,12 +21,18 @@ const {
   host: parsedDatabaseHost,
   port: parsedDatabasePort,
   database: parsedDatabaseName,
+  username: parsedDatabaseUser,
+  password: parsedDatabasePassword,
   source: databaseUrlSource,
   rejections: databaseUrlRejections
 } = resolvedConfig;
 
 const clientConfig = {
-  connectionString: databaseUrl,
+  host: parsedDatabaseHost,
+  port: Number(parsedDatabasePort) || 5432,
+  user: parsedDatabaseUser,
+  password: parsedDatabasePassword,
+  database: parsedDatabaseName,
   ssl: resolveSsl(databaseUrl)
 };
 
@@ -34,6 +46,8 @@ if (databaseUrlRejections.length > 0) {
 
 /**
  * بديل pg.Pool — يستخدم Client فقط (أثبت على cPanel؛ Pool كان يسبب core dump).
+ * Uses explicit host/port/user/password/database — never empty connectionString,
+ * so node-postgres cannot silently fall back to PGHOST env var.
  */
 function createClientPool() {
   const maxClients = Number(process.env.PG_POOL_MAX) || 4;
@@ -126,6 +140,7 @@ module.exports = {
     source: databaseUrlSource,
     ssl: Boolean(clientConfig.ssl),
     hasDatabaseUrl: Boolean(databaseUrl),
-    rejectedSources: databaseUrlRejections
+    rejectedSources: databaseUrlRejections,
+    runtimeDiagnostics: startupDiagnostics
   })
 };
