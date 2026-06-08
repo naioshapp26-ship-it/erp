@@ -44,6 +44,21 @@
 
   /* ── Inject into navbars ────────────────────────────── */
   function injectButtons() {
+    var authShells = document.querySelectorAll('.auth-actions-shell');
+    if (authShells.length > 0) {
+      authShells.forEach(function (container) {
+        if (!container.querySelector('.dark-mode-toggle')) {
+          var actions = container.querySelector('.auth-actions');
+          if (actions) {
+            actions.insertBefore(createButton(), actions.firstChild);
+          } else {
+            container.insertBefore(createButton(), container.firstChild);
+          }
+        }
+      });
+      return;
+    }
+
     /* Prefer the .auth-actions container (index.html) */
     var authContainers = document.querySelectorAll('.auth-actions');
     if (authContainers.length > 0) {
