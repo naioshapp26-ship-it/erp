@@ -4,7 +4,9 @@ const dotenv = require('dotenv');
 
 const projectRoot = path.resolve(__dirname);
 
-const ENV_FILES = ['.env.local', '.env', 'env'];
+const ENV_FILES = process.env.RAILWAY_ENVIRONMENT
+  ? ['.env.local', '.env']
+  : ['.env.local', '.env', 'env'];
 
 for (const fileName of ENV_FILES) {
   const filePath = path.join(projectRoot, fileName);

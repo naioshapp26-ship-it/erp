@@ -2170,8 +2170,36 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.get('/api/db-config', (_req, res) => {
+  try {
+    const { getDatabaseInfo } = require('./db');
+    const info = getDatabaseInfo();
+    res.json({
+      success: true,
+      databaseHost: info.host,
+      databasePort: info.port,
+      databaseName: info.database,
+      databaseSource: info.source,
+      databaseSsl: info.ssl,
+      rejectedSources: info.rejectedSources || []
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Database configuration invalid',
+      detail: error.message,
+      resolvedHost: error.resolvedHost || null,
+      rejectedSources: error.rejections || []
+    });
+  }
+});
+
 app.use(async (req, res, next) => {
   if (!req.path.startsWith('/api/')) {
+    return next();
+  }
+
+  if (req.path === '/api/db-config') {
     return next();
   }
 
@@ -2179,11 +2207,19 @@ app.use(async (req, res, next) => {
     await databaseReady;
     return next();
   } catch (error) {
-    console.error('Database bootstrap failed:', error.message);
+    let databaseHost = error.resolvedHost || null;
+    try {
+      databaseHost = databaseHost || require('./db').getDatabaseInfo().host;
+    } catch (_) {
+      /* ignore */
+    }
+
+    console.error('Database bootstrap failed:', error.message, databaseHost ? `(host: ${databaseHost})` : '');
     return res.status(503).json({
       success: false,
       message: 'Database initialization failed',
-      detail: error.message
+      detail: error.message,
+      databaseHost
     });
   }
 });
@@ -2218,6 +2254,13 @@ app.get('/api/auth/debug', async (req, res) => {
     nodeVersion: process.version,
     hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
     databaseSsl: process.env.DATABASE_SSL,
+    databaseInfo: (() => {
+      try {
+        return require('./db').getDatabaseInfo();
+      } catch (error) {
+        return { error: error.message, resolvedHost: error.resolvedHost || null };
+      }
+    })(),
     steps: []
   };
   const addStep = (name, ok, detail) => report.steps.push({ name, ok, detail });

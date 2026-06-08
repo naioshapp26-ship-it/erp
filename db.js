@@ -1,87 +1,36 @@
-require('./load-env');
+const { resolveDatabaseConfig, resolveSsl } = require('./database-config');
 
 const { Client } = require('pg');
 
-const RAILWAY_HOST_PATTERN = /\.(proxy\.rlwy\.net|railway\.internal)(:|\/|$)/i;
-
-const normalizeDatabaseUrl = (url) => {
-  if (!url) return '';
-  return String(url).trim().replace(/\s+/g, '').replace(/@localhost([:/])/gi, '@127.0.0.1$1');
-};
-
-const resolveDatabaseUrl = () => {
-  const candidates = [
-    process.env.DATABASE_URL,
-    process.env.DATABASE_PUBLIC_URL,
-    process.env.PGDATABASE_URL
-  ];
-
-  for (const candidate of candidates) {
-    const normalized = normalizeDatabaseUrl(candidate);
-    if (normalized) return normalized;
-  }
-
-  return '';
-};
-
-const resolveSsl = (databaseUrl) => {
-  const sslSetting = String(process.env.DATABASE_SSL || '').trim().toLowerCase();
-  if (sslSetting === 'true' || sslSetting === '1') {
-    return { rejectUnauthorized: false };
-  }
-  if (sslSetting === 'false' || sslSetting === '0') {
-    return false;
-  }
-
-  if (RAILWAY_HOST_PATTERN.test(databaseUrl) || process.env.RAILWAY_ENVIRONMENT) {
-    return { rejectUnauthorized: false };
-  }
-
-  return false;
-};
-
-const buildDatabaseConfigError = () => {
-  const hasEmptyDatabaseUrlVar = 'DATABASE_URL' in process.env && !String(process.env.DATABASE_URL || '').trim();
-  const railwayHint = process.env.RAILWAY_ENVIRONMENT
-    ? 'On Railway: open your ERP service → Variables → set DATABASE_URL to ${{Postgres.DATABASE_URL}} (reference your PostgreSQL service). Also set DATABASE_SSL=true.'
-    : 'Create a .env file from .env.example and set DATABASE_URL to your PostgreSQL connection string.';
-
-  if (hasEmptyDatabaseUrlVar) {
-    return [
-      'DATABASE_URL is defined but empty.',
-      'An empty connection string makes node-postgres fall back to localhost (::1:5432), which causes ECONNREFUSED.',
-      railwayHint
-    ].join(' ');
-  }
-
-  return [
-    'DATABASE_URL is not configured.',
-    'Set DATABASE_URL in .env (local) or Railway service variables (production).',
-    railwayHint
-  ].join(' ');
-};
-
-const databaseUrl = resolveDatabaseUrl();
-
-if (!databaseUrl) {
-  const message = buildDatabaseConfigError();
-  console.error(`❌ ${message}`);
-  throw new Error(message);
-}
-
-let parsedDatabaseHost = 'unknown';
+let resolvedConfig;
 try {
-  parsedDatabaseHost = new URL(databaseUrl).hostname;
-} catch (_) {
-  throw new Error('DATABASE_URL is set but is not a valid PostgreSQL connection URL.');
+  resolvedConfig = resolveDatabaseConfig();
+} catch (error) {
+  console.error(`❌ ${error.message}`);
+  throw error;
 }
+
+const {
+  databaseUrl,
+  host: parsedDatabaseHost,
+  port: parsedDatabasePort,
+  database: parsedDatabaseName,
+  source: databaseUrlSource,
+  rejections: databaseUrlRejections
+} = resolvedConfig;
 
 const clientConfig = {
   connectionString: databaseUrl,
   ssl: resolveSsl(databaseUrl)
 };
 
-console.log(`✅ Database configured (host: ${parsedDatabaseHost}, ssl: ${clientConfig.ssl ? 'enabled' : 'disabled'})`);
+console.log(
+  `✅ Database configured (source: ${databaseUrlSource}, host: ${parsedDatabaseHost}, port: ${parsedDatabasePort}, db: ${parsedDatabaseName}, ssl: ${clientConfig.ssl ? 'enabled' : 'disabled'})`
+);
+
+if (databaseUrlRejections.length > 0) {
+  console.warn('⚠️ Skipped invalid database URL sources:', databaseUrlRejections);
+}
 
 /**
  * بديل pg.Pool — يستخدم Client فقط (أثبت على cPanel؛ Pool كان يسبب core dump).
@@ -172,7 +121,11 @@ module.exports = {
   pool,
   getDatabaseInfo: () => ({
     host: parsedDatabaseHost,
+    port: parsedDatabasePort,
+    database: parsedDatabaseName,
+    source: databaseUrlSource,
     ssl: Boolean(clientConfig.ssl),
-    hasDatabaseUrl: Boolean(databaseUrl)
+    hasDatabaseUrl: Boolean(databaseUrl),
+    rejectedSources: databaseUrlRejections
   })
 };
