@@ -106,6 +106,16 @@ const buildUrlFromPgVars = () => {
   return `postgresql://${encodedUser}:${encodedPassword}@${host}:${port}/${database}`;
 };
 
+const TEMPLATE_ENV_KEYS = new Set([
+  'TENANT_DB_URL_TEMPLATE',
+  'PROVISION_DB_URL'
+]);
+
+const isTemplateDatabaseValue = (value) => {
+  const normalized = String(value || '');
+  return normalized.includes('{') || normalized.includes('}') || normalized.includes('{db}');
+};
+
 const collectDatabaseCandidates = () => {
   const seen = new Set();
   const entries = [
@@ -116,6 +126,8 @@ const collectDatabaseCandidates = () => {
 
   for (const [key, value] of Object.entries(process.env)) {
     if (['DATABASE_URL', 'DATABASE_PUBLIC_URL'].includes(key)) continue;
+    if (TEMPLATE_ENV_KEYS.has(key)) continue;
+    if (isTemplateDatabaseValue(value)) continue;
     const normalized = normalizeDatabaseUrl(value);
     if (!normalized || seen.has(normalized)) continue;
     if (!/^postgres(ql)?:\/\//i.test(normalized)) continue;
@@ -217,6 +229,9 @@ const resolveDatabaseConfig = () => {
   const pgHost = getPgImplicitFallbackHost();
   const message = [
     'No usable PostgreSQL connection URL found.',
+    process.env.TENANT_DB_URL_TEMPLATE
+      ? 'TENANT_DB_URL_TEMPLATE is for tenant provisioning only — do not use it as DATABASE_URL. Set DATABASE_URL via Railway Add Reference to your PostgreSQL service.'
+      : null,
     diagnostics.pgImplicitFallback.warning,
     pgHost === 'base'
       ? 'Root cause: PGHOST is set to "base". When DATABASE_URL is empty at runtime, node-postgres (pg) silently falls back to PGHOST. Remove PGHOST=base from Railway variables and set DATABASE_URL=${{Postgres.DATABASE_URL}}.'
