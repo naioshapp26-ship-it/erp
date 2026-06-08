@@ -90,7 +90,7 @@ const DEFAULT_HOMEPAGE_SETTINGS = {
         paragraphColor: '#5e636d',
         linkColor: '#1f232b'
     },
-    logoUrl: '/لوجو%20نايوش%20خلفيه.png',
+    logoUrl: '/public/naiosh-logo.png',
     heroImageUrl: '/newhome/booking-workspace.svg',
     heroImageMode: 'cover',
     heroMedia: {
