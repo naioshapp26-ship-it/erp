@@ -45,21 +45,6 @@ const getTrustProxySetting = () => {
 
 app.set('trust proxy', getTrustProxySetting());
 
-const BYPASS_AUTH_TOKEN = process.env.BYPASS_AUTH_TOKEN || 'naiosh-bypass-token';
-const DEFAULT_BYPASS_USER = {
-  id: 0,
-  name: 'Super Admin',
-  email: 'admin@naiosh.com',
-  role: 'مسؤول النظام',
-  job_title: 'مدير النظام',
-  tenant_type: 'HQ',
-  tenantType: 'HQ',
-  entity_id: 'HQ001',
-  entityId: 'HQ001',
-  entity_name: 'NAIOSH HQ',
-  entityName: 'NAIOSH HQ'
-};
-
 const assetExists = (assetPath) => {
   const normalizedPath = String(assetPath || '').replace(/^\/+/, '');
   return fs.existsSync(path.join(__dirname, normalizedPath));
@@ -2604,15 +2589,38 @@ const shouldGuardHtml = (req) => {
   return isProtectedHtmlPath(req.path);
 };
 
-const requireAuthForHtml = async (_req, _res, next) => {
-  // Temporary bypass for deployment: do not guard HTML pages.
-  return next();
+const requireAuthForHtml = async (req, res, next) => {
+  if (!shouldGuardHtml(req)) {
+    return next();
+  }
+
+  const token = getAuthToken(req);
+  if (!token) {
+    return res.redirect(302, '/login-page.html');
+  }
+
+  try {
+    const resolvedContext = req.tenant && req.tenantPool
+      ? await resolveTenantSessionEntityContext(req, token)
+      : await resolveCentralSessionEntityContext(token);
+    if (!resolvedContext) {
+      return res.redirect(302, '/login-page.html');
+    }
+    return next();
+  } catch (error) {
+    console.error('HTML auth guard failed:', error.message);
+    return res.redirect(302, '/login-page.html');
+  }
 };
 
 app.use(requireAuthForHtml);
 
-app.get(['/login-page.html', '/register.html'], (_req, res) => {
-  return res.redirect('/dashboard.html');
+app.get('/login-page.html', (_req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'login-page.html'));
+});
+
+app.get('/register.html', (_req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'register.html'));
 });
 
 // Serve static files (must come AFTER API routes to avoid conflicts)
@@ -13726,10 +13734,7 @@ const creatorImageUpload = multer({
 const getAuthenticatedUser = async (req) => {
   const token = getAuthToken(req) || (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
   if (!token) {
-    return DEFAULT_BYPASS_USER;
-  }
-  if (token === BYPASS_AUTH_TOKEN) {
-    return DEFAULT_BYPASS_USER;
+    return null;
   }
 
   try {
@@ -13742,10 +13747,10 @@ const getAuthenticatedUser = async (req) => {
        LIMIT 1`,
       [token]
     );
-    return result.rows[0] || DEFAULT_BYPASS_USER;
+    return result.rows[0] || null;
   } catch (error) {
-    console.warn('Authentication DB lookup failed, using bypass user:', error.message);
-    return DEFAULT_BYPASS_USER;
+    console.warn('Authentication DB lookup failed:', error.message);
+    return null;
   }
 };
 

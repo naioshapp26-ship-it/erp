@@ -1,3 +1,4 @@
+const bcrypt = require('bcryptjs');
 const db = require('./db');
 
 const REQUIRED_TABLES = [
@@ -394,6 +395,8 @@ async function ensureDatabaseReady() {
 }
 
 async function seedMinimumData() {
+  const adminPasswordHash = await bcrypt.hash('Admin@123', 10);
+
   await db.query(`
     INSERT INTO entities (id, name, type, status, balance, location, users_count, plan, expiry_date, theme)
     VALUES
@@ -406,7 +409,19 @@ async function seedMinimumData() {
     INSERT INTO users (name, email, role, tenant_type, entity_id, entity_name, job_title, is_active)
     SELECT 'Super Admin', 'admin@naiosh.com', 'مسؤول النظام', 'HQ', 'HQ001', 'NAIOSH HQ', 'مدير النظام', true
     WHERE NOT EXISTS (SELECT 1 FROM users WHERE entity_id = 'HQ001');
+  `);
 
+  await db.query(`
+    INSERT INTO user_credentials (user_id, username, password_hash, is_active, failed_attempts)
+    SELECT id, 'HQ001', $1, true, 0
+    FROM users
+    WHERE entity_id = 'HQ001'
+    ORDER BY id
+    LIMIT 1
+    ON CONFLICT (user_id) DO NOTHING;
+  `, [adminPasswordHash]);
+
+  await db.query(`
     INSERT INTO payment_methods (method_code, method_name_ar, method_name_en, icon, color, display_order, requires_bank_details)
     VALUES
       ('bank_transfer', 'تحويل بنكي', 'Bank Transfer', 'bank', '#3b82f6', 1, true),
