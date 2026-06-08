@@ -183,16 +183,6 @@
 
     const hero = document.querySelector('body.homepage .hero');
     if (hero) {
-      gsap.to('body.homepage .hero-ambient', {
-        yPercent: 18,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: hero,
-          start: 'top top',
-          end: 'bottom top',
-          scrub: 0.6,
-        },
-      });
       gsap.to('body.homepage .hero-media-stack', {
         y: -40,
         ease: 'none',
