@@ -2173,8 +2173,13 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.get('/api/db-env', (_req, res) => {
   const { getRuntimeEnvDiagnostics } = require('./database-config');
   const diagnostics = getRuntimeEnvDiagnostics();
+  const dbInfo = require('./db').getDatabaseInfo();
   res.json({
-    success: true,
+    success: dbInfo.configured !== false,
+    configured: dbInfo.configured !== false,
+    databaseHost: dbInfo.host || null,
+    databaseSource: dbInfo.source || null,
+    configError: dbInfo.error || null,
     ...diagnostics
   });
 });
