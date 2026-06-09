@@ -92,18 +92,8 @@ const injectGlobalBackButtonAssets = (html) => {
   if (!html) return html;
   const cssTag = '<link rel="stylesheet" href="/public/global-back.css">';
   const scriptTag = '<script src="/public/global-back.js" defer></script>';
-  let output = html;
-  if (!output.includes(cssTag)) {
-    output = output.includes('</head>')
-      ? output.replace('</head>', `${cssTag}</head>`)
-      : `${cssTag}${output}`;
-  }
-  if (!output.includes(scriptTag)) {
-    output = output.includes('</body>')
-      ? output.replace('</body>', `${scriptTag}</body>`)
-      : `${output}${scriptTag}`;
-  }
-  return output;
+  const withCss = injectHeadAssetIfExists(html, '/public/global-back.css', cssTag);
+  return injectBodyAssetIfExists(withCss, '/public/global-back.js', scriptTag);
 };
 
 const injectPageGuideAssets = (html) => {
@@ -149,7 +139,8 @@ const sendHtmlWithNumberFormat = (res, filePath) => {
       res.send(html);
       return;
     }
-    res.send(injectDarkModeAssets(withFormValidation));
+    const withGlobalBack = injectGlobalBackButtonAssets(withFormValidation);
+    res.send(injectDarkModeAssets(withGlobalBack));
   });
 };
 
@@ -2809,7 +2800,7 @@ app.get('/finance*', (req, res, next) => {
       ? '    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n'
       : '    <link rel="stylesheet" href="/finance/brand-theme.css?v=20260215">\n    <script src="/finance/brand-theme.js"></script>\n    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n';
     const injected = html.replace('</head>', `${injection}</head>`);
-    res.type('html').send(injectFormValidationAssets(injected));
+    res.type('html').send(injectGlobalBackButtonAssets(injectFormValidationAssets(injected)));
   } catch (error) {
     next();
   }
