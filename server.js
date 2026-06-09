@@ -3358,6 +3358,22 @@ app.get('/products', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'products.html'));
 });
 
+app.get('/services', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'services.html'));
+});
+
+app.get('/members', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'members.html'));
+});
+
+app.get('/systems', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'systems.html'));
+});
+
+app.get('/companies', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'companies.html'));
+});
+
 // Identity / Homepage settings page
 app.get('/settings', (req, res) => {
   res.sendFile(path.join(__dirname, 'settings.html'));

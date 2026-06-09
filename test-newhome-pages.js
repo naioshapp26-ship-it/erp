@@ -2,14 +2,32 @@ const fs = require('fs');
 const path = require('path');
 
 const root = __dirname;
-const pages = ['index.html', 'blog.html', 'branches.html', 'incubators.html', 'ads.html'];
+const pages = [
+  'index.html',
+  'blog.html',
+  'branches.html',
+  'incubators.html',
+  'ads.html',
+  'services.html',
+  'platforms.html',
+  'e-offices.html',
+  'systems.html',
+  'companies.html',
+  'members.html'
+];
 
 const requiredByPage = {
   'index.html': ['استكشف المساحات', 'احجز جولة', 'floating-actions', 'id="modules"', 'legacyLandingPaths', 'hero-orb', 'hero-glass-search', 'hero-media-caption', 'id="hero-bg-video"', 'id="main-sections-grid"'],
   'blog.html': ['مدونة المنصة', 'floating-actions'],
   'branches.html': ['شبكة الفروع', 'floating-actions'],
   'incubators.html': ['برامج الحاضنات', 'floating-actions'],
-  'ads.html': ['إدارة الإعلانات', 'floating-actions']
+  'ads.html': ['إدارة الإعلانات', 'floating-actions'],
+  'services.html': ['خدماتنا', 'floating-actions', 'landing-nav.js'],
+  'platforms.html': ['منصتي', 'floating-actions', 'landing-nav.js'],
+  'e-offices.html': ['مكتبي الإلكتروني', 'floating-actions', 'landing-nav.js'],
+  'systems.html': ['أنظمتي', 'floating-actions', 'landing-nav.js'],
+  'companies.html': ['شركاتي', 'floating-actions', 'landing-nav.js'],
+  'members.html': ['الأعضاء والعضوية', 'floating-actions', 'landing-nav.js']
 };
 
 requiredByPage['index.html'].push('hero-dashboard', 'hero-panel-main', 'hero-panel-status');
