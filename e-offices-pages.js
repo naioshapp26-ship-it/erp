@@ -395,18 +395,51 @@
     return { total, active, done, urgent };
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function getRows(route) {
+    const config = PAGE_CONFIGS[route];
+    if (!config) return [];
+    return loadLocalRows(route) || config.seed.slice();
+  }
+
+  function renderRowActions(route, index) {
+    return `
+      <div class="flex flex-wrap items-center justify-end gap-1.5">
+        <button type="button" data-eo-action="view" data-route="${route}" data-index="${index}"
+          class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold" title="عرض">
+          <i class="fas fa-eye"></i>
+        </button>
+        <button type="button" data-eo-action="edit" data-route="${route}" data-index="${index}"
+          class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold" title="تعديل">
+          <i class="fas fa-pen"></i>
+        </button>
+        <button type="button" data-eo-action="delete" data-route="${route}" data-index="${index}"
+          class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold" title="حذف">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    `;
+  }
+
   function renderTable(route, config, rows) {
-    const body = rows.map((row, index) => `
-      <tr class="border-b border-slate-100 hover:bg-red-50/40 transition">
-        ${row.map((cell) => `<td class="px-4 py-3 text-sm text-slate-700">${cell}</td>`).join('')}
-        <td class="px-4 py-3 text-left">
-          <button type="button" data-eo-action="view" data-route="${route}" data-index="${index}" class="text-xs font-bold text-red-700 hover:text-red-900">عرض</button>
-        </td>
+    const body = rows.length
+      ? rows.map((row, index) => `
+      <tr class="border-b border-slate-100 hover:bg-red-50/40 transition" data-eo-row="${index}">
+        ${row.map((cell) => `<td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(cell)}</td>`).join('')}
+        <td class="px-4 py-3">${renderRowActions(route, index)}</td>
       </tr>
-    `).join('');
+    `).join('')
+      : `<tr><td colspan="${config.columns.length + 1}" class="px-4 py-10 text-center text-slate-400 text-sm">لا توجد بيانات — استخدم زر الإضافة لإنشاء سجل جديد</td></tr>`;
 
     return `
-      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden" data-eo-table="${route}">
         <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <h3 class="font-bold text-slate-800">سجل ${config.title}</h3>
           <div class="flex flex-wrap gap-2">
@@ -426,7 +459,7 @@
             <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
                 ${config.columns.map((col) => `<th class="px-4 py-3 font-bold">${col}</th>`).join('')}
-                <th class="px-4 py-3 font-bold">إجراء</th>
+                <th class="px-4 py-3 font-bold text-left">الإجراءات</th>
               </tr>
             </thead>
             <tbody>${body}</tbody>
@@ -499,65 +532,203 @@
     });
   }
 
-  function bindActions() {
-    document.querySelectorAll('[data-eo-action]').forEach((button) => {
-      if (button.dataset.bound === '1') return;
-      button.dataset.bound = '1';
-      button.addEventListener('click', async () => {
-        const action = button.dataset.eoAction;
-        const route = button.dataset.route;
-        const config = PAGE_CONFIGS[route];
-        if (!config) return;
+  function refreshPage(route, rows) {
+    const config = PAGE_CONFIGS[route];
+    if (!config) return;
+    const page = document.querySelector(`[data-eo-page="${route}"]`);
+    if (!page) return;
+    const table = page.querySelector(`[data-eo-table="${route}"]`);
+    if (table) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = renderTable(route, config, rows);
+      table.replaceWith(wrapper.firstElementChild);
+    }
+    refreshStats(route, rows);
+  }
 
-        if (action === 'refresh') {
-          const rows = await fetchRows(route);
-          saveLocalRows(route, rows);
-          const page = document.querySelector(`[data-eo-page="${route}"]`);
-          if (page) {
-            const tableHost = page.querySelector('.overflow-x-auto')?.parentElement;
-            if (tableHost) {
-              const clone = document.createElement('div');
-              clone.innerHTML = renderTable(route, config, rows);
-              tableHost.replaceWith(clone.firstElementChild);
-              bindActions();
-            }
-            refreshStats(route, rows);
-          }
-          toast('تم تحديث البيانات', 'success');
-          return;
-        }
+  function closeModal() {
+    document.getElementById('eo-modal-overlay')?.remove();
+  }
 
-        if (action === 'add') {
-          const label = window.prompt('أدخل اسم السجل الجديد:');
-          if (!label || !label.trim()) return;
-          const rows = loadLocalRows(route) || config.seed.slice();
-          rows.unshift([label.trim(), 'مستخدم جديد', 'متوسط', 'قيد المراجعة']);
-          saveLocalRows(route, rows);
-          if (window.app?.loadRoute) window.app.loadRoute(route, true);
-          toast('تمت إضافة السجل', 'success');
-          return;
-        }
+  function openRecordModal(route, mode, index) {
+    const config = PAGE_CONFIGS[route];
+    if (!config) return;
 
-        if (action === 'export') {
-          const rows = loadLocalRows(route) || config.seed;
-          const csv = [config.columns.join(','), ...rows.map((row) => row.join(','))].join('\n');
-          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `${route}.csv`;
-          link.click();
-          URL.revokeObjectURL(url);
-          toast('تم تجهيز ملف التصدير', 'success');
-          return;
-        }
+    const rows = getRows(route);
+    const row = typeof index === 'number' ? rows[index] : null;
+    const isView = mode === 'view';
+    const titleMap = { add: 'إضافة سجل جديد', edit: 'تعديل السجل', view: 'عرض السجل' };
 
-        if (action === 'view') {
-          const rows = loadLocalRows(route) || config.seed;
-          const row = rows[Number(button.dataset.index)];
-          toast(row ? `عرض: ${row[0]}` : 'لا توجد بيانات', 'info');
-        }
+    closeModal();
+
+    const fields = config.columns.map((col, colIndex) => {
+      const value = row ? (row[colIndex] ?? '') : '';
+      const inputAttrs = isView
+        ? `readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"`
+        : `class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"`;
+      return `
+        <label class="block">
+          <span class="text-sm font-bold text-slate-600 mb-1.5 block">${escapeHtml(col)}</span>
+          <input type="text" name="eo-field-${colIndex}" value="${escapeHtml(value)}" ${inputAttrs} />
+        </label>
+      `;
+    }).join('');
+
+    const overlay = document.createElement('div');
+    overlay.id = 'eo-modal-overlay';
+    overlay.className = 'fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
+    overlay.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl" role="dialog" aria-modal="true">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 class="text-lg font-black text-slate-800">${titleMap[mode] || 'السجل'}</h3>
+          <button type="button" data-eo-modal-close class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <form id="eo-record-form" class="p-6 space-y-4">
+          ${fields}
+          <div class="flex flex-wrap gap-2 pt-2 ${isView ? 'hidden' : ''}">
+            <button type="submit" class="flex-1 min-w-[120px] px-4 py-2.5 rounded-xl bg-red-700 hover:bg-red-800 text-white font-bold text-sm">
+              <i class="fas fa-check ml-1"></i> ${mode === 'edit' ? 'حفظ التعديل' : 'إضافة'}
+            </button>
+            <button type="button" data-eo-modal-close class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">
+              إلغاء
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay || event.target.closest('[data-eo-modal-close]')) {
+        closeModal();
+      }
+    });
+
+    if (isView) return;
+
+    const form = overlay.querySelector('#eo-record-form');
+    form?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const values = config.columns.map((_, colIndex) => {
+        const input = form.querySelector(`[name="eo-field-${colIndex}"]`);
+        return (input?.value || '').trim() || '—';
       });
+
+      if (!values[0] || values[0] === '—') {
+        toast('يرجى تعبئة الحقل الأول على الأقل', 'error');
+        return;
+      }
+
+      const nextRows = getRows(route).slice();
+      if (mode === 'edit' && typeof index === 'number') {
+        nextRows[index] = values;
+        toast('تم تحديث السجل بنجاح', 'success');
+      } else {
+        nextRows.unshift(values);
+        toast('تمت إضافة السجل بنجاح', 'success');
+      }
+
+      saveLocalRows(route, nextRows);
+      refreshPage(route, nextRows);
+      closeModal();
+    });
+  }
+
+  async function handleEoAction(action, route, index) {
+    const config = PAGE_CONFIGS[route];
+    if (!config) return;
+
+    if (action === 'refresh') {
+      const button = document.querySelector(`[data-eo-action="refresh"][data-route="${route}"]`);
+      if (button) button.disabled = true;
+      try {
+        const rows = await fetchRows(route);
+        saveLocalRows(route, rows);
+        refreshPage(route, rows);
+        toast('تم تحديث البيانات', 'success');
+      } catch (_) {
+        toast('تعذر تحديث البيانات', 'error');
+      } finally {
+        if (button) button.disabled = false;
+      }
+      return;
+    }
+
+    if (action === 'add') {
+      openRecordModal(route, 'add');
+      return;
+    }
+
+    if (action === 'export') {
+      const rows = getRows(route);
+      const csv = [config.columns.join(','), ...rows.map((row) => row.join(','))].join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${route}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast('تم تجهيز ملف التصدير', 'success');
+      return;
+    }
+
+    if (action === 'view') {
+      const rows = getRows(route);
+      if (!rows[index]) {
+        toast('لا توجد بيانات لهذا السجل', 'error');
+        return;
+      }
+      openRecordModal(route, 'view', index);
+      return;
+    }
+
+    if (action === 'edit') {
+      const rows = getRows(route);
+      if (!rows[index]) {
+        toast('لا توجد بيانات لهذا السجل', 'error');
+        return;
+      }
+      openRecordModal(route, 'edit', index);
+      return;
+    }
+
+    if (action === 'delete') {
+      const rows = getRows(route);
+      const row = rows[index];
+      if (!row) {
+        toast('لا توجد بيانات لهذا السجل', 'error');
+        return;
+      }
+      const confirmed = window.confirm(`هل تريد حذف "${row[0]}"؟`);
+      if (!confirmed) return;
+      rows.splice(index, 1);
+      saveLocalRows(route, rows);
+      refreshPage(route, rows);
+      toast('تم حذف السجل', 'success');
+    }
+  }
+
+  let delegationReady = false;
+
+  function ensureDelegation() {
+    if (delegationReady) return;
+    delegationReady = true;
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-eo-action]');
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const action = button.dataset.eoAction;
+      const route = button.dataset.route;
+      if (!action || !route || !PAGE_CONFIGS[route]) return;
+      const index = button.dataset.index !== undefined ? Number(button.dataset.index) : undefined;
+      handleEoAction(action, route, index);
     });
   }
 
@@ -569,10 +740,12 @@
     async init(route) {
       const config = PAGE_CONFIGS[route];
       if (!config) return;
+      ensureDelegation();
       const rows = await fetchRows(route);
       saveLocalRows(route, rows);
-      refreshStats(route, rows);
-      bindActions();
+      refreshPage(route, rows);
     }
   };
+
+  ensureDelegation();
 })();
