@@ -40,7 +40,8 @@ const DEFAULT_PAGES_BY_PLAN = {
     'records-archive-home',
     'strategic-management',
     'events-studio-main',
-    'operational-policies'
+    'operational-policies',
+    'e-offices'
   ]
 };
 

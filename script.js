@@ -622,7 +622,22 @@ const app = (() => {
         'settings-print-templates': 'settings',
         'settings-permissions': 'settings',
         'settings-backup': 'settings',
-        'settings-general': 'settings'
+        'settings-general': 'settings',
+        'eo-daily-operations': 'e-offices',
+        'eo-sales': 'e-offices',
+        'eo-subscriptions': 'e-offices',
+        'eo-training': 'e-offices',
+        'eo-customer-service': 'e-offices',
+        'eo-operational-reports': 'e-offices',
+        'eo-local-hr': 'e-offices',
+        'eo-operational-finance': 'e-offices',
+        'eo-files': 'e-offices',
+        'eo-archive': 'e-offices',
+        'eo-tasks': 'e-offices',
+        'eo-meetings': 'e-offices',
+        'eo-consultations': 'e-offices',
+        'eo-latest-news': 'e-offices',
+        'eo-users': 'e-offices'
     };
 
     const normalizeOfficePageKey = (key) => {
@@ -1941,6 +1956,13 @@ const app = (() => {
         else if (route === 'facilities-projects-energy') content = renderFacilitiesProjectsEnergy();
         else if (route === 'facilities-projects-crowd') content = renderFacilitiesProjectsCrowd();
         else if (route === 'download-app') content = renderDownloadApp();
+        else if (route === 'e-offices') {
+            loadRoute('eo-daily-operations', skipHistory);
+            return;
+        }
+        else if (route.startsWith('eo-') && window.EOfficesPages?.render) {
+            content = window.EOfficesPages.render(route);
+        }
         else content = renderPlaceholder();
 
         if (route !== 'incubator') {
@@ -1968,16 +1990,33 @@ const app = (() => {
 
         if (route === 'dashboard') requestAnimationFrame(initDashboardChart);
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
+        if (route.startsWith('eo-') && window.EOfficesPages?.init) {
+            window.EOfficesPages.init(route);
+        }
     };
 
     const updateActiveLink = (route) => {
-        document.querySelectorAll('#nav-menu a').forEach(l => {
+        document.querySelectorAll('#nav-menu a, #nav-menu button').forEach(l => {
             l.classList.remove('bg-gradient-to-r', 'from-red-600/20', 'to-red-600/5', 'text-white', 'border-r-4', 'border-red-500');
-            l.classList.add('text-red-200');
+            if (l.tagName === 'A') l.classList.add('text-red-200');
+            else if (l.tagName === 'BUTTON') l.classList.add('text-red-200');
         });
+        document.querySelectorAll('#nav-menu a').forEach(l => {
+            l.classList.remove('bg-red-800/40', 'text-white');
+            if (!l.id?.startsWith('link-')) l.classList.add('text-red-300');
+        });
+
+        const parentRoute = officeRouteParents[route];
+        if (parentRoute) {
+            const submenu = document.getElementById(`submenu-${parentRoute}`);
+            const arrow = document.querySelector(`.submenu-arrow-${parentRoute}`);
+            if (submenu) submenu.classList.remove('hidden');
+            if (arrow) arrow.classList.add('rotate-180');
+        }
+
         const active = document.getElementById(`link-${route}`);
-        if(active) {
-            active.classList.remove('text-red-200');
+        if (active) {
+            active.classList.remove('text-red-200', 'text-red-300');
             active.classList.add('bg-gradient-to-r', 'from-red-600/20', 'to-red-600/5', 'text-white', 'border-r-4', 'border-red-500');
         }
     };
@@ -2452,7 +2491,23 @@ const app = (() => {
             'virtual-halls': 'القاعات الافتراضية',
             'feasibility-studies': 'دراسات الجدوى',
             'research': 'البحوث',
-            'consulting-training': 'الاستشارات والتدريب'
+            'consulting-training': 'الاستشارات والتدريب',
+            'e-offices': 'المكاتب الالكترونيه',
+            'eo-daily-operations': 'العمليات اليومية',
+            'eo-sales': 'المبيعات',
+            'eo-subscriptions': 'الاشتراكات',
+            'eo-training': 'التدريب',
+            'eo-customer-service': 'خدمة العملاء',
+            'eo-operational-reports': 'التقارير التشغيلية',
+            'eo-local-hr': 'الموارد البشرية المحلية',
+            'eo-operational-finance': 'الماليه التشغيلية',
+            'eo-files': 'الملفات',
+            'eo-archive': 'الارشيف',
+            'eo-tasks': 'المهام',
+            'eo-meetings': 'الاجتماعات',
+            'eo-consultations': 'الاستشارات',
+            'eo-latest-news': 'اخر الاخبار',
+            'eo-users': 'المستخدمين'
         };
         return map[r] || 'نظام نايوش';
     };
@@ -2712,7 +2767,23 @@ const app = (() => {
         'system-log': '/strategic/log',
             'reports': '/strategic/reports',
             'download-app': '/download-app',
-            'my-page-analytics': '/my-page-analytics'
+            'my-page-analytics': '/my-page-analytics',
+            'e-offices': '/e-offices',
+            'eo-daily-operations': '/e-offices/daily-operations',
+            'eo-sales': '/e-offices/sales',
+            'eo-subscriptions': '/e-offices/subscriptions',
+            'eo-training': '/e-offices/training',
+            'eo-customer-service': '/e-offices/customer-service',
+            'eo-operational-reports': '/e-offices/operational-reports',
+            'eo-local-hr': '/e-offices/local-hr',
+            'eo-operational-finance': '/e-offices/operational-finance',
+            'eo-files': '/e-offices/files',
+            'eo-archive': '/e-offices/archive',
+            'eo-tasks': '/e-offices/tasks',
+            'eo-meetings': '/e-offices/meetings',
+            'eo-consultations': '/e-offices/consultations',
+            'eo-latest-news': '/e-offices/latest-news',
+            'eo-users': '/e-offices/users'
     };
 
     // Path to Route mapping (reverse)
@@ -2828,7 +2899,23 @@ const app = (() => {
         '/strategic/log': 'system-log',
         '/strategic/reports': 'reports',
         '/download-app': 'download-app',
-        '/my-page-analytics': 'my-page-analytics'
+        '/my-page-analytics': 'my-page-analytics',
+        '/e-offices': 'e-offices',
+        '/e-offices/daily-operations': 'eo-daily-operations',
+        '/e-offices/sales': 'eo-sales',
+        '/e-offices/subscriptions': 'eo-subscriptions',
+        '/e-offices/training': 'eo-training',
+        '/e-offices/customer-service': 'eo-customer-service',
+        '/e-offices/operational-reports': 'eo-operational-reports',
+        '/e-offices/local-hr': 'eo-local-hr',
+        '/e-offices/operational-finance': 'eo-operational-finance',
+        '/e-offices/files': 'eo-files',
+        '/e-offices/archive': 'eo-archive',
+        '/e-offices/tasks': 'eo-tasks',
+        '/e-offices/meetings': 'eo-meetings',
+        '/e-offices/consultations': 'eo-consultations',
+        '/e-offices/latest-news': 'eo-latest-news',
+        '/e-offices/users': 'eo-users'
     };
 
     // Extend pathToRoute with missing sections
@@ -2943,6 +3030,29 @@ const app = (() => {
                 { id: 'dashboard', icon: 'fa-chart-pie', label: 'الرئيسية', show: isOfficeRouteAllowed('dashboard') },
                 { id: 'records-archive-home', icon: 'fa-archive', label: 'نظام الأرشفة', show: isOfficeRouteAllowed('records-archive-home') },
                 { id: 'hr', icon: 'fa-users', label: 'الموارد البشرية', show: isOfficeRouteAllowed('hr') },
+                {
+                    id: 'e-offices',
+                    icon: 'fa-building',
+                    label: 'المكاتب الالكترونيه',
+                    show: isOfficeRouteAllowed('e-offices'),
+                    subItems: [
+                        { id: 'eo-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
+                        { id: 'eo-sales', icon: 'fa-chart-line', label: 'المبيعات' },
+                        { id: 'eo-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
+                        { id: 'eo-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
+                        { id: 'eo-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
+                        { id: 'eo-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
+                        { id: 'eo-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
+                        { id: 'eo-operational-finance', icon: 'fa-coins', label: 'الماليه التشغيلية' },
+                        { id: 'eo-files', icon: 'fa-folder-open', label: 'الملفات' },
+                        { id: 'eo-archive', icon: 'fa-box-archive', label: 'الارشيف' },
+                        { id: 'eo-tasks', icon: 'fa-list-check', label: 'المهام' },
+                        { id: 'eo-meetings', icon: 'fa-video', label: 'الاجتماعات' },
+                        { id: 'eo-consultations', icon: 'fa-user-tie', label: 'الاستشارات' },
+                        { id: 'eo-latest-news', icon: 'fa-newspaper', label: 'اخر الاخبار' },
+                        { id: 'eo-users', icon: 'fa-user-gear', label: 'المستخدمين' }
+                    ]
+                },
                 { id: 'super-admin', icon: 'fa-shield-alt', label: 'إدارة الأدوار والصلاحيات', show: isSuperAdmin },
                 { id: 'operational-policies', icon: 'fa-scale-balanced', label: 'السياسات التشغيلية المعتمدة', show: isOfficeRouteAllowed('operational-policies') },
                 {
@@ -3182,7 +3292,7 @@ const app = (() => {
                         </button>
                         <div id="submenu-${item.id}" class="hidden mt-2 mr-6 space-y-1">
                             ${item.subItems.map(subItem => `
-                                <a href="#${subItem.id}" onclick="event.preventDefault(); app.loadRoute('${subItem.id}')" 
+                                <a href="#${subItem.id}" id="link-${subItem.id}" onclick="event.preventDefault(); app.loadRoute('${subItem.id}')" 
                                    class="flex items-center gap-2 px-4 py-2.5 text-red-300 hover:text-white hover:bg-red-800/30 rounded-lg transition-all text-sm">
                                    <i class="fas ${subItem.icon} w-5 text-center"></i>
                                    <span>${subItem.label}</span>

@@ -2646,7 +2646,8 @@ const protectedHtmlExactPaths = new Set([
   '/audit-logs',
   '/settings',
   '/hr',
-  '/operational-policies'
+  '/operational-policies',
+  '/e-offices'
 ]);
 
 /**
@@ -2674,6 +2675,7 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/settings' || p.startsWith('/settings/')) return ['settings'];
   if (p === '/ads' || p.startsWith('/ads/')) return ['ads'];
   if (p === '/operational-policies' || p.startsWith('/operational-policies/')) return ['operational-policies'];
+  if (p === '/e-offices' || p.startsWith('/e-offices/')) return ['e-offices'];
   if (p === '/tenants' || p.startsWith('/tenants/') || p === '/register-tenant') return ['entities'];
   return null;
 };
@@ -2686,7 +2688,8 @@ const protectedHtmlPathPrefixes = [
   '/tasks/',
   '/facilities/',
   '/settings/',
-  '/operational-policies/'
+  '/operational-policies/',
+  '/e-offices/'
 ];
 
 const isProtectedHtmlPath = (requestPath = '') => {
@@ -3311,6 +3314,14 @@ app.get('/dashboard.html', (req, res) => {
 
 app.get('/home', (req, res) => {
   res.redirect(302, '/dashboard.html');
+});
+
+app.get('/e-offices', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/e-offices/:section', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
 });
 
 app.get('/login.html', (req, res) => {
