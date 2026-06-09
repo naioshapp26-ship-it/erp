@@ -1042,7 +1042,31 @@
     <!-- JavaScript Logic -->
     <script>
         const API_BASE = '/api/admin';
-        const USER_ID = 1;
+
+        function resolveSuperAdminUserId() {
+            try {
+                const rawUser = sessionStorage.getItem('user') || localStorage.getItem('user');
+                if (!rawUser) return null;
+                const user = JSON.parse(rawUser);
+                return user?.id ? String(user.id) : null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        const USER_ID = resolveSuperAdminUserId();
+
+        function getAdminHeaders(extraHeaders = {}) {
+            const headers = { ...extraHeaders };
+            if (USER_ID) {
+                headers['x-user-id'] = USER_ID;
+            }
+            const token = sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+            return headers;
+        }
 
         let rolesData = [];
         let systemsData = [];
@@ -1160,6 +1184,12 @@
 
         // Initialization
         window.onload = async function() {
+            if (!USER_ID) {
+                alert('يرجى تسجيل الدخول أولاً للوصول إلى لوحة المسؤول العام.');
+                window.location.href = '/login-page.html';
+                return;
+            }
+
             await loadMetadata();
             await loadRoles();
             await loadUsersDirectory();
@@ -1177,7 +1207,7 @@
         // Data Loading Functions
         async function loadMetadata() {
             try {
-                const response = await fetch(`${API_BASE}/metadata`, { headers: { 'x-user-id': USER_ID } });
+                const response = await fetch(`${API_BASE}/metadata`, { headers: getAdminHeaders() });
                 const data = await response.json();
                 if (data.success) {
                     systemsData = data.systems;
@@ -1200,7 +1230,7 @@
             errorDiv.classList.add('hidden');
 
             try {
-                const response = await fetch(`${API_BASE}/roles`, { headers: { 'x-user-id': USER_ID } });
+                const response = await fetch(`${API_BASE}/roles`, { headers: getAdminHeaders() });
                 const data = await response.json();
 
                 if (data.success) {
@@ -1227,7 +1257,7 @@
 
             try {
                 const response = await fetch(`${API_BASE}/office-page-access?office_id=${encodeURIComponent(officeId)}`, {
-                    headers: { 'x-user-id': USER_ID }
+                    headers: getAdminHeaders()
                 });
                 const result = await response.json();
                 if (!result.success) {
@@ -1304,7 +1334,7 @@
             try {
                 const response = await fetch(`${API_BASE}/office-page-access`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                    headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         office_id: officeId,
                         pages: Array.from(selectedOfficePages)
@@ -1333,7 +1363,7 @@
 
             try {
                 const response = await fetch(`${API_BASE}/tenant-page-access?tenant_id=${encodeURIComponent(tenantId)}`, {
-                    headers: { 'x-user-id': USER_ID }
+                    headers: getAdminHeaders()
                 });
                 const result = await response.json();
                 if (!result.success) {
@@ -1410,7 +1440,7 @@
             try {
                 const response = await fetch(`${API_BASE}/tenant-page-access`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                    headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         tenant_id: tenantId,
                         pages: Array.from(selectedTenantPages)
@@ -1501,7 +1531,7 @@
         // Role Actions
         async function editRole(roleCode) {
             try {
-                const response = await fetch(`${API_BASE}/roles/${roleCode}`, { headers: { 'x-user-id': USER_ID } });
+                const response = await fetch(`${API_BASE}/roles/${roleCode}`, { headers: getAdminHeaders() });
                 const data = await response.json();
                 if (data.success) {
                     const role = data.role;
@@ -1534,7 +1564,7 @@
             try {
                 const response = await fetch(`${API_BASE}/roles/${roleCode}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                    headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(data)
                 });
                 const result = await response.json();
@@ -1562,7 +1592,7 @@
             try {
                 const response = await fetch(`${API_BASE}/roles`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                    headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(data)
                 });
                 const result = await response.json();
@@ -1576,7 +1606,7 @@
         
         function confirmDeleteRole(code) {
            if(confirm('هل أنت متأكد من الحذف؟')) {
-               fetch(`${API_BASE}/roles/${code}`, { method: 'DELETE', headers: { 'x-user-id': USER_ID } })
+               fetch(`${API_BASE}/roles/${code}`, { method: 'DELETE', headers: getAdminHeaders() })
                    .then(res => res.json())
                    .then(data => {
                        if(data.success) { loadRoles(); showToast('تم الحذف', 'success'); }
@@ -1597,7 +1627,7 @@
             loading.classList.remove('hidden');
 
             try {
-                const response = await fetch(`${API_BASE}/roles/${roleCode}`, { headers: { 'x-user-id': USER_ID } });
+                const response = await fetch(`${API_BASE}/roles/${roleCode}`, { headers: getAdminHeaders() });
                 const data = await response.json();
                 if (data.success) {
                     currentRolePermissions = data.permissions;
@@ -1651,7 +1681,7 @@
             try {
                 const response = await fetch(`${API_BASE}/roles/${roleCode}/permissions`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                    headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ permissions })
                 });
                 const result = await response.json();
@@ -1682,7 +1712,7 @@
 
             try {
                 const response = await fetch(`${API_BASE}/users${query.toString() ? `?${query.toString()}` : ''}`, {
-                    headers: { 'x-user-id': USER_ID }
+                    headers: getAdminHeaders()
                 });
                 const result = await response.json();
                 if (!result.success) {
@@ -1787,7 +1817,7 @@
 
             try {
                 const response = await fetch(`${API_BASE}/users/${userId}`, {
-                    headers: { 'x-user-id': USER_ID }
+                    headers: getAdminHeaders()
                 });
                 const result = await response.json();
                 if (!result.success) {
@@ -1839,7 +1869,7 @@
             try {
                 const response = await fetch(mode === 'create' ? `${API_BASE}/users` : `${API_BASE}/users/${userId}`, {
                     method: mode === 'create' ? 'POST' : 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                    headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
@@ -1867,7 +1897,7 @@
             try {
                 const response = await fetch(`${API_BASE}/users/${userId}`, {
                     method: 'DELETE',
-                    headers: { 'x-user-id': USER_ID }
+                    headers: getAdminHeaders()
                 });
                 const result = await response.json();
                 if (!result.success) {
@@ -2058,7 +2088,7 @@
 
         async function loadHomepageSettings() {
             try {
-                const response = await fetch(`${API_BASE}/homepage-settings`, { headers: { 'x-user-id': USER_ID } });
+                const response = await fetch(`${API_BASE}/homepage-settings`, { headers: getAdminHeaders() });
                 const data = await response.json();
                 if (!data.success || !data.settings) return;
                 const settings = data.settings;
@@ -2142,7 +2172,7 @@
         // ========== Hero Media List Management ==========
         async function loadHeroMediaList() {
             try {
-                const response = await fetch(`${API_BASE}/hero-media`, { headers: { 'x-user-id': USER_ID } });
+                const response = await fetch(`${API_BASE}/hero-media`, { headers: getAdminHeaders() });
                 const data = await response.json();
                 if (data.success) renderHeroMediaList(data.heroMediaList || []);
             } catch (error) {
@@ -2207,7 +2237,7 @@
             try {
                 const response = await fetch(`${API_BASE}/hero-media/${id}`, {
                     method: 'DELETE',
-                    headers: { 'x-user-id': USER_ID }
+                    headers: getAdminHeaders()
                 });
                 const result = await response.json();
                 if (!result.success) { alert(result.message || 'تعذر الحذف'); return; }
@@ -2224,7 +2254,7 @@
             try {
                 const response = await fetch(`${API_BASE}/hero-media/${id}/toggle`, {
                     method: 'PATCH',
-                    headers: { 'x-user-id': USER_ID }
+                    headers: getAdminHeaders()
                 });
                 const result = await response.json();
                 if (!result.success) { alert(result.message || 'تعذر التحديث'); return; }
@@ -2252,7 +2282,7 @@
             try {
                 const response = await fetch(`${API_BASE}/hero-media/reorder`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                    headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ items: [
                         { id, order_index: swapOrder },
                         { id: swapId, order_index: currentOrder }
@@ -2280,7 +2310,7 @@
             try {
                 const response = await fetch(`${API_BASE}/homepage-settings/logo`, {
                     method: 'POST',
-                    headers: { 'x-user-id': USER_ID },
+                    headers: getAdminHeaders(),
                     body: formData
                 });
                 const result = await response.json();
@@ -2312,7 +2342,7 @@
                 showToast('جاري رفع الصورة إلى مساحة التخزين...', 'info');
                 const response = await fetch(`${API_BASE}/homepage-settings/hero-image`, {
                     method: 'POST',
-                    headers: { 'x-user-id': USER_ID },
+                    headers: getAdminHeaders(),
                     body: formData
                 });
                 const result = await response.json();
@@ -2343,7 +2373,7 @@
             try {
                 const response = await fetch(`${API_BASE}/homepage-settings/tour-image`, {
                     method: 'POST',
-                    headers: { 'x-user-id': USER_ID },
+                    headers: getAdminHeaders(),
                     body: formData
                 });
                 const result = await response.json();
@@ -2366,7 +2396,7 @@
             try {
                 const response = await fetch(`${API_BASE}/homepage-settings/tour-video`, {
                     method: 'POST',
-                    headers: { 'x-user-id': USER_ID },
+                    headers: getAdminHeaders(),
                     body: formData
                 });
                 const result = await response.json();
@@ -2395,7 +2425,7 @@
                 showToast('جاري رفع الفيديو إلى مساحة التخزين (قد يستغرق بعض الوقت)...', 'info');
                 const response = await fetch(`${API_BASE}/homepage-settings/hero-video`, {
                     method: 'POST',
-                    headers: { 'x-user-id': USER_ID },
+                    headers: getAdminHeaders(),
                     body: formData
                 });
                 const result = await response.json();
@@ -2454,7 +2484,7 @@
             try {
                 const response = await fetch(`${API_BASE}/homepage-settings`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                    headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
@@ -2529,7 +2559,7 @@
 
              try {
                  const response = await fetch(`${API_BASE}/users/${userId}`, {
-                     headers: { 'x-user-id': USER_ID }
+                     headers: getAdminHeaders()
                  });
                  const result = await response.json();
 
@@ -2567,7 +2597,7 @@
             try {
                 const response = await fetch(`${API_BASE}/users/${userId}/role`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+                    headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ role_code: roleCode })
                 });
 
@@ -2593,7 +2623,7 @@
                  try {
                      const response = await fetch(`${API_BASE}/users/${userId}/role`, {
                          method: 'DELETE',
-                         headers: { 'x-user-id': USER_ID }
+                         headers: getAdminHeaders()
                      });
                      
                       const result = await response.json();
@@ -2620,7 +2650,7 @@
 
             try {
                 const response = await fetch(`${API_BASE}/audit-log?limit=50`, {
-                    headers: { 'x-user-id': USER_ID }
+                    headers: getAdminHeaders()
                 });
                 const data = await response.json();
 

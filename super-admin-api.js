@@ -14,9 +14,26 @@ require('dotenv').config();
 const db = require('./db');
 const { getTenantPool } = require('./tenant-connection-manager');
 const { buildCentralTenantEntityId, syncCentralTenantUserDirectoryEntry } = require('./tenant-directory-sync');
+const { ensureSuperAdminRbacSchema } = require('./super-admin-rbac-schema');
 
 const router = express.Router();
 const pool = db.pool;
+
+let superAdminRbacSchemaEnsured = false;
+router.use(async (req, res, next) => {
+    if (superAdminRbacSchemaEnsured) {
+        return next();
+    }
+
+    try {
+        await ensureSuperAdminRbacSchema(pool);
+        superAdminRbacSchemaEnsured = true;
+        return next();
+    } catch (error) {
+        console.error('⚠️  Super Admin RBAC schema bootstrap failed:', error.message);
+        return next();
+    }
+});
 
 const UPLOADS_ROOT_DIR = path.resolve(process.env.UPLOADS_ROOT_DIR || path.join(__dirname, 'uploads'));
 const HOMEPAGE_UPLOAD_PUBLIC_PREFIX = '/uploads/homepage/';
@@ -1707,18 +1724,26 @@ router.get('/metadata', async (req, res) => {
             ];
         }
 
-        const hierarchyLevelsResult = await pool.query(`
-            SELECT DISTINCT hierarchy_level
-            FROM roles
-            WHERE is_active = true
-            ORDER BY hierarchy_level ASC
-        `);
+        let hierarchyLevels = [0, 1, 2, 3, 4];
+        try {
+            const hierarchyLevelsResult = await pool.query(`
+                SELECT DISTINCT hierarchy_level
+                FROM roles
+                WHERE COALESCE(is_active, true) = true
+                ORDER BY hierarchy_level ASC
+            `);
+            if (hierarchyLevelsResult.rows.length > 0) {
+                hierarchyLevels = hierarchyLevelsResult.rows.map((row) => row.hierarchy_level);
+            }
+        } catch (hierarchyError) {
+            console.warn('⚠️  تعذر جلب مستويات الهرم من roles:', hierarchyError.message);
+        }
 
         res.json({
             success: true,
             systems: systemsResult.rows,
             permission_levels: permissionLevels,
-            hierarchy_levels: hierarchyLevelsResult.rows.map(r => r.hierarchy_level)
+            hierarchy_levels: hierarchyLevels
         });
     } catch (error) {
         console.error('خطأ في جلب البيانات الوصفية:', error);
