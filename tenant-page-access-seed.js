@@ -41,7 +41,8 @@ const DEFAULT_PAGES_BY_PLAN = {
     'strategic-management',
     'events-studio-main',
     'operational-policies',
-    'e-offices'
+    'e-offices',
+    'platforms'
   ]
 };
 

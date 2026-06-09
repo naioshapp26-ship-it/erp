@@ -637,7 +637,15 @@ const app = (() => {
         'eo-meetings': 'e-offices',
         'eo-consultations': 'e-offices',
         'eo-latest-news': 'e-offices',
-        'eo-users': 'e-offices'
+        'eo-users': 'e-offices',
+        'pl-daily-operations': 'platforms',
+        'pl-sales': 'platforms',
+        'pl-subscriptions': 'platforms',
+        'pl-training': 'platforms',
+        'pl-customer-service': 'platforms',
+        'pl-operational-reports': 'platforms',
+        'pl-local-hr': 'platforms',
+        'pl-operational-finance': 'platforms'
     };
 
     const normalizeOfficePageKey = (key) => {
@@ -1963,6 +1971,13 @@ const app = (() => {
         else if (route.startsWith('eo-') && window.EOfficesPages?.render) {
             content = window.EOfficesPages.render(route);
         }
+        else if (route === 'platforms') {
+            loadRoute('pl-daily-operations', skipHistory);
+            return;
+        }
+        else if (route.startsWith('pl-') && window.PlatformsPages?.render) {
+            content = window.PlatformsPages.render(route);
+        }
         else content = renderPlaceholder();
 
         if (route !== 'incubator') {
@@ -1992,6 +2007,9 @@ const app = (() => {
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
         if (route.startsWith('eo-') && window.EOfficesPages?.init) {
             window.EOfficesPages.init(route);
+        }
+        if (route.startsWith('pl-') && window.PlatformsPages?.init) {
+            window.PlatformsPages.init(route);
         }
     };
 
@@ -2507,7 +2525,16 @@ const app = (() => {
             'eo-meetings': 'الاجتماعات',
             'eo-consultations': 'الاستشارات',
             'eo-latest-news': 'اخر الاخبار',
-            'eo-users': 'المستخدمين'
+            'eo-users': 'المستخدمين',
+            'platforms': 'المنصات',
+            'pl-daily-operations': 'العمليات اليومية - المنصات',
+            'pl-sales': 'المبيعات - المنصات',
+            'pl-subscriptions': 'الاشتراكات - المنصات',
+            'pl-training': 'التدريب - المنصات',
+            'pl-customer-service': 'خدمة العملاء - المنصات',
+            'pl-operational-reports': 'التقارير التشغيلية - المنصات',
+            'pl-local-hr': 'الموارد البشرية المحلية - المنصات',
+            'pl-operational-finance': 'الماليه التشغيلية - المنصات'
         };
         return map[r] || 'نظام نايوش';
     };
@@ -2783,8 +2810,17 @@ const app = (() => {
             'eo-meetings': '/e-offices/meetings',
             'eo-consultations': '/e-offices/consultations',
             'eo-latest-news': '/e-offices/latest-news',
-            'eo-users': '/e-offices/users'
-    };
+            'eo-users': '/e-offices/users',
+            'platforms': '/platforms',
+            'pl-daily-operations': '/platforms/daily-operations',
+            'pl-sales': '/platforms/sales',
+            'pl-subscriptions': '/platforms/subscriptions',
+            'pl-training': '/platforms/training',
+            'pl-customer-service': '/platforms/customer-service',
+            'pl-operational-reports': '/platforms/operational-reports',
+            'pl-local-hr': '/platforms/local-hr',
+            'pl-operational-finance': '/platforms/operational-finance'
+        };
 
     // Path to Route mapping (reverse)
     const pathToRoute = {
@@ -2915,7 +2951,16 @@ const app = (() => {
         '/e-offices/meetings': 'eo-meetings',
         '/e-offices/consultations': 'eo-consultations',
         '/e-offices/latest-news': 'eo-latest-news',
-        '/e-offices/users': 'eo-users'
+        '/e-offices/users': 'eo-users',
+        '/platforms': 'platforms',
+        '/platforms/daily-operations': 'pl-daily-operations',
+        '/platforms/sales': 'pl-sales',
+        '/platforms/subscriptions': 'pl-subscriptions',
+        '/platforms/training': 'pl-training',
+        '/platforms/customer-service': 'pl-customer-service',
+        '/platforms/operational-reports': 'pl-operational-reports',
+        '/platforms/local-hr': 'pl-local-hr',
+        '/platforms/operational-finance': 'pl-operational-finance'
     };
 
     // Extend pathToRoute with missing sections
@@ -3051,6 +3096,22 @@ const app = (() => {
                         { id: 'eo-consultations', icon: 'fa-user-tie', label: 'الاستشارات' },
                         { id: 'eo-latest-news', icon: 'fa-newspaper', label: 'اخر الاخبار' },
                         { id: 'eo-users', icon: 'fa-user-gear', label: 'المستخدمين' }
+                    ]
+                },
+                {
+                    id: 'platforms',
+                    icon: 'fa-layer-group',
+                    label: 'المنصات',
+                    show: isOfficeRouteAllowed('platforms'),
+                    subItems: [
+                        { id: 'pl-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
+                        { id: 'pl-sales', icon: 'fa-chart-line', label: 'المبيعات' },
+                        { id: 'pl-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
+                        { id: 'pl-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
+                        { id: 'pl-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
+                        { id: 'pl-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
+                        { id: 'pl-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
+                        { id: 'pl-operational-finance', icon: 'fa-coins', label: 'الماليه التشغيلية' }
                     ]
                 },
                 { id: 'super-admin', icon: 'fa-shield-alt', label: 'إدارة الأدوار والصلاحيات', show: isSuperAdmin },

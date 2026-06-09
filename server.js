@@ -2647,7 +2647,8 @@ const protectedHtmlExactPaths = new Set([
   '/settings',
   '/hr',
   '/operational-policies',
-  '/e-offices'
+  '/e-offices',
+  '/platforms'
 ]);
 
 /**
@@ -2676,6 +2677,7 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/ads' || p.startsWith('/ads/')) return ['ads'];
   if (p === '/operational-policies' || p.startsWith('/operational-policies/')) return ['operational-policies'];
   if (p === '/e-offices' || p.startsWith('/e-offices/')) return ['e-offices'];
+  if (p === '/platforms' || p.startsWith('/platforms/')) return ['platforms'];
   if (p === '/tenants' || p.startsWith('/tenants/') || p === '/register-tenant') return ['entities'];
   return null;
 };
@@ -2689,7 +2691,8 @@ const protectedHtmlPathPrefixes = [
   '/facilities/',
   '/settings/',
   '/operational-policies/',
-  '/e-offices/'
+  '/e-offices/',
+  '/platforms/'
 ];
 
 const isProtectedHtmlPath = (requestPath = '') => {
@@ -3321,6 +3324,14 @@ app.get('/e-offices', (req, res) => {
 });
 
 app.get('/e-offices/:section', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/platforms', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/platforms/:section', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
 });
 
