@@ -25,6 +25,7 @@ const crypto = require('crypto');
 const { rateLimit } = require('express-rate-limit');
 const db = require('./db');
 const { provisionTenant } = require('./tenant-provisioner');
+const { buildTenantLoginUrl, getRequestOrigin } = require('./tenant-login-url');
 
 const router = express.Router();
 
@@ -629,8 +630,7 @@ router.get('/signup/status/:token', async (req, res) => {
   }
 
   const row = txnRes.rows[0];
-  const baseDomain = process.env.BASE_DOMAIN || 'localhost';
-  const loginUrl = `https://${row.subdomain}.${baseDomain}`;
+  const loginUrl = buildTenantLoginUrl(row.subdomain, { origin: getRequestOrigin(req) });
   const steps = await _getProvisioningStepsByTenantId(row.tenant_id);
   const hasFailure = steps.some(step => step.status === 'failed');
 

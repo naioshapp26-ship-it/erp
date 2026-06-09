@@ -26,6 +26,7 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const db = require('./db');
 const { encryptDbUrl, getTenantPool } = require('./tenant-connection-manager');
+const { buildTenantLoginUrl } = require('./tenant-login-url');
 
 const MIGRATIONS_DIR = path.join(__dirname, 'tenant-migrations');
 const CENTRAL_TENANT_ACCOUNT_TYPE = 'TENANT';
@@ -448,7 +449,7 @@ async function provisionTenantLite({
     throw err;
   }
 
-  const loginUrl = `https://${subdomain}.${baseDomain}`;
+  const loginUrl = buildTenantLoginUrl(subdomain);
   return { tenantId, subdomain, loginUrl };
 }
 
@@ -684,7 +685,7 @@ async function provisionTenant(params) {
     throw err;
   }
 
-  const loginUrl = `https://${subdomain}.${baseDomain}`;
+  const loginUrl = buildTenantLoginUrl(subdomain);
   return { tenantId, subdomain, loginUrl };
 }
 

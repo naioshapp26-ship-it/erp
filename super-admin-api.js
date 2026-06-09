@@ -186,6 +186,7 @@ const ensureHomepageSettingsTable = async () => {
     homepageSettingsTableEnsured = true;
 };
 
+const { buildTenantLoginUrl } = require('./tenant-login-url');
 const TENANT_LOGIN_BASE_DOMAIN = String(process.env.BASE_DOMAIN || 'localhost').trim().toLowerCase();
 const TENANT_DIRECTORY_BACKFILL_TTL_MS = 60 * 1000;
 let tenantDirectoryBackfillInFlight = null;
@@ -199,12 +200,6 @@ const normalizeTenantDirectorySearch = (value) => {
         return hostOnly.slice(0, -(TENANT_LOGIN_BASE_DOMAIN.length + 1));
     }
     return hostOnly.split('.')[0] || hostOnly;
-};
-
-const buildTenantLoginUrl = (subdomain) => {
-    const normalizedSubdomain = String(subdomain || '').trim().toLowerCase();
-    if (!normalizedSubdomain) return null;
-    return `https://${normalizedSubdomain}.${TENANT_LOGIN_BASE_DOMAIN}`;
 };
 
 const parseTenantSettings = (value) => {

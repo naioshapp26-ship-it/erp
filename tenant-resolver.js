@@ -22,6 +22,7 @@
 
 const db = require('./db');
 const { getTenantPool } = require('./tenant-connection-manager');
+const { isRailwayOrPlatformHost } = require('./tenant-login-url');
 
 const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'api', 'admin', 'saas']);
 
@@ -43,6 +44,35 @@ function extractSubdomain(hostname, baseDomain) {
     // نطاق فرعي من مستوى واحد فقط
     if (!sub.includes('.')) return sub;
   }
+  return null;
+}
+
+function normalizeSubdomainCandidate(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized || normalized.includes('.') || RESERVED_SUBDOMAINS.has(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
+/**
+ * استخراج النطاق الفرعي من الرأس أو معاملات الاستعلام (للاستضافة المركزية مثل Railway).
+ */
+function resolveSubdomainFromRequest(req) {
+  const baseDomain = String(process.env.BASE_DOMAIN || '').trim().toLowerCase();
+  const host = String(req.hostname || '').split(':')[0].toLowerCase();
+
+  if (baseDomain && !isRailwayOrPlatformHost(host)) {
+    const fromHost = extractSubdomain(host, baseDomain);
+    if (fromHost) return fromHost;
+  }
+
+  const fromHeader = normalizeSubdomainCandidate(req.headers['x-tenant-subdomain']);
+  if (fromHeader) return fromHeader;
+
+  const fromQuery = normalizeSubdomainCandidate(req.query?.tenant || req.query?.subdomain);
+  if (fromQuery) return fromQuery;
+
   return null;
 }
 
@@ -81,19 +111,10 @@ function suspendedHtmlPage(companyName) {
  * وسيط Express الرئيسي لتحديد هوية المستأجر.
  */
 async function tenantResolver(req, res, next) {
-  const baseDomain = process.env.BASE_DOMAIN || '';
+  const subdomain = resolveSubdomainFromRequest(req);
 
-  // إذا لم يُضبط BASE_DOMAIN، تجاوز التحقق (بيئة تطوير محلية)
-  if (!baseDomain) {
-    req.tenant = null;
-    req.tenantPool = null;
-    return next();
-  }
-
-  const subdomain = extractSubdomain(req.hostname, baseDomain);
-
-  // apex أو www → نطاق مركزي
-  if (subdomain === null) {
+  // لا يوجد نطاق فرعي → تطبيق مركزي
+  if (!subdomain) {
     req.tenant = null;
     req.tenantPool = null;
     return next();
@@ -160,4 +181,9 @@ async function tenantResolver(req, res, next) {
   }
 }
 
-module.exports = { tenantResolver, extractSubdomain, RESERVED_SUBDOMAINS };
+module.exports = {
+  tenantResolver,
+  extractSubdomain,
+  resolveSubdomainFromRequest,
+  RESERVED_SUBDOMAINS
+};

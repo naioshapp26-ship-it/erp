@@ -64,6 +64,56 @@ const registerLimiter = rateLimit({
 
 // ---- مساعدات ----
 
+const SHARED_DB_MARKER = 'shared://central';
+
+function _parseTenantSettings(tenant) {
+  if (!tenant?.settings) return {};
+  if (typeof tenant.settings === 'object' && !Array.isArray(tenant.settings)) {
+    return tenant.settings;
+  }
+  if (typeof tenant.settings !== 'string') return {};
+  try {
+    return JSON.parse(tenant.settings);
+  } catch (_) {
+    return {};
+  }
+}
+
+function _isSharedDbTenant(tenant) {
+  if (!tenant) return false;
+  if (tenant.encrypted_db_url === SHARED_DB_MARKER) return true;
+  const settings = _parseTenantSettings(tenant);
+  return settings.sharedDb === true || settings.liteProvision === true;
+}
+
+async function _ensureSharedSessionsSchema(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      tenant_id INTEGER NOT NULL,
+      session_token VARCHAR(255) NOT NULL UNIQUE,
+      ip_address VARCHAR(50),
+      user_agent TEXT,
+      expires_at TIMESTAMP NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_activity TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      session_token VARCHAR(255) UNIQUE NOT NULL,
+      ip_address VARCHAR(50),
+      user_agent TEXT,
+      expires_at TIMESTAMP NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      last_activity TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
+
 /**
  * استخراج رمز المصادقة من الرأس أو الكعكة.
  */
@@ -192,17 +242,29 @@ async function _getAllowedTenantPages(tenant) {
  * إنشاء جلسة جديدة في قاعدة بيانات المستأجر وتسجيلها في الفهرس المركزي.
  * @returns {Promise<{token: string, expiresAt: Date}>}
  */
-async function _createSession(tenantPool, userId, tenantId, req) {
+async function _createSession(tenantPool, userId, tenantId, req, options = {}) {
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   const ip = req.ip || (req.connection && req.connection.remoteAddress) || '';
   const ua = req.headers['user-agent'] || '';
+
+  if (options.sharedDb) {
+    await _ensureSharedSessionsSchema(tenantPool);
+  }
 
   await tenantPool.query(
     `INSERT INTO sessions (user_id, tenant_id, session_token, ip_address, user_agent, expires_at)
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [userId, tenantId, token, ip, ua, expiresAt]
   );
+
+  if (options.sharedDb) {
+    await tenantPool.query(
+      `INSERT INTO user_sessions (user_id, session_token, ip_address, user_agent, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, token, ip, ua, expiresAt]
+    );
+  }
 
   // تسجيل في الفهرس المركزي لإتاحة إعادة الحل لاحقاً
   await db.query(
@@ -212,7 +274,24 @@ async function _createSession(tenantPool, userId, tenantId, req) {
        tenant_id  = EXCLUDED.tenant_id,
        expires_at = EXCLUDED.expires_at`,
     [token, tenantId, expiresAt]
-  );
+  ).catch(async () => {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS tenant_session_index (
+        session_token VARCHAR(255) PRIMARY KEY,
+        tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await db.query(
+      `INSERT INTO tenant_session_index (session_token, tenant_id, expires_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (session_token) DO UPDATE SET
+         tenant_id  = EXCLUDED.tenant_id,
+         expires_at = EXCLUDED.expires_at`,
+      [token, tenantId, expiresAt]
+    );
+  });
 
   return { token, expiresAt };
 }
@@ -244,28 +323,63 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: 'يرجى إدخال بيانات الدخول.' });
     }
 
-    const userRes = await req.tenantPool.query(
-      `SELECT *
-       FROM users
-       WHERE (LOWER(username) = LOWER($1)
-          OR LOWER(COALESCE(email, '')) = LOWER($1)
-          OR phone = $1)
-         AND is_active = true
-       LIMIT 1`,
-      [identifier]
-    );
+    const sharedDb = _isSharedDbTenant(req.tenant);
+    let user = null;
+    let passwordHash = null;
 
-    const user = userRes.rows[0];
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    if (sharedDb) {
+      const entityId = buildCentralTenantEntityId(req.tenant.id);
+      const userRes = await req.tenantPool.query(
+        `SELECT
+           u.id,
+           u.name,
+           u.email,
+           u.role,
+           u.is_active,
+           u.entity_id,
+           u.entity_name,
+           u.tenant_type,
+           uc.username,
+           uc.password_hash
+         FROM user_credentials uc
+         JOIN users u ON u.id = uc.user_id
+         WHERE u.entity_id = $2
+           AND u.is_active = true
+           AND uc.is_active = true
+           AND (
+             LOWER(uc.username) = LOWER($1)
+             OR LOWER(COALESCE(u.email, '')) = LOWER($1)
+           )
+         LIMIT 1`,
+        [identifier, entityId]
+      );
+      user = userRes.rows[0] || null;
+      passwordHash = user?.password_hash || null;
+    } else {
+      const userRes = await req.tenantPool.query(
+        `SELECT *
+         FROM users
+         WHERE (LOWER(username) = LOWER($1)
+            OR LOWER(COALESCE(email, '')) = LOWER($1)
+            OR phone = $1)
+           AND is_active = true
+         LIMIT 1`,
+        [identifier]
+      );
+      user = userRes.rows[0] || null;
+      passwordHash = user?.password_hash || null;
+    }
+
+    if (!user || !passwordHash || !(await bcrypt.compare(password, passwordHash))) {
       return res.status(401).json({ success: false, message: 'بيانات الدخول غير صحيحة.' });
     }
 
     const { token, expiresAt } = await _createSession(
       req.tenantPool,
-      req.tenant.id,
       user.id,
-      req.ip || req.connection?.remoteAddress,
-      req.headers['user-agent']
+      req.tenant.id,
+      req,
+      { sharedDb }
     );
     const responseUser = _buildUserResponse(user, req.tenant);
     responseUser.allowed_pages = await _getAllowedTenantPages(req.tenant);
