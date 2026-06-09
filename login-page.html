@@ -320,26 +320,46 @@
         }
 
         function getAuthContext() {
-            const host = window.location.hostname.toLowerCase();
+            const params = new URLSearchParams(window.location.search);
+            const queryTenant = (params.get('tenant') || params.get('subdomain') || '').trim().toLowerCase();
             const reserved = new Set(['www', 'app', 'api', 'admin', 'saas']);
-            const parts = host.split('.');
-            const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : host;
-            const subdomain = host.endsWith('.' + baseDomain)
-                ? host.slice(0, host.length - baseDomain.length - 1)
-                : null;
-            const isTenant = Boolean(
-                subdomain &&
-                !subdomain.includes('.') &&
-                !reserved.has(subdomain) &&
-                host !== baseDomain &&
-                host !== `www.${baseDomain}`
-            );
+            let subdomain = null;
+
+            if (queryTenant && !queryTenant.includes('.') && !reserved.has(queryTenant)) {
+                subdomain = queryTenant;
+            } else {
+                const host = window.location.hostname.toLowerCase();
+                const parts = host.split('.');
+                const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : host;
+                if (host.endsWith('.' + baseDomain)) {
+                    const maybeSubdomain = host.slice(0, host.length - baseDomain.length - 1);
+                    if (
+                        maybeSubdomain &&
+                        !maybeSubdomain.includes('.') &&
+                        !reserved.has(maybeSubdomain) &&
+                        host !== baseDomain &&
+                        host !== `www.${baseDomain}`
+                    ) {
+                        subdomain = maybeSubdomain;
+                    }
+                }
+            }
+
+            const isTenant = Boolean(subdomain);
 
             return {
                 isTenant,
+                tenantSubdomain: subdomain,
                 loginEndpoint: isTenant ? '/api/tenant-auth/login' : '/api/auth/login',
                 verifyEndpoint: isTenant ? '/api/tenant-auth/verify' : '/api/auth/verify'
             };
+        }
+
+        function getTenantAuthHeaders(authContext) {
+            if (!authContext?.isTenant || !authContext.tenantSubdomain) {
+                return {};
+            }
+            return { 'X-Tenant-Subdomain': authContext.tenantSubdomain };
         }
 
         function applyTenantLoginPageMode() {
@@ -402,7 +422,8 @@
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...getTenantAuthHeaders(authContext)
                     },
                     body: JSON.stringify(payload)
                 });
@@ -512,7 +533,8 @@
                 // التحقق من صحة الجلسة
                 fetch(authContext.verifyEndpoint, {
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${token}`,
+                        ...getTenantAuthHeaders(authContext)
                     }
                 })
                 .then(res => res.json())

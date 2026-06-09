@@ -3282,6 +3282,14 @@ const injectHomepageBootstrap = (html, payload) => {
 
 // Root health check for Railway
 app.get('/', async (req, res) => {
+  if (req.tenant && req.tenant.status === 'active') {
+    const token = getAuthToken(req);
+    if (token) {
+      return res.redirect(302, '/dashboard.html');
+    }
+    return res.redirect(302, '/login-page.html');
+  }
+
   const filePath = path.join(__dirname, 'newhome', 'index.html');
   try {
     const html = await fs.promises.readFile(filePath, 'utf8');
