@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مكتبي | NAIOSH ERP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/newhome/styles.css" />
+  <link rel="stylesheet" href="/newhome/dark-mode.css" />
+  <link rel="stylesheet" href="/newhome/entity-pages.css" />
+</head>
+<body>
+  <script>try{if(localStorage.getItem('theme')==='dark')document.body.classList.add('dark-mode')}catch(_){}</script>
+  <header class="top-nav">
+    <div class="container inner">
+      <a class="brand" href="/">
+        <img src="/public/naiosh-logo.png" alt="شعار نايوش"/>
+        <span class="logo-text">NAIOSH ERP</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/">الرئيسية</a>
+        <a href="/products">منصتي</a>
+        <a href="/newhome/branches.html">الفروع</a>
+        <a href="/newhome/incubators.html">الحاضنات</a>
+        <a class="active" href="/newhome/offices.html">مكتبي</a>
+        <a href="/newhome/ads.html">الإعلانات</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container entity-page">
+    <header class="entity-page-head">
+      <h1>مكتبي</h1>
+      <p>استعرض المكاتب المتاحة داخل شبكة نايوش مع تفاصيل الموقع والسعة وحالة التشغيل.</p>
+      <div class="entity-page-stats" aria-label="إحصائيات المكاتب">
+        <article class="entity-page-stat"><strong id="statTotal">0</strong><span>إجمالي المكاتب</span></article>
+        <article class="entity-page-stat"><strong id="statActive">0</strong><span>نشط</span></article>
+        <article class="entity-page-stat"><strong id="statTypes">0</strong><span>أنواع</span></article>
+      </div>
+    </header>
+    <div class="entity-toolbar">
+      <input id="officeSearch" type="search" placeholder="ابحث عن مكتب أو موقع..." aria-label="بحث المكاتب" />
+      <select id="officeTypeFilter" aria-label="تصفية نوع المكتب">
+        <option value="all">كل الأنواع</option>
+      </select>
+      <button type="button" id="officeReset">الكل</button>
+    </div>
+    <p id="officeStatus" class="sr-only" aria-live="polite"></p>
+    <section class="entity-grid" id="officeGrid">
+      <div class="entity-loading"><i class="fas fa-spinner fa-spin"></i> جاري تحميل المكاتب...</div>
+    </section>
+  </main>
+  <nav class="floating-actions" aria-label="أزرار جانبية عائمة">
+    <a href="/newhome/ads.html" aria-label="إضافة"><i class="fas fa-plus"></i></a>
+    <a href="/newhome/blog.html" aria-label="المدونة"><i class="fas fa-heart"></i></a>
+    <a href="/newhome/incubators.html" aria-label="رسائل"><i class="fas fa-comment-dots"></i></a>
+    <button id="to-top" type="button" aria-label="الصعود للأعلى"><i class="fas fa-arrow-up"></i></button>
+  </nav>
+  <script src="/newhome/entity-page-utils.js"></script>
+  <script>
+    (async () => {
+      const { EntityPage } = window;
+      const grid = document.getElementById('officeGrid');
+      const typeFilter = document.getElementById('officeTypeFilter');
+      const fallbackOffices = [
+        { name: 'مكتب الاستشارات المالية', description: 'مكتب متخصص في الاستشارات المالية والمحاسبية', office_type: 'Consulting', location: 'الدور الثاني', status: 'Active', capacity: 15 },
+        { name: 'مكتب التسويق الرقمي', description: 'مكتب متخصص في حلول التسويق الرقمي والإعلام', office_type: 'Co-working', location: 'الدور الثالث', status: 'Active', capacity: 20 },
+        { name: 'مكتب تطوير البرمجيات', description: 'مكتب متخصص في تطوير التطبيقات والبرمجيات', office_type: 'Private', location: 'الطابق الرابع', status: 'Active', capacity: 10 }
+      ];
+
+      const normalizeOffice = (row) => ({
+        name: row.name || 'مكتب بدون اسم',
+        description: row.description || row.address || 'مكتب ضمن شبكة نايوش',
+        office_type: row.office_type || row.type || 'OFFICE',
+        location: row.location || row.incubator_name || row.branch_name || 'غير محدد',
+        status: row.is_active === false ? 'Inactive' : (row.status || 'Active'),
+        capacity: row.capacity || 0,
+        type: row.office_type || 'OFFICE'
+      });
+
+      let offices = [];
+      try {
+        const apiRows = await EntityPage.fetchJson('/api/offices');
+        offices = Array.isArray(apiRows) ? apiRows.map(normalizeOffice) : [];
+      } catch (_) {
+        try {
+          const entities = await EntityPage.fetchJson('/api/entities?types=OFFICE');
+          offices = (Array.isArray(entities) ? entities : [])
+            .filter((item) => item.type === 'OFFICE')
+            .map((item) => normalizeOffice({
+              ...item,
+              office_type: 'مكتب',
+              description: `خطة ${item.plan || 'PRO'} • ${item.location || 'موقع غير محدد'}`
+            }));
+        } catch (__) {
+          offices = fallbackOffices.map(normalizeOffice);
+        }
+      }
+
+      if (!offices.length) {
+        offices = fallbackOffices.map(normalizeOffice);
+      }
+
+      const types = [...new Set(offices.map((item) => item.office_type).filter(Boolean))];
+      types.forEach((type) => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        typeFilter.appendChild(option);
+      });
+
+      document.getElementById('statTotal').textContent = String(offices.length);
+      document.getElementById('statActive').textContent = String(offices.filter((item) => item.status === 'Active').length);
+      document.getElementById('statTypes').textContent = String(types.length || 1);
+
+      const cards = EntityPage.renderEntityCards(grid, offices, {
+        badgeKey: 'office_type',
+        titleKey: 'name',
+        descKey: 'description',
+        iconClass: 'fa-door-open',
+        metaBuilder: (item) => `
+          <span><i class="fas fa-location-dot"></i> ${EntityPage.escapeHtml(item.location)}</span>
+          <span><i class="fas fa-users"></i> سعة ${EntityPage.escapeHtml(String(item.capacity || 0))}</span>
+          <span><i class="fas fa-circle-check"></i> ${EntityPage.escapeHtml(EntityPage.statusLabels[item.status] || item.status)}</span>
+        `
+      });
+
+      const applyFilters = EntityPage.setupToolbar({
+        searchInput: document.getElementById('officeSearch'),
+        typeFilter,
+        resetButton: document.getElementById('officeReset'),
+        cards,
+        statusEl: document.getElementById('officeStatus'),
+        getSearchText: (card) => card.getAttribute('data-search') || '',
+        getTypeValue: (card) => card.getAttribute('data-type') || ''
+      });
+      applyFilters();
+      EntityPage.setupToTop();
+    })();
+  </script>
+  <script src="/newhome/mobile-nav.js" defer></script>
+  <script src="/newhome/dark-mode.js" defer></script>
+</body>
+</html>
