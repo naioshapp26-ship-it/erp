@@ -2,7 +2,7 @@
 
 /**
  * tenant-login-url.js
- * بناء روابط دخول المستأجرين مع دعم Railway عند غياب DNS للنطاقات الفرعية.
+ * بناء روابط دخول المستأجرين عبر النطاق الفرعي الخاص بكل شركة.
  */
 
 function normalizeOrigin(value) {
@@ -42,27 +42,6 @@ function isRailwayOrPlatformHost(hostname) {
     || host.endsWith('.railway.internal');
 }
 
-function shouldUseSubdomainLoginUrls() {
-  const override = String(process.env.TENANT_SUBDOMAIN_URLS || '').trim().toLowerCase();
-  if (override === 'true') return true;
-  if (override === 'false') return false;
-
-  const baseDomain = String(process.env.BASE_DOMAIN || '').trim().toLowerCase();
-  if (!baseDomain || baseDomain === 'localhost') return false;
-
-  const publicOrigin = getPublicAppOrigin();
-  if (!publicOrigin) return true;
-
-  try {
-    const publicHost = new URL(publicOrigin).hostname.toLowerCase();
-    if (isRailwayOrPlatformHost(publicHost)) return false;
-    if (publicHost === baseDomain || publicHost === `www.${baseDomain}`) return true;
-    return publicHost.endsWith(`.${baseDomain}`);
-  } catch (_) {
-    return false;
-  }
-}
-
 function getRequestOrigin(req) {
   if (!req) return '';
   const host = String(req.get?.('host') || req.headers?.host || '').trim();
@@ -73,18 +52,13 @@ function getRequestOrigin(req) {
   return normalizeOrigin(`${protocol}://${host}`);
 }
 
-function buildTenantLoginUrl(subdomain, options = {}) {
+function buildTenantLoginUrl(subdomain) {
   const normalizedSubdomain = String(subdomain || '').trim().toLowerCase();
   if (!normalizedSubdomain) return null;
 
   const baseDomain = String(process.env.BASE_DOMAIN || 'localhost').trim().toLowerCase();
-
-  if (shouldUseSubdomainLoginUrls()) {
-    return `https://${normalizedSubdomain}.${baseDomain}`;
-  }
-
-  const origin = normalizeOrigin(options.origin) || getPublicAppOrigin();
-  if (origin) {
+  if (!baseDomain || baseDomain === 'localhost') {
+    const origin = getPublicAppOrigin() || 'http://localhost:3000';
     return `${origin}/login-page.html?tenant=${encodeURIComponent(normalizedSubdomain)}`;
   }
 
@@ -95,7 +69,6 @@ module.exports = {
   buildTenantLoginUrl,
   getPublicAppOrigin,
   getRequestOrigin,
-  shouldUseSubdomainLoginUrls,
   isRailwayOrPlatformHost,
   normalizeOrigin
 };

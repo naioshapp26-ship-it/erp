@@ -33,6 +33,7 @@ const {
   buildDisplayName,
   syncCentralTenantUserDirectoryEntry
 } = require('./tenant-directory-sync');
+const { seedTenantPageAccess } = require('./tenant-page-access-seed');
 
 const router = express.Router();
 
@@ -381,6 +382,15 @@ router.post('/login', loginLimiter, async (req, res) => {
       req,
       { sharedDb }
     );
+    try {
+      await seedTenantPageAccess(
+        req.tenant.id,
+        req.tenant.subscription_plan || _parseTenantSettings(req.tenant).plan || 'basic'
+      );
+    } catch (seedError) {
+      console.warn('[TenantAuth] tenant page access seed skipped:', seedError.message);
+    }
+
     const responseUser = _buildUserResponse(user, req.tenant);
     responseUser.allowed_pages = await _getAllowedTenantPages(req.tenant);
     responseUser.allowedPages = responseUser.allowed_pages;

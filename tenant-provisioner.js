@@ -27,6 +27,7 @@ const bcrypt = require('bcryptjs');
 const db = require('./db');
 const { encryptDbUrl, getTenantPool } = require('./tenant-connection-manager');
 const { buildTenantLoginUrl } = require('./tenant-login-url');
+const { seedTenantPageAccess } = require('./tenant-page-access-seed');
 
 const MIGRATIONS_DIR = path.join(__dirname, 'tenant-migrations');
 const CENTRAL_TENANT_ACCOUNT_TYPE = 'TENANT';
@@ -449,6 +450,20 @@ async function provisionTenantLite({
     throw err;
   }
 
+  await _logStep(tenantId, 'SEED_TENANT_PAGE_ACCESS', 'running');
+  try {
+    const seeded = await seedTenantPageAccess(tenantId, plan);
+    await _logStep(
+      tenantId,
+      'SEED_TENANT_PAGE_ACCESS',
+      'success',
+      seeded.seeded ? `pages=${seeded.pages.join(',')}` : 'already-configured'
+    );
+  } catch (err) {
+    await _logStep(tenantId, 'SEED_TENANT_PAGE_ACCESS', 'failed', err.message);
+    throw new Error(`SEED_TENANT_PAGE_ACCESS فشل: ${err.message}`);
+  }
+
   const loginUrl = buildTenantLoginUrl(subdomain);
   return { tenantId, subdomain, loginUrl };
 }
@@ -683,6 +698,20 @@ async function provisionTenant(params) {
   } catch (err) {
     await _logStep(tenantId, 'SYNC_CENTRAL_TENANT_DIRECTORY', 'failed', err.message);
     throw err;
+  }
+
+  await _logStep(tenantId, 'SEED_TENANT_PAGE_ACCESS', 'running');
+  try {
+    const seeded = await seedTenantPageAccess(tenantId, plan);
+    await _logStep(
+      tenantId,
+      'SEED_TENANT_PAGE_ACCESS',
+      'success',
+      seeded.seeded ? `pages=${seeded.pages.join(',')}` : 'already-configured'
+    );
+  } catch (err) {
+    await _logStep(tenantId, 'SEED_TENANT_PAGE_ACCESS', 'failed', err.message);
+    throw new Error(`SEED_TENANT_PAGE_ACCESS فشل: ${err.message}`);
   }
 
   const loginUrl = buildTenantLoginUrl(subdomain);

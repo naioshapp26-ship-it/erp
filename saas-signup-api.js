@@ -25,7 +25,8 @@ const crypto = require('crypto');
 const { rateLimit } = require('express-rate-limit');
 const db = require('./db');
 const { provisionTenant } = require('./tenant-provisioner');
-const { buildTenantLoginUrl, getRequestOrigin } = require('./tenant-login-url');
+const { buildTenantLoginUrl } = require('./tenant-login-url');
+const { seedTenantPageAccess } = require('./tenant-page-access-seed');
 
 const router = express.Router();
 
@@ -591,7 +592,7 @@ router.get('/signup/status/:token', async (req, res) => {
 
   // البحث عن المستأجر المرتبط بهذا الرمز في قاعدة البيانات
   const txnRes = await db.query(
-    `SELECT ppt.tenant_id, t.status, t.subdomain, t.company_name
+    `SELECT ppt.tenant_id, t.status, t.subdomain, t.company_name, t.subscription_plan
      FROM platform_payment_transactions ppt
      JOIN tenants t ON t.id = ppt.tenant_id
      WHERE ppt.metadata->>'registration_token' = $1
@@ -630,7 +631,15 @@ router.get('/signup/status/:token', async (req, res) => {
   }
 
   const row = txnRes.rows[0];
-  const loginUrl = buildTenantLoginUrl(row.subdomain, { origin: getRequestOrigin(req) });
+  if (row.status === 'active') {
+    try {
+      await seedTenantPageAccess(row.tenant_id, row.subscription_plan || 'basic');
+    } catch (seedError) {
+      console.warn('[SaaS] tenant page access seed skipped:', seedError.message);
+    }
+  }
+
+  const loginUrl = buildTenantLoginUrl(row.subdomain);
   const steps = await _getProvisioningStepsByTenantId(row.tenant_id);
   const hasFailure = steps.some(step => step.status === 'failed');
 
