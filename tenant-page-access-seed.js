@@ -42,7 +42,8 @@ const DEFAULT_PAGES_BY_PLAN = {
     'events-studio-main',
     'operational-policies',
     'e-offices',
-    'platforms'
+    'platforms',
+    'incubators-hub'
   ]
 };
 

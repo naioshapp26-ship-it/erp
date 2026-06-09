@@ -645,7 +645,15 @@ const app = (() => {
         'pl-customer-service': 'platforms',
         'pl-operational-reports': 'platforms',
         'pl-local-hr': 'platforms',
-        'pl-operational-finance': 'platforms'
+        'pl-operational-finance': 'platforms',
+        'ic-daily-operations': 'incubators-hub',
+        'ic-sales': 'incubators-hub',
+        'ic-subscriptions': 'incubators-hub',
+        'ic-training': 'incubators-hub',
+        'ic-customer-service': 'incubators-hub',
+        'ic-operational-reports': 'incubators-hub',
+        'ic-local-hr': 'incubators-hub',
+        'ic-operational-finance': 'incubators-hub'
     };
 
     const normalizeOfficePageKey = (key) => {
@@ -1978,6 +1986,13 @@ const app = (() => {
         else if (route.startsWith('pl-') && window.PlatformsPages?.render) {
             content = window.PlatformsPages.render(route);
         }
+        else if (route === 'incubators-hub') {
+            loadRoute('ic-daily-operations', skipHistory);
+            return;
+        }
+        else if (route.startsWith('ic-') && window.IncubatorsPages?.render) {
+            content = window.IncubatorsPages.render(route);
+        }
         else content = renderPlaceholder();
 
         if (route !== 'incubator') {
@@ -2010,6 +2025,9 @@ const app = (() => {
         }
         if (route.startsWith('pl-') && window.PlatformsPages?.init) {
             window.PlatformsPages.init(route);
+        }
+        if (route.startsWith('ic-') && window.IncubatorsPages?.init) {
+            window.IncubatorsPages.init(route);
         }
     };
 
@@ -2534,7 +2552,16 @@ const app = (() => {
             'pl-customer-service': 'خدمة العملاء - المنصات',
             'pl-operational-reports': 'التقارير التشغيلية - المنصات',
             'pl-local-hr': 'الموارد البشرية المحلية - المنصات',
-            'pl-operational-finance': 'الماليه التشغيلية - المنصات'
+            'pl-operational-finance': 'الماليه التشغيلية - المنصات',
+            'incubators-hub': 'الحاضنات',
+            'ic-daily-operations': 'العمليات اليومية - الحاضنات',
+            'ic-sales': 'المبيعات - الحاضنات',
+            'ic-subscriptions': 'الاشتراكات - الحاضنات',
+            'ic-training': 'التدريب - الحاضنات',
+            'ic-customer-service': 'خدمة العملاء - الحاضنات',
+            'ic-operational-reports': 'التقارير التشغيلية - الحاضنات',
+            'ic-local-hr': 'الموارد البشرية المحلية - الحاضنات',
+            'ic-operational-finance': 'المالية التشغيلية - الحاضنات'
         };
         return map[r] || 'نظام نايوش';
     };
@@ -2819,7 +2846,16 @@ const app = (() => {
             'pl-customer-service': '/platforms/customer-service',
             'pl-operational-reports': '/platforms/operational-reports',
             'pl-local-hr': '/platforms/local-hr',
-            'pl-operational-finance': '/platforms/operational-finance'
+            'pl-operational-finance': '/platforms/operational-finance',
+            'incubators-hub': '/incubators-hub',
+            'ic-daily-operations': '/incubators-hub/daily-operations',
+            'ic-sales': '/incubators-hub/sales',
+            'ic-subscriptions': '/incubators-hub/subscriptions',
+            'ic-training': '/incubators-hub/training',
+            'ic-customer-service': '/incubators-hub/customer-service',
+            'ic-operational-reports': '/incubators-hub/operational-reports',
+            'ic-local-hr': '/incubators-hub/local-hr',
+            'ic-operational-finance': '/incubators-hub/operational-finance'
         };
 
     // Path to Route mapping (reverse)
@@ -2960,7 +2996,16 @@ const app = (() => {
         '/platforms/customer-service': 'pl-customer-service',
         '/platforms/operational-reports': 'pl-operational-reports',
         '/platforms/local-hr': 'pl-local-hr',
-        '/platforms/operational-finance': 'pl-operational-finance'
+        '/platforms/operational-finance': 'pl-operational-finance',
+        '/incubators-hub': 'incubators-hub',
+        '/incubators-hub/daily-operations': 'ic-daily-operations',
+        '/incubators-hub/sales': 'ic-sales',
+        '/incubators-hub/subscriptions': 'ic-subscriptions',
+        '/incubators-hub/training': 'ic-training',
+        '/incubators-hub/customer-service': 'ic-customer-service',
+        '/incubators-hub/operational-reports': 'ic-operational-reports',
+        '/incubators-hub/local-hr': 'ic-local-hr',
+        '/incubators-hub/operational-finance': 'ic-operational-finance'
     };
 
     // Extend pathToRoute with missing sections
@@ -3112,6 +3157,22 @@ const app = (() => {
                         { id: 'pl-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
                         { id: 'pl-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
                         { id: 'pl-operational-finance', icon: 'fa-coins', label: 'الماليه التشغيلية' }
+                    ]
+                },
+                {
+                    id: 'incubators-hub',
+                    icon: 'fa-seedling',
+                    label: 'الحاضنات',
+                    show: isOfficeRouteAllowed('incubators-hub'),
+                    subItems: [
+                        { id: 'ic-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
+                        { id: 'ic-sales', icon: 'fa-chart-line', label: 'المبيعات' },
+                        { id: 'ic-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
+                        { id: 'ic-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
+                        { id: 'ic-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
+                        { id: 'ic-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
+                        { id: 'ic-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
+                        { id: 'ic-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
                     ]
                 },
                 { id: 'super-admin', icon: 'fa-shield-alt', label: 'إدارة الأدوار والصلاحيات', show: isSuperAdmin },
