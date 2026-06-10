@@ -2649,7 +2649,8 @@ const protectedHtmlExactPaths = new Set([
   '/operational-policies',
   '/e-offices',
   '/platforms',
-  '/incubators-hub'
+  '/incubators-hub',
+  '/sectors'
 ]);
 
 /**
@@ -2680,6 +2681,7 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/e-offices' || p.startsWith('/e-offices/')) return ['e-offices'];
   if (p === '/platforms' || p.startsWith('/platforms/')) return ['platforms'];
   if (p === '/incubators-hub' || p.startsWith('/incubators-hub/')) return ['incubators-hub'];
+  if (p === '/sectors' || p.startsWith('/sectors/')) return ['naiosh-sectors'];
   if (p === '/tenants' || p.startsWith('/tenants/') || p === '/register-tenant') return ['entities'];
   return null;
 };
@@ -2695,7 +2697,8 @@ const protectedHtmlPathPrefixes = [
   '/operational-policies/',
   '/e-offices/',
   '/platforms/',
-  '/incubators-hub/'
+  '/incubators-hub/',
+  '/sectors/'
 ];
 
 const isProtectedHtmlPath = (requestPath = '') => {
@@ -3343,6 +3346,14 @@ app.get('/incubators-hub', (req, res) => {
 });
 
 app.get('/incubators-hub/:section', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/sectors', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/sectors/:section', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
 });
 

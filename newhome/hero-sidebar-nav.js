@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  /** روابط القائمة الجانبية في الهيرو فقط — لا تُضاف للهيدر */
+  /** روابط القائمة الجانبية في الهيرو فقط — الصفحات الجانبية للزوار */
   const SIDE_PAGES = [
     { label: 'فرعي', href: '/newhome/branches.html' },
     { label: 'حاضنتي', href: '/newhome/incubators.html' },
@@ -12,17 +12,6 @@
     { label: 'إعلاناتي', href: '/newhome/ads.html' },
     { label: 'صفحتي', href: '/create-page' },
     { label: 'الأعضاء', href: '/members' }
-  ];
-
-  const SECTOR_PAGES = [
-    { label: 'إدارة الأعضاء', href: '/member-management' },
-    { label: 'الحوكمة', href: '/governance' },
-    { label: 'الأتمتة', href: '/automation' },
-    { label: 'الاستدامة', href: '/sustainability' },
-    { label: 'القانونية والمحاماة', href: '/legal' },
-    { label: 'المهارات والابتكارات', href: '/skills-innovation' },
-    { label: 'المبادرات', href: '/initiatives' },
-    { label: 'نادي بيتا الرقمي', href: '/beta-club' }
   ];
 
   const EMPRESS_PAGES = [
@@ -41,10 +30,6 @@
       `<a class="hero-sidebar-item" href="${item.href}">${item.label}</a>`
     )).join('');
 
-    const sectorLinks = SECTOR_PAGES.map((item) => (
-      `<a class="hero-sidebar-subitem" href="${item.href}">${item.label}</a>`
-    )).join('');
-
     const empressLinks = EMPRESS_PAGES.map((item) => {
       const nestedClass = item.nested ? ' hero-sidebar-subsubitem' : '';
       return `<a class="hero-sidebar-subitem${nestedClass}" href="${item.href}">${item.label}</a>`;
@@ -52,15 +37,6 @@
 
     nav.innerHTML = `
       ${sideLinks}
-      <div class="hero-sidebar-group">
-        <button class="hero-sidebar-item hero-sidebar-toggle" type="button" aria-expanded="false" aria-controls="sectors-submenu">
-          <span>القطاعات المتخصصة</span>
-          <i class="fas fa-chevron-down hero-sidebar-arrow" aria-hidden="true"></i>
-        </button>
-        <div class="hero-sidebar-submenu" id="sectors-submenu" aria-hidden="true">
-          ${sectorLinks}
-        </div>
-      </div>
       <div class="hero-sidebar-group">
         <button class="hero-sidebar-item hero-sidebar-toggle" type="button" aria-expanded="false" aria-controls="empress-submenu">
           <span>الإمبراطورة</span>

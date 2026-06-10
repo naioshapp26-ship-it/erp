@@ -653,7 +653,15 @@ const app = (() => {
         'ic-customer-service': 'incubators-hub',
         'ic-operational-reports': 'incubators-hub',
         'ic-local-hr': 'incubators-hub',
-        'ic-operational-finance': 'incubators-hub'
+        'ic-operational-finance': 'incubators-hub',
+        'sc-member-management': 'naiosh-sectors',
+        'sc-governance': 'naiosh-sectors',
+        'sc-automation': 'naiosh-sectors',
+        'sc-sustainability': 'naiosh-sectors',
+        'sc-legal': 'naiosh-sectors',
+        'sc-skills-innovation': 'naiosh-sectors',
+        'sc-initiatives': 'naiosh-sectors',
+        'sc-beta-club': 'naiosh-sectors'
     };
 
     const normalizeOfficePageKey = (key) => {
@@ -1993,6 +2001,13 @@ const app = (() => {
         else if (route.startsWith('ic-') && window.IncubatorsPages?.render) {
             content = window.IncubatorsPages.render(route);
         }
+        else if (route === 'naiosh-sectors') {
+            loadRoute('sc-member-management', skipHistory);
+            return;
+        }
+        else if (route.startsWith('sc-') && window.SectorPages?.render) {
+            content = window.SectorPages.render(route);
+        }
         else content = renderPlaceholder();
 
         if (route !== 'incubator') {
@@ -2028,6 +2043,9 @@ const app = (() => {
         }
         if (route.startsWith('ic-') && window.IncubatorsPages?.init) {
             window.IncubatorsPages.init(route);
+        }
+        if (route.startsWith('sc-') && window.SectorPages?.init) {
+            window.SectorPages.init(route);
         }
     };
 
@@ -2561,7 +2579,16 @@ const app = (() => {
             'ic-customer-service': 'خدمة العملاء - الحاضنات',
             'ic-operational-reports': 'التقارير التشغيلية - الحاضنات',
             'ic-local-hr': 'الموارد البشرية المحلية - الحاضنات',
-            'ic-operational-finance': 'المالية التشغيلية - الحاضنات'
+            'ic-operational-finance': 'المالية التشغيلية - الحاضنات',
+            'naiosh-sectors': 'قطاعات نايوش',
+            'sc-member-management': 'إدارة الأعضاء',
+            'sc-governance': 'الحوكمة',
+            'sc-automation': 'الأتمتة',
+            'sc-sustainability': 'الاستدامة',
+            'sc-legal': 'القانونية والمحاماة',
+            'sc-skills-innovation': 'المهارات والابتكارات',
+            'sc-initiatives': 'المبادرات',
+            'sc-beta-club': 'نادي بيتا الرقمي'
         };
         return map[r] || 'نظام نايوش';
     };
@@ -2855,7 +2882,16 @@ const app = (() => {
             'ic-customer-service': '/incubators-hub/customer-service',
             'ic-operational-reports': '/incubators-hub/operational-reports',
             'ic-local-hr': '/incubators-hub/local-hr',
-            'ic-operational-finance': '/incubators-hub/operational-finance'
+            'ic-operational-finance': '/incubators-hub/operational-finance',
+            'naiosh-sectors': '/sectors',
+            'sc-member-management': '/sectors/member-management',
+            'sc-governance': '/sectors/governance',
+            'sc-automation': '/sectors/automation',
+            'sc-sustainability': '/sectors/sustainability',
+            'sc-legal': '/sectors/legal',
+            'sc-skills-innovation': '/sectors/skills-innovation',
+            'sc-initiatives': '/sectors/initiatives',
+            'sc-beta-club': '/sectors/beta-club'
         };
 
     // Path to Route mapping (reverse)
@@ -3005,7 +3041,16 @@ const app = (() => {
         '/incubators-hub/customer-service': 'ic-customer-service',
         '/incubators-hub/operational-reports': 'ic-operational-reports',
         '/incubators-hub/local-hr': 'ic-local-hr',
-        '/incubators-hub/operational-finance': 'ic-operational-finance'
+        '/incubators-hub/operational-finance': 'ic-operational-finance',
+        '/sectors': 'naiosh-sectors',
+        '/sectors/member-management': 'sc-member-management',
+        '/sectors/governance': 'sc-governance',
+        '/sectors/automation': 'sc-automation',
+        '/sectors/sustainability': 'sc-sustainability',
+        '/sectors/legal': 'sc-legal',
+        '/sectors/skills-innovation': 'sc-skills-innovation',
+        '/sectors/initiatives': 'sc-initiatives',
+        '/sectors/beta-club': 'sc-beta-club'
     };
 
     // Extend pathToRoute with missing sections
@@ -3173,6 +3218,22 @@ const app = (() => {
                         { id: 'ic-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
                         { id: 'ic-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
                         { id: 'ic-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
+                    ]
+                },
+                {
+                    id: 'naiosh-sectors',
+                    icon: 'fa-building-columns',
+                    label: 'قطاعات نايوش',
+                    show: isOfficeRouteAllowed('naiosh-sectors'),
+                    subItems: [
+                        { id: 'sc-member-management', icon: 'fa-users-gear', label: 'إدارة الأعضاء' },
+                        { id: 'sc-governance', icon: 'fa-scale-balanced', label: 'الحوكمة' },
+                        { id: 'sc-automation', icon: 'fa-robot', label: 'الأتمتة' },
+                        { id: 'sc-sustainability', icon: 'fa-leaf', label: 'الاستدامة' },
+                        { id: 'sc-legal', icon: 'fa-gavel', label: 'القانونية والمحاماة' },
+                        { id: 'sc-skills-innovation', icon: 'fa-lightbulb', label: 'المهارات والابتكارات' },
+                        { id: 'sc-initiatives', icon: 'fa-flag', label: 'المبادرات' },
+                        { id: 'sc-beta-club', icon: 'fa-flask', label: 'نادي بيتا الرقمي' }
                     ]
                 },
                 { id: 'super-admin', icon: 'fa-shield-alt', label: 'إدارة الأدوار والصلاحيات', show: isSuperAdmin },
