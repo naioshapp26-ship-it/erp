@@ -25,7 +25,7 @@ const pages = [
 ];
 
 const requiredByPage = {
-  'index.html': ['استكشف المساحات', 'احجز جولة', 'floating-actions', 'id="modules"', 'legacyLandingPaths', 'hero-orb', 'hero-glass-search', 'hero-media-caption', 'id="hero-bg-video"', 'id="main-sections-grid"'],
+  'index.html': ['استكشف المساحات', 'احجز جولة', 'floating-actions', 'id="modules"', 'legacyLandingPaths', 'hero-orb', 'hero-glass-search', 'hero-media-caption', 'id="hero-bg-video"', 'id="main-sections-grid"', 'data-hero-sidebar', 'hero-sidebar-nav.js'],
   'blog.html': ['مدونة المنصة', 'floating-actions'],
   'branches.html': ['شبكة الفروع', 'floating-actions'],
   'incubators.html': ['برامج الحاضنات', 'floating-actions'],
