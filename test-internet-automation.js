@@ -22,13 +22,15 @@ if (scriptContent.includes("id: 'internet-automation'") &&
     console.log('  ❌ FAILED - قسم الإنترنت والأتمتة غير موجود\n');
 }
 
-// اختبار 2: التحقق من الأقسام الفرعية العشرة
-console.log('📌 اختبار 2: التحقق من الأقسام الفرعية (10 صفحات)');
+// اختبار 2: التحقق من الأقسام الفرعية (12 صفحة)
+console.log('📌 اختبار 2: التحقق من الأقسام الفرعية (12 صفحة)');
 const subItems = [
     { id: 'ai-integration', label: 'الذكاء الإصطناعي' },
     { id: 'governance', label: 'الحوكمة' },
     { id: 'compliance', label: 'الموائمة' },
     { id: 'iot', label: 'انترنت الأشياء' },
+    { id: 'dispute-settlements', label: 'فض النزاعات والتسويات' },
+    { id: 'records-archiving', label: 'السجلات والأرشيف' },
     { id: 'elearning', label: 'التعلم الإلكتروني' },
     { id: 'forum', label: 'المنتدى' },
     { id: 'etiquette', label: 'الإتيكيت وبروتوكولات التواصل' },
@@ -62,6 +64,8 @@ const renderFunctions = [
     'renderGovernance',
     'renderCompliance',
     'renderIOT',
+    'renderDisputeSettlements',
+    'renderRecordsArchiving',
     'renderELearning',
     'renderForum',
     'renderEtiquette',
@@ -95,6 +99,8 @@ const routes = [
     "else if (route === 'governance')",
     "else if (route === 'compliance')",
     "else if (route === 'iot')",
+    "else if (route === 'dispute-settlements')",
+    "else if (route === 'records-archiving')",
     "else if (route === 'elearning')",
     "else if (route === 'forum')",
     "else if (route === 'etiquette')",
@@ -127,6 +133,8 @@ totalTests++;
 if (scriptContent.includes("'ai-integration': 'الذكاء الإصطناعي'") &&
     scriptContent.includes("'governance': 'الحوكمة'") &&
     scriptContent.includes("'iot': 'انترنت الأشياء'") &&
+    scriptContent.includes("'dispute-settlements': 'فض النزاعات والتسويات'") &&
+    scriptContent.includes("'records-archiving': 'السجلات والأرشيف'") &&
     scriptContent.includes("'visitor-chat': 'الدردشة مع الزوار'")) {
     console.log('  ✅ PASSED - العناوين موجودة في getTitle\n');
     passedTests++;
@@ -150,9 +158,9 @@ if (passedTests === totalTests) {
 }
 
 console.log('📋 التفاصيل:');
-console.log('   - عدد الأقسام الفرعية: 10');
-console.log('   - عدد الدوال: 10');
-console.log('   - عدد المسارات: 10');
+console.log('   - عدد الأقسام الفرعية: 12');
+console.log('   - عدد الدوال: 12');
+console.log('   - عدد المسارات: 12');
 console.log('   - الأيقونة: fa-robot');
 console.log('='.repeat(60));
 

@@ -569,6 +569,8 @@ const app = (() => {
         'knowledge': 'internet-automation',
         'intellectual-property': 'internet-automation',
         'visitor-chat': 'internet-automation',
+        'dispute-settlements': 'internet-automation',
+        'records-archiving': 'internet-automation',
         'occupational-safety': 'occupational-health',
         'international-standards': 'occupational-health',
         'iso-standards': 'occupational-health',
@@ -1950,6 +1952,8 @@ const app = (() => {
         else if (route === 'knowledge') content = renderKnowledge();
         else if (route === 'intellectual-property') content = renderIntellectualProperty();
         else if (route === 'visitor-chat') content = renderVisitorChat();
+        else if (route === 'dispute-settlements') content = renderDisputeSettlements();
+        else if (route === 'records-archiving') content = renderRecordsArchiving();
         // Occupational Health & Safety Routes
         else if (route === 'occupational-safety') content = renderOccupationalSafety();
         else if (route === 'international-standards') content = renderInternationalStandards();
@@ -2526,6 +2530,8 @@ const app = (() => {
             'knowledge': 'المعرفة والتحليل',
             'intellectual-property': 'الملكية الفكرية',
             'visitor-chat': 'الدردشة مع الزوار',
+            'dispute-settlements': 'فض النزاعات والتسويات',
+            'records-archiving': 'السجلات والأرشيف',
             // Occupational Health & Safety subitems
             'occupational-safety': 'السلامة المهنية',
             'international-standards': 'المعايير الدولية',
@@ -3087,7 +3093,9 @@ const app = (() => {
         '/internet-automation/etiquette': 'etiquette',
         '/internet-automation/knowledge': 'knowledge',
         '/internet-automation/intellectual-property': 'intellectual-property',
-        '/internet-automation/visitor-chat': 'visitor-chat'
+        '/internet-automation/visitor-chat': 'visitor-chat',
+        '/internet-automation/dispute-settlements': 'dispute-settlements',
+        '/internet-automation/records-archiving': 'records-archiving'
     });
 
     // Extend routeToPath with missing sections
@@ -3124,7 +3132,9 @@ const app = (() => {
         'etiquette': '/internet-automation/etiquette',
         'knowledge': '/internet-automation/knowledge',
         'intellectual-property': '/internet-automation/intellectual-property',
-        'visitor-chat': '/internet-automation/visitor-chat'
+        'visitor-chat': '/internet-automation/visitor-chat',
+        'dispute-settlements': '/internet-automation/dispute-settlements',
+        'records-archiving': '/internet-automation/records-archiving'
     });
 
     const buildGlobalSearchIndex = () => {
@@ -3358,6 +3368,8 @@ const app = (() => {
                     { id: 'governance', icon: 'fa-gavel', label: 'الحوكمة' },
                     { id: 'compliance', icon: 'fa-balance-scale', label: 'الموائمة' },
                     { id: 'iot', icon: 'fa-network-wired', label: 'انترنت الأشياء' },
+                    { id: 'dispute-settlements', icon: 'fa-handshake', label: 'فض النزاعات والتسويات' },
+                    { id: 'records-archiving', icon: 'fa-archive', label: 'السجلات والأرشيف' },
                     { id: 'elearning', icon: 'fa-graduation-cap', label: 'التعلم الإلكتروني' },
                     { id: 'forum', icon: 'fa-comments', label: 'المنتدى' },
                     { id: 'etiquette', icon: 'fa-user-tie', label: 'الإتيكيت وبروتوكولات التواصل' },
@@ -14574,6 +14586,238 @@ const app = (() => {
                     <button onclick="app.showToast('إعدادات متقدمة', 'info')" class="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition text-right">
                         <i class="fas fa-cog text-purple-600 ml-2"></i>
                         <span class="font-bold text-purple-700">إعدادات</span>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    };
+
+    const renderDisputeSettlements = () => {
+        return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="bg-gradient-to-r from-rose-700 to-red-600 rounded-2xl p-6 text-white">
+                <h2 class="text-3xl font-bold flex items-center gap-3">
+                    <i class="fas fa-handshake"></i>
+                    فض النزاعات والتسويات
+                </h2>
+                <p class="mt-2 opacity-90">إدارة النزاعات، الوساطة، والتسويات المالية والقانونية بكفاءة وشفافية</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">نزاعات مفتوحة</span>
+                        <i class="fas fa-folder-open text-rose-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">12</h3>
+                    <p class="text-sm text-orange-600 mt-1">قيد المعالجة</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">تسويات مكتملة</span>
+                        <i class="fas fa-check-circle text-green-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">87</h3>
+                    <p class="text-sm text-green-600 mt-1">هذا العام</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">معدل النجاح</span>
+                        <i class="fas fa-chart-line text-blue-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">94.2%</h3>
+                    <p class="text-sm text-blue-600 mt-1">وساطة ناجحة</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">متوسط مدة الحل</span>
+                        <i class="fas fa-clock text-purple-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">8.5</h3>
+                    <p class="text-sm text-purple-600 mt-1">أيام عمل</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <h3 class="font-bold text-lg mb-4">النزاعات النشطة</h3>
+                    <div class="space-y-3">
+                        ${[
+                            { case: 'نزاع مالي - عقد توريد', party: 'شركة النور للتجارة', status: 'وساطة', priority: 'عالي', color: 'rose' },
+                            { case: 'خلاف على ملكية فكرية', party: 'مؤسسة الإبداع', status: 'مراجعة', priority: 'متوسط', color: 'orange' },
+                            { case: 'تسوية مستحقات موظف', party: 'قسم الموارد البشرية', status: 'تفاوض', priority: 'عالي', color: 'rose' },
+                            { case: 'نزاع خدمات اشتراك', party: 'عميل خارجي', status: 'جديد', priority: 'منخفض', color: 'blue' },
+                            { case: 'خلاف شراكة تجارية', party: 'شريك استراتيجي', status: 'وساطة', priority: 'عالي', color: 'rose' }
+                        ].map(item => `
+                            <div class="p-3 bg-slate-50 rounded-lg hover:shadow-md transition">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="font-bold text-slate-800">${item.case}</p>
+                                    <span class="text-xs px-3 py-1 bg-${item.color}-100 text-${item.color}-700 rounded-full font-bold">${item.status}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm text-slate-600">
+                                    <span>${item.party}</span>
+                                    <span class="text-xs px-2 py-1 bg-slate-200 rounded-full">${item.priority}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <h3 class="font-bold text-lg mb-4">التسويات الأخيرة</h3>
+                    <div class="space-y-3">
+                        ${[
+                            { title: 'تسوية عقد صيانة سنوي', amount: '45,000 ر.س', date: '2026-06-05', result: 'مكتمل' },
+                            { title: 'اتفاق وساطة تجارية', amount: '120,000 ر.س', date: '2026-06-02', result: 'مكتمل' },
+                            { title: 'تسوية مستحقات مورد', amount: '28,500 ر.س', date: '2026-05-28', result: 'مكتمل' },
+                            { title: 'حل نزاع خدمات سحابية', amount: '15,000 ر.س', date: '2026-05-25', result: 'مكتمل' },
+                            { title: 'تسوية تعويض تأخير تسليم', amount: '8,200 ر.س', date: '2026-05-20', result: 'مكتمل' }
+                        ].map(settlement => `
+                            <div class="p-3 bg-rose-50 rounded-lg">
+                                <div class="flex items-center justify-between mb-1">
+                                    <p class="font-bold text-slate-800">${settlement.title}</p>
+                                    <span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-bold">${settlement.result}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm text-slate-600">
+                                    <span>${settlement.amount}</span>
+                                    <span>${settlement.date}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-6 shadow-sm border">
+                <h3 class="font-bold text-lg mb-4">إجراءات سريعة</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <button onclick="app.showToast('فتح نزاع جديد', 'info')" class="p-4 bg-rose-50 hover:bg-rose-100 rounded-lg transition text-right">
+                        <i class="fas fa-plus-circle text-rose-600 ml-2"></i>
+                        <span class="font-bold text-rose-700">نزاع جديد</span>
+                    </button>
+                    <button onclick="app.showToast('جدولة جلسة وساطة', 'info')" class="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-right">
+                        <i class="fas fa-calendar-alt text-blue-600 ml-2"></i>
+                        <span class="font-bold text-blue-700">جلسة وساطة</span>
+                    </button>
+                    <button onclick="app.showToast('تقرير التسويات', 'success')" class="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition text-right">
+                        <i class="fas fa-file-contract text-green-600 ml-2"></i>
+                        <span class="font-bold text-green-700">تقرير</span>
+                    </button>
+                    <button onclick="app.showToast('تصدير السجلات', 'info')" class="p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition text-right">
+                        <i class="fas fa-download text-orange-600 ml-2"></i>
+                        <span class="font-bold text-orange-700">تصدير</span>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    };
+
+    const renderRecordsArchiving = () => {
+        return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="bg-gradient-to-r from-indigo-700 to-violet-600 rounded-2xl p-6 text-white">
+                <h2 class="text-3xl font-bold flex items-center gap-3">
+                    <i class="fas fa-archive"></i>
+                    السجلات والأرشيف
+                </h2>
+                <p class="mt-2 opacity-90">أرشفة رقمية آمنة للسجلات والوثائق مع بحث ذكي وصلاحيات متقدمة</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">إجمالي الوثائق</span>
+                        <i class="fas fa-file-alt text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">24,856</h3>
+                    <p class="text-sm text-green-600 mt-1">+342 هذا الشهر</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">أقسام الأرشيف</span>
+                        <i class="fas fa-folder text-blue-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">18</h3>
+                    <p class="text-sm text-blue-600 mt-1">قسم نشط</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">وثائق سرية</span>
+                        <i class="fas fa-lock text-purple-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">1,247</h3>
+                    <p class="text-sm text-purple-600 mt-1">محمية</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">مساحة التخزين</span>
+                        <i class="fas fa-database text-orange-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">68%</h3>
+                    <p class="text-sm text-orange-600 mt-1">مستخدمة</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <h3 class="font-bold text-lg mb-4">أقسام الأرشيف</h3>
+                    <div class="space-y-3">
+                        ${[
+                            { section: 'السجلات المالية', docs: 5842, owner: 'الإدارة المالية', status: 'نشط', color: 'green' },
+                            { section: 'عقود واتفاقيات', docs: 3215, owner: 'الشؤون القانونية', status: 'نشط', color: 'green' },
+                            { section: 'سجلات الموظفين', docs: 4108, owner: 'الموارد البشرية', status: 'نشط', color: 'green' },
+                            { section: 'وثائق سرية', docs: 1247, owner: 'الإدارة التنفيذية', status: 'محمي', color: 'purple' },
+                            { section: 'تقارير دورية', docs: 2890, owner: 'إدارة الجودة', status: 'نشط', color: 'green' }
+                        ].map(section => `
+                            <div class="p-3 bg-slate-50 rounded-lg hover:shadow-md transition">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="font-bold text-slate-800">${section.section}</p>
+                                    <span class="text-xs px-3 py-1 bg-${section.color}-100 text-${section.color}-700 rounded-full font-bold">${section.status}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm text-slate-600">
+                                    <span>${section.owner}</span>
+                                    <span>${section.docs.toLocaleString('en-US')} وثيقة</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <h3 class="font-bold text-lg mb-4">آخر العمليات</h3>
+                    <div class="space-y-3">
+                        ${[
+                            { action: 'أرشفة عقد جديد', user: 'أحمد السعيد', time: 'منذ 15 دقيقة', type: 'أرشفة' },
+                            { action: 'استرجاع تقرير مالي', user: 'سارة محمد', time: 'منذ ساعة', type: 'استرجاع' },
+                            { action: 'تحديث صلاحيات قسم', user: 'خالد العمري', time: 'منذ 3 ساعات', type: 'صلاحيات' },
+                            { action: 'نسخ احتياطي أسبوعي', user: 'النظام', time: 'أمس', type: 'نسخ' },
+                            { action: 'فهرسة وثائق جديدة', user: 'فاطمة حسن', time: 'أمس', type: 'فهرسة' }
+                        ].map(log => `
+                            <div class="p-3 bg-indigo-50 rounded-lg">
+                                <div class="flex items-center justify-between mb-1">
+                                    <p class="font-bold text-slate-800">${log.action}</p>
+                                    <span class="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">${log.type}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm text-slate-600">
+                                    <span>${log.user}</span>
+                                    <span>${log.time}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-6 shadow-sm border">
+                <h3 class="font-bold text-lg mb-4">إجراءات سريعة</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <button onclick="app.showToast('أرشفة وثيقة جديدة', 'info')" class="p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition text-right">
+                        <i class="fas fa-upload text-indigo-600 ml-2"></i>
+                        <span class="font-bold text-indigo-700">أرشفة جديدة</span>
+                    </button>
+                    <button onclick="app.showToast('بحث في الأرشيف', 'info')" class="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-right">
+                        <i class="fas fa-search text-blue-600 ml-2"></i>
+                        <span class="font-bold text-blue-700">بحث</span>
+                    </button>
+                    <button onclick="app.showToast('تقرير الأرشيف', 'success')" class="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition text-right">
+                        <i class="fas fa-chart-pie text-green-600 ml-2"></i>
+                        <span class="font-bold text-green-700">تقرير</span>
+                    </button>
+                    <button onclick="app.showToast('نسخ احتياطي', 'info')" class="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition text-right">
+                        <i class="fas fa-cloud-upload-alt text-purple-600 ml-2"></i>
+                        <span class="font-bold text-purple-700">نسخ احتياطي</span>
                     </button>
                 </div>
             </div>
