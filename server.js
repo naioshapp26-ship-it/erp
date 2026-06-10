@@ -3374,6 +3374,38 @@ app.get('/companies', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'companies.html'));
 });
 
+app.get('/member-management', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'member-management.html'));
+});
+
+app.get('/governance', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'governance.html'));
+});
+
+app.get('/automation', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'automation.html'));
+});
+
+app.get('/sustainability', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'sustainability.html'));
+});
+
+app.get('/legal', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'legal.html'));
+});
+
+app.get('/skills-innovation', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'skills-innovation.html'));
+});
+
+app.get('/initiatives', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'initiatives.html'));
+});
+
+app.get('/beta-club', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'beta-club.html'));
+});
+
 // Identity / Homepage settings page
 app.get('/settings', (req, res) => {
   res.sendFile(path.join(__dirname, 'settings.html'));

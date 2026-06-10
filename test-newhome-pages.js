@@ -13,7 +13,15 @@ const pages = [
   'e-offices.html',
   'systems.html',
   'companies.html',
-  'members.html'
+  'members.html',
+  'member-management.html',
+  'governance.html',
+  'automation.html',
+  'sustainability.html',
+  'legal.html',
+  'skills-innovation.html',
+  'initiatives.html',
+  'beta-club.html'
 ];
 
 const requiredByPage = {
@@ -27,7 +35,15 @@ const requiredByPage = {
   'e-offices.html': ['مكتبي الإلكتروني', 'floating-actions', 'landing-nav.js'],
   'systems.html': ['أنظمتي', 'floating-actions', 'landing-nav.js'],
   'companies.html': ['شركاتي', 'floating-actions', 'landing-nav.js'],
-  'members.html': ['الأعضاء والعضوية', 'floating-actions', 'landing-nav.js']
+  'members.html': ['الأعضاء والعضوية', 'floating-actions', 'landing-nav.js'],
+  'member-management.html': ["SECTOR_PAGES['member-management']", 'premium-sector.js', 'floating-actions'],
+  'governance.html': ["SECTOR_PAGES['governance']", 'premium-sector.js', 'floating-actions'],
+  'automation.html': ["SECTOR_PAGES['automation']", 'premium-sector.js', 'floating-actions'],
+  'sustainability.html': ["SECTOR_PAGES['sustainability']", 'premium-sector.js', 'floating-actions'],
+  'legal.html': ["SECTOR_PAGES['legal']", 'premium-sector.js', 'floating-actions'],
+  'skills-innovation.html': ["SECTOR_PAGES['skills-innovation']", 'premium-sector.js', 'floating-actions'],
+  'initiatives.html': ["SECTOR_PAGES['initiatives']", 'premium-sector.js', 'floating-actions'],
+  'beta-club.html': ["SECTOR_PAGES['beta-club']", 'premium-sector.js', 'floating-actions']
 };
 
 requiredByPage['index.html'].push('hero-dashboard', 'hero-panel-main', 'hero-panel-status');
