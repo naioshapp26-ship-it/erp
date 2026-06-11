@@ -43,7 +43,8 @@ const DEFAULT_PAGES_BY_PLAN = {
     'operational-policies',
     'e-offices',
     'platforms',
-    'incubators-hub'
+    'incubators-hub',
+    'education-training-incubators'
   ]
 };
 

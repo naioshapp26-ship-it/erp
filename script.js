@@ -663,7 +663,13 @@ const app = (() => {
         'sc-legal': 'naiosh-sectors',
         'sc-skills-innovation': 'naiosh-sectors',
         'sc-initiatives': 'naiosh-sectors',
-        'sc-beta-club': 'naiosh-sectors'
+        'sc-beta-club': 'naiosh-sectors',
+        'eti-ohs': 'education-training-incubators',
+        'eti-supply-chain': 'education-training-incubators',
+        'eti-facilities': 'education-training-incubators',
+        'eti-logistics': 'education-training-incubators',
+        'eti-project-management': 'education-training-incubators',
+        'eti-hr': 'education-training-incubators'
     };
 
     const normalizeOfficePageKey = (key) => {
@@ -2012,6 +2018,12 @@ const app = (() => {
         else if (route.startsWith('sc-') && window.SectorPages?.render) {
             content = window.SectorPages.render(route);
         }
+        else if (route === 'education-training-incubators' && window.EducationIncubatorsPages?.render) {
+            content = window.EducationIncubatorsPages.render(route);
+        }
+        else if (route.startsWith('eti-') && window.EducationIncubatorsPages?.render) {
+            content = window.EducationIncubatorsPages.render(route);
+        }
         else content = renderPlaceholder();
 
         if (route !== 'incubator') {
@@ -2050,6 +2062,9 @@ const app = (() => {
         }
         if (route.startsWith('sc-') && window.SectorPages?.init) {
             window.SectorPages.init(route);
+        }
+        if ((route === 'education-training-incubators' || route.startsWith('eti-')) && window.EducationIncubatorsPages?.init) {
+            window.EducationIncubatorsPages.init(route);
         }
     };
 
@@ -2594,7 +2609,14 @@ const app = (() => {
             'sc-legal': 'القانونية والمحاماة',
             'sc-skills-innovation': 'المهارات والابتكارات',
             'sc-initiatives': 'المبادرات',
-            'sc-beta-club': 'نادي بيتا الرقمي'
+            'sc-beta-club': 'نادي بيتا الرقمي',
+            'education-training-incubators': 'حاضنات التعليم والتدريب',
+            'eti-ohs': 'حاضنة السلامة والصحة المهنية',
+            'eti-supply-chain': 'حاضنة سلاسل الإمداد',
+            'eti-facilities': 'حضانة إدارة المرافق',
+            'eti-logistics': 'حاضنة اللوجستيات والنقل والتوصيل',
+            'eti-project-management': 'حاضنة إدارة المشاريع',
+            'eti-hr': 'حاضنة HR الموارد البشرية'
         };
         return map[r] || 'نظام نايوش';
     };
@@ -2897,7 +2919,14 @@ const app = (() => {
             'sc-legal': '/sectors/legal',
             'sc-skills-innovation': '/sectors/skills-innovation',
             'sc-initiatives': '/sectors/initiatives',
-            'sc-beta-club': '/sectors/beta-club'
+            'sc-beta-club': '/sectors/beta-club',
+            'education-training-incubators': '/education-incubators',
+            'eti-ohs': '/education-incubators/ohs',
+            'eti-supply-chain': '/education-incubators/supply-chain',
+            'eti-facilities': '/education-incubators/facilities',
+            'eti-logistics': '/education-incubators/logistics',
+            'eti-project-management': '/education-incubators/project-management',
+            'eti-hr': '/education-incubators/hr'
         };
 
     // Path to Route mapping (reverse)
@@ -3056,7 +3085,14 @@ const app = (() => {
         '/sectors/legal': 'sc-legal',
         '/sectors/skills-innovation': 'sc-skills-innovation',
         '/sectors/initiatives': 'sc-initiatives',
-        '/sectors/beta-club': 'sc-beta-club'
+        '/sectors/beta-club': 'sc-beta-club',
+        '/education-incubators': 'education-training-incubators',
+        '/education-incubators/ohs': 'eti-ohs',
+        '/education-incubators/supply-chain': 'eti-supply-chain',
+        '/education-incubators/facilities': 'eti-facilities',
+        '/education-incubators/logistics': 'eti-logistics',
+        '/education-incubators/project-management': 'eti-project-management',
+        '/education-incubators/hr': 'eti-hr'
     };
 
     // Extend pathToRoute with missing sections
@@ -3228,6 +3264,20 @@ const app = (() => {
                         { id: 'ic-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
                         { id: 'ic-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
                         { id: 'ic-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
+                    ]
+                },
+                {
+                    id: 'education-training-incubators',
+                    icon: 'fa-graduation-cap',
+                    label: 'حاضنات التعليم والتدريب',
+                    show: isOfficeRouteAllowed('education-training-incubators'),
+                    subItems: [
+                        { id: 'eti-ohs', icon: 'fa-hard-hat', label: 'حاضنة السلامة والصحة المهنية' },
+                        { id: 'eti-supply-chain', icon: 'fa-truck-loading', label: 'حاضنة سلاسل الإمداد' },
+                        { id: 'eti-facilities', icon: 'fa-building', label: 'حضانة إدارة المرافق' },
+                        { id: 'eti-logistics', icon: 'fa-shipping-fast', label: 'حاضنة اللوجستيات والنقل والتوصيل' },
+                        { id: 'eti-project-management', icon: 'fa-project-diagram', label: 'حاضنة إدارة المشاريع' },
+                        { id: 'eti-hr', icon: 'fa-users-gear', label: 'حاضنة HR الموارد البشرية' }
                     ]
                 },
                 {
