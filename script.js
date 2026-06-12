@@ -650,6 +650,14 @@ const app = (() => {
         'pl-operational-reports': 'platforms',
         'pl-local-hr': 'platforms',
         'pl-operational-finance': 'platforms',
+        'br-daily-operations': 'branches-hub',
+        'br-sales': 'branches-hub',
+        'br-subscriptions': 'branches-hub',
+        'br-training': 'branches-hub',
+        'br-customer-service': 'branches-hub',
+        'br-operational-reports': 'branches-hub',
+        'br-local-hr': 'branches-hub',
+        'br-operational-finance': 'branches-hub',
         'ic-daily-operations': 'incubators-hub',
         'ic-sales': 'incubators-hub',
         'ic-subscriptions': 'incubators-hub',
@@ -1998,6 +2006,13 @@ const app = (() => {
         else if (route.startsWith('eo-') && window.EOfficesPages?.render) {
             content = window.EOfficesPages.render(route);
         }
+        else if (route === 'branches-hub') {
+            loadRoute('br-daily-operations', skipHistory);
+            return;
+        }
+        else if (route.startsWith('br-') && window.BranchesPages?.render) {
+            content = window.BranchesPages.render(route);
+        }
         else if (route === 'platforms') {
             loadRoute('pl-daily-operations', skipHistory);
             return;
@@ -2054,6 +2069,9 @@ const app = (() => {
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
         if (route.startsWith('eo-') && window.EOfficesPages?.init) {
             window.EOfficesPages.init(route);
+        }
+        if (route.startsWith('br-') && window.BranchesPages?.init) {
+            window.BranchesPages.init(route);
         }
         if (route.startsWith('pl-') && window.PlatformsPages?.init) {
             window.PlatformsPages.init(route);
@@ -2595,6 +2613,15 @@ const app = (() => {
             'pl-operational-reports': 'التقارير التشغيلية - المنصات',
             'pl-local-hr': 'الموارد البشرية المحلية - المنصات',
             'pl-operational-finance': 'الماليه التشغيلية - المنصات',
+            'branches-hub': 'الفروع',
+            'br-daily-operations': 'العمليات اليومية - الفروع',
+            'br-sales': 'المبيعات - الفروع',
+            'br-subscriptions': 'الاشتراكات - الفروع',
+            'br-training': 'التدريب - الفروع',
+            'br-customer-service': 'خدمة العملاء - الفروع',
+            'br-operational-reports': 'التقارير التشغيلية - الفروع',
+            'br-local-hr': 'الموارد البشرية المحلية - الفروع',
+            'br-operational-finance': 'المالية التشغيلية - الفروع',
             'incubators-hub': 'الحاضنات',
             'ic-daily-operations': 'العمليات اليومية - الحاضنات',
             'ic-sales': 'المبيعات - الحاضنات',
@@ -2905,6 +2932,15 @@ const app = (() => {
             'pl-operational-reports': '/platforms/operational-reports',
             'pl-local-hr': '/platforms/local-hr',
             'pl-operational-finance': '/platforms/operational-finance',
+            'branches-hub': '/branches',
+            'br-daily-operations': '/branches/daily-operations',
+            'br-sales': '/branches/sales',
+            'br-subscriptions': '/branches/subscriptions',
+            'br-training': '/branches/training',
+            'br-customer-service': '/branches/customer-service',
+            'br-operational-reports': '/branches/operational-reports',
+            'br-local-hr': '/branches/local-hr',
+            'br-operational-finance': '/branches/operational-finance',
             'incubators-hub': '/incubators-hub',
             'ic-daily-operations': '/incubators-hub/daily-operations',
             'ic-sales': '/incubators-hub/sales',
@@ -3071,6 +3107,15 @@ const app = (() => {
         '/platforms/operational-reports': 'pl-operational-reports',
         '/platforms/local-hr': 'pl-local-hr',
         '/platforms/operational-finance': 'pl-operational-finance',
+        '/branches': 'branches-hub',
+        '/branches/daily-operations': 'br-daily-operations',
+        '/branches/sales': 'br-sales',
+        '/branches/subscriptions': 'br-subscriptions',
+        '/branches/training': 'br-training',
+        '/branches/customer-service': 'br-customer-service',
+        '/branches/operational-reports': 'br-operational-reports',
+        '/branches/local-hr': 'br-local-hr',
+        '/branches/operational-finance': 'br-operational-finance',
         '/incubators-hub': 'incubators-hub',
         '/incubators-hub/daily-operations': 'ic-daily-operations',
         '/incubators-hub/sales': 'ic-sales',
@@ -3255,6 +3300,22 @@ const app = (() => {
                         { id: 'pl-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
                         { id: 'pl-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
                         { id: 'pl-operational-finance', icon: 'fa-coins', label: 'الماليه التشغيلية' }
+                    ]
+                },
+                {
+                    id: 'branches-hub',
+                    icon: 'fa-code-branch',
+                    label: 'الفروع',
+                    show: isOfficeRouteAllowed('branches-hub'),
+                    subItems: [
+                        { id: 'br-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
+                        { id: 'br-sales', icon: 'fa-chart-line', label: 'المبيعات' },
+                        { id: 'br-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
+                        { id: 'br-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
+                        { id: 'br-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
+                        { id: 'br-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
+                        { id: 'br-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
+                        { id: 'br-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
                     ]
                 },
                 {

@@ -2681,6 +2681,7 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/e-offices' || p.startsWith('/e-offices/')) return ['e-offices'];
   if (p === '/platforms' || p.startsWith('/platforms/')) return ['platforms'];
   if (p === '/incubators-hub' || p.startsWith('/incubators-hub/')) return ['incubators-hub'];
+  if (p === '/branches' || p.startsWith('/branches/')) return ['branches-hub'];
   if (p === '/sectors' || p.startsWith('/sectors/')) return ['naiosh-sectors'];
   if (p === '/employee' || p.startsWith('/employee/')) return ['employee-menu'];
   if (p === '/tenants' || p.startsWith('/tenants/') || p === '/register-tenant') return ['entities'];
@@ -2699,6 +2700,7 @@ const protectedHtmlPathPrefixes = [
   '/e-offices/',
   '/platforms/',
   '/incubators-hub/',
+  '/branches/',
   '/sectors/'
 ];
 
@@ -3347,6 +3349,14 @@ app.get('/incubators-hub', (req, res) => {
 });
 
 app.get('/incubators-hub/:section', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/branches', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/branches/:section', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
 });
 

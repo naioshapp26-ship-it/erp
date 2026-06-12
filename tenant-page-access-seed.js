@@ -44,6 +44,7 @@ const DEFAULT_PAGES_BY_PLAN = {
     'e-offices',
     'platforms',
     'incubators-hub',
+    'branches-hub',
     'education-training-incubators'
   ]
 };
