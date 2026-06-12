@@ -763,12 +763,19 @@ const app = (() => {
         });
     };
 
+    const lockSidebarNaioshColor = () => {
+        document.querySelectorAll('#sidebar .naiosh-brand-accent').forEach((el) => {
+            el.style.setProperty('color', '#e55050', 'important');
+        });
+    };
+
     const updateThemeVariables = (themeKey) => {
         const theme = THEMES[themeKey] || THEMES.BLUE;
         const root = document.documentElement;
         Object.entries(theme.colors).forEach(([key, value]) => {
             root.style.setProperty(`--brand-${key}`, value);
         });
+        lockSidebarNaioshColor();
     };
 
     // --- FALLBACK DATA (in case API fails) ---
@@ -1332,6 +1339,7 @@ const app = (() => {
     // --- INIT & NAV ---
     const init = async () => {
         console.log('🔄 بدء التهيئة...');
+        lockSidebarNaioshColor();
         
         try {
             // ========================================
@@ -1401,10 +1409,12 @@ const app = (() => {
             
             renderSidebar();
             updateHeader();
+            lockSidebarNaioshColor();
             startSessionUserSync();
             initHelpGuide();
-            const tenant = db.entities.find(e => e.id === currentUser?.entity_id);
+            const tenant = db.entities.find(e => e.id === currentUser?.entity_id || currentUser?.entityId);
             if(tenant && tenant.theme) updateThemeVariables(tenant.theme);
+            else lockSidebarNaioshColor();
             
             // Handle browser back/forward buttons
             window.addEventListener('popstate', (event) => {
