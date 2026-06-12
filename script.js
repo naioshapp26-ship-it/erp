@@ -2075,7 +2075,7 @@ const app = (() => {
             loadRecordsStudentsData();
         }
 
-        if (route === 'dashboard') requestAnimationFrame(initDashboardChart);
+        if (route === 'dashboard') requestAnimationFrame(() => { initDashboardChart(); initHqDashboardEffects(); });
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
         if (route.startsWith('eo-') && window.EOfficesPages?.init) {
             window.EOfficesPages.init(route);
@@ -4389,26 +4389,37 @@ const app = (() => {
                             label: 'النشاط التشغيلي',
                             data: weekData,
                             borderColor: '#b91c1c',
-                            backgroundColor: 'rgba(185, 28, 28, 0.08)',
+                            backgroundColor: (context) => {
+                                const { chart } = context;
+                                const { ctx, chartArea } = chart;
+                                if (!chartArea) return 'rgba(185, 28, 28, 0.08)';
+                                const grad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                                grad.addColorStop(0, 'rgba(185, 28, 28, 0.22)');
+                                grad.addColorStop(0.6, 'rgba(251, 191, 36, 0.06)');
+                                grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                                return grad;
+                            },
                             borderWidth: 3,
                             fill: true,
-                            tension: 0.4,
+                            tension: 0.42,
                             pointBackgroundColor: '#fff',
                             pointBorderColor: '#b91c1c',
                             pointBorderWidth: 2,
-                            pointRadius: 5,
-                            pointHoverRadius: 7
+                            pointRadius: 6,
+                            pointHoverRadius: 8
                         },
                         {
                             label: 'الإعلانات',
                             data: weekLabels.map((_, i) => Math.max(0, counts[i % counts.length] || 0)),
-                            borderColor: '#94a3b8',
+                            borderColor: '#d97706',
                             backgroundColor: 'transparent',
                             borderWidth: 2,
-                            borderDash: [6, 4],
+                            borderDash: [5, 4],
                             tension: 0.35,
-                            pointRadius: 3,
-                            pointHoverRadius: 5
+                            pointBackgroundColor: '#fbbf24',
+                            pointBorderColor: '#d97706',
+                            pointRadius: 4,
+                            pointHoverRadius: 6
                         }
                     ]
                 },
@@ -4474,15 +4485,24 @@ const app = (() => {
         entity?.type === 'HQ' || user?.tenantType === 'HQ' || user?.entityId === 'HQ001' || user?.entity_id === 'HQ001'
     );
 
-    const renderHqKpiCard = (title, value, icon, accent) => `
-        <div class="hq-kpi-card bg-white rounded-2xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group">
-            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${accent}"></div>
+    const getHqArabicDate = () => {
+        try {
+            return new Intl.DateTimeFormat('ar-SA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+        } catch {
+            return new Date().toLocaleDateString('ar-SA');
+        }
+    };
+
+    const renderHqKpiCard = (title, value, icon, accent, rawNum = null, subLabel = '', countFormat = '') => `
+        <div class="hq-kpi-card group">
+            <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${accent} rounded-t-xl"></div>
             <div class="flex justify-between items-start gap-3">
-                <div class="min-w-0">
-                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">${title}</p>
-                    <h3 class="text-2xl md:text-3xl font-black text-slate-800 tabular-nums">${value}</h3>
+                <div class="min-w-0 pt-1">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.14em] mb-2">${title}</p>
+                    <h3 class="text-2xl md:text-[1.75rem] font-black text-slate-900 tabular-nums leading-none hq-counter" ${rawNum !== null ? `data-hq-count="${rawNum}"${countFormat ? ` data-hq-count-format="${countFormat}"` : ''}` : ''}>${value}</h3>
+                    ${subLabel ? `<p class="text-[10px] font-bold text-slate-400 mt-2">${subLabel}</p>` : ''}
                 </div>
-                <div class="w-11 h-11 shrink-0 rounded-xl bg-gradient-to-br ${accent} text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <div class="hq-kpi-icon shrink-0 bg-gradient-to-br ${accent}">
                     <i class="fas ${icon}"></i>
                 </div>
             </div>
@@ -4490,25 +4510,34 @@ const app = (() => {
 
     const renderHqQuickActions = () => {
         const links = [
-            { route: 'finance', icon: 'fa-sack-dollar', label: 'الموارد المالية', color: 'text-emerald-600' },
-            { route: 'hr', icon: 'fa-users', label: 'الموارد البشرية', color: 'text-red-600' },
-            { route: 'ads', icon: 'fa-bullhorn', label: 'الإعلانات', color: 'text-amber-600' },
-            { route: 'hierarchy', icon: 'fa-sitemap', label: 'الهيكل التنظيمي', color: 'text-purple-600' },
-            { route: 'settings', icon: 'fa-cog', label: 'الإعدادات', color: 'text-slate-600' }
+            { route: 'finance', icon: 'fa-sack-dollar', label: 'الموارد المالية', sub: 'الميزانيات والتقارير', bg: 'from-emerald-500 to-teal-600' },
+            { route: 'hr', icon: 'fa-users', label: 'الموارد البشرية', sub: 'الموظفون والسياسات', bg: 'from-red-600 to-rose-700' },
+            { route: 'ads', icon: 'fa-bullhorn', label: 'الإعلانات', sub: 'التعاميم والحملات', bg: 'from-amber-500 to-orange-600' },
+            { route: 'hierarchy', icon: 'fa-sitemap', label: 'الهيكل التنظيمي', sub: 'الفروع والكيانات', bg: 'from-violet-500 to-purple-700' },
+            { route: 'settings', icon: 'fa-cog', label: 'الإعدادات', sub: 'تخصيص النظام', bg: 'from-slate-600 to-slate-800' }
         ];
         return `
-        <div class="hq-panel bg-white rounded-2xl shadow-lg border border-slate-100 p-5">
-            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <i class="fas fa-bolt text-amber-500"></i> وصول سريع
-            </h3>
-            <div class="space-y-1">
+        <div class="hq-panel hq-panel-luxe p-5">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="font-black text-slate-800 flex items-center gap-2">
+                    <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center shadow-md">
+                        <i class="fas fa-bolt text-sm"></i>
+                    </span>
+                    وصول سريع
+                </h3>
+                <span class="hq-section-tag">Shortcuts</span>
+            </div>
+            <div class="space-y-2">
                 ${links.map(link => `
-                    <button onclick="loadRoute('${link.route}')" class="hq-quick-link w-full flex items-center gap-3 p-3 rounded-xl text-right">
-                        <span class="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center ${link.color}">
-                            <i class="fas ${link.icon}"></i>
+                    <button onclick="loadRoute('${link.route}')" class="hq-quick-link w-full flex items-center gap-3 p-3.5 text-right">
+                        <span class="w-10 h-10 rounded-xl bg-gradient-to-br ${link.bg} text-white flex items-center justify-center shadow-md shrink-0">
+                            <i class="fas ${link.icon} text-sm"></i>
                         </span>
-                        <span class="font-semibold text-slate-700 text-sm">${link.label}</span>
-                        <i class="fas fa-chevron-left mr-auto text-slate-300 text-xs"></i>
+                        <div class="min-w-0 text-right">
+                            <span class="font-bold text-slate-800 text-sm block">${link.label}</span>
+                            <span class="text-[10px] text-slate-400">${link.sub}</span>
+                        </div>
+                        <i class="fas fa-arrow-left mr-auto text-slate-300 text-xs opacity-60"></i>
                     </button>
                 `).join('')}
             </div>
@@ -4516,30 +4545,40 @@ const app = (() => {
     };
 
     const renderHqSummaryPanel = (entity) => `
-        <div class="hq-panel hq-panel-delay-2 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 text-white shadow-xl">
-            <h3 class="font-bold mb-4 flex items-center gap-2">
-                <i class="fas fa-shield-halved text-red-400"></i> ملخص المكتب
-            </h3>
-            <ul class="space-y-3 text-sm">
-                <li class="flex justify-between items-center py-2 border-b border-white/10">
-                    <span class="text-slate-300">الحالة</span>
-                    <span class="flex items-center gap-2 font-bold text-green-400">
-                        <span class="hq-status-dot"></span> نشط
-                    </span>
-                </li>
-                <li class="flex justify-between items-center py-2 border-b border-white/10">
-                    <span class="text-slate-300">المستخدمون</span>
-                    <span class="font-bold">${entity.users || 1}</span>
-                </li>
-                <li class="flex justify-between items-center py-2 border-b border-white/10">
-                    <span class="text-slate-300">المهام المفتوحة</span>
-                    <span class="font-bold">${perms.getVisibleTasks().length}</span>
-                </li>
-                <li class="flex justify-between items-center py-2">
-                    <span class="text-slate-300">تذاكر الدعم</span>
-                    <span class="font-bold">${perms.getVisibleTickets().length}</span>
-                </li>
-            </ul>
+        <div class="hq-panel hq-panel-delay-2 hq-summary-luxe relative z-10">
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-5">
+                    <h3 class="font-black flex items-center gap-2">
+                        <span class="w-9 h-9 rounded-xl bg-red-600/30 border border-red-500/30 flex items-center justify-center">
+                            <i class="fas fa-shield-halved text-red-300"></i>
+                        </span>
+                        ملخص المكتب
+                    </h3>
+                    <span class="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest">Live</span>
+                </div>
+                <div class="space-y-0 text-sm">
+                    <div class="hq-metric-row">
+                        <span class="text-slate-400">حالة النظام</span>
+                        <span class="hq-status-pill"><span class="hq-status-dot"></span>نشط</span>
+                    </div>
+                    <div class="hq-metric-row">
+                        <span class="text-slate-400">المستخدمون</span>
+                        <span class="hq-metric-val hq-counter" data-hq-count="${entity.users || 1}">${entity.users || 1}</span>
+                    </div>
+                    <div class="hq-metric-row">
+                        <span class="text-slate-400">المهام المفتوحة</span>
+                        <span class="hq-metric-val hq-counter" data-hq-count="${perms.getVisibleTasks().length}">${perms.getVisibleTasks().length}</span>
+                    </div>
+                    <div class="hq-metric-row">
+                        <span class="text-slate-400">تذاكر الدعم</span>
+                        <span class="hq-metric-val hq-counter" data-hq-count="${perms.getVisibleTickets().length}">${perms.getVisibleTickets().length}</span>
+                    </div>
+                    <div class="hq-metric-row">
+                        <span class="text-slate-400">انتهاء الاشتراك</span>
+                        <span class="text-xs font-bold text-amber-300">${entity.expiry || '—'}</span>
+                    </div>
+                </div>
+            </div>
         </div>`;
 
     const renderHqAdsFeed = () => {
@@ -4548,15 +4587,15 @@ const app = (() => {
         const localAds = visibleAds.filter(a => a.sourceType !== 'HQ');
 
         return `
-        <div class="hq-panel hq-panel-delay-2 bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-gradient-to-l from-red-50/80 to-white">
-                <h3 class="font-bold text-lg text-slate-800 flex items-center gap-2">
-                    <span class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
+        <div class="hq-panel hq-panel-delay-2 hq-panel-luxe">
+            <div class="hq-panel-luxe-header flex justify-between items-center">
+                <h3 class="font-black text-lg text-slate-800 flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center shadow-lg">
                         <i class="fas fa-bullhorn text-sm"></i>
                     </span>
                     التعاميم والإعلانات
                 </h3>
-                ${perms.canManageAds() ? `<button onclick="app.loadRoute('ads')" class="text-xs bg-red-700 text-white px-4 py-2 rounded-xl hover:bg-red-800 transition font-bold shadow-sm"><i class="fas fa-plus ml-1"></i> إدارة الإعلانات</button>` : ''}
+                ${perms.canManageAds() ? `<button onclick="app.loadRoute('ads')" class="text-xs bg-gradient-to-l from-red-700 to-red-800 text-white px-5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-red-900/20 transition-all font-bold"><i class="fas fa-plus ml-1"></i> إدارة الإعلانات</button>` : ''}
             </div>
             <div class="p-6 space-y-5">
                 ${hqSourceAds.length > 0 ? `
@@ -4581,24 +4620,30 @@ const app = (() => {
     const renderHqMainMenuSection = () => {
         const hqModules = getHqMainMenuModules();
         return `
-        <div class="hq-panel hq-panel-delay-3 bg-white rounded-2xl shadow-lg border border-slate-100 p-6 md:p-8">
+        <div class="hq-panel hq-panel-delay-3 hq-modules-wrap">
             <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
                 <div>
-                    <span class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-red-600 mb-2 block">ERP Modules</span>
-                    <h3 class="text-2xl font-black text-slate-800">وحدات المكتب الرئيسي</h3>
-                    <p class="text-slate-500 text-sm mt-1">جميع الأنظمة والوحدات التشغيلية في مكان واحد</p>
+                    <span class="hq-section-tag mb-3">ERP Modules</span>
+                    <h3 class="text-2xl md:text-3xl font-black text-slate-900 mt-3">وحدات المكتب الرئيسي</h3>
+                    <p class="text-slate-500 text-sm mt-2 max-w-lg">منظومة متكاملة من الأنظمة التشغيلية والإدارية — وصول فوري لكل وحدة</p>
                 </div>
-                <div class="px-4 py-2 rounded-full bg-red-50 text-red-700 text-xs font-black border border-red-100">HQ PROVIDER</div>
+                <div class="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-l from-red-50 to-amber-50 text-red-800 text-xs font-black border border-red-100/80 shadow-sm">
+                    <i class="fas fa-crown text-amber-500"></i>
+                    HQ PROVIDER
+                </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 ${hqModules.map((mod, i) => `
-                    <button onclick="loadRoute('${mod.route}')" class="hq-module-card bg-gradient-to-br ${mod.tone} p-5 rounded-2xl text-white text-right shadow-lg" style="animation: hqSlideUp 0.6s cubic-bezier(0.16,1,0.3,1) ${0.5 + i * 0.05}s forwards; opacity:0">
+                    <button onclick="loadRoute('${mod.route}')" class="hq-module-card bg-gradient-to-br ${mod.tone}" style="animation: hqSlideUp 0.65s cubic-bezier(0.16,1,0.3,1) ${0.55 + i * 0.05}s forwards; opacity:0">
                         <div class="relative z-10">
-                            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center mb-3">
-                                <i class="fas ${mod.icon} text-lg"></i>
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                                    <i class="fas ${mod.icon} text-lg"></i>
+                                </div>
+                                <i class="fas fa-arrow-left hq-module-arrow text-white/60 text-sm mt-1"></i>
                             </div>
-                            <h4 class="text-sm font-bold mb-1 leading-snug">${mod.title}</h4>
-                            <p class="text-white/75 text-[11px] leading-relaxed line-clamp-2">${mod.desc}</p>
+                            <h4 class="text-sm font-black mb-1.5 leading-snug">${mod.title}</h4>
+                            <p class="text-white/70 text-[11px] leading-relaxed line-clamp-2">${mod.desc}</p>
                         </div>
                     </button>
                 `).join('')}
@@ -4606,59 +4651,102 @@ const app = (() => {
         </div>`;
     };
 
+    const initHqDashboardEffects = () => {
+        const root = document.querySelector('.hq-dashboard');
+        if (!root) return;
+
+        root.querySelectorAll('[data-hq-count]').forEach((el) => {
+            const target = Number(el.dataset.hqCount);
+            if (!Number.isFinite(target)) return;
+            const duration = 900;
+            const start = performance.now();
+            const isMoney = el.dataset.hqCountFormat === 'money';
+
+            const tick = (now) => {
+                const progress = Math.min((now - start) / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = Math.round(target * eased);
+                el.textContent = isMoney ? current.toLocaleString('en-US') : String(current);
+                if (progress < 1) requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+        });
+    };
+
     const renderHqDashboard = (entity) => {
-        const balance = perms.isFinance() ? entity.balance.toLocaleString('en-US') : '****';
+        const balanceRaw = entity.balance || 0;
+        const balance = perms.isFinance() ? balanceRaw.toLocaleString('en-US') : '****';
         const userName = currentUser?.name || 'مدير النظام';
+        const tasksCount = perms.getVisibleTasks().length;
+        const ticketsCount = perms.getVisibleTickets().length;
+        const usersCount = entity.users || 1;
 
         return `
-        <div class="hq-dashboard space-y-6 pb-4">
-            <div class="hq-hero relative z-10">
-                <div class="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                    <div>
-                        <div class="flex flex-wrap items-center gap-2 mb-3">
-                            <span class="hq-status-dot"></span>
-                            <span class="text-xs font-bold text-red-100/90 uppercase tracking-widest">النظام نشط</span>
-                            <span class="px-2.5 py-0.5 rounded-full bg-white/15 text-[10px] font-bold border border-white/20">${TENANT_TYPES.HQ.label}</span>
-                        </div>
-                        <p class="text-red-100/80 text-sm mb-1">${getHqGreeting()}، <span class="font-bold text-white">${userName}</span></p>
-                        <h2 class="text-3xl md:text-4xl font-black tracking-tight">${entity.name}</h2>
-                        <div class="flex flex-wrap items-center gap-3 mt-3 text-sm text-red-100/75">
-                            <span class="flex items-center gap-1.5"><i class="fas fa-map-marker-alt"></i>${entity.location || 'الرياض'}</span>
-                            <span class="w-1 h-1 rounded-full bg-white/30 hidden sm:inline-block"></span>
-                            <span class="font-mono text-xs opacity-80">ID: ${entity.id}</span>
+        <div class="hq-dashboard space-y-7 pb-6">
+            <div class="hq-hero">
+                <div class="hq-hero-orb hq-hero-orb-1"></div>
+                <div class="hq-hero-orb hq-hero-orb-2"></div>
+                <div class="hq-hero-orb hq-hero-orb-3"></div>
+                <div class="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+                    <div class="flex gap-5 items-start">
+                        <img src="/public/naiosh-logo.png" alt="نايوش" class="hq-hero-logo hidden sm:block">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <span class="hq-status-pill"><span class="hq-status-dot"></span>النظام نشط</span>
+                                <span class="px-3 py-1 rounded-full bg-white/10 text-[10px] font-bold border border-white/15 backdrop-blur-sm">${TENANT_TYPES.HQ.label}</span>
+                            </div>
+                            <div class="hq-gold-bar mb-4"></div>
+                            <p class="text-red-100/75 text-sm mb-1">${getHqGreeting()}، <span class="font-black text-white text-base">${userName}</span></p>
+                            <h2 class="text-3xl md:text-[2.75rem] font-black tracking-tight leading-tight">${entity.name}</h2>
+                            <div class="flex flex-wrap items-center gap-3 mt-3 text-sm text-red-100/70">
+                                <span class="flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-lg border border-white/10">
+                                    <i class="fas fa-map-marker-alt text-amber-300/80"></i>${entity.location || 'الرياض'}
+                                </span>
+                                <span class="font-mono text-xs opacity-70 bg-white/5 px-3 py-1 rounded-lg border border-white/10">ID: ${entity.id}</span>
+                            </div>
+                            <p class="text-[11px] text-red-100/50 mt-3 flex items-center gap-2">
+                                <i class="fas fa-calendar-alt"></i>${getHqArabicDate()}
+                            </p>
                         </div>
                     </div>
-                    <div class="flex flex-wrap gap-3">
-                        <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-4 min-w-[150px]">
-                            <p class="text-[10px] uppercase tracking-widest text-red-100/70 font-bold mb-1">خطة الاشتراك</p>
-                            <p class="text-2xl font-black flex items-center gap-2">${entity.plan || 'ENTERPRISE'}<i class="fas fa-crown text-amber-300 text-base"></i></p>
+                    <div class="flex flex-wrap gap-3 lg:justify-end">
+                        <div class="hq-stat-glass min-w-[160px]">
+                            <p class="text-[10px] uppercase tracking-[0.15em] text-red-100/60 font-extrabold mb-1.5">خطة الاشتراك</p>
+                            <p class="text-2xl font-black flex items-center gap-2">
+                                ${entity.plan || 'ENTERPRISE'}
+                                <i class="fas fa-crown text-amber-400 text-lg drop-shadow"></i>
+                            </p>
                         </div>
-                        <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-4 min-w-[130px]">
-                            <p class="text-[10px] uppercase tracking-widest text-red-100/70 font-bold mb-1">المستخدمون</p>
-                            <p class="text-2xl font-black">${entity.users || 1}</p>
+                        <div class="hq-stat-glass min-w-[130px]">
+                            <p class="text-[10px] uppercase tracking-[0.15em] text-red-100/60 font-extrabold mb-1.5">المستخدمون</p>
+                            <p class="text-2xl font-black hq-counter" data-hq-count="${usersCount}">${usersCount}</p>
+                        </div>
+                        <div class="hq-stat-glass min-w-[130px]">
+                            <p class="text-[10px] uppercase tracking-[0.15em] text-red-100/60 font-extrabold mb-1.5">المهام</p>
+                            <p class="text-2xl font-black hq-counter" data-hq-count="${tasksCount}">${tasksCount}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                ${renderHqKpiCard('المحفظة الرقمية', balance, 'fa-wallet', 'from-red-600 to-rose-500')}
-                ${renderHqKpiCard('المهام النشطة', perms.getVisibleTasks().length, 'fa-list-check', 'from-amber-500 to-orange-500')}
-                ${renderHqKpiCard('تذاكر الدعم', perms.getVisibleTickets().length, 'fa-headset', 'from-slate-600 to-slate-800')}
-                ${renderHqKpiCard('عدد المستخدمين', entity.users || 1, 'fa-users', 'from-red-800 to-red-950')}
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+                ${renderHqKpiCard('المحفظة الرقمية', balance, 'fa-wallet', 'from-red-600 via-red-700 to-rose-800', perms.isFinance() ? balanceRaw : null, perms.isFinance() ? 'ريال سعودي' : '', perms.isFinance() ? 'money' : '')}
+                ${renderHqKpiCard('المهام النشطة', tasksCount, 'fa-list-check', 'from-amber-500 via-orange-500 to-amber-600', tasksCount, tasksCount > 0 ? 'قيد المتابعة' : '')}
+                ${renderHqKpiCard('تذاكر الدعم', ticketsCount, 'fa-headset', 'from-slate-600 via-slate-700 to-slate-900', ticketsCount)}
+                ${renderHqKpiCard('عدد المستخدمين', usersCount, 'fa-users', 'from-red-800 via-red-900 to-red-950', usersCount)}
             </div>
 
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div class="xl:col-span-2 space-y-6">
-                    <div class="hq-panel bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-                        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-gradient-to-l from-slate-50 to-white">
-                            <h3 class="font-bold text-lg text-slate-800 flex items-center gap-2">
-                                <span class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
+                    <div class="hq-panel hq-panel-luxe">
+                        <div class="hq-panel-luxe-header flex justify-between items-center">
+                            <h3 class="font-black text-lg text-slate-900 flex items-center gap-3">
+                                <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center shadow-lg">
                                     <i class="fas fa-chart-line text-sm"></i>
                                 </span>
                                 نشاط المستأجر
                             </h3>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">آخر 7 أيام</span>
+                            <span class="hq-section-tag">آخر 7 أيام</span>
                         </div>
                         <div class="p-4 md:p-6 hq-chart-wrap">
                             <canvas id="adsChart"></canvas>
@@ -4666,7 +4754,7 @@ const app = (() => {
                     </div>
                     ${renderHqAdsFeed()}
                 </div>
-                <div class="space-y-4">
+                <div class="space-y-5">
                     ${renderHqQuickActions()}
                     ${renderHqSummaryPanel(entity)}
                 </div>
