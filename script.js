@@ -553,6 +553,8 @@ const app = (() => {
         'maintenance': 'supply-chain',
         'quality-control': 'supply-chain',
         'safety': 'supply-chain',
+        'specs-estimates': 'supply-chain',
+        'customs-clearance': 'supply-chain',
         'crm': 'sales',
         'sales-operations': 'sales',
         'pos': 'sales',
@@ -1938,6 +1940,8 @@ const app = (() => {
         else if (route === 'maintenance') content = renderMaintenance();
         else if (route === 'quality-control') content = renderQualityControl();
         else if (route === 'safety') content = renderSafety();
+        else if (route === 'specs-estimates') content = renderSpecsEstimates();
+        else if (route === 'customs-clearance') content = renderCustomsClearance();
         // Sales Routes
         else if (route === 'sales') content = renderCRM();
         else if (route === 'crm') content = renderCRM();
@@ -2525,6 +2529,8 @@ const app = (() => {
             'maintenance': 'الصيانة',
             'quality-control': 'مراقبة الجودة',
             'safety': 'السلامة',
+            'specs-estimates': 'مواصفات ومقايس',
+            'customs-clearance': 'تخليص جمركي',
             // Sales subitems
             'sales': 'البيع',
             'crm': 'نظام إدارة علاقات العملاء CRM',
@@ -3110,6 +3116,8 @@ const app = (() => {
         '/supply-chain/maintenance': 'maintenance',
         '/supply-chain/quality-control': 'quality-control',
         '/supply-chain/safety': 'safety',
+        '/supply-chain/specs-estimates': 'specs-estimates',
+        '/supply-chain/customs-clearance': 'customs-clearance',
         // Sales paths
         '/sales': 'sales',
         '/sales/crm': 'crm',
@@ -3149,6 +3157,8 @@ const app = (() => {
         'maintenance': '/supply-chain/maintenance',
         'quality-control': '/supply-chain/quality-control',
         'safety': '/supply-chain/safety',
+        'specs-estimates': '/supply-chain/specs-estimates',
+        'customs-clearance': '/supply-chain/customs-clearance',
         // Sales routes
         'sales': '/sales',
         'crm': '/sales/crm',
@@ -3391,7 +3401,9 @@ const app = (() => {
                     { id: 'product-lifecycle', icon: 'fa-recycle', label: 'حياة المنتج' },
                     { id: 'maintenance', icon: 'fa-wrench', label: 'الصيانة' },
                     { id: 'quality-control', icon: 'fa-check-double', label: 'مراقبة الجودة' },
-                    { id: 'safety', icon: 'fa-hard-hat', label: 'السلامة' }
+                    { id: 'safety', icon: 'fa-hard-hat', label: 'السلامة' },
+                    { id: 'specs-estimates', icon: 'fa-ruler-combined', label: 'مواصفات ومقايس' },
+                    { id: 'customs-clearance', icon: 'fa-passport', label: 'تخليص جمركي' }
                 ]
             },
                 {
@@ -9413,6 +9425,24 @@ const app = (() => {
                 { id: 'date', label: 'التاريخ', placeholder: 'YYYY-MM-DD', type: 'date' }
             ];
         }
+        if (section === 'specs-estimates') {
+            return [
+                { id: 'spec_code', label: 'رمز المواصفة', placeholder: 'SPEC-2026-001' },
+                { id: 'item_name', label: 'اسم الصنف/البند', placeholder: 'مواد بناء - حديد تسليح' },
+                { id: 'unit', label: 'الوحدة', placeholder: 'طن / متر / قطعة' },
+                { id: 'quantity', label: 'الكمية / المقايس', placeholder: 'مثال: 450' },
+                { id: 'standard', label: 'المعيار المرجعي', placeholder: 'SASO / ASTM / ISO' }
+            ];
+        }
+        if (section === 'customs-clearance') {
+            return [
+                { id: 'declaration_no', label: 'رقم البيان الجمركي', placeholder: 'DEC-2026-8841' },
+                { id: 'shipment_ref', label: 'مرجع الشحنة', placeholder: 'SHIP-2026-221' },
+                { id: 'port', label: 'المنفذ الجمركي', placeholder: 'جدة الإسلامية / الرياض الجاف' },
+                { id: 'hs_code', label: 'رمز النظام المنسق', placeholder: 'HS-7214.20' },
+                { id: 'eta_clearance', label: 'موعد التخليص المتوقع', placeholder: 'YYYY-MM-DD', type: 'date' }
+            ];
+        }
         return [{ id: 'note', label: 'ملاحظة', placeholder: 'تفاصيل إضافية' }];
     };
 
@@ -12636,6 +12666,244 @@ const app = (() => {
                             <i class="fas fa-download text-slate-600 ml-2"></i>
                             <span class="font-bold text-slate-700">تصدير</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    };
+
+    const renderSpecsEstimates = () => {
+        return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="bg-gradient-to-r from-violet-700 to-indigo-600 rounded-2xl p-6 text-white">
+                <h2 class="text-3xl font-bold flex items-center gap-3">
+                    <i class="fas fa-ruler-combined"></i>
+                    مواصفات ومقايس
+                </h2>
+                <p class="mt-2 opacity-90">إدارة المواصفات الفنية والمقايسات ومعايير المطابقة للمشتريات والتوريد</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">مواصفات نشطة</span>
+                        <i class="fas fa-file-alt text-violet-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">186</h3>
+                    <p class="text-xs text-slate-500 mt-1">معتمدة هذا الربع</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">مقايس قيد المراجعة</span>
+                        <i class="fas fa-calculator text-amber-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">24</h3>
+                    <p class="text-xs text-amber-600 mt-1">بانتظار الاعتماد</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">معدل المطابقة</span>
+                        <i class="fas fa-check-double text-emerald-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">97.2%</h3>
+                    <p class="text-xs text-emerald-600 mt-1">ممتاز</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">قيمة المقايس</span>
+                        <i class="fas fa-coins text-blue-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">8.4M SAR</h3>
+                    <p class="text-xs text-slate-500 mt-1">إجمالي المشاريع المفتوحة</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-6 shadow-sm border">
+                <h3 class="font-bold text-lg mb-4">إجراءات سريعة</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button onclick="app.handleSupplyChainAction('specs-estimates','إضافة مواصفة جديدة')" class="p-4 bg-violet-50 hover:bg-violet-100 rounded-lg transition text-right">
+                        <i class="fas fa-plus-circle text-violet-600 ml-2"></i>
+                        <span class="font-bold text-violet-700">مواصفة جديدة</span>
+                    </button>
+                    <button onclick="app.handleSupplyChainAction('specs-estimates','إعداد مقايس مشروع')" class="p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition text-right">
+                        <i class="fas fa-calculator text-indigo-600 ml-2"></i>
+                        <span class="font-bold text-indigo-700">مقايس جديد</span>
+                    </button>
+                    <button onclick="app.handleSupplyChainAction('specs-estimates','تصدير سجل المواصفات')" class="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition text-right">
+                        <i class="fas fa-download text-green-600 ml-2"></i>
+                        <span class="font-bold text-green-700">تصدير التقرير</span>
+                    </button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <h3 class="font-bold text-lg mb-4">أحدث المواصفات الفنية</h3>
+                    <div class="overflow-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-50 text-slate-600">
+                                <tr>
+                                    <th class="px-3 py-2 text-right">الرمز</th>
+                                    <th class="px-3 py-2 text-right">البند</th>
+                                    <th class="px-3 py-2 text-right">المعيار</th>
+                                    <th class="px-3 py-2 text-right">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${[
+                                    { code: 'SPEC-2401', item: 'حديد تسليح 12مم', std: 'SASO 2622', status: 'معتمد' },
+                                    { code: 'SPEC-2402', item: 'أسمنت بورتلاندي', std: 'ASTM C150', status: 'معتمد' },
+                                    { code: 'SPEC-2403', item: 'كابلات كهربائية', std: 'IEC 60502', status: 'قيد المراجعة' },
+                                    { code: 'SPEC-2404', item: 'معدات حماية فردية', std: 'ISO 45001', status: 'معتمد' },
+                                    { code: 'SPEC-2405', item: 'أنابيب PVC', std: 'SASO 14', status: 'مسودة' }
+                                ].map(row => `
+                                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                        <td class="px-3 py-2 font-semibold">${row.code}</td>
+                                        <td class="px-3 py-2">${row.item}</td>
+                                        <td class="px-3 py-2">${row.std}</td>
+                                        <td class="px-3 py-2">${row.status}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <h3 class="font-bold text-lg mb-4">المقايسات النشطة</h3>
+                    <div class="space-y-3">
+                        ${[
+                            { project: 'مشروع توسعة المستودع', value: '2.1M SAR', items: 48, progress: 78 },
+                            { project: 'توريد معدات تشغيلية', value: '1.4M SAR', items: 32, progress: 65 },
+                            { project: 'أعمال البنية التحتية', value: '3.6M SAR', items: 86, progress: 42 },
+                            { project: 'تجهيزات مكتبية', value: '420K SAR', items: 18, progress: 91 }
+                        ].map(row => `
+                            <div class="p-3 bg-violet-50 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="font-bold text-slate-800">${row.project}</p>
+                                    <span class="text-sm font-bold text-violet-700">${row.value}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs text-slate-600 mb-2">
+                                    <span>${row.items} بند</span>
+                                    <span>${row.progress}% مكتمل</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2">
+                                    <div class="bg-violet-600 h-2 rounded-full" style="width:${row.progress}%"></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    };
+
+    const renderCustomsClearance = () => {
+        return `
+        <div class="space-y-6 animate-fade-in">
+            <div class="bg-gradient-to-r from-sky-700 to-blue-800 rounded-2xl p-6 text-white">
+                <h2 class="text-3xl font-bold flex items-center gap-3">
+                    <i class="fas fa-passport"></i>
+                    تخليص جمركي
+                </h2>
+                <p class="mt-2 opacity-90">متابعة البيانات الجمركية والتخليص والامتثال للوائح الاستيراد والتصدير</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">بيانات قيد التخليص</span>
+                        <i class="fas fa-file-import text-sky-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">17</h3>
+                    <p class="text-xs text-slate-500 mt-1">متوسط 2.4 يوم</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">تم التخليص اليوم</span>
+                        <i class="fas fa-check-circle text-emerald-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">9</h3>
+                    <p class="text-xs text-emerald-600 mt-1">بدون تأخير</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">رسوم جمركية</span>
+                        <i class="fas fa-receipt text-amber-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">284K SAR</h3>
+                    <p class="text-xs text-slate-500 mt-1">هذا الشهر</p>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-600">بيانات معلقة</span>
+                        <i class="fas fa-exclamation-circle text-red-600"></i>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800">3</h3>
+                    <p class="text-xs text-red-600 mt-1">تحتاج مستندات</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-6 shadow-sm border">
+                <h3 class="font-bold text-lg mb-4">إجراءات التخليص</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button onclick="app.handleSupplyChainAction('customs-clearance','فتح بيان جمركي جديد')" class="p-4 bg-sky-50 hover:bg-sky-100 rounded-lg transition text-right">
+                        <i class="fas fa-plus text-sky-600 ml-2"></i>
+                        <span class="font-bold text-sky-700">بيان جديد</span>
+                    </button>
+                    <button onclick="app.handleSupplyChainAction('customs-clearance','متابعة حالة التخليص')" class="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition text-right">
+                        <i class="fas fa-search text-blue-600 ml-2"></i>
+                        <span class="font-bold text-blue-700">متابعة البيان</span>
+                    </button>
+                    <button onclick="app.handleSupplyChainAction('customs-clearance','تصدير تقرير الجمارك')" class="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition text-right">
+                        <i class="fas fa-download text-green-600 ml-2"></i>
+                        <span class="font-bold text-green-700">تصدير التقرير</span>
+                    </button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <h3 class="font-bold text-lg mb-4">البيانات الجمركية النشطة</h3>
+                    <div class="overflow-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-50 text-slate-600">
+                                <tr>
+                                    <th class="px-3 py-2 text-right">رقم البيان</th>
+                                    <th class="px-3 py-2 text-right">المنفذ</th>
+                                    <th class="px-3 py-2 text-right">HS Code</th>
+                                    <th class="px-3 py-2 text-right">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${[
+                                    { no: 'DEC-8841', port: 'جدة الإسلامية', hs: '7214.20', status: 'قيد التخليص' },
+                                    { no: 'DEC-8836', port: 'الرياض الجاف', hs: '8471.30', status: 'بانتظار الفحص' },
+                                    { no: 'DEC-8829', port: 'الدمام', hs: '3901.10', status: 'تم التخليص' },
+                                    { no: 'DEC-8821', port: 'جدة الإسلامية', hs: '8504.40', status: 'مستندات ناقصة' },
+                                    { no: 'DEC-8815', port: 'الرياض الجاف', hs: '7308.90', status: 'قيد التخليص' }
+                                ].map(row => `
+                                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                        <td class="px-3 py-2 font-semibold">${row.no}</td>
+                                        <td class="px-3 py-2">${row.port}</td>
+                                        <td class="px-3 py-2">${row.hs}</td>
+                                        <td class="px-3 py-2">${row.status}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-sm border">
+                    <h3 class="font-bold text-lg mb-4">مؤشرات الأداء الجمركي</h3>
+                    <div class="space-y-3">
+                        ${[
+                            { metric: 'متوسط زمن التخليص', value: '2.4 يوم', target: '≤ 3 أيام', ok: true },
+                            { metric: 'نسبة التخليص من أول مرة', value: '89%', target: '≥ 85%', ok: true },
+                            { metric: 'البيانات المرفوضة', value: '2.1%', target: '≤ 3%', ok: true },
+                            { metric: 'تكلفة التخليص / الشحنة', value: '1,240 SAR', target: '≤ 1,500 SAR', ok: true }
+                        ].map(row => `
+                            <div class="flex items-center justify-between p-3 bg-sky-50 rounded-lg">
+                                <div>
+                                    <p class="font-bold text-slate-800">${row.metric}</p>
+                                    <p class="text-xs text-slate-500">الهدف: ${row.target}</p>
+                                </div>
+                                <span class="text-sm font-black ${row.ok ? 'text-emerald-600' : 'text-red-600'}">${row.value}</span>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
             </div>
