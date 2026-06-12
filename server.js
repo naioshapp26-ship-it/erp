@@ -2682,6 +2682,7 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/platforms' || p.startsWith('/platforms/')) return ['platforms'];
   if (p === '/incubators-hub' || p.startsWith('/incubators-hub/')) return ['incubators-hub'];
   if (p === '/sectors' || p.startsWith('/sectors/')) return ['naiosh-sectors'];
+  if (p === '/employee' || p.startsWith('/employee/')) return ['employee-menu'];
   if (p === '/tenants' || p.startsWith('/tenants/') || p === '/register-tenant') return ['entities'];
   return null;
 };
@@ -3354,6 +3355,14 @@ app.get('/sectors', (req, res) => {
 });
 
 app.get('/sectors/:section', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/employee', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+});
+
+app.get('/employee/:section', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
 });
 

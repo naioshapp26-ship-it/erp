@@ -1712,9 +1712,6 @@ const app = (() => {
             'custodies',
             'assets-custodies',
             'salary-slips',
-            'flexible-salary',
-            'resignations',
-            'employee-settlement',
             'attendance-register',
             'attendance-table'
         ]);
@@ -2855,9 +2852,9 @@ const app = (() => {
         'custodies': '/hr/custodies',
         'assets-custodies': '/hr/assets-custodies',
         'salary-slips': '/hr/salary-slips',
-        'flexible-salary': '/hr/flexible-salary',
-        'resignations': '/hr/resignations',
-        'employee-settlement': '/hr/employee-settlement',
+        'flexible-salary': '/employee/flexible-salary',
+        'resignations': '/employee/resignations',
+        'employee-settlement': '/employee/employee-settlement',
         'attendance-register': '/hr/attendance-register',
         'attendance-table': '/hr/attendance-table',
         'hr-policies': '/hr/policies',
@@ -3021,9 +3018,9 @@ const app = (() => {
         '/hr/custodies': 'custodies',
         '/hr/assets-custodies': 'assets-custodies',
         '/hr/salary-slips': 'salary-slips',
-        '/hr/flexible-salary': 'flexible-salary',
-        '/hr/resignations': 'resignations',
-        '/hr/employee-settlement': 'employee-settlement',
+        '/employee/flexible-salary': 'flexible-salary',
+        '/employee/resignations': 'resignations',
+        '/employee/employee-settlement': 'employee-settlement',
         '/hr/attendance-register': 'attendance-register',
         '/hr/attendance-table': 'attendance-table',
         '/hr/policies': 'hr-policies',
@@ -3364,6 +3361,9 @@ const app = (() => {
                     subItems: [
                         { id: 'attendance-departure', icon: 'fa-clock', label: 'الحضور والانصراف' },
                     { id: 'emp-requests', icon: 'fa-clipboard-list', label: 'الطلبات' },
+                    { id: 'flexible-salary', icon: 'fa-sliders-h', label: 'الراتب المرن' },
+                    { id: 'resignations', icon: 'fa-user-minus', label: 'الاستقالات' },
+                    { id: 'employee-settlement', icon: 'fa-file-signature', label: 'تسوية حساب موظف' },
                     { id: 'emp-leaves', icon: 'fa-umbrella-beach', label: 'الإجازات' },
                     { id: 'leave-balance', icon: 'fa-calendar-check', label: 'رصيد الإجازات' },
                     { id: 'notifications-warnings', icon: 'fa-bell', label: 'الإشعارات/الإنذارات' },
@@ -3378,9 +3378,6 @@ const app = (() => {
                     { id: 'custodies', icon: 'fa-box', label: 'العهد' },
                     { id: 'assets-custodies', icon: 'fa-boxes-stacked', label: 'إدارة العهد والأصول' },
                     { id: 'salary-slips', icon: 'fa-receipt', label: 'قسائم الراتب' },
-                    { id: 'flexible-salary', icon: 'fa-sliders-h', label: 'الراتب المرن' },
-                    { id: 'resignations', icon: 'fa-user-minus', label: 'الاستقالات' },
-                    { id: 'employee-settlement', icon: 'fa-file-signature', label: 'تسوية حساب موظف' },
                     { id: 'attendance-register', icon: 'fa-fingerprint', label: 'تسجيل الحضور' },
                     { id: 'attendance-table', icon: 'fa-table', label: 'جدول الحضور' }
                 ]
@@ -24681,6 +24678,117 @@ const app = (() => {
         `;
     };
     
+    const getEmployeeMenuFields = (section) => {
+        if (section === 'flexible-salary') {
+            return [
+                { id: 'employee_name', label: 'اسم الموظف', placeholder: 'أحمد محمد العلي' },
+                { id: 'base_salary', label: 'الراتب الأساسي', placeholder: '12000' },
+                { id: 'flex_component', label: 'مكون الراتب المرن', placeholder: 'بدل أداء / عمولة' },
+                { id: 'amount', label: 'القيمة', placeholder: '2500' },
+                { id: 'effective_date', label: 'تاريخ السريان', placeholder: 'YYYY-MM-DD', type: 'date' }
+            ];
+        }
+        if (section === 'resignations') {
+            return [
+                { id: 'employee_name', label: 'اسم الموظف', placeholder: 'سارة القحطاني' },
+                { id: 'department', label: 'القسم', placeholder: 'العمليات' },
+                { id: 'last_day', label: 'آخر يوم عمل', placeholder: 'YYYY-MM-DD', type: 'date' },
+                { id: 'reason', label: 'سبب الاستقالة', placeholder: 'ظروف شخصية / عرض جديد' },
+                { id: 'notice_days', label: 'مدة الإشعار (أيام)', placeholder: '30' }
+            ];
+        }
+        if (section === 'employee-settlement') {
+            return [
+                { id: 'employee_name', label: 'اسم الموظف', placeholder: 'خالد الشمري' },
+                { id: 'end_date', label: 'تاريخ إنهاء الخدمة', placeholder: 'YYYY-MM-DD', type: 'date' },
+                { id: 'remaining_salary', label: 'راتب مستحق', placeholder: '4500' },
+                { id: 'leave_balance', label: 'رصيد إجازات (أيام)', placeholder: '12' },
+                { id: 'deductions', label: 'الخصومات', placeholder: 'سلف / عهد' }
+            ];
+        }
+        return [{ id: 'note', label: 'ملاحظة', placeholder: 'تفاصيل إضافية' }];
+    };
+
+    const downloadEmployeeMenuPayload = (section, action) => {
+        const payload = {
+            section,
+            action,
+            generated_at: new Date().toISOString(),
+            notes: 'تصدير تشغيلي من قسم الموظف'
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `employee-${section}-${Date.now()}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showToast('تم تصدير الملف بنجاح', 'success');
+    };
+
+    const openEmployeeMenuModal = ({ title, subtitle, fields, onSubmit }) => {
+        const existing = document.getElementById('employee-menu-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'employee-menu-modal';
+        modal.className = 'fixed inset-0 bg-slate-900/60 z-[999] flex items-center justify-center backdrop-blur-sm p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden">
+                <div class="p-6 border-b border-slate-100 bg-gradient-to-r from-brand-700 to-brand-600 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-xl text-white">${title}</h3>
+                        <p class="text-sm text-white/80">${subtitle || ''}</p>
+                    </div>
+                    <button onclick="document.getElementById('employee-menu-modal').remove()" class="text-white/80 hover:text-white">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <form id="employee-menu-form" class="p-6 space-y-4">
+                    ${fields.map(field => `
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 mb-1">${field.label}</label>
+                            <input type="${field.type || 'text'}" name="${field.id}" placeholder="${field.placeholder || ''}"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none" />
+                        </div>
+                    `).join('')}
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold">
+                            <i class="fas fa-check ml-1"></i> تأكيد
+                        </button>
+                        <button type="button" onclick="document.getElementById('employee-menu-modal').remove()" class="px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50">
+                            إلغاء
+                        </button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelector('#employee-menu-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const payload = Object.fromEntries(formData.entries());
+            onSubmit?.(payload);
+            modal.remove();
+        });
+    };
+
+    const handleEmployeeMenuAction = (section, action) => {
+        if (action.includes('تصدير')) {
+            downloadEmployeeMenuPayload(section, action);
+            return;
+        }
+        openEmployeeMenuModal({
+            title: action,
+            subtitle: 'يرجى تعبئة البيانات ثم تأكيد الإجراء.',
+            fields: getEmployeeMenuFields(section),
+            onSubmit: (payload) => {
+                logAction('EMPLOYEE_MENU_ACTION', { section, action, payload });
+                showToast(`تم تنفيذ: ${action}`, 'success');
+            }
+        });
+    };
+
     const renderAttendanceDeparture = () => {
         return `
         <div class="space-y-6 animate-fade-in">
@@ -25745,61 +25853,256 @@ const app = (() => {
     const renderFlexibleSalary = () => {
         return `
         <div class="space-y-6 animate-fade-in">
-            <div>
-                <h2 class="text-3xl font-bold text-slate-800 flex items-center gap-3">
-                    <i class="fas fa-sliders-h text-brand-600"></i>
-                    الراتب المرن
-                </h2>
-                <p class="text-slate-500 mt-1">قواعد وإعدادات الراتب المرن للموظفين</p>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                        <i class="fas fa-sliders-h text-brand-600"></i>
+                        الراتب المرن
+                    </h2>
+                    <p class="text-slate-500 mt-1">إدارة مكونات الراتب المرن والبدلات والحوافز المرتبطة بالأداء</p>
+                </div>
+                <button onclick="app.handleEmployeeMenuAction('flexible-salary','إضافة مكون راتب مرن')" class="px-6 py-3 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition font-bold">
+                    <i class="fas fa-plus ml-2"></i>
+                    مكون جديد
+                </button>
             </div>
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-                <div class="text-center py-12 text-slate-500">
-                    <i class="fas fa-sliders-h text-6xl text-slate-300 mb-4"></i>
-                    <p class="text-lg font-bold">قواعد الراتب المرن</p>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-gradient-to-br from-violet-50 to-violet-100 rounded-2xl p-5 border border-violet-200">
+                    <p class="text-sm text-violet-700 font-bold">موظفون على الراتب المرن</p>
+                    <p class="text-3xl font-black text-violet-800 mt-2">38</p>
+                </div>
+                <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl p-5 border border-emerald-200">
+                    <p class="text-sm text-emerald-700 font-bold">مكونات نشطة</p>
+                    <p class="text-3xl font-black text-emerald-800 mt-2">124</p>
+                </div>
+                <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-5 border border-amber-200">
+                    <p class="text-sm text-amber-700 font-bold">بانتظار الاعتماد</p>
+                    <p class="text-3xl font-black text-amber-800 mt-2">6</p>
+                </div>
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-5 border border-blue-200">
+                    <p class="text-sm text-blue-700 font-bold">متوسط التغير الشهري</p>
+                    <p class="text-3xl font-black text-blue-800 mt-2">+8.4%</p>
                 </div>
             </div>
-        </div>
-        `;
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4"><i class="fas fa-list text-brand-600 ml-2"></i>مكونات الراتب المرن</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">الموظف</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">المكون</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">القيمة</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">السريان</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            ${[
+                                { emp: 'أحمد العلي', comp: 'بدل أداء', val: '2,500 SAR', date: '2026-01-01', status: 'نشط' },
+                                { emp: 'سارة محمد', comp: 'عمولة مبيعات', val: '4,100 SAR', date: '2026-02-01', status: 'نشط' },
+                                { emp: 'خالد الشهري', comp: 'بدل مشروع', val: '1,800 SAR', date: '2026-03-01', status: 'قيد الاعتماد' }
+                            ].map(row => `
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-4 py-3 font-bold text-slate-800">${row.emp}</td>
+                                    <td class="px-4 py-3">${row.comp}</td>
+                                    <td class="px-4 py-3">${row.val}</td>
+                                    <td class="px-4 py-3">${row.date}</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full ${row.status === 'نشط' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${row.status}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <button onclick="app.handleEmployeeMenuAction('flexible-salary','تعديل قاعدة راتب مرن')" class="p-4 bg-violet-50 hover:bg-violet-100 rounded-xl transition text-right">
+                    <i class="fas fa-pen text-violet-600 ml-2"></i><span class="font-bold text-violet-700">تعديل قاعدة</span>
+                </button>
+                <button onclick="app.handleEmployeeMenuAction('flexible-salary','اعتماد مكونات الراتب')" class="p-4 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition text-right">
+                    <i class="fas fa-stamp text-emerald-600 ml-2"></i><span class="font-bold text-emerald-700">اعتماد</span>
+                </button>
+                <button onclick="app.handleEmployeeMenuAction('flexible-salary','تصدير تقرير الراتب المرن')" class="p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition text-right">
+                    <i class="fas fa-download text-blue-600 ml-2"></i><span class="font-bold text-blue-700">تصدير</span>
+                </button>
+            </div>
+        </div>`;
     };
 
     const renderResignations = () => {
         return `
         <div class="space-y-6 animate-fade-in">
-            <div>
-                <h2 class="text-3xl font-bold text-slate-800 flex items-center gap-3">
-                    <i class="fas fa-user-minus text-brand-600"></i>
-                    الاستقالات
-                </h2>
-                <p class="text-slate-500 mt-1">متابعة طلبات الاستقالة وخطوات الإنهاء</p>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                        <i class="fas fa-user-minus text-brand-600"></i>
+                        الاستقالات
+                    </h2>
+                    <p class="text-slate-500 mt-1">متابعة طلبات الاستقالة وخط سير الإنهاء والتسليم</p>
+                </div>
+                <button onclick="app.handleEmployeeMenuAction('resignations','تسجيل استقالة جديدة')" class="px-6 py-3 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition font-bold">
+                    <i class="fas fa-plus ml-2"></i>
+                    استقالة جديدة
+                </button>
             </div>
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-                <div class="text-center py-12 text-slate-500">
-                    <i class="fas fa-user-minus text-6xl text-slate-300 mb-4"></i>
-                    <p class="text-lg font-bold">طلبات الاستقالة</p>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-gradient-to-br from-rose-50 to-rose-100 rounded-2xl p-5 border border-rose-200">
+                    <p class="text-sm text-rose-700 font-bold">طلبات مفتوحة</p>
+                    <p class="text-3xl font-black text-rose-800 mt-2">5</p>
+                </div>
+                <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-5 border border-amber-200">
+                    <p class="text-sm text-amber-700 font-bold">قيد المخالصة</p>
+                    <p class="text-3xl font-black text-amber-800 mt-2">3</p>
+                </div>
+                <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-5 border border-green-200">
+                    <p class="text-sm text-green-700 font-bold">مكتملة هذا الربع</p>
+                    <p class="text-3xl font-black text-green-800 mt-2">11</p>
+                </div>
+                <div class="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-5 border border-slate-200">
+                    <p class="text-sm text-slate-700 font-bold">معدل الدوران</p>
+                    <p class="text-3xl font-black text-slate-800 mt-2">4.2%</p>
                 </div>
             </div>
-        </div>
-        `;
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4"><i class="fas fa-list text-brand-600 ml-2"></i>سجل الاستقالات</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">الموظف</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">القسم</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">آخر يوم</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">السبب</th>
+                                <th class="px-4 py-3 text-right text-xs font-bold text-slate-600">الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            ${[
+                                { emp: 'فاطمة حسن', dept: 'المالية', last: '2026-03-15', reason: 'ظروف شخصية', status: 'قيد المراجعة' },
+                                { emp: 'محمد العتيبي', dept: 'المبيعات', last: '2026-02-28', reason: 'عرض جديد', status: 'قيد المخالصة' },
+                                { emp: 'نورة السعيد', dept: 'الدعم', last: '2026-01-20', reason: 'نقل خارجي', status: 'مكتمل' }
+                            ].map(row => `
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-4 py-3 font-bold text-slate-800">${row.emp}</td>
+                                    <td class="px-4 py-3">${row.dept}</td>
+                                    <td class="px-4 py-3">${row.last}</td>
+                                    <td class="px-4 py-3">${row.reason}</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-700">${row.status}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <button onclick="app.handleEmployeeMenuAction('resignations','مقابلة إنهاء خدمة')" class="p-4 bg-rose-50 hover:bg-rose-100 rounded-xl transition text-right">
+                    <i class="fas fa-comments text-rose-600 ml-2"></i><span class="font-bold text-rose-700">مقابلة إنهاء</span>
+                </button>
+                <button onclick="app.handleEmployeeMenuAction('resignations','تحديث حالة الاستقالة')" class="p-4 bg-amber-50 hover:bg-amber-100 rounded-xl transition text-right">
+                    <i class="fas fa-sync text-amber-600 ml-2"></i><span class="font-bold text-amber-700">تحديث الحالة</span>
+                </button>
+                <button onclick="app.handleEmployeeMenuAction('resignations','تصدير تقرير الاستقالات')" class="p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition text-right">
+                    <i class="fas fa-download text-blue-600 ml-2"></i><span class="font-bold text-blue-700">تصدير</span>
+                </button>
+            </div>
+        </div>`;
     };
 
     const renderEmployeeSettlement = () => {
         return `
         <div class="space-y-6 animate-fade-in">
-            <div>
-                <h2 class="text-3xl font-bold text-slate-800 flex items-center gap-3">
-                    <i class="fas fa-file-signature text-brand-600"></i>
-                    تسوية حساب موظف
-                </h2>
-                <p class="text-slate-500 mt-1">احتساب المستحقات والخصومات النهائية</p>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-800 flex items-center gap-3">
+                        <i class="fas fa-file-signature text-brand-600"></i>
+                        تسوية حساب موظف
+                    </h2>
+                    <p class="text-slate-500 mt-1">احتساب المستحقات والخصومات النهائية وإصدار مخالصة نهاية الخدمة</p>
+                </div>
+                <button onclick="app.handleEmployeeMenuAction('employee-settlement','فتح تسوية جديدة')" class="px-6 py-3 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition font-bold">
+                    <i class="fas fa-plus ml-2"></i>
+                    تسوية جديدة
+                </button>
             </div>
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-                <div class="text-center py-12 text-slate-500">
-                    <i class="fas fa-file-signature text-6xl text-slate-300 mb-4"></i>
-                    <p class="text-lg font-bold">إجراءات التسوية</p>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-5 border border-blue-200">
+                    <p class="text-sm text-blue-700 font-bold">تسويات قيد المعالجة</p>
+                    <p class="text-3xl font-black text-blue-800 mt-2">4</p>
+                </div>
+                <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl p-5 border border-emerald-200">
+                    <p class="text-sm text-emerald-700 font-bold">مستحقات إجمالية</p>
+                    <p class="text-3xl font-black text-emerald-800 mt-2">86K SAR</p>
+                </div>
+                <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-5 border border-red-200">
+                    <p class="text-sm text-red-700 font-bold">خصومات</p>
+                    <p class="text-3xl font-black text-red-800 mt-2">12K SAR</p>
+                </div>
+                <div class="bg-gradient-to-br from-violet-50 to-violet-100 rounded-2xl p-5 border border-violet-200">
+                    <p class="text-sm text-violet-700 font-bold">صافي المخالصة</p>
+                    <p class="text-3xl font-black text-violet-800 mt-2">74K SAR</p>
                 </div>
             </div>
-        </div>
-        `;
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">تفاصيل التسوية</h3>
+                    <div class="space-y-3 text-sm">
+                        ${[
+                            { label: 'راتب مستحق', value: '18,500 SAR', tone: 'text-emerald-600' },
+                            { label: 'بدل إجازات', value: '6,200 SAR', tone: 'text-emerald-600' },
+                            { label: 'مكافأة نهاية خدمة', value: '9,800 SAR', tone: 'text-emerald-600' },
+                            { label: 'سلف مستحقة', value: '-4,500 SAR', tone: 'text-red-600' },
+                            { label: 'عهد غير مسترد', value: '-2,100 SAR', tone: 'text-red-600' },
+                            { label: 'الصافي', value: '27,900 SAR', tone: 'text-violet-700 font-black' }
+                        ].map(row => `
+                            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                <span class="text-slate-600">${row.label}</span>
+                                <span class="${row.tone}">${row.value}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">سجل التسويات</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-50 border-b">
+                                <tr>
+                                    <th class="px-3 py-2 text-right">الموظف</th>
+                                    <th class="px-3 py-2 text-right">التاريخ</th>
+                                    <th class="px-3 py-2 text-right">الصافي</th>
+                                    <th class="px-3 py-2 text-right">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                ${[
+                                    { emp: 'عبدالله الحربي', date: '2026-02-05', net: '27,900 SAR', status: 'بانتظار الاعتماد' },
+                                    { emp: 'ريم القحطاني', date: '2026-01-18', net: '19,400 SAR', status: 'معتمد' },
+                                    { emp: 'يوسف الدوسري', date: '2025-12-30', net: '31,200 SAR', status: 'مدفوع' }
+                                ].map(row => `
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-3 py-2 font-bold">${row.emp}</td>
+                                        <td class="px-3 py-2">${row.date}</td>
+                                        <td class="px-3 py-2">${row.net}</td>
+                                        <td class="px-3 py-2">${row.status}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <button onclick="app.handleEmployeeMenuAction('employee-settlement','احتساب المخالصة')" class="p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition text-right">
+                    <i class="fas fa-calculator text-blue-600 ml-2"></i><span class="font-bold text-blue-700">احتساب</span>
+                </button>
+                <button onclick="app.handleEmployeeMenuAction('employee-settlement','اعتماد التسوية')" class="p-4 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition text-right">
+                    <i class="fas fa-stamp text-emerald-600 ml-2"></i><span class="font-bold text-emerald-700">اعتماد</span>
+                </button>
+                <button onclick="app.handleEmployeeMenuAction('employee-settlement','تصدير مخالصة نهاية الخدمة')" class="p-4 bg-violet-50 hover:bg-violet-100 rounded-xl transition text-right">
+                    <i class="fas fa-file-export text-violet-600 ml-2"></i><span class="font-bold text-violet-700">تصدير</span>
+                </button>
+            </div>
+        </div>`;
     };
 
     const markAttendance = () => {
@@ -25819,7 +26122,7 @@ const app = (() => {
         handleApprovalDecision: () => {}, editApproval: () => {}, saveApprovalEdit: () => {}, refreshHierarchy: () => loadRoute('hierarchy'),
         openCreateLinkModal, closeCreateLinkModal, submitCreateLink, deleteLink, changeTenant, logout, viewEntityDetails,
         openRequestModal, submitRequest, filterRequests, viewRequestDetails, deleteRequest,
-        loadBranchRelationships, viewBranchDetails, markAttendance, registerAttendance,
+        loadBranchRelationships, viewBranchDetails, markAttendance, registerAttendance, handleEmployeeMenuAction,
         filterRecordsArchiveHome, resetRecordsArchiveHomeFilters, createRecordsArchiveEntry,
         closeRecordsArchiveCreateModal, submitRecordsArchiveEntry,
         viewRecordsArchiveHomeRecord, previewRecordsArchiveHomeRecord, editRecordsArchiveHomeRecord,
