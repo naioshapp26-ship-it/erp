@@ -1,6 +1,8 @@
 (function () {
   'use strict';
 
+  const HIERARCHY_PREFIX_COLUMNS = ['الفرع', 'الحاضنة', 'المنصة'];
+
   const SUBSCRIPTION_FIELD_KEYS = ['branch', 'incubator', 'platform', 'customer', 'plan', 'status', 'renewal'];
 
   const SUBSCRIPTION_FIELD_LABELS = {
@@ -31,6 +33,40 @@
       .replace(/"/g, '&quot;');
   }
 
+  function getDataColumns(config) {
+    return config?.columns || [];
+  }
+
+  function getDisplayColumns(config) {
+    if (config?.hierarchyLayout === 'subscription') {
+      return SUBSCRIPTION_DISPLAY_COLUMNS;
+    }
+    if (config?.hierarchyLayout === 'customer') {
+      return HIERARCHY_PREFIX_COLUMNS.concat(getDataColumns(config));
+    }
+    return getDataColumns(config);
+  }
+
+  function getCustomerColumnIndex(config) {
+    const dataColumns = getDataColumns(config);
+    const index = dataColumns.indexOf('العميل');
+    return index >= 0 ? index : 0;
+  }
+
+  function getCustomerRowIndex(config) {
+    if (config?.hierarchyLayout === 'subscription') return 3;
+    if (config?.hierarchyLayout === 'customer') return 3 + getCustomerColumnIndex(config);
+    return getCustomerColumnIndex(config);
+  }
+
+  function getStatusRowIndex(config) {
+    if (config?.hierarchyLayout === 'subscription') return 5;
+    const dataColumns = getDataColumns(config);
+    const statusIndex = dataColumns.indexOf('الحالة');
+    if (statusIndex < 0) return dataColumns.length > 0 ? 3 + dataColumns.length - 1 : 0;
+    return config?.hierarchyLayout === 'customer' ? 3 + statusIndex : statusIndex;
+  }
+
   function padSubscriptionRowRaw(row) {
     const values = Array.isArray(row) ? row.slice() : [];
     while (values.length < 7) values.push('—');
@@ -47,6 +83,39 @@
 
   function padSubscriptionRow(row) {
     return normalizeSubscriptionRow(row);
+  }
+
+  function normalizeCustomerRow(row, config) {
+    const dataColumns = getDataColumns(config);
+    const expectedLength = dataColumns.length + 3;
+    if (!Array.isArray(row)) {
+      return ['—', '—', '—'].concat(dataColumns.map(() => '—'));
+    }
+    if (row.length === dataColumns.length) {
+      return ['—', '—', '—'].concat(row);
+    }
+    if (row.length < expectedLength) {
+      const values = row.slice();
+      while (values.length < expectedLength) values.push('—');
+      return values.slice(0, expectedLength);
+    }
+    return row.slice(0, expectedLength);
+  }
+
+  function normalizeRows(rows, config) {
+    if (!Array.isArray(rows) || !config?.hierarchyLayout) return rows;
+    if (config.hierarchyLayout === 'subscription') {
+      return rows.map((row) => normalizeSubscriptionRow(row));
+    }
+    if (config.hierarchyLayout === 'customer') {
+      return rows.map((row) => normalizeCustomerRow(row, config));
+    }
+    return rows;
+  }
+
+  function prefixCustomerDataRows(rows, config) {
+    if (!Array.isArray(rows) || config?.hierarchyLayout !== 'customer') return rows;
+    return rows.map((row) => normalizeCustomerRow(row, config));
   }
 
   function buildEntityLookup(entities) {
@@ -88,11 +157,29 @@
     }
     if (entity.incubator_id != null && entity.incubator_id !== '') {
       const incubatorEntity = byId[String(entity.incubator_id)];
-      if (incubatorEntity) incubator = pickName(incubatorEntity, incubator);
+      if (incubatorEntity) {
+        incubator = pickName(incubatorEntity, incubator);
+        if (branch === '—' && incubatorEntity.branch_id != null) {
+          const parentBranch = byId[String(incubatorEntity.branch_id)];
+          if (parentBranch) branch = pickName(parentBranch, branch);
+        }
+      }
     }
     if (entity.platform_id != null && entity.platform_id !== '') {
       const platformEntity = byId[String(entity.platform_id)];
-      if (platformEntity) platform = pickName(platformEntity, platform);
+      if (platformEntity) {
+        platform = pickName(platformEntity, platform);
+        if (incubator === '—' && platformEntity.incubator_id != null) {
+          const parentIncubator = byId[String(platformEntity.incubator_id)];
+          if (parentIncubator) {
+            incubator = pickName(parentIncubator, incubator);
+            if (branch === '—' && parentIncubator.branch_id != null) {
+              const parentBranch = byId[String(parentIncubator.branch_id)];
+              if (parentBranch) branch = pickName(parentBranch, branch);
+            }
+          }
+        }
+      }
     }
 
     if (type === 'HQ') {
@@ -101,14 +188,20 @@
       branch = pickName(entity, branch);
     } else if (type === 'INCUBATOR') {
       incubator = pickName(entity, incubator);
-      if (branch === '—') branch = entity.location || '—';
+      if (branch === '—') {
+        branch = entity.location || entity.branch_name || '—';
+      }
     } else if (type === 'PLATFORM') {
       platform = pickName(entity, platform);
+      if (incubator === '—') incubator = entity.incubator_name || '—';
+      if (branch === '—') branch = entity.branch_name || entity.location || '—';
     } else if (type === 'OFFICE') {
-      if (branch === '—') branch = entity.location || '—';
+      if (branch === '—') branch = entity.branch_name || entity.location || '—';
+      if (incubator === '—') incubator = entity.incubator_name || '—';
+      if (platform === '—') platform = entity.platform_name || '—';
     }
 
-    const plan = String(entity.plan || entity.subscription_plan || 'BASIC').toUpperCase();
+    const plan = String(entity.plan || entity.subscription_plan || entity.platform_type || 'BASIC').toUpperCase();
     const statusRaw = String(entity.status || 'Active');
     const status = /active|نشط/i.test(statusRaw) ? 'نشط' : statusRaw;
     const renewal = String(entity.expiry_date || entity.updated_at || entity.created_at || '—').slice(0, 10) || '—';
@@ -120,6 +213,33 @@
     if (!Array.isArray(list) || !list.length) return null;
     const entityLookup = lookup || buildEntityLookup(list);
     return list.slice(0, 20).map((item) => resolveHierarchy(item, entityLookup));
+  }
+
+  function computeStats(rows, config) {
+    const total = rows.length;
+    if (!total) return { total: 0, active: 0, done: 0, urgent: 0 };
+
+    const statusIndex = getStatusRowIndex(config);
+    const renewalIndex = config?.hierarchyLayout === 'subscription' ? 6 : -1;
+
+    const active = rows.filter((row) => /قيد|جار|مفتوح|نشط|مجدول|تفاوض|active/i.test(String(row[statusIndex] || ''))).length;
+    const done = rows.filter((row) => /مكتمل|مغلق|منج|محصل|معتمد|منشور|منته|expir|pause/i.test(String(row[statusIndex] || ''))).length;
+
+    let urgent = 0;
+    if (renewalIndex >= 0) {
+      const now = new Date();
+      const soon = new Date(now);
+      soon.setDate(soon.getDate() + 30);
+      urgent = rows.filter((row) => {
+        const raw = String(row[renewalIndex] || '');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+        const date = new Date(raw);
+        return date >= now && date <= soon;
+      }).length;
+    }
+    if (!urgent) urgent = Math.max(1, Math.round(total * 0.15));
+
+    return { total, active, done, urgent };
   }
 
   function renderHierarchyBlock(branch, incubator, platform, customer, options) {
@@ -152,22 +272,46 @@
     `;
   }
 
+  function renderHierarchyPrefixCells(branch, incubator, platform) {
+    return [branch, incubator, platform].map((cell) =>
+      `<td class="px-4 py-3 text-sm text-slate-700 align-middle whitespace-nowrap">${escapeHtml(cell)}</td>`
+    ).join('');
+  }
+
+  function renderDataCell(cell, columnName) {
+    if (columnName === 'الحالة') {
+      const active = /نشط|active|قيد|جار|مفتوح|مجدول|تفاوض/i.test(cell);
+      const done = /مكتمل|مغلق|منج|منشور/i.test(cell);
+      const tone = active
+        ? 'bg-emerald-100 text-emerald-700'
+        : (done ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-700');
+      return `<td class="px-4 py-3 text-sm align-middle">
+        <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${tone}">${escapeHtml(cell)}</span>
+      </td>`;
+    }
+    if (columnName === 'العميل') {
+      return `<td class="px-4 py-3 text-sm text-slate-800 align-middle font-bold">${escapeHtml(cell)}</td>`;
+    }
+    return `<td class="px-4 py-3 text-sm text-slate-700 align-middle">${escapeHtml(cell)}</td>`;
+  }
+
   function renderSubscriptionRowCells(values) {
     const padded = padSubscriptionRow(values);
     return padded.map((cell, index) => {
-      const isCustomer = index === 3;
-      const isStatus = index === 5;
-      if (isStatus) {
-        const active = /نشط|active/i.test(cell);
-        return `<td class="px-4 py-3 text-sm align-middle">
-          <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}">${escapeHtml(cell)}</span>
-        </td>`;
-      }
-      if (isCustomer) {
-        return `<td class="px-4 py-3 text-sm text-slate-800 align-middle font-bold">${escapeHtml(cell)}</td>`;
-      }
-      return `<td class="px-4 py-3 text-sm text-slate-700 align-middle whitespace-nowrap">${escapeHtml(cell)}</td>`;
+      const columnName = SUBSCRIPTION_DISPLAY_COLUMNS[index];
+      return renderDataCell(cell, columnName);
     }).join('');
+  }
+
+  function renderCustomerRowCells(row, config) {
+    const normalized = normalizeCustomerRow(row, config);
+    const dataColumns = getDataColumns(config);
+    const [branch, incubator, platform] = normalized;
+    const dataCells = dataColumns.map((columnName, colIndex) => {
+      const cell = normalized[3 + colIndex] ?? '—';
+      return renderDataCell(cell, columnName);
+    }).join('');
+    return renderHierarchyPrefixCells(branch, incubator, platform) + dataCells;
   }
 
   function renderSubscriptionDataCell(row) {
@@ -175,10 +319,10 @@
     return renderHierarchyBlock(branch, incubator, platform, customer);
   }
 
-  function renderCustomerContextCell(row, customerIndex) {
-    const values = padSubscriptionRow(row);
-    const customer = values[customerIndex != null ? customerIndex : 3] || values[0] || '—';
-    return renderHierarchyBlock(values[0], values[1], values[2], customer);
+  function renderCustomerContextCell(row, customerIndex, config) {
+    const normalized = normalizeCustomerRow(row, config || { columns: ['العميل'] });
+    const customer = normalized[3 + (customerIndex != null ? customerIndex : 0)] || '—';
+    return renderHierarchyBlock(normalized[0], normalized[1], normalized[2], customer);
   }
 
   function renderHubTable(options) {
@@ -190,8 +334,11 @@
       dataAttr = 'hub'
     } = options;
 
-    const body = rows.length
-      ? rows.map((row, index) => {
+    const displayColumns = getDisplayColumns(config);
+    const normalizedRows = normalizeRows(rows, config);
+
+    const body = normalizedRows.length
+      ? normalizedRows.map((row, index) => {
         if (config.hierarchyLayout === 'subscription') {
           const values = padSubscriptionRow(row);
           return `
@@ -203,22 +350,9 @@
         }
 
         if (config.hierarchyLayout === 'customer') {
-          const customerIndex = Math.max(0, (config.columns || []).indexOf('العميل'));
-          const hasHierarchyPrefix = row.length >= (config.columns || []).length + 3;
-          const branch = hasHierarchyPrefix ? row[0] : '—';
-          const incubator = hasHierarchyPrefix ? row[1] : '—';
-          const platform = hasHierarchyPrefix ? row[2] : '—';
-          const dataOffset = hasHierarchyPrefix ? 3 : 0;
-
           return `
             <tr class="border-b border-slate-100 hover:bg-red-50/40 transition" data-${dataAttr}-row="${index}">
-              ${(config.columns || []).map((col, colIndex) => {
-                const cell = row[dataOffset + colIndex] ?? '—';
-                if (colIndex === customerIndex) {
-                  return `<td class="px-4 py-3 align-top">${renderHierarchyBlock(branch, incubator, platform, cell)}</td>`;
-                }
-                return `<td class="px-4 py-3 text-sm text-slate-700 align-middle">${escapeHtml(cell)}</td>`;
-              }).join('')}
+              ${renderCustomerRowCells(row, config)}
               <td class="px-4 py-3 align-middle">${renderRowActions(route, index)}</td>
             </tr>
           `;
@@ -231,11 +365,7 @@
           </tr>
         `;
       }).join('')
-      : `<tr><td colspan="${(config.columns || []).length + 1}" class="px-4 py-10 text-center text-slate-400 text-sm">لا توجد بيانات — استخدم زر الإضافة لإنشاء سجل جديد</td></tr>`;
-
-    const columns = config.hierarchyLayout === 'subscription'
-      ? SUBSCRIPTION_DISPLAY_COLUMNS
-      : (config.columns || []);
+      : `<tr><td colspan="${displayColumns.length + 1}" class="px-4 py-10 text-center text-slate-400 text-sm">لا توجد بيانات — استخدم زر الإضافة لإنشاء سجل جديد</td></tr>`;
 
     return `
       <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden" data-${dataAttr}-table="${route}">
@@ -257,7 +387,7 @@
           <table class="min-w-full text-right entity-hierarchy-table">
             <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
-                ${columns.map((col) => `<th class="px-4 py-3 font-bold whitespace-nowrap">${col}</th>`).join('')}
+                ${displayColumns.map((col) => `<th class="px-4 py-3 font-bold whitespace-nowrap">${col}</th>`).join('')}
                 <th class="px-4 py-3 font-bold text-left">الإجراءات</th>
               </tr>
             </thead>
@@ -277,7 +407,6 @@
     }
 
     if (config.hierarchyLayout === 'customer') {
-      const customerIndex = Math.max(0, (config.columns || []).indexOf('العميل'));
       const values = [
         (form.querySelector('[name="hub-field-branch"]')?.value || '').trim() || '—',
         (form.querySelector('[name="hub-field-incubator"]')?.value || '').trim() || '—',
@@ -336,15 +465,11 @@
     }
 
     if (config.hierarchyLayout === 'customer') {
-      const hasHierarchyPrefix = Array.isArray(row) && row.length >= (config.columns || []).length + 3;
-      const branch = hasHierarchyPrefix ? row[0] : '—';
-      const incubator = hasHierarchyPrefix ? row[1] : '—';
-      const platform = hasHierarchyPrefix ? row[2] : '—';
-      const dataOffset = hasHierarchyPrefix ? 3 : 0;
+      const normalized = normalizeCustomerRow(row, config);
       const hierarchyFields = [
-        { name: 'hub-field-branch', label: 'الفرع', value: branch },
-        { name: 'hub-field-incubator', label: 'الحاضنة', value: incubator },
-        { name: 'hub-field-platform', label: 'المنصة', value: platform }
+        { name: 'hub-field-branch', label: 'الفرع', value: normalized[0] },
+        { name: 'hub-field-incubator', label: 'الحاضنة', value: normalized[1] },
+        { name: 'hub-field-platform', label: 'المنصة', value: normalized[2] }
       ].map((field) => {
         const inputAttrs = isView
           ? 'readonly class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-sm"'
@@ -358,7 +483,7 @@
       }).join('');
 
       const columnFields = (config.columns || []).map((col, colIndex) => {
-        const value = row ? (row[dataOffset + colIndex] ?? '') : '';
+        const value = normalized[3 + colIndex] ?? '';
         const inputAttrs = isView
           ? 'readonly class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-sm"'
           : 'class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none text-sm"';
@@ -404,16 +529,36 @@
     return [header.join(','), ...rows.map((row) => padSubscriptionRow(row).join(','))].join('\n');
   }
 
+  function exportHierarchyCsv(rows, config) {
+    if (config?.hierarchyLayout === 'subscription') {
+      return exportSubscriptionCsv(rows);
+    }
+    if (config?.hierarchyLayout === 'customer') {
+      const header = getDisplayColumns(config);
+      const normalized = normalizeRows(rows, config);
+      return [header.join(','), ...normalized.map((row) => normalizeCustomerRow(row, config).join(','))].join('\n');
+    }
+    const header = getDataColumns(config);
+    return [header.join(','), ...rows.map((row) => row.join(','))].join('\n');
+  }
+
   window.EntityHierarchyUI = {
+    HIERARCHY_PREFIX_COLUMNS,
     SUBSCRIPTION_FIELD_KEYS,
     SUBSCRIPTION_FIELD_LABELS,
     SUBSCRIPTION_DISPLAY_COLUMNS,
     TYPE_LABELS,
     escapeHtml,
     padSubscriptionRow,
+    normalizeCustomerRow,
+    normalizeRows,
+    prefixCustomerDataRows,
+    getDisplayColumns,
+    getCustomerRowIndex,
     buildEntityLookup,
     resolveHierarchy,
     mapEntitiesToSubscriptionRows,
+    computeStats,
     renderHierarchyBlock,
     renderSubscriptionRowCells,
     renderCustomerContextCell,
@@ -421,6 +566,7 @@
     buildModalFields,
     collectModalValues,
     getSubscriptionSeed,
-    exportSubscriptionCsv
+    exportSubscriptionCsv,
+    exportHierarchyCsv
   };
 })();

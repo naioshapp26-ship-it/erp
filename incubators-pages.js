@@ -196,7 +196,12 @@
       const raw = localStorage.getItem(STORAGE_PREFIX + route);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : null;
+      if (!Array.isArray(parsed)) return null;
+      const config = PAGE_CONFIGS[route];
+      if (config?.hierarchyLayout && window.EntityHierarchyUI) {
+        return window.EntityHierarchyUI.normalizeRows(parsed, config);
+      }
+      return parsed;
     } catch (_) {
       return null;
     }
@@ -219,12 +224,17 @@
       ]);
     }
     if (route === 'ic-sales' || route === 'ic-operational-finance') {
-      return list.slice(0, 12).map((item) => [
+      const mapped = list.slice(0, 12).map((item) => [
         item.customer_name || item.client_name || item.title || item.invoice_number || '—',
         item.total_amount || item.amount || item.total || '—',
         item.status || '—',
         (item.created_at || item.issue_date || '').toString().slice(0, 10) || '—'
       ]);
+      const config = PAGE_CONFIGS[route];
+      if (config?.hierarchyLayout && window.EntityHierarchyUI) {
+        return window.EntityHierarchyUI.prefixCustomerDataRows(mapped, config);
+      }
+      return mapped;
     }
     if (route === 'ic-subscriptions') {
       const hierarchy = window.EntityHierarchyUI;
@@ -241,7 +251,20 @@
         (item.expiry_date || item.updated_at || '').toString().slice(0, 10) || '—'
       ]);
     }
-    if (route === 'ic-customer-service' || route === 'ic-daily-operations') {
+    if (route === 'ic-customer-service') {
+      const mapped = list.slice(0, 12).map((item) => [
+        item.customer_name || item.employee_name || item.request_title || '—',
+        item.request_title || item.title || '—',
+        item.priority || '—',
+        item.status || '—'
+      ]);
+      const config = PAGE_CONFIGS[route];
+      if (config?.hierarchyLayout && window.EntityHierarchyUI) {
+        return window.EntityHierarchyUI.prefixCustomerDataRows(mapped, config);
+      }
+      return mapped;
+    }
+    if (route === 'ic-daily-operations') {
       return list.slice(0, 12).map((item) => [
         item.request_title || item.title || item.employee_name || '—',
         item.employee_name || item.request_type || '—',
@@ -252,7 +275,11 @@
     return null;
   }
 
-  function computeStats(rows) {
+  function computeStats(rows, route) {
+    const config = route ? PAGE_CONFIGS[route] : null;
+    if (config?.hierarchyLayout && window.EntityHierarchyUI) {
+      return window.EntityHierarchyUI.computeStats(rows, config);
+    }
     const total = rows.length;
     const active = rows.filter((row) => /قيد|جار|مفتوح|نشط|مجدول|تفاوض/i.test(String(row[3] || row[2]))).length;
     const done = rows.filter((row) => /مكتمل|مغلق|منج|محصل|معتمد|منشور/i.test(String(row[3] || row[2]))).length;
@@ -271,7 +298,11 @@
   function getRows(route) {
     const config = PAGE_CONFIGS[route];
     if (!config) return [];
-    return loadLocalRows(route) || config.seed.slice();
+    const rows = loadLocalRows(route) || config.seed.slice();
+    if (config.hierarchyLayout && window.EntityHierarchyUI) {
+      return window.EntityHierarchyUI.normalizeRows(rows, config);
+    }
+    return rows;
   }
 
   function renderRowActions(route, index) {
@@ -350,8 +381,8 @@
       return '<div class="p-6 text-center text-slate-500">الصفحة غير موجودة</div>';
     }
 
-    const rows = loadLocalRows(route) || config.seed;
-    const stats = computeStats(rows);
+    const rows = getRows(route);
+    const stats = computeStats(rows, route);
 
     return `
       <div class="space-y-6" data-ic-page="${route}">
@@ -382,7 +413,7 @@
 
   async function fetchRows(route) {
     const config = PAGE_CONFIGS[route];
-    if (!config?.api) return loadLocalRows(route) || config.seed;
+    if (!config?.api) return getRows(route);
 
     try {
       const response = await fetch(config.api, { headers: getEntityHeaders(), credentials: 'same-origin' });
@@ -396,11 +427,11 @@
     } catch (error) {
       console.warn('[Incubators] API fallback for', route, error.message);
     }
-    return loadLocalRows(route) || config.seed;
+    return getRows(route);
   }
 
   function refreshStats(route, rows) {
-    const stats = computeStats(rows);
+    const stats = computeStats(rows, route);
     Object.keys(stats).forEach((key) => {
       const el = document.querySelector(`[data-ic-stat="${route}:${key}"]`);
       if (el) el.textContent = String(stats[key]);
@@ -496,7 +527,9 @@
           return (input?.value || '').trim() || '—';
         });
 
-      const requiredIndex = (config.hierarchyLayout === 'subscription' || config.hierarchyLayout === 'customer') ? 3 : 0;
+      const requiredIndex = config.hierarchyLayout && window.EntityHierarchyUI
+        ? window.EntityHierarchyUI.getCustomerRowIndex(config)
+        : 0;
       if (!values[requiredIndex] || values[requiredIndex] === '—') {
         toast('يرجى تعبئة بيانات العميل على الأقل', 'error');
         return;
@@ -544,8 +577,8 @@
 
     if (action === 'export') {
       const rows = getRows(route);
-      const csv = config.hierarchyLayout === 'subscription' && window.EntityHierarchyUI
-        ? window.EntityHierarchyUI.exportSubscriptionCsv(rows)
+      const csv = config.hierarchyLayout && window.EntityHierarchyUI
+        ? window.EntityHierarchyUI.exportHierarchyCsv(rows, config)
         : [config.columns.join(','), ...rows.map((row) => row.join(','))].join('\n');
       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
