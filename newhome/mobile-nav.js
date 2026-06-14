@@ -1,5 +1,5 @@
 (() => {
-  const MOBILE_BREAKPOINT = 740;
+  const MOBILE_BREAKPOINT = 768;
   let backdropEl = null;
 
   const getBackdrop = () => {
