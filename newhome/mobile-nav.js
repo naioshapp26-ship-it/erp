@@ -1,9 +1,22 @@
 (() => {
   const MOBILE_BREAKPOINT = 740;
+  let backdropEl = null;
+
+  const getBackdrop = () => {
+    if (!backdropEl) {
+      backdropEl = document.createElement('div');
+      backdropEl.className = 'mobile-nav-backdrop';
+      backdropEl.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(backdropEl);
+    }
+    return backdropEl;
+  };
 
   const syncMenuState = (header, isOpen) => {
     header.classList.toggle('is-mobile-nav-open', isOpen);
     document.body.classList.toggle('mobile-nav-lock', isOpen);
+    const backdrop = getBackdrop();
+    backdrop.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     const toggle = header.querySelector('.mobile-nav-toggle');
     if (toggle) {
       toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -42,23 +55,26 @@
     const closeMenu = () => syncMenuState(header, false);
 
     toggle.addEventListener('click', (event) => {
+      event.preventDefault();
       event.stopPropagation();
       const nextState = !header.classList.contains('is-mobile-nav-open');
       syncMenuState(header, nextState);
     });
 
-    header.addEventListener('click', (event) => {
-      if (event.target === header && header.classList.contains('is-mobile-nav-open')) {
-        closeMenu();
-      }
-    });
+    getBackdrop().addEventListener('click', closeMenu);
 
-    header.querySelectorAll('.nav-links a, .auth-actions a, .mobile-header-login').forEach((link) => {
+    header.querySelectorAll('.nav-links a, .auth-actions a').forEach((link) => {
       link.addEventListener('click', closeMenu);
     });
 
     header.querySelectorAll('.nav-dropdown-menu a').forEach((link) => {
       link.addEventListener('click', closeMenu);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && header.classList.contains('is-mobile-nav-open')) {
+        closeMenu();
+      }
     });
 
     const mediaQuery = window.matchMedia(`(min-width: ${MOBILE_BREAKPOINT + 1}px)`);
