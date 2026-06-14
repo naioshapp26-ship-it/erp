@@ -29,6 +29,7 @@
       icon: 'fa-chart-line',
       gradient: 'from-red-800 to-rose-600',
       api: '/api/invoices',
+      hierarchyLayout: 'customer',
       stats: [
         { key: 'total', label: 'الصفقات', icon: 'fa-handshake', tone: 'text-red-700' },
         { key: 'active', label: 'قيد المتابعة', icon: 'fa-hourglass-half', tone: 'text-amber-600' },
@@ -37,28 +38,30 @@
       ],
       columns: ['العميل', 'القيمة', 'الحالة', 'التاريخ'],
       seed: [
-        ['شركة المدار', '45,000 ر.س', 'تفاوض', '2026-06-08'],
-        ['مؤسسة الحلول', '18,500 ر.س', 'عرض مرسل', '2026-06-07'],
-        ['مجموعة الريادة', '92,000 ر.س', 'مغلقة', '2026-06-05']
+        ['فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'شركة المدار', '45,000 ر.س', 'تفاوض', '2026-06-08'],
+        ['فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'مؤسسة الحلول', '18,500 ر.س', 'عرض مرسل', '2026-06-07'],
+        ['المكتب الرئيسي', '—', '—', 'مجموعة الريادة', '92,000 ر.س', 'مغلقة', '2026-06-05']
       ]
     },
     'eo-subscriptions': {
       title: 'الاشتراكات',
-      subtitle: 'إدارة خطط الاشتراك وتجديد العملاء',
+      subtitle: 'إدارة خطط الاشتراك وتجديد العملاء مع بيانات الفرع والحاضنة والمنصة',
       icon: 'fa-cubes',
       gradient: 'from-red-900 to-red-700',
       api: '/api/entities',
+      hierarchyLayout: 'subscription',
       stats: [
         { key: 'total', label: 'الاشتراكات', icon: 'fa-layer-group', tone: 'text-red-700' },
         { key: 'active', label: 'نشطة', icon: 'fa-circle-play', tone: 'text-emerald-600' },
         { key: 'done', label: 'منتهية', icon: 'fa-circle-pause', tone: 'text-slate-500' },
         { key: 'urgent', label: 'تنتهي قريباً', icon: 'fa-clock', tone: 'text-amber-600' }
       ],
-      columns: ['العميل', 'الخطة', 'الحالة', 'التجديد'],
+      columns: ['بيانات الاشتراك', 'الخطة', 'الحالة', 'التجديد'],
       seed: [
-        ['NAIOSH HQ', 'Enterprise', 'نشط', '2026-12-01'],
-        ['فرع الرياض', 'Pro', 'نشط', '2026-09-15'],
-        ['مكتب جدة', 'Basic', 'تجريبي', '2026-07-01']
+        ['المكتب الرئيسي', '—', '—', 'NAIOSH HQ', 'ENTERPRISE', 'نشط', '2026-12-01'],
+        ['فرع الرياض', 'حاضنة الرياض التقنية', 'منصة الرياض', 'Barija', 'PRO', 'نشط', '2026-09-15'],
+        ['فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'Lite Co', 'BASIC', 'نشط', '2026-07-01'],
+        ['فرع الدمام', '—', '—', 'Dammam Office', 'BASIC', 'نشط', '2026-06-08']
       ]
     },
     'eo-training': {
@@ -86,6 +89,7 @@
       icon: 'fa-headset',
       gradient: 'from-red-800 to-pink-600',
       api: '/api/employee-requests',
+      hierarchyLayout: 'customer',
       stats: [
         { key: 'total', label: 'التذاكر', icon: 'fa-ticket', tone: 'text-red-700' },
         { key: 'active', label: 'مفتوحة', icon: 'fa-envelope-open', tone: 'text-amber-600' },
@@ -94,9 +98,9 @@
       ],
       columns: ['العميل', 'الموضوع', 'الأولوية', 'الحالة'],
       seed: [
-        ['عميل 1042', 'تأخر تفعيل الحساب', 'عالية', 'قيد المعالجة'],
-        ['عميل 2201', 'استفسار فاتورة', 'متوسطة', 'تم الرد'],
-        ['عميل 3310', 'طلب تدريب', 'منخفضة', 'مغلقة']
+        ['فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'عميل 1042', 'تأخر تفعيل الحساب', 'عالية', 'قيد المعالجة'],
+        ['فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'عميل 2201', 'استفسار فاتورة', 'متوسطة', 'تم الرد'],
+        ['فرع الدمام', '—', '—', 'عميل 3310', 'طلب تدريب', 'منخفضة', 'مغلقة']
       ]
     },
     'eo-operational-reports': {
@@ -234,6 +238,7 @@
       subtitle: 'طلبات الاستشارة والمتابعة مع الخبراء',
       icon: 'fa-user-tie',
       gradient: 'from-red-900 to-red-700',
+      hierarchyLayout: 'customer',
       stats: [
         { key: 'total', label: 'الاستشارات', icon: 'fa-comments', tone: 'text-red-700' },
         { key: 'active', label: 'قيد الدراسة', icon: 'fa-magnifying-glass', tone: 'text-amber-600' },
@@ -242,9 +247,9 @@
       ],
       columns: ['الموضوع', 'العميل', 'المستشار', 'الحالة'],
       seed: [
-        ['تحسين العمليات', 'فرع الشرقية', 'خبير تشغيل', 'قيد الدراسة'],
-        ['تقييم مالي', 'مكتب جدة', 'مستشار مالي', 'مجدولة'],
-        ['خطة تدريب', 'حاضنة الرياض', 'خبير تدريب', 'مغلقة']
+        ['فرع الشرقية', 'حاضنة الشرقية', 'منصة الشرقية', 'تحسين العمليات', 'فرع الشرقية', 'خبير تشغيل', 'قيد الدراسة'],
+        ['فرع جدة', 'حاضنة جدة', 'منصة جدة', 'تقييم مالي', 'مكتب جدة', 'مستشار مالي', 'مجدولة'],
+        ['فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'خطة تدريب', 'حاضنة الرياض', 'خبير تدريب', 'مغلقة']
       ]
     },
     'eo-latest-news': {
@@ -353,11 +358,18 @@
       ]);
     }
     if (route === 'eo-subscriptions') {
+      const hierarchy = window.EntityHierarchyUI;
+      if (hierarchy) {
+        return hierarchy.mapEntitiesToSubscriptionRows(list, hierarchy.buildEntityLookup(list));
+      }
       return list.slice(0, 12).map((item) => [
-        item.name || item.company_name || item.entity_name || '—',
-        item.plan || item.type || '—',
+        item.branch_name || '—',
+        item.incubator_name || '—',
+        item.platform_name || item.name || '—',
+        item.name || item.code || '—',
+        item.plan || item.platform_type || '—',
         item.status || 'نشط',
-        (item.updated_at || '').toString().slice(0, 10) || '—'
+        (item.expiry_date || item.updated_at || '').toString().slice(0, 10) || '—'
       ]);
     }
     if (route === 'eo-customer-service' || route === 'eo-tasks' || route === 'eo-daily-operations') {
@@ -429,6 +441,16 @@
   }
 
   function renderTable(route, config, rows) {
+    if (config.hierarchyLayout && window.EntityHierarchyUI) {
+      return window.EntityHierarchyUI.renderHubTable({
+        route,
+        config,
+        rows,
+        renderRowActions,
+        dataAttr: 'eo'
+      });
+    }
+
     const body = rows.length
       ? rows.map((row, index) => `
       <tr class="border-b border-slate-100 hover:bg-red-50/40 transition" data-eo-row="${index}">
@@ -561,18 +583,20 @@
 
     closeModal();
 
-    const fields = config.columns.map((col, colIndex) => {
-      const value = row ? (row[colIndex] ?? '') : '';
-      const inputAttrs = isView
-        ? `readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"`
-        : `class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"`;
-      return `
-        <label class="block">
-          <span class="text-sm font-bold text-slate-600 mb-1.5 block">${escapeHtml(col)}</span>
-          <input type="text" name="eo-field-${colIndex}" value="${escapeHtml(value)}" ${inputAttrs} />
-        </label>
-      `;
-    }).join('');
+    const fields = window.EntityHierarchyUI
+      ? window.EntityHierarchyUI.buildModalFields(config, row, mode, escapeHtml)
+      : config.columns.map((col, colIndex) => {
+        const value = row ? (row[colIndex] ?? '') : '';
+        const inputAttrs = isView
+          ? `readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"`
+          : `class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"`;
+        return `
+          <label class="block">
+            <span class="text-sm font-bold text-slate-600 mb-1.5 block">${escapeHtml(col)}</span>
+            <input type="text" name="eo-field-${colIndex}" value="${escapeHtml(value)}" ${inputAttrs} />
+          </label>
+        `;
+      }).join('');
 
     const overlay = document.createElement('div');
     overlay.id = 'eo-modal-overlay';
@@ -612,13 +636,16 @@
     const form = overlay.querySelector('#eo-record-form');
     form?.addEventListener('submit', (event) => {
       event.preventDefault();
-      const values = config.columns.map((_, colIndex) => {
-        const input = form.querySelector(`[name="eo-field-${colIndex}"]`);
-        return (input?.value || '').trim() || '—';
-      });
+      const values = window.EntityHierarchyUI
+        ? window.EntityHierarchyUI.collectModalValues(config, form)
+        : config.columns.map((_, colIndex) => {
+          const input = form.querySelector(`[name="eo-field-${colIndex}"]`);
+          return (input?.value || '').trim() || '—';
+        });
 
-      if (!values[0] || values[0] === '—') {
-        toast('يرجى تعبئة الحقل الأول على الأقل', 'error');
+      const requiredIndex = (config.hierarchyLayout === 'subscription' || config.hierarchyLayout === 'customer') ? 3 : 0;
+      if (!values[requiredIndex] || values[requiredIndex] === '—') {
+        toast('يرجى تعبئة بيانات العميل على الأقل', 'error');
         return;
       }
 
@@ -664,7 +691,9 @@
 
     if (action === 'export') {
       const rows = getRows(route);
-      const csv = [config.columns.join(','), ...rows.map((row) => row.join(','))].join('\n');
+      const csv = config.hierarchyLayout === 'subscription' && window.EntityHierarchyUI
+        ? window.EntityHierarchyUI.exportSubscriptionCsv(rows)
+        : [config.columns.join(','), ...rows.map((row) => row.join(','))].join('\n');
       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
