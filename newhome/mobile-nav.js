@@ -3,6 +3,7 @@
 
   const syncMenuState = (header, isOpen) => {
     header.classList.toggle('is-mobile-nav-open', isOpen);
+    document.body.classList.toggle('mobile-nav-lock', isOpen);
     const toggle = header.querySelector('.mobile-nav-toggle');
     if (toggle) {
       toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -17,27 +18,42 @@
     if (!inner) return;
 
     const navMain = inner.querySelector('.nav-main');
-    const insertionTarget = navMain || inner;
+    const navLinks = inner.querySelector('.nav-links');
+    if (navLinks && !navLinks.id) {
+      navLinks.id = 'mobile-nav-links';
+    }
 
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'mobile-nav-toggle';
     toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-controls', 'mobile-nav-links');
+    toggle.setAttribute('aria-controls', navLinks?.id || 'mobile-nav-links');
     toggle.setAttribute('aria-label', 'فتح القائمة');
     toggle.innerHTML = '<i class="fas fa-bars" aria-hidden="true"></i><i class="fas fa-xmark" aria-hidden="true"></i>';
 
-    insertionTarget.appendChild(toggle);
+    if (navMain) {
+      navMain.insertBefore(toggle, navMain.firstChild);
+    } else {
+      inner.insertBefore(toggle, inner.firstChild);
+    }
+
     header.classList.add('is-mobile-nav-ready');
 
     const closeMenu = () => syncMenuState(header, false);
 
-    toggle.addEventListener('click', () => {
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation();
       const nextState = !header.classList.contains('is-mobile-nav-open');
       syncMenuState(header, nextState);
     });
 
-    header.querySelectorAll('.nav-links a, .auth-actions a').forEach((link) => {
+    header.addEventListener('click', (event) => {
+      if (event.target === header && header.classList.contains('is-mobile-nav-open')) {
+        closeMenu();
+      }
+    });
+
+    header.querySelectorAll('.nav-links a, .auth-actions a, .mobile-header-login').forEach((link) => {
       link.addEventListener('click', closeMenu);
     });
 
