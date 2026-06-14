@@ -5471,7 +5471,21 @@ app.get('/api/entities', async (req, res) => {
     // PERFORMANCE OPTIMIZATION: Support query parameters for filtering and limiting
     const { types, limit, offset } = req.query;
     
-    let query = 'SELECT * FROM entities WHERE 1=1';
+    let query = `
+      SELECT
+        e.*,
+        COALESCE(br.name, br_ent.name) AS branch_name,
+        COALESCE(inc.name, inc_ent.name) AS incubator_name,
+        COALESCE(pl.name, pl_ent.name) AS platform_name
+      FROM entities e
+      LEFT JOIN branches br ON e.branch_id = br.id
+      LEFT JOIN incubators inc ON e.incubator_id = inc.id
+      LEFT JOIN platforms pl ON e.platform_id = pl.id
+      LEFT JOIN entities br_ent ON br_ent.id = CAST(e.branch_id AS TEXT)
+      LEFT JOIN entities inc_ent ON inc_ent.id = CAST(e.incubator_id AS TEXT)
+      LEFT JOIN entities pl_ent ON pl_ent.id = CAST(e.platform_id AS TEXT)
+      WHERE 1=1
+    `;
     const values = [];
     let paramIndex = 1;
     
