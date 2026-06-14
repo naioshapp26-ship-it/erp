@@ -13,7 +13,7 @@
     renewal: 'التجديد'
   };
 
-  const SUBSCRIPTION_DISPLAY_COLUMNS = ['بيانات الاشتراك', 'الخطة', 'الحالة', 'التجديد'];
+  const SUBSCRIPTION_DISPLAY_COLUMNS = ['الفرع', 'الحاضنة', 'المنصة', 'العميل', 'الخطة', 'الحالة', 'التجديد'];
 
   const TYPE_LABELS = {
     HQ: 'المكتب الرئيسي',
@@ -31,10 +31,22 @@
       .replace(/"/g, '&quot;');
   }
 
-  function padSubscriptionRow(row) {
+  function padSubscriptionRowRaw(row) {
     const values = Array.isArray(row) ? row.slice() : [];
     while (values.length < 7) values.push('—');
     return values.slice(0, 7);
+  }
+
+  function normalizeSubscriptionRow(row) {
+    if (!Array.isArray(row)) return padSubscriptionRowRaw(row);
+    if (row.length === 4) {
+      return ['—', '—', '—', row[0], row[1], row[2], row[3]];
+    }
+    return padSubscriptionRowRaw(row);
+  }
+
+  function padSubscriptionRow(row) {
+    return normalizeSubscriptionRow(row);
   }
 
   function buildEntityLookup(entities) {
@@ -96,8 +108,9 @@
       if (branch === '—') branch = entity.location || '—';
     }
 
-    const plan = String(entity.plan || entity.subscription_plan || entity.platform_type || 'BASIC').toUpperCase();
-    const status = String(entity.status || 'نشط');
+    const plan = String(entity.plan || entity.subscription_plan || 'BASIC').toUpperCase();
+    const statusRaw = String(entity.status || 'Active');
+    const status = /active|نشط/i.test(statusRaw) ? 'نشط' : statusRaw;
     const renewal = String(entity.expiry_date || entity.updated_at || entity.created_at || '—').slice(0, 10) || '—';
 
     return [branch, incubator, platform, customer, plan, status, renewal];
@@ -113,27 +126,48 @@
     const opts = options || {};
     const showCustomer = opts.showCustomer !== false;
 
-    const lines = [
-      { label: 'الفرع', value: branch, icon: 'fa-code-branch', tone: 'text-red-700 bg-red-50 border-red-100' },
-      { label: 'الحاضنة', value: incubator, icon: 'fa-seedling', tone: 'text-emerald-700 bg-emerald-50 border-emerald-100' },
-      { label: 'المنصة', value: platform, icon: 'fa-cloud', tone: 'text-violet-700 bg-violet-50 border-violet-100' }
+    const fields = [
+      { label: 'الفرع', value: branch },
+      { label: 'الحاضنة', value: incubator },
+      { label: 'المنصة', value: platform }
     ];
 
-    const meta = lines.map((line) => `
-      <div class="entity-hierarchy-meta-row">
-        <span class="entity-hierarchy-meta-label"><i class="fas ${line.icon} ml-1"></i>${line.label}</span>
-        <span class="entity-hierarchy-meta-value ${line.tone}">${escapeHtml(line.value)}</span>
-      </div>
+    if (showCustomer) {
+      fields.push({ label: 'العميل', value: customer, highlight: true });
+    }
+
+    const labels = fields.map((field) => `
+      <span class="entity-hierarchy-grid-label">${field.label}</span>
     `).join('');
 
-    const customerBlock = showCustomer
-      ? `<div class="entity-hierarchy-customer">
-          <span class="entity-hierarchy-customer-label">العميل</span>
-          <strong class="entity-hierarchy-customer-name">${escapeHtml(customer)}</strong>
-        </div>`
-      : '';
+    const values = fields.map((field) => `
+      <span class="entity-hierarchy-grid-value${field.highlight ? ' entity-hierarchy-grid-value--primary' : ''}">${escapeHtml(field.value)}</span>
+    `).join('');
 
-    return `<div class="entity-hierarchy-cell">${meta}${customerBlock}</div>`;
+    return `
+      <div class="entity-hierarchy-grid" role="group" aria-label="بيانات الانتماء">
+        <div class="entity-hierarchy-grid-labels">${labels}</div>
+        <div class="entity-hierarchy-grid-values">${values}</div>
+      </div>
+    `;
+  }
+
+  function renderSubscriptionRowCells(values) {
+    const padded = padSubscriptionRow(values);
+    return padded.map((cell, index) => {
+      const isCustomer = index === 3;
+      const isStatus = index === 5;
+      if (isStatus) {
+        const active = /نشط|active/i.test(cell);
+        return `<td class="px-4 py-3 text-sm align-middle">
+          <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}">${escapeHtml(cell)}</span>
+        </td>`;
+      }
+      if (isCustomer) {
+        return `<td class="px-4 py-3 text-sm text-slate-800 align-middle font-bold">${escapeHtml(cell)}</td>`;
+      }
+      return `<td class="px-4 py-3 text-sm text-slate-700 align-middle whitespace-nowrap">${escapeHtml(cell)}</td>`;
+    }).join('');
   }
 
   function renderSubscriptionDataCell(row) {
@@ -162,12 +196,7 @@
           const values = padSubscriptionRow(row);
           return `
             <tr class="border-b border-slate-100 hover:bg-red-50/40 transition" data-${dataAttr}-row="${index}">
-              <td class="px-4 py-3 align-top">${renderSubscriptionDataCell(values)}</td>
-              <td class="px-4 py-3 text-sm text-slate-700 align-middle">${escapeHtml(values[4])}</td>
-              <td class="px-4 py-3 text-sm align-middle">
-                <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${/نشط|active/i.test(values[5]) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}">${escapeHtml(values[5])}</span>
-              </td>
-              <td class="px-4 py-3 text-sm text-slate-700 align-middle">${escapeHtml(values[6])}</td>
+              ${renderSubscriptionRowCells(values)}
               <td class="px-4 py-3 align-middle">${renderRowActions(route, index)}</td>
             </tr>
           `;
@@ -273,19 +302,37 @@
 
     if (config.hierarchyLayout === 'subscription') {
       const values = padSubscriptionRow(row);
-      return SUBSCRIPTION_FIELD_KEYS.map((key, index) => {
+      const inputAttrs = isView
+        ? 'readonly class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-sm"'
+        : 'class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none text-sm"';
+
+      const topFields = SUBSCRIPTION_FIELD_KEYS.slice(0, 4).map((key, index) => {
         const label = SUBSCRIPTION_FIELD_LABELS[key];
         const value = values[index] ?? '';
-        const inputAttrs = isView
-          ? 'readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"'
-          : 'class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"';
         return `
-          <label class="block">
-            <span class="text-sm font-bold text-slate-600 mb-1.5 block">${esc(label)}</span>
+          <label class="entity-hierarchy-form-field">
+            <span class="text-xs font-bold text-slate-500 mb-1 block">${esc(label)}</span>
             <input type="text" name="hub-field-${index}" value="${esc(value)}" ${inputAttrs} />
           </label>
         `;
       }).join('');
+
+      const bottomFields = SUBSCRIPTION_FIELD_KEYS.slice(4).map((key, offset) => {
+        const index = offset + 4;
+        const label = SUBSCRIPTION_FIELD_LABELS[key];
+        const value = values[index] ?? '';
+        return `
+          <label class="entity-hierarchy-form-field">
+            <span class="text-xs font-bold text-slate-500 mb-1 block">${esc(label)}</span>
+            <input type="text" name="hub-field-${index}" value="${esc(value)}" ${inputAttrs} />
+          </label>
+        `;
+      }).join('');
+
+      return `
+        <div class="entity-hierarchy-form-grid entity-hierarchy-form-grid--top">${topFields}</div>
+        <div class="entity-hierarchy-form-grid entity-hierarchy-form-grid--bottom">${bottomFields}</div>
+      `;
     }
 
     if (config.hierarchyLayout === 'customer') {
@@ -300,11 +347,11 @@
         { name: 'hub-field-platform', label: 'المنصة', value: platform }
       ].map((field) => {
         const inputAttrs = isView
-          ? 'readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"'
-          : 'class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"';
+          ? 'readonly class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-sm"'
+          : 'class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none text-sm"';
         return `
-          <label class="block">
-            <span class="text-sm font-bold text-slate-600 mb-1.5 block">${esc(field.label)}</span>
+          <label class="entity-hierarchy-form-field">
+            <span class="text-xs font-bold text-slate-500 mb-1 block">${esc(field.label)}</span>
             <input type="text" name="${field.name}" value="${esc(field.value)}" ${inputAttrs} />
           </label>
         `;
@@ -313,17 +360,20 @@
       const columnFields = (config.columns || []).map((col, colIndex) => {
         const value = row ? (row[dataOffset + colIndex] ?? '') : '';
         const inputAttrs = isView
-          ? 'readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"'
-          : 'class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"';
+          ? 'readonly class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-sm"'
+          : 'class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none text-sm"';
         return `
-          <label class="block">
-            <span class="text-sm font-bold text-slate-600 mb-1.5 block">${esc(col)}</span>
+          <label class="entity-hierarchy-form-field">
+            <span class="text-xs font-bold text-slate-500 mb-1 block">${esc(col)}</span>
             <input type="text" name="hub-field-${colIndex}" value="${esc(value)}" ${inputAttrs} />
           </label>
         `;
       }).join('');
 
-      return hierarchyFields + columnFields;
+      return `
+        <div class="entity-hierarchy-form-grid entity-hierarchy-form-grid--top">${hierarchyFields}</div>
+        <div class="entity-hierarchy-form-grid entity-hierarchy-form-grid--bottom">${columnFields}</div>
+      `;
     }
 
     return (config.columns || []).map((col, colIndex) => {
@@ -365,7 +415,7 @@
     resolveHierarchy,
     mapEntitiesToSubscriptionRows,
     renderHierarchyBlock,
-    renderSubscriptionDataCell,
+    renderSubscriptionRowCells,
     renderCustomerContextCell,
     renderHubTable,
     buildModalFields,
