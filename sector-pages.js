@@ -10,18 +10,19 @@
       icon: 'fa-users-gear',
       gradient: 'from-red-800 to-red-600',
       api: '/api/users',
+      hierarchyLayout: 'customer',
       stats: [
         { key: 'total', label: 'الأعضاء', icon: 'fa-users', tone: 'text-red-700' },
         { key: 'active', label: 'نشطون', icon: 'fa-user-check', tone: 'text-emerald-600' },
         { key: 'done', label: 'مجددون', icon: 'fa-rotate', tone: 'text-blue-600' },
         { key: 'urgent', label: 'ينتهي قريباً', icon: 'fa-clock', tone: 'text-amber-600' }
       ],
-      columns: ['العضو', 'الفئة', 'الحالة', 'تاريخ الانضمام'],
+      columns: ['الفئة', 'الحالة', 'تاريخ الانضمام'],
       seed: [
-        ['مجموعة الأفق التجارية', 'مؤسسات', 'نشط', '2024-03-12'],
-        ['مريم السعيد', 'أفراد', 'نشط', '2025-01-08'],
-        ['شركة نماء الرقمية', 'مؤسسات', 'قيد المراجعة', '2026-05-20'],
-        ['خالد العتيبي', 'أفراد', 'مكتمل', '2023-11-02']
+        ['2001', 'مجموعة الأفق التجارية', 'info@ofuq.sa', '+966502001001', 'فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'مكتب الرياض', 'مؤسسات', 'نشط', '2024-03-12'],
+        ['2002', 'مريم السعيد', 'mariam@example.com', '+966502002002', 'فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'مكتب جدة', 'أفراد', 'نشط', '2025-01-08'],
+        ['2003', 'شركة نماء الرقمية', 'hello@nama.sa', '+966502003003', 'فرع الدمام', '—', '—', 'مكتب الدمام', 'مؤسسات', 'قيد المراجعة', '2026-05-20'],
+        ['2004', 'خالد العتيبي', 'khalid@example.com', '+966502004004', 'المكتب الرئيسي', '—', '—', 'المكتب الرئيسي', 'أفراد', 'مكتمل', '2023-11-02']
       ]
     },
     'sc-governance': {
@@ -189,7 +190,11 @@
       const raw = localStorage.getItem(STORAGE_PREFIX + route);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : null;
+      const config = PAGE_CONFIGS[route];
+      if (config?.hierarchyLayout && window.EntityHierarchyUI) {
+        return window.EntityHierarchyUI.normalizeRows(parsed, config);
+      }
+      return parsed;
     } catch (_) {
       return null;
     }
@@ -203,6 +208,13 @@
     const list = Array.isArray(payload) ? payload : (payload?.data || payload?.rows || payload?.records || payload?.users || payload?.invoices || []);
     if (!Array.isArray(list) || !list.length) return null;
 
+    if (route === 'sc-member-management') {
+      const hierarchy = window.EntityHierarchyUI;
+      if (hierarchy) {
+        return list.slice(0, 12).map((item) => hierarchy.mapMemberRecordApiRow(item));
+      }
+      return null;
+    }
     if (route === 'sc-local-hr') {
       return list.slice(0, 12).map((item) => [
         item.name || item.full_name || item.username || '—',
@@ -238,7 +250,11 @@
     return null;
   }
 
-  function computeStats(rows) {
+  function computeStats(rows, route) {
+    const config = route ? PAGE_CONFIGS[route] : null;
+    if (config?.hierarchyLayout && window.EntityHierarchyUI) {
+      return window.EntityHierarchyUI.computeStats(rows, config);
+    }
     const total = rows.length;
     const active = rows.filter((row) => /قيد|جار|مفتوح|نشط|مجدول|تفاوض/i.test(String(row[3] || row[2]))).length;
     const done = rows.filter((row) => /مكتمل|مغلق|منج|محصل|معتمد|منشور/i.test(String(row[3] || row[2]))).length;
@@ -257,7 +273,11 @@
   function getRows(route) {
     const config = PAGE_CONFIGS[route];
     if (!config) return [];
-    return loadLocalRows(route) || config.seed.slice();
+    const rows = loadLocalRows(route) || config.seed.slice();
+    if (config.hierarchyLayout && window.EntityHierarchyUI) {
+      return window.EntityHierarchyUI.normalizeRows(rows, config);
+    }
+    return rows;
   }
 
   function renderRowActions(route, index) {
@@ -280,6 +300,16 @@
   }
 
   function renderTable(route, config, rows) {
+    if (config.hierarchyLayout && window.EntityHierarchyUI) {
+      return window.EntityHierarchyUI.renderHubTable({
+        route,
+        config,
+        rows,
+        renderRowActions,
+        dataAttr: 'sc'
+      });
+    }
+
     const body = rows.length
       ? rows.map((row, index) => `
       <tr class="border-b border-slate-100 hover:bg-red-50/40 transition" data-sc-row="${index}">
@@ -327,7 +357,7 @@
     }
 
     const rows = loadLocalRows(route) || config.seed;
-    const stats = computeStats(rows);
+    const stats = computeStats(rows, route);
 
     return `
       <div class="space-y-6" data-sc-page="${route}">
@@ -376,7 +406,7 @@
   }
 
   function refreshStats(route, rows) {
-    const stats = computeStats(rows);
+    const stats = computeStats(rows, route);
     Object.keys(stats).forEach((key) => {
       const el = document.querySelector(`[data-sc-stat="${route}:${key}"]`);
       if (el) el.textContent = String(stats[key]);
@@ -412,24 +442,26 @@
 
     closeModal();
 
-    const fields = config.columns.map((col, colIndex) => {
-      const value = row ? (row[colIndex] ?? '') : '';
-      const inputAttrs = isView
-        ? `readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"`
-        : `class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"`;
-      return `
+    const fields = config.hierarchyLayout && window.EntityHierarchyUI
+      ? window.EntityHierarchyUI.buildModalFields(config, row, mode, escapeHtml)
+      : config.columns.map((col, colIndex) => {
+        const value = row ? (row[colIndex] ?? '') : '';
+        const inputAttrs = isView
+          ? `readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"`
+          : `class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"`;
+        return `
         <label class="block">
           <span class="text-sm font-bold text-slate-600 mb-1.5 block">${escapeHtml(col)}</span>
           <input type="text" name="sc-field-${colIndex}" value="${escapeHtml(value)}" ${inputAttrs} />
         </label>
       `;
-    }).join('');
+      }).join('');
 
     const overlay = document.createElement('div');
     overlay.id = 'sc-modal-overlay';
     overlay.className = 'fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
     overlay.innerHTML = `
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl" role="dialog" aria-modal="true">
+      <div class="bg-white rounded-2xl shadow-2xl w-full ${config.hierarchyLayout ? 'max-w-4xl' : 'max-w-lg'} max-h-[90vh] overflow-y-auto" dir="rtl" role="dialog" aria-modal="true">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 class="text-lg font-black text-slate-800">${titleMap[mode] || 'السجل'}</h3>
           <button type="button" data-sc-modal-close class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500">
@@ -463,12 +495,19 @@
     const form = overlay.querySelector('#sc-record-form');
     form?.addEventListener('submit', (event) => {
       event.preventDefault();
-      const values = config.columns.map((_, colIndex) => {
-        const input = form.querySelector(`[name="sc-field-${colIndex}"]`);
-        return (input?.value || '').trim() || '—';
-      });
+      const values = window.EntityHierarchyUI && config.hierarchyLayout
+        ? window.EntityHierarchyUI.collectModalValues(config, form)
+        : config.columns.map((_, colIndex) => {
+          const input = form.querySelector(`[name="sc-field-${colIndex}"]`);
+          return (input?.value || '').trim() || '—';
+        });
 
-      if (!values[0] || values[0] === '—') {
+      if (config.hierarchyLayout === 'customer' && window.EntityHierarchyUI) {
+        if (!window.EntityHierarchyUI.validateCustomerRow(values)) {
+          toast('يرجى تعبئة رقم العميل، الاسم، الإيميل، الجوال، والانتماء المؤسسي بالكامل', 'error');
+          return;
+        }
+      } else if (!values[0] || values[0] === '—') {
         toast('يرجى تعبئة الحقل الأول على الأقل', 'error');
         return;
       }
@@ -515,7 +554,9 @@
 
     if (action === 'export') {
       const rows = getRows(route);
-      const csv = [config.columns.join(','), ...rows.map((row) => row.join(','))].join('\n');
+      const csv = config.hierarchyLayout && window.EntityHierarchyUI
+        ? window.EntityHierarchyUI.exportHierarchyCsv(rows, config)
+        : [config.columns.join(','), ...rows.map((row) => row.join(','))].join('\n');
       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');

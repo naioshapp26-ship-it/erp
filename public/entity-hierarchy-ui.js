@@ -163,6 +163,18 @@
       return padded.slice(0, targetLen);
     }
 
+    if (row.length === 4 && dataColumns.length === 2) {
+      return ['—', row[0], row[1], '—', '—', '—', '—', '—', row[2], row[3]];
+    }
+
+    if (row.length === 4 && dataColumns.length === 3 && dataColumns[0] !== 'القسم') {
+      return ['—', row[0], '—', '—', '—', '—', '—', '—', row[1], row[2], row[3]];
+    }
+
+    if (row.length === 4 && dataColumns.length === 3 && dataColumns[0] === 'الفئة') {
+      return ['—', row[0], '—', '—', '—', '—', '—', '—', row[1], row[2], row[3]];
+    }
+
     if (row.length === dataColumns.length) {
       return ['—', '—', '—', '—', '—', '—', '—', '—'].concat(row);
     }
@@ -221,7 +233,55 @@
     ];
   }
 
-  function mapCustomerSalesApiRow(item) {
+  function mapUserRecordApiRow(item) {
+    const source = item || {};
+    return [
+      source.user_id || source.id || source.customer_id || source.member_id || '—',
+      source.name || source.full_name || source.username || source.member_name || '—',
+      source.email || source.customer_email || '—',
+      source.phone || source.mobile || source.customer_phone || '—',
+      source.branch_name || '—',
+      source.incubator_name || '—',
+      source.platform_name || '—',
+      source.office_name || source.department || '—',
+      source.role || source.job_title || source.category || source.member_type || '—',
+      source.is_active === false ? 'موقوف' : (source.status || 'نشط')
+    ];
+  }
+
+  function mapMemberRecordApiRow(item) {
+    const source = item || {};
+    return [
+      source.member_id || source.id || source.customer_id || '—',
+      source.name || source.member_name || source.customer_name || '—',
+      source.email || '—',
+      source.phone || source.mobile || '—',
+      source.branch_name || '—',
+      source.incubator_name || '—',
+      source.platform_name || '—',
+      source.office_name || '—',
+      source.category || source.member_type || '—',
+      source.status || 'نشط',
+      (source.joined_at || source.created_at || '').toString().slice(0, 10) || '—'
+    ];
+  }
+
+  function mapHrRecordApiRow(item) {
+    const source = item || {};
+    return [
+      source.user_id || source.id || source.employee_id || '—',
+      source.name || source.full_name || source.username || '—',
+      source.email || '—',
+      source.phone || source.mobile || '—',
+      source.branch_name || '—',
+      source.incubator_name || '—',
+      source.platform_name || '—',
+      source.office_name || source.department || '—',
+      source.department || source.team || '—',
+      source.role || source.job_title || '—',
+      source.is_active === false ? 'موقوف' : (source.status || 'نشط')
+    ];
+  }
     const source = item || {};
     return [
       source.customer_id || source.client_id || '—',
@@ -726,6 +786,9 @@
     validateCustomerRow,
     mapCustomerServiceApiRow,
     mapCustomerSalesApiRow,
+    mapUserRecordApiRow,
+    mapMemberRecordApiRow,
+    mapHrRecordApiRow,
     getCustomerServiceSeed,
     getCustomerSalesSeed,
     getDisplayColumns,

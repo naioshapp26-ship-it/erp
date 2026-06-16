@@ -127,17 +127,18 @@
       icon: 'fa-users',
       gradient: 'from-red-800 to-red-600',
       api: '/api/users',
+      hierarchyLayout: 'customer',
       stats: [
         { key: 'total', label: 'الموظفون', icon: 'fa-user-group', tone: 'text-red-700' },
         { key: 'active', label: 'نشطون', icon: 'fa-user-check', tone: 'text-emerald-600' },
         { key: 'done', label: 'طلبات معتمدة', icon: 'fa-thumbs-up', tone: 'text-blue-600' },
         { key: 'urgent', label: 'طلبات معلقة', icon: 'fa-hourglass', tone: 'text-amber-600' }
       ],
-      columns: ['الموظف', 'القسم', 'الدور', 'الحالة'],
+      columns: ['القسم', 'الدور', 'الحالة'],
       seed: [
-        ['أحمد العلي', 'العمليات', 'مدير', 'نشط'],
-        ['سارة القحطاني', 'المبيعات', 'تنفيذي', 'نشط'],
-        ['محمد الشهري', 'الدعم', 'موظف', 'إجازة']
+        ['1001', 'أحمد العلي', 'ahmed@naiosh.com', '+966501001001', 'فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'مكتب العمليات', 'العمليات', 'مدير', 'نشط'],
+        ['1002', 'سارة القحطاني', 'sara@naiosh.com', '+966501002002', 'فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'مكتب المبيعات', 'المبيعات', 'تنفيذي', 'نشط'],
+        ['1003', 'محمد الشهري', 'mohammed@naiosh.com', '+966501003003', 'فرع الدمام', '—', '—', 'مكتب الدعم', 'الدعم', 'موظف', 'إجازة']
       ]
     },
     'eo-operational-finance': {
@@ -277,17 +278,18 @@
       icon: 'fa-user-gear',
       gradient: 'from-red-900 to-red-700',
       api: '/api/users',
+      hierarchyLayout: 'customer',
       stats: [
         { key: 'total', label: 'المستخدمون', icon: 'fa-users', tone: 'text-red-700' },
         { key: 'active', label: 'نشطون', icon: 'fa-user-check', tone: 'text-emerald-600' },
         { key: 'done', label: 'أدوار مخصصة', icon: 'fa-id-badge', tone: 'text-blue-600' },
         { key: 'urgent', label: 'بانتظار التفعيل', icon: 'fa-user-clock', tone: 'text-amber-600' }
       ],
-      columns: ['الاسم', 'البريد', 'الدور', 'الحالة'],
+      columns: ['الدور', 'الحالة'],
       seed: [
-        ['Super Admin', 'admin@naiosh.com', 'مسؤول', 'نشط'],
-        ['مدير المكتب', 'office@naiosh.com', 'مدير', 'نشط'],
-        ['موظف دعم', 'support@naiosh.com', 'موظف', 'نشط']
+        ['1001', 'Super Admin', 'admin@naiosh.com', '+966501001000', 'المكتب الرئيسي', '—', '—', 'المكتب الإلكتروني', 'مسؤول', 'نشط'],
+        ['1002', 'مدير المكتب', 'office@naiosh.com', '+966501002000', 'فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'مكتب الرياض', 'مدير', 'نشط'],
+        ['1003', 'موظف دعم', 'support@naiosh.com', '+966501003000', 'فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'مكتب الدعم', 'موظف', 'نشط']
       ]
     }
   };
@@ -346,13 +348,19 @@
     const list = Array.isArray(payload) ? payload : (payload?.data || payload?.rows || payload?.records || payload?.users || payload?.invoices || []);
     if (!Array.isArray(list) || !list.length) return null;
 
-    if (route === 'eo-users' || route === 'eo-local-hr') {
-      return list.slice(0, 12).map((item) => [
-        item.name || item.full_name || item.username || '—',
-        item.email || '—',
-        item.role || item.job_title || '—',
-        item.is_active === false ? 'موقوف' : 'نشط'
-      ]);
+    if (route === 'eo-users') {
+      const hierarchy = window.EntityHierarchyUI;
+      if (hierarchy) {
+        return list.slice(0, 12).map((item) => hierarchy.mapUserRecordApiRow(item));
+      }
+      return null;
+    }
+    if (route === 'eo-local-hr') {
+      const hierarchy = window.EntityHierarchyUI;
+      if (hierarchy) {
+        return list.slice(0, 12).map((item) => hierarchy.mapHrRecordApiRow(item));
+      }
+      return null;
     }
     if (route === 'eo-sales' || route === 'eo-operational-finance') {
       const hierarchy = window.EntityHierarchyUI;

@@ -127,17 +127,18 @@
       icon: 'fa-users',
       gradient: 'from-red-800 to-red-600',
       api: '/api/users',
+      hierarchyLayout: 'customer',
       stats: [
         { key: 'total', label: 'الموظفون', icon: 'fa-user-group', tone: 'text-red-700' },
         { key: 'active', label: 'نشطون', icon: 'fa-user-check', tone: 'text-emerald-600' },
         { key: 'done', label: 'طلبات معتمدة', icon: 'fa-thumbs-up', tone: 'text-blue-600' },
         { key: 'urgent', label: 'طلبات معلقة', icon: 'fa-hourglass', tone: 'text-amber-600' }
       ],
-      columns: ['الموظف', 'القسم', 'الدور', 'الحالة'],
+      columns: ['القسم', 'الدور', 'الحالة'],
       seed: [
-        ['أحمد العلي', 'العمليات', 'مدير', 'نشط'],
-        ['سارة القحطاني', 'المبيعات', 'تنفيذي', 'نشط'],
-        ['محمد الشهري', 'الدعم', 'موظف', 'إجازة']
+        ['1001', 'أحمد العلي', 'ahmed@naiosh.com', '+966501001001', 'فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'مكتب العمليات', 'العمليات', 'مدير', 'نشط'],
+        ['1002', 'سارة القحطاني', 'sara@naiosh.com', '+966501002002', 'فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'مكتب المبيعات', 'المبيعات', 'تنفيذي', 'نشط'],
+        ['1003', 'محمد الشهري', 'mohammed@naiosh.com', '+966501003003', 'فرع الدمام', '—', '—', 'مكتب الدعم', 'الدعم', 'موظف', 'إجازة']
       ]
     },
     'ic-operational-finance': {
@@ -216,12 +217,11 @@
     if (!Array.isArray(list) || !list.length) return null;
 
     if (route === 'ic-local-hr') {
-      return list.slice(0, 12).map((item) => [
-        item.name || item.full_name || item.username || '—',
-        item.department || item.email || '—',
-        item.role || item.job_title || '—',
-        item.is_active === false ? 'موقوف' : 'نشط'
-      ]);
+      const hierarchy = window.EntityHierarchyUI;
+      if (hierarchy) {
+        return list.slice(0, 12).map((item) => hierarchy.mapHrRecordApiRow(item));
+      }
+      return null;
     }
     if (route === 'ic-sales' || route === 'ic-operational-finance') {
       const hierarchy = window.EntityHierarchyUI;
