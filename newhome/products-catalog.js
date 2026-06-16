@@ -274,17 +274,45 @@
     return catalogData.reduce((sum, cat) => sum + cat.products.length, 0);
   }
 
+  function deriveFeatures(desc) {
+    if (!desc) return [];
+    const byClause = desc
+      .split(/[.،؛]|(?:\s+[-–—]\s+)/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 5);
+    if (byClause.length >= 2) return byClause.slice(0, 3);
+    const words = desc.split(/\s+/).filter(Boolean);
+    if (words.length <= 10) return [desc];
+    const size = Math.ceil(words.length / 3);
+    return [0, 1, 2]
+      .map((i) => words.slice(i * size, (i + 1) * size).join(' '))
+      .filter(Boolean);
+  }
+
   function buildProductCard(item) {
     const href = getProductHref(item);
-    const card = document.createElement('a');
+    const features = deriveFeatures(item.desc);
+    const card = document.createElement('article');
     card.className = 'product-card';
-    card.href = href;
     card.setAttribute('aria-label', item.name);
+    const featuresHtml = features
+      .map((f) => `<li><i class="fas fa-check" aria-hidden="true"></i><span>${f}</span></li>`)
+      .join('');
     card.innerHTML = `
       <div class="card-icon"><i class="fas ${item.icon}"></i></div>
       <h3>${item.name}</h3>
-      <p>${item.desc}</p>
-      <span class="card-btn"><i class="fas fa-arrow-left"></i> عرض التفاصيل</span>
+      <p class="card-desc">${item.desc}</p>
+      ${features.length ? `<ul class="card-features">${featuresHtml}</ul>` : ''}
+      <div class="card-actions">
+        <a href="${href}" class="card-btn card-btn-primary">
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
+          اعرف المزيد
+        </a>
+        <a href="/saas-signup.html#step1" class="card-btn card-btn-secondary">
+          <i class="fas fa-calendar-check" aria-hidden="true"></i>
+          اطلب عرضاً تجريبياً
+        </a>
+      </div>
     `;
     return card;
   }
