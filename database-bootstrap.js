@@ -20,7 +20,13 @@ const REQUIRED_TABLES = [
   'training_sessions',
   'enrollments',
   'assessments',
-  'certificates'
+  'certificates',
+  'headquarters',
+  'branches',
+  'incubators',
+  'platforms',
+  'offices',
+  'office_platforms'
 ];
 
 let bootstrapPromise = null;
@@ -387,6 +393,7 @@ async function ensureDatabaseReady() {
     `);
 
     await seedMinimumData();
+    await ensureMultiTenantHierarchy();
     await verifyRequiredTables();
     console.log('✅ Database bootstrap verified required ERP tables');
   })();
@@ -448,6 +455,214 @@ async function seedMinimumData() {
       ('vat_5', 'ضريبة القيمة المضافة 5%', 'VAT 5%', 'VAT', 5, 'service', true, false, 2)
     ON CONFLICT (tax_code) DO NOTHING;
   `);
+}
+
+async function ensureMultiTenantHierarchy() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS headquarters (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      code VARCHAR(50) UNIQUE NOT NULL,
+      description TEXT,
+      country VARCHAR(100),
+      contact_email VARCHAR(255),
+      contact_phone VARCHAR(50),
+      logo_url TEXT,
+      settings JSONB DEFAULT '{}',
+      is_active BOOLEAN DEFAULT true,
+      entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS branches (
+      id SERIAL PRIMARY KEY,
+      hq_id INTEGER NOT NULL REFERENCES headquarters(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      code VARCHAR(50) NOT NULL,
+      description TEXT,
+      country VARCHAR(100),
+      city VARCHAR(100),
+      address TEXT,
+      contact_email VARCHAR(255),
+      contact_phone VARCHAR(50),
+      manager_name VARCHAR(255),
+      settings JSONB DEFAULT '{}',
+      is_active BOOLEAN DEFAULT true,
+      entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(hq_id, code)
+    );
+
+    CREATE TABLE IF NOT EXISTS incubators (
+      id SERIAL PRIMARY KEY,
+      branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      code VARCHAR(50) NOT NULL,
+      description TEXT,
+      program_type VARCHAR(100),
+      capacity INTEGER DEFAULT 0,
+      contact_email VARCHAR(255),
+      contact_phone VARCHAR(50),
+      manager_name VARCHAR(255),
+      start_date DATE,
+      end_date DATE,
+      settings JSONB DEFAULT '{}',
+      is_active BOOLEAN DEFAULT true,
+      entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(branch_id, code)
+    );
+
+    CREATE TABLE IF NOT EXISTS platforms (
+      id SERIAL PRIMARY KEY,
+      incubator_id INTEGER NOT NULL REFERENCES incubators(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      code VARCHAR(50) NOT NULL,
+      description TEXT,
+      platform_type VARCHAR(100),
+      pricing_model VARCHAR(50),
+      base_price DECIMAL(10, 2) DEFAULT 0,
+      currency VARCHAR(10) DEFAULT 'USD',
+      features JSONB DEFAULT '[]',
+      settings JSONB DEFAULT '{}',
+      is_active BOOLEAN DEFAULT true,
+      entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(incubator_id, code)
+    );
+
+    CREATE TABLE IF NOT EXISTS offices (
+      id SERIAL PRIMARY KEY,
+      incubator_id INTEGER NOT NULL REFERENCES incubators(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      code VARCHAR(50) NOT NULL,
+      description TEXT,
+      office_type VARCHAR(100),
+      location VARCHAR(255),
+      address TEXT,
+      capacity INTEGER DEFAULT 0,
+      working_hours JSONB DEFAULT '{}',
+      contact_email VARCHAR(255),
+      contact_phone VARCHAR(50),
+      manager_name VARCHAR(255),
+      settings JSONB DEFAULT '{}',
+      is_active BOOLEAN DEFAULT true,
+      entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(incubator_id, code)
+    );
+
+    CREATE TABLE IF NOT EXISTS office_platforms (
+      id SERIAL PRIMARY KEY,
+      office_id INTEGER NOT NULL REFERENCES offices(id) ON DELETE CASCADE,
+      platform_id INTEGER NOT NULL REFERENCES platforms(id) ON DELETE CASCADE,
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(office_id, platform_id)
+    );
+
+    ALTER TABLE headquarters ADD COLUMN IF NOT EXISTS entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE;
+    ALTER TABLE branches ADD COLUMN IF NOT EXISTS entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE;
+    ALTER TABLE incubators ADD COLUMN IF NOT EXISTS entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE;
+    ALTER TABLE platforms ADD COLUMN IF NOT EXISTS entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE;
+    ALTER TABLE offices ADD COLUMN IF NOT EXISTS entity_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE;
+
+    ALTER TABLE entities ADD COLUMN IF NOT EXISTS tenant_type VARCHAR(50);
+    ALTER TABLE entities ADD COLUMN IF NOT EXISTS tenant_id INTEGER;
+    ALTER TABLE entities ADD COLUMN IF NOT EXISTS hq_id INTEGER REFERENCES headquarters(id);
+    ALTER TABLE entities ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id);
+    ALTER TABLE entities ADD COLUMN IF NOT EXISTS incubator_id INTEGER REFERENCES incubators(id);
+    ALTER TABLE entities ADD COLUMN IF NOT EXISTS platform_id INTEGER REFERENCES platforms(id);
+    ALTER TABLE entities ADD COLUMN IF NOT EXISTS office_id INTEGER REFERENCES offices(id);
+
+    CREATE INDEX IF NOT EXISTS idx_headquarters_entity_id ON headquarters(entity_id);
+    CREATE INDEX IF NOT EXISTS idx_branches_hq ON branches(hq_id);
+    CREATE INDEX IF NOT EXISTS idx_branches_entity_id ON branches(entity_id);
+    CREATE INDEX IF NOT EXISTS idx_incubators_branch ON incubators(branch_id);
+    CREATE INDEX IF NOT EXISTS idx_incubators_entity_id ON incubators(entity_id);
+    CREATE INDEX IF NOT EXISTS idx_platforms_incubator ON platforms(incubator_id);
+    CREATE INDEX IF NOT EXISTS idx_platforms_entity_id ON platforms(entity_id);
+    CREATE INDEX IF NOT EXISTS idx_offices_incubator ON offices(incubator_id);
+    CREATE INDEX IF NOT EXISTS idx_offices_entity_id ON offices(entity_id);
+    CREATE INDEX IF NOT EXISTS idx_office_platforms_office ON office_platforms(office_id);
+    CREATE INDEX IF NOT EXISTS idx_office_platforms_platform ON office_platforms(platform_id);
+
+    CREATE OR REPLACE FUNCTION update_updated_at_column()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      NEW.updated_at = CURRENT_TIMESTAMP;
+      RETURN NEW;
+    END;
+    $$ language 'plpgsql';
+  `);
+
+  const triggerTables = ['headquarters', 'branches', 'incubators', 'platforms', 'offices'];
+  for (const tableName of triggerTables) {
+    await db.query(`
+      DROP TRIGGER IF EXISTS update_${tableName}_updated_at ON ${tableName};
+      CREATE TRIGGER update_${tableName}_updated_at
+        BEFORE UPDATE ON ${tableName}
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    `);
+  }
+
+  await db.query(`
+    INSERT INTO headquarters (name, code, description, country, contact_email, entity_id)
+    VALUES ('NAIOSH HQ', 'HQ-001', 'المقر الرئيسي لنظام نايوش', 'Saudi Arabia', 'hq@naiosh.com', 'HQ001')
+    ON CONFLICT (code) DO UPDATE
+      SET entity_id = COALESCE(headquarters.entity_id, EXCLUDED.entity_id),
+          name = EXCLUDED.name,
+          is_active = true;
+
+    INSERT INTO branches (hq_id, name, code, country, city, contact_email)
+    SELECT hq.id, 'فرع المملكة العربية السعودية', 'BR-SA', 'Saudi Arabia', 'Riyadh', 'sa@naiosh.com'
+    FROM headquarters hq
+    WHERE hq.code = 'HQ-001'
+    ON CONFLICT (hq_id, code) DO NOTHING;
+
+    INSERT INTO branches (hq_id, name, code, country, city, contact_email)
+    SELECT hq.id, 'فرع جمهورية مصر العربية', 'BR-EG', 'Egypt', 'Cairo', 'eg@naiosh.com'
+    FROM headquarters hq
+    WHERE hq.code = 'HQ-001'
+    ON CONFLICT (hq_id, code) DO NOTHING;
+
+    INSERT INTO incubators (branch_id, name, code, program_type, capacity, entity_id)
+    SELECT b.id, 'Safety Incubator', 'INC-SA-01', 'احتضان أعمال', 50, 'INC03'
+    FROM branches b
+    WHERE b.code = 'BR-SA'
+    ON CONFLICT (branch_id, code) DO UPDATE
+      SET entity_id = COALESCE(incubators.entity_id, EXCLUDED.entity_id);
+
+    INSERT INTO platforms (incubator_id, name, code, platform_type, pricing_model, base_price, entity_id)
+    SELECT i.id, 'NAIOSH Cloud', 'PLT-CS-01', 'خدمات تقنية', 'اشتراك شهري', 99.99, 'PLT01'
+    FROM incubators i
+    WHERE i.code = 'INC-SA-01'
+    ON CONFLICT (incubator_id, code) DO UPDATE
+      SET entity_id = COALESCE(platforms.entity_id, EXCLUDED.entity_id);
+
+    INSERT INTO offices (incubator_id, name, code, office_type, capacity, entity_id)
+    SELECT i.id, 'Dammam Office', 'OFF-SA-CS', 'مركز خدمة', 20, 'OFF01'
+    FROM incubators i
+    WHERE i.code = 'INC-SA-01'
+    ON CONFLICT (incubator_id, code) DO UPDATE
+      SET entity_id = COALESCE(offices.entity_id, EXCLUDED.entity_id);
+
+    INSERT INTO office_platforms (office_id, platform_id)
+    SELECT o.id, p.id
+    FROM offices o
+    JOIN platforms p ON p.code = 'PLT-CS-01'
+    WHERE o.code = 'OFF-SA-CS'
+    ON CONFLICT (office_id, platform_id) DO NOTHING;
+
+    UPDATE headquarters SET entity_id = 'HQ001' WHERE entity_id IS NULL;
+  `);
+
+  console.log('✅ Multi-tenant hierarchy tables verified');
 }
 
 async function verifyRequiredTables() {
