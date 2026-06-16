@@ -10,6 +10,7 @@
   const CUSTOMER_SERVICE_MODULE_COLUMNS = [
     'نوع الخدمة', 'منفذ الخدمة', 'تاريخ الخدمة', 'الأولوية', 'الموضوع', 'الحالة', 'تاريخ الانتهاء'
   ];
+  const CUSTOMER_SERVICE_DISPLAY_COLUMNS = CUSTOMER_PREFIX_COLUMNS.concat(CUSTOMER_SERVICE_MODULE_COLUMNS);
 
   const CUSTOMER_PREFIX_FIELD_NAMES = [
     'hub-field-customer-id',
@@ -60,10 +61,75 @@
     if (config?.hierarchyLayout === 'subscription') {
       return SUBSCRIPTION_DISPLAY_COLUMNS;
     }
+    if (config?.customerProfile === 'customer-service') {
+      return CUSTOMER_SERVICE_DISPLAY_COLUMNS.slice();
+    }
     if (config?.hierarchyLayout === 'customer') {
       return CUSTOMER_PREFIX_COLUMNS.concat(getDataColumns(config));
     }
     return getDataColumns(config);
+  }
+
+  function isCustomerServiceConfig(config) {
+    return config?.customerProfile === 'customer-service';
+  }
+
+  function getHubTableTitle(config) {
+    if (isCustomerServiceConfig(config)) return 'سجل خدمة العملاء';
+    return `سجل ${config?.title || ''}`;
+  }
+
+  function getHubModalWidthClass(config) {
+    if (config?.hierarchyLayout === 'customer' || isCustomerServiceConfig(config)) {
+      return 'max-w-5xl';
+    }
+    return 'max-w-lg';
+  }
+
+  function isCustomerRowComplete(row, config) {
+    const normalized = normalizeCustomerRow(row, config);
+    return normalized[0] !== '—'
+      && normalized[1] !== '—'
+      && normalized[2] !== '—'
+      && normalized[4] !== '—';
+  }
+
+  function resolveHubRowsFromApi(mapped, config, fallbackRows) {
+    if (!Array.isArray(mapped) || !mapped.length) return fallbackRows;
+    const normalized = normalizeRows(mapped, config);
+    const completeRows = normalized.filter((row) => isCustomerRowComplete(row, config));
+    return completeRows.length ? completeRows : fallbackRows;
+  }
+
+  function resolveStoredCustomerRows(stored, config, seedRows) {
+    const seed = normalizeRows(seedRows, config);
+    if (!Array.isArray(stored) || !stored.length) return seed;
+    const resolved = resolveHubRowsFromApi(stored, config, seed);
+    return normalizeRows(resolved, config);
+  }
+
+  function renderHubRowActions(dataAttr, route, index) {
+    const prefix = dataAttr;
+    return `
+      <div class="flex flex-wrap items-center justify-end gap-1.5">
+        <button type="button" data-${prefix}-action="add" data-route="${route}" data-index="${index}"
+          class="px-2.5 py-1.5 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-bold" title="إضافة">
+          <i class="fas fa-plus"></i>
+        </button>
+        <button type="button" data-${prefix}-action="view" data-route="${route}" data-index="${index}"
+          class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold" title="عرض">
+          <i class="fas fa-eye"></i>
+        </button>
+        <button type="button" data-${prefix}-action="edit" data-route="${route}" data-index="${index}"
+          class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold" title="تعديل">
+          <i class="fas fa-pen"></i>
+        </button>
+        <button type="button" data-${prefix}-action="delete" data-route="${route}" data-index="${index}"
+          class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold" title="حذف">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    `;
   }
 
   function getCustomerColumnIndex() {
@@ -282,6 +348,8 @@
       source.is_active === false ? 'موقوف' : (source.status || 'نشط')
     ];
   }
+
+  function mapCustomerSalesApiRow(item) {
     const source = item || {};
     return [
       source.customer_id || source.client_id || '—',
@@ -555,6 +623,10 @@
 
     const displayColumns = getDisplayColumns(config);
     const normalizedRows = normalizeRows(rows, config);
+    const tableClass = isCustomerServiceConfig(config)
+      ? 'min-w-full text-right entity-hierarchy-table entity-hierarchy-table--customer-service'
+      : 'min-w-full text-right entity-hierarchy-table';
+    const tableTitle = getHubTableTitle(config);
 
     const body = normalizedRows.length
       ? normalizedRows.map((row, index) => {
@@ -589,7 +661,7 @@
     return `
       <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden" data-${dataAttr}-table="${route}">
         <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-          <h3 class="font-bold text-slate-800">سجل ${config.title}</h3>
+          <h3 class="font-bold text-slate-800">${tableTitle}</h3>
           <div class="flex flex-wrap gap-2">
             <button type="button" data-${dataAttr}-action="refresh" data-route="${route}" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
               <i class="fas fa-rotate"></i> تحديث
@@ -603,7 +675,7 @@
           </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="min-w-full text-right entity-hierarchy-table">
+          <table class="${tableClass}">
             <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
                 ${displayColumns.map((col) => `<th class="px-4 py-3 font-bold whitespace-nowrap">${col}</th>`).join('')}
@@ -773,6 +845,7 @@
     CUSTOMER_PREFIX_COLUMNS,
     CUSTOMER_PREFIX_LENGTH,
     CUSTOMER_SERVICE_MODULE_COLUMNS,
+    CUSTOMER_SERVICE_DISPLAY_COLUMNS,
     HIERARCHY_PREFIX_COLUMNS,
     SUBSCRIPTION_FIELD_KEYS,
     SUBSCRIPTION_FIELD_LABELS,
@@ -791,6 +864,13 @@
     mapHrRecordApiRow,
     getCustomerServiceSeed,
     getCustomerSalesSeed,
+    isCustomerServiceConfig,
+    getHubTableTitle,
+    getHubModalWidthClass,
+    isCustomerRowComplete,
+    resolveHubRowsFromApi,
+    resolveStoredCustomerRows,
+    renderHubRowActions,
     getDisplayColumns,
     getCustomerRowIndex,
     buildEntityLookup,

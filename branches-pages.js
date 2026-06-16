@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const STORAGE_PREFIX = 'branches:data:';
+  const STORAGE_PREFIX = 'branches:data:v2:';
 
   const PAGE_CONFIGS = {
     'br-daily-operations': {
@@ -90,6 +90,7 @@
       gradient: 'from-red-800 to-pink-600',
       api: '/api/employee-requests',
       hierarchyLayout: 'customer',
+      customerProfile: 'customer-service',
       stats: [
         { key: 'total', label: 'التذاكر', icon: 'fa-ticket', tone: 'text-red-700' },
         { key: 'active', label: 'مفتوحة', icon: 'fa-envelope-open', tone: 'text-amber-600' },
@@ -298,7 +299,14 @@
   function getRows(route) {
     const config = PAGE_CONFIGS[route];
     if (!config) return [];
-    const rows = loadLocalRows(route) || config.seed.slice();
+    const stored = loadLocalRows(route);
+    const seed = config.customerProfile === 'customer-service' && window.EntityHierarchyUI
+      ? window.EntityHierarchyUI.getCustomerServiceSeed()
+      : config.seed.slice();
+    if (config.customerProfile === 'customer-service' && window.EntityHierarchyUI?.resolveStoredCustomerRows) {
+      return window.EntityHierarchyUI.resolveStoredCustomerRows(stored, config, seed);
+    }
+    const rows = stored || seed;
     if (config.hierarchyLayout && window.EntityHierarchyUI) {
       return window.EntityHierarchyUI.normalizeRows(rows, config);
     }
@@ -306,14 +314,17 @@
   }
 
   function renderRowActions(route, index) {
+    if (window.EntityHierarchyUI?.renderHubRowActions) {
+      return window.EntityHierarchyUI.renderHubRowActions('br', route, index);
+    }
     return `
       <div class="flex flex-wrap items-center justify-end gap-1.5">
         <button type="button" data-br-action="view" data-route="${route}" data-index="${index}"
-          class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold" title="عرض">
+          class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold" title="عرض">
           <i class="fas fa-eye"></i>
         </button>
         <button type="button" data-br-action="edit" data-route="${route}" data-index="${index}"
-          class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold" title="تعديل">
+          class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold" title="تعديل">
           <i class="fas fa-pen"></i>
         </button>
         <button type="button" data-br-action="delete" data-route="${route}" data-index="${index}"
@@ -413,7 +424,7 @@
 
   async function fetchRows(route) {
     const config = PAGE_CONFIGS[route];
-    if (!config?.api) return getRows(route);
+    if (!config?.api || config.customerProfile === 'customer-service') return getRows(route);
 
     try {
       const response = await fetch(config.api, { headers: getEntityHeaders(), credentials: 'same-origin' });
@@ -421,8 +432,12 @@
       const payload = await response.json();
       const mapped = mapApiRows(route, payload);
       if (mapped?.length) {
-        saveLocalRows(route, mapped);
-        return mapped;
+        const fallback = getRows(route);
+        const resolved = window.EntityHierarchyUI?.resolveHubRowsFromApi
+          ? window.EntityHierarchyUI.resolveHubRowsFromApi(mapped, config, fallback)
+          : mapped;
+        saveLocalRows(route, resolved);
+        return resolved;
       }
     } catch (error) {
       console.warn('[Branches] API fallback for', route, error.message);
@@ -482,11 +497,13 @@
         `;
       }).join('');
 
+    const modalWidth = window.EntityHierarchyUI?.getHubModalWidthClass(config) || 'max-w-lg';
+
     const overlay = document.createElement('div');
     overlay.id = 'br-modal-overlay';
     overlay.className = 'fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
     overlay.innerHTML = `
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl" role="dialog" aria-modal="true">
+      <div class="bg-white rounded-2xl shadow-2xl w-full ${modalWidth} max-h-[90vh] overflow-y-auto" dir="rtl" role="dialog" aria-modal="true">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 class="text-lg font-black text-slate-800">${titleMap[mode] || 'السجل'}</h3>
           <button type="button" data-br-modal-close class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500">
@@ -664,6 +681,12 @@
       const config = PAGE_CONFIGS[route];
       if (!config) return;
       ensureBrDelegation();
+      if (config.customerProfile === 'customer-service') {
+        const rows = getRows(route);
+        saveLocalRows(route, rows);
+        refreshPage(route, rows);
+        return;
+      }
       const rows = await fetchRows(route);
       saveLocalRows(route, rows);
       refreshPage(route, rows);
