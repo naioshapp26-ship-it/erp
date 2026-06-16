@@ -1,4 +1,6 @@
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 const db = require('./db');
 
 const REQUIRED_TABLES = [
@@ -26,10 +28,19 @@ const REQUIRED_TABLES = [
   'incubators',
   'platforms',
   'offices',
-  'office_platforms'
+  'office_platforms',
+  'branch_incubators',
+  'branch_platforms',
+  'executive_kpis',
+  'roles'
 ];
 
 let bootstrapPromise = null;
+
+function readSqlFile(filePath) {
+  if (!fs.existsSync(filePath)) return '';
+  return fs.readFileSync(filePath, 'utf8').replace(/^\s*COMMIT\s*;?\s*$/gim, '');
+}
 
 async function ensureDatabaseReady() {
   if (bootstrapPromise) return bootstrapPromise;
@@ -394,6 +405,9 @@ async function ensureDatabaseReady() {
 
     await seedMinimumData();
     await ensureMultiTenantHierarchy();
+    await ensureHierarchyJunctionTables();
+    await seedExtendedEntities();
+    await ensureStrategicModules();
     await verifyRequiredTables();
     console.log('✅ Database bootstrap verified required ERP tables');
   })();
@@ -408,9 +422,16 @@ async function seedMinimumData() {
     INSERT INTO entities (id, name, type, status, balance, location, users_count, plan, expiry_date, theme)
     VALUES
       ('HQ001', 'NAIOSH HQ', 'HQ', 'Active', 0, 'Riyadh', 1, 'ENTERPRISE', '2030-12-31', 'BLUE'),
+      ('BR001', 'فرع الرياض', 'BRANCH', 'Active', 0, 'Riyadh', 12, 'ENTERPRISE', '2030-12-31', 'RED'),
+      ('BR002', 'فرع جدة', 'BRANCH', 'Active', 0, 'Jeddah', 8, 'PRO', '2030-12-31', 'BLUE'),
+      ('BR003', 'فرع الدمام', 'BRANCH', 'Active', 0, 'Dammam', 6, 'PRO', '2030-12-31', 'TEAL'),
       ('INC03', 'Safety Incubator', 'INCUBATOR', 'Active', 0, 'Jeddah', 0, 'ENTERPRISE', '2030-12-31', 'EMERALD'),
+      ('INC001', 'حاضنة الرياض التقنية', 'INCUBATOR', 'Active', 0, 'Riyadh', 0, 'PRO', '2030-12-31', 'EMERALD'),
+      ('INC002', 'حاضنة القاهرة للتقنية', 'INCUBATOR', 'Active', 0, 'Cairo', 0, 'PRO', '2030-12-31', 'EMERALD'),
       ('PLT01', 'NAIOSH Cloud', 'PLATFORM', 'Active', 0, 'Cloud', 0, 'PRO', '2030-12-31', 'PURPLE'),
-      ('OFF01', 'Dammam Office', 'OFFICE', 'Active', 0, 'Dammam', 0, 'BASIC', '2030-12-31', 'BLUE')
+      ('PLT001', 'منصة التدريب المهني', 'PLATFORM', 'Active', 0, 'Cloud', 0, 'PRO', '2030-12-31', 'PURPLE'),
+      ('OFF01', 'Dammam Office', 'OFFICE', 'Active', 0, 'Dammam', 0, 'BASIC', '2030-12-31', 'BLUE'),
+      ('OFF001', 'مكتب خدمة العملاء - الرياض', 'OFFICE', 'Active', 0, 'Riyadh', 0, 'BASIC', '2030-12-31', 'BLUE')
     ON CONFLICT (id) DO NOTHING;
 
     INSERT INTO users (name, email, role, tenant_type, entity_id, entity_name, job_title, is_active)
@@ -663,6 +684,130 @@ async function ensureMultiTenantHierarchy() {
   `);
 
   console.log('✅ Multi-tenant hierarchy tables verified');
+}
+
+async function ensureHierarchyJunctionTables() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS branch_incubators (
+      id SERIAL PRIMARY KEY,
+      branch_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE,
+      incubator_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE,
+      relationship_status VARCHAR(20) DEFAULT 'ACTIVE',
+      assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      notes TEXT,
+      UNIQUE(branch_id, incubator_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS branch_platforms (
+      id SERIAL PRIMARY KEY,
+      branch_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE,
+      platform_id VARCHAR(120) REFERENCES entities(id) ON DELETE CASCADE,
+      relationship_status VARCHAR(20) DEFAULT 'ACTIVE',
+      assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      performance_score DECIMAL(5,2),
+      monthly_revenue DECIMAL(10,2),
+      notes TEXT,
+      UNIQUE(branch_id, platform_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_branch_incubators_branch ON branch_incubators(branch_id);
+    CREATE INDEX IF NOT EXISTS idx_branch_incubators_incubator ON branch_incubators(incubator_id);
+    CREATE INDEX IF NOT EXISTS idx_branch_platforms_branch ON branch_platforms(branch_id);
+    CREATE INDEX IF NOT EXISTS idx_branch_platforms_platform ON branch_platforms(platform_id);
+  `);
+
+  console.log('✅ Hierarchy junction tables verified');
+}
+
+async function seedExtendedEntities() {
+  await db.query(`
+    INSERT INTO branch_incubators (branch_id, incubator_id, relationship_status)
+    VALUES
+      ('BR001', 'INC001', 'ACTIVE'),
+      ('BR001', 'INC03', 'ACTIVE'),
+      ('BR002', 'INC03', 'ACTIVE'),
+      ('BR003', 'INC002', 'ACTIVE')
+    ON CONFLICT (branch_id, incubator_id) DO NOTHING;
+
+    INSERT INTO branch_platforms (branch_id, platform_id, relationship_status, performance_score, monthly_revenue)
+    VALUES
+      ('BR001', 'PLT001', 'ACTIVE', 88.5, 45000),
+      ('BR001', 'PLT01', 'ACTIVE', 92.0, 52000),
+      ('BR002', 'PLT01', 'ACTIVE', 85.0, 38000),
+      ('BR003', 'PLT001', 'ACTIVE', 79.5, 22000)
+    ON CONFLICT (branch_id, platform_id) DO NOTHING;
+
+    INSERT INTO ads (title, content, level, scope, status, source_entity_id, entity_id, cost, budget)
+    SELECT 'حملة نايوش الربع الأول', 'حملة ترويجية للمنصة', 'HQ', 'GLOBAL', 'ACTIVE', 'HQ001', 'HQ001', 15000, 50000
+    WHERE NOT EXISTS (SELECT 1 FROM ads WHERE title = 'حملة نايوش الربع الأول');
+
+    INSERT INTO ads (title, content, level, scope, status, source_entity_id, entity_id, cost, budget)
+    SELECT 'إعلان فرع الرياض', 'ترويج خدمات الفرع', 'BRANCH', 'LOCAL', 'ACTIVE', 'BR001', 'BR001', 5000, 15000
+    WHERE NOT EXISTS (SELECT 1 FROM ads WHERE title = 'إعلان فرع الرياض');
+
+    INSERT INTO ads (title, content, level, scope, status, source_entity_id, entity_id, cost, budget)
+    SELECT 'منصة التدريب', 'إعلان برامج التدريب', 'PLATFORM', 'LOCAL', 'ACTIVE', 'PLT001', 'PLT001', 3000, 10000
+    WHERE NOT EXISTS (SELECT 1 FROM ads WHERE title = 'منصة التدريب');
+
+    INSERT INTO employee_requests (id, entity_id, employee_name, request_type, request_title, description, status, priority)
+    VALUES
+      ('REQ-001', 'HQ001', 'أحمد محمد', 'LEAVE', 'طلب إجازة سنوية', 'إجازة لمدة 5 أيام', 'PENDING', 'NORMAL'),
+      ('REQ-002', 'BR001', 'سارة علي', 'TRAINING', 'طلب تدريب', 'دورة إدارة المشاريع', 'APPROVED', 'HIGH'),
+      ('REQ-003', 'BR002', 'خالد يوسف', 'GENERAL', 'استفسار فاتورة', 'استفسار عن فاتورة الاشتراك', 'PENDING', 'NORMAL')
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO invoices (id, entity_id, type, title, amount, paid_amount, status, issue_date, due_date, customer_name)
+    VALUES
+      ('INV-001', 'BR001', 'SUBSCRIPTION', 'اشتراك سنوي - فرع الرياض', 12000, 12000, 'PAID', CURRENT_DATE - 30, CURRENT_DATE + 335, 'شركة المدار'),
+      ('INV-002', 'BR002', 'SERVICE', 'خدمات تدريب', 8500, 4000, 'PARTIAL', CURRENT_DATE - 15, CURRENT_DATE + 15, 'مؤسسة الحلول'),
+      ('INV-003', 'PLT01', 'SUBSCRIPTION', 'اشتراك منصة سحابية', 24000, 0, 'UNPAID', CURRENT_DATE, CURRENT_DATE + 30, 'مجموعة الريادة')
+    ON CONFLICT (id) DO NOTHING;
+  `);
+
+  console.log('✅ Extended entity and sample operational data seeded');
+}
+
+async function ensureStrategicModules() {
+  const strategicSql = path.join(__dirname, 'create-strategic-management-tables.sql');
+  const missingSql = path.join(__dirname, 'create-missing-strategic-tables.sql');
+  const seedSql = path.join(__dirname, 'insert-strategic-management-data.sql');
+  const rbacSql = path.join(__dirname, 'create-rbac-system.sql');
+
+  if (fs.existsSync(strategicSql)) {
+    await db.query(readSqlFile(strategicSql));
+  }
+
+  const missingTable = await db.query("SELECT to_regclass('public.financial_manual') AS table_name");
+  if (!missingTable.rows[0].table_name && fs.existsSync(missingSql)) {
+    await db.query(readSqlFile(missingSql));
+  }
+
+  if (fs.existsSync(rbacSql)) {
+    await db.query(readSqlFile(rbacSql));
+  }
+
+  await db.query(`
+    ALTER TABLE roles ADD COLUMN IF NOT EXISTS hierarchy_level INTEGER DEFAULT 0;
+    ALTER TABLE roles ADD COLUMN IF NOT EXISTS job_title_ar VARCHAR(200);
+    ALTER TABLE roles ADD COLUMN IF NOT EXISTS job_title_en VARCHAR(200);
+    ALTER TABLE roles ADD COLUMN IF NOT EXISTS max_approval_limit NUMERIC(15,2);
+    ALTER TABLE roles ADD COLUMN IF NOT EXISTS approval_notes_ar TEXT;
+    ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
+    INSERT INTO roles (name, name_ar, description, level, is_system, hierarchy_level, job_title_ar, max_approval_limit)
+    VALUES
+      ('SUPER_ADMIN', 'سوبر آدمن', 'صلاحيات كاملة على جميع مستويات النظام', 'HQ', true, 1, 'مسؤول النظام', 999999999),
+      ('HQ_EXECUTIVE_MANAGER', 'مدير تنفيذي', 'مدير تنفيذي في المكتب الرئيسي', 'HQ', false, 2, 'مدير تنفيذي', 500000),
+      ('BRANCH_MANAGER', 'مدير فرع', 'مدير فرع', 'BRANCH', false, 3, 'مدير فرع', 100000)
+    ON CONFLICT (name) DO NOTHING;
+  `);
+
+  const kpiCount = await db.query('SELECT COUNT(*)::int AS count FROM executive_kpis');
+  if (kpiCount.rows[0].count === 0 && fs.existsSync(seedSql)) {
+    await db.query(readSqlFile(seedSql));
+  }
+
+  console.log('✅ Strategic management and RBAC modules verified');
 }
 
 async function verifyRequiredTables() {
