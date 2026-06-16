@@ -36,11 +36,11 @@
         { key: 'done', label: 'مغلقة', icon: 'fa-check', tone: 'text-emerald-600' },
         { key: 'urgent', label: 'عروض اليوم', icon: 'fa-file-invoice', tone: 'text-blue-600' }
       ],
-      columns: ['العميل', 'القيمة', 'الحالة', 'التاريخ'],
+      columns: ['القيمة', 'الحالة', 'التاريخ'],
       seed: [
-        ['فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'شركة المدار', '45,000 ر.س', 'تفاوض', '2026-06-08'],
-        ['فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'مؤسسة الحلول', '18,500 ر.س', 'عرض مرسل', '2026-06-07'],
-        ['المكتب الرئيسي', '—', '—', 'مجموعة الريادة', '92,000 ر.س', 'مغلقة', '2026-06-05']
+        ['2041', 'شركة المدار', 'sales@madar.sa', '+966502041000', 'فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'مكتب المبيعات', '45,000 ر.س', 'تفاوض', '2026-06-08'],
+        ['2055', 'مؤسسة الحلول', 'deals@hulool.sa', '+966502055111', 'فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'مكتب جدة', '18,500 ر.س', 'عرض مرسل', '2026-06-07'],
+        ['2099', 'مجموعة الريادة', 'hq@reyada.sa', '+966502099222', 'المكتب الرئيسي', '—', '—', 'المكتب الرئيسي', '92,000 ر.س', 'مغلقة', '2026-06-05']
       ]
     },
     'br-subscriptions': {
@@ -96,11 +96,11 @@
         { key: 'done', label: 'مغلقة', icon: 'fa-check-double', tone: 'text-emerald-600' },
         { key: 'urgent', label: 'عاجلة', icon: 'fa-fire', tone: 'text-rose-600' }
       ],
-      columns: ['العميل', 'الموضوع', 'الأولوية', 'الحالة'],
+      columns: ['نوع الخدمة', 'منفذ الخدمة', 'تاريخ الخدمة', 'الأولوية', 'الموضوع', 'الحالة', 'تاريخ الانتهاء'],
       seed: [
-        ['فرع الرياض', 'حاضنة الرياض', 'منصة الرياض', 'عميل 1042', 'تأخر تفعيل الحساب', 'عالية', 'قيد المعالجة'],
-        ['فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'عميل 2201', 'استفسار فاتورة', 'متوسطة', 'تم الرد'],
-        ['فرع الدمام', '—', '—', 'عميل 3310', 'طلب تدريب', 'منخفضة', 'مغلقة']
+        ['1042', 'شركة المدار الذكية', 'client1042@naiosh.com', '+966501042000', 'فرع الرياض', 'حاضنة الرياض التقنية', 'منصة الرياض', 'مكتب الرياض', 'تفعيل حساب', 'فريق الدعم', '2026-06-08', 'عالية', 'تأخر تفعيل الحساب', 'قيد المعالجة', '2026-06-15'],
+        ['2201', 'مؤسسة الحلول', 'info@hulool.sa', '+966502201111', 'فرع جدة', 'Safety Incubator', 'NAIOSH Cloud', 'مكتب جدة', 'فوترة', 'أ. نورة', '2026-06-07', 'متوسطة', 'استفسار فاتورة', 'تم الرد', '2026-06-10'],
+        ['3310', 'مجموعة الريادة', 'contact@reyada.sa', '+966503310222', 'فرع الدمام', '—', '—', 'مكتب الدمام', 'تدريب', 'فريق التدريب', '2026-06-05', 'منخفضة', 'طلب تدريب', 'مغلقة', '2026-06-06']
       ]
     },
     'br-operational-reports': {
@@ -224,17 +224,23 @@
       ]);
     }
     if (route === 'br-sales' || route === 'br-operational-finance') {
-      const mapped = list.slice(0, 12).map((item) => [
-        item.customer_name || item.client_name || item.title || item.invoice_number || '—',
-        item.total_amount || item.amount || item.total || '—',
-        item.status || '—',
-        (item.created_at || item.issue_date || '').toString().slice(0, 10) || '—'
-      ]);
-      const config = PAGE_CONFIGS[route];
-      if (config?.hierarchyLayout && window.EntityHierarchyUI) {
-        return window.EntityHierarchyUI.prefixCustomerDataRows(mapped, config);
+      const hierarchy = window.EntityHierarchyUI;
+      if (hierarchy) {
+        return list.slice(0, 12).map((item) => hierarchy.mapCustomerSalesApiRow(item));
       }
-      return mapped;
+      return list.slice(0, 12).map((item) => [
+        item.customer_id || '—',
+        item.customer_name || item.client_name || '—',
+        item.email || '—',
+        item.phone || '—',
+        item.branch_name || '—',
+        item.incubator_name || '—',
+        item.platform_name || '—',
+        item.office_name || '—',
+        item.total_amount || item.amount || '—',
+        item.status || '—',
+        (item.created_at || '').toString().slice(0, 10) || '—'
+      ]);
     }
     if (route === 'br-subscriptions') {
       const hierarchy = window.EntityHierarchyUI;
@@ -252,17 +258,11 @@
       ]);
     }
     if (route === 'br-customer-service') {
-      const mapped = list.slice(0, 12).map((item) => [
-        item.customer_name || item.employee_name || item.request_title || '—',
-        item.request_title || item.title || '—',
-        item.priority || '—',
-        item.status || '—'
-      ]);
-      const config = PAGE_CONFIGS[route];
-      if (config?.hierarchyLayout && window.EntityHierarchyUI) {
-        return window.EntityHierarchyUI.prefixCustomerDataRows(mapped, config);
+      const hierarchy = window.EntityHierarchyUI;
+      if (hierarchy) {
+        return list.slice(0, 12).map((item) => hierarchy.mapCustomerServiceApiRow(item));
       }
-      return mapped;
+      return null;
     }
     if (route === 'br-daily-operations') {
       return list.slice(0, 12).map((item) => [
@@ -527,11 +527,19 @@
           return (input?.value || '').trim() || '—';
         });
 
-      const requiredIndex = config.hierarchyLayout && window.EntityHierarchyUI
-        ? window.EntityHierarchyUI.getCustomerRowIndex(config)
-        : 0;
-      if (!values[requiredIndex] || values[requiredIndex] === '—') {
-        toast('يرجى تعبئة بيانات العميل على الأقل', 'error');
+      if (config.hierarchyLayout === 'customer' && window.EntityHierarchyUI) {
+        if (!window.EntityHierarchyUI.validateCustomerRow(values)) {
+          toast('يرجى تعبئة رقم العميل، الاسم، الإيميل، الجوال، والانتماء المؤسسي بالكامل', 'error');
+          return;
+        }
+      } else if (config.hierarchyLayout && window.EntityHierarchyUI) {
+        const requiredIndex = window.EntityHierarchyUI.getCustomerRowIndex(config);
+        if (!values[requiredIndex] || values[requiredIndex] === '—') {
+          toast('يرجى تعبئة بيانات العميل على الأقل', 'error');
+          return;
+        }
+      } else if (!values[0] || values[0] === '—') {
+        toast('يرجى تعبئة الحقول المطلوبة', 'error');
         return;
       }
 
