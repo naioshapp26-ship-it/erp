@@ -3376,6 +3376,42 @@ app.get('/employee/:section', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
 });
 
+const serveDashboardSpa = (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+};
+
+[
+  '/hierarchy',
+  '/tenants',
+  '/register-tenant',
+  '/requests',
+  '/incubator',
+  '/ads',
+  '/saas',
+  '/billing',
+  '/tasks',
+  '/facilities',
+  '/audit-logs',
+  '/education-incubators'
+].forEach((routePath) => {
+  app.get(routePath, serveDashboardSpa);
+});
+
+[
+  '/strategic',
+  '/supply-chain',
+  '/sales',
+  '/internet-automation'
+].forEach((prefix) => {
+  app.get(prefix, serveDashboardSpa);
+  app.get(`${prefix}/*`, serveDashboardSpa);
+});
+
+app.get('/education-incubators/:section', serveDashboardSpa);
+app.get('/tasks/:section', serveDashboardSpa);
+app.get('/facilities/:section', serveDashboardSpa);
+app.get('/facilities/:section/:subsection', serveDashboardSpa);
+
 app.get('/login.html', (req, res) => {
   res.redirect(301, '/login-page.html');
 });
@@ -7747,7 +7783,11 @@ app.get('/api/branches/:branchId/platforms', async (req, res) => {
 // Get all branches with their relationship counts
 app.get('/api/branches/stats', async (req, res) => {
   try {
-    const query = `
+    const junctionReady = await db.query("SELECT to_regclass('public.branch_incubators') AS table_name");
+    const hasJunction = Boolean(junctionReady.rows[0]?.table_name);
+
+    const query = hasJunction
+      ? `
       SELECT 
         b.id,
         b.name,
@@ -7762,8 +7802,21 @@ app.get('/api/branches/stats', async (req, res) => {
       WHERE b.type = 'BRANCH'
       GROUP BY b.id, b.name, b.type, b.status, b.location
       ORDER BY b.name
+    `
+      : `
+      SELECT 
+        b.id,
+        b.name,
+        b.type,
+        b.status,
+        b.location,
+        0 as incubator_count,
+        0 as platform_count
+      FROM entities b
+      WHERE b.type = 'BRANCH'
+      ORDER BY b.name
     `;
-    
+
     const result = await db.query(query);
     res.json(result.rows);
   } catch (error) {
@@ -7778,9 +7831,16 @@ app.get('/api/merge-stats', async (req, res) => {
     const branchesCount = await db.query(`SELECT COUNT(*) as count FROM entities WHERE type = 'BRANCH'`);
     const incubatorsCount = await db.query(`SELECT COUNT(*) as count FROM entities WHERE type = 'INCUBATOR'`);
     const platformsCount = await db.query(`SELECT COUNT(*) as count FROM entities WHERE type = 'PLATFORM'`);
-    const branchIncubatorsCount = await db.query(`SELECT COUNT(*) as count FROM branch_incubators`);
-    const branchPlatformsCount = await db.query(`SELECT COUNT(*) as count FROM branch_platforms`);
-    
+
+    let branchIncubatorsCount = { rows: [{ count: '0' }] };
+    let branchPlatformsCount = { rows: [{ count: '0' }] };
+    try {
+      branchIncubatorsCount = await db.query(`SELECT COUNT(*) as count FROM branch_incubators`);
+      branchPlatformsCount = await db.query(`SELECT COUNT(*) as count FROM branch_platforms`);
+    } catch (junctionError) {
+      console.warn('[merge-stats] junction tables unavailable:', junctionError.message);
+    }
+
     res.json({
       entities: {
         branches: parseInt(branchesCount.rows[0].count),
