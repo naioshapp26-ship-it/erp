@@ -4759,8 +4759,6 @@ const app = (() => {
                     ${renderHqSummaryPanel(entity)}
                 </div>
             </div>
-
-            ${renderHqMainMenuSection()}
         </div>`;
     };
 
@@ -4876,8 +4874,6 @@ const app = (() => {
                  ${renderKpiCard('عدد المستخدمين', entity.users, 'fa-users', 'text-purple-600', 'bg-purple-50')}
             </div>
         </div>
-
-        ${renderHqMainMenuSection()}
         `;
     };
 
