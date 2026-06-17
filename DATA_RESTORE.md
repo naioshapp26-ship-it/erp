@@ -38,12 +38,22 @@ npm run db:restore -- --yes
 
 ### على Railway (الإنتاج)
 
-```bash
-# 1. اربط DATABASE_URL بقاعدة Railway
-export DATABASE_URL="postgresql://USER:PASS@HOST:PORT/railway"
+**الطريقة الموصى بها (من داخل الحاوية — لا تحتاج نسخ DATABASE_PUBLIC_URL):**
 
-# 2. استورد الملف الكامل
-psql "$DATABASE_URL" -f NaioshERP.sql
+1. في Railway → خدمة **ERP** → **Variables** أضف:
+   ```
+   RUN_DB_RESTORE_ONCE=true
+   ```
+2. تأكد أن `DATABASE_URL` و `DATABASE_PUBLIC_URL` مربوطان بخدمة Postgres (Add Reference).
+3. أعد نشر الخدمة (Redeploy).
+4. راقب الـ Logs حتى ترى: `✅ Full database restore completed`
+5. **احذف** `RUN_DB_RESTORE_ONCE` بعد النجاح حتى لا يُعاد الاستيراد عند كل إعادة تشغيل.
+
+**بديل — من جهازك (يحتاج DATABASE_PUBLIC_URL):**
+
+```bash
+export DATABASE_URL="postgresql://..."   # انسخ من Postgres → Connect → Public Network
+npm run db:restore -- --yes
 ```
 
 ### الطريقة 2: سكربت المشروع
