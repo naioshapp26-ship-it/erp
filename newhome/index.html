@@ -189,9 +189,9 @@
       <!-- Full-background image (lazy-loaded) — z-index: 0 -->
       <img id="hero-bg-img" src="" alt="" loading="lazy" aria-hidden="true" style="display:none" />
       <!-- Full-background video (autoplay/muted/loop/playsinline) — z-index: 0 -->
-      <video id="hero-bg-video-bg" autoplay muted loop playsinline preload="none" aria-hidden="true" style="display:none"></video>
+      <video id="hero-bg-video-bg" autoplay muted loop playsinline preload="auto" aria-hidden="true" style="display:none"></video>
       <!-- Visual-panel video (moved to hero-visual-media by JS) -->
-      <video id="hero-bg-video" muted loop playsinline preload="none" aria-label="فيديو خلفية Hero"></video>
+      <video id="hero-bg-video" muted loop playsinline preload="auto" aria-label="فيديو خلفية Hero"></video>
     </div>
     <main class="container hero-inner">
       <div class="hero-content">
@@ -214,7 +214,9 @@
           <div class="hero-visual premium-video-frame" role="img" aria-label="مساحة عمل تعاونية حديثة">
             <div class="hero-visual-shine" aria-hidden="true"></div>
             <div class="hero-visual-reflection" aria-hidden="true"></div>
-            <div class="hero-visual-media" aria-hidden="true"></div>
+            <div class="hero-visual-media" aria-hidden="true">
+              <img id="hero-frame-poster" src="/newhome/booking-workspace.svg" alt="" aria-hidden="true" loading="eager" decoding="async" />
+            </div>
             <div class="hero-dashboard" aria-hidden="true">
               <article class="hero-panel hero-panel-main">
                 <header>
@@ -587,25 +589,108 @@
       let heroDotsClickHandler = null;
       let heroVideoMountedInVisual = false;
       let heroVideoSwitchTimeout = null;
-      const HERO_VIDEO_MAX_RETRIES = 2;
+      const HERO_VIDEO_MAX_RETRIES = 6;
+      const HERO_VIDEO_READY_TIMEOUT_MS = 60000;
       const HERO_VIDEO_SWITCH_TRANSITION_MS = 220;
       const HERO_MEDIA_SLIDER_INTERVAL_MS = 6000;
+      let homepagePayloadSignature = '';
+
+      const waitForHeroVideoReady = (videoEl, timeoutMs = HERO_VIDEO_READY_TIMEOUT_MS) => new Promise((resolve) => {
+        if (!videoEl) return resolve(false);
+        if (videoEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return resolve(true);
+        let settled = false;
+        const finish = (ok) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          videoEl.removeEventListener('canplay', onReady);
+          videoEl.removeEventListener('loadeddata', onReady);
+          videoEl.removeEventListener('error', onError);
+          resolve(ok);
+        };
+        const onReady = () => finish(true);
+        const onError = () => finish(false);
+        const timer = window.setTimeout(() => {
+          finish(videoEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA);
+        }, timeoutMs);
+        videoEl.addEventListener('canplay', onReady, { once: true });
+        videoEl.addEventListener('loadeddata', onReady, { once: true });
+        videoEl.addEventListener('error', onError, { once: true });
+      });
 
       const playHeroVideoElement = async (videoEl) => {
         if (!videoEl) return false;
         videoEl.muted = true;
         videoEl.playsInline = true;
         videoEl.autoplay = true;
+        videoEl.loop = true;
+        const ready = await waitForHeroVideoReady(videoEl);
+        if (!ready) return false;
         for (let attempt = 0; attempt < HERO_VIDEO_MAX_RETRIES; attempt += 1) {
           try {
             await videoEl.play();
             return true;
           } catch (_error) {
-            await new Promise((resolve) => window.setTimeout(resolve, 180 * (attempt + 1)));
+            await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
           }
         }
         return false;
       };
+
+      const setHeroFramePoster = (posterUrl, visible = true) => {
+        const poster = document.getElementById('hero-frame-poster');
+        if (!poster) return;
+        if (posterUrl) poster.src = posterUrl;
+        poster.classList.toggle('is-hidden', !visible);
+      };
+
+      const startHeroVideoPlayback = async (videoEl, url, {
+        posterUrl = '',
+        onPlaying = null,
+        onGiveUp = null
+      } = {}) => {
+        if (!videoEl || !url) return false;
+        setHeroFramePoster(posterUrl || '/newhome/booking-workspace.svg', true);
+        videoEl.style.display = 'block';
+        videoEl.style.opacity = '0';
+        videoEl.muted = true;
+        videoEl.playsInline = true;
+        videoEl.loop = true;
+        videoEl.preload = 'auto';
+        videoEl.src = url;
+        videoEl.load();
+
+        const revealVideo = () => {
+          videoEl.style.opacity = '1';
+          setHeroFramePoster('', false);
+          onPlaying?.();
+        };
+
+        const played = await playHeroVideoElement(videoEl);
+        if (played) {
+          revealVideo();
+          return true;
+        }
+
+        for (let attempt = 1; attempt <= 4; attempt += 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1200 * attempt));
+          const retryPlayed = await playHeroVideoElement(videoEl);
+          if (retryPlayed) {
+            revealVideo();
+            return true;
+          }
+        }
+
+        onGiveUp?.();
+        return false;
+      };
+
+      const buildHomepagePayloadSignature = (payload) => JSON.stringify({
+        media: (payload.heroMediaList || []).map((item) => `${item.id}:${item.url}:${item.is_active}:${item.target}`),
+        heroVideo: payload.settings?.heroMedia?.videoUrls || payload.settings?.heroMedia?.videoUrl || '',
+        heroImage: payload.settings?.heroImageUrl || '',
+        activeType: payload.settings?.heroMedia?.activeType || 'image'
+      });
       const toRgbTriplet = (hexColor, fallback = '215, 0, 0') => {
         if (typeof hexColor !== 'string') return fallback;
         let value = hexColor.trim();
@@ -863,23 +948,34 @@
             if (heroNextBtn) heroNextBtn.hidden = !showArrows;
 
             if (item.type === 'video') {
-              // Only update hero classes if there is no dedicated background item
-              if (!hasBgItems) {
-                hero.classList.add('hero-has-video', 'hero-bg-solid');
-                hero.classList.remove('hero-has-image', 'hero-bg-image');
-              }
-              heroVideo.style.display = 'block';
-              heroVideo.preload = 'auto';
               if (heroVideoSwitchTimeout) { window.clearTimeout(heroVideoSwitchTimeout); heroVideoSwitchTimeout = null; }
               heroVideo.classList.remove('is-switching');
               void heroVideo.offsetWidth;
               heroVideo.classList.add('is-switching');
-              const advanceAfterVideoFailure = () => {
+              heroVideoSwitchTimeout = window.setTimeout(() => { heroVideo.classList.remove('is-switching'); heroVideoSwitchTimeout = null; }, HERO_VIDEO_SWITCH_TRANSITION_MS);
+              if (heroSliderToggle) { heroSliderToggle.hidden = false; heroSliderToggle.innerHTML = '<i class="fas fa-pause"></i>'; }
+
+              const applyVideoPlayingState = () => {
+                if (!hasBgItems) {
+                  hero.classList.add('hero-has-video', 'hero-bg-solid');
+                  hero.classList.remove('hero-has-image', 'hero-bg-image');
+                  if (heroBgImg) heroBgImg.style.display = 'none';
+                }
+                if (!hasBgItems && heroBgVideoBg) {
+                  heroBgVideoBg.src = item.url;
+                  heroBgVideoBg.load();
+                  playHeroVideoElement(heroBgVideoBg);
+                  heroBgVideoBg.style.display = 'block';
+                }
+              };
+
+              const applyVideoGiveUpState = () => {
                 if (heroMixedPlaylist.length > 1) {
                   showMixedItem(heroMixedIndex + 1);
                   return;
                 }
                 heroVideo.style.display = 'none';
+                setHeroFramePoster(fallbackImage, true);
                 if (!hasBgItems) {
                   hero.classList.remove('hero-has-video');
                   hero.classList.add('hero-has-image', 'hero-bg-image');
@@ -888,30 +984,19 @@
                   if (heroBgVideoBg) { heroBgVideoBg.style.display = 'none'; heroBgVideoBg.pause(); heroBgVideoBg.removeAttribute('src'); heroBgVideoBg.load(); }
                 }
               };
-              heroVideo.onerror = advanceAfterVideoFailure;
-              heroVideo.src = item.url;
-              heroVideo.load();
-              playHeroVideoElement(heroVideo).then((played) => {
-                if (!played) advanceAfterVideoFailure();
+
+              startHeroVideoPlayback(heroVideo, item.url, {
+                posterUrl: fallbackImage,
+                onPlaying: applyVideoPlayingState,
+                onGiveUp: applyVideoGiveUpState
               });
-              heroVideoSwitchTimeout = window.setTimeout(() => { heroVideo.classList.remove('is-switching'); heroVideoSwitchTimeout = null; }, HERO_VIDEO_SWITCH_TRANSITION_MS);
-              if (heroSliderToggle) { heroSliderToggle.hidden = false; heroSliderToggle.innerHTML = '<i class="fas fa-pause"></i>'; }
-              // Mirror to background layer only when there is no dedicated background item
-              if (!hasBgItems) {
-                if (heroBgVideoBg) {
-                  heroBgVideoBg.src = item.url;
-                  heroBgVideoBg.load();
-                  playHeroVideoElement(heroBgVideoBg);
-                  heroBgVideoBg.style.display = 'block';
-                }
-                if (heroBgImg) heroBgImg.style.display = 'none';
-              }
             } else {
               // Image item in frame
+              setHeroFramePoster(item.url, true);
+              heroVideo.style.opacity = '0';
               if (!hasBgItems) {
                 hero.classList.add('hero-has-image', 'hero-bg-image');
                 hero.classList.remove('hero-has-video');
-                // Mirror to background layer
                 if (heroBgImg) { heroBgImg.src = item.url; heroBgImg.style.display = 'block'; }
                 if (heroBgVideoBg) { heroBgVideoBg.pause(); heroBgVideoBg.removeAttribute('src'); heroBgVideoBg.load(); heroBgVideoBg.style.display = 'none'; }
               }
@@ -927,8 +1012,10 @@
             }
           };
 
-          // Video ended → advance to next
-          heroVideoEndedHandler = () => showMixedItem(heroMixedIndex + 1);
+          // Video ended → advance to next (only when multiple items)
+          heroVideoEndedHandler = () => {
+            if (heroMixedPlaylist.length > 1) showMixedItem(heroMixedIndex + 1);
+          };
           heroVideo.addEventListener('ended', heroVideoEndedHandler);
 
           // Click on frame video → toggle play/pause
@@ -1259,6 +1346,9 @@
 
       const applyHomepagePayload = (payload) => {
         if (!payload?.success || !payload.settings) return;
+        const nextSignature = buildHomepagePayloadSignature(payload);
+        if (nextSignature === homepagePayloadSignature) return;
+        homepagePayloadSignature = nextSignature;
         const heroMediaList = Array.isArray(payload.heroMediaList) && payload.heroMediaList.length
           ? payload.heroMediaList
           : null;
@@ -1270,7 +1360,7 @@
         applyHomepagePayload(window.__HOMEPAGE_BOOTSTRAP__);
       }
 
-      fetch('/api/admin/homepage-settings/public')
+      fetch('/api/admin/homepage-settings/public', { cache: 'no-store' })
         .then((response) => response.json())
         .then((payload) => applyHomepagePayload(payload))
         .catch(() => {});

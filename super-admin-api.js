@@ -120,11 +120,23 @@ const persistHomepageVideoFile = async (file) => {
             await fs.promises.unlink(localPath).catch(() => {});
             return {
                 url: uploaded.secure_url,
-                publicId: uploaded.public_id || null
+                publicId: uploaded.public_id || null,
+                storage: 'cloudinary'
             };
         } catch (error) {
-            console.error('Cloudinary hero video upload failed, falling back to local storage:', error.message);
+            console.error('Cloudinary hero video upload failed:', error.message);
+            throw new Error('تعذر رفع الفيديو إلى التخزين السحابي. تحقق من إعدادات Cloudinary وحاول مرة أخرى.');
         }
+    }
+
+    const onRailway = Boolean(process.env.RAILWAY_ENVIRONMENT);
+    const persistentUploads = process.env.UPLOADS_PERSISTENT === 'true'
+        || String(process.env.UPLOADS_ROOT_DIR || '').includes('/data');
+    if (onRailway && !persistentUploads) {
+        throw new Error(
+            'الفيديو لن يبقى محفوظاً بعد إعادة نشر السيرفر بدون Cloudinary. '
+            + 'أضف CLOUDINARY_CLOUD_NAME و CLOUDINARY_API_KEY و CLOUDINARY_API_SECRET في Railway.'
+        );
     }
 
     const localUrl = buildHomepageUploadUrl(file.filename);
@@ -136,7 +148,7 @@ const persistHomepageVideoFile = async (file) => {
     } catch (_error) {
         throw new Error('فشل حفظ ملف الفيديو على السيرفر');
     }
-    return { url: localUrl, publicId: null };
+    return { url: localUrl, publicId: null, storage: 'local' };
 };
 
 const deleteHomepageMediaAsset = async ({ url, cloudinaryPublicId } = {}) => {
@@ -2585,11 +2597,27 @@ const loadPublicHomepagePayload = async () => {
         return publicHomepageCache;
     }
 
-    const [settings, sections, heroMediaList] = await Promise.all([
+    const [settings, sections, heroMediaListRaw] = await Promise.all([
         getHomepageSettings(),
         getHomepageSections(),
         getHeroMediaList(true)
     ]);
+
+    const heroMediaList = [];
+    for (const item of heroMediaListRaw) {
+        const localPath = getHomepageUploadFilePathFromUrl(item.url);
+        if (!localPath) {
+            heroMediaList.push(item);
+            continue;
+        }
+        try {
+            await fs.promises.access(localPath, fs.constants.F_OK);
+            heroMediaList.push(item);
+        } catch (_error) {
+            console.warn('[homepage] skipping missing hero media file:', item.url);
+        }
+    }
+
     const payload = { success: true, settings, sections, heroMediaList };
     publicHomepageCache = payload;
     publicHomepageCacheAt = now;
@@ -2805,7 +2833,16 @@ router.post('/homepage-settings/hero-video', homepageSettingsUploadLimiter, veri
             }
         });
         await saveHomepageSettings(settings);
-        res.json({ success: true, message: 'تم رفع فيديو Hero بنجاح', videoUrl: uploadedVideoUrl, heroMediaId: newId, settings });
+        res.json({
+            success: true,
+            message: cloudinaryPublicId
+                ? 'تم رفع الفيديو إلى التخزين السحابي بنجاح — سيظهر مباشرة ولن يُحذف تلقائياً'
+                : 'تم رفع فيديو Hero بنجاح',
+            videoUrl: uploadedVideoUrl,
+            heroMediaId: newId,
+            settings,
+            storage: cloudinaryPublicId ? 'cloudinary' : 'local'
+        });
     } catch (error) {
         console.error('خطأ في رفع فيديو Hero:', error);
         res.status(500).json({
