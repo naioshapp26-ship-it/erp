@@ -2449,6 +2449,10 @@ app.use('/api/tenant-settings', tenantSettingsRoutes);
 const platformSettingsRoutes = require('./platform-settings-api');
 app.use('/api/platform', platformSettingsRoutes);
 
+// Payment Gateway Routes (Stripe + PayPal + Paymob — platform & tenant)
+const paymentRoutes = require('./payment/routes');
+app.use('/api/payment', paymentRoutes);
+
 // Tenant Public Routes (robots.txt, sitemap.xml, privacy, terms, public JSON endpoints)
 const tenantPublicRoutes = require('./tenant-public-api');
 app.use(tenantPublicRoutes);
@@ -2477,7 +2481,8 @@ const isScopedBusinessRequest = (req) => {
     || requestPath === '/finance'
     || requestPath.startsWith('/api/hr/')
     || requestPath.startsWith('/api/tenant-users')
-    || requestPath.startsWith('/api/tenant-settings');
+    || requestPath.startsWith('/api/tenant-settings')
+    || requestPath.startsWith('/api/payment');
 };
 
 const resolveCentralSessionEntityContext = async (token) => {

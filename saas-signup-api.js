@@ -27,6 +27,8 @@ const db = require('./db');
 const { provisionTenant } = require('./tenant-provisioner');
 const { buildTenantLoginUrl } = require('./tenant-login-url');
 const { seedTenantPageAccess } = require('./tenant-page-access-seed');
+const platformPayment = require('./payment/platform-service');
+const { decryptPlatformSecret } = require('./payment/secrets');
 
 const router = express.Router();
 
@@ -355,20 +357,63 @@ router.post('/payment/create-session', signupLimiter, async (req, res) => {
     });
   }
 
-  // الاستجابة تحتوي على بيانات تكفي الواجهة الأمامية لإنشاء جلسة الدفع
-  // التكامل الفعلي مع Stripe/PayPal/Paymob SDK يُضاف لاحقاً حسب الإعدادات
-  return res.json({
-    success: true,
-    provider,
-    plan,
-    amount: pricing.amount,
-    currency: pricing.currency,
-    trialDays: pricing.trialDays,
-    registrationToken: token,
-    message: `أكمل الدفع باستخدام ${provider} ثم أرسل طلب التحقق.`,
-    webhookEndpoint: `/api/saas/payment/webhook/${provider}`,
-    verifyEndpoint: '/api/saas/payment/verify'
-  });
+  try {
+    const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0];
+    const baseUrl = `${proto}://${req.headers.host}`;
+
+    const session = await platformPayment.createSaasPaymentSession({
+      provider,
+      plan,
+      registrationToken: token,
+      customerEmail: pending.data.adminEmail,
+      customerName: pending.data.adminName,
+      customerPhone: pending.data.adminPhone,
+      baseUrl,
+      metadata: {
+        registration_token: token,
+        subdomain: pending.data.subdomain,
+        company_name: pending.data.companyName,
+      },
+    });
+
+    await platformPayment.logPlatformTransaction({
+      provider,
+      providerTransactionId: session.sessionId,
+      amount: pricing.amount || 0,
+      currency: pricing.currency,
+      status: 'pending',
+      type: 'signup',
+      metadata: {
+        registration_token: token,
+        subdomain: pending.data.subdomain,
+        plan,
+      },
+    });
+
+    return res.json({
+      success: true,
+      provider,
+      plan,
+      amount: pricing.amount,
+      currency: pricing.currency,
+      trialDays: pricing.trialDays,
+      registrationToken: token,
+      sessionId: session.sessionId,
+      checkoutUrl: session.checkoutUrl,
+      paymentUrl: session.checkoutUrl,
+      clientSecret: session.clientSecret,
+      message: `أكمل الدفع باستخدام ${provider}.`,
+      webhookEndpoint: `/api/saas/payment/webhook/${provider}`,
+      verifyEndpoint: '/api/saas/payment/verify'
+    });
+  } catch (err) {
+    console.error('[SaaS] create-session error:', err.message);
+    return res.status(503).json({
+      success: false,
+      message: err.message || 'فشل إنشاء جلسة الدفع.',
+      code: 'PLATFORM_PAYMENT_NOT_CONFIGURED'
+    });
+  }
 });
 
 // ================================================================
@@ -387,7 +432,7 @@ router.post('/payment/webhook/stripe', webhookLimiter, express.raw({ type: 'appl
     }
     // فك تشفير stripe_webhook_secret إذا كان مشفراً
     // (يُفترض أن يُضاف فك التشفير عبر tenant-connection-manager عند الحاجة)
-    const webhookSecret = settings.stripe_webhook_secret;
+    const webhookSecret = decryptPlatformSecret(settings.stripe_webhook_secret) || settings.stripe_webhook_secret;
 
     // التحقق من التوقيع يدوياً (بدون stripe SDK مُثبَّت)
     const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || '', 'utf8');
@@ -719,4 +764,28 @@ async function _handlePostPaymentProvisioning(registrationToken, provider, trans
   return result;
 }
 
+async function handleStripePaymentSuccess(registrationToken, transactionId) {
+  const pending = _pendingRegistrations.get(registrationToken);
+  const plan = pending?.data?.plan || 'basic';
+  const pricing = await _getPlanPricing('stripe', plan);
+  return _handlePostPaymentProvisioning(registrationToken, 'stripe', transactionId, pricing);
+}
+
+async function handlePayPalPaymentSuccess(registrationToken, transactionId) {
+  const pending = _pendingRegistrations.get(registrationToken);
+  const plan = pending?.data?.plan || 'basic';
+  const pricing = await _getPlanPricing('paypal', plan);
+  return _handlePostPaymentProvisioning(registrationToken, 'paypal', transactionId, pricing);
+}
+
+async function handlePaymobPaymentSuccess(registrationToken, transactionId) {
+  const pending = _pendingRegistrations.get(registrationToken);
+  const plan = pending?.data?.plan || 'basic';
+  const pricing = await _getPlanPricing('paymob', plan);
+  return _handlePostPaymentProvisioning(registrationToken, 'paymob', transactionId, pricing);
+}
+
 module.exports = router;
+module.exports.handleStripePaymentSuccess = handleStripePaymentSuccess;
+module.exports.handlePayPalPaymentSuccess = handlePayPalPaymentSuccess;
+module.exports.handlePaymobPaymentSuccess = handlePaymobPaymentSuccess;

@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://js.stripe.com/v3/"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -197,7 +198,10 @@
       </button>
     </div>
 
-    <!-- Payment session link -->
+    <!-- Payment session link / embedded checkout -->
+    <div id="paymentCheckoutBox" class="hidden mt-4">
+      <div id="stripe-checkout-container"></div>
+    </div>
     <div id="paymentLinkBox" class="hidden mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
       <p class="text-sm font-700 text-amber-800 mb-2"><i class="fa fa-external-link"></i> رابط إتمام الدفع:</p>
       <a id="paymentLink" href="#" target="_blank" class="text-blue-600 text-sm font-700 break-all underline"></a>
@@ -424,6 +428,20 @@ async function createPaymentSession() {
     }
 
     _state.paymentSessionUrl = data.paymentUrl || data.checkoutUrl || data.redirectUrl || null;
+    _state.sessionId = data.sessionId || null;
+    _state.paymentProvider = data.provider || provider;
+
+    if (data.clientSecret && data.provider === 'stripe') {
+      document.getElementById('paymentActions').classList.add('hidden');
+      document.getElementById('paymentCheckoutBox').classList.remove('hidden');
+      const keyRes = await fetch('/api/payment/stripe/publishable-key');
+      const keyData = await keyRes.json();
+      const stripe = Stripe(keyData.publishableKey);
+      const checkout = await stripe.initEmbeddedCheckout({ clientSecret: data.clientSecret });
+      checkout.mount('#stripe-checkout-container');
+      return;
+    }
+
     if (_state.paymentSessionUrl) {
       const linkEl = document.getElementById('paymentLink');
       linkEl.href = _state.paymentSessionUrl;
@@ -449,7 +467,11 @@ async function verifyPayment() {
     const r = await fetch('/api/saas/payment/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: _state.token })
+      body: JSON.stringify({
+        token: _state.token,
+        transactionId: _state.sessionId || undefined,
+        provider: _state.paymentProvider || 'stripe'
+      })
     });
     const data = await r.json();
     if (!data.success) throw new Error(data.message || 'فشل التحقق من الدفع');
