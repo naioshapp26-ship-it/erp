@@ -346,7 +346,7 @@
                         placeholder="عنوان / وصف (اختياري)"
                         class="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-sm" />
                 </div>
-                <p class="text-xs text-slate-400 mt-1.5 mb-3">MP4 / WEBM — الحد الأقصى 45 MB (قد يستغرق دقيقة)</p>
+                <p class="text-xs text-slate-400 mt-1.5 mb-3">MP4 / WEBM — الحد الأقصى 100 ميجابايت (قد يستغرق دقيقة للملفات الكبيرة)</p>
                 <button id="btn-upload-hero-vid" onclick="uploadHomepageHeroVideo()"
                     class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2">
                     <i class="fas fa-cloud-arrow-up"></i> رفع الفيديو
@@ -1151,9 +1151,15 @@
             document.getElementById('hpHeroVideoFile').value = '';
             const captionInput = document.getElementById('hpHeroVideoCaption');
             if (captionInput) captionInput.value = '';
-            setUploadState('btn-upload-hero-vid', 'hero-vid-status', false, 'success',
-                `<i class="fas fa-circle-check"></i> تم رفع الفيديو بنجاح وحفظه في قاعدة البيانات ✓`);
-            showToast('تم رفع فيديو Hero بنجاح ✓');
+            if (r.warning) {
+                setUploadState('btn-upload-hero-vid', 'hero-vid-status', false, 'info',
+                    `<i class="fas fa-circle-info"></i> ${escapeHtml(r.warning)}`);
+                showToast('تم رفع الفيديو — راجع تنبيه الحفظ الدائم', 'info');
+            } else {
+                setUploadState('btn-upload-hero-vid', 'hero-vid-status', false, 'success',
+                    `<i class="fas fa-circle-check"></i> تم رفع الفيديو بنجاح وحفظه في قاعدة البيانات ✓`);
+                showToast('تم رفع فيديو Hero بنجاح ✓');
+            }
             await Promise.all([loadHomepageSettings(), loadHeroMediaList()]);
         } catch (e) {
             console.error(e);

@@ -11,7 +11,7 @@ const path = require('path');
 const db = require('./db');
 const { ensureDatabaseReady } = require('./database-bootstrap');
 const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
-const { isPathAllowed } = require('./page-permissions-registry');
+const { resolveUploadsRootDir } = require('./uploads-config');
 const { getTenantPermissionBundle } = require('./tenant-page-permissions');
 const {
   DEFAULT_ENTITY_CONTEXT,
@@ -25,7 +25,7 @@ const databaseReady = ensureDatabaseReady();
 // cPanel يمرّر PORT ديناميكياً — لا تثبّته في .env
 const listenHost = process.env.HOST || '0.0.0.0';
 const listenPort = Number(process.env.PORT) || 3000;
-const UPLOADS_ROOT_DIR = path.resolve(process.env.UPLOADS_ROOT_DIR || path.join(__dirname, 'uploads'));
+const UPLOADS_ROOT_DIR = resolveUploadsRootDir(path.join(__dirname, 'uploads'));
 
 app.use('/api', (req, res, next) => {
   res.setHeader('X-Naiosh-Api', '1');
