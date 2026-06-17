@@ -10,6 +10,7 @@ const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 const db = require('./db');
 const { getTenantPool } = require('./tenant-connection-manager');
@@ -46,7 +47,7 @@ const UPLOADS_ROOT_DIR = path.resolve(process.env.UPLOADS_ROOT_DIR || path.join(
 const HOMEPAGE_UPLOAD_PUBLIC_PREFIX = '/uploads/homepage/';
 const HOMEPAGE_UPLOAD_ROOT = path.join(UPLOADS_ROOT_DIR, 'homepage');
 const MAX_HOMEPAGE_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
-const MAX_HOMEPAGE_VIDEO_SIZE_BYTES = 45 * 1024 * 1024;
+const MAX_HOMEPAGE_VIDEO_SIZE_BYTES = 100 * 1024 * 1024;
 if (!fs.existsSync(HOMEPAGE_UPLOAD_ROOT)) {
     fs.mkdirSync(HOMEPAGE_UPLOAD_ROOT, { recursive: true });
 }
@@ -75,13 +76,82 @@ const homepageVideoUpload = multer({
     storage: homepageImageStorage,
     limits: { fileSize: MAX_HOMEPAGE_VIDEO_SIZE_BYTES },
     fileFilter: (_req, file, cb) => {
-        const allowedTypes = new Set(['video/mp4', 'video/webm']);
-        if (!allowedTypes.has(file.mimetype)) {
-            return cb(new Error('نوع الملف غير مدعوم. يرجى رفع فيديو MP4/WEBM فقط.'));
+        const allowedTypes = new Set(['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v']);
+        const extension = path.extname(file.originalname || '').toLowerCase();
+        const allowedExtensions = new Set(['.mp4', '.webm', '.mov', '.m4v']);
+        if (allowedTypes.has(file.mimetype) || allowedExtensions.has(extension)) {
+            return cb(null, true);
         }
-        cb(null, true);
+        return cb(new Error('نوع الملف غير مدعوم. يرجى رفع فيديو MP4 أو WEBM فقط.'));
     }
 });
+
+const isCloudinaryConfigured = () => Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME
+    && process.env.CLOUDINARY_API_KEY
+    && process.env.CLOUDINARY_API_SECRET
+);
+
+const getCloudinaryClient = () => {
+    if (!isCloudinaryConfigured()) return null;
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+        secure: true
+    });
+    return cloudinary;
+};
+
+const persistHomepageVideoFile = async (file) => {
+    const localPath = file?.path;
+    if (!localPath || !file?.filename) {
+        throw new Error('فشل استلام ملف الفيديو من الخادم');
+    }
+
+    const cloudinaryClient = getCloudinaryClient();
+    if (cloudinaryClient) {
+        try {
+            const uploaded = await cloudinaryClient.uploader.upload(localPath, {
+                resource_type: 'video',
+                folder: 'naiosh/homepage',
+                timeout: 180000
+            });
+            await fs.promises.unlink(localPath).catch(() => {});
+            return {
+                url: uploaded.secure_url,
+                publicId: uploaded.public_id || null
+            };
+        } catch (error) {
+            console.error('Cloudinary hero video upload failed, falling back to local storage:', error.message);
+        }
+    }
+
+    const localUrl = buildHomepageUploadUrl(file.filename);
+    if (!localUrl) {
+        throw new Error('تعذر إنشاء رابط الفيديو بعد الرفع');
+    }
+    try {
+        await fs.promises.access(localPath, fs.constants.F_OK);
+    } catch (_error) {
+        throw new Error('فشل حفظ ملف الفيديو على السيرفر');
+    }
+    return { url: localUrl, publicId: null };
+};
+
+const deleteHomepageMediaAsset = async ({ url, cloudinaryPublicId } = {}) => {
+    if (cloudinaryPublicId && isCloudinaryConfigured()) {
+        try {
+            const cloudinaryClient = getCloudinaryClient();
+            await cloudinaryClient.uploader.destroy(cloudinaryPublicId, { resource_type: 'video' });
+        } catch (error) {
+            console.error('Failed to delete Cloudinary asset:', cloudinaryPublicId, error.message);
+        }
+    }
+    if (url) {
+        await deleteHomepageUploadByUrl(url);
+    }
+};
 
 /**
  * Wrap a multer middleware so that any multer error (LIMIT_FILE_SIZE,
@@ -2692,7 +2762,7 @@ router.post('/homepage-settings/hero-video', homepageSettingsUploadLimiter, veri
             return res.status(400).json({ success: false, message: 'فشل رفع الفيديو: لم يتم استلام ملف صالح. يرجى إعادة المحاولة.' });
         }
         const currentSettings = await getHomepageSettings();
-        const uploadedVideoUrl = buildHomepageUploadUrl(req.file.filename);
+        const { url: uploadedVideoUrl, publicId: cloudinaryPublicId } = await persistHomepageVideoFile(req.file);
         const caption = sanitizeCaptionText(req.body?.heroCaption || req.body?.mediaCaption || '');
         const description = sanitizeShortText(req.body?.heroDescription || req.body?.mediaDescription || '', 300);
         const title = String(req.body?.title || caption || '').trim().slice(0, 200) || null;
@@ -2705,7 +2775,7 @@ router.post('/homepage-settings/hero-video', homepageSettingsUploadLimiter, veri
         const nextOrder = (existingRows[0]?.max_order || 0) + 1;
         const insertResult = await pool.query(
             `INSERT INTO hero_media (type, url, title, target, order_index, is_active, cloudinary_public_id) VALUES ($1, $2, $3, $4, $5, true, $6) RETURNING id`,
-            ['video', uploadedVideoUrl, title, target, nextOrder, null]
+            ['video', uploadedVideoUrl, title, target, nextOrder, cloudinaryPublicId]
         );
         const newId = insertResult.rows[0]?.id;
 
@@ -2738,7 +2808,10 @@ router.post('/homepage-settings/hero-video', homepageSettingsUploadLimiter, veri
         res.json({ success: true, message: 'تم رفع فيديو Hero بنجاح', videoUrl: uploadedVideoUrl, heroMediaId: newId, settings });
     } catch (error) {
         console.error('خطأ في رفع فيديو Hero:', error);
-        res.status(500).json({ success: false, message: 'تعذر رفع فيديو Hero' });
+        res.status(500).json({
+            success: false,
+            message: error?.message || 'تعذر رفع فيديو Hero'
+        });
     }
 });
 
@@ -2779,19 +2852,19 @@ router.post('/homepage-settings/tour-video', homepageSettingsUploadLimiter, veri
         }
         const currentSettings = await getHomepageSettings();
         const previousVideoUrl = currentSettings.tourMedia?.videoUrl;
-        const videoUrl = buildHomepageUploadUrl(req.file.filename);
+        const { url: videoUrl, publicId: cloudinaryPublicId } = await persistHomepageVideoFile(req.file);
         const settings = sanitizeHomepageSettings({
             ...currentSettings,
             tourMedia: {
                 ...(currentSettings.tourMedia || {}),
                 activeType: 'video',
                 videoUrl,
-                videoPublicId: null
+                videoPublicId: cloudinaryPublicId || null
             }
         });
         await saveHomepageSettings(settings);
         if (previousVideoUrl && previousVideoUrl !== videoUrl) {
-            await deleteHomepageUploadByUrl(previousVideoUrl);
+            await deleteHomepageMediaAsset({ url: previousVideoUrl, cloudinaryPublicId: currentSettings.tourMedia?.videoPublicId });
         }
         res.json({ success: true, message: 'تم رفع فيديو قسم الجولة بنجاح', videoUrl, settings });
     } catch (error) {
@@ -2938,7 +3011,10 @@ router.delete('/hero-media/:id', verifySuperAdmin, homepageSettingsWriteLimiter,
             return res.status(404).json({ success: false, message: 'الوسائط غير موجودة' });
         }
         const deletedRow = deleteResult.rows[0];
-        await deleteHomepageUploadByUrl(deletedRow.url);
+        await deleteHomepageMediaAsset({
+            url: deletedRow.url,
+            cloudinaryPublicId: deletedRow.cloudinary_public_id
+        });
         invalidatePublicHomepageCache();
         const items = await getHeroMediaList(false);
         res.json({ success: true, message: 'تم حذف الوسائط بنجاح', heroMediaList: items });
