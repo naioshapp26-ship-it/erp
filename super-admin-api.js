@@ -17,7 +17,6 @@ const { buildCentralTenantEntityId, syncCentralTenantUserDirectoryEntry } = requ
 const { ensureSuperAdminRbacSchema } = require('./super-admin-rbac-schema');
 const { buildPermissionRegistry } = require('./page-permissions-registry');
 const {
-    ensureTenantPageAccessTable,
     getTenantPermissionBundle,
     saveTenantPermissionBundle
 } = require('./tenant-page-permissions');
