@@ -11,6 +11,8 @@ const path = require('path');
 const db = require('./db');
 const { ensureDatabaseReady } = require('./database-bootstrap');
 const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
+const { isPathAllowed } = require('./page-permissions-registry');
+const { getTenantPermissionBundle } = require('./tenant-page-permissions');
 const {
   DEFAULT_ENTITY_CONTEXT,
   normalizeEntityContext,
@@ -2744,6 +2746,20 @@ const requireAuthForHtml = async (req, res, next) => {
     if (!resolvedContext) {
       return res.redirect(302, '/login-page.html');
     }
+
+    if (req.tenant && req.tenantPool && String(resolvedContext.type || '').toUpperCase() === 'TENANT') {
+      const permissionBundle = await getTenantPermissionBundle(db, req.tenant);
+      const allowed = isPathAllowed(req.path, {
+        tenantType: 'TENANT',
+        entityId: resolvedContext.id,
+        allowedPages: permissionBundle.allowed_pages,
+        pageRestrictions: permissionBundle.page_restrictions
+      });
+      if (!allowed) {
+        return res.redirect(302, '/access-denied.html');
+      }
+    }
+
     return next();
   } catch (error) {
     console.error('HTML auth guard failed:', error.message);
@@ -2755,6 +2771,10 @@ app.use(requireAuthForHtml);
 
 app.get('/login-page.html', (_req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'login-page.html'));
+});
+
+app.get('/access-denied.html', (_req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'access-denied.html'));
 });
 
 app.get('/register.html', (_req, res) => {

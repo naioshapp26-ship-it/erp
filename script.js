@@ -270,6 +270,8 @@ const app = (() => {
             entityName: userData.entity_name || userData.entityName || userData.companyName,
             entity_name: userData.entity_name || userData.entityName || userData.companyName,
             allowedPages: userData.allowed_pages || userData.allowedPages || [],
+            pageRestrictions: userData.page_restrictions || userData.pageRestrictions || {},
+            page_restrictions: userData.page_restrictions || userData.pageRestrictions || {},
             menu: Array.isArray(menuData) ? menuData : []
         };
     };
@@ -711,6 +713,11 @@ const app = (() => {
         return allowedRoutes[0] || 'dashboard';
     };
 
+    const getPageRestrictions = () => {
+        const raw = currentUser?.pageRestrictions || currentUser?.page_restrictions || {};
+        return raw && typeof raw === 'object' ? raw : {};
+    };
+
     const isOfficeRouteAllowed = (route) => {
         if (route === 'download-app') {
             return true;
@@ -731,8 +738,17 @@ const app = (() => {
             return route === 'dashboard';
         }
         if (allowedPages.includes(route)) return true;
+
+        const pageRestrictions = getPageRestrictions();
         const parent = officeRouteParents[route];
-        if (parent && allowedPages.includes(parent)) return true;
+        if (parent) {
+            const restriction = pageRestrictions[parent];
+            if (restriction?.restricted && Array.isArray(restriction.pages)) {
+                return restriction.pages.includes(route);
+            }
+            if (allowedPages.includes(parent)) return true;
+        }
+
         return allowedPages.some(page => officeRouteParents[page] === route);
     };
 
@@ -1757,6 +1773,10 @@ const app = (() => {
                     ? 'سيتم إظهار التبويبات بعد تفعيلها من السوبر أدمن'
                     : 'لا توجد صلاحية لعرض هذه الصفحة';
                 showToast(message, 'info');
+                if (route !== 'dashboard' && fallbackRoute !== route) {
+                    window.location.href = '/access-denied.html';
+                    return;
+                }
                 route = fallbackRoute;
             }
         }
@@ -18160,6 +18180,7 @@ const app = (() => {
 
     const renderRecordsArchiveHome = () => {
         const stats = getRecordsArchiveHomeStats(recordsArchiveHomeData);
+        const visibleArchiveSections = recordsArchiveHomeSections.filter((section) => isOfficeRouteAllowed(section.id));
         return `
         <div class="space-y-6 animate-fade-in">
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -18215,10 +18236,10 @@ const app = (() => {
             <div class="bg-white rounded-2xl shadow-lg border border-slate-100 p-6">
                 <div class="flex items-center justify-between mb-5">
                     <h3 class="text-lg font-black text-slate-800">أقسام الأرشفة</h3>
-                    <span class="text-xs font-bold text-slate-500">${recordsArchiveHomeSections.length.toLocaleString('en-US')} أقسام داخلية</span>
+                    <span class="text-xs font-bold text-slate-500">${visibleArchiveSections.length.toLocaleString('en-US')} أقسام داخلية</span>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    ${recordsArchiveHomeSections.map(section => `
+                    ${visibleArchiveSections.map(section => `
                         <button onclick="app.loadRoute('${section.id}')" class="group text-right rounded-2xl p-5 text-white bg-gradient-to-br ${section.tone} hover:shadow-xl transition">
                             <div class="flex items-center justify-between mb-3">
                                 <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
