@@ -122,6 +122,34 @@ router.get('/credits/bundles', (req, res) => {
   return res.json({ success: true, bundles: creditBilling.getCreditBundles() });
 });
 
+router.get('/credits/summary', async (req, res) => {
+  if (!req.tenantPool) {
+    return res.status(400).json({ success: false, message: 'يتطلب نطاق مستأجر.' });
+  }
+  const userId = req.tenantUser?.user_id || req.query.userId;
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'غير مصرح.' });
+  }
+  try {
+    const balance = await creditBilling.getCreditBalance(req.tenantPool, { userId: Number(userId) });
+    const lowBalanceThreshold = parseInt(process.env.CREDIT_LOW_BALANCE_THRESHOLD, 10) || 10;
+    const numericBalance = Number(balance.balance) || 0;
+    const isLow = numericBalance > 0 && numericBalance <= lowBalanceThreshold;
+    const exhausted = numericBalance <= 0;
+    return res.json({
+      success: true,
+      balance: numericBalance,
+      currency: balance.currency || 'SAR',
+      lowBalanceThreshold,
+      isLow,
+      exhausted,
+      bundles: creditBilling.getCreditBundles(),
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get('/credits/balance', async (req, res) => {
   if (!req.tenantPool) {
     return res.status(400).json({ success: false, message: 'يتطلب نطاق مستأجر.' });

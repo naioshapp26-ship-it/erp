@@ -2115,7 +2115,8 @@ const app = (() => {
             loadRecordsStudentsData();
         }
 
-        if (route === 'dashboard') requestAnimationFrame(() => { initDashboardChart(); initHqDashboardEffects(); });
+        if (route === 'dashboard') requestAnimationFrame(() => { initDashboardChart(); initHqDashboardEffects(); initCreditBalanceWidget(); });
+        if (route === 'control-panel') requestAnimationFrame(() => { initCreditBalanceWidget(); });
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
         if (route.startsWith('eo-') && window.EOfficesPages?.init) {
             window.EOfficesPages.init(route);
@@ -4772,6 +4773,8 @@ const app = (() => {
                 </div>
             </div>
 
+            ${renderCreditBalanceWidget()}
+
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
                 ${renderHqKpiCard('المحفظة الرقمية', balance, 'fa-wallet', 'from-red-600 via-red-700 to-rose-800', perms.isFinance() ? balanceRaw : null, perms.isFinance() ? 'ريال سعودي' : '', perms.isFinance() ? 'money' : '')}
                 ${renderHqKpiCard('المهام النشطة', tasksCount, 'fa-list-check', 'from-amber-500 via-orange-500 to-amber-600', tasksCount, tasksCount > 0 ? 'قيد المتابعة' : '')}
@@ -4803,6 +4806,39 @@ const app = (() => {
                 </div>
             </div>
         </div>`;
+    };
+
+    const renderCreditBalanceWidget = () => `
+        <div id="credit-balance-widget" class="mb-6 rounded-2xl border border-teal-100 bg-white/90 shadow-sm p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+                <p class="text-sm font-medium text-gray-600">الأرصدة المتاحة</p>
+                <p id="credit-balance-amount" class="text-3xl font-bold text-teal-700 mt-1">...</p>
+                <p id="credit-balance-status" class="text-xs text-gray-600 mt-1">جاري التحميل...</p>
+            </div>
+            <button type="button" onclick="app.loadRoute('credit-topup')" class="text-sm font-semibold text-teal-700 hover:text-teal-800 underline underline-offset-4 text-right">
+                شحن الأرصدة
+            </button>
+        </div>
+    `;
+
+    const initCreditBalanceWidget = async () => {
+        const amountEl = document.getElementById('credit-balance-amount');
+        const statusEl = document.getElementById('credit-balance-status');
+        if (!amountEl || !statusEl) return;
+
+        try {
+            const data = await fetchAPI('/api/payment/credits/summary');
+            const balance = Number(data.balance ?? 0);
+            amountEl.textContent = balance.toLocaleString('ar-EG');
+            const isLow = Boolean(data.exhausted || data.isLow);
+            statusEl.textContent = isLow ? 'رصيد منخفض' : 'الرصيد جيد';
+            statusEl.className = `text-xs mt-1 ${isLow ? 'text-amber-600 font-semibold' : 'text-gray-600'}`;
+        } catch (error) {
+            amountEl.textContent = '0';
+            statusEl.textContent = 'الرصيد جيد';
+            statusEl.className = 'text-xs text-gray-600 mt-1';
+            console.warn('[CreditBalance] widget load skipped:', error?.message || error);
+        }
     };
 
     const renderDashboard = async () => {
@@ -4874,6 +4910,7 @@ const app = (() => {
 
         // Default dashboard
         return `
+        ${renderCreditBalanceWidget()}
         <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
             <div>
                 <span class="px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider font-bold mb-2 inline-block ${TENANT_TYPES[currentUser.tenantType].bg} ${TENANT_TYPES[currentUser.tenantType].color}">
@@ -7199,6 +7236,8 @@ const app = (() => {
                 <h2 class="text-2xl font-bold text-slate-800">لوحة التحكم</h2>
                 <p class="text-slate-500">نظرة شاملة على جميع العمليات والإحصائيات</p>
             </div>
+
+            ${renderCreditBalanceWidget()}
 
             <!-- Stats Grid -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
