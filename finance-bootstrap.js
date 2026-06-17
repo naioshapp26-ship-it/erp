@@ -26,10 +26,14 @@ function preprocessFinanceSql(relativePath, sql) {
   if (relativePath.includes('init-finance-system.sql')) {
     output = output
       .replace(/CREATE TABLE IF NOT EXISTS finance_ai_forecasts[\s\S]*?\n\);/m, '')
-      .replace(/CREATE INDEX IF NOT EXISTS idx_ai_forecasts_date ON finance_ai_forecasts\(forecast_date\);\n?/g, '');
+      .replace(/CREATE INDEX IF NOT EXISTS idx_ai_forecasts_date ON finance_ai_forecasts\(forecast_date\);\n?/g, '')
+      .replace(/CREATE INDEX IF NOT EXISTS idx_ai_forecasts_type ON finance_ai_forecasts\(forecast_type\);\n?/g, '');
   }
   if (relativePath.includes('create-cashflow-tables.sql')) {
-    output = output.replace(/CREATE TABLE IF NOT EXISTS finance_ai_forecasts[\s\S]*?\n\);/m, '');
+    output = output
+      .replace(/CREATE TABLE IF NOT EXISTS finance_ai_forecasts[\s\S]*?\n\);/m, '')
+      .replace(/CREATE INDEX IF NOT EXISTS idx_ai_forecasts_entity ON finance_ai_forecasts\(entity_id\);\n?/g, '')
+      .replace(/CREATE INDEX IF NOT EXISTS idx_ai_forecasts_period ON finance_ai_forecasts\(forecast_period\);\n?/g, '');
   }
   return output;
 }
@@ -189,6 +193,8 @@ async function verifyFinanceTables() {
 }
 
 async function ensureFinanceReady() {
+  await ensureFinanceAiForecastsTable();
+
   for (const relativePath of FINANCE_SQL_FILES) {
     const filePath = path.join(__dirname, relativePath);
     if (!fs.existsSync(filePath)) continue;
@@ -197,7 +203,6 @@ async function ensureFinanceReady() {
     await db.query(sql);
   }
 
-  await ensureFinanceAiForecastsTable();
   await seedFinanceSampleData();
   await verifyFinanceTables();
   console.log('✅ Finance system tables verified');

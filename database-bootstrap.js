@@ -740,23 +740,23 @@ async function seedExtendedEntities() {
       ('BR003', 'PLT001', 'ACTIVE', 79.5, 22000)
     ON CONFLICT (branch_id, platform_id) DO NOTHING;
 
-    INSERT INTO ads (title, content, level, scope, status, source_entity_id, entity_id, cost, budget)
-    SELECT 'حملة نايوش الربع الأول', 'حملة ترويجية للمنصة', 'HQ', 'GLOBAL', 'ACTIVE', 'HQ001', 'HQ001', 15000, 50000
+    INSERT INTO ads (title, content, level, scope, status, source_entity_id, source_type, entity_id, cost, budget, start_date, end_date)
+    SELECT 'حملة نايوش الربع الأول', 'حملة ترويجية للمنصة', 'L5_CROSS_INC', 'GLOBAL', 'ACTIVE', 'HQ001', 'HQ', 'HQ001', 15000, 50000, CURRENT_DATE, CURRENT_DATE + 90
     WHERE NOT EXISTS (SELECT 1 FROM ads WHERE title = 'حملة نايوش الربع الأول');
 
-    INSERT INTO ads (title, content, level, scope, status, source_entity_id, entity_id, cost, budget)
-    SELECT 'إعلان فرع الرياض', 'ترويج خدمات الفرع', 'BRANCH', 'LOCAL', 'ACTIVE', 'BR001', 'BR001', 5000, 15000
+    INSERT INTO ads (title, content, level, scope, status, source_entity_id, source_type, entity_id, cost, budget, start_date, end_date)
+    SELECT 'إعلان فرع الرياض', 'ترويج خدمات الفرع', 'L1_LOCAL', 'LOCAL', 'ACTIVE', 'BR001', 'BRANCH', 'BR001', 5000, 15000, CURRENT_DATE, CURRENT_DATE + 30
     WHERE NOT EXISTS (SELECT 1 FROM ads WHERE title = 'إعلان فرع الرياض');
 
-    INSERT INTO ads (title, content, level, scope, status, source_entity_id, entity_id, cost, budget)
-    SELECT 'منصة التدريب', 'إعلان برامج التدريب', 'PLATFORM', 'LOCAL', 'ACTIVE', 'PLT001', 'PLT001', 3000, 10000
+    INSERT INTO ads (title, content, level, scope, status, source_entity_id, source_type, entity_id, cost, budget, start_date, end_date)
+    SELECT 'منصة التدريب', 'إعلان برامج التدريب', 'L4_PLT_INT', 'PLATFORM', 'ACTIVE', 'PLT001', 'PLATFORM', 'PLT001', 3000, 10000, CURRENT_DATE, CURRENT_DATE + 45
     WHERE NOT EXISTS (SELECT 1 FROM ads WHERE title = 'منصة التدريب');
 
-    INSERT INTO employee_requests (id, entity_id, employee_name, request_type, request_title, description, status, priority)
+    INSERT INTO employee_requests (id, entity_id, employee_name, request_type, request_title, description, status, priority, requested_date)
     VALUES
-      ('REQ-001', 'HQ001', 'أحمد محمد', 'LEAVE', 'طلب إجازة سنوية', 'إجازة لمدة 5 أيام', 'PENDING', 'NORMAL'),
-      ('REQ-002', 'BR001', 'سارة علي', 'TRAINING', 'طلب تدريب', 'دورة إدارة المشاريع', 'APPROVED', 'HIGH'),
-      ('REQ-003', 'BR002', 'خالد يوسف', 'GENERAL', 'استفسار فاتورة', 'استفسار عن فاتورة الاشتراك', 'PENDING', 'NORMAL')
+      ('REQ-001', 'HQ001', 'أحمد محمد', 'LEAVE', 'طلب إجازة سنوية', 'إجازة لمدة 5 أيام', 'PENDING', 'NORMAL', CURRENT_DATE),
+      ('REQ-002', 'BR001', 'سارة علي', 'TRAINING', 'طلب تدريب', 'دورة إدارة المشاريع', 'APPROVED', 'HIGH', CURRENT_DATE),
+      ('REQ-003', 'BR002', 'خالد يوسف', 'GENERAL', 'استفسار فاتورة', 'استفسار عن فاتورة الاشتراك', 'PENDING', 'NORMAL', CURRENT_DATE)
     ON CONFLICT (id) DO NOTHING;
 
     INSERT INTO invoices (id, entity_id, type, title, amount, paid_amount, status, issue_date, due_date, customer_name)
