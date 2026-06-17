@@ -587,8 +587,25 @@
       let heroDotsClickHandler = null;
       let heroVideoMountedInVisual = false;
       let heroVideoSwitchTimeout = null;
+      const HERO_VIDEO_MAX_RETRIES = 2;
       const HERO_VIDEO_SWITCH_TRANSITION_MS = 220;
       const HERO_MEDIA_SLIDER_INTERVAL_MS = 6000;
+
+      const playHeroVideoElement = async (videoEl) => {
+        if (!videoEl) return false;
+        videoEl.muted = true;
+        videoEl.playsInline = true;
+        videoEl.autoplay = true;
+        for (let attempt = 0; attempt < HERO_VIDEO_MAX_RETRIES; attempt += 1) {
+          try {
+            await videoEl.play();
+            return true;
+          } catch (_error) {
+            await new Promise((resolve) => window.setTimeout(resolve, 180 * (attempt + 1)));
+          }
+        }
+        return false;
+      };
       const toRgbTriplet = (hexColor, fallback = '215, 0, 0') => {
         if (typeof hexColor !== 'string') return fallback;
         let value = hexColor.trim();
@@ -759,16 +776,18 @@
             if (bgVideoItem && heroBgVideoBg) {
               heroBgVideoBg.src = bgVideoItem.url;
               heroBgVideoBg.load();
-              heroBgVideoBg.play().catch(() => {
-                // Background video failed → fall back to image if available
-                heroBgVideoBg.style.display = 'none';
-                hero.classList.remove('hero-has-video');
-                if (bgImageItem && heroBgImg) {
-                  heroBgImg.src = bgImageItem.url;
-                  heroBgImg.style.display = 'block';
-                  hero.classList.add('hero-has-image', 'hero-bg-image', 'hero-has-bg-image');
+              heroBgVideoBg.preload = 'auto';
+              playHeroVideoElement(heroBgVideoBg).then((played) => {
+                if (!played) {
+                  heroBgVideoBg.style.display = 'none';
+                  hero.classList.remove('hero-has-video');
+                  if (bgImageItem && heroBgImg) {
+                    heroBgImg.src = bgImageItem.url;
+                    heroBgImg.style.display = 'block';
+                    hero.classList.add('hero-has-image', 'hero-bg-image', 'hero-has-bg-image');
+                  }
+                  if (heroBgCtrl) heroBgCtrl.hidden = true;
                 }
-                if (heroBgCtrl) heroBgCtrl.hidden = true;
               });
               heroBgVideoBg.style.display = 'block';
               hero.classList.add('hero-has-video');
@@ -850,21 +869,30 @@
                 hero.classList.remove('hero-has-image', 'hero-bg-image');
               }
               heroVideo.style.display = 'block';
+              heroVideo.preload = 'auto';
               if (heroVideoSwitchTimeout) { window.clearTimeout(heroVideoSwitchTimeout); heroVideoSwitchTimeout = null; }
               heroVideo.classList.remove('is-switching');
               void heroVideo.offsetWidth;
               heroVideo.classList.add('is-switching');
-              heroVideo.src = item.url;
-              heroVideo.load();
-              heroVideo.play().catch(() => {
+              const advanceAfterVideoFailure = () => {
+                if (heroMixedPlaylist.length > 1) {
+                  showMixedItem(heroMixedIndex + 1);
+                  return;
+                }
                 heroVideo.style.display = 'none';
                 if (!hasBgItems) {
                   hero.classList.remove('hero-has-video');
                   hero.classList.add('hero-has-image', 'hero-bg-image');
                   root.style.setProperty('--hero-custom-image', `url('${toSafeCssUrl(fallbackImage, '/newhome/booking-workspace.svg')}')`);
-                  if (heroBgVideoBg) { heroBgVideoBg.style.display = 'none'; heroBgVideoBg.pause(); heroBgVideoBg.removeAttribute('src'); heroBgVideoBg.load(); }
                   if (heroBgImg) { heroBgImg.src = fallbackImage; heroBgImg.style.display = 'block'; }
+                  if (heroBgVideoBg) { heroBgVideoBg.style.display = 'none'; heroBgVideoBg.pause(); heroBgVideoBg.removeAttribute('src'); heroBgVideoBg.load(); }
                 }
+              };
+              heroVideo.onerror = advanceAfterVideoFailure;
+              heroVideo.src = item.url;
+              heroVideo.load();
+              playHeroVideoElement(heroVideo).then((played) => {
+                if (!played) advanceAfterVideoFailure();
               });
               heroVideoSwitchTimeout = window.setTimeout(() => { heroVideo.classList.remove('is-switching'); heroVideoSwitchTimeout = null; }, HERO_VIDEO_SWITCH_TRANSITION_MS);
               if (heroSliderToggle) { heroSliderToggle.hidden = false; heroSliderToggle.innerHTML = '<i class="fas fa-pause"></i>'; }
@@ -873,7 +901,7 @@
                 if (heroBgVideoBg) {
                   heroBgVideoBg.src = item.url;
                   heroBgVideoBg.load();
-                  heroBgVideoBg.play().catch(() => {});
+                  playHeroVideoElement(heroBgVideoBg);
                   heroBgVideoBg.style.display = 'block';
                 }
                 if (heroBgImg) heroBgImg.style.display = 'none';
