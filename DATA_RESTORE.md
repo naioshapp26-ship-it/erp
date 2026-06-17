@@ -22,7 +22,21 @@
 
 ## كيف تستعيد البيانات الكاملة؟
 
-### الطريقة 1: من جهازك (موصى بها)
+### محلياً (تم التحقق)
+
+```bash
+npm run db:restore:local
+# أو
+npm run db:restore -- --yes
+```
+
+النتيجة المتوقعة:
+- `entities`: ~5,305
+- `users`: ~57
+- `roles`: ~61
+- `branches`: ~28
+
+### على Railway (الإنتاج)
 
 ```bash
 # 1. اربط DATABASE_URL بقاعدة Railway
