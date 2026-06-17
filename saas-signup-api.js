@@ -29,6 +29,7 @@ const { buildTenantLoginUrl } = require('./tenant-login-url');
 const { seedTenantPageAccess } = require('./tenant-page-access-seed');
 const platformPayment = require('./payment/platform-service');
 const { decryptPlatformSecret } = require('./payment/secrets');
+const { isSaasPaymentSkipped, isDirectSignupAllowed } = require('./payment/payment-config');
 
 const router = express.Router();
 
@@ -37,9 +38,47 @@ const PENDING_TTL_MS = 60 * 60 * 1000; // ساعة واحدة
 const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'api', 'admin', 'saas']);
 const VALID_PLANS = new Set(['basic', 'pro', 'enterprise']);
 
-// ---- تخزين التسجيلات المعلقة في الذاكرة ----
-// { token: { data, expiresAt } }
+// ---- تخزين التسجيلات المعلقة (ذاكرة + قاعدة بيانات) ----
 const _pendingRegistrations = new Map();
+
+async function _savePending(token, data) {
+  const expiresAt = Date.now() + PENDING_TTL_MS;
+  _pendingRegistrations.set(token, { data, expiresAt });
+  await ensureSaasSchema();
+  await db.query(
+    `INSERT INTO pending_signups (token, data, expires_at)
+     VALUES ($1, $2::jsonb, to_timestamp($3 / 1000.0))
+     ON CONFLICT (token) DO UPDATE SET data = EXCLUDED.data, expires_at = EXCLUDED.expires_at`,
+    [token, JSON.stringify(data), expiresAt]
+  ).catch(() => {});
+  return expiresAt;
+}
+
+async function _loadPending(token) {
+  const mem = _pendingRegistrations.get(token);
+  if (mem && mem.expiresAt > Date.now()) return mem;
+
+  await ensureSaasSchema();
+  const res = await db.query(
+    `SELECT data, extract(epoch from expires_at) * 1000 AS expires_at
+     FROM pending_signups WHERE token = $1 LIMIT 1`,
+    [token]
+  ).catch(() => ({ rows: [] }));
+
+  if (!res.rows.length) return null;
+  const row = res.rows[0];
+  const expiresAt = Number(row.expires_at) || 0;
+  if (expiresAt <= Date.now()) return null;
+
+  const entry = { data: row.data, expiresAt };
+  _pendingRegistrations.set(token, entry);
+  return entry;
+}
+
+async function _deletePending(token) {
+  _pendingRegistrations.delete(token);
+  await db.query('DELETE FROM pending_signups WHERE token = $1', [token]).catch(() => {});
+}
 
 // تنظيف دوري للتسجيلات المنتهية الصلاحية
 setInterval(() => {
@@ -123,6 +162,13 @@ async function ensureSaasSchema() {
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_platform_txn_tenant ON platform_payment_transactions (tenant_id);
+
+    CREATE TABLE IF NOT EXISTS pending_signups (
+      token VARCHAR(128) PRIMARY KEY,
+      data JSONB NOT NULL DEFAULT '{}',
+      expires_at TIMESTAMP NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   saasSchemaReady = true;
 }
@@ -304,10 +350,17 @@ router.post('/signup/start', signupLimiter, async (req, res) => {
 
   // حفظ البيانات مؤقتاً في الذاكرة
   const token = crypto.randomBytes(32).toString('hex');
-  _pendingRegistrations.set(token, {
-    data: { subdomain: normalizedSubdomain, companyName, adminName, adminEmail, adminPhone, adminPassword, plan },
-    expiresAt: Date.now() + PENDING_TTL_MS
-  });
+  await _savePending(token, { subdomain: normalizedSubdomain, companyName, adminName, adminEmail, adminPhone, adminPassword, plan });
+
+  if (isSaasPaymentSkipped() || plan === 'basic') {
+    return res.status(201).json({
+      success: true,
+      token,
+      skipPayment: true,
+      message: 'تم حفظ بيانات التسجيل. يمكنك المتابعة بدون دفع للخطة الأساسية.',
+      nextStep: '/api/saas/payment/create-session'
+    });
+  }
 
   return res.status(201).json({
     success: true,
@@ -323,8 +376,8 @@ router.post('/signup/start', signupLimiter, async (req, res) => {
 router.post('/payment/create-session', signupLimiter, async (req, res) => {
   const { token, provider = 'stripe' } = req.body || {};
 
-  const pending = _pendingRegistrations.get(token);
-  if (!pending || pending.expiresAt <= Date.now()) {
+  const pending = await _loadPending(token);
+  if (!pending) {
     return res.status(400).json({ success: false, message: 'رمز التسجيل غير صالح أو منتهي الصلاحية.' });
   }
 
@@ -586,8 +639,8 @@ router.post('/payment/verify', signupLimiter, async (req, res) => {
     return res.status(400).json({ success: false, message: 'token مطلوب.' });
   }
 
-  const pending = _pendingRegistrations.get(token);
-  if (!pending || pending.expiresAt <= Date.now()) {
+  const pending = await _loadPending(token);
+  if (!pending) {
     return res.status(400).json({ success: false, message: 'رمز التسجيل غير صالح أو منتهي الصلاحية.' });
   }
 
@@ -646,8 +699,8 @@ router.get('/signup/status/:token', async (req, res) => {
   ).catch(() => ({ rows: [] }));
 
   if (!txnRes.rows.length) {
-    const pending = _pendingRegistrations.get(token);
-    if (pending && pending.expiresAt > Date.now()) {
+    const pending = await _loadPending(token);
+    if (pending) {
       if (_provisioningJobs.has(token)) {
         const tenantLookup = await db.query(
           `SELECT id, status, subdomain, company_name
@@ -714,8 +767,8 @@ router.get('/signup/status/:token', async (req, res) => {
 // دالة مشتركة: معالجة ما بعد الدفع + تجهيز المستأجر
 // ================================================================
 async function _handlePostPaymentProvisioning(registrationToken, provider, transactionId, pricing = null) {
-  const pending = _pendingRegistrations.get(registrationToken);
-  if (!pending || pending.expiresAt <= Date.now()) {
+  const pending = await _loadPending(registrationToken);
+  if (!pending) {
     throw new Error('رمز التسجيل غير صالح أو منتهي الصلاحية.');
   }
 
@@ -758,28 +811,46 @@ async function _handlePostPaymentProvisioning(registrationToken, provider, trans
     [result.tenantId, txnId]
   );
 
-  // حذف التسجيل المعلق من الذاكرة
-  _pendingRegistrations.delete(registrationToken);
+  // حذف التسجيل المعلق
+  await _deletePending(registrationToken);
 
   return result;
 }
 
 async function handleStripePaymentSuccess(registrationToken, transactionId) {
-  const pending = _pendingRegistrations.get(registrationToken);
+  const existing = await db.query(
+    `SELECT 1 FROM platform_payment_transactions WHERE provider_transaction_id = $1 LIMIT 1`,
+    [transactionId]
+  ).catch(() => ({ rows: [] }));
+  if (existing.rows.length) return null;
+
+  const pending = await _loadPending(registrationToken);
   const plan = pending?.data?.plan || 'basic';
   const pricing = await _getPlanPricing('stripe', plan);
   return _handlePostPaymentProvisioning(registrationToken, 'stripe', transactionId, pricing);
 }
 
 async function handlePayPalPaymentSuccess(registrationToken, transactionId) {
-  const pending = _pendingRegistrations.get(registrationToken);
+  const existing = await db.query(
+    `SELECT 1 FROM platform_payment_transactions WHERE provider_transaction_id = $1 LIMIT 1`,
+    [transactionId]
+  ).catch(() => ({ rows: [] }));
+  if (existing.rows.length) return null;
+
+  const pending = await _loadPending(registrationToken);
   const plan = pending?.data?.plan || 'basic';
   const pricing = await _getPlanPricing('paypal', plan);
   return _handlePostPaymentProvisioning(registrationToken, 'paypal', transactionId, pricing);
 }
 
 async function handlePaymobPaymentSuccess(registrationToken, transactionId) {
-  const pending = _pendingRegistrations.get(registrationToken);
+  const existing = await db.query(
+    `SELECT 1 FROM platform_payment_transactions WHERE provider_transaction_id = $1 LIMIT 1`,
+    [transactionId]
+  ).catch(() => ({ rows: [] }));
+  if (existing.rows.length) return null;
+
+  const pending = await _loadPending(registrationToken);
   const plan = pending?.data?.plan || 'basic';
   const pricing = await _getPlanPricing('paymob', plan);
   return _handlePostPaymentProvisioning(registrationToken, 'paymob', transactionId, pricing);

@@ -523,6 +523,9 @@ const app = (() => {
         'payment-reminders': 'payment-menu',
         'overdue-management': 'payment-menu',
         'payment-analytics': 'payment-menu',
+        'gateway-payments': 'payment-menu',
+        'credit-topup': 'payment-menu',
+        'online-store': 'payment-menu',
         'attendance-departure': 'employee-menu',
         'emp-requests': 'employee-menu',
         'emp-leaves': 'employee-menu',
@@ -1976,6 +1979,9 @@ const app = (() => {
         else if (route === 'payment-reminders') content = renderPaymentReminders();
         else if (route === 'overdue-management') content = renderOverdueManagement();
         else if (route === 'payment-analytics') content = renderPaymentAnalytics();
+        else if (route === 'gateway-payments') content = renderEmbeddedPaymentPage('/tenant-payment-settings.html', 'إعدادات بوابات الدفع');
+        else if (route === 'credit-topup') content = renderEmbeddedPaymentPage('/tenant-payment-settings.html#credits', 'شحن الرصيد');
+        else if (route === 'online-store') content = renderEmbeddedPaymentPage('/store-cart.html', 'المتجر الإلكتروني');
         // Supply Chain Routes
         else if (route === 'supply-chain') content = renderPurchases();
         else if (route === 'purchases') content = renderPurchases();
@@ -3455,7 +3461,10 @@ const app = (() => {
                     { id: 'collection-rules', icon: 'fa-cog', label: 'قواعد التحصيل' },
                     { id: 'payment-reminders', icon: 'fa-bell', label: 'التذكيرات الآلية' },
                     { id: 'overdue-management', icon: 'fa-exclamation-circle', label: 'إدارة المتأخرات' },
-                    { id: 'payment-analytics', icon: 'fa-chart-bar', label: 'تحليلات الدفع' }
+                    { id: 'payment-analytics', icon: 'fa-chart-bar', label: 'تحليلات الدفع' },
+                    { id: 'gateway-payments', icon: 'fa-plug', label: 'بوابات الدفع (Stripe/PayPal/Paymob)' },
+                    { id: 'credit-topup', icon: 'fa-coins', label: 'شحن الرصيد' },
+                    { id: 'online-store', icon: 'fa-store', label: 'المتجر والسلة' }
                 ]
             },
                 { 
@@ -31122,6 +31131,16 @@ const renderInvoicesEnhanced = () => `
             </tbody>
         </table>
     </div>
+</div>`;
+
+// Gateway payments embed (Stripe / PayPal / Paymob / credits / store)
+const renderEmbeddedPaymentPage = (url, title) => `
+<div class="space-y-4 animate-fade-in p-2">
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-slate-800">${title}</h2>
+        <a href="${url}" target="_blank" rel="noopener" class="text-sm text-blue-600 font-bold">فتح في نافذة جديدة</a>
+    </div>
+    <iframe src="${url}" title="${title}" class="w-full border-0 rounded-2xl shadow-lg bg-white" style="min-height:78vh"></iframe>
 </div>`;
 
 // 2. Render Payment Methods

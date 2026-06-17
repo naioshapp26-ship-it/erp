@@ -1,16 +1,12 @@
 'use strict';
 
 const express = require('express');
-const crypto = require('crypto');
 const { rateLimit } = require('express-rate-limit');
-const db = require('../db');
 const platformService = require('./platform-service');
 const tenantService = require('./tenant-service');
 const creditBilling = require('./credit-billing');
 const { ensureStoreSchema } = require('./store-schema');
-const { decryptPlatformSecret } = require('./secrets');
-const { capturePayPalOrder, verifyPayPalWebhookSignature } = require('./paypal-client');
-const { resolvePaymobSignature, verifyPaymobWebhookSignature } = require('./paymob-client');
+const { capturePayPalOrder } = require('./paypal-client');
 
 const router = express.Router();
 
@@ -425,218 +421,57 @@ router.post('/paypal/orders/:orderId/capture', async (req, res) => {
   }
 });
 
-// ================================================================
-// Webhooks
-// ================================================================
+// COD order (tenant) — without online gateway
+router.post('/orders/cod', async (req, res) => {
+  if (!req.tenantPool) return res.status(400).json({ success: false, message: 'يتطلب نطاق مستأجر.' });
+  const userId = req.tenantUser?.user_id;
+  if (!userId) return res.status(401).json({ success: false, message: 'غير مصرح.' });
 
-async function handleStripeWebhook(req, res, context) {
-  const sig = req.headers['stripe-signature'];
-  if (!sig) return res.status(400).send('Missing stripe-signature');
-
-  try {
-    let webhookSecret;
-    if (context === 'tenant' && req.tenantPool) {
-      const row = await tenantService.getProviderSettings(req.tenantPool, 'stripe');
-      webhookSecret = row?.stripe_webhook_secret
-        ? require('./secrets').decryptSecretForContext(row.stripe_webhook_secret, 'tenant')
-        : null;
-    } else {
-      const row = await platformService.getProviderSettings('stripe');
-      webhookSecret = row?.stripe_webhook_secret
-        ? decryptPlatformSecret(row.stripe_webhook_secret)
-        : null;
-    }
-
-    if (!webhookSecret) return res.status(422).send('Stripe webhook not configured');
-
-    const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || '', 'utf8');
-    const stripe = context === 'tenant' && req.tenantPool
-      ? await tenantService.getStripeClient(req.tenantPool)
-      : await platformService.getStripeClient();
-
-    const event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const metadata = session.metadata || {};
-      const sessionId = session.id;
-
-      if (context === 'tenant' && req.tenantPool) {
-        await tenantService.updateTenantTransactionStatus(req.tenantPool, sessionId, 'succeeded');
-
-        if (metadata.payment_type === 'credit_topup') {
-          await creditBilling.settleCreditPurchase(req.tenantPool, sessionId, session.payment_intent);
-        }
-        if (metadata.payment_type === 'store_order' && metadata.order_id) {
-          await req.tenantPool.query(
-            `UPDATE store_orders SET payment_status = 'paid', status = 'processing', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-            [metadata.order_id]
-          );
-        }
-      } else if (metadata.registration_token) {
-        const saasApi = require('../saas-signup-api');
-        if (typeof saasApi.handleStripePaymentSuccess === 'function') {
-          await saasApi.handleStripePaymentSuccess(metadata.registration_token, sessionId);
-        }
-      }
-    }
-
-    return res.json({ received: true });
-  } catch (err) {
-    console.error('[Stripe Webhook]', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  const { items, shippingAddress, shippingCity, shippingCountry, shippingPhone, notes } = req.body || {};
+  if (!Array.isArray(items) || !items.length) {
+    return res.status(400).json({ success: false, message: 'العناصر مطلوبة.' });
   }
-}
 
-router.post('/webhook/stripe/platform', express.raw({ type: 'application/json' }), (req, res) => {
-  handleStripeWebhook(req, res, 'platform');
-});
-
-router.post('/webhook/stripe/tenant', express.raw({ type: 'application/json' }), (req, res) => {
-  handleStripeWebhook(req, res, 'tenant');
-});
-
-router.post('/webhook/paypal/platform', async (req, res) => {
   try {
-    const auth = await platformService.getPayPalAuth();
-    if (auth.webhookId) {
-      const valid = await verifyPayPalWebhookSignature({
-        auth,
-        webhookId: auth.webhookId,
-        headers: req.headers,
-        event: req.body,
-      });
-      if (!valid) return res.status(400).json({ message: 'Invalid signature' });
+    await ensureStoreSchema(req.tenantPool);
+    const currency = process.env.STORE_CURRENCY || 'SAR';
+    let total = 0;
+    const orderItems = [];
+
+    for (const item of items) {
+      const product = await req.tenantPool.query('SELECT id, name, sale_price FROM products WHERE id = $1', [item.productId]);
+      if (!product.rows.length) continue;
+      const row = product.rows[0];
+      const qty = Number(item.quantity) || 1;
+      const price = Number(row.sale_price) || 0;
+      const subtotal = price * qty;
+      total += subtotal;
+      orderItems.push({ productId: row.id, productName: row.name, productPrice: price, quantity: qty, subtotal });
     }
 
-    const event = req.body || {};
-    if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED' || event.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
-      const token = event.resource?.custom_id;
-      if (token) {
-        const saasApi = require('../saas-signup-api');
-        if (typeof saasApi.handlePayPalPaymentSuccess === 'function') {
-          await saasApi.handlePayPalPaymentSuccess(token, event.resource?.id || event.id);
-        }
-      }
+    if (!orderItems.length) return res.status(400).json({ success: false, message: 'لا توجد منتجات صالحة.' });
+
+    const orderResult = await req.tenantPool.query(
+      `INSERT INTO store_orders
+         (user_id, status, total, currency, payment_method, payment_status, payment_provider,
+          shipping_address, shipping_city, shipping_country, shipping_phone, notes)
+       VALUES ($1,'pending',$2,$3,'cod','pending','cod',$4,$5,$6,$7,$8)
+       RETURNING id`,
+      [userId, total, currency, shippingAddress, shippingCity, shippingCountry, shippingPhone, notes || null]
+    );
+    const orderId = orderResult.rows[0].id;
+
+    for (const item of orderItems) {
+      await req.tenantPool.query(
+        `INSERT INTO store_order_items (order_id, product_id, product_name, product_price, quantity, subtotal)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [orderId, item.productId, item.productName, item.productPrice, item.quantity, item.subtotal]
+      );
     }
-    return res.json({ received: true });
+
+    return res.status(201).json({ success: true, orderId, total, currency, paymentMethod: 'cod' });
   } catch (err) {
-    console.error('[PayPal Platform Webhook]', err.message);
-    return res.status(500).json({ message: err.message });
-  }
-});
-
-router.post('/webhook/paypal/tenant', async (req, res) => {
-  if (!req.tenantPool) return res.status(400).json({ message: 'Tenant required' });
-  try {
-    const auth = await tenantService.getPayPalAuth(req.tenantPool);
-    if (auth.webhookId) {
-      const valid = await verifyPayPalWebhookSignature({
-        auth,
-        webhookId: auth.webhookId,
-        headers: req.headers,
-        event: req.body,
-      });
-      if (!valid) return res.status(400).json({ message: 'Invalid signature' });
-    }
-
-    const event = req.body || {};
-    if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
-      const orderId = event.resource?.supplementary_data?.related_ids?.order_id || event.resource?.id;
-      if (orderId) {
-        await tenantService.updateTenantTransactionStatus(req.tenantPool, orderId, 'succeeded');
-        const tx = await req.tenantPool.query(
-          `SELECT metadata FROM tenant_payment_transactions WHERE provider_transaction_id = $1 LIMIT 1`,
-          [orderId]
-        );
-        const metadata = tx.rows[0]?.metadata || {};
-        if (metadata.payment_type === 'credit_topup') {
-          await creditBilling.settleCreditPurchase(req.tenantPool, orderId, event.resource?.id);
-        }
-        if (metadata.payment_type === 'store_order' && metadata.order_id) {
-          await req.tenantPool.query(
-            `UPDATE store_orders SET payment_status = 'paid', status = 'processing', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-            [metadata.order_id]
-          );
-        }
-      }
-    }
-    return res.json({ received: true });
-  } catch (err) {
-    console.error('[PayPal Tenant Webhook]', err.message);
-    return res.status(500).json({ message: err.message });
-  }
-});
-
-router.post('/webhook/paymob/platform', async (req, res) => {
-  try {
-    const auth = await platformService.getPaymobAuth();
-    const signature = resolvePaymobSignature(req.headers, req.body);
-    if (auth.hmacSecret && signature) {
-      const raw = JSON.stringify(req.body);
-      if (!verifyPaymobWebhookSignature(raw, signature, auth.hmacSecret)) {
-        return res.status(400).json({ error: 'Invalid HMAC' });
-      }
-    }
-
-    const payload = req.body || {};
-    if (payload.type === 'TRANSACTION' && payload.obj?.success === true) {
-      const token = payload.obj?.payment_key_claims?.extra?.registration_token
-        || payload.obj?.order?.merchant_order_id
-        || payload.obj?.metadata?.registration_token;
-      if (token) {
-        const saasApi = require('../saas-signup-api');
-        if (typeof saasApi.handlePaymobPaymentSuccess === 'function') {
-          await saasApi.handlePaymobPaymentSuccess(token, String(payload.obj?.id));
-        }
-      }
-    }
-    return res.json({ received: true });
-  } catch (err) {
-    console.error('[Paymob Platform Webhook]', err.message);
-    return res.status(500).json({ message: err.message });
-  }
-});
-
-router.post('/webhook/paymob/tenant', async (req, res) => {
-  if (!req.tenantPool) return res.status(400).json({ message: 'Tenant required' });
-  try {
-    const auth = await tenantService.getPaymobAuth(req.tenantPool);
-    const signature = resolvePaymobSignature(req.headers, req.body);
-    if (auth.hmacSecret && signature) {
-      const raw = JSON.stringify(req.body);
-      if (!verifyPaymobWebhookSignature(raw, signature, auth.hmacSecret)) {
-        return res.status(400).json({ error: 'Invalid HMAC' });
-      }
-    }
-
-    const payload = req.body || {};
-    if (payload.type === 'TRANSACTION' && payload.obj?.success === true) {
-      const ref = String(payload.obj?.id || payload.obj?.order?.id || '');
-      if (ref) {
-        await tenantService.updateTenantTransactionStatus(req.tenantPool, ref, 'succeeded');
-        const tx = await req.tenantPool.query(
-          `SELECT metadata FROM tenant_payment_transactions
-           WHERE provider_transaction_id = $1 OR metadata->>'paymob_transaction_id' = $1
-           LIMIT 1`,
-          [ref]
-        );
-        const metadata = tx.rows[0]?.metadata || {};
-        if (metadata.payment_type === 'credit_topup') {
-          await creditBilling.settleCreditPurchase(req.tenantPool, ref, ref);
-        }
-        if (metadata.payment_type === 'store_order' && metadata.order_id) {
-          await req.tenantPool.query(
-            `UPDATE store_orders SET payment_status = 'paid', status = 'processing', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-            [metadata.order_id]
-          );
-        }
-      }
-    }
-    return res.json({ received: true });
-  } catch (err) {
-    console.error('[Paymob Tenant Webhook]', err.message);
-    return res.status(500).json({ message: err.message });
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 

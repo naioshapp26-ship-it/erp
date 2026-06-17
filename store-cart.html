@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المتجر الإلكتروني — السلة والدفع</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>body{font-family:'Cairo',sans-serif;background:#f8fafc}</style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+  <div class="max-w-4xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-black">سلة المتجر</h1>
+      <a href="/dashboard.html" class="text-blue-600 font-bold text-sm">← لوحة التحكم</a>
+    </div>
+    <div id="alert" class="hidden mb-4 p-3 rounded-xl text-sm font-bold"></div>
+    <div id="cartItems" class="space-y-3 mb-6"></div>
+    <div id="emptyCart" class="hidden text-center py-16 text-slate-500">السلة فارغة</div>
+
+    <div id="checkoutPanel" class="hidden bg-white rounded-2xl shadow p-6 space-y-4">
+      <h2 class="font-bold text-lg">إتمام الطلب</h2>
+      <div class="grid md:grid-cols-2 gap-3">
+        <input id="shipAddress" class="border rounded-xl p-3 md:col-span-2" placeholder="العنوان">
+        <input id="shipCity" class="border rounded-xl p-3" placeholder="المدينة">
+        <input id="shipCountry" class="border rounded-xl p-3" placeholder="الدولة (SA)">
+        <input id="shipPhone" class="border rounded-xl p-3 md:col-span-2" placeholder="الجوال">
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <label class="border rounded-full px-4 py-2 cursor-pointer has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+          <input type="radio" name="provider" value="stripe" checked class="sr-only"> Stripe
+        </label>
+        <label class="border rounded-full px-4 py-2 cursor-pointer has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+          <input type="radio" name="provider" value="paypal" class="sr-only"> PayPal
+        </label>
+        <label class="border rounded-full px-4 py-2 cursor-pointer has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+          <input type="radio" name="provider" value="paymob" class="sr-only"> Paymob
+        </label>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="checkoutCard()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold flex-1">دفع أونلاين</button>
+        <button onclick="checkoutCod()" class="bg-slate-100 px-5 py-2 rounded-xl font-bold">دفع عند الاستلام</button>
+      </div>
+      <div id="checkout-container"></div>
+      <p class="text-lg font-black text-right">الإجمالي: <span id="cartTotal">0</span></p>
+    </div>
+  </div>
+<script>
+let cartData = { items: [], subtotal: 0, currency: 'SAR' };
+
+function token() {
+  return localStorage.getItem('tenant_session') || localStorage.getItem('authToken') || '';
+}
+
+function showAlert(msg, ok = true) {
+  const el = document.getElementById('alert');
+  el.textContent = msg;
+  el.className = `mb-4 p-3 rounded-xl text-sm font-bold ${ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`;
+  el.classList.remove('hidden');
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...(opts.headers || {}) }
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.message || 'خطأ');
+  return data;
+}
+
+async function loadCart() {
+  const data = await api('/api/payment/cart');
+  cartData = data;
+  const box = document.getElementById('cartItems');
+  const empty = document.getElementById('emptyCart');
+  const panel = document.getElementById('checkoutPanel');
+  if (!data.items?.length) {
+    box.innerHTML = '';
+    empty.classList.remove('hidden');
+    panel.classList.add('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  panel.classList.remove('hidden');
+  document.getElementById('cartTotal').textContent = `${data.subtotal} ${data.currency}`;
+  box.innerHTML = data.items.map(item => `
+    <div class="bg-white rounded-xl shadow p-4 flex justify-between items-center">
+      <div>
+        <div class="font-bold">${item.name}</div>
+        <div class="text-sm text-slate-500">${item.price} × ${item.quantity}</div>
+      </div>
+      <div class="font-black text-blue-600">${item.lineTotal} ${data.currency}</div>
+    </div>
+  `).join('');
+}
+
+function shippingPayload() {
+  return {
+    shippingAddress: document.getElementById('shipAddress').value.trim(),
+    shippingCity: document.getElementById('shipCity').value.trim(),
+    shippingCountry: document.getElementById('shipCountry').value.trim() || 'SA',
+    shippingPhone: document.getElementById('shipPhone').value.trim(),
+    paymentProvider: document.querySelector('input[name="provider"]:checked')?.value || 'stripe',
+    paymentMethod: 'card',
+  };
+}
+
+async function checkoutCard() {
+  try {
+    const payload = shippingPayload();
+    const data = await api('/api/payment/cart/checkout', { method: 'POST', body: JSON.stringify(payload) });
+    if (data.checkoutUrl && !data.clientSecret) {
+      window.location.href = data.checkoutUrl;
+      return;
+    }
+    if (data.clientSecret && data.paymentProvider === 'stripe') {
+      const keyData = await api('/api/payment/stripe/publishable-key');
+      const stripe = Stripe(keyData.publishableKey);
+      const checkout = await stripe.initEmbeddedCheckout({ clientSecret: data.clientSecret });
+      document.getElementById('checkout-container').innerHTML = '';
+      checkout.mount('#checkout-container');
+      return;
+    }
+    showAlert('تم إنشاء جلسة الدفع');
+  } catch (e) {
+    showAlert(e.message, false);
+  }
+}
+
+async function checkoutCod() {
+  try {
+    const ship = shippingPayload();
+    const items = cartData.items.map(i => ({ productId: i.productId, quantity: i.quantity }));
+    await api('/api/payment/orders/cod', {
+      method: 'POST',
+      body: JSON.stringify({ items, ...ship })
+    });
+    showAlert('تم إنشاء الطلب (دفع عند الاستلام)');
+    await loadCart();
+  } catch (e) {
+    showAlert(e.message, false);
+  }
+}
+
+async function initProviders() {
+  for (const p of ['stripe', 'paypal', 'paymob']) {
+    try {
+      const s = await fetch(`/api/payment/status/${p}`).then(r => r.json());
+      const input = document.querySelector(`input[name="provider"][value="${p}"]`);
+      if (input && !s.configured) {
+        input.closest('label').classList.add('opacity-40', 'pointer-events-none');
+      }
+    } catch (_) {}
+  }
+}
+
+loadCart().catch(e => showAlert(e.message, false));
+initProviders();
+</script>
+</body>
+</html>

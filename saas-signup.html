@@ -630,7 +630,32 @@ function setStep(n) {
     if (el) el.classList.toggle('hidden', i !== n);
   });
   updateStepIndicator(n);
+  if (n === 2) refreshPaymentProviderStatus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function refreshPaymentProviderStatus() {
+  const providers = ['stripe', 'paypal', 'paymob'];
+  const status = await Promise.all(providers.map(p =>
+    fetch(`/api/payment/status/${p}`).then(r => r.json()).catch(() => ({ configured: false }))
+  ));
+  providers.forEach((p, i) => {
+    const input = document.querySelector(`input[name="payMethod"][value="${p}"]`);
+    if (!input) return;
+    const label = input.closest('label');
+    if (!status[i]?.configured) {
+      label?.classList.add('opacity-40');
+      input.disabled = true;
+    } else {
+      label?.classList.remove('opacity-40');
+      input.disabled = false;
+    }
+  });
+  const firstEnabled = providers.find((p, i) => status[i]?.configured);
+  if (firstEnabled) {
+    const input = document.querySelector(`input[name="payMethod"][value="${firstEnabled}"]`);
+    if (input) input.checked = true;
+  }
 }
 
 function updateStepIndicator(active) {

@@ -2160,6 +2160,20 @@ ensureRecordsStudentsAffairsTable();
 
 // Middleware
 app.use(cors());
+
+// Stripe webhooks need raw body — must run before JSON parser
+const STRIPE_WEBHOOK_PATHS = new Set([
+  '/api/payment/webhook/stripe/platform',
+  '/api/payment/webhook/stripe/tenant',
+  '/api/saas/payment/webhook/stripe',
+]);
+app.use((req, res, next) => {
+  if (req.method === 'POST' && STRIPE_WEBHOOK_PATHS.has(req.path)) {
+    return express.raw({ type: 'application/json' })(req, res, next);
+  }
+  return next();
+});
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -2383,6 +2397,14 @@ app.get('/api/auth/debug', async (req, res) => {
 // ---- Phase 2: Tenant Resolution Middleware ----
 const { tenantResolver } = require('./tenant-resolver');
 app.use(tenantResolver);
+
+const paymentWebhooks = require('./payment/webhooks');
+app.use('/api/payment/webhook', paymentWebhooks);
+
+const { ensurePaymentBootstrap } = require('./payment/bootstrap');
+ensurePaymentBootstrap().catch((err) => {
+  console.warn('[Payment] bootstrap warning:', err.message);
+});
 
 // Authentication API Routes
 try {
