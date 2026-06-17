@@ -3,6 +3,49 @@
  * Builds system → pages hierarchy from route parent mappings.
  */
 
+const fs = require('fs');
+const path = require('path');
+
+const PRIMARY_TENANT_SYSTEM_KEYS = [
+  'dashboard',
+  'records-archive-home',
+  'hr',
+  'finance',
+  'strategic-management',
+  'employee-menu',
+  'payment-menu',
+  'tasks-management',
+  'requests',
+  'hierarchy',
+  'saas',
+  'facilities',
+  'e-offices',
+  'platforms',
+  'branches-hub',
+  'incubators-hub',
+  'settings',
+  'audit-logs'
+];
+
+const FINANCE_FILE_LABELS = {
+  index: 'لوحة المالية',
+  customers: 'العملاء',
+  invoices: 'الفواتير',
+  payments: 'المدفوعات',
+  budgets: 'الميزانيات',
+  'chart-of-accounts': 'دليل الحسابات',
+  'ai-forecasts': 'توقعات الذكاء الاصطناعي',
+  'cashflow-summary': 'ملخص التدفقات النقدية',
+  journal: 'قيود اليومية',
+  expenses: 'المصروفات',
+  contracts: 'العقود',
+  'hr-home': 'الموارد البشرية - الرئيسية',
+  'inbound-outbound-mail': 'الوارد والصادر',
+  'admin-circulars': 'التعاميم الإدارية',
+  'operational-policies': 'السياسات التشغيلية',
+  'events-studio-main': 'استوديو الفعاليات'
+};
+
 const OFFICE_ROUTE_PARENTS = {
   'executive-management': 'strategic-management',
   'employee-management': 'strategic-management',
@@ -253,6 +296,26 @@ const ROUTE_TO_PATH = {
   'collections-strategic': '/strategic/collections',
   approvals: '/approvals',
   employees: '/hr/employees',
+  'attendance-departure': '/hr/attendance-departure',
+  'emp-requests': '/hr/requests',
+  'emp-leaves': '/hr/leaves',
+  'leave-balance': '/hr/leave-balance',
+  'notifications-warnings': '/hr/notifications-warnings',
+  'emp-decisions': '/hr/decisions',
+  'company-violations': '/hr/company-violations',
+  'evaluation-forms': '/hr/evaluation-forms',
+  circulars: '/hr/circulars',
+  'advances-receivables': '/hr/advances-receivables',
+  surveys: '/hr/surveys',
+  'business-activities': '/hr/business-activities',
+  'emp-letters': '/hr/letters',
+  custodies: '/hr/custodies',
+  'assets-custodies': '/hr/assets-custodies',
+  'salary-slips': '/hr/salary-slips',
+  'attendance-register': '/hr/attendance-register',
+  'attendance-table': '/hr/attendance-table',
+  'hr-policies': '/hr/policies',
+  'hr-tasks-management': '/hr/tasks-management',
   'executive-management': '/strategic/executive',
   'information-center': '/strategic/information'
 };
@@ -320,6 +383,24 @@ const PAGE_LABELS = {
   services: 'الخدمات',
   entities: 'المستأجرين',
   employees: 'إدارة الموظفين',
+  'hr-policies': 'سياسات الموارد البشرية',
+  'hr-tasks-management': 'إدارة مهام الموارد البشرية',
+  'emp-leaves': 'إجازات الموظفين',
+  'leave-balance': 'رصيد الإجازات',
+  'notifications-warnings': 'الإشعارات والتحذيرات',
+  'emp-decisions': 'قرارات الموظفين',
+  'company-violations': 'مخالفات الشركة',
+  'evaluation-forms': 'نماذج التقييم',
+  circulars: 'التعاميم',
+  'advances-receivables': 'السلف والمستحقات',
+  surveys: 'الاستبيانات',
+  'business-activities': 'الأنشطة التجارية',
+  'emp-letters': 'خطابات الموظفين',
+  custodies: 'العهد',
+  'assets-custodies': 'عهد الأصول',
+  'salary-slips': 'مسيرات الرواتب',
+  'attendance-register': 'سجل الحضور',
+  'attendance-table': 'جدول الحضور',
   ads: 'الإعلانات',
   'tasks-management': 'المهام',
   facilities: 'إدارة المرافق',
@@ -351,9 +432,89 @@ const PAGE_LABELS = {
   tenants: 'المستأجرين (استراتيجي)'
 };
 
+let runtimeRouteParents = null;
+let financeRouteEntries = null;
+
+function financeRelativePathToKey(relativePath) {
+  const normalized = String(relativePath || '')
+    .replace(/\\/g, '/')
+    .replace(/\.html$/i, '')
+    .replace(/^\/+/, '');
+  if (!normalized || normalized === 'index') return 'finance';
+  return `finance__${normalized.replace(/\//g, '__')}`;
+}
+
+function financeRelativePathToLabel(relativePath) {
+  const normalized = String(relativePath || '').replace(/\\/g, '/').replace(/\.html$/i, '');
+  const base = path.basename(normalized);
+  const parent = path.basename(path.dirname(normalized));
+  if (FINANCE_FILE_LABELS[normalized]) return FINANCE_FILE_LABELS[normalized];
+  if (FINANCE_FILE_LABELS[base]) return FINANCE_FILE_LABELS[base];
+  if (parent && parent !== '.' && base !== parent) {
+    return `${parent} / ${base.replace(/-/g, ' ')}`;
+  }
+  return base.replace(/-/g, ' ');
+}
+
+function collectFinanceRouteEntries() {
+  if (financeRouteEntries) return financeRouteEntries;
+  const financeRoot = path.join(__dirname, 'finance');
+  const entries = [{ key: 'finance', label: 'المالية', routePath: '/finance' }];
+  const seen = new Set(['finance']);
+
+  const walk = (currentDir, relativeDir = '') => {
+    if (!fs.existsSync(currentDir)) return;
+    const items = fs.readdirSync(currentDir, { withFileTypes: true });
+    items.forEach((item) => {
+      const rel = relativeDir ? `${relativeDir}/${item.name}` : item.name;
+      const abs = path.join(currentDir, item.name);
+      if (item.isDirectory()) {
+        walk(abs, rel);
+        return;
+      }
+      if (!item.name.endsWith('.html')) return;
+      const key = financeRelativePathToKey(rel);
+      if (seen.has(key)) return;
+      seen.add(key);
+      const routePath = `/finance/${rel.replace(/\\/g, '/')}`;
+      entries.push({
+        key,
+        label: financeRelativePathToLabel(rel),
+        routePath
+      });
+      PAGE_LABELS[key] = financeRelativePathToLabel(rel);
+    });
+  };
+
+  walk(financeRoot);
+  financeRouteEntries = entries.sort((a, b) => a.label.localeCompare(b.label, 'ar'));
+  return financeRouteEntries;
+}
+
+function getRuntimeRouteParents() {
+  if (runtimeRouteParents) return runtimeRouteParents;
+  runtimeRouteParents = { ...OFFICE_ROUTE_PARENTS };
+
+  Object.entries(ROUTE_TO_PATH).forEach(([key, routePath]) => {
+    if (routePath === '/hr' || routePath.startsWith('/hr/')) {
+      if (key !== 'hr') runtimeRouteParents[key] = 'hr';
+    }
+  });
+
+  collectFinanceRouteEntries().forEach((entry) => {
+    if (entry.key !== 'finance') {
+      runtimeRouteParents[entry.key] = 'finance';
+      ROUTE_TO_PATH[entry.key] = entry.routePath;
+    }
+  });
+
+  return runtimeRouteParents;
+}
+
 function getChildrenByParent() {
   const map = {};
-  Object.entries(OFFICE_ROUTE_PARENTS).forEach(([child, parent]) => {
+  const parents = getRuntimeRouteParents();
+  Object.entries(parents).forEach(([child, parent]) => {
     if (!map[parent]) map[parent] = [];
     map[parent].push(child);
   });
@@ -361,18 +522,27 @@ function getChildrenByParent() {
   return map;
 }
 
-function getSystemRootKeys() {
-  const childKeys = new Set(Object.keys(OFFICE_ROUTE_PARENTS));
-  const parentKeys = new Set(Object.values(OFFICE_ROUTE_PARENTS));
-  const roots = new Set(parentKeys);
-  Object.keys(PAGE_LABELS).forEach((key) => {
-    if (!childKeys.has(key)) roots.add(key);
+function buildHrPages() {
+  const pages = [{ key: 'hr', label: getPageLabel('hr') }];
+  const seen = new Set(['hr']);
+  Object.entries(ROUTE_TO_PATH).forEach(([key, routePath]) => {
+    if ((routePath === '/hr' || routePath.startsWith('/hr/')) && !seen.has(key)) {
+      pages.push({ key, label: getPageLabel(key) });
+      seen.add(key);
+    }
   });
-  return [...roots].sort();
+  return pages.sort((a, b) => a.label.localeCompare(b.label, 'ar'));
+}
+
+function buildFinancePages() {
+  return collectFinanceRouteEntries().map(({ key, label }) => ({ key, label }));
 }
 
 function getPagesForSystem(systemKey) {
   const normalized = normalizePageKey(systemKey);
+  if (normalized === 'hr') return buildHrPages();
+  if (normalized === 'finance') return buildFinancePages();
+
   const children = getChildrenByParent()[normalized] || [];
   const pages = [{ key: normalized, label: getPageLabel(normalized) }];
   children.forEach((child) => {
@@ -381,20 +551,50 @@ function getPagesForSystem(systemKey) {
   return pages;
 }
 
+function getSystemRootKeys() {
+  getRuntimeRouteParents();
+  const childKeys = new Set(Object.keys(getRuntimeRouteParents()));
+  const parentKeys = new Set(Object.values(getRuntimeRouteParents()));
+  const roots = new Set(parentKeys);
+  Object.keys(PAGE_LABELS).forEach((key) => {
+    if (!childKeys.has(key)) roots.add(key);
+  });
+  collectFinanceRouteEntries().forEach((entry) => roots.add(entry.key.split('__')[0]));
+  return [...roots];
+}
+
 function buildPermissionRegistry() {
   if (cachedRegistry) return cachedRegistry;
-  const systems = getSystemRootKeys()
+
+  getRuntimeRouteParents();
+  const allSystems = getSystemRootKeys()
     .map((key) => ({
       key,
       label: getPageLabel(key),
-      pages: getPagesForSystem(key)
+      pages: getPagesForSystem(key),
+      isPrimary: PRIMARY_TENANT_SYSTEM_KEYS.includes(key)
     }))
     .filter((system) => system.pages.length > 0);
-  cachedRegistry = { systems, generatedAt: new Date().toISOString() };
+
+  const primaryKeys = new Set(PRIMARY_TENANT_SYSTEM_KEYS);
+  const primarySystems = PRIMARY_TENANT_SYSTEM_KEYS
+    .map((key) => allSystems.find((system) => system.key === key))
+    .filter(Boolean);
+  const otherSystems = allSystems
+    .filter((system) => !primaryKeys.has(system.key))
+    .sort((a, b) => a.label.localeCompare(b.label, 'ar'));
+
+  cachedRegistry = {
+    systems: [...primarySystems, ...otherSystems],
+    primarySystems,
+    otherSystems,
+    generatedAt: new Date().toISOString()
+  };
   return cachedRegistry;
 }
 
 function getPathToPageKeysMap() {
+  getRuntimeRouteParents();
   const map = {};
   Object.entries(ROUTE_TO_PATH).forEach(([route, routePath]) => {
     const normalizedPath = routePath.replace(/\/+$/, '') || '/';
@@ -405,6 +605,7 @@ function getPathToPageKeysMap() {
 }
 
 function getPageKeysForPath(requestPath) {
+  getRuntimeRouteParents();
   const raw = String(requestPath || '').split('?')[0];
   const normalized = raw.replace(/\/+$/, '') || '/';
   const pathMap = getPathToPageKeysMap();
@@ -421,9 +622,26 @@ function getPageKeysForPath(requestPath) {
   }
 
   if (normalized === '/dashboard.html' || normalized === '/home') return ['dashboard'];
-  if (normalized === '/archive' || normalized.startsWith('/archive/')) return ['records-archive-home'];
-  if (normalized === '/hr' || normalized.startsWith('/hr/')) return ['hr'];
-  if (normalized === '/finance' || normalized.startsWith('/finance/')) return ['finance'];
+  if (normalized === '/archive') return ['records-archive-home'];
+  if (normalized.startsWith('/archive/')) {
+    const archivePathMap = Object.fromEntries(
+      Object.entries(ROUTE_TO_PATH)
+        .filter(([, routePath]) => routePath.startsWith('/archive/'))
+        .map(([key, routePath]) => [routePath.replace(/\/+$/, ''), key])
+    );
+    const match = archivePathMap[normalized];
+    return match ? [match, 'records-archive-home'] : ['records-archive-home'];
+  }
+  if (normalized === '/hr') return ['hr'];
+  if (normalized.startsWith('/hr/')) {
+    const hrMatch = Object.entries(ROUTE_TO_PATH).find(([, routePath]) => routePath.replace(/\/+$/, '') === normalized);
+    return hrMatch ? [hrMatch[0], 'hr'] : ['hr'];
+  }
+  if (normalized === '/finance' || normalized === '/finance/index.html') return ['finance'];
+  if (normalized.startsWith('/finance/')) {
+    const financeKey = financeRelativePathToKey(normalized.replace(/^\/finance\//, ''));
+    return [financeKey, 'finance'];
+  }
   if (normalized === '/strategic' || normalized.startsWith('/strategic/')) return ['strategic-management'];
   if (normalized === '/tasks' || normalized.startsWith('/tasks/')) return ['tasks-management'];
   if (normalized === '/settings' || normalized.startsWith('/settings/')) return ['settings'];
@@ -458,12 +676,13 @@ function normalizePageRestrictions(pageRestrictions) {
 
 function derivePageRestrictionsFromPages(pages) {
   const allowedPages = normalizeAllowedPages(pages);
+  const routeParents = getRuntimeRouteParents();
   const childrenByParent = getChildrenByParent();
   const restrictions = {};
   const assignedSystems = new Set();
 
   allowedPages.forEach((pageKey) => {
-    const parent = OFFICE_ROUTE_PARENTS[pageKey];
+    const parent = routeParents[pageKey];
     if (parent) {
       assignedSystems.add(parent);
       if (!restrictions[parent]) {
@@ -478,7 +697,7 @@ function derivePageRestrictionsFromPages(pages) {
   assignedSystems.forEach((systemKey) => {
     const systemChildren = childrenByParent[systemKey] || [];
     if (!systemChildren.length) return;
-    const explicitChildren = allowedPages.filter((pageKey) => OFFICE_ROUTE_PARENTS[pageKey] === systemKey);
+    const explicitChildren = allowedPages.filter((pageKey) => routeParents[pageKey] === systemKey);
     if (!explicitChildren.length) return;
     const hasAllChildren = explicitChildren.length >= systemChildren.length
       && systemChildren.every((child) => explicitChildren.includes(child));
@@ -546,7 +765,8 @@ function isRouteAllowed(route, context = {}) {
   }
   if (allowedPages.includes(normalizedRoute)) return true;
 
-  const parent = OFFICE_ROUTE_PARENTS[normalizedRoute];
+  const routeParents = getRuntimeRouteParents();
+  const parent = routeParents[normalizedRoute];
   if (parent) {
     const restriction = pageRestrictions[parent];
     if (restriction?.restricted) {
@@ -555,7 +775,7 @@ function isRouteAllowed(route, context = {}) {
     if (allowedPages.includes(parent)) return true;
   }
 
-  return allowedPages.some((pageKey) => OFFICE_ROUTE_PARENTS[pageKey] === normalizedRoute);
+  return allowedPages.some((pageKey) => routeParents[pageKey] === normalizedRoute);
 }
 
 function isPathAllowed(requestPath, context = {}) {
