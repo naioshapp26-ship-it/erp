@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 const db = require('./db');
+const { ensureFinanceReady, FINANCE_CORE_TABLES } = require('./finance-bootstrap');
 
 const REQUIRED_TABLES = [
   'entities',
@@ -32,7 +33,8 @@ const REQUIRED_TABLES = [
   'branch_incubators',
   'branch_platforms',
   'executive_kpis',
-  'roles'
+  'roles',
+  ...FINANCE_CORE_TABLES
 ];
 
 let bootstrapPromise = null;
@@ -408,6 +410,7 @@ async function ensureDatabaseReady() {
     await ensureHierarchyJunctionTables();
     await seedExtendedEntities();
     await ensureStrategicModules();
+    await ensureFinanceReady();
     await verifyRequiredTables();
     console.log('✅ Database bootstrap verified required ERP tables');
   })();

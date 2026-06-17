@@ -85,8 +85,23 @@ node scripts/bootstrap-database.js
 | `add-95-platforms.js` | إضافة 95 منصة |
 | `setup-real-offices-credentials.js` | حسابات المكاتب من `real-offices-data.json` |
 | `seed-rbac-data.js` | أدوار وصلاحيات |
-| `finance/database/init-finance-system.sql` | نظام المالية |
+| `npm run db:bootstrap:finance` | **جداول نظام المالية + بيانات تجريبية** |
+| `finance/database/init-finance-system.sql` | نظام المالية (SQL خام) |
 | `insert-strategic-management-data.sql` | بيانات الإدارة الاستراتيجية |
+
+## نظام المالية (Finance)
+
+صفحات `/finance/*` تحتاج جداول مثل `finance_ai_forecasts`, `finance_accounts`, `finance_invoices`.
+
+**يتم إنشاؤها تلقائياً** عند تشغيل السيرفر عبر `finance-bootstrap.js`.
+
+### تهيئة يدوية للمالية فقط
+
+```bash
+npm run db:bootstrap:finance
+```
+
+بعد Redeploy على Railway، صفحة `ai-forecasts.html` يجب أن تعرض بيانات لـ `HQ001`.
 
 ## تسجيل الدخول الافتراضي (بعد Bootstrap)
 
