@@ -3300,10 +3300,16 @@ const injectHomepageBootstrap = (html, payload) => {
   if (!html || !payload) return html;
   const safeJson = JSON.stringify(payload).replace(/</g, '\\u003c');
   const tag = `<script>window.__HOMEPAGE_BOOTSTRAP__=${safeJson};</script>`;
+  const frameVideos = (payload.heroMediaList || []).filter((item) => item.type === 'video' && item.target !== 'background');
+  const bgVideos = (payload.heroMediaList || []).filter((item) => item.type === 'video' && item.target === 'background');
+  const firstVideoUrl = frameVideos[0]?.url || bgVideos[0]?.url || payload.settings?.heroMedia?.videoUrls?.[0] || payload.settings?.heroMedia?.videoUrl;
+  const preloadTag = typeof firstVideoUrl === 'string' && firstVideoUrl.trim()
+    ? `<link rel="preload" as="video" href="${firstVideoUrl.replace(/"/g, '&quot;')}" fetchpriority="high">`
+    : '';
   if (html.includes('</head>')) {
-    return html.replace('</head>', `${tag}</head>`);
+    return html.replace('</head>', `${preloadTag}${tag}</head>`);
   }
-  return `${tag}${html}`;
+  return `${preloadTag}${tag}${html}`;
 };
 
 // Root health check for Railway
