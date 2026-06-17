@@ -718,6 +718,20 @@ const app = (() => {
         return raw && typeof raw === 'object' ? raw : {};
     };
 
+    const HR_PERMISSION_CHILDREN = new Set([
+        'employees', 'attendance-departure', 'emp-requests', 'emp-leaves', 'leave-balance',
+        'notifications-warnings', 'emp-decisions', 'company-violations', 'evaluation-forms',
+        'circulars', 'advances-receivables', 'surveys', 'business-activities', 'emp-letters',
+        'custodies', 'assets-custodies', 'salary-slips', 'attendance-register', 'attendance-table',
+        'hr-policies', 'hr-tasks-management'
+    ]);
+
+    const getPermissionParentRoute = (route) => {
+        if (route.startsWith('finance__')) return 'finance';
+        if (HR_PERMISSION_CHILDREN.has(route)) return 'hr';
+        return officeRouteParents[route];
+    };
+
     const isOfficeRouteAllowed = (route) => {
         if (route === 'download-app') {
             return true;
@@ -740,7 +754,7 @@ const app = (() => {
         if (allowedPages.includes(route)) return true;
 
         const pageRestrictions = getPageRestrictions();
-        const parent = officeRouteParents[route];
+        const parent = getPermissionParentRoute(route);
         if (parent) {
             const restriction = pageRestrictions[parent];
             if (restriction?.restricted && Array.isArray(restriction.pages)) {
@@ -749,7 +763,7 @@ const app = (() => {
             if (allowedPages.includes(parent)) return true;
         }
 
-        return allowedPages.some(page => officeRouteParents[page] === route);
+        return allowedPages.some(page => getPermissionParentRoute(page) === route);
     };
 
     // --- UTILS ---
