@@ -34,6 +34,7 @@ const {
   syncCentralTenantUserDirectoryEntry
 } = require('./tenant-directory-sync');
 const { seedTenantPageAccess } = require('./tenant-page-access-seed');
+const { getTenantPermissionBundle, getTenantAllowedPages } = require('./tenant-page-permissions');
 
 const router = express.Router();
 
@@ -176,67 +177,16 @@ function _buildUserResponse(user, tenant) {
 }
 
 async function _getAllowedTenantPages(tenant) {
-  if (!tenant?.id) {
-    return [];
-  }
+  return getTenantAllowedPages(db, tenant);
+}
 
-  const entityId = buildCentralTenantEntityId(tenant.id);
-
-  try {
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS tenant_page_access (
-        id SERIAL PRIMARY KEY,
-        tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
-        tenant_entity_id VARCHAR(120),
-        page_key VARCHAR(120) NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-    await db.query(`ALTER TABLE tenant_page_access ALTER COLUMN tenant_id DROP NOT NULL`);
-    await db.query(`ALTER TABLE tenant_page_access ADD COLUMN IF NOT EXISTS tenant_entity_id VARCHAR(120)`);
-    await db.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS tenant_page_access_tenant_page_key_idx
-      ON tenant_page_access (tenant_id, page_key)
-    `);
-    await db.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS tenant_page_access_entity_page_key_idx
-      ON tenant_page_access (tenant_entity_id, page_key)
-    `);
-
-    const tenantPagesResult = await db.query(
-      `SELECT page_key
-       FROM tenant_page_access
-       WHERE ($1::INTEGER IS NOT NULL AND tenant_id = $1)
-          OR tenant_entity_id = $2
-       ORDER BY page_key`,
-      [tenant.id, entityId]
-    );
-
-    const tenantPages = tenantPagesResult.rows.map((row) => row.page_key);
-    if (tenantPages.length > 0) {
-      return tenantPages;
-    }
-
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS account_type_sidebar_config (
-        id SERIAL PRIMARY KEY,
-        account_type VARCHAR(50) NOT NULL,
-        page_key VARCHAR(120) NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(account_type, page_key)
-      )
-    `);
-    const typePagesResult = await db.query(
-      `SELECT page_key
-       FROM account_type_sidebar_config
-       WHERE account_type = 'TENANT'
-       ORDER BY page_key`
-    );
-    return typePagesResult.rows.map((row) => row.page_key);
-  } catch (error) {
-    console.warn('[TenantAuth] failed to load tenant allowed pages:', error.message);
-    return [];
-  }
+async function _applyTenantPermissionBundle(responseUser, tenant) {
+  const bundle = await getTenantPermissionBundle(db, tenant);
+  responseUser.allowed_pages = bundle.allowed_pages;
+  responseUser.allowedPages = bundle.allowed_pages;
+  responseUser.page_restrictions = bundle.page_restrictions;
+  responseUser.pageRestrictions = bundle.page_restrictions;
+  return responseUser;
 }
 
 /**
@@ -392,8 +342,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 
     const responseUser = _buildUserResponse(user, req.tenant);
-    responseUser.allowed_pages = await _getAllowedTenantPages(req.tenant);
-    responseUser.allowedPages = responseUser.allowed_pages;
+    await _applyTenantPermissionBundle(responseUser, req.tenant);
 
     res.cookie('authToken', token, {
       httpOnly: false,
@@ -476,11 +425,9 @@ router.get('/verify', verifyLimiter, async (req, res) => {
       [token]
     );
     const allowedPages = await _getAllowedTenantPages(tenant);
-    const responseUser = {
-      ..._buildUserResponse(row, tenant),
-      allowed_pages: allowedPages,
-      allowedPages: allowedPages
-    };
+    const responseUser = await _applyTenantPermissionBundle({
+      ..._buildUserResponse(row, tenant)
+    }, tenant);
 
     return res.json({
       success: true,
@@ -586,12 +533,7 @@ router.post('/register', registerLimiter, async (req, res) => {
     }
 
     const session = await _createSession(tenantPool, user.id, tenant.id, req);
-    const allowedPages = await _getAllowedTenantPages(tenant);
-    const responseUser = {
-      ..._buildUserResponse(user, tenant),
-      allowed_pages: allowedPages,
-      allowedPages: allowedPages
-    };
+    const responseUser = await _applyTenantPermissionBundle(_buildUserResponse(user, tenant), tenant);
 
     return res.status(201).json({
       success: true,

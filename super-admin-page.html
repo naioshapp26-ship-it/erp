@@ -519,17 +519,22 @@
                             <p class="text-xs text-slate-500 mt-1">يمكنك إدخال: رقم المستأجر أو entity_id مثل TEN000123 أو الإيميل أو اسم/رابط المستأجر مثل moka.naiosherp.com</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">صفحات المستأجر</label>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">أنظمة المستأجر</label>
                             <div class="relative">
                                 <button type="button" id="tenantPagesToggle" onclick="toggleTenantPagesDropdown()" class="w-full p-3 rounded-lg border border-slate-200 bg-white text-slate-700 flex items-center justify-between">
-                                    <span id="tenantPagesPlaceholder">اختر الصفحات</span>
+                                    <span id="tenantPagesPlaceholder">اختر الأنظمة</span>
                                     <i class="fas fa-chevron-down text-slate-400"></i>
                                 </button>
                                 <div id="tenantPagesDropdown" class="absolute hidden z-20 mt-2 w-full max-h-64 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg p-3 space-y-2">
-                                    <!-- Options injected via JS -->
+                                    <!-- Systems injected via JS -->
                                 </div>
                             </div>
+                            <p class="text-xs text-slate-500 mt-2">اختر الأنظمة أولاً، ثم حدّد الصفحات داخل كل نظام بالأسفل.</p>
                         </div>
+                    </div>
+
+                    <div id="tenantSystemPagesContainer" class="hidden space-y-4 mb-6">
+                        <!-- Dynamic page-level permission panels -->
                     </div>
 
                     <div id="tenantInfoDisplay" class="hidden bg-sky-50 border border-sky-100 rounded-xl p-6 mb-6">
@@ -1075,6 +1080,11 @@
         let officePagesData = [];
         let selectedOfficePages = new Set();
         let selectedTenantPages = new Set();
+        let tenantPageRegistry = null;
+        let selectedTenantSystems = new Set();
+        let tenantSystemPageSelection = {};
+        let tenantPageRestrictions = {};
+        let tenantSystemPageFilters = {};
         let usersDirectory = [];
         let totalUsersCount = 0;
         let usersSearchDebounce = null;
@@ -1141,6 +1151,7 @@
             if (tabName === 'audit') loadAuditLog();
             if (tabName === 'homepage') loadHomepageSettings();
             if (tabName === 'users') loadUsersDirectory();
+            if (tabName === 'tenant') loadTenantPageRegistryIfNeeded().catch(console.error);
         }
 
         function openUsersManagement() {
@@ -1353,32 +1364,93 @@
             }
         }
 
+        async function loadTenantPageRegistryIfNeeded() {
+            if (tenantPageRegistry?.systems?.length) return tenantPageRegistry;
+            const response = await fetch(`${API_BASE}/tenant-page-registry`, {
+                headers: getAdminHeaders()
+            });
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || 'تعذر تحميل سجل الصفحات');
+            }
+            tenantPageRegistry = result.registry;
+            return tenantPageRegistry;
+        }
+
+        function getTenantSystemDefinition(systemKey) {
+            return tenantPageRegistry?.systems?.find((system) => system.key === systemKey) || null;
+        }
+
+        function ensureTenantSystemSelection(systemKey) {
+            const system = getTenantSystemDefinition(systemKey);
+            if (!system) return new Set();
+            if (!tenantSystemPageSelection[systemKey]) {
+                tenantSystemPageSelection[systemKey] = new Set(system.pages.map((page) => page.key));
+            }
+            return tenantSystemPageSelection[systemKey];
+        }
+
+        function hydrateTenantPermissionState(pages = [], pageRestrictions = {}) {
+            selectedTenantSystems = new Set();
+            tenantSystemPageSelection = {};
+            tenantPageRestrictions = pageRestrictions || {};
+            selectedTenantPages = new Set(pages || []);
+
+            (tenantPageRegistry?.systems || []).forEach((system) => {
+                const restriction = tenantPageRestrictions[system.key];
+                const hasSystem = pages.includes(system.key);
+                const childKeys = system.pages
+                    .map((page) => page.key)
+                    .filter((pageKey) => pageKey !== system.key);
+                const explicitChildren = childKeys.filter((pageKey) => pages.includes(pageKey));
+
+                if (!hasSystem && explicitChildren.length === 0 && !restriction?.restricted) {
+                    return;
+                }
+
+                selectedTenantSystems.add(system.key);
+                if (restriction?.restricted && Array.isArray(restriction.pages) && restriction.pages.length) {
+                    tenantSystemPageSelection[system.key] = new Set(restriction.pages);
+                } else if (explicitChildren.length > 0) {
+                    tenantSystemPageSelection[system.key] = new Set([system.key, ...explicitChildren]);
+                } else {
+                    tenantSystemPageSelection[system.key] = new Set(system.pages.map((page) => page.key));
+                }
+            });
+        }
+
         async function loadTenantPageAccess() {
             const tenantId = document.getElementById('tenantIdInput').value.trim();
             const tenantInfoDisplay = document.getElementById('tenantInfoDisplay');
+            const systemPagesContainer = document.getElementById('tenantSystemPagesContainer');
             if (!tenantId) {
                 tenantInfoDisplay.classList.add('hidden');
+                systemPagesContainer?.classList.add('hidden');
                 return;
             }
 
             try {
+                await loadTenantPageRegistryIfNeeded();
                 const response = await fetch(`${API_BASE}/tenant-page-access?tenant_id=${encodeURIComponent(tenantId)}`, {
                     headers: getAdminHeaders()
                 });
                 const result = await response.json();
                 if (!result.success) {
                     tenantInfoDisplay.classList.add('hidden');
+                    systemPagesContainer?.classList.add('hidden');
                     alert(result.message || 'المستأجر غير موجود');
                     return;
                 }
 
-                selectedTenantPages = new Set(result.pages || []);
+                hydrateTenantPermissionState(result.pages || [], result.page_restrictions || {});
                 document.getElementById('displayTenantName').textContent = result.tenant.name || '-';
                 document.getElementById('displayTenantSubdomain').textContent = result.tenant.subdomain || '-';
                 document.getElementById('displayTenantEntityId').textContent = result.tenant.entity_id || '-';
                 updateTenantPagesDisplay();
                 renderTenantPagesOptions();
+                renderTenantSystemPagesPanels();
                 tenantInfoDisplay.classList.remove('hidden');
+                systemPagesContainer?.classList.toggle('hidden', selectedTenantSystems.size === 0);
             } catch (error) {
                 console.error(error);
                 alert('خطأ في الاتصال');
@@ -1388,42 +1460,154 @@
         function renderTenantPagesOptions() {
             const dropdown = document.getElementById('tenantPagesDropdown');
             dropdown.innerHTML = '';
-            officePagesData.forEach(page => {
-                const checked = selectedTenantPages.has(page.key);
+            (tenantPageRegistry?.systems || []).forEach((system) => {
+                const checked = selectedTenantSystems.has(system.key);
                 const option = document.createElement('label');
                 option.className = 'flex items-center gap-2 text-sm text-slate-700';
                 option.innerHTML = `
-                    <input type="checkbox" class="h-4 w-4 text-brand-600 border-slate-300 rounded" data-page-key="${page.key}" ${checked ? 'checked' : ''}>
-                    <span>${page.label}</span>
+                    <input type="checkbox" class="h-4 w-4 text-brand-600 border-slate-300 rounded" data-system-key="${system.key}" ${checked ? 'checked' : ''}>
+                    <span>${system.label}</span>
+                    <span class="text-xs text-slate-400 mr-auto">${system.pages.length} صفحة</span>
                 `;
                 option.querySelector('input').addEventListener('change', (event) => {
                     if (event.target.checked) {
-                        selectedTenantPages.add(page.key);
+                        selectedTenantSystems.add(system.key);
+                        ensureTenantSystemSelection(system.key);
                     } else {
-                        selectedTenantPages.delete(page.key);
+                        selectedTenantSystems.delete(system.key);
+                        delete tenantSystemPageSelection[system.key];
+                        delete tenantSystemPageFilters[system.key];
                     }
+                    renderTenantSystemPagesPanels();
                     updateTenantPagesDisplay();
                 });
                 dropdown.appendChild(option);
             });
         }
 
+        function renderTenantSystemPagesPanels() {
+            const container = document.getElementById('tenantSystemPagesContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (selectedTenantSystems.size === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            [...selectedTenantSystems].forEach((systemKey) => {
+                const system = getTenantSystemDefinition(systemKey);
+                if (!system) return;
+
+                const selectedSet = ensureTenantSystemSelection(systemKey);
+                const filterValue = (tenantSystemPageFilters[systemKey] || '').trim().toLowerCase();
+                const visiblePages = system.pages.filter((page) => {
+                    if (!filterValue) return true;
+                    return page.label.toLowerCase().includes(filterValue) || page.key.toLowerCase().includes(filterValue);
+                });
+                const selectedCount = [...selectedSet].filter((pageKey) => system.pages.some((page) => page.key === pageKey)).length;
+
+                const panel = document.createElement('div');
+                panel.className = 'border border-slate-200 rounded-xl p-4 bg-slate-50';
+                panel.innerHTML = `
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h4 class="font-bold text-slate-800">${system.label}</h4>
+                            <p class="text-xs text-slate-500 mt-1">المحدد: ${selectedCount}/${system.pages.length}</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input type="search" placeholder="بحث داخل الصفحات..." class="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white" data-system-filter="${system.key}" value="${tenantSystemPageFilters[system.key] || ''}">
+                            <button type="button" class="px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm" data-select-all="${system.key}">تحديد الكل</button>
+                            <button type="button" class="px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm" data-clear-all="${system.key}">إلغاء الكل</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-auto bg-white border border-slate-100 rounded-lg p-3" data-system-pages="${system.key}">
+                        ${visiblePages.map((page) => `
+                            <label class="flex items-center gap-2 text-sm text-slate-700">
+                                <input type="checkbox" class="h-4 w-4 text-brand-600 border-slate-300 rounded" data-system-page="${system.key}" data-page-key="${page.key}" ${selectedSet.has(page.key) ? 'checked' : ''}>
+                                <span>${page.label}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                `;
+
+                panel.querySelector(`[data-system-filter="${system.key}"]`)?.addEventListener('input', (event) => {
+                    tenantSystemPageFilters[system.key] = event.target.value;
+                    renderTenantSystemPagesPanels();
+                });
+                panel.querySelector(`[data-select-all="${system.key}"]`)?.addEventListener('click', () => {
+                    tenantSystemPageSelection[system.key] = new Set(system.pages.map((page) => page.key));
+                    renderTenantSystemPagesPanels();
+                    updateTenantPagesDisplay();
+                });
+                panel.querySelector(`[data-clear-all="${system.key}"]`)?.addEventListener('click', () => {
+                    tenantSystemPageSelection[system.key] = new Set([system.key]);
+                    renderTenantSystemPagesPanels();
+                    updateTenantPagesDisplay();
+                });
+                panel.querySelectorAll(`[data-system-page="${system.key}"]`).forEach((input) => {
+                    input.addEventListener('change', (event) => {
+                        const pageKey = event.target.dataset.pageKey;
+                        const selection = ensureTenantSystemSelection(systemKey);
+                        if (event.target.checked) {
+                            selection.add(pageKey);
+                        } else {
+                            selection.delete(pageKey);
+                        }
+                        updateTenantPagesDisplay();
+                    });
+                });
+
+                container.appendChild(panel);
+            });
+        }
+
+        function buildTenantPermissionPayload() {
+            const pages = [];
+            const page_restrictions = {};
+
+            selectedTenantSystems.forEach((systemKey) => {
+                const system = getTenantSystemDefinition(systemKey);
+                if (!system) return;
+                const selected = [...ensureTenantSystemSelection(systemKey)];
+                pages.push(systemKey);
+                if (selected.length > 0 && selected.length < system.pages.length) {
+                    page_restrictions[systemKey] = {
+                        restricted: true,
+                        pages: selected
+                    };
+                }
+            });
+
+            return { pages, page_restrictions };
+        }
+
         function updateTenantPagesDisplay() {
             const placeholder = document.getElementById('tenantPagesPlaceholder');
             const display = document.getElementById('displayTenantPages');
-            const selectedLabels = officePagesData
-                .filter(page => selectedTenantPages.has(page.key))
-                .map(page => page.label);
+            const payload = buildTenantPermissionPayload();
+            const selectedLabels = [];
+
+            payload.pages.forEach((systemKey) => {
+                const system = getTenantSystemDefinition(systemKey);
+                if (!system) return;
+                const restriction = payload.page_restrictions[systemKey];
+                if (restriction?.restricted) {
+                    selectedLabels.push(`${system.label} (${restriction.pages.length}/${system.pages.length})`);
+                } else {
+                    selectedLabels.push(`${system.label} (كامل)`);
+                }
+            });
 
             if (selectedLabels.length === 0) {
-                placeholder.textContent = 'اختر الصفحات';
+                placeholder.textContent = 'اختر الأنظمة';
                 display.textContent = 'لا توجد صفحات محددة';
                 return;
             }
 
-            const summary = selectedLabels.join('، ');
-            placeholder.textContent = `تم اختيار ${selectedLabels.length} صفحة`;
-            display.textContent = summary;
+            placeholder.textContent = `تم اختيار ${selectedLabels.length} نظام`;
+            display.textContent = selectedLabels.join('، ');
         }
 
         function toggleTenantPagesDropdown() {
@@ -1438,18 +1622,22 @@
             }
 
             try {
+                const payload = buildTenantPermissionPayload();
                 const response = await fetch(`${API_BASE}/tenant-page-access`, {
                     method: 'POST',
                     headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         tenant_id: tenantId,
-                        pages: Array.from(selectedTenantPages)
+                        pages: payload.pages,
+                        page_restrictions: payload.page_restrictions
                     })
                 });
                 const result = await response.json();
                 if (result.success) {
                     showToast('تم حفظ صلاحيات المستأجر', 'success');
+                    hydrateTenantPermissionState(result.pages || payload.pages, result.page_restrictions || payload.page_restrictions);
                     updateTenantPagesDisplay();
+                    renderTenantSystemPagesPanels();
                 } else {
                     alert(result.message || 'تعذر حفظ الصلاحيات');
                 }

@@ -15,6 +15,14 @@ const db = require('./db');
 const { getTenantPool } = require('./tenant-connection-manager');
 const { buildCentralTenantEntityId, syncCentralTenantUserDirectoryEntry } = require('./tenant-directory-sync');
 const { ensureSuperAdminRbacSchema } = require('./super-admin-rbac-schema');
+const { buildPermissionRegistry } = require('./page-permissions-registry');
+const {
+    ensureTenantPageAccessTable,
+    getTenantPermissionBundle,
+    saveTenantPermissionBundle
+} = require('./tenant-page-permissions');
+
+let cachedTenantPageRegistry = null;
 
 const router = express.Router();
 const pool = db.pool;
@@ -3026,6 +3034,19 @@ router.patch('/hero-media/:id/target', verifySuperAdmin, homepageSettingsWriteLi
     }
 });
 
+// ========== 7.7. سجل صفحات الأنظمة للمستأجرين ==========
+router.get('/tenant-page-registry', superAdminReadLimiter, verifySuperAdmin, async (req, res) => {
+    try {
+        if (!cachedTenantPageRegistry) {
+            cachedTenantPageRegistry = buildPermissionRegistry();
+        }
+        return res.json({ success: true, registry: cachedTenantPageRegistry });
+    } catch (error) {
+        console.error('خطأ في جلب سجل صفحات المستأجرين:', error);
+        return res.status(500).json({ success: false, message: 'تعذر تحميل سجل الصفحات' });
+    }
+});
+
 // ========== 7.8. جلب صلاحيات صفحات المستأجرين ==========
 router.get('/tenant-page-access', superAdminReadLimiter, verifySuperAdmin, async (req, res) => {
     try {
@@ -3044,13 +3065,7 @@ router.get('/tenant-page-access', superAdminReadLimiter, verifySuperAdmin, async
             });
         }
 
-        const resolvedPages = await pool.query(`
-            SELECT page_key
-            FROM tenant_page_access
-            WHERE ($1::INTEGER IS NOT NULL AND tenant_id = $1)
-               OR ($2::VARCHAR IS NOT NULL AND tenant_entity_id = $2)
-            ORDER BY page_key
-        `, [tenantResult.id, tenantResult.entity_id]);
+        const permissionBundle = await getTenantPermissionBundle(pool, tenantResult);
 
         return res.json({
             success: true,
@@ -3060,7 +3075,8 @@ router.get('/tenant-page-access', superAdminReadLimiter, verifySuperAdmin, async
                 subdomain: tenantResult.subdomain,
                 entity_id: tenantResult.entity_id
             },
-            pages: resolvedPages.rows.map((row) => row.page_key)
+            pages: permissionBundle.allowed_pages,
+            page_restrictions: permissionBundle.page_restrictions
         });
     } catch (error) {
         console.error('خطأ في جلب صلاحيات صفحات المستأجر:', error);
@@ -3073,7 +3089,7 @@ router.post('/tenant-page-access', superAdminWriteLimiter, verifySuperAdmin, asy
     let client;
     let transactionStarted = false;
     try {
-        const { tenant_id, pages } = req.body;
+        const { tenant_id, pages, page_restrictions, pageRestrictions } = req.body;
         if (!tenant_id || !Array.isArray(pages)) {
             return res.status(400).json({ success: false, message: 'tenant_id و pages مطلوبين' });
         }
@@ -3087,34 +3103,17 @@ router.post('/tenant-page-access', superAdminWriteLimiter, verifySuperAdmin, asy
         }
 
         const tenant = tenantResult;
-        const normalizedEntityId = tenant.id
-            ? buildCentralTenantEntityId(tenant.id)
-            : tenant.entity_id;
-        const cleanPages = [...new Set(pages.filter((page) => typeof page === 'string' && page.trim()))];
 
         await client.query('BEGIN');
         transactionStarted = true;
-        await client.query(`
-            DELETE FROM tenant_page_access
-            WHERE ($1::INTEGER IS NOT NULL AND tenant_id = $1)
-               OR ($2::VARCHAR IS NOT NULL AND tenant_entity_id = $2)
-        `, [tenant.id, normalizedEntityId]);
-
-        for (const pageKey of cleanPages) {
-            if (tenant.id) {
-                await client.query(`
-                    INSERT INTO tenant_page_access (tenant_id, tenant_entity_id, page_key)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (tenant_id, page_key) DO NOTHING
-                `, [tenant.id, normalizedEntityId || null, pageKey]);
-            } else {
-                await client.query(`
-                    INSERT INTO tenant_page_access (tenant_entity_id, page_key)
-                    VALUES ($1, $2)
-                    ON CONFLICT (tenant_entity_id, page_key) DO NOTHING
-                `, [normalizedEntityId, pageKey]);
-            }
-        }
+        const savePayload = await saveTenantPermissionBundle(client, tenant, {
+            pages,
+            page_restrictions: page_restrictions || pageRestrictions
+        });
+        const cleanPages = savePayload.pages;
+        const normalizedEntityId = tenant.id
+            ? buildCentralTenantEntityId(tenant.id)
+            : tenant.entity_id;
 
         await client.query('COMMIT');
         transactionStarted = false;
@@ -3133,7 +3132,8 @@ router.post('/tenant-page-access', superAdminWriteLimiter, verifySuperAdmin, asy
                 JSON.stringify({
                     tenant_id: tenant.id,
                     tenant_entity_id: normalizedEntityId,
-                    pages: cleanPages
+                    pages: cleanPages,
+                    page_restrictions: savePayload.page_restrictions
                 })
             ]);
         } catch (auditError) {
@@ -3149,7 +3149,8 @@ router.post('/tenant-page-access', superAdminWriteLimiter, verifySuperAdmin, asy
                 name: tenant.name,
                 subdomain: tenant.subdomain
             },
-            pages: cleanPages
+            pages: cleanPages,
+            page_restrictions: savePayload.page_restrictions
         });
     } catch (error) {
         if (client && transactionStarted) {
