@@ -1980,7 +1980,7 @@ const app = (() => {
         else if (route === 'overdue-management') content = renderOverdueManagement();
         else if (route === 'payment-analytics') content = renderPaymentAnalytics();
         else if (route === 'gateway-payments') content = renderEmbeddedPaymentPage('/tenant-payment-settings.html', 'إعدادات بوابات الدفع');
-        else if (route === 'credit-topup') content = renderEmbeddedPaymentPage('/tenant-payment-settings.html#credits', 'شحن الرصيد');
+        else if (route === 'credit-topup') content = renderEmbeddedPaymentPage('/credit-topup.html', 'شحن الرصيد');
         else if (route === 'online-store') content = renderEmbeddedPaymentPage('/store-cart.html', 'المتجر الإلكتروني');
         // Supply Chain Routes
         else if (route === 'supply-chain') content = renderPurchases();

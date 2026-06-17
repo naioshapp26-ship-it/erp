@@ -175,7 +175,12 @@ router.get('/payment', async (req, res) => {
               stripe_public_key,
               paypal_client_id, paypal_webhook_id, paypal_merchant_id,
               paymob_public_key, paymob_integration_ids, paymob_base_url,
-              extra, updated_at
+              extra, updated_at,
+              (stripe_secret_key IS NOT NULL AND stripe_secret_key <> '') AS has_stripe_secret_key,
+              (stripe_webhook_secret IS NOT NULL AND stripe_webhook_secret <> '') AS has_stripe_webhook_secret,
+              (paypal_client_secret IS NOT NULL AND paypal_client_secret <> '') AS has_paypal_client_secret,
+              (paymob_secret_key IS NOT NULL AND paymob_secret_key <> '') AS has_paymob_secret_key,
+              (paymob_hmac_secret IS NOT NULL AND paymob_hmac_secret <> '') AS has_paymob_hmac_secret
        FROM tenant_payment_settings
        ORDER BY provider`
     );

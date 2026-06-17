@@ -23,6 +23,7 @@
  *  GET  /api/platform/email
  *  PUT  /api/platform/email
  *  GET  /api/platform/payment
+ *  GET  /api/platform/payment-transactions
  *  PUT  /api/platform/payment/:provider
  *  POST /api/platform/payment/:provider/test
  *  GET  /api/platform/ai
@@ -388,13 +389,59 @@ router.get('/payment', async (req, res) => {
               stripe_public_key,
               paypal_client_id, paypal_webhook_id, paypal_merchant_id,
               paymob_public_key, paymob_integration_ids, paymob_base_url,
-              plans_config, trial_days, created_at, updated_at
+              plans_config, trial_days, created_at, updated_at,
+              (stripe_secret_key IS NOT NULL AND stripe_secret_key <> '') AS has_stripe_secret_key,
+              (stripe_webhook_secret IS NOT NULL AND stripe_webhook_secret <> '') AS has_stripe_webhook_secret,
+              (paypal_client_secret IS NOT NULL AND paypal_client_secret <> '') AS has_paypal_client_secret,
+              (paymob_secret_key IS NOT NULL AND paymob_secret_key <> '') AS has_paymob_secret_key,
+              (paymob_hmac_secret IS NOT NULL AND paymob_hmac_secret <> '') AS has_paymob_hmac_secret
        FROM platform_payment_settings
        ORDER BY provider`
     );
-    return res.json({ success: true, providers: result.rows });
+    const providers = result.rows.map((row) => {
+      const configured = row.provider === 'stripe'
+        ? !!(row.is_enabled && row.stripe_public_key && row.has_stripe_secret_key)
+        : row.provider === 'paypal'
+          ? !!(row.is_enabled && row.paypal_client_id && row.has_paypal_client_secret)
+          : !!(row.is_enabled && row.paymob_public_key && row.has_paymob_secret_key);
+      return { ...row, configured };
+    });
+    return res.json({ success: true, providers });
   } catch (err) {
     console.error('[PlatformSettings] GET payment error:', err.message);
+    return res.status(500).json({ success: false, message: 'خطأ داخلي.' });
+  }
+});
+
+// ================================================================
+// GET /api/platform/payment-transactions — معاملات الدفع الأخيرة
+// ================================================================
+router.get('/payment-transactions', async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 10, 100);
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const offset = (page - 1) * limit;
+
+  try {
+    const countRes = await db.query(`SELECT COUNT(*)::int AS total FROM platform_payment_transactions`);
+    const result = await db.query(
+      `SELECT ppt.id, ppt.provider, ppt.provider_transaction_id, ppt.amount, ppt.currency,
+              ppt.status, ppt.type, ppt.metadata, ppt.created_at,
+              t.subdomain AS tenant_subdomain, t.company_name AS tenant_company_name
+       FROM platform_payment_transactions ppt
+       LEFT JOIN tenants t ON t.id = ppt.tenant_id
+       ORDER BY ppt.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+    return res.json({
+      success: true,
+      transactions: result.rows,
+      total: countRes.rows[0]?.total || 0,
+      page,
+      limit,
+    });
+  } catch (err) {
+    console.error('[PlatformSettings] GET payment-transactions error:', err.message);
     return res.status(500).json({ success: false, message: 'خطأ داخلي.' });
   }
 });

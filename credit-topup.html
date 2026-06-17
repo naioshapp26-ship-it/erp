@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>شحن الرصيد</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/payment-ui-shared.css">
+  <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body class="pay-ui">
+  <div class="pay-container">
+    <div class="pay-header">
+      <div>
+        <h1><i class="fa fa-coins text-amber-500"></i> شحن الرصيد</h1>
+        <p>اشترِ باقات الرصيد واستخدمها في خدمات المنصة</p>
+      </div>
+      <a href="/dashboard.html#credit-topup" class="pay-back"><i class="fa fa-arrow-right"></i> لوحة التحكم</a>
+    </div>
+
+    <div id="alert" class="pay-alert"></div>
+
+    <div class="pay-balance-hero">
+      <div class="label">رصيدك الحالي</div>
+      <div class="amount" id="creditBalance">—</div>
+      <div class="sub" id="balanceHint">يتم تحديث الرصيد تلقائياً بعد إتمام الدفع</div>
+    </div>
+
+    <div class="pay-card">
+      <h2 class="pay-card-title">اختر الباقة</h2>
+      <p class="pay-card-desc">حدّد عدد الأرصدة التي تريد شراءها</p>
+      <div id="bundles" class="pay-bundle-grid">
+        <div class="text-slate-400 text-center col-span-full py-8">جاري تحميل الباقات...</div>
+      </div>
+    </div>
+
+    <div class="pay-card">
+      <h2 class="pay-card-title">طريقة الدفع</h2>
+      <p class="pay-card-desc">اختر بوابة الدفع المفعّلة في متجرك</p>
+
+      <div id="providerPills" class="pay-provider-pills"></div>
+
+      <div id="gatewayWarning" class="pay-alert info show" style="display:none">
+        <i class="fa fa-triangle-exclamation"></i>
+        لا توجد بوابة دفع مفعّلة. <a href="/tenant-payment-settings.html" class="underline font-bold">إعداد بوابات الدفع</a>
+      </div>
+
+      <div class="pay-actions">
+        <button id="checkoutBtn" class="pay-btn pay-btn-primary" onclick="startCreditCheckout()" disabled>
+          <i class="fa fa-lock"></i> متابعة الدفع
+        </button>
+        <button class="pay-btn pay-btn-secondary" onclick="refreshAll()">
+          <i class="fa fa-rotate"></i> تحديث
+        </button>
+      </div>
+
+      <div id="checkout-container" class="mt-6"></div>
+    </div>
+
+    <div class="pay-info-box">
+      <i class="fa fa-shield-halved"></i>
+      <p>الدفع آمن ومشفّر. بعد نجاح العملية يُضاف الرصيد لحسابك خلال ثوانٍ. إذا واجهت مشكلة تواصل مع الدعم مع رقم العملية.</p>
+    </div>
+  </div>
+
+  <script src="/payment-ui-shared.js"></script>
+  <script>
+    let selectedBundle = null;
+    let selectedProvider = 'stripe';
+    let stripeInstance = null;
+    let bundlesData = [];
+    let gatewayStatus = { stripe: false, paypal: false, paymob: false };
+
+    const PROVIDERS = [
+      { id: 'stripe', label: 'Stripe', icon: 'fa-brands fa-stripe' },
+      { id: 'paypal', label: 'PayPal', icon: 'fa-brands fa-paypal' },
+      { id: 'paymob', label: 'Paymob', icon: 'fa fa-wallet' },
+    ];
+
+    function handleReturnStatus() {
+      const params = new URLSearchParams(window.location.search);
+      const status = params.get('status');
+      if (status === 'success') {
+        PaymentUI.showAlert('alert', 'تم الدفع بنجاح! جاري تحديث رصيدك...', 'ok');
+        window.history.replaceState({}, '', window.location.pathname);
+        setTimeout(refreshBalance, 1500);
+      } else if (status === 'cancelled') {
+        PaymentUI.showAlert('alert', 'تم إلغاء عملية الدفع', 'info');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+
+    async function loadGatewayStatus() {
+      const results = await Promise.all(
+        PROVIDERS.map(p =>
+          fetch(`/api/payment/status/${p.id}`, {
+            headers: { Authorization: `Bearer ${PaymentUI.getToken()}` }
+          }).then(r => r.json()).catch(() => ({ configured: false }))
+        )
+      );
+      PROVIDERS.forEach((p, i) => { gatewayStatus[p.id] = !!results[i].configured; });
+
+      const configured = PROVIDERS.filter(p => gatewayStatus[p.id]);
+      if (configured.length && !gatewayStatus[selectedProvider]) {
+        selectedProvider = configured[0].id;
+      }
+
+      document.getElementById('providerPills').innerHTML = PROVIDERS.map(p => {
+        const ok = gatewayStatus[p.id];
+        return `<button type="button" class="pay-provider-pill ${selectedProvider === p.id ? 'active' : ''} ${ok ? '' : 'disabled'}"
+          ${ok ? `onclick="selectProvider('${p.id}')"` : 'disabled'}
+          title="${ok ? '' : 'غير مفعّل — فعّله من إعدادات بوابات الدفع'}">
+          <i class="${p.icon}"></i> ${p.label} ${ok ? '' : '(غير متاح)'}
+        </button>`;
+      }).join('');
+
+      const any = configured.length > 0;
+      document.getElementById('gatewayWarning').style.display = any ? 'none' : 'block';
+      document.getElementById('checkoutBtn').disabled = !any || !selectedBundle;
+    }
+
+    function selectProvider(id) {
+      if (!gatewayStatus[id]) return;
+      selectedProvider = id;
+      document.getElementById('checkout-container').innerHTML = '';
+      loadGatewayStatus();
+    }
+
+    async function loadBundles() {
+      const data = await PaymentUI.api('/api/payment/credits/bundles');
+      bundlesData = data.bundles || [];
+      const container = document.getElementById('bundles');
+      if (!bundlesData.length) {
+        container.innerHTML = '<div class="text-slate-400 text-center col-span-full">لا توجد باقات متاحة</div>';
+        return;
+      }
+      container.innerHTML = bundlesData.map(b => `
+        <button type="button" class="pay-bundle-card ${selectedBundle === b.id ? 'selected' : ''}"
+          onclick="selectBundle('${b.id}')" data-bundle="${b.id}">
+          <div class="credits">${b.credits}</div>
+          <div class="name">${b.name}</div>
+          <div class="price">${PaymentUI.formatMoney(b.amount, b.currency || 'SAR')}</div>
+        </button>
+      `).join('');
+      if (!selectedBundle && bundlesData.length) selectBundle(bundlesData[0].id);
+    }
+
+    function selectBundle(id) {
+      selectedBundle = id;
+      document.querySelectorAll('.pay-bundle-card').forEach(el => {
+        el.classList.toggle('selected', el.dataset.bundle === id);
+      });
+      document.getElementById('checkout-container').innerHTML = '';
+      document.getElementById('checkoutBtn').disabled = !Object.values(gatewayStatus).some(Boolean);
+    }
+
+    async function refreshBalance() {
+      try {
+        const data = await PaymentUI.api('/api/payment/credits/balance');
+        document.getElementById('creditBalance').textContent =
+          PaymentUI.formatMoney(data.balance, data.currency || 'SAR');
+      } catch {
+        document.getElementById('creditBalance').textContent = '0 SAR';
+      }
+    }
+
+    async function startCreditCheckout() {
+      if (!selectedBundle) return PaymentUI.showAlert('alert', 'اختر باقة أولاً', 'err');
+      if (!gatewayStatus[selectedProvider]) {
+        return PaymentUI.showAlert('alert', 'بوابة الدفع غير مفعّلة', 'err');
+      }
+
+      const btn = document.getElementById('checkoutBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> جاري التحضير...';
+
+      try {
+        const data = await PaymentUI.api('/api/payment/credits/checkout', {
+          method: 'POST',
+          body: JSON.stringify({ bundleId: selectedBundle, paymentProvider: selectedProvider })
+        });
+
+        document.getElementById('checkout-container').innerHTML = '';
+
+        if (data.checkoutUrl && !data.clientSecret) {
+          window.location.href = data.checkoutUrl;
+          return;
+        }
+
+        if (data.clientSecret && data.paymentProvider === 'stripe') {
+          const keyData = await PaymentUI.api('/api/payment/stripe/publishable-key');
+          stripeInstance = Stripe(keyData.publishableKey);
+          const checkout = await stripeInstance.initEmbeddedCheckout({ clientSecret: data.clientSecret });
+          checkout.mount('#checkout-container');
+          PaymentUI.showAlert('alert', 'أكمل الدفع في النموذج أدناه', 'info');
+          return;
+        }
+
+        PaymentUI.showAlert('alert', 'تم إنشاء جلسة الدفع', 'ok');
+      } catch (e) {
+        PaymentUI.showAlert('alert', e.message, 'err');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-lock"></i> متابعة الدفع';
+      }
+    }
+
+    async function refreshAll() {
+      await Promise.all([loadBundles(), refreshBalance(), loadGatewayStatus()]);
+      PaymentUI.showAlert('alert', 'تم التحديث', 'ok');
+      setTimeout(() => PaymentUI.hideAlert('alert'), 2000);
+    }
+
+    handleReturnStatus();
+    Promise.all([loadBundles(), refreshBalance(), loadGatewayStatus()]).catch(e => {
+      PaymentUI.showAlert('alert', e.message, 'err');
+    });
+  </script>
+</body>
+</html>

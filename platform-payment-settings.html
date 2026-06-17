@@ -3,243 +3,413 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>إعدادات الدفع — المنصة</title>
+  <title>إعدادات بوابات الدفع — المنصة</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>body{font-family:'Cairo',sans-serif;background:#f8fafc}</style>
+  <link rel="stylesheet" href="/payment-ui-shared.css">
 </head>
-<body class="min-h-screen p-4 md:p-8">
-  <div class="max-w-5xl mx-auto">
-    <div class="flex items-center justify-between mb-6">
+<body class="pay-ui">
+  <div class="pay-container">
+    <div class="pay-header">
       <div>
-        <h1 class="text-2xl font-black text-slate-800">إعدادات بوابات الدفع</h1>
-        <p class="text-slate-500 text-sm">Stripe · PayPal · Paymob — مستوى المنصة (SaaS + اشتراكات)</p>
+        <h1><i class="fa fa-credit-card text-blue-600"></i> إعدادات بوابات الدفع</h1>
+        <p>مستوى المنصة — اشتراكات SaaS · Stripe · PayPal · Paymob</p>
       </div>
-      <a href="/super-admin-page.html" class="text-sm text-blue-600 font-bold">← لوحة المشرف</a>
+      <a href="/super-admin-page.html" class="pay-back"><i class="fa fa-arrow-right"></i> لوحة المشرف</a>
     </div>
 
-    <div class="flex gap-2 mb-6">
-      <button data-tab="stripe" class="tab-btn bg-blue-600 text-white px-4 py-2 rounded-xl font-bold">Stripe</button>
-      <button data-tab="paypal" class="tab-btn bg-white text-slate-600 px-4 py-2 rounded-xl font-bold border">PayPal</button>
-      <button data-tab="paymob" class="tab-btn bg-white text-slate-600 px-4 py-2 rounded-xl font-bold border">Paymob</button>
-      <button data-tab="plans" class="tab-btn bg-white text-slate-600 px-4 py-2 rounded-xl font-bold border">خطط SaaS</button>
+    <div id="alert" class="pay-alert"></div>
+
+    <div class="pay-info-box">
+      <i class="fa fa-circle-info fa-lg"></i>
+      <div>
+        <p><strong>كيف تُدخل المفاتيح؟</strong> انسخ المفاتيح من لوحة Stripe / PayPal / Paymob (وضع الاختبار أولاً)، الصقها هنا، فعّل البوابة، ثم اضغط <strong>حفظ</strong> و<strong>اختبار الاتصال</strong>. تأكد من وجود <code dir="ltr">TENANT_DB_ENCRYPTION_KEY</code> على Railway قبل الحفظ.</p>
+      </div>
     </div>
 
-    <div id="alert" class="hidden mb-4 p-3 rounded-xl text-sm font-bold"></div>
+    <div id="overview" class="pay-overview"></div>
+
+    <div class="pay-tabs" id="tabs">
+      <button class="pay-tab active" data-tab="stripe"><i class="fa-brands fa-stripe"></i> Stripe</button>
+      <button class="pay-tab" data-tab="paypal"><i class="fa-brands fa-paypal"></i> PayPal</button>
+      <button class="pay-tab" data-tab="paymob"><i class="fa fa-wallet"></i> Paymob</button>
+      <button class="pay-tab" data-tab="plans"><i class="fa fa-layer-group"></i> خطط SaaS</button>
+      <button class="pay-tab" data-tab="transactions"><i class="fa fa-receipt"></i> المعاملات</button>
+    </div>
 
     <!-- Stripe -->
-    <div id="panel-stripe" class="panel bg-white rounded-2xl shadow p-6 space-y-4">
-      <h2 class="font-bold text-lg">Stripe</h2>
-      <label class="flex items-center gap-2"><input type="checkbox" id="stripe_enabled"> تفعيل Stripe</label>
-      <label class="flex items-center gap-2"><input type="checkbox" id="stripe_test"> وضع الاختبار</label>
-      <input id="stripe_public" class="w-full border rounded-xl p-3" placeholder="Publishable Key (pk_...)">
-      <input id="stripe_secret" type="password" class="w-full border rounded-xl p-3" placeholder="Secret Key (sk_...)">
-      <input id="stripe_webhook" type="password" class="w-full border rounded-xl p-3" placeholder="Webhook Secret (whsec_...)">
-      <div class="flex gap-2">
-        <button onclick="saveProvider('stripe')" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold">حفظ</button>
-        <button onclick="testProvider('stripe')" class="bg-slate-100 px-5 py-2 rounded-xl font-bold">اختبار الاتصال</button>
+    <div id="panel-stripe" class="pay-panel active">
+      <div class="pay-card">
+        <h2 class="pay-card-title">Stripe</h2>
+        <p class="pay-card-desc">بوابة الدفع الافتراضية لاشتراكات المنصة</p>
+
+        <div class="pay-switch-row">
+          <div class="pay-switch-label">تفعيل Stripe<small>السماح بالدفع عبر Stripe</small></div>
+          <label class="pay-switch"><input type="checkbox" id="stripe_enabled"><span></span></label>
+        </div>
+        <div class="pay-switch-row">
+          <div class="pay-switch-label">وضع الاختبار<small>استخدم مفاتيح pk_test_ / sk_test_</small></div>
+          <label class="pay-switch"><input type="checkbox" id="stripe_test" checked><span></span></label>
+        </div>
+
+        <div class="pay-field">
+          <label for="stripe_public">Publishable Key</label>
+          <input id="stripe_public" dir="ltr" placeholder="pk_test_...">
+        </div>
+        <div id="stripe_secret_wrap"></div>
+        <div id="stripe_webhook_wrap"></div>
+
+        <div id="stripe_webhook_box"></div>
+
+        <div class="pay-actions">
+          <button class="pay-btn pay-btn-primary" onclick="saveProvider('stripe')"><i class="fa fa-save"></i> حفظ</button>
+          <button class="pay-btn pay-btn-secondary" onclick="testProvider('stripe')"><i class="fa fa-plug"></i> اختبار الاتصال</button>
+        </div>
       </div>
-      <p class="text-xs text-slate-500">Webhook: <code dir="ltr">/api/saas/payment/webhook/stripe</code> أو <code dir="ltr">/api/payment/webhook/stripe/platform</code></p>
     </div>
 
     <!-- PayPal -->
-    <div id="panel-paypal" class="panel hidden bg-white rounded-2xl shadow p-6 space-y-4">
-      <h2 class="font-bold text-lg">PayPal</h2>
-      <label class="flex items-center gap-2"><input type="checkbox" id="paypal_enabled"> تفعيل PayPal</label>
-      <label class="flex items-center gap-2"><input type="checkbox" id="paypal_test"> وضع الاختبار (Sandbox)</label>
-      <input id="paypal_client_id" class="w-full border rounded-xl p-3" placeholder="Client ID">
-      <input id="paypal_secret" type="password" class="w-full border rounded-xl p-3" placeholder="Client Secret">
-      <input id="paypal_webhook_id" class="w-full border rounded-xl p-3" placeholder="Webhook ID">
-      <input id="paypal_merchant_id" class="w-full border rounded-xl p-3" placeholder="Merchant ID (اختياري)">
-      <div class="flex gap-2">
-        <button onclick="saveProvider('paypal')" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold">حفظ</button>
-        <button onclick="testProvider('paypal')" class="bg-slate-100 px-5 py-2 rounded-xl font-bold">اختبار الاتصال</button>
+    <div id="panel-paypal" class="pay-panel">
+      <div class="pay-card">
+        <h2 class="pay-card-title">PayPal</h2>
+        <p class="pay-card-desc">اشتراكات بديلة عبر PayPal Sandbox أو Live</p>
+
+        <div class="pay-switch-row">
+          <div class="pay-switch-label">تفعيل PayPal</div>
+          <label class="pay-switch"><input type="checkbox" id="paypal_enabled"><span></span></label>
+        </div>
+        <div class="pay-switch-row">
+          <div class="pay-switch-label">وضع الاختبار (Sandbox)</div>
+          <label class="pay-switch"><input type="checkbox" id="paypal_test" checked><span></span></label>
+        </div>
+
+        <div class="pay-field">
+          <label for="paypal_client_id">Client ID</label>
+          <input id="paypal_client_id" dir="ltr" placeholder="Client ID">
+        </div>
+        <div id="paypal_secret_wrap"></div>
+        <div class="pay-field">
+          <label for="paypal_webhook_id">Webhook ID</label>
+          <input id="paypal_webhook_id" dir="ltr" placeholder="Webhook ID من PayPal Developer">
+        </div>
+        <div class="pay-field">
+          <label for="paypal_merchant_id">Merchant ID <span class="text-slate-400">(اختياري)</span></label>
+          <input id="paypal_merchant_id" dir="ltr">
+        </div>
+
+        <div id="paypal_webhook_box"></div>
+
+        <div class="pay-actions">
+          <button class="pay-btn pay-btn-primary" onclick="saveProvider('paypal')"><i class="fa fa-save"></i> حفظ</button>
+          <button class="pay-btn pay-btn-secondary" onclick="testProvider('paypal')"><i class="fa fa-plug"></i> اختبار الاتصال</button>
+        </div>
       </div>
-      <p class="text-xs text-slate-500">Webhook: <code dir="ltr">/api/payment/webhook/paypal/platform</code></p>
     </div>
 
     <!-- Paymob -->
-    <div id="panel-paymob" class="panel hidden bg-white rounded-2xl shadow p-6 space-y-4">
-      <h2 class="font-bold text-lg">Paymob</h2>
-      <label class="flex items-center gap-2"><input type="checkbox" id="paymob_enabled"> تفعيل Paymob</label>
-      <label class="flex items-center gap-2"><input type="checkbox" id="paymob_test"> وضع الاختبار</label>
-      <input id="paymob_public" class="w-full border rounded-xl p-3" placeholder="Public Key">
-      <input id="paymob_secret" type="password" class="w-full border rounded-xl p-3" placeholder="Secret Key">
-      <input id="paymob_hmac" type="password" class="w-full border rounded-xl p-3" placeholder="HMAC Secret">
-      <input id="paymob_base_url" class="w-full border rounded-xl p-3" placeholder="Base URL" value="https://accept.paymob.com">
-      <textarea id="paymob_integrations" class="w-full border rounded-xl p-3 h-24" placeholder='Integration IDs JSON مثل: ["123456","789012"]'></textarea>
-      <div class="flex gap-2">
-        <button onclick="saveProvider('paymob')" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold">حفظ</button>
-        <button onclick="testProvider('paymob')" class="bg-slate-100 px-5 py-2 rounded-xl font-bold">اختبار الاتصال</button>
+    <div id="panel-paymob" class="pay-panel">
+      <div class="pay-card">
+        <h2 class="pay-card-title">Paymob</h2>
+        <p class="pay-card-desc">بوابة دفع محلية — مصر والخليج</p>
+
+        <div class="pay-switch-row">
+          <div class="pay-switch-label">تفعيل Paymob</div>
+          <label class="pay-switch"><input type="checkbox" id="paymob_enabled"><span></span></label>
+        </div>
+        <div class="pay-switch-row">
+          <div class="pay-switch-label">وضع الاختبار</div>
+          <label class="pay-switch"><input type="checkbox" id="paymob_test" checked><span></span></label>
+        </div>
+
+        <div class="pay-field">
+          <label for="paymob_public">Public Key</label>
+          <input id="paymob_public" dir="ltr">
+        </div>
+        <div id="paymob_secret_wrap"></div>
+        <div id="paymob_hmac_wrap"></div>
+        <div class="pay-field">
+          <label for="paymob_base_url">Base URL</label>
+          <input id="paymob_base_url" dir="ltr" value="https://accept.paymob.com">
+        </div>
+        <div class="pay-field">
+          <label for="paymob_integrations">Integration IDs (JSON)</label>
+          <textarea id="paymob_integrations" dir="ltr" rows="3" placeholder='["123456"]'></textarea>
+          <div class="pay-field-hint">من لوحة Paymob → Developers → Payment Integrations</div>
+        </div>
+
+        <div id="paymob_webhook_box"></div>
+
+        <div class="pay-actions">
+          <button class="pay-btn pay-btn-primary" onclick="saveProvider('paymob')"><i class="fa fa-save"></i> حفظ</button>
+          <button class="pay-btn pay-btn-secondary" onclick="testProvider('paymob')"><i class="fa fa-plug"></i> اختبار الاتصال</button>
+        </div>
       </div>
-      <p class="text-xs text-slate-500">Webhook: <code dir="ltr">/api/payment/webhook/paymob/platform</code></p>
     </div>
 
     <!-- Plans -->
-    <div id="panel-plans" class="panel hidden bg-white rounded-2xl shadow p-6 space-y-4">
-      <h2 class="font-bold text-lg">خطط الاشتراك (SaaS)</h2>
-      <p class="text-sm text-slate-500">المبالغ بالدولار. لـ Stripe أضف price_id، لـ PayPal أضف paypal_plan_id.</p>
-      <textarea id="plans_json" class="w-full border rounded-xl p-3 font-mono text-sm h-64" dir="ltr"></textarea>
-      <input id="trial_days" type="number" class="w-40 border rounded-xl p-3" placeholder="أيام التجربة">
-      <button onclick="savePlans()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold">حفظ الخطط</button>
+    <div id="panel-plans" class="pay-panel">
+      <div class="pay-card">
+        <h2 class="pay-card-title">خطط الاشتراك (SaaS)</h2>
+        <p class="pay-card-desc">حدّد الأسعار ومعرّفات Stripe Price / PayPal Plan لكل خطة</p>
+
+        <div class="pay-field">
+          <label for="trial_days">أيام التجربة المجانية</label>
+          <input id="trial_days" type="number" min="0" value="14" class="max-w-xs">
+        </div>
+
+        <div id="plans_editor" class="space-y-3 mb-4"></div>
+
+        <details class="mb-4">
+          <summary class="cursor-pointer font-bold text-sm text-slate-600">تحرير JSON متقدم</summary>
+          <textarea id="plans_json" class="w-full border rounded-xl p-3 font-mono text-sm h-48 mt-2" dir="ltr"></textarea>
+        </details>
+
+        <button class="pay-btn pay-btn-primary" onclick="savePlans()"><i class="fa fa-save"></i> حفظ الخطط</button>
+      </div>
+    </div>
+
+    <!-- Transactions -->
+    <div id="panel-transactions" class="pay-panel">
+      <div class="pay-card">
+        <h2 class="pay-card-title">آخر معاملات الدفع</h2>
+        <p class="pay-card-desc">اشتراكات وتسجيلات المنصة</p>
+        <div class="pay-table-wrap">
+          <table class="pay-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>المستأجر</th>
+                <th>المزود</th>
+                <th>المبلغ</th>
+                <th>الحالة</th>
+                <th>النوع</th>
+              </tr>
+            </thead>
+            <tbody id="transactions_body">
+              <tr><td colspan="6" class="text-center text-slate-400">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
-<script>
-const DEFAULT_PLANS = {
-  basic: { amount: 0, currency: 'USD' },
-  pro: { amount: 49, currency: 'USD', price_id: '', paypal_plan_id: '' },
-  enterprise: { amount: 199, currency: 'USD', price_id: '', paypal_plan_id: '' }
-};
+  <script src="/payment-ui-shared.js"></script>
+  <script>
+    const DEFAULT_PLANS = {
+      basic: { amount: 0, currency: 'USD', name: 'أساسي' },
+      pro: { amount: 49, currency: 'USD', price_id: '', paypal_plan_id: '', name: 'احترافي' },
+      enterprise: { amount: 199, currency: 'USD', price_id: '', paypal_plan_id: '', name: 'مؤسسات' }
+    };
 
-function getToken() {
-  const m = document.cookie.match(/authToken=([^;]+)/);
-  return m ? decodeURIComponent(m[1]) : localStorage.getItem('authToken') || '';
-}
+    let providerMap = {};
 
-function showAlert(msg, ok = true) {
-  const el = document.getElementById('alert');
-  el.textContent = msg;
-  el.className = `mb-4 p-3 rounded-xl text-sm font-bold ${ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`;
-  el.classList.remove('hidden');
-}
+    PaymentUI.initTabs('.pay-tab', 'panel-');
 
-async function api(path, opts = {}) {
-  const r = await fetch(path, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getToken()}`,
-      ...(opts.headers || {})
-    }
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.message || 'خطأ في الطلب');
-  return data;
-}
-
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => {
-      b.className = 'tab-btn bg-white text-slate-600 px-4 py-2 rounded-xl font-bold border';
-    });
-    btn.className = 'tab-btn bg-blue-600 text-white px-4 py-2 rounded-xl font-bold';
-    document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
-    document.getElementById('panel-' + btn.dataset.tab).classList.remove('hidden');
-  });
-});
-
-async function loadSettings() {
-  try {
-    const data = await api('/api/platform/payment');
-    const map = {};
-    (data.providers || []).forEach(p => { map[p.provider] = p; });
-
-    if (map.stripe) {
-      document.getElementById('stripe_enabled').checked = !!map.stripe.is_enabled;
-      document.getElementById('stripe_test').checked = !!map.stripe.is_test_mode;
-      document.getElementById('stripe_public').value = map.stripe.stripe_public_key || '';
-    }
-    if (map.paypal) {
-      document.getElementById('paypal_enabled').checked = !!map.paypal.is_enabled;
-      document.getElementById('paypal_test').checked = !!map.paypal.is_test_mode;
-      document.getElementById('paypal_client_id').value = map.paypal.paypal_client_id || '';
-      document.getElementById('paypal_webhook_id').value = map.paypal.paypal_webhook_id || '';
-      document.getElementById('paypal_merchant_id').value = map.paypal.paypal_merchant_id || '';
-    }
-    if (map.paymob) {
-      document.getElementById('paymob_enabled').checked = !!map.paymob.is_enabled;
-      document.getElementById('paymob_test').checked = !!map.paymob.is_test_mode;
-      document.getElementById('paymob_public').value = map.paymob.paymob_public_key || '';
-      document.getElementById('paymob_base_url').value = map.paymob.paymob_base_url || 'https://accept.paymob.com';
-      const ids = map.paymob.paymob_integration_ids;
-      document.getElementById('paymob_integrations').value = ids ? JSON.stringify(ids, null, 2) : '[]';
+    function renderOverview(providers) {
+      const icons = { stripe: 'fa-brands fa-stripe', paypal: 'fa-brands fa-paypal', paymob: 'fa fa-wallet' };
+      document.getElementById('overview').innerHTML = providers
+        .filter(p => ['stripe', 'paypal', 'paymob'].includes(p.provider))
+        .map(p => `
+          <div class="pay-status-card">
+            <div class="provider-name">
+              <i class="${icons[p.provider] || 'fa fa-credit-card'}"></i>
+              ${p.provider.charAt(0).toUpperCase() + p.provider.slice(1)}
+            </div>
+            ${PaymentUI.statusBadge(p.configured, p.is_enabled)}
+            ${p.is_test_mode ? '<span class="pay-badge test">اختبار</span>' : '<span class="pay-badge test" style="background:#ecfdf5;color:#047857">مباشر</span>'}
+          </div>
+        `).join('');
     }
 
-    const stripePlans = map.stripe?.plans_config || map.paypal?.plans_config || DEFAULT_PLANS;
-    document.getElementById('plans_json').value = JSON.stringify(
-      typeof stripePlans === 'string' ? JSON.parse(stripePlans) : stripePlans,
-      null, 2
-    );
-    document.getElementById('trial_days').value = map.stripe?.trial_days || 14;
-  } catch (e) {
-    showAlert(e.message, false);
-  }
-}
-
-async function saveProvider(provider) {
-  const body = { is_enabled: false, is_test_mode: true };
-  if (provider === 'stripe') {
-    body.is_enabled = document.getElementById('stripe_enabled').checked;
-    body.is_test_mode = document.getElementById('stripe_test').checked;
-    body.stripe_public_key = document.getElementById('stripe_public').value.trim();
-    const sk = document.getElementById('stripe_secret').value.trim();
-    const wh = document.getElementById('stripe_webhook').value.trim();
-    if (sk) body.stripe_secret_key = sk;
-    if (wh) body.stripe_webhook_secret = wh;
-  } else if (provider === 'paypal') {
-    body.is_enabled = document.getElementById('paypal_enabled').checked;
-    body.is_test_mode = document.getElementById('paypal_test').checked;
-    body.paypal_client_id = document.getElementById('paypal_client_id').value.trim();
-    const sec = document.getElementById('paypal_secret').value.trim();
-    if (sec) body.paypal_client_secret = sec;
-    body.paypal_webhook_id = document.getElementById('paypal_webhook_id').value.trim();
-    body.paypal_merchant_id = document.getElementById('paypal_merchant_id').value.trim();
-  } else if (provider === 'paymob') {
-    body.is_enabled = document.getElementById('paymob_enabled').checked;
-    body.is_test_mode = document.getElementById('paymob_test').checked;
-    body.paymob_public_key = document.getElementById('paymob_public').value.trim();
-    const sec = document.getElementById('paymob_secret').value.trim();
-    const hmac = document.getElementById('paymob_hmac').value.trim();
-    if (sec) body.paymob_secret_key = sec;
-    if (hmac) body.paymob_hmac_secret = hmac;
-    body.paymob_base_url = document.getElementById('paymob_base_url').value.trim();
-    try {
-      body.paymob_integration_ids = JSON.parse(document.getElementById('paymob_integrations').value || '[]');
-    } catch {
-      return showAlert('صيغة Integration IDs غير صالحة', false);
+    function renderPlanEditor(plans) {
+      const container = document.getElementById('plans_editor');
+      container.innerHTML = Object.entries(plans).map(([key, plan]) => `
+        <div class="border rounded-xl p-4 bg-slate-50" data-plan="${key}">
+          <div class="font-bold mb-2">${plan.name || key}</div>
+          <div class="grid md:grid-cols-3 gap-3">
+            <div class="pay-field mb-0">
+              <label>السعر ($)</label>
+              <input type="number" class="plan-amount" value="${plan.amount ?? 0}" min="0">
+            </div>
+            <div class="pay-field mb-0">
+              <label>Stripe price_id</label>
+              <input class="plan-price-id" dir="ltr" value="${plan.price_id || ''}" placeholder="price_...">
+            </div>
+            <div class="pay-field mb-0">
+              <label>PayPal plan_id</label>
+              <input class="plan-paypal-id" dir="ltr" value="${plan.paypal_plan_id || ''}">
+            </div>
+          </div>
+        </div>
+      `).join('');
     }
-  }
-  try {
-    await api(`/api/platform/payment/${provider}`, { method: 'PUT', body: JSON.stringify(body) });
-    showAlert('تم الحفظ بنجاح');
-  } catch (e) {
-    showAlert(e.message, false);
-  }
-}
 
-async function testProvider(provider) {
-  try {
-    const data = await api(`/api/platform/payment/${provider}/test`, { method: 'POST' });
-    showAlert(data.message || (data.success ? 'نجح الاتصال' : 'فشل الاتصال'), !!data.success);
-  } catch (e) {
-    showAlert(e.message, false);
-  }
-}
+    function collectPlansFromEditor() {
+      const plans = {};
+      document.querySelectorAll('[data-plan]').forEach(el => {
+        const key = el.dataset.plan;
+        const base = typeof providerMap.stripe?.plans_config === 'object'
+          ? (providerMap.stripe.plans_config[key] || DEFAULT_PLANS[key] || {})
+          : (DEFAULT_PLANS[key] || {});
+        plans[key] = {
+          ...base,
+          amount: parseFloat(el.querySelector('.plan-amount').value) || 0,
+          currency: base.currency || 'USD',
+          price_id: el.querySelector('.plan-price-id').value.trim(),
+          paypal_plan_id: el.querySelector('.plan-paypal-id').value.trim(),
+          name: base.name || key
+        };
+      });
+      return plans;
+    }
 
-async function savePlans() {
-  let plans;
-  try {
-    plans = JSON.parse(document.getElementById('plans_json').value);
-  } catch {
-    return showAlert('JSON غير صالح', false);
-  }
-  try {
-    await api('/api/platform/payment/stripe', {
-      method: 'PUT',
-      body: JSON.stringify({
-        plans_config: plans,
-        trial_days: parseInt(document.getElementById('trial_days').value, 10) || 14
-      })
-    });
-    showAlert('تم حفظ خطط الاشتراك');
-  } catch (e) {
-    showAlert(e.message, false);
-  }
-}
+    async function loadSettings() {
+      try {
+        const data = await PaymentUI.api('/api/platform/payment');
+        providerMap = {};
+        (data.providers || []).forEach(p => { providerMap[p.provider] = p; });
+        renderOverview(data.providers || []);
 
-loadSettings();
-</script>
+        const s = providerMap.stripe || {};
+        document.getElementById('stripe_enabled').checked = !!s.is_enabled;
+        document.getElementById('stripe_test').checked = s.is_test_mode !== false;
+        document.getElementById('stripe_public').value = s.stripe_public_key || '';
+        document.getElementById('stripe_secret_wrap').innerHTML = PaymentUI.secretField('stripe_secret', 'Secret Key', 'sk_test_...', s.has_stripe_secret_key);
+        document.getElementById('stripe_webhook_wrap').innerHTML = PaymentUI.secretField('stripe_webhook', 'Webhook Secret', 'whsec_...', s.has_stripe_webhook_secret);
+        document.getElementById('stripe_webhook_box').innerHTML = PaymentUI.renderWebhookBox('رابط Webhook في Stripe Dashboard', '/api/payment/webhook/stripe/platform');
+
+        const pp = providerMap.paypal || {};
+        document.getElementById('paypal_enabled').checked = !!pp.is_enabled;
+        document.getElementById('paypal_test').checked = pp.is_test_mode !== false;
+        document.getElementById('paypal_client_id').value = pp.paypal_client_id || '';
+        document.getElementById('paypal_webhook_id').value = pp.paypal_webhook_id || '';
+        document.getElementById('paypal_merchant_id').value = pp.paypal_merchant_id || '';
+        document.getElementById('paypal_secret_wrap').innerHTML = PaymentUI.secretField('paypal_secret', 'Client Secret', '••••••••', pp.has_paypal_client_secret);
+        document.getElementById('paypal_webhook_box').innerHTML = PaymentUI.renderWebhookBox('رابط Webhook في PayPal', '/api/payment/webhook/paypal/platform');
+
+        const pm = providerMap.paymob || {};
+        document.getElementById('paymob_enabled').checked = !!pm.is_enabled;
+        document.getElementById('paymob_test').checked = pm.is_test_mode !== false;
+        document.getElementById('paymob_public').value = pm.paymob_public_key || '';
+        document.getElementById('paymob_base_url').value = pm.paymob_base_url || 'https://accept.paymob.com';
+        document.getElementById('paymob_integrations').value = pm.paymob_integration_ids ? JSON.stringify(pm.paymob_integration_ids, null, 2) : '[]';
+        document.getElementById('paymob_secret_wrap').innerHTML = PaymentUI.secretField('paymob_secret', 'Secret Key', '••••••••', pm.has_paymob_secret_key);
+        document.getElementById('paymob_hmac_wrap').innerHTML = PaymentUI.secretField('paymob_hmac', 'HMAC Secret', '••••••••', pm.has_paymob_hmac_secret);
+        document.getElementById('paymob_webhook_box').innerHTML = PaymentUI.renderWebhookBox('رابط Webhook في Paymob', '/api/payment/webhook/paymob/platform');
+
+        const plans = s.plans_config || pp.plans_config || DEFAULT_PLANS;
+        const parsed = typeof plans === 'string' ? JSON.parse(plans) : plans;
+        document.getElementById('plans_json').value = JSON.stringify(parsed, null, 2);
+        document.getElementById('trial_days').value = s.trial_days || 14;
+        renderPlanEditor(parsed);
+
+        await loadTransactions();
+      } catch (e) {
+        PaymentUI.showAlert('alert', e.message, 'err');
+      }
+    }
+
+    async function loadTransactions() {
+      const tbody = document.getElementById('transactions_body');
+      try {
+        const data = await PaymentUI.api('/api/platform/payment-transactions?limit=15');
+        const rows = data.transactions || [];
+        if (!rows.length) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-400">لا توجد معاملات بعد</td></tr>';
+          return;
+        }
+        tbody.innerHTML = rows.map(tx => `
+          <tr>
+            <td>${new Date(tx.created_at).toLocaleString('ar-EG')}</td>
+            <td>${tx.tenant_company_name || tx.tenant_subdomain || '—'}</td>
+            <td>${tx.provider}</td>
+            <td>${PaymentUI.formatMoney(tx.amount, tx.currency)}</td>
+            <td><span class="pay-badge ${tx.status === 'succeeded' ? 'connected' : 'disconnected'}">${tx.status}</span></td>
+            <td>${tx.type || '—'}</td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-red-500">${e.message}</td></tr>`;
+      }
+    }
+
+    async function saveProvider(provider) {
+      const body = { is_enabled: false, is_test_mode: true };
+      if (provider === 'stripe') {
+        body.is_enabled = document.getElementById('stripe_enabled').checked;
+        body.is_test_mode = document.getElementById('stripe_test').checked;
+        body.stripe_public_key = document.getElementById('stripe_public').value.trim();
+        const sk = document.getElementById('stripe_secret').value.trim();
+        const wh = document.getElementById('stripe_webhook').value.trim();
+        if (sk) body.stripe_secret_key = sk;
+        if (wh) body.stripe_webhook_secret = wh;
+      } else if (provider === 'paypal') {
+        body.is_enabled = document.getElementById('paypal_enabled').checked;
+        body.is_test_mode = document.getElementById('paypal_test').checked;
+        body.paypal_client_id = document.getElementById('paypal_client_id').value.trim();
+        const sec = document.getElementById('paypal_secret').value.trim();
+        if (sec) body.paypal_client_secret = sec;
+        body.paypal_webhook_id = document.getElementById('paypal_webhook_id').value.trim();
+        body.paypal_merchant_id = document.getElementById('paypal_merchant_id').value.trim();
+      } else if (provider === 'paymob') {
+        body.is_enabled = document.getElementById('paymob_enabled').checked;
+        body.is_test_mode = document.getElementById('paymob_test').checked;
+        body.paymob_public_key = document.getElementById('paymob_public').value.trim();
+        const sec = document.getElementById('paymob_secret').value.trim();
+        const hmac = document.getElementById('paymob_hmac').value.trim();
+        if (sec) body.paymob_secret_key = sec;
+        if (hmac) body.paymob_hmac_secret = hmac;
+        body.paymob_base_url = document.getElementById('paymob_base_url').value.trim();
+        try {
+          body.paymob_integration_ids = JSON.parse(document.getElementById('paymob_integrations').value || '[]');
+        } catch {
+          return PaymentUI.showAlert('alert', 'صيغة Integration IDs غير صالحة', 'err');
+        }
+      }
+      try {
+        await PaymentUI.api(`/api/platform/payment/${provider}`, { method: 'PUT', body: JSON.stringify(body) });
+        PaymentUI.showAlert('alert', 'تم الحفظ بنجاح ✓', 'ok');
+        await loadSettings();
+      } catch (e) {
+        PaymentUI.showAlert('alert', e.message, 'err');
+      }
+    }
+
+    async function testProvider(provider) {
+      try {
+        const data = await PaymentUI.api(`/api/platform/payment/${provider}/test`, { method: 'POST' });
+        PaymentUI.showAlert('alert', data.message || (data.success ? 'نجح الاتصال' : 'فشل الاتصال'), data.success ? 'ok' : 'err');
+      } catch (e) {
+        PaymentUI.showAlert('alert', e.message, 'err');
+      }
+    }
+
+    async function savePlans() {
+      let plans;
+      try {
+        plans = collectPlansFromEditor();
+        document.getElementById('plans_json').value = JSON.stringify(plans, null, 2);
+      } catch {
+        try { plans = JSON.parse(document.getElementById('plans_json').value); }
+        catch { return PaymentUI.showAlert('alert', 'JSON غير صالح', 'err'); }
+      }
+      try {
+        await PaymentUI.api('/api/platform/payment/stripe', {
+          method: 'PUT',
+          body: JSON.stringify({
+            plans_config: plans,
+            trial_days: parseInt(document.getElementById('trial_days').value, 10) || 14
+          })
+        });
+        PaymentUI.showAlert('alert', 'تم حفظ خطط الاشتراك', 'ok');
+      } catch (e) {
+        PaymentUI.showAlert('alert', e.message, 'err');
+      }
+    }
+
+    loadSettings();
+  </script>
 </body>
 </html>
