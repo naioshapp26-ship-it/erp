@@ -49,6 +49,8 @@ npm run db:restore -- --yes
 4. راقب الـ Logs حتى ترى: `✅ Full database restore completed`
 5. **احذف** `RUN_DB_RESTORE_ONCE` بعد النجاح حتى لا يُعاد الاستيراد عند كل إعادة تشغيل.
 
+> **ملاحظة:** أثناء الاستعادة قد يظهر السيرفر غير متاح (502) لعدة دقائق — هذا طبيعي. لا تقلق من رسالة Railway `rate limit reached for logging`؛ الإصدار الحديث يستخدم `psql -q` لتقليل السجلات.
+
 **بديل — من جهازك (يحتاج DATABASE_PUBLIC_URL):**
 
 ```bash

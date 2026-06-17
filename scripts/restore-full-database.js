@@ -50,15 +50,32 @@ async function restoreWithPsql(dumpFile) {
   }
 
   const preparedFile = writePreprocessedDump(dumpFile);
-  const result = spawnSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=0', '-f', preparedFile], {
-    stdio: 'inherit',
-    env: process.env
-  });
+  console.log('📦 Restoring via psql (quiet mode — logs suppressed)...');
+  const startedAt = Date.now();
+
+  const result = spawnSync(
+    'psql',
+    [databaseUrl, '-q', '-X', '-v', 'ON_ERROR_STOP=0', '-f', preparedFile],
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env,
+      maxBuffer: 10 * 1024 * 1024
+    }
+  );
 
   try {
     fs.unlinkSync(preparedFile);
   } catch (_) {
     /* ignore */
+  }
+
+  const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+  console.log(`⏱️ psql finished in ${elapsedSec}s (exit ${result.status ?? 'unknown'})`);
+
+  const stderr = (result.stderr || '').toString().trim();
+  if (stderr) {
+    const preview = stderr.length > 1500 ? `${stderr.slice(0, 1500)}…` : stderr;
+    console.warn(`psql warnings/errors:\n${preview}`);
   }
 
   if (result.error) {
@@ -71,8 +88,10 @@ async function restoreWithPsql(dumpFile) {
 
 async function restoreWithNode(dumpFile) {
   const sql = preprocessDump(fs.readFileSync(dumpFile, 'utf8'));
-  console.log(`📦 Restoring via node-pg (${Math.round(sql.length / 1024)} KB)...`);
+  console.log(`📦 Restoring via node-pg (${Math.round(sql.length / 1024)} KB, no verbose output)...`);
+  const startedAt = Date.now();
   await db.query(sql);
+  console.log(`⏱️ node-pg restore finished in ${Math.round((Date.now() - startedAt) / 1000)}s`);
 }
 
 async function verifyRestore() {
