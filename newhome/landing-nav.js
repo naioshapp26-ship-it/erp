@@ -12,7 +12,14 @@
     { href: '/members', label: 'العضوية', paths: ['/members', '/newhome/members.html', '/register.html'] },
     { href: '/newhome/blog.html', label: 'المدونة', paths: ['/newhome/blog.html'] },
     { href: '/saas-signup.html', label: 'الأسعار', paths: ['/saas-signup.html'] },
-    { href: '/contact-empire.html', label: 'اتصل بنا', paths: ['/contact-empire.html'] }
+    { href: '/contact-empire.html', label: 'اتصل بنا', paths: ['/contact-empire.html'] },
+    {
+      href: '/strategic/information',
+      label: 'مركز المعلومات',
+      icon: 'fa-info-circle',
+      className: 'nav-info-center',
+      paths: ['/strategic/information']
+    }
   ];
 
   const normalizePath = (pathname) => {
@@ -28,9 +35,14 @@
   const renderNav = () => {
     const path = normalizePath(window.location.pathname);
     document.querySelectorAll('header.top-nav .nav-links').forEach((nav) => {
-      nav.innerHTML = NAV_LINKS.map((link) => {
-        const active = isActive(link, path) ? ' class="active"' : '';
-        return `<a href="${link.href}"${active}>${link.label}</a>`;
+      const indicator = nav.querySelector('.nav-active-indicator, #nav-active-indicator');
+      const indicatorHtml = indicator ? indicator.outerHTML : '';
+      nav.innerHTML = indicatorHtml + NAV_LINKS.map((link) => {
+        const active = isActive(link, path) ? ' active' : '';
+        const className = [link.className, active.trim()].filter(Boolean).join(' ');
+        const classAttr = className ? ` class="${className}"` : '';
+        const icon = link.icon ? `<i class="fas ${link.icon}" aria-hidden="true"></i>` : '';
+        return `<a href="${link.href}"${classAttr} aria-label="${link.label}">${icon}<span>${link.label}</span></a>`;
       }).join('');
     });
   };
