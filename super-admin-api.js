@@ -17,6 +17,7 @@ const { getTenantPool } = require('./tenant-connection-manager');
 const { buildCentralTenantEntityId, syncCentralTenantUserDirectoryEntry } = require('./tenant-directory-sync');
 const { ensureSuperAdminRbacSchema } = require('./super-admin-rbac-schema');
 const { buildPermissionRegistry } = require('./page-permissions-registry');
+const { resolveUploadsRootDir, isEphemeralUploadStorage } = require('./uploads-config');
 const {
     getTenantPermissionBundle,
     saveTenantPermissionBundle
@@ -43,7 +44,7 @@ router.use(async (req, res, next) => {
     }
 });
 
-const UPLOADS_ROOT_DIR = path.resolve(process.env.UPLOADS_ROOT_DIR || path.join(__dirname, 'uploads'));
+const UPLOADS_ROOT_DIR = resolveUploadsRootDir(path.join(__dirname, 'uploads'));
 const HOMEPAGE_UPLOAD_PUBLIC_PREFIX = '/uploads/homepage/';
 const HOMEPAGE_UPLOAD_ROOT = path.join(UPLOADS_ROOT_DIR, 'homepage');
 const MAX_HOMEPAGE_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
@@ -130,14 +131,7 @@ const persistHomepageVideoFile = async (file) => {
     }
 
     const onRailway = Boolean(process.env.RAILWAY_ENVIRONMENT);
-    const persistentUploads = process.env.UPLOADS_PERSISTENT === 'true'
-        || String(process.env.UPLOADS_ROOT_DIR || '').includes('/data');
-    if (onRailway && !persistentUploads) {
-        throw new Error(
-            'الفيديو لن يبقى محفوظاً بعد إعادة نشر السيرفر بدون Cloudinary. '
-            + 'أضف CLOUDINARY_CLOUD_NAME و CLOUDINARY_API_KEY و CLOUDINARY_API_SECRET في Railway.'
-        );
-    }
+    const ephemeralStorage = onRailway && isEphemeralUploadStorage(UPLOADS_ROOT_DIR) && !isCloudinaryConfigured();
 
     const localUrl = buildHomepageUploadUrl(file.filename);
     if (!localUrl) {
@@ -148,7 +142,14 @@ const persistHomepageVideoFile = async (file) => {
     } catch (_error) {
         throw new Error('فشل حفظ ملف الفيديو على السيرفر');
     }
-    return { url: localUrl, publicId: null, storage: 'local' };
+    return {
+        url: localUrl,
+        publicId: null,
+        storage: ephemeralStorage ? 'local-ephemeral' : 'local',
+        warning: ephemeralStorage
+            ? 'تم رفع الفيديو بنجاح. للحفظ الدائم بعد إعادة النشر: أضف Cloudinary في Railway (CLOUDINARY_CLOUD_NAME و CLOUDINARY_API_KEY و CLOUDINARY_API_SECRET) أو ثبّت Volume على /data/uploads.'
+            : null
+    };
 };
 
 const deleteHomepageMediaAsset = async ({ url, cloudinaryPublicId } = {}) => {
@@ -2790,7 +2791,7 @@ router.post('/homepage-settings/hero-video', homepageSettingsUploadLimiter, veri
             return res.status(400).json({ success: false, message: 'فشل رفع الفيديو: لم يتم استلام ملف صالح. يرجى إعادة المحاولة.' });
         }
         const currentSettings = await getHomepageSettings();
-        const { url: uploadedVideoUrl, publicId: cloudinaryPublicId } = await persistHomepageVideoFile(req.file);
+        const { url: uploadedVideoUrl, publicId: cloudinaryPublicId, warning: storageWarning, storage } = await persistHomepageVideoFile(req.file);
         const caption = sanitizeCaptionText(req.body?.heroCaption || req.body?.mediaCaption || '');
         const description = sanitizeShortText(req.body?.heroDescription || req.body?.mediaDescription || '', 300);
         const title = String(req.body?.title || caption || '').trim().slice(0, 200) || null;
@@ -2837,11 +2838,12 @@ router.post('/homepage-settings/hero-video', homepageSettingsUploadLimiter, veri
             success: true,
             message: cloudinaryPublicId
                 ? 'تم رفع الفيديو إلى التخزين السحابي بنجاح — سيظهر مباشرة ولن يُحذف تلقائياً'
-                : 'تم رفع فيديو Hero بنجاح',
+                : (storageWarning || 'تم رفع فيديو Hero بنجاح'),
             videoUrl: uploadedVideoUrl,
             heroMediaId: newId,
             settings,
-            storage: cloudinaryPublicId ? 'cloudinary' : 'local'
+            storage: storage || (cloudinaryPublicId ? 'cloudinary' : 'local'),
+            warning: storageWarning || null
         });
     } catch (error) {
         console.error('خطأ في رفع فيديو Hero:', error);
