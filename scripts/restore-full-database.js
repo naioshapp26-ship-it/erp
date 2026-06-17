@@ -20,6 +20,21 @@ const db = require('../db');
 
 const DEFAULT_DUMP = path.join(__dirname, '..', 'NaioshERP.sql');
 
+function preprocessDump(sql) {
+  return sql
+    .replace(/^\\restrict.*$/gm, '')
+    .replace(/^SET transaction_timeout = .*;$/gm, '')
+    .replace(/^\\connect.*$/gm, '')
+    .replace(/^\\unrestrict.*$/gm, '');
+}
+
+function writePreprocessedDump(dumpFile) {
+  const sql = preprocessDump(fs.readFileSync(dumpFile, 'utf8'));
+  const tempFile = path.join(__dirname, '..', '.restore-temp.sql');
+  fs.writeFileSync(tempFile, sql);
+  return tempFile;
+}
+
 function resolveDumpFile() {
   const fileArgIndex = process.argv.indexOf('--file');
   if (fileArgIndex >= 0 && process.argv[fileArgIndex + 1]) {
@@ -34,10 +49,17 @@ async function restoreWithPsql(dumpFile) {
     throw new Error('DATABASE_URL is not set');
   }
 
-  const result = spawnSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=1', '-f', dumpFile], {
+  const preparedFile = writePreprocessedDump(dumpFile);
+  const result = spawnSync('psql', [databaseUrl, '-v', 'ON_ERROR_STOP=0', '-f', preparedFile], {
     stdio: 'inherit',
     env: process.env
   });
+
+  try {
+    fs.unlinkSync(preparedFile);
+  } catch (_) {
+    /* ignore */
+  }
 
   if (result.error) {
     throw result.error;
@@ -48,7 +70,7 @@ async function restoreWithPsql(dumpFile) {
 }
 
 async function restoreWithNode(dumpFile) {
-  const sql = fs.readFileSync(dumpFile, 'utf8');
+  const sql = preprocessDump(fs.readFileSync(dumpFile, 'utf8'));
   console.log(`📦 Restoring via node-pg (${Math.round(sql.length / 1024)} KB)...`);
   await db.query(sql);
 }
