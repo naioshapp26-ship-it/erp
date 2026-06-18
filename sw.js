@@ -1,12 +1,12 @@
-const CACHE_VERSION = '20260618';
+const CACHE_VERSION = '20260618b';
 const STATIC_CACHE = `app-static-${CACHE_VERSION}`;
 const API_CACHE = `app-api-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
-  '/manifest.webmanifest?v=20260618',
-  '/pwa/icon-192.png?v=20260618',
-  '/pwa/icon-512.png?v=20260618',
-  '/pwa/apple-touch-icon-180.png?v=20260618'
+  '/manifest.webmanifest?v=20260618b',
+  '/pwa/icon-192.png?v=20260618b',
+  '/pwa/icon-512.png?v=20260618b',
+  '/pwa/apple-touch-icon-180.png?v=20260618b'
 ];
 
 self.addEventListener('install', (event) => {

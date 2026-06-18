@@ -1445,7 +1445,6 @@ const app = (() => {
             lockSidebarNaioshColor();
             startSessionUserSync();
             initHelpGuide();
-            initCreditTopupDelegation();
             const tenant = db.entities.find(e => e.id === currentUser?.entity_id || currentUser?.entityId);
             if(tenant && tenant.theme) updateThemeVariables(tenant.theme);
             else lockSidebarNaioshColor();
@@ -2096,7 +2095,7 @@ const app = (() => {
         if (route !== 'incubator') {
             view.innerHTML = `<div class="fade-in" data-page-scope>${content}</div>`;
             if (route === 'dashboard' || route === 'control-panel') {
-                bindCreditTopupLinks();
+                ensureCreditTopupClickable();
             }
         }
         updateHelpGuide(route);
@@ -2119,8 +2118,8 @@ const app = (() => {
             loadRecordsStudentsData();
         }
 
-        if (route === 'dashboard') requestAnimationFrame(() => { initDashboardChart(); initHqDashboardEffects(); initCreditBalanceWidget(); bindCreditTopupLinks(); });
-        if (route === 'control-panel') requestAnimationFrame(() => { initCreditBalanceWidget(); bindCreditTopupLinks(); });
+        if (route === 'dashboard') requestAnimationFrame(() => { initDashboardChart(); initHqDashboardEffects(); initCreditBalanceWidget(); ensureCreditTopupClickable(); });
+        if (route === 'control-panel') requestAnimationFrame(() => { initCreditBalanceWidget(); ensureCreditTopupClickable(); });
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
         if (route.startsWith('eo-') && window.EOfficesPages?.init) {
             window.EOfficesPages.init(route);
@@ -4738,7 +4737,7 @@ const app = (() => {
         const usersCount = entity.users || 1;
 
         return `
-        <div class="hq-dashboard space-y-7 pb-6">
+        <div class="hq-hero-shell mb-7">
             <div class="hq-hero">
                 <div class="hq-hero-orb hq-hero-orb-1"></div>
                 <div class="hq-hero-orb hq-hero-orb-2"></div>
@@ -4784,9 +4783,11 @@ const app = (() => {
                     </div>
                 </div>
             </div>
+        </div>
 
-            ${renderCreditBalanceWidget()}
+        ${renderCreditBalanceWidget()}
 
+        <div class="hq-dashboard space-y-7 pb-6">
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
                 ${renderHqKpiCard('المحفظة الرقمية', balance, 'fa-wallet', 'from-red-600 via-red-700 to-rose-800', perms.isFinance() ? balanceRaw : null, perms.isFinance() ? 'ريال سعودي' : '', perms.isFinance() ? 'money' : '')}
                 ${renderHqKpiCard('المهام النشطة', tasksCount, 'fa-list-check', 'from-amber-500 via-orange-500 to-amber-600', tasksCount, tasksCount > 0 ? 'قيد المتابعة' : '')}
@@ -4830,47 +4831,42 @@ const app = (() => {
 </div>`;
 
     const goToCreditTopup = () => {
-        window.location.assign('/credit-topup.html');
+        window.location.href = '/credit-topup.html';
     };
 
-    const initCreditTopupDelegation = () => {
-        if (document.documentElement.dataset.creditTopupDelegated === '1') return;
-        document.documentElement.dataset.creditTopupDelegated = '1';
-        document.addEventListener('click', (event) => {
-            const trigger = event.target.closest('#credit-topup-btn, [data-credit-topup-link]');
-            if (!trigger) return;
-            event.preventDefault();
-            goToCreditTopup();
-        }, true);
-    };
-    initCreditTopupDelegation();
+    const ensureCreditTopupClickable = () => {
+        const link = document.getElementById('credit-topup-btn');
+        const widget = document.getElementById('credit-balance-widget');
+        if (!link || !widget) return;
 
-    const bindCreditTopupLinks = () => {
-        document.querySelectorAll('#credit-topup-btn, [data-credit-topup-link]').forEach((el) => {
-            if (el.dataset.bound === '1') return;
-            el.dataset.bound = '1';
-            el.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                goToCreditTopup();
-            });
-        });
+        link.classList.remove('hidden');
+        link.removeAttribute('disabled');
+        link.setAttribute('href', '/credit-topup.html');
+        link.setAttribute('role', 'button');
+        link.style.setProperty('display', 'inline-flex', 'important');
+        link.style.setProperty('visibility', 'visible', 'important');
+        link.style.setProperty('pointer-events', 'auto', 'important');
+        link.style.setProperty('position', 'relative', 'important');
+        link.style.setProperty('z-index', '100', 'important');
+        link.style.setProperty('cursor', 'pointer', 'important');
+        widget.style.setProperty('pointer-events', 'auto', 'important');
+        widget.style.setProperty('position', 'relative', 'important');
+        widget.style.setProperty('z-index', '100', 'important');
     };
 
     const renderCreditBalanceWidget = () => `
         <div id="credit-balance-widget" class="credit-balance-widget mb-6 rounded-2xl border border-red-200 bg-white shadow-sm p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
+            <div class="credit-balance-copy">
                 <p class="text-sm font-medium text-gray-600">الأرصدة المتاحة</p>
                 <p id="credit-balance-amount" class="text-3xl font-bold text-red-700 mt-1">...</p>
                 <p id="credit-balance-status" class="text-xs text-gray-600 mt-1">جاري التحميل...</p>
             </div>
-            <button type="button" id="credit-topup-btn" data-credit-topup-link="1"
-               onclick="window.goToCreditTopup && window.goToCreditTopup()"
-               class="credit-topup-btn inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-5 py-3 text-sm font-bold text-white shadow-md shadow-red-200 transition hover:bg-red-800 cursor-pointer"
-               style="color:#fff!important;border:none;font-family:inherit">
+            <a href="/credit-topup.html" id="credit-topup-btn"
+               class="credit-topup-btn inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-5 py-3 text-sm font-bold text-white shadow-md shadow-red-200 transition hover:bg-red-800 no-underline"
+               style="color:#fff!important;text-decoration:none!important;display:inline-flex!important;visibility:visible!important;pointer-events:auto!important;position:relative;z-index:100;cursor:pointer">
                 <i class="fas fa-coins" aria-hidden="true"></i>
                 شحن الأرصدة
-            </button>
+            </a>
         </div>
     `;
 
@@ -4892,7 +4888,7 @@ const app = (() => {
             statusEl.className = 'text-xs text-gray-600 mt-1';
             console.warn('[CreditBalance] widget load skipped:', error?.message || error);
         }
-        bindCreditTopupLinks();
+        ensureCreditTopupClickable();
     };
 
     const renderDashboard = async () => {
@@ -26735,7 +26731,9 @@ const app = (() => {
 
 window.app = app;
 window.loadRoute = app.loadRoute;
-window.goToCreditTopup = () => app.goToCreditTopup();
+window.goToCreditTopup = () => {
+    window.location.href = '/credit-topup.html';
+};
 
 // =============================================
 // HR TASKS MANAGEMENT - Interactive Functions
