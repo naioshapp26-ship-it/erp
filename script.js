@@ -3232,7 +3232,9 @@ const app = (() => {
         '/internet-automation/intellectual-property': 'intellectual-property',
         '/internet-automation/visitor-chat': 'visitor-chat',
         '/internet-automation/dispute-settlements': 'dispute-settlements',
-        '/internet-automation/records-archiving': 'records-archiving'
+        '/internet-automation/records-archiving': 'records-archiving',
+        '/credit-topup': 'credit-topup',
+        '/gateway-payments': 'gateway-payments',
     });
 
     // Extend routeToPath with missing sections
@@ -3273,7 +3275,10 @@ const app = (() => {
         'intellectual-property': '/internet-automation/intellectual-property',
         'visitor-chat': '/internet-automation/visitor-chat',
         'dispute-settlements': '/internet-automation/dispute-settlements',
-        'records-archiving': '/internet-automation/records-archiving'
+        'records-archiving': '/internet-automation/records-archiving',
+        'online-store': '/online-store',
+        'credit-topup': '/credit-topup',
+        'gateway-payments': '/gateway-payments',
     });
 
     const buildGlobalSearchIndex = () => {
@@ -4808,14 +4813,32 @@ const app = (() => {
         </div>`;
     };
 
+    const renderEmbeddedPaymentPage = (url, title) => `
+<div class="space-y-4 animate-fade-in p-2">
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-slate-800">${title}</h2>
+        <a href="${url}" target="_blank" rel="noopener" class="text-sm text-red-700 font-bold hover:underline">فتح في نافذة جديدة</a>
+    </div>
+    <iframe src="${url}" title="${title}" class="w-full border-0 rounded-2xl shadow-lg bg-white" style="min-height:78vh"></iframe>
+</div>`;
+
+    const goToCreditTopup = () => {
+        try {
+            loadRoute('credit-topup');
+        } catch (error) {
+            console.warn('[CreditTopup] loadRoute failed, opening direct page', error);
+            window.location.href = '/credit-topup.html';
+        }
+    };
+
     const renderCreditBalanceWidget = () => `
-        <div id="credit-balance-widget" class="mb-6 rounded-2xl border border-teal-100 bg-white/90 shadow-sm p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div id="credit-balance-widget" class="mb-6 rounded-2xl border border-red-100 bg-white/90 shadow-sm p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-600">الأرصدة المتاحة</p>
-                <p id="credit-balance-amount" class="text-3xl font-bold text-teal-700 mt-1">...</p>
+                <p id="credit-balance-amount" class="text-3xl font-bold text-red-700 mt-1">...</p>
                 <p id="credit-balance-status" class="text-xs text-gray-600 mt-1">جاري التحميل...</p>
             </div>
-            <button type="button" onclick="app.loadRoute('credit-topup')" class="text-sm font-semibold text-teal-700 hover:text-teal-800 underline underline-offset-4 text-right">
+            <button type="button" onclick="app.goToCreditTopup()" class="text-sm font-semibold text-red-700 hover:text-red-800 underline underline-offset-4 text-right cursor-pointer">
                 شحن الأرصدة
             </button>
         </div>
@@ -26663,6 +26686,7 @@ const app = (() => {
         getDb: () => db,  // Expose db for task management
         init: init,  // Expose init function
         loadRoute: loadRoute,  // Expose loadRoute function
+        goToCreditTopup,
         showToast: showToast,  // Expose showToast for external use
         createFacilityRequest, exportFacilityReport, handleFacilitySummary, handleFacilityAction, handleFacilityPageAction,
         editFacilitiesContract, deleteFacilitiesContract,
@@ -31172,15 +31196,7 @@ const renderInvoicesEnhanced = () => `
     </div>
 </div>`;
 
-// Gateway payments embed (Stripe / PayPal / Paymob / credits / store)
-const renderEmbeddedPaymentPage = (url, title) => `
-<div class="space-y-4 animate-fade-in p-2">
-    <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-slate-800">${title}</h2>
-        <a href="${url}" target="_blank" rel="noopener" class="text-sm text-blue-600 font-bold">فتح في نافذة جديدة</a>
-    </div>
-    <iframe src="${url}" title="${title}" class="w-full border-0 rounded-2xl shadow-lg bg-white" style="min-height:78vh"></iframe>
-</div>`;
+// Gateway payments embed — defined inside app IIFE (see script.js)
 
 // 2. Render Payment Methods
 const renderPaymentMethods = () => {

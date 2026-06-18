@@ -2,11 +2,13 @@
 
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
+const db = require('../db');
 const platformService = require('./platform-service');
 const tenantService = require('./tenant-service');
 const creditBilling = require('./credit-billing');
 const { ensureStoreSchema } = require('./store-schema');
-const { capturePayPalOrder } = require('./paypal-client');
+const { capturePayPalOrder, createPayPalOrder, formatPayPalAmount } = require('./paypal-client');
+const { createPaymobIntention } = require('./paymob-client');
 
 const router = express.Router();
 
@@ -54,6 +56,123 @@ function getBaseUrl(req) {
 
 function isPlatformRequest(req) {
   return !req.tenantPool;
+}
+
+function parseAuthToken(req) {
+  const authHeader = req.headers.authorization || '';
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  const cookies = (req.headers.cookie || '').split(';').reduce((acc, part) => {
+    const [k, ...v] = part.trim().split('=');
+    if (k) acc[k.trim()] = decodeURIComponent(v.join('=') || '');
+    return acc;
+  }, {});
+  return cookies.authToken || cookies.tenant_session || '';
+}
+
+async function resolveCentralUser(req) {
+  const token = parseAuthToken(req);
+  if (!token) return null;
+  try {
+    const result = await db.query(
+      `SELECT u.id AS user_id, u.email, u.role
+       FROM user_sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.session_token = $1
+         AND s.expires_at > NOW()
+         AND COALESCE(u.is_active, true) = true
+       LIMIT 1`,
+      [token]
+    );
+    return result.rows[0] || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function resolveCreditsContext(req) {
+  if (req.tenantPool) {
+    const userId = req.tenantUser?.user_id || null;
+    return { pool: req.tenantPool, userId, isPlatform: false };
+  }
+  const centralUser = await resolveCentralUser(req);
+  if (!centralUser) {
+    return { pool: null, userId: null, isPlatform: true };
+  }
+  return { pool: db, userId: centralUser.user_id, isPlatform: true };
+}
+
+async function isProviderConfiguredForContext(ctx, provider) {
+  if (ctx.isPlatform) {
+    return platformService.isProviderConfigured(provider);
+  }
+  return tenantService.isProviderConfigured(ctx.pool, provider);
+}
+
+async function createPlatformCreditSession({
+  provider,
+  bundle,
+  baseUrl,
+  customerEmail,
+  metadata,
+}) {
+  const successUrl = `${baseUrl}/credit-topup.html?status=success`;
+  const cancelUrl = `${baseUrl}/credit-topup.html?status=cancelled`;
+  const amountCents = platformService.toCents(bundle.amount, bundle.currency);
+
+  if (provider === 'stripe') {
+    return platformService.createStripeCheckoutSession({
+      amount: amountCents,
+      currency: bundle.currency || 'SAR',
+      productName: bundle.name,
+      successUrl,
+      cancelUrl,
+      returnUrl: successUrl,
+      customerEmail,
+      metadata,
+      uiMode: 'embedded',
+    });
+  }
+
+  if (provider === 'paypal') {
+    const auth = await platformService.getPayPalAuth();
+    const order = await createPayPalOrder({
+      auth,
+      amount: formatPayPalAmount(Number(bundle.amount) || 0),
+      currency: String(bundle.currency || 'SAR').toUpperCase(),
+      customId: metadata?.credit_account_id ? String(metadata.credit_account_id) : undefined,
+      description: bundle.name,
+    });
+    return {
+      sessionId: order.id,
+      checkoutUrl: order.links?.find((l) => l.rel === 'approve')?.href || null,
+      clientSecret: null,
+    };
+  }
+
+  if (provider === 'paymob') {
+    const auth = await platformService.getPaymobAuth();
+    const intention = await createPaymobIntention({
+      auth: { secretKey: auth.secretKey, baseUrl: auth.baseUrl },
+      amount: amountCents,
+      currency: String(bundle.currency || 'EGP').toUpperCase(),
+      paymentMethods: auth.integrationIds,
+      items: [{ name: bundle.name, amount: amountCents, quantity: 1 }],
+      billingData: {},
+      metadata,
+      successUrl,
+      failureUrl: cancelUrl,
+      callbackUrl: `${baseUrl}/api/payment/webhook/paymob/platform`,
+    });
+    return {
+      sessionId: String(intention.id || intention.client_secret || ''),
+      checkoutUrl: intention.redirect_url || intention.payment_url || null,
+      clientSecret: intention.client_secret || null,
+    };
+  }
+
+  throw new Error(`مزود الدفع ${provider} غير مدعوم.`);
 }
 
 // ================================================================
@@ -123,15 +242,12 @@ router.get('/credits/bundles', (req, res) => {
 });
 
 router.get('/credits/summary', async (req, res) => {
-  if (!req.tenantPool) {
-    return res.status(400).json({ success: false, message: 'يتطلب نطاق مستأجر.' });
-  }
-  const userId = req.tenantUser?.user_id || req.query.userId;
-  if (!userId) {
-    return res.status(401).json({ success: false, message: 'غير مصرح.' });
+  const ctx = await resolveCreditsContext(req);
+  if (!ctx.pool || !ctx.userId) {
+    return res.status(401).json({ success: false, message: 'يرجى تسجيل الدخول.' });
   }
   try {
-    const balance = await creditBilling.getCreditBalance(req.tenantPool, { userId: Number(userId) });
+    const balance = await creditBilling.getCreditBalance(ctx.pool, { userId: Number(ctx.userId) });
     const lowBalanceThreshold = parseInt(process.env.CREDIT_LOW_BALANCE_THRESHOLD, 10) || 10;
     const numericBalance = Number(balance.balance) || 0;
     const isLow = numericBalance > 0 && numericBalance <= lowBalanceThreshold;
@@ -151,15 +267,12 @@ router.get('/credits/summary', async (req, res) => {
 });
 
 router.get('/credits/balance', async (req, res) => {
-  if (!req.tenantPool) {
-    return res.status(400).json({ success: false, message: 'يتطلب نطاق مستأجر.' });
-  }
-  const userId = req.tenantUser?.user_id || req.query.userId;
-  if (!userId) {
-    return res.status(401).json({ success: false, message: 'غير مصرح.' });
+  const ctx = await resolveCreditsContext(req);
+  if (!ctx.pool || !ctx.userId) {
+    return res.status(401).json({ success: false, message: 'يرجى تسجيل الدخول.' });
   }
   try {
-    const balance = await creditBilling.getCreditBalance(req.tenantPool, { userId: Number(userId) });
+    const balance = await creditBilling.getCreditBalance(ctx.pool, { userId: Number(ctx.userId) });
     return res.json({ success: true, ...balance });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -167,8 +280,9 @@ router.get('/credits/balance', async (req, res) => {
 });
 
 router.post('/credits/checkout', async (req, res) => {
-  if (!req.tenantPool) {
-    return res.status(400).json({ success: false, message: 'يتطلب نطاق مستأجر.' });
+  const ctx = await resolveCreditsContext(req);
+  if (!ctx.pool || !ctx.userId) {
+    return res.status(401).json({ success: false, message: 'يرجى تسجيل الدخول.' });
   }
 
   const {
@@ -184,14 +298,18 @@ router.post('/credits/checkout', async (req, res) => {
     return res.status(400).json({ success: false, message: 'الباقة غير موجودة.' });
   }
 
-  const configured = await tenantService.isProviderConfigured(req.tenantPool, paymentProvider);
+  const configured = await isProviderConfiguredForContext(ctx, paymentProvider);
   if (!configured) {
-    return res.status(503).json({ success: false, message: `مزود الدفع ${paymentProvider} غير مفعّل.` });
+    const hint = ctx.isPlatform
+      ? 'فعّل بوابة الدفع من إعدادات المنصة أولاً.'
+      : 'فعّل بوابة الدفع من إعدادات المستأجر أولاً.';
+    return res.status(503).json({ success: false, message: `مزود الدفع ${paymentProvider} غير مفعّل. ${hint}` });
   }
 
   try {
-    const account = await creditBilling.ensureCreditAccount(req.tenantPool, {
-      userId: userId ? Number(userId) : null,
+    const effectiveUserId = userId ? Number(userId) : Number(ctx.userId);
+    const account = await creditBilling.ensureCreditAccount(ctx.pool, {
+      userId: effectiveUserId,
     });
 
     const baseUrl = getBaseUrl(req);
@@ -200,23 +318,32 @@ router.post('/credits/checkout', async (req, res) => {
       bundle_id: bundle.id,
       credits_delta: bundle.credits,
       credit_account_id: account.id,
-      user_id: userId || null,
+      user_id: effectiveUserId,
+      scope: ctx.isPlatform ? 'platform' : 'tenant',
     };
 
-    const session = await tenantService.createCheckoutSession(req.tenantPool, {
-      provider: paymentProvider,
-      amount: bundle.amount,
-      currency: bundle.currency || 'SAR',
-      productName: bundle.name,
-      successUrl: `${baseUrl}/credit-topup.html?status=success`,
-      cancelUrl: `${baseUrl}/credit-topup.html?status=cancelled`,
-      returnUrl: `${baseUrl}/credit-topup.html?status=success`,
-      customerEmail,
-      metadata,
-      callbackUrl: `${baseUrl}/api/payment/webhook/paymob/tenant`,
-    });
+    const session = ctx.isPlatform
+      ? await createPlatformCreditSession({
+        provider: paymentProvider,
+        bundle,
+        baseUrl,
+        customerEmail,
+        metadata,
+      })
+      : await tenantService.createCheckoutSession(ctx.pool, {
+        provider: paymentProvider,
+        amount: bundle.amount,
+        currency: bundle.currency || 'SAR',
+        productName: bundle.name,
+        successUrl: `${baseUrl}/credit-topup.html?status=success`,
+        cancelUrl: `${baseUrl}/credit-topup.html?status=cancelled`,
+        returnUrl: `${baseUrl}/credit-topup.html?status=success`,
+        customerEmail,
+        metadata,
+        callbackUrl: `${baseUrl}/api/payment/webhook/paymob/tenant`,
+      });
 
-    await creditBilling.createPendingCreditPurchase(req.tenantPool, {
+    await creditBilling.createPendingCreditPurchase(ctx.pool, {
       creditAccountId: account.id,
       bundleId: bundle.id,
       creditsDelta: bundle.credits,
@@ -227,16 +354,28 @@ router.post('/credits/checkout', async (req, res) => {
       metadata,
     });
 
-    await tenantService.logTenantTransaction(req.tenantPool, {
-      provider: paymentProvider,
-      providerTransactionId: session.sessionId,
-      amount: bundle.amount,
-      currency: bundle.currency,
-      status: 'pending',
-      type: 'credit_topup',
-      referenceType: 'credit_bundle',
-      metadata,
-    });
+    if (ctx.isPlatform) {
+      await platformService.logPlatformTransaction({
+        provider: paymentProvider,
+        providerTransactionId: session.sessionId,
+        amount: bundle.amount,
+        currency: bundle.currency,
+        status: 'pending',
+        type: 'subscription',
+        metadata: { ...metadata, payment_type: 'credit_topup' },
+      });
+    } else {
+      await tenantService.logTenantTransaction(ctx.pool, {
+        provider: paymentProvider,
+        providerTransactionId: session.sessionId,
+        amount: bundle.amount,
+        currency: bundle.currency,
+        status: 'pending',
+        type: 'credit_topup',
+        referenceType: 'credit_bundle',
+        metadata,
+      });
+    }
 
     return res.json({
       success: true,

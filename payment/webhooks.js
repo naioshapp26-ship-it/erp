@@ -58,6 +58,9 @@ async function handleStripeWebhook(req, res, context) {
         if (typeof saasApi.handleStripePaymentSuccess === 'function') {
           await saasApi.handleStripePaymentSuccess(metadata.registration_token, sessionId);
         }
+      } else if (metadata.payment_type === 'credit_topup') {
+        const centralDb = require('../db');
+        await creditBilling.settleCreditPurchase(centralDb, sessionId, session.payment_intent);
       }
     }
 
