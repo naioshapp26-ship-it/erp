@@ -1445,6 +1445,7 @@ const app = (() => {
             lockSidebarNaioshColor();
             startSessionUserSync();
             initHelpGuide();
+            initCreditTopupDelegation();
             const tenant = db.entities.find(e => e.id === currentUser?.entity_id || currentUser?.entityId);
             if(tenant && tenant.theme) updateThemeVariables(tenant.theme);
             else lockSidebarNaioshColor();
@@ -4829,33 +4830,47 @@ const app = (() => {
 </div>`;
 
     const goToCreditTopup = () => {
-        window.location.href = '/credit-topup.html';
+        window.location.assign('/credit-topup.html');
     };
 
+    const initCreditTopupDelegation = () => {
+        if (document.documentElement.dataset.creditTopupDelegated === '1') return;
+        document.documentElement.dataset.creditTopupDelegated = '1';
+        document.addEventListener('click', (event) => {
+            const trigger = event.target.closest('#credit-topup-btn, [data-credit-topup-link]');
+            if (!trigger) return;
+            event.preventDefault();
+            goToCreditTopup();
+        }, true);
+    };
+    initCreditTopupDelegation();
+
     const bindCreditTopupLinks = () => {
-        document.querySelectorAll('[data-credit-topup-link]').forEach((el) => {
+        document.querySelectorAll('#credit-topup-btn, [data-credit-topup-link]').forEach((el) => {
             if (el.dataset.bound === '1') return;
             el.dataset.bound = '1';
             el.addEventListener('click', (event) => {
                 event.preventDefault();
+                event.stopPropagation();
                 goToCreditTopup();
             });
         });
     };
 
     const renderCreditBalanceWidget = () => `
-        <div id="credit-balance-widget" class="mb-6 rounded-2xl border border-red-200 bg-white shadow-sm p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div id="credit-balance-widget" class="credit-balance-widget mb-6 rounded-2xl border border-red-200 bg-white shadow-sm p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-600">الأرصدة المتاحة</p>
                 <p id="credit-balance-amount" class="text-3xl font-bold text-red-700 mt-1">...</p>
                 <p id="credit-balance-status" class="text-xs text-gray-600 mt-1">جاري التحميل...</p>
             </div>
-            <a href="/credit-topup.html" data-credit-topup-link="1"
-               class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-red-200 transition hover:bg-red-800"
-               style="color:#fff!important;text-decoration:none!important">
-                <i class="fas fa-coins"></i>
+            <button type="button" id="credit-topup-btn" data-credit-topup-link="1"
+               onclick="window.goToCreditTopup && window.goToCreditTopup()"
+               class="credit-topup-btn inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-5 py-3 text-sm font-bold text-white shadow-md shadow-red-200 transition hover:bg-red-800 cursor-pointer"
+               style="color:#fff!important;border:none;font-family:inherit">
+                <i class="fas fa-coins" aria-hidden="true"></i>
                 شحن الأرصدة
-            </a>
+            </button>
         </div>
     `;
 
