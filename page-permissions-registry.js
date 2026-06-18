@@ -24,7 +24,8 @@ const PRIMARY_TENANT_SYSTEM_KEYS = [
   'branches-hub',
   'incubators-hub',
   'settings',
-  'audit-logs'
+  'audit-logs',
+  'marketing-campaigns-studio'
 ];
 
 const FINANCE_FILE_LABELS = {
@@ -43,7 +44,8 @@ const FINANCE_FILE_LABELS = {
   'inbound-outbound-mail': 'الوارد والصادر',
   'admin-circulars': 'التعاميم الإدارية',
   'operational-policies': 'السياسات التشغيلية',
-  'events-studio-main': 'استوديو الفعاليات'
+  'events-studio-main': 'استوديو الفعاليات',
+  'marketing-campaigns-studio': 'استديو الحملات التسويقية'
 };
 
 const OFFICE_ROUTE_PARENTS = {
@@ -54,7 +56,6 @@ const OFFICE_ROUTE_PARENTS = {
   'operations-management': 'strategic-management',
   'financial-approvals': 'strategic-management',
   tenants: 'strategic-management',
-  marketing: 'strategic-management',
   'advertisers-center': 'strategic-management',
   'training-development': 'strategic-management',
   'quality-audit': 'strategic-management',
@@ -288,6 +289,8 @@ const ROUTE_TO_PATH = {
   'employee-menu': '/employee',
   entities: '/tenants',
   'events-studio-main': '/finance/events-studio-main.html',
+  'marketing-campaigns-studio': '/marketing-campaigns-studio',
+  marketing: '/marketing-campaigns-studio',
   'operational-policies': '/operational-policies',
   'payment-menu': '/payment',
   'supply-chain': '/supply-chain',
@@ -431,7 +434,8 @@ const PAGE_LABELS = {
   'collections-strategic': 'التحصيل (استراتيجي)',
   reports: 'التقارير (استراتيجي)',
   'quality-audit': 'الجودة والتدقيق',
-  marketing: 'التسويق',
+  marketing: 'استديو الحملات التسويقية',
+  'marketing-campaigns-studio': 'استديو الحملات التسويقية',
   tenants: 'المستأجرين (استراتيجي)'
 };
 

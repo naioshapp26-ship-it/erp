@@ -24,7 +24,7 @@ const SYSTEMS = {
   'النظام المالي والمحاسبي': 'finance',
   'نظام المشتريات': 'procurement',
   'نظام المبيعات': 'sales',
-  'نظام التسويق': 'marketing',
+  'نظام التسويق': 'marketing-campaigns-studio',
   'نظام سلاسل الإمداد واللوجستيات': 'logistics',
   'نظام السلامة': 'safety',
   'نظام المخازن': 'warehouse'

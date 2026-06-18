@@ -3460,6 +3460,7 @@ const serveDashboardSpa = (req, res) => {
   '/education-incubators',
   '/credit-topup',
   '/gateway-payments',
+  '/marketing-campaigns-studio',
 ].forEach((routePath) => {
   app.get(routePath, serveDashboardSpa);
 });

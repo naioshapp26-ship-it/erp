@@ -40,6 +40,7 @@ const DEFAULT_PAGES_BY_PLAN = {
     'records-archive-home',
     'strategic-management',
     'events-studio-main',
+    'marketing-campaigns-studio',
     'operational-policies',
     'e-offices',
     'platforms',

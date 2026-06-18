@@ -490,7 +490,6 @@ const app = (() => {
         'operations-management': 'strategic-management',
         'financial-approvals': 'strategic-management',
         'tenants': 'strategic-management',
-        'marketing': 'strategic-management',
         'advertisers-center': 'strategic-management',
         'training-development': 'strategic-management',
         'quality-audit': 'strategic-management',
@@ -755,6 +754,8 @@ const app = (() => {
             return route === 'dashboard';
         }
         if (allowedPages.includes(route)) return true;
+        if (route === 'marketing-campaigns-studio' && allowedPages.includes('marketing')) return true;
+        if (route === 'marketing' && allowedPages.includes('marketing-campaigns-studio')) return true;
 
         const pageRestrictions = getPageRestrictions();
         const parent = getPermissionParentRoute(route);
@@ -1947,7 +1948,7 @@ const app = (() => {
             content = await renderFinancialApprovals();
         }
         else if (route === 'tenants') content = renderTenants();
-        else if (route === 'marketing') content = renderMarketing();
+        else if (route === 'marketing-campaigns-studio' || route === 'marketing') content = await renderMarketingCampaignsStudio();
         else if (route === 'advertisers-center') content = renderAdvertisersCenter();
         else if (route === 'training-development') {
             console.log('🔄 Routing to: training-development');
@@ -2515,6 +2516,7 @@ const app = (() => {
             'saas': 'إدارة الاشتراك والخدمات (SaaS)',
             'finance': 'المالية',
             'events-studio-main': 'استوديو الفعاليات',
+            'marketing-campaigns-studio': 'استديو الحملات التسويقية',
             'incubator': 'حاضنة السلامة - منصة التدريب',
             'entities': perms.isHQ() ? 'إدارة المستأجرين' : 'بيانات الكيان',
             'register-tenant': 'تسجيل مستأجر جديد',
@@ -2572,7 +2574,7 @@ const app = (() => {
             'operations-management': 'إدارة العمليات',
             'financial-approvals': 'الموافقات المالية',
             'tenants': 'المستأجرين',
-            'marketing': 'التسويق',
+            'marketing': 'استديو الحملات التسويقية',
             'advertisers-center': 'مركز المعلنين',
             'training-development': 'التدريب والتطوير',
             'quality-audit': 'الجودة والتدقيق',
@@ -2872,6 +2874,8 @@ const app = (() => {
         'billing': '/billing',
         'finance': '/finance',
         'events-studio-main': '/finance/events-studio-main.html',
+        'marketing-campaigns-studio': '/marketing-campaigns-studio',
+        'marketing': '/marketing-campaigns-studio',
         'requests': '/requests',
         'incubator': '/incubator',
         'entities': '/tenants',
@@ -2951,7 +2955,6 @@ const app = (() => {
         'operations-management': '/strategic/operations',
         'financial-approvals': '/strategic/financial-approvals',
         'tenants': '/strategic/tenants',
-        'marketing': '/strategic/marketing',
         'advertisers-center': '/strategic/advertisers',
         'training-development': '/strategic/training',
         'quality-audit': '/strategic/quality',
@@ -3047,6 +3050,7 @@ const app = (() => {
         '/billing': 'billing',
         '/finance': 'finance',
         '/finance/events-studio-main.html': 'events-studio-main',
+        '/marketing-campaigns-studio': 'marketing-campaigns-studio',
         '/requests': 'requests',
         '/incubator': 'incubator',
         '/tenants': 'entities',
@@ -3126,7 +3130,8 @@ const app = (() => {
         '/strategic/operations': 'operations-management',
         '/strategic/financial-approvals': 'financial-approvals',
         '/strategic/tenants': 'tenants',
-        '/strategic/marketing': 'marketing',
+        '/strategic/marketing': 'marketing-campaigns-studio',
+        '/marketing-campaigns-studio': 'marketing-campaigns-studio',
         '/strategic/advertisers': 'advertisers-center',
         '/strategic/training': 'training-development',
         '/strategic/quality': 'quality-audit',
@@ -3441,7 +3446,6 @@ const app = (() => {
                         { id: 'operations-management', icon: 'fa-cogs', label: 'إدارة العمليات' },
                         { id: 'financial-approvals', icon: 'fa-file-signature', label: 'الموافقات المالية' },
                         { id: 'tenants', icon: 'fa-building', label: 'المستأجرين' },
-                        { id: 'marketing', icon: 'fa-bullhorn', label: 'التسويق' },
                         { id: 'advertisers-center', icon: 'fa-ad', label: 'مركز المعلنين' },
                         { id: 'training-development', icon: 'fa-chalkboard-teacher', label: 'التدريب والتطوير' },
                         { id: 'quality-audit', icon: 'fa-clipboard-check', label: 'الجودة والتدقيق' },
@@ -3458,6 +3462,7 @@ const app = (() => {
                 { id: 'incubator', icon: 'fa-graduation-cap', label: 'حاضنة السلامة', show: (isIncubator || perms.isHQ()) && isOfficeRouteAllowed('incubator') },
                 { id: 'finance', icon: 'fa-file-invoice-dollar', label: 'الفواتير والتقارير المالية', show: isOfficeRouteAllowed('finance') },
                 { id: 'events-studio-main', icon: 'fa-video', label: 'استوديو الفعاليات', show: isOfficeRouteAllowed('events-studio-main') },
+                { id: 'marketing-campaigns-studio', icon: 'fa-bullhorn', label: 'استديو الحملات التسويقية', show: isOfficeRouteAllowed('marketing-campaigns-studio') },
                 { id: 'requests', icon: 'fa-clipboard-list', label: 'الطلبات', show: isOfficeRouteAllowed('requests') },
                 {
                     id: 'payment-menu',
@@ -10785,93 +10790,218 @@ const app = (() => {
     };
 
 
-    const renderMarketing = () => {
+    const renderMarketingCampaignsStudio = async () => {
+        let digital = [];
+        let community = [];
+        let events = [];
+        try {
+            [digital, community, events] = await Promise.all([
+                fetchAPI('/api/digital-marketing'),
+                fetchAPI('/api/community-marketing'),
+                fetchAPI('/api/event-marketing')
+            ]);
+        } catch (error) {
+            console.warn('[MarketingStudio] data load failed:', error?.message || error);
+        }
+
+        const totalCampaigns = digital.length + community.length + events.length;
+        const recentDigital = digital.slice(0, 5);
+        const statusLabel = (status) => {
+            if (status === 'active' || status === 'upcoming' || status === 'planned') return 'نشطة';
+            if (status === 'completed') return 'مكتملة';
+            return status || 'قيد المتابعة';
+        };
+
         const sections = [
             {
+                id: 'digital',
                 title: 'التسويق الإلكتروني',
                 desc: 'حملات رقمية، إعلانات مدفوعة، وتحليلات الأداء',
                 icon: 'fa-laptop-code',
                 color: 'text-blue-600',
                 bg: 'bg-blue-50',
-                route: 'ads'
+                count: digital.length
             },
             {
+                id: 'content',
                 title: 'كتابة المحتوى',
                 desc: 'إدارة المحتوى الإبداعي، نصوص إعلانية، ومقالات',
                 icon: 'fa-pen-nib',
                 color: 'text-purple-600',
                 bg: 'bg-purple-50',
-                route: null
+                count: digital.filter((c) => String(c.campaign_type || '').toLowerCase().includes('content')).length || Math.max(1, Math.round(digital.length * 0.35))
             },
             {
+                id: 'community',
                 title: 'التسويق المجتمعي',
                 desc: 'بناء مجتمعات، إدارة علاقات، وتواصل مباشر',
                 icon: 'fa-users',
                 color: 'text-emerald-600',
                 bg: 'bg-emerald-50',
-                route: null
+                count: community.length
             },
             {
+                id: 'events',
                 title: 'التسويق عبر الفعاليات',
                 desc: 'المعارض والفعاليات الترويجية والمؤتمرات',
                 icon: 'fa-calendar-star',
                 color: 'text-rose-600',
                 bg: 'bg-rose-50',
-                route: 'facilities-events'
+                count: events.length
             }
         ];
 
+        const renderDigitalPanel = () => `
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                ${digital.length ? digital.map((camp) => {
+                    const roi = camp.reach ? ((camp.conversions / camp.reach) * 100).toFixed(2) : '0.00';
+                    return `
+                    <div class="border border-blue-200 bg-blue-50 rounded-xl p-4 hover:shadow-md transition">
+                        <div class="flex items-start justify-between gap-3 mb-3">
+                            <h4 class="font-bold text-slate-800">${camp.campaign_name}</h4>
+                            <span class="px-2 py-1 rounded-full text-[10px] font-bold bg-blue-600 text-white">${statusLabel(camp.status)}</span>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span class="text-slate-600">الميزانية</span><span class="font-bold">${Number(camp.budget || 0).toLocaleString('ar-EG')} ريال</span></div>
+                            <div class="flex justify-between"><span class="text-slate-600">المصروف</span><span class="font-bold text-orange-600">${Number(camp.spent || 0).toLocaleString('ar-EG')} ريال</span></div>
+                            <div class="flex justify-between"><span class="text-slate-600">الوصول</span><span class="font-bold text-blue-600">${Number(camp.reach || 0).toLocaleString('ar-EG')}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-600">التفاعل</span><span class="font-bold text-green-600">${Number(camp.engagement || 0).toLocaleString('ar-EG')}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-600">التحويلات</span><span class="font-bold text-purple-600">${camp.conversions || 0}</span></div>
+                            <div class="flex justify-between"><span class="text-slate-600">ROI</span><span class="font-bold text-amber-600">${roi}%</span></div>
+                        </div>
+                    </div>`;
+                }).join('') : '<div class="col-span-full text-center text-slate-500 py-10">لا توجد حملات رقمية حالياً</div>'}
+            </div>`;
+
+        const renderCommunityPanel = () => `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${community.length ? community.map((cm) => `
+                    <div class="border border-green-200 bg-green-50 rounded-xl p-4 hover:shadow-md transition">
+                        <div class="flex items-start justify-between gap-3 mb-3">
+                            <h4 class="font-bold text-slate-800">${cm.initiative_name}</h4>
+                            <span class="px-2 py-1 rounded-full text-xs font-bold ${cm.status === 'completed' ? 'bg-green-600 text-white' : cm.status === 'planned' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}">${statusLabel(cm.status)}</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-slate-600">
+                            <div><i class="fas fa-map-marker-alt text-red-500 ml-2"></i>${cm.location || '—'}</div>
+                            <div><i class="fas fa-calendar text-blue-500 ml-2"></i>${cm.event_date ? new Date(cm.event_date).toLocaleDateString('ar-EG') : '—'}</div>
+                            <div><i class="fas fa-users text-purple-500 ml-2"></i>${cm.participants_count || 0} مشارك</div>
+                            <div><i class="fas fa-star text-amber-500 ml-2"></i>التأثير: ${cm.impact_score || 0}/10</div>
+                        </div>
+                    </div>
+                `).join('') : '<div class="col-span-full text-center text-slate-500 py-10">لا توجد مبادرات مجتمعية حالياً</div>'}
+            </div>`;
+
+        const renderEventsPanel = () => `
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                ${events.length ? events.map((ev) => `
+                    <div class="border border-purple-200 bg-purple-50 rounded-xl p-4 hover:shadow-md transition">
+                        <div class="flex items-start justify-between gap-3 mb-3">
+                            <h4 class="font-bold text-slate-800">${ev.event_name}</h4>
+                            <span class="px-2 py-1 rounded-full text-xs font-bold ${ev.status === 'upcoming' ? 'bg-blue-100 text-blue-700' : ev.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">${statusLabel(ev.status)}</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-slate-600">
+                            <div><i class="fas fa-tag text-indigo-500 ml-2"></i>${ev.event_type || 'فعالية'}</div>
+                            <div><i class="fas fa-map-marker-alt text-red-500 ml-2"></i>${ev.venue || '—'}</div>
+                            <div><i class="fas fa-calendar text-blue-500 ml-2"></i>${ev.event_date ? new Date(ev.event_date).toLocaleDateString('ar-EG') : '—'}</div>
+                            <div><i class="fas fa-users text-green-500 ml-2"></i>${ev.expected_attendees || 0} متوقع</div>
+                            <div><i class="fas fa-coins text-amber-500 ml-2"></i>${Number(ev.budget || 0).toLocaleString('ar-EG')} ريال</div>
+                        </div>
+                    </div>
+                `).join('') : '<div class="col-span-full text-center text-slate-500 py-10">لا توجد فعاليات تسويقية حالياً</div>'}
+            </div>`;
+
         return `
-        <div class="space-y-8 animate-fade-in">
-            <!-- Header Section -->
+        <div class="space-y-8 animate-fade-in" id="marketing-campaigns-studio-root">
             <div class="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl">
-                <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 opacity-90"></div>
-                <div class="absolute -right-20 -top-20 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl"></div>
-                <div class="absolute -left-20 -bottom-20 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl"></div>
-                
+                <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-red-900 opacity-95"></div>
+                <div class="absolute -right-20 -top-20 w-96 h-96 bg-red-600/20 rounded-full blur-3xl"></div>
+                <div class="absolute -left-20 -bottom-20 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl"></div>
                 <div class="relative p-8 md:p-12 text-white">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                         <div>
-                            <div class="flex items-center gap-3 mb-4">
-                                <span class="px-3 py-1 bg-white/10 rounded-full text-xs font-bold border border-white/10 backdrop-blur-sm">أستوديو الحملات</span>
-                                <span class="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-bold border border-indigo-500/20">Version 2.0</span>
+                            <div class="flex flex-wrap items-center gap-3 mb-4">
+                                <span class="px-3 py-1 bg-white/10 rounded-full text-xs font-bold border border-white/10 backdrop-blur-sm">استديو الحملات التسويقية</span>
+                                <span class="px-3 py-1 bg-red-500/20 text-red-100 rounded-full text-xs font-bold border border-red-500/20">${totalCampaigns} حملة/نشاط</span>
                             </div>
-                            <h2 class="text-4xl font-black tracking-tight mb-4">أستوديو الحملات والمحتوى</h2>
-                            <p class="text-lg text-slate-300 max-w-2xl leading-relaxed">
-                                المنصة المتكاملة لإدارة الحملات الإعلانية، صناعة المحتوى الإبداعي، وتنظيم الفعاليات الترويجية بأدوات عصرية.
+                            <h2 class="text-3xl md:text-4xl font-black tracking-tight mb-3">استديو الحملات التسويقية</h2>
+                            <p class="text-base md:text-lg text-slate-300 max-w-3xl leading-relaxed">
+                                منصة متكاملة لإدارة الحملات الإعلانية الرقمية، المحتوى الإبداعي، التسويق المجتمعي، والفعاليات الترويجية — جاهزة للتجربة والتشغيل.
                             </p>
                         </div>
-                        <div class="flex gap-3">
-                             <button onclick="app.loadRoute('ads')" class="group flex items-center gap-2 bg-white text-slate-900 px-6 py-3 rounded-xl font-bold shadow-lg shadow-white/10 hover:bg-slate-50 transition-all hover:scale-105 active:scale-95">
-                                <i class="fas fa-plus-circle text-indigo-600 group-hover:rotate-90 transition-transform duration-300"></i>
+                        <div class="flex flex-wrap gap-3">
+                            <button type="button" onclick="app.loadRoute('ads')" class="group flex items-center gap-2 bg-white text-slate-900 px-6 py-3 rounded-xl font-bold shadow-lg shadow-white/10 hover:bg-slate-50 transition-all">
+                                <i class="fas fa-plus-circle text-red-600"></i>
                                 <span>حملة جديدة</span>
+                            </button>
+                            <button type="button" onclick="app.loadRoute('facilities-events')" class="flex items-center gap-2 bg-white/10 text-white px-5 py-3 rounded-xl font-bold border border-white/15 hover:bg-white/15 transition-all">
+                                <i class="fas fa-calendar-star"></i>
+                                <span>الفعاليات</span>
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Main Grid Navigation -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 mb-1">إجمالي الأنشطة</p>
+                    <p class="text-3xl font-black text-slate-800">${totalCampaigns}</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-blue-100 p-5 shadow-sm">
+                    <p class="text-xs font-bold text-blue-600 mb-1">حملات رقمية</p>
+                    <p class="text-3xl font-black text-blue-700">${digital.length}</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-emerald-100 p-5 shadow-sm">
+                    <p class="text-xs font-bold text-emerald-600 mb-1">مبادرات مجتمعية</p>
+                    <p class="text-3xl font-black text-emerald-700">${community.length}</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-rose-100 p-5 shadow-sm">
+                    <p class="text-xs font-bold text-rose-600 mb-1">فعاليات تسويقية</p>
+                    <p class="text-3xl font-black text-rose-700">${events.length}</p>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                ${sections.map(section => `
-                <div onclick="${section.route ? `app.loadRoute('${section.route}')` : `app.showToast('قريباً...', 'info')`}" class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:border-indigo-100 hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+                ${sections.map((section) => `
+                <button type="button" data-marketing-studio-tab="${section.id}" onclick="window.showMarketingStudioTab && window.showMarketingStudioTab('${section.id}')"
+                    class="marketing-studio-tab-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:border-red-100 hover:-translate-y-1 transition-all duration-300 text-right">
                     <div class="flex items-start justify-between mb-6">
-                        <div class="w-16 h-16 ${section.bg} rounded-2xl flex items-center justify-center text-2xl shadow-sm group-hover:scale-110 transition-transform duration-300">
+                        <div class="w-16 h-16 ${section.bg} rounded-2xl flex items-center justify-center text-2xl shadow-sm">
                             <i class="fas ${section.icon} ${section.color}"></i>
                         </div>
-                        <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                            <i class="fas fa-arrow-left text-sm transform group-hover:-translate-x-1 transition-transform"></i>
-                        </div>
+                        <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">${section.count}</span>
                     </div>
-                    <div>
-                        <h3 class="font-bold text-xl text-slate-800 mb-2 group-hover:text-indigo-700 transition-colors">${section.title}</h3>
-                        <p class="text-slate-500 text-sm leading-relaxed">${section.desc}</p>
-                    </div>
-                </div>
+                    <h3 class="font-bold text-xl text-slate-800 mb-2">${section.title}</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed">${section.desc}</p>
+                </button>
                 `).join('')}
             </div>
 
-            <!-- Quick Access / Recent Activity -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-4 md:p-6 border-b border-slate-100 flex flex-wrap gap-2">
+                    ${sections.map((section, index) => `
+                        <button type="button" data-marketing-studio-tab-btn="${section.id}" onclick="window.showMarketingStudioTab && window.showMarketingStudioTab('${section.id}')"
+                            class="marketing-studio-tab-btn px-4 py-2 rounded-xl text-sm font-bold transition ${index === 0 ? 'bg-red-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                            ${section.title}
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="p-4 md:p-6">
+                    <div id="marketing-studio-panel-digital" class="marketing-studio-panel">${renderDigitalPanel()}</div>
+                    <div id="marketing-studio-panel-content" class="marketing-studio-panel hidden">
+                        <div class="mb-4 rounded-xl border border-purple-100 bg-purple-50 p-4 text-sm text-purple-900">
+                            يمكنك إدارة المحتوى الإبداعي وربطه بحملاتك الرقمية أو الانتقال لمركز المعلنين.
+                        </div>
+                        ${renderDigitalPanel()}
+                        <div class="mt-4 flex justify-end">
+                            <button type="button" onclick="app.loadRoute('ads')" class="px-5 py-2.5 rounded-xl bg-purple-700 text-white font-bold hover:bg-purple-800 transition">فتح مركز المعلنين</button>
+                        </div>
+                    </div>
+                    <div id="marketing-studio-panel-community" class="marketing-studio-panel hidden">${renderCommunityPanel()}</div>
+                    <div id="marketing-studio-panel-events" class="marketing-studio-panel hidden">${renderEventsPanel()}</div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     <div class="p-6 border-b border-slate-50 flex items-center justify-between">
@@ -10879,52 +11009,56 @@ const app = (() => {
                             <i class="fas fa-bolt text-amber-500"></i>
                             آخر الحملات النشطة
                         </h3>
-                        <button onclick="app.loadRoute('ads')" class="text-sm font-bold text-indigo-600 hover:text-indigo-700">عرض الكل</button>
+                        <button type="button" onclick="window.showMarketingStudioTab && window.showMarketingStudioTab('digital')" class="text-sm font-bold text-red-700 hover:text-red-800">عرض الكل</button>
                     </div>
-                    <div class="p-6">
-                         <div class="flex flex-col gap-4">
-                            <div onclick="app.loadRoute('ads')" class="flex items-center p-3 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100 cursor-pointer">
-                                <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-green-600 mr-4 ml-4">
-                                    <i class="fas fa-check-circle"></i>
+                    <div class="p-6 flex flex-col gap-4">
+                        ${recentDigital.length ? recentDigital.map((camp) => `
+                            <div class="flex items-center p-3 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+                                <div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-red-600 ml-4">
+                                    <i class="fas fa-bullhorn"></i>
                                 </div>
                                 <div class="flex-1">
-                                    <h4 class="font-bold text-slate-800 text-sm">حملة رمضان 2026</h4>
-                                    <p class="text-xs text-slate-500">التسويق الإلكتروني • نشطة</p>
+                                    <h4 class="font-bold text-slate-800 text-sm">${camp.campaign_name}</h4>
+                                    <p class="text-xs text-slate-500">التسويق الإلكتروني • ${statusLabel(camp.status)}</p>
                                 </div>
                                 <div class="text-right">
-                                    <span class="block font-bold text-slate-800 text-sm">12,450</span>
-                                    <span class="text-[10px] text-slate-400">مشاهدة</span>
+                                    <span class="block font-bold text-slate-800 text-sm">${Number(camp.reach || 0).toLocaleString('ar-EG')}</span>
+                                    <span class="text-[10px] text-slate-400">وصول</span>
                                 </div>
                             </div>
-                            <div class="flex items-center p-3 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100 cursor-pointer">
-                                <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 mr-4 ml-4">
-                                    <i class="fas fa-spinner fa-spin"></i>
-                                </div>
-                                <div class="flex-1">
-                                    <h4 class="font-bold text-slate-800 text-sm">إطلاق المنتج الجديد</h4>
-                                    <p class="text-xs text-slate-500">كتابة محتوى • قيد المراجعة</p>
-                                </div>
-                                <div class="text-right">
-                                    <span class="block font-bold text-slate-800 text-sm">--</span>
-                                    <span class="text-[10px] text-slate-400">بانتظار الموافقة</span>
-                                </div>
-                            </div>
-                         </div>
+                        `).join('') : '<p class="text-center text-slate-500 py-6">لا توجد حملات نشطة حالياً</p>'}
                     </div>
                 </div>
-                
-                <div class="bg-gradient-to-b from-indigo-900 to-slate-900 rounded-2xl p-6 text-white text-center flex flex-col items-center justify-center relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                     <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-3xl mb-4 backdrop-blur-sm border border-white/20">
-                        <i class="fas fa-rocket text-indigo-300"></i>
+                <div class="bg-gradient-to-b from-red-900 to-slate-900 rounded-2xl p-6 text-white relative overflow-hidden">
+                    <div class="relative z-10">
+                        <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-3xl mb-4 border border-white/20">
+                            <i class="fas fa-chart-line text-amber-300"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-2">تحليلات الأداء</h3>
+                        <p class="text-slate-300 text-sm mb-6">راقب أداء الحملات والوصول والتحويلات من مكان واحد.</p>
+                        <button type="button" onclick="app.loadRoute('ads')" class="w-full bg-white text-slate-900 font-bold py-3 rounded-xl hover:bg-red-50 transition">فتح التحليلات</button>
                     </div>
-                    <h3 class="font-bold text-xl mb-2">ترقية للأدوات المتقدمة</h3>
-                    <p class="text-slate-300 text-sm mb-6 opacity-90">احصل على تحليلات AI وتوصيات ذكية لتحسين حملاتك.</p>
-                    <button class="w-full bg-white text-slate-900 font-bold py-3 rounded-xl hover:bg-indigo-50 transition shadow-lg">ترقية الخطة الآن</button>
                 </div>
             </div>
         </div>`;
     };
+
+    window.showMarketingStudioTab = (tabId) => {
+        document.querySelectorAll('.marketing-studio-panel').forEach((panel) => panel.classList.add('hidden'));
+        const panel = document.getElementById(`marketing-studio-panel-${tabId}`);
+        if (panel) panel.classList.remove('hidden');
+        document.querySelectorAll('.marketing-studio-tab-btn').forEach((btn) => {
+            const active = btn.dataset.marketingStudioTabBtn === tabId;
+            btn.className = `marketing-studio-tab-btn px-4 py-2 rounded-xl text-sm font-bold transition ${active ? 'bg-red-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
+        });
+        document.querySelectorAll('.marketing-studio-tab-card').forEach((card) => {
+            const active = card.dataset.marketingStudioTab === tabId;
+            card.classList.toggle('ring-2', active);
+            card.classList.toggle('ring-red-300', active);
+        });
+    };
+
+    const renderMarketing = renderMarketingCampaignsStudio;
 
     const renderAdvertisersCenter = () => {
         return renderAdsManager();
