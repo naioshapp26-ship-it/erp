@@ -6,22 +6,42 @@
     '/index.html',
     '/login-page.html',
     '/register.html',
-    '/saas-signup.html',
     '/unauthorized.html'
   ]);
 
-  const EXCLUDED_PREFIXES = [
-    '/newhome/',
-    '/pwa/'
-  ];
+  const PUBLIC_MARKETING_PATHS = new Set([
+    '/products',
+    '/services',
+    '/members',
+    '/systems',
+    '/companies',
+    '/member-management',
+    '/governance',
+    '/automation',
+    '/sustainability',
+    '/legal',
+    '/skills-innovation',
+    '/initiatives',
+    '/beta-club',
+    '/public-payments.html',
+    '/saas-signup.html',
+    '/credit-topup.html',
+    '/platform-payment-settings.html',
+    '/tenant-payment-settings.html',
+    '/store-cart.html'
+  ]);
 
   const INLINE_MOUNT_SELECTORS = [
     '#app-container .flex-1 > header .flex.items-center',
+    'header.top-nav .container.inner',
+    'header.top-nav .inner',
     'header.sticky.top-0 .flex.items-center.gap-3',
     'nav.sticky.top-0 .flex.items-center.gap-3',
     'header .max-w-5xl .flex.items-center.gap-3',
     'header .max-w-7xl .flex.items-center.gap-3',
-    '.page-header .relative.z-10'
+    '.page-header .relative.z-10',
+    '.pay-header',
+    'main .pay-header'
   ];
 
   function normalizePath(pathname) {
@@ -32,7 +52,6 @@
   function shouldShowBackButton() {
     const path = normalizePath(window.location.pathname);
     if (EXCLUDED_PATHS.has(path)) return false;
-    if (EXCLUDED_PREFIXES.some((prefix) => path.startsWith(prefix))) return false;
     if (document.body?.dataset?.hideGlobalBack === 'true') return false;
     return true;
   }
@@ -40,6 +59,9 @@
   function resolveFallbackUrl() {
     const path = normalizePath(window.location.pathname);
 
+    if (PUBLIC_MARKETING_PATHS.has(path) || path.startsWith('/newhome/')) {
+      return '/';
+    }
     if (path.startsWith('/finance/')) {
       return '/finance/index.html';
     }
@@ -56,6 +78,9 @@
       return '/dashboard.html';
     }
     if (path === '/dashboard.html' || path === '/home') {
+      return '/';
+    }
+    if (path.endsWith('.html')) {
       return '/';
     }
     return '/dashboard.html';
@@ -80,7 +105,7 @@
   }
 
   function detectStickyTopHeader() {
-    const stickyHeader = document.querySelector('header.sticky.top-0, nav.sticky.top-0');
+    const stickyHeader = document.querySelector('header.sticky.top-0, nav.sticky.top-0, header.top-nav');
     if (stickyHeader) {
       document.body.classList.add('has-sticky-top-header');
     }
@@ -101,7 +126,8 @@
     button.id = 'global-back-button';
     button.type = 'button';
     button.className = `global-back-button global-back-button--${mode}`;
-    button.setAttribute('aria-label', 'رجوع');
+    button.setAttribute('aria-label', 'رجوع للصفحة السابقة');
+    button.title = 'رجوع';
     button.innerHTML = '<i class="fas fa-arrow-right" aria-hidden="true"></i><span>رجوع</span>';
     button.addEventListener('click', goBack);
     return button;
@@ -126,6 +152,8 @@
 
     document.body.appendChild(createBackButton('floating'));
   }
+
+  window.globalBack = { goBack, mountBackButton };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', mountBackButton);

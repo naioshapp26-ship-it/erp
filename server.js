@@ -90,12 +90,19 @@ const injectGlobalSearchAssets = (html) => {
   return output;
 };
 
+const GLOBAL_BACK_ASSET_VERSION = '20260618back';
+
 const injectGlobalBackButtonAssets = (html) => {
   if (!html) return html;
-  const cssTag = '<link rel="stylesheet" href="/public/global-back.css">';
-  const scriptTag = '<script src="/public/global-back.js" defer></script>';
+  const cssTag = `<link rel="stylesheet" href="/public/global-back.css?v=${GLOBAL_BACK_ASSET_VERSION}">`;
+  const scriptTag = `<script src="/public/global-back.js?v=${GLOBAL_BACK_ASSET_VERSION}" defer></script>`;
   const withCss = injectHeadAssetIfExists(html, '/public/global-back.css', cssTag);
   return injectBodyAssetIfExists(withCss, '/public/global-back.js', scriptTag);
+};
+
+const isPublicHomepageFile = (filePath) => {
+  const fileName = path.basename(filePath || '');
+  return fileName === 'index.html' && String(filePath || '').includes(`${path.sep}newhome${path.sep}`);
 };
 
 const injectPageGuideAssets = (html) => {
@@ -138,7 +145,12 @@ const sendHtmlWithNumberFormat = (res, filePath) => {
     }
     const isNewhomePage = filePath.includes(`${path.sep}newhome${path.sep}`);
     if (isNewhomePage) {
-      res.send(html);
+      const withDarkMode = injectDarkModeAssets(withFormValidation);
+      if (isPublicHomepageFile(filePath)) {
+        res.send(withDarkMode);
+        return;
+      }
+      res.send(injectGlobalBackButtonAssets(withDarkMode));
       return;
     }
     const withGlobalBack = injectGlobalBackButtonAssets(withFormValidation);
