@@ -2094,6 +2094,9 @@ const app = (() => {
 
         if (route !== 'incubator') {
             view.innerHTML = `<div class="fade-in" data-page-scope>${content}</div>`;
+            if (route === 'dashboard' || route === 'control-panel') {
+                bindCreditTopupLinks();
+            }
         }
         updateHelpGuide(route);
         updateActiveLink(route);
@@ -2115,8 +2118,8 @@ const app = (() => {
             loadRecordsStudentsData();
         }
 
-        if (route === 'dashboard') requestAnimationFrame(() => { initDashboardChart(); initHqDashboardEffects(); initCreditBalanceWidget(); });
-        if (route === 'control-panel') requestAnimationFrame(() => { initCreditBalanceWidget(); });
+        if (route === 'dashboard') requestAnimationFrame(() => { initDashboardChart(); initHqDashboardEffects(); initCreditBalanceWidget(); bindCreditTopupLinks(); });
+        if (route === 'control-panel') requestAnimationFrame(() => { initCreditBalanceWidget(); bindCreditTopupLinks(); });
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
         if (route.startsWith('eo-') && window.EOfficesPages?.init) {
             window.EOfficesPages.init(route);
@@ -2619,6 +2622,9 @@ const app = (() => {
             'visitor-chat': 'الدردشة مع الزوار',
             'dispute-settlements': 'فض النزاعات والتسويات',
             'records-archiving': 'السجلات والأرشيف',
+            'credit-topup': 'شحن الرصيد',
+            'gateway-payments': 'إعدادات بوابات الدفع',
+            'online-store': 'المتجر الإلكتروني',
             // Occupational Health & Safety subitems
             'occupational-safety': 'السلامة المهنية',
             'international-standards': 'المعايير الدولية',
@@ -4823,24 +4829,33 @@ const app = (() => {
 </div>`;
 
     const goToCreditTopup = () => {
-        try {
-            loadRoute('credit-topup');
-        } catch (error) {
-            console.warn('[CreditTopup] loadRoute failed, opening direct page', error);
-            window.location.href = '/credit-topup.html';
-        }
+        window.location.href = '/credit-topup.html';
+    };
+
+    const bindCreditTopupLinks = () => {
+        document.querySelectorAll('[data-credit-topup-link]').forEach((el) => {
+            if (el.dataset.bound === '1') return;
+            el.dataset.bound = '1';
+            el.addEventListener('click', (event) => {
+                event.preventDefault();
+                goToCreditTopup();
+            });
+        });
     };
 
     const renderCreditBalanceWidget = () => `
-        <div id="credit-balance-widget" class="mb-6 rounded-2xl border border-red-100 bg-white/90 shadow-sm p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div id="credit-balance-widget" class="mb-6 rounded-2xl border border-red-200 bg-white shadow-sm p-4 md:p-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-600">الأرصدة المتاحة</p>
                 <p id="credit-balance-amount" class="text-3xl font-bold text-red-700 mt-1">...</p>
                 <p id="credit-balance-status" class="text-xs text-gray-600 mt-1">جاري التحميل...</p>
             </div>
-            <button type="button" onclick="app.goToCreditTopup()" class="text-sm font-semibold text-red-700 hover:text-red-800 underline underline-offset-4 text-right cursor-pointer">
+            <a href="/credit-topup.html" data-credit-topup-link="1"
+               class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-red-200 transition hover:bg-red-800"
+               style="color:#fff!important;text-decoration:none!important">
+                <i class="fas fa-coins"></i>
                 شحن الأرصدة
-            </button>
+            </a>
         </div>
     `;
 
@@ -4862,6 +4877,7 @@ const app = (() => {
             statusEl.className = 'text-xs text-gray-600 mt-1';
             console.warn('[CreditBalance] widget load skipped:', error?.message || error);
         }
+        bindCreditTopupLinks();
     };
 
     const renderDashboard = async () => {
@@ -26704,6 +26720,7 @@ const app = (() => {
 
 window.app = app;
 window.loadRoute = app.loadRoute;
+window.goToCreditTopup = () => app.goToCreditTopup();
 
 // =============================================
 // HR TASKS MANAGEMENT - Interactive Functions

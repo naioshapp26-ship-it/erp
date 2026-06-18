@@ -3445,7 +3445,9 @@ const serveDashboardSpa = (req, res) => {
   '/tasks',
   '/facilities',
   '/audit-logs',
-  '/education-incubators'
+  '/education-incubators',
+  '/credit-topup',
+  '/gateway-payments',
 ].forEach((routePath) => {
   app.get(routePath, serveDashboardSpa);
 });
