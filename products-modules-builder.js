@@ -188,24 +188,11 @@ function modulesFromRegistry(systemKey, includeRoot = false) {
 }
 
 function buildFinanceModules() {
-  buildPermissionRegistry();
-  return dedupeModules(
-    getPagesForSystem('finance')
-      .map((page) => ({
-        name: page.label || labelForKey(page.key),
-        href: pathForKey(page.key)
-      }))
-      .filter((page) => page.href && page.href.startsWith('/finance'))
-  );
+  return parseHubFromFile('finance/index.html', 'finance-cards', '/finance');
 }
 
 function buildHrModules() {
-  buildPermissionRegistry();
-  const hubModules = parseHubFromFile('finance/hr-home.html', 'hr-cards', '/hr');
-  const scriptHrModules = Object.entries(loadScriptRoutePaths())
-    .filter(([, href]) => href === '/hr' || href.startsWith('/hr/'))
-    .map(([key, href]) => ({ name: labelForKey(key), href }));
-  return dedupeModules([...hubModules, ...scriptHrModules]);
+  return parseHubFromFile('finance/hr-home.html', 'hr-cards', '/hr');
 }
 
 function buildArchiveModules() {
@@ -218,13 +205,13 @@ function buildPaymentModules() {
   buildPermissionRegistry();
   const parentModules = modulesFromParentKey('payment-menu');
   const navModules = parseNavLinksFromFile('finance/payments/index.html', '/finance/payments');
-  const financePaymentPages = buildFinanceModules().filter((item) =>
+  const financePaymentLinks = buildFinanceModules().filter((item) =>
     item.href.includes('/finance/payments') ||
     item.href.includes('/gateway-payments') ||
     item.href.includes('/credit-topup') ||
     item.href.includes('/online-store')
   );
-  return dedupeModules([...parentModules, ...navModules, ...financePaymentPages]);
+  return dedupeModules([...parentModules, ...navModules, ...financePaymentLinks]);
 }
 
 function buildModulesForProductSystem(productSystemId) {
