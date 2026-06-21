@@ -39,7 +39,20 @@
           mod('التقارير', '/strategic/reports')
         ]),
         system('org-chart', 'fa-sitemap', 'الهيكل الهرمي', 'رسم بياني تفاعلي يعرض بنية المؤسسة ومستويات الإدارة بشكل واضح.', [], '/hierarchy'),
-        system('records-archive', 'fa-archive', 'نظام الأرشفة', 'أرشفة السجلات والوثائق المؤسسية مع تصنيف آمن وسهل الوصول.', [], '/archive'),
+        system('records-archive', 'fa-archive', 'نظام الأرشفة', 'أرشفة السجلات والوثائق المؤسسية مع تصنيف آمن وسهل الوصول.', [
+          mod('الإدارة الأكاديمية', '/archive/academic-admin'),
+          mod('شؤون الطلاب', '/archive/student-affairs'),
+          mod('قسم المالية والمحاسبة', '/archive/finance-accounting'),
+          mod('قسم المشاريع', '/archive/projects'),
+          mod('ملفات عامة وإدارية', '/archive/general-admin-files'),
+          mod('التدريب والتعليم', '/archive/training-education'),
+          mod('قسم IT', '/archive/it'),
+          mod('التسويق والمبيعات', '/archive/marketing-sales'),
+          mod('قسم الصادر', '/archive/outgoing'),
+          mod('الموارد البشرية', '/archive/human-resources'),
+          mod('ضبط الوصول الآمن', '/archive/access-control'),
+          mod('سجل الأمان', '/archive/audit-log')
+        ], '/archive'),
         system('tenants-hub', 'fa-building', 'المستأجرين', 'إدارة المستأجرين والكيانات الفرعية ضمن النظام متعدد المستأجرين.', [], '/tenants'),
         system('requests-hub', 'fa-clipboard-list', 'الطلبات', 'متابعة الطلبات الداخلية والخارجية من الإنشاء حتى الإغلاق.', [], '/requests'),
         system('saas-platform', 'fa-cubes', 'اشتراكي (SaaS)', 'إدارة اشتراك المنصة السحابية وخطط الخدمة للمستأجرين.', [], '/saas')
@@ -49,7 +62,24 @@
       section: 'المالية والتسويق',
       icon: 'fa-chart-pie',
       systems: [
-        system('finance-reports', 'fa-file-invoice-dollar', 'الفواتير والتقارير المالية', 'إدارة الحسابات والتقارير المالية والميزانيات بدقة وشفافية عالية.', [], '/finance'),
+        system('finance-reports', 'fa-file-invoice-dollar', 'الفواتير والتقارير المالية', 'إدارة الحسابات والتقارير المالية والميزانيات بدقة وشفافية عالية.', [
+          mod('دليل الحسابات', '/finance/chart-of-accounts.html'),
+          mod('قيود اليومية', '/finance/journal.html'),
+          mod('الميزانية العمومية', '/finance/balance-sheet.html'),
+          mod('قائمة الدخل', '/finance/income-statement.html'),
+          mod('التدفقات النقدية', '/finance/cashflow-summary.html'),
+          mod('المصروفات', '/finance/expenses.html'),
+          mod('الميزانيات', '/finance/budgets.html'),
+          mod('العملاء', '/finance/customers.html'),
+          mod('أعمار الذمم المدينة', '/finance/ar-aging.html'),
+          mod('التحصيل', '/finance/receivables-collections.html'),
+          mod('الأصول الثابتة', '/finance/fixed-assets.html'),
+          mod('كشوف الرواتب', '/finance/payroll-runs.html'),
+          mod('نظام المدفوعات', '/finance/payments/'),
+          mod('الفواتير الذكية', '/finance/payments/smart-invoices.html'),
+          mod('التقارير المالية الاستراتيجية', '/finance/strategic-financial-reports.html'),
+          mod('التنبؤات بالذكاء الاصطناعي', '/finance/ai-forecasts.html')
+        ], '/finance'),
         system('payment-system', 'fa-credit-card', 'نظام الدفع', 'إدارة الدفع والتحصيل والفوترة الذكية بشكل متكامل.', [
           mod('الفواتير الذكية', '/finance'),
           mod('طرق الدفع', '/finance'),
@@ -81,7 +111,28 @@
       section: 'الموارد البشرية والخدمات',
       icon: 'fa-users',
       systems: [
-        system('hr', 'fa-people-group', 'الموارد البشرية', 'نظام HR شامل يغطي التوظيف وكشوف الرواتب والأداء والتطوير الوظيفي.', [], '/hr'),
+        system('hr', 'fa-people-group', 'الموارد البشرية', 'نظام HR شامل يغطي التوظيف وكشوف الرواتب والأداء والتطوير الوظيفي.', [
+          mod('إدارة الموظفين', '/hr/employees'),
+          mod('بوابة العمليات والطلبات', '/hr/operations'),
+          mod('السياسات والإجراءات', '/hr/policies'),
+          mod('الموظفون المقبولون', '/hr/accepted-employees'),
+          mod('تعيين الموظفين الجدد', '/hr/new-hires'),
+          mod('معالجة الطلبات', '/hr/requests'),
+          mod('إدارة العهد والأصول', '/hr/assets-custodies'),
+          mod('الحضور والانصراف', '/hr/attendance-departure'),
+          mod('جداول ونوبات العمل', '/hr/shift-schedules'),
+          mod('إدارة الرواتب', '/hr/payroll'),
+          mod('ملف الموظف 360°', '/hr/employee-360'),
+          mod('مركز الحضور', '/hr/attendance-hub'),
+          mod('مركز الرواتب', '/hr/payroll-hub'),
+          mod('إدارة الأداء', '/hr/performance'),
+          mod('أكاديمية التعلم', '/hr/learning'),
+          mod('التحليلات الاستراتيجية', '/hr/strategic-analytics'),
+          mod('إدارة المهام', '/hr/tasks-management'),
+          mod('الأرشفة الإلكترونية', '/hr/e-archive'),
+          mod('قسائم الراتب', '/hr/salary-slips'),
+          mod('الإجازات', '/hr/leaves')
+        ], '/hr'),
         system('employees', 'fa-users', 'إدارة الموظفين', 'ملف شامل لكل موظف يشمل بياناته ومساره الوظيفي وحضوره وإجازاته.', [], '/hr/employees'),
         system('employee-portal', 'fa-user-tie', 'الموظف', 'بوابة الخدمات الذاتية للموظف: طلبات، إجازات، ورواتب.', [
           mod('الحضور والانصراف', '/hr/attendance-departure'),
