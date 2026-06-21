@@ -13,6 +13,7 @@ const { ensureDatabaseReady } = require('./database-bootstrap');
 const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
 const { resolveUploadsRootDir } = require('./uploads-config');
 const { getTenantPermissionBundle } = require('./tenant-page-permissions');
+const { buildProductsModulesBundle } = require('./products-modules-builder');
 const {
   DEFAULT_ENTITY_CONTEXT,
   normalizeEntityContext,
@@ -3490,6 +3491,15 @@ app.get(['/newhome', '/newhome/', '/newhome/index.html'], (req, res) => {
 
 app.get('/products', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'products.html'));
+});
+
+app.get('/api/products/modules', (req, res) => {
+  try {
+    res.json(buildProductsModulesBundle());
+  } catch (error) {
+    console.error('Failed to build products modules bundle:', error);
+    res.status(500).json({ error: 'Failed to build products modules' });
+  }
 });
 
 app.get('/services', (req, res) => {

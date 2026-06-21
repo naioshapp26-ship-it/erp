@@ -417,6 +417,30 @@
     }
   }
 
+  async function hydrateCatalogModules() {
+    try {
+      const response = await fetch('/api/products/modules', {
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const bySystem = data.modulesBySystem || {};
+      mainSystemsCatalog.forEach((section) => {
+        section.systems.forEach((sys) => {
+          const remote = bySystem[sys.id];
+          if (Array.isArray(remote) && remote.length) {
+            sys.modules = remote.map((entry) => ({
+              name: entry.name,
+              href: entry.href
+            }));
+          }
+        });
+      });
+    } catch (_) {
+      // Keep static fallback modules when API is unavailable.
+    }
+  }
+
   function initMainSystemObserver(root) {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
@@ -430,11 +454,13 @@
     return observer;
   }
 
-  function renderProductsCatalog(options) {
+  async function renderProductsCatalog(options) {
     const opts = options || {};
     const tabsRoot = document.getElementById(opts.tabsId || 'productsTabs');
     const sectionsRoot = document.getElementById(opts.sectionsId || 'productsSections');
     if (!sectionsRoot) return;
+
+    await hydrateCatalogModules();
 
     if (tabsRoot) tabsRoot.innerHTML = '';
     sectionsRoot.innerHTML = '';
