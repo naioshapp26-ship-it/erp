@@ -2756,6 +2756,14 @@ const isProtectedHtmlPath = (requestPath = '') => {
   return protectedHtmlPathPrefixes.some(prefix => normalizedPath.startsWith(prefix));
 };
 
+const getTenantScopedRedirect = (req, targetPath) => {
+  const normalizedPath = String(targetPath || '').startsWith('/') ? String(targetPath) : `/${targetPath || ''}`;
+  if (req?.tenant?.subdomain && req.tenantAccessMode === 'path') {
+    return `/t/${req.tenant.subdomain}${normalizedPath}`;
+  }
+  return normalizedPath;
+};
+
 const shouldGuardHtml = (req) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/public/') || req.path.startsWith('/uploads/')) {
     return false;
@@ -2776,7 +2784,7 @@ const requireAuthForHtml = async (req, res, next) => {
 
   const token = getAuthToken(req);
   if (!token) {
-    return res.redirect(302, '/login-page.html');
+    return res.redirect(302, getTenantScopedRedirect(req, '/login-page.html'));
   }
 
   try {
@@ -2784,7 +2792,7 @@ const requireAuthForHtml = async (req, res, next) => {
       ? await resolveTenantSessionEntityContext(req, token)
       : await resolveCentralSessionEntityContext(token);
     if (!resolvedContext) {
-      return res.redirect(302, '/login-page.html');
+      return res.redirect(302, getTenantScopedRedirect(req, '/login-page.html'));
     }
 
     if (req.tenant && req.tenantPool && String(resolvedContext.type || '').toUpperCase() === 'TENANT') {
@@ -2803,7 +2811,7 @@ const requireAuthForHtml = async (req, res, next) => {
     return next();
   } catch (error) {
     console.error('HTML auth guard failed:', error.message);
-    return res.redirect(302, '/login-page.html');
+    return res.redirect(302, getTenantScopedRedirect(req, '/login-page.html'));
   }
 };
 
@@ -3350,14 +3358,6 @@ const injectHomepageBootstrap = (html, payload) => {
     return html.replace('</head>', `${preloadTag}${tag}</head>`);
   }
   return `${preloadTag}${tag}${html}`;
-};
-
-const getTenantScopedRedirect = (req, targetPath) => {
-  const normalizedPath = String(targetPath || '').startsWith('/') ? String(targetPath) : `/${targetPath || ''}`;
-  if (req?.tenant?.subdomain && req.tenantAccessMode === 'path') {
-    return `/t/${req.tenant.subdomain}${normalizedPath}`;
-  }
-  return normalizedPath;
 };
 
 // Root health check for Railway
