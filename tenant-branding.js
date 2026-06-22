@@ -92,6 +92,20 @@
     return parts.map((part) => Math.max(0, Math.min(255, Math.round(part * factor))));
   }
 
+  function resolveLogoSrc(logoUrl) {
+    if (!logoUrl) return '';
+    const raw = String(logoUrl);
+    if (raw.includes('/api/tenant-public/logo')) {
+      const scoped = getPublicApiUrl('/api/tenant-public/logo');
+      return `${scoped}${scoped.includes('?') ? '&' : '?'}v=${Date.now()}`;
+    }
+    return raw;
+  }
+
+  function isBrandingSettingsPage() {
+    return /tenant-branding-settings\.html$/i.test(window.location.pathname);
+  }
+
   function hidePlatformMarks() {
     document.querySelectorAll('.hq-hero-logo, #branches-watermark h1').forEach((node) => {
       if (/نايو|NAIOSH/i.test(node.textContent || '') || node.matches('.hq-hero-logo')) {
@@ -137,18 +151,24 @@
 
   function applyLogo(logoUrl) {
     if (!logoUrl) return;
-    lockedLogoUrl = normalizeAssetUrl(logoUrl);
-    document.querySelectorAll('img[src*="naiosh-logo"], img[data-tenant-brand="logo"], img[data-tenant-logo="1"]').forEach((img) => {
+    const resolved = resolveLogoSrc(logoUrl);
+    lockedLogoUrl = normalizeAssetUrl(resolved);
+    const selector = isBrandingSettingsPage()
+      ? 'img[data-tenant-brand="logo"], img[data-tenant-logo="1"]'
+      : 'img[src*="naiosh-logo"], img[data-tenant-brand="logo"], img[data-tenant-logo="1"]';
+    document.querySelectorAll(selector).forEach((img) => {
       if (!isSameAssetUrl(img.src, lockedLogoUrl)) img.src = lockedLogoUrl;
       img.setAttribute('data-tenant-logo', '1');
       img.style.visibility = 'visible';
       img.alt = img.alt && !/نايو|NAIOSH/i.test(img.alt) ? img.alt : 'شعار الشركة';
     });
-    ensureLogoObserver();
+    if (!isBrandingSettingsPage()) {
+      ensureLogoObserver();
+    }
   }
 
   function ensureLogoObserver() {
-    if (observerStarted || !lockedLogoUrl) return;
+    if (observerStarted || !lockedLogoUrl || isBrandingSettingsPage()) return;
     observerStarted = true;
     const observer = new MutationObserver(() => {
       if (!lockedLogoUrl) return;

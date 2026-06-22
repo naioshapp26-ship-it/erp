@@ -1870,7 +1870,10 @@ const app = (() => {
                     : 'لا توجد صلاحية لعرض هذه الصفحة';
                 showToast(message, 'info');
                 if (route !== 'dashboard' && fallbackRoute !== route) {
-                    window.location.href = '/access-denied.html';
+                    const deniedPath = typeof getTenantScopedPath === 'function'
+                        ? getTenantScopedPath('/access-denied.html')
+                        : '/access-denied.html';
+                    window.location.href = deniedPath;
                     return;
                 }
                 route = fallbackRoute;

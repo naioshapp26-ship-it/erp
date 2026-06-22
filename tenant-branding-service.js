@@ -5,6 +5,8 @@ const db = require('./db');
 const DEFAULT_PRIMARY = '#990e1e';
 const DEFAULT_SECONDARY = '#1a1a1a';
 const SHARED_DB_MARKER = 'shared://central';
+const LOGO_API_PATH = '/api/tenant-public/logo';
+const MAX_LOGO_STORE_BYTES = 1.5 * 1024 * 1024;
 
 function sanitizeCssColor(color, fallback = DEFAULT_PRIMARY) {
   const safe = String(color || '').trim();
@@ -49,16 +51,17 @@ function mapCentralIdentity(tenant) {
   const settings = parseTenantSettings(tenant);
   const branding = settings.branding || {};
   const publicSite = settings.publicSite || {};
+  const hasStoredLogo = Boolean(branding.logo_data);
   return {
     site_name: publicSite.site_name || tenant.company_name || '',
     site_tagline: publicSite.site_tagline || '',
-    logo_url: branding.logo_url || '',
-    favicon_url: branding.favicon_url || '',
+    logo_url: hasStoredLogo ? LOGO_API_PATH : '',
+    favicon_url: hasStoredLogo ? LOGO_API_PATH : '',
     primary_color: branding.primary_color || DEFAULT_PRIMARY,
     secondary_color: branding.secondary_color || DEFAULT_SECONDARY,
     font_family: branding.font_family || '',
     setup_completed: Boolean(branding.setup_completed),
-    branding_id: branding.logo_url || branding.primary_color ? 1 : null,
+    branding_id: hasStoredLogo || branding.primary_color ? 1 : null,
     site_id: publicSite.site_name ? 1 : null
   };
 }
@@ -84,8 +87,8 @@ async function saveCentralIdentity(tenant, payload = {}) {
     ...settings,
     branding: {
       ...(settings.branding || {}),
-      logo_url: logoUrl || settings.branding?.logo_url || '',
-      favicon_url: faviconUrl || settings.branding?.favicon_url || '',
+      logo_url: (logoUrl || settings.branding?.logo_data) ? LOGO_API_PATH : '',
+      favicon_url: (faviconUrl || settings.branding?.logo_data) ? LOGO_API_PATH : (settings.branding?.favicon_url || ''),
       primary_color: primaryColor,
       secondary_color: secondaryColor,
       font_family: fontFamily,
@@ -125,12 +128,13 @@ async function readIdentitySettings(tenantPool, tenant = null) {
   const branding = brandingResult.rows[0] || null;
   const site = siteResult.rows[0] || null;
   const extra = normalizeExtra(branding?.extra);
+  const hasStoredLogo = Boolean(extra.logo_data);
 
   return {
     site_name: site?.site_name || tenant?.company_name || '',
     site_tagline: site?.site_tagline || '',
-    logo_url: branding?.logo_url || '',
-    favicon_url: branding?.favicon_url || '',
+    logo_url: hasStoredLogo ? LOGO_API_PATH : '',
+    favicon_url: hasStoredLogo ? LOGO_API_PATH : (branding?.favicon_url || ''),
     primary_color: branding?.primary_color || DEFAULT_PRIMARY,
     secondary_color: branding?.secondary_color || DEFAULT_SECONDARY,
     font_family: branding?.font_family || '',
@@ -234,14 +238,22 @@ async function saveIdentitySettings(tenantPool, tenant, payload = {}) {
   return readIdentitySettings(tenantPool, tenant);
 }
 
-async function saveLogoUrl(tenantPool, tenant, logoUrl) {
+async function saveLogoAsset(tenantPool, tenant, { buffer = null, mimeType = 'image/png', diskUrl = '' } = {}) {
+  let logoData = null;
+  if (buffer && buffer.length && buffer.length <= MAX_LOGO_STORE_BYTES) {
+    logoData = `data:${mimeType};base64,${buffer.toString('base64')}`;
+  }
+
   if (isSharedTenant(tenant)) {
     const settings = parseTenantSettings(tenant);
     const nextSettings = {
       ...settings,
       branding: {
         ...(settings.branding || {}),
-        logo_url: logoUrl
+        logo_url: LOGO_API_PATH,
+        logo_data: logoData || settings.branding?.logo_data || null,
+        logo_mime: mimeType || settings.branding?.logo_mime || 'image/png',
+        logo_disk_url: diskUrl || settings.branding?.logo_disk_url || ''
       }
     };
     await db.query(
@@ -249,23 +261,65 @@ async function saveLogoUrl(tenantPool, tenant, logoUrl) {
       [tenant.id, JSON.stringify(nextSettings)]
     );
     tenant.settings = nextSettings;
-    return logoUrl;
+    return LOGO_API_PATH;
   }
 
-  const existing = await tenantPool.query('SELECT id FROM branding_settings LIMIT 1');
+  const existing = await tenantPool.query('SELECT id, extra FROM branding_settings LIMIT 1');
+  const existingExtra = normalizeExtra(existing.rows[0]?.extra);
+  const mergedExtra = {
+    ...existingExtra,
+    logo_data: logoData || existingExtra.logo_data || null,
+    logo_mime: mimeType || existingExtra.logo_mime || 'image/png',
+    logo_disk_url: diskUrl || existingExtra.logo_disk_url || ''
+  };
+
   if (existing.rows.length > 0) {
     await tenantPool.query(
-      `UPDATE branding_settings SET logo_url = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
-      [logoUrl, existing.rows[0].id]
+      `UPDATE branding_settings
+       SET logo_url = $1, extra = $2::jsonb, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3`,
+      [LOGO_API_PATH, JSON.stringify(mergedExtra), existing.rows[0].id]
     );
   } else {
     await tenantPool.query(
       `INSERT INTO branding_settings (logo_url, primary_color, secondary_color, extra)
-       VALUES ($1, '#990e1e', '#1a1a1a', '{"setup_completed": false}'::jsonb)`,
-      [logoUrl]
+       VALUES ($1, '#990e1e', '#1a1a1a', $2::jsonb)`,
+      [LOGO_API_PATH, JSON.stringify({ ...mergedExtra, setup_completed: false })]
     );
   }
-  return logoUrl;
+  return LOGO_API_PATH;
+}
+
+async function saveLogoUrl(tenantPool, tenant, logoUrl, options = {}) {
+  if (options.buffer) {
+    return saveLogoAsset(tenantPool, tenant, {
+      buffer: options.buffer,
+      mimeType: options.mimeType,
+      diskUrl: logoUrl
+    });
+  }
+  return saveLogoAsset(tenantPool, tenant, { diskUrl: logoUrl, mimeType: options.mimeType || 'image/png' });
+}
+
+async function readLogoBinary(tenantPool, tenant = null) {
+  if (isSharedTenant(tenant)) {
+    const settings = parseTenantSettings(tenant);
+    const branding = settings.branding || {};
+    if (branding.logo_data) {
+      return { data: branding.logo_data, mime: branding.logo_mime || 'image/png' };
+    }
+    return null;
+  }
+
+  if (!tenantPool) return null;
+  const result = await tenantPool.query('SELECT extra, logo_url FROM branding_settings LIMIT 1');
+  const row = result.rows[0];
+  if (!row) return null;
+  const extra = normalizeExtra(row.extra);
+  if (extra.logo_data) {
+    return { data: extra.logo_data, mime: extra.logo_mime || 'image/png' };
+  }
+  return null;
 }
 
 async function ensureDefaultIdentitySettings(tenantPool, companyName = '', tenant = null) {
@@ -288,10 +342,13 @@ async function ensureDefaultIdentitySettings(tenantPool, companyName = '', tenan
 module.exports = {
   DEFAULT_PRIMARY,
   DEFAULT_SECONDARY,
+  LOGO_API_PATH,
   sanitizeCssColor,
   isSharedTenant,
   readIdentitySettings,
   saveIdentitySettings,
   saveLogoUrl,
+  saveLogoAsset,
+  readLogoBinary,
   ensureDefaultIdentitySettings
 };

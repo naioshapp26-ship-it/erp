@@ -684,8 +684,12 @@ router.post('/branding/logo', (req, res) => {
     }
 
     try {
-      const logoUrl = `/uploads/tenant-branding/${req.tenant?.subdomain || req.tenantPathSubdomain || 'tenant'}/${req.file.filename}`;
-      await saveLogoUrl(req.tenantPool, req.tenant, logoUrl);
+      const diskUrl = `/uploads/tenant-branding/${req.tenant?.subdomain || req.tenantPathSubdomain || 'tenant'}/${req.file.filename}`;
+      const buffer = fs.readFileSync(req.file.path);
+      const logoUrl = await saveLogoUrl(req.tenantPool, req.tenant, diskUrl, {
+        buffer,
+        mimeType: req.file.mimetype || 'image/png'
+      });
       return res.json({ success: true, message: 'تم رفع الشعار بنجاح.', logo_url: logoUrl });
     } catch (err) {
       console.error('[TenantSettings] POST branding/logo:', err.message);

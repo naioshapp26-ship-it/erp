@@ -2767,6 +2767,7 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/facilities' || p.startsWith('/facilities/')) return ['facilities'];
   if (p === '/audit-logs' || p.startsWith('/audit-logs/')) return ['audit-logs'];
   if (p === '/settings' || p.startsWith('/settings/')) return ['settings'];
+  if (p === '/tenant-branding-settings.html') return null;
   if (p === '/ads' || p.startsWith('/ads/')) return ['ads'];
   if (p === '/operational-policies' || p.startsWith('/operational-policies/')) return ['operational-policies'];
   if (p === '/e-offices' || p.startsWith('/e-offices/')) return ['e-offices'];
@@ -2897,6 +2898,15 @@ const requireAuthForHtml = async (req, res, next) => {
     }
 
     if (req.tenant && req.tenantPool && String(resolvedContext.type || '').toUpperCase() === 'TENANT') {
+      const requestPath = (req.path || '').split('?')[0].replace(/\/+$/, '') || '/';
+      const tenantAdminRoles = new Set(['admin', 'tenant_admin']);
+      const isTenantBrandingPage = requestPath === '/tenant-branding-settings.html';
+      const isTenantAdmin = tenantAdminRoles.has(String(resolvedContext.role || '').trim().toLowerCase());
+
+      if (isTenantBrandingPage && isTenantAdmin) {
+        return next();
+      }
+
       const permissionBundle = await getTenantPermissionBundle(db, req.tenant);
       req.tenantPermissionBundle = permissionBundle;
       const allowed = isPathAllowed(req.path, {
