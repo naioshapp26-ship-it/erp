@@ -2712,6 +2712,7 @@ const protectedHtmlExactPaths = new Set([
   '/facilities',
   '/audit-logs',
   '/settings',
+  '/tenant-branding-settings.html',
   '/hr',
   '/operational-policies',
   '/e-offices',
