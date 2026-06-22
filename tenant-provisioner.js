@@ -28,6 +28,7 @@ const db = require('./db');
 const { encryptDbUrl, getTenantPool } = require('./tenant-connection-manager');
 const { buildTenantLoginUrl } = require('./tenant-login-url');
 const { seedTenantPageAccess } = require('./tenant-page-access-seed');
+const { ensureDefaultIdentitySettings } = require('./tenant-branding-service');
 
 const MIGRATIONS_DIR = path.join(__dirname, 'tenant-migrations');
 const CENTRAL_TENANT_ACCOUNT_TYPE = 'TENANT';
@@ -414,6 +415,15 @@ async function provisionTenantLite({
     throw new Error(`CREATE_ADMIN فشل: ${err.message}`);
   }
 
+  try {
+    const tenantRes = await db.query('SELECT * FROM tenants WHERE id = $1 LIMIT 1', [tenantId]);
+    if (tenantRes.rows[0]) {
+      await ensureDefaultIdentitySettings(db.pool, companyName, tenantRes.rows[0]);
+    }
+  } catch (err) {
+    console.warn('[provisionTenantLite] ensureDefaultIdentitySettings:', err.message);
+  }
+
   await _logStep(tenantId, 'CREATE_SUBSCRIPTION', 'running');
   try {
     await db.query(
@@ -651,6 +661,8 @@ async function provisionTenant(params) {
       [firstName, lastName, username, adminEmail || null, adminPhone || null, passwordHash]
     );
     await _logStep(tenantId, 'CREATE_ADMIN', 'success', `username=${username}`);
+
+    await ensureDefaultIdentitySettings(tenantPool, companyName, { id: tenantId, company_name: companyName, encrypted_db_url: encryptedDbUrl, settings: normalizedSettings });
   } catch (err) {
     await _logStep(tenantId, 'CREATE_ADMIN', 'failed', err.message);
     throw new Error(`CREATE_ADMIN فشل: ${err.message}`);

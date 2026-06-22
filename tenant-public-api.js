@@ -19,6 +19,11 @@
 
 const express = require('express');
 const db = require('./db');
+const {
+  readIdentitySettings,
+  sanitizeCssColor,
+  ensureDefaultIdentitySettings
+} = require('./tenant-branding-service');
 
 const router = express.Router();
 
@@ -200,6 +205,50 @@ router.get('/terms', async (req, res) => {
 // ================================================================
 // نقاط نهاية JSON العامة (للاستخدام في الواجهة الأمامية)
 // ================================================================
+
+/**
+ * GET /api/tenant-public/identity
+ * هوية النظام الكاملة للواجهة الأمامية.
+ */
+router.get('/api/tenant-public/identity', async (req, res) => {
+  try {
+    if (req.tenantPool) {
+      let data = await readIdentitySettings(req.tenantPool, req.tenant);
+      if (!data.branding_id && !data.site_id && !data.site_name) {
+        await ensureDefaultIdentitySettings(req.tenantPool, req.tenant?.company_name || '', req.tenant);
+        data = await readIdentitySettings(req.tenantPool, req.tenant);
+      }
+      return res.json({
+        success: true,
+        data: {
+          ...data,
+          company_name: req.tenant?.company_name || data.site_name || '',
+          primary_color: sanitizeCssColor(data.primary_color),
+          secondary_color: sanitizeCssColor(data.secondary_color, '#1a1a1a')
+        }
+      });
+    }
+
+    const branding = await _resolveBrandingSettings(null);
+    const primaryColor = sanitizeCssColor(branding?.primary_color);
+    return res.json({
+      success: true,
+      data: {
+        site_name: req.tenant?.company_name || 'NAIOSH ERP',
+        site_tagline: '',
+        logo_url: branding?.logo_url || '/public/naiosh-logo.png',
+        favicon_url: branding?.favicon_url || '/public/naiosh-logo-64.png',
+        primary_color: primaryColor,
+        secondary_color: sanitizeCssColor(branding?.secondary_color, '#1a1a1a'),
+        font_family: branding?.font_family || '',
+        setup_completed: true
+      }
+    });
+  } catch (err) {
+    console.error('[TenantPublic] GET identity:', err.message);
+    return res.status(500).json({ success: false, message: 'خطأ في قراءة هوية النظام.' });
+  }
+});
 
 /**
  * GET /api/tenant-public/branding

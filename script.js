@@ -569,6 +569,7 @@ const app = (() => {
         'overdue-management': 'payment-menu',
         'payment-analytics': 'payment-menu',
         'gateway-payments': 'payment-menu',
+        'tenant-branding': 'settings',
         'credit-topup': 'payment-menu',
         'online-store': 'payment-menu',
         'attendance-departure': 'employee-menu',
@@ -2027,6 +2028,7 @@ const app = (() => {
         else if (route === 'overdue-management') content = renderOverdueManagement();
         else if (route === 'payment-analytics') content = renderPaymentAnalytics();
         else if (route === 'gateway-payments') content = renderEmbeddedPaymentPage('/tenant-payment-settings.html', 'إعدادات بوابات الدفع');
+        else if (route === 'tenant-branding') content = renderEmbeddedPaymentPage('/tenant-branding-settings.html', 'هوية النظام');
         else if (route === 'credit-topup') content = renderEmbeddedPaymentPage('/credit-topup.html', 'شحن الرصيد');
         else if (route === 'online-store') content = renderEmbeddedPaymentPage('/store-cart.html', 'المتجر الإلكتروني');
         // Supply Chain Routes
@@ -2672,6 +2674,7 @@ const app = (() => {
             'records-archiving': 'السجلات والأرشيف',
             'credit-topup': 'شحن الرصيد',
             'gateway-payments': 'إعدادات بوابات الدفع',
+            'tenant-branding': 'هوية النظام',
             'online-store': 'المتجر الإلكتروني',
             // Occupational Health & Safety subitems
             'occupational-safety': 'السلامة المهنية',
@@ -3292,6 +3295,7 @@ const app = (() => {
         '/internet-automation/records-archiving': 'records-archiving',
         '/credit-topup': 'credit-topup',
         '/gateway-payments': 'gateway-payments',
+        '/tenant-branding-settings.html': 'tenant-branding',
     });
 
     // Extend routeToPath with missing sections
@@ -3336,6 +3340,7 @@ const app = (() => {
         'online-store': '/online-store',
         'credit-topup': '/credit-topup',
         'gateway-payments': '/gateway-payments',
+        'tenant-branding': '/tenant-branding-settings.html',
     });
 
     const buildGlobalSearchIndex = () => {
@@ -3688,7 +3693,8 @@ const app = (() => {
                     ]
                 },
                 { id: 'my-page-analytics', icon: 'fa-chart-column', label: 'إحصائيات صفحتي', show: isOfficeRouteAllowed('my-page-analytics') },
-                { id: 'settings', icon: 'fa-paint-brush', label: 'إعدادات الصفحة الرئيسية', show: perms.isAdmin() && isOfficeRouteAllowed('settings') },
+                { id: 'tenant-branding', icon: 'fa-palette', label: 'هوية النظام', show: isDedicatedTenantContext(currentUser) && perms.isAdmin() },
+                { id: 'settings', icon: 'fa-paint-brush', label: 'إعدادات الصفحة الرئيسية', show: perms.isAdmin() && isOfficeRouteAllowed('settings') && !isDedicatedTenantContext(currentUser) },
                 { id: 'audit-logs', icon: 'fa-history', label: 'سجل النظام', show: perms.canViewAuditLogs() && isOfficeRouteAllowed('audit-logs') },
                 {
                     id: 'settings-admin',
