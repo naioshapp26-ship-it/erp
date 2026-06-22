@@ -27,8 +27,15 @@ const bcrypt = require('bcryptjs');
 const db = require('./db');
 const { encryptDbUrl, getTenantPool } = require('./tenant-connection-manager');
 const { buildTenantLoginUrl } = require('./tenant-login-url');
-const { seedTenantPageAccess } = require('./tenant-page-access-seed');
+const { seedTenantPageAccess, seedTenantPageAccessFromSelection } = require('./tenant-page-access-seed');
 const { ensureDefaultIdentitySettings } = require('./tenant-branding-service');
+
+async function applyTenantPageAccessSeed(tenantId, plan, moduleSelection = null) {
+  if (moduleSelection && Array.isArray(moduleSelection.pages) && moduleSelection.pages.length > 0) {
+    return seedTenantPageAccessFromSelection(tenantId, moduleSelection);
+  }
+  return seedTenantPageAccess(tenantId, plan);
+}
 
 const MIGRATIONS_DIR = path.join(__dirname, 'tenant-migrations');
 const CENTRAL_TENANT_ACCOUNT_TYPE = 'TENANT';
@@ -297,7 +304,8 @@ async function provisionTenantLite({
   adminPhone,
   adminPassword,
   settings = {},
-  existingTenantId = null
+  existingTenantId = null,
+  moduleSelection = null
 }) {
   let tenantId = existingTenantId;
   const baseDomain = process.env.BASE_DOMAIN || 'localhost';
@@ -462,7 +470,7 @@ async function provisionTenantLite({
 
   await _logStep(tenantId, 'SEED_TENANT_PAGE_ACCESS', 'running');
   try {
-    const seeded = await seedTenantPageAccess(tenantId, plan);
+    const seeded = await applyTenantPageAccessSeed(tenantId, plan, moduleSelection);
     await _logStep(
       tenantId,
       'SEED_TENANT_PAGE_ACCESS',
@@ -512,7 +520,8 @@ async function provisionTenant(params) {
     adminPhone,
     adminPassword,
     settings = {},
-    existingTenantId = null
+    existingTenantId = null,
+    moduleSelection = null
   } = params;
 
   let tenantId = existingTenantId;
@@ -714,7 +723,7 @@ async function provisionTenant(params) {
 
   await _logStep(tenantId, 'SEED_TENANT_PAGE_ACCESS', 'running');
   try {
-    const seeded = await seedTenantPageAccess(tenantId, plan);
+    const seeded = await applyTenantPageAccessSeed(tenantId, plan, moduleSelection);
     await _logStep(
       tenantId,
       'SEED_TENANT_PAGE_ACCESS',
