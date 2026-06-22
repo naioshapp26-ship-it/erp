@@ -324,13 +324,31 @@
             }, 5000);
         }
 
+        function getTenantScopedPath(targetPath) {
+            const authContext = getAuthContext();
+            const normalizedPath = targetPath.startsWith('/') ? targetPath : `/${targetPath}`;
+            if (!authContext?.isTenant || !authContext.tenantSubdomain) {
+                return normalizedPath;
+            }
+
+            const pathMatch = String(window.location.pathname || '').match(/^\/t\/[a-z0-9][a-z0-9-]*/i);
+            if (pathMatch) {
+                return `/t/${authContext.tenantSubdomain}${normalizedPath}`;
+            }
+
+            return normalizedPath;
+        }
+
         function getAuthContext() {
             const params = new URLSearchParams(window.location.search);
             const queryTenant = (params.get('tenant') || params.get('subdomain') || '').trim().toLowerCase();
             const reserved = new Set(['www', 'app', 'api', 'admin', 'saas']);
             let subdomain = null;
 
-            if (queryTenant && !queryTenant.includes('.') && !reserved.has(queryTenant)) {
+            const pathMatch = String(window.location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)(?:\/|$)/i);
+            if (pathMatch && !reserved.has(pathMatch[1].toLowerCase())) {
+                subdomain = pathMatch[1].toLowerCase();
+            } else if (queryTenant && !queryTenant.includes('.') && !reserved.has(queryTenant)) {
                 subdomain = queryTenant;
             } else {
                 const host = window.location.hostname.toLowerCase();
@@ -505,7 +523,7 @@
                     console.log('👤 المستخدم:', user);
 
                     setTimeout(() => {
-                        window.location.href = '/dashboard.html';
+                        window.location.href = getTenantScopedPath('/dashboard.html');
                     }, 1000);
 
                 } else {
@@ -547,7 +565,7 @@
                     if (result.success) {
                         showAlert('لديك جلسة نشطة بالفعل. جاري تحويلك...', 'success');
                         setTimeout(() => {
-                            window.location.href = '/dashboard.html';
+                            window.location.href = getTenantScopedPath('/dashboard.html');
                         }, 1000);
                     } else {
                         localStorage.removeItem('authToken');

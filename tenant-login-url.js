@@ -2,22 +2,19 @@
 
 /**
  * tenant-login-url.js
- * بناء روابط دخول المستأجرين عبر النطاق الفرعي الخاص بكل شركة.
+ * بناء روابط دخول المستأجرين — يدعم النطاق الفرعي ومسار /t/{subdomain}.
  */
 
-function normalizeOrigin(value) {
-  const trimmed = String(value || '').trim().replace(/\/+$/, '');
-  if (!trimmed) return '';
+const {
+  TENANT_PATH_PREFIX,
+  getPublicAppOrigin,
+  buildTenantLoginUrl: buildSubdomainLoginUrl,
+  getTenantDomainConfig,
+  normalizeOrigin,
+  shouldUsePathBasedTenantAccess
+} = require('./tenant-domain');
 
-  try {
-    const parsed = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`);
-    return `${parsed.protocol}//${parsed.host}`;
-  } catch (_) {
-    return '';
-  }
-}
-
-function getPublicAppOrigin() {
+function getPublicAppOriginFromEnv() {
   const fromEnv = normalizeOrigin(
     process.env.PUBLIC_APP_URL
     || process.env.APP_URL
@@ -44,31 +41,27 @@ function isRailwayOrPlatformHost(hostname) {
 
 function getRequestOrigin(req) {
   if (!req) return '';
-  const host = String(req.get?.('host') || req.headers?.host || '').trim();
-  if (!host) return '';
-
-  const forwardedProto = String(req.headers?.['x-forwarded-proto'] || '').split(',')[0].trim();
-  const protocol = req.secure || forwardedProto === 'https' ? 'https' : (req.protocol || 'https');
-  return normalizeOrigin(`${protocol}://${host}`);
+  return getPublicAppOrigin(req);
 }
 
-function buildTenantLoginUrl(subdomain) {
+function buildTenantLoginUrl(subdomain, req = null) {
   const normalizedSubdomain = String(subdomain || '').trim().toLowerCase();
   if (!normalizedSubdomain) return null;
 
-  const baseDomain = String(process.env.BASE_DOMAIN || 'localhost').trim().toLowerCase();
-  if (!baseDomain || baseDomain === 'localhost') {
-    const origin = getPublicAppOrigin() || 'http://localhost:3000';
-    return `${origin}/login-page.html?tenant=${encodeURIComponent(normalizedSubdomain)}`;
+  if (shouldUsePathBasedTenantAccess(req)) {
+    const origin = getPublicAppOrigin(req) || getPublicAppOriginFromEnv() || 'http://localhost:3000';
+    return `${origin.replace(/\/$/, '')}${TENANT_PATH_PREFIX}/${normalizedSubdomain}`;
   }
 
-  return `https://${normalizedSubdomain}.${baseDomain}`;
+  return buildSubdomainLoginUrl(subdomain, req);
 }
 
 module.exports = {
   buildTenantLoginUrl,
-  getPublicAppOrigin,
+  getPublicAppOrigin: getPublicAppOriginFromEnv,
   getRequestOrigin,
   isRailwayOrPlatformHost,
-  normalizeOrigin
+  normalizeOrigin,
+  shouldUsePathBasedTenantAccess,
+  getTenantDomainConfig
 };
