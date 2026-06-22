@@ -272,13 +272,37 @@ const app = (() => {
     const SCOPED_ENTITY_TYPES = new Set(['HQ', 'BRANCH', 'INCUBATOR', 'PLATFORM', 'OFFICE']);
 
     const clearAuthSessionAndRedirect = () => {
+        const pathSubdomain = (window.location.pathname.match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1];
+        let tenantSubdomain = pathSubdomain ? String(pathSubdomain).toLowerCase() : '';
+        if (!tenantSubdomain) {
+            try {
+                const storedUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+                tenantSubdomain = String(storedUser?.tenantSubdomain || storedUser?.tenant_subdomain || '').toLowerCase();
+            } catch (_) {}
+        }
+
         localStorage.clear();
         sessionStorage.clear();
         document.cookie = 'authToken=; Max-Age=0; Path=/; SameSite=Lax';
-        const loginPath = typeof getTenantScopedPath === 'function'
-            ? getTenantScopedPath('/login-page.html')
-            : '/login-page.html';
+
+        let loginPath = '/login-page.html';
+        if (tenantSubdomain) {
+            loginPath = `/t/${tenantSubdomain}/login-page.html`;
+        } else if (typeof getTenantScopedPath === 'function') {
+            loginPath = getTenantScopedPath('/login-page.html');
+        }
         window.location.href = loginPath;
+    };
+
+    const getSessionAuthToken = () => {
+        const cookieMatch = document.cookie.match(/authToken=([^;]+)/);
+        const cookieToken = cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+        return localStorage.getItem('authToken')
+            || sessionStorage.getItem('authToken')
+            || localStorage.getItem('tenant_session')
+            || sessionStorage.getItem('tenant_session')
+            || cookieToken
+            || '';
     };
 
     const readStoredMenu = () => {
@@ -383,7 +407,7 @@ const app = (() => {
     };
 
     const syncCurrentSessionUser = async ({ forceRedirectOnFailure = false } = {}) => {
-        const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        const authToken = getSessionAuthToken();
         if (!authToken) return null;
 
         if (authSyncInFlight) {
@@ -431,11 +455,11 @@ const app = (() => {
         }
 
         authSyncIntervalId = window.setInterval(() => {
-            syncCurrentSessionUser({ forceRedirectOnFailure: true });
+            syncCurrentSessionUser({ forceRedirectOnFailure: false });
         }, AUTH_SYNC_INTERVAL_MS);
 
         if (!authSyncListenersBound) {
-            const refreshUserSession = () => syncCurrentSessionUser({ forceRedirectOnFailure: true });
+            const refreshUserSession = () => syncCurrentSessionUser({ forceRedirectOnFailure: false });
             window.addEventListener('focus', refreshUserSession);
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible') {
@@ -1433,7 +1457,7 @@ const app = (() => {
             // ========================================
             // 1. التحقق من تسجيل الدخول أولاً
             // ========================================
-            let authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            let authToken = getSessionAuthToken();
             let savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
 
             if (!authToken || !savedUser) {
@@ -4885,14 +4909,21 @@ const app = (() => {
         </div>`;
     };
 
-    const renderEmbeddedPaymentPage = (url, title) => `
+    const resolveEmbeddedPageUrl = (url) => (
+        typeof getTenantScopedPath === 'function' ? getTenantScopedPath(url) : url
+    );
+
+    const renderEmbeddedPaymentPage = (url, title) => {
+        const scopedUrl = resolveEmbeddedPageUrl(url);
+        return `
 <div class="space-y-4 animate-fade-in p-2">
     <div class="flex items-center justify-between">
         <h2 class="text-2xl font-bold text-slate-800">${title}</h2>
-        <a href="${url}" target="_blank" rel="noopener" class="text-sm text-red-700 font-bold hover:underline">فتح في نافذة جديدة</a>
+        <a href="${scopedUrl}" target="_blank" rel="noopener" class="text-sm text-red-700 font-bold hover:underline">فتح في نافذة جديدة</a>
     </div>
-    <iframe src="${url}" title="${title}" class="w-full border-0 rounded-2xl shadow-lg bg-white" style="min-height:78vh"></iframe>
+    <iframe src="${scopedUrl}" title="${title}" class="w-full border-0 rounded-2xl shadow-lg bg-white" style="min-height:78vh"></iframe>
 </div>`;
+    };
 
     const goToCreditTopup = () => {
         window.location.href = '/credit-topup.html';
