@@ -13,6 +13,8 @@ const { ensureDatabaseReady } = require('./database-bootstrap');
 const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
 const { resolveUploadsRootDir } = require('./uploads-config');
 const { getTenantPermissionBundle } = require('./tenant-page-permissions');
+const { isPathAllowed } = require('./page-permissions-registry');
+const { getTenantPool } = require('./tenant-connection-manager');
 const { buildProductsModulesBundle } = require('./products-modules-builder');
 const {
   DEFAULT_ENTITY_CONTEXT,
@@ -2777,6 +2779,60 @@ const shouldGuardHtml = (req) => {
   return isProtectedHtmlPath(req.path);
 };
 
+const resolveProtectedHtmlSession = async (req, token) => {
+  if (!token) return null;
+
+  let tenant = req.tenant;
+  let tenantPool = req.tenantPool;
+
+  if (!tenantPool) {
+    const indexRes = await db.query(
+      `SELECT t.id, t.subdomain, t.company_name, t.encrypted_db_url, t.status
+       FROM tenant_session_index tsi
+       JOIN tenants t ON t.id = tsi.tenant_id
+       WHERE tsi.session_token = $1 AND tsi.expires_at > NOW()
+       LIMIT 1`,
+      [token]
+    ).catch(() => ({ rows: [] }));
+
+    if (indexRes.rows.length) {
+      tenant = indexRes.rows[0];
+      if (tenant.status !== 'active') return null;
+      tenantPool = getTenantPool(tenant.subdomain, tenant.encrypted_db_url);
+      req.tenant = tenant;
+      req.tenantPool = tenantPool;
+    }
+  }
+
+  if (tenantPool && tenant) {
+    const sessionResult = await tenantPool.query(
+      `SELECT u.id, u.role
+       FROM sessions s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.session_token = $1
+         AND s.expires_at > NOW()
+         AND u.is_active = true
+       LIMIT 1`,
+      [token]
+    );
+
+    if (!sessionResult.rows.length) {
+      return null;
+    }
+
+    return {
+      type: 'TENANT',
+      id: buildCentralTenantEntityId(tenant.id),
+      tenantId: tenant.id,
+      tenantSubdomain: tenant.subdomain,
+      userId: sessionResult.rows[0].id,
+      role: sessionResult.rows[0].role
+    };
+  }
+
+  return resolveCentralSessionEntityContext(token);
+};
+
 const requireAuthForHtml = async (req, res, next) => {
   if (!shouldGuardHtml(req)) {
     return next();
@@ -2788,9 +2844,7 @@ const requireAuthForHtml = async (req, res, next) => {
   }
 
   try {
-    const resolvedContext = req.tenant && req.tenantPool
-      ? await resolveTenantSessionEntityContext(req, token)
-      : await resolveCentralSessionEntityContext(token);
+    const resolvedContext = await resolveProtectedHtmlSession(req, token);
     if (!resolvedContext) {
       return res.redirect(302, getTenantScopedRedirect(req, '/login-page.html'));
     }
@@ -2804,7 +2858,7 @@ const requireAuthForHtml = async (req, res, next) => {
         pageRestrictions: permissionBundle.page_restrictions
       });
       if (!allowed) {
-        return res.redirect(302, '/access-denied.html');
+        return res.redirect(302, getTenantScopedRedirect(req, '/access-denied.html'));
       }
     }
 
