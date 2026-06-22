@@ -3352,14 +3352,22 @@ const injectHomepageBootstrap = (html, payload) => {
   return `${preloadTag}${tag}${html}`;
 };
 
+const getTenantScopedRedirect = (req, targetPath) => {
+  const normalizedPath = String(targetPath || '').startsWith('/') ? String(targetPath) : `/${targetPath || ''}`;
+  if (req?.tenant?.subdomain && req.tenantAccessMode === 'path') {
+    return `/t/${req.tenant.subdomain}${normalizedPath}`;
+  }
+  return normalizedPath;
+};
+
 // Root health check for Railway
 app.get('/', async (req, res) => {
   if (req.tenant && req.tenant.status === 'active') {
     const token = getAuthToken(req);
     if (token) {
-      return res.redirect(302, '/dashboard.html');
+      return res.redirect(302, getTenantScopedRedirect(req, '/dashboard.html'));
     }
-    return res.redirect(302, '/login-page.html');
+    return res.redirect(302, getTenantScopedRedirect(req, '/login-page.html'));
   }
 
   const filePath = path.join(__dirname, 'newhome', 'index.html');
@@ -3391,7 +3399,7 @@ app.get('/dashboard.html', (req, res) => {
 });
 
 app.get('/home', (req, res) => {
-  res.redirect(302, '/dashboard.html');
+  res.redirect(302, getTenantScopedRedirect(req, '/dashboard.html'));
 });
 
 app.get('/e-offices', (req, res) => {

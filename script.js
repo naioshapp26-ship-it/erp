@@ -275,7 +275,10 @@ const app = (() => {
         localStorage.clear();
         sessionStorage.clear();
         document.cookie = 'authToken=; Max-Age=0; Path=/; SameSite=Lax';
-        window.location.href = '/login-page.html';
+        const loginPath = typeof getTenantScopedPath === 'function'
+            ? getTenantScopedPath('/login-page.html')
+            : '/login-page.html';
+        window.location.href = loginPath;
     };
 
     const readStoredMenu = () => {
