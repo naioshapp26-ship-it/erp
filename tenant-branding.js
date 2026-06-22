@@ -6,6 +6,21 @@
   const CACHE_PREFIX = 'tenant_identity_v1_';
   let lockedLogoUrl = '';
   let observerStarted = false;
+  let observerTimer = null;
+
+  function normalizeAssetUrl(url) {
+    if (!url) return '';
+    try {
+      return new URL(url, window.location.origin).href;
+    } catch (_) {
+      return String(url);
+    }
+  }
+
+  function isSameAssetUrl(left, right) {
+    if (!left || !right) return false;
+    return normalizeAssetUrl(left) === normalizeAssetUrl(right);
+  }
 
   function getTenantSubdomain() {
     const pathMatch = String(window.location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i);
@@ -122,9 +137,9 @@
 
   function applyLogo(logoUrl) {
     if (!logoUrl) return;
-    lockedLogoUrl = logoUrl;
+    lockedLogoUrl = normalizeAssetUrl(logoUrl);
     document.querySelectorAll('img[src*="naiosh-logo"], img[data-tenant-brand="logo"], img[data-tenant-logo="1"]').forEach((img) => {
-      if (img.src !== logoUrl) img.src = logoUrl;
+      if (!isSameAssetUrl(img.src, lockedLogoUrl)) img.src = lockedLogoUrl;
       img.setAttribute('data-tenant-logo', '1');
       img.style.visibility = 'visible';
       img.alt = img.alt && !/نايو|NAIOSH/i.test(img.alt) ? img.alt : 'شعار الشركة';
@@ -137,12 +152,16 @@
     observerStarted = true;
     const observer = new MutationObserver(() => {
       if (!lockedLogoUrl) return;
-      document.querySelectorAll('img[src*="naiosh-logo"], img[data-tenant-brand="logo"]').forEach((img) => {
-        if (img.getAttribute('data-tenant-logo') === '1' && img.src === lockedLogoUrl) return;
-        img.src = lockedLogoUrl;
-        img.setAttribute('data-tenant-logo', '1');
-        img.style.visibility = 'visible';
-      });
+      if (observerTimer) return;
+      observerTimer = window.setTimeout(() => {
+        observerTimer = null;
+        document.querySelectorAll('img[src*="naiosh-logo"], img[data-tenant-brand="logo"]').forEach((img) => {
+          if (img.getAttribute('data-tenant-logo') === '1' && isSameAssetUrl(img.src, lockedLogoUrl)) return;
+          img.src = lockedLogoUrl;
+          img.setAttribute('data-tenant-logo', '1');
+          img.style.visibility = 'visible';
+        });
+      }, 50);
     });
     observer.observe(document.documentElement, {
       childList: true,
@@ -270,6 +289,12 @@
     document.documentElement.setAttribute('data-tenant-brand-ready', '1');
   }
 
+  function scheduleBrandingFailsafe() {
+    window.setTimeout(() => {
+      markBrandingReady();
+    }, 1200);
+  }
+
   function applyIdentity(identity, options = {}) {
     if (!identity) return;
     applyBrandPalette(identity.primary_color, identity.secondary_color);
@@ -287,15 +312,22 @@
   }
 
   async function fetchIdentity() {
-    const response = await fetch(getPublicApiUrl('/api/tenant-public/identity'), {
-      credentials: 'include',
-      headers: { Accept: 'application/json' }
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.success) {
-      throw new Error(payload.message || 'IDENTITY_FETCH_FAILED');
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(getPublicApiUrl('/api/tenant-public/identity'), {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || 'IDENTITY_FETCH_FAILED');
+      }
+      return payload.data || null;
+    } finally {
+      window.clearTimeout(timeoutId);
     }
-    return payload.data || null;
   }
 
   function maybeShowSetupBanner(identity) {
@@ -357,8 +389,12 @@
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => applyTenantBranding());
+    document.addEventListener('DOMContentLoaded', () => {
+      scheduleBrandingFailsafe();
+      applyTenantBranding();
+    });
   } else {
+    scheduleBrandingFailsafe();
     applyTenantBranding();
   }
 
