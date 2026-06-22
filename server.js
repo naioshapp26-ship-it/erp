@@ -145,9 +145,19 @@ const sendHtmlWithNumberFormat = (res, filePath, req = null) => {
 };
 
 function injectTenantBrandingAssets(html) {
-  if (html.includes('tenant-branding.js')) return html;
+  const { buildSyncCacheBootScript } = require('./tenant-branding-html-injector');
+  let payload = html;
+  if (!payload.includes('id="tenant-branding-sync-boot"')) {
+    const syncBoot = buildSyncCacheBootScript();
+    if (payload.includes('<head>')) {
+      payload = payload.replace('<head>', `<head>${syncBoot}`);
+    } else if (/<head[\s>]/i.test(payload)) {
+      payload = payload.replace(/<head([^>]*)>/i, `<head$1>${syncBoot}`);
+    }
+  }
+  if (payload.includes('tenant-branding.js')) return payload;
   const injection = '    <script src="/tenant-path-client.js"></script>\n    <script src="/tenant-branding.js"></script>\n';
-  return html.replace('</head>', `${injection}</head>`);
+  return payload.replace('</head>', `${injection}</head>`);
 }
 
 const prepareHtmlPayload = (html, filePath, req = null) => {
@@ -2440,9 +2450,13 @@ app.get('/api/auth/debug', async (req, res) => {
 // ---- Phase 2: Tenant Resolution Middleware ----
 const { tenantResolver } = require('./tenant-resolver');
 const { readIdentitySettings } = require('./tenant-branding-service');
+const { attachTenantFromSession } = require('./tenant-session-context');
 app.use(tenantResolver);
 
 async function tenantIdentityPreload(req, res, next) {
+  if (!req.path.startsWith('/api/')) {
+    await attachTenantFromSession(req);
+  }
   if (!req.tenant || !req.tenantPool || req.path.startsWith('/api/')) {
     return next();
   }
