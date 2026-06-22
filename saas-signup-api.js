@@ -28,6 +28,7 @@ const db = require('./db');
 const { provisionTenant } = require('./tenant-provisioner');
 const { buildTenantLoginUrl, getTenantDomainConfig } = require('./tenant-login-url');
 const { seedTenantPageAccess } = require('./tenant-page-access-seed');
+const { buildPermissionRegistry, buildSavePayload } = require('./page-permissions-registry');
 const platformPayment = require('./payment/platform-service');
 const { decryptPlatformSecret } = require('./payment/secrets');
 const { isSaasPaymentSkipped, isDirectSignupAllowed } = require('./payment/payment-config');
@@ -277,6 +278,70 @@ async function _getProvisioningStepsByTenantId(tenantId) {
 }
 
 // ================================================================
+// GET /api/saas/systems-catalog — أنظمة المنتجات وصفحاتها الداخلية
+// ================================================================
+router.get('/systems-catalog', async (req, res) => {
+  try {
+    const registry = buildPermissionRegistry();
+    return res.json({
+      success: true,
+      registry: {
+        primarySystems: registry.primarySystems,
+        otherSystems: registry.otherSystems
+      }
+    });
+  } catch (err) {
+    console.error('[SaaS] systems-catalog error:', err.message);
+    return res.status(500).json({ success: false, message: 'تعذّر تحميل قائمة الأنظمة.' });
+  }
+});
+
+// ================================================================
+// POST /api/saas/signup/modules — حفظ اختيار الأنظمة والصفحات
+// ================================================================
+router.post('/signup/modules', signupLimiter, async (req, res) => {
+  const { token, pages, page_restrictions: pageRestrictions, pageRestrictions: altRestrictions } = req.body || {};
+  if (!token) {
+    return res.status(400).json({ success: false, message: 'رمز التسجيل مطلوب.' });
+  }
+
+  const pending = await _loadPending(token);
+  if (!pending) {
+    return res.status(400).json({ success: false, message: 'رمز التسجيل غير صالح أو منتهي الصلاحية.' });
+  }
+
+  const payload = buildSavePayload({
+    pages: [...new Set(['dashboard', 'settings', ...(Array.isArray(pages) ? pages : [])])],
+    pageRestrictions: pageRestrictions || altRestrictions || {}
+  });
+
+  if (!payload.pages.length) {
+    return res.status(400).json({ success: false, message: 'يرجى اختيار نظام واحد على الأقل.' });
+  }
+
+  const selectedSystems = payload.pages.filter((pageKey) => {
+    const registry = buildPermissionRegistry();
+    return registry.systems.some((system) => system.key === pageKey);
+  });
+  if (selectedSystems.length === 0) {
+    return res.status(400).json({ success: false, message: 'يرجى اختيار نظام واحد على الأقل من القائمة.' });
+  }
+
+  pending.data.moduleSelection = payload;
+  await _savePending(token, pending.data);
+
+  return res.json({
+    success: true,
+    message: 'تم حفظ اختيار الأنظمة بنجاح.',
+    data: {
+      pages: payload.pages,
+      page_restrictions: payload.page_restrictions,
+      systemsCount: selectedSystems.length
+    }
+  });
+});
+
+// ================================================================
 // GET /api/saas/config — إعدادات النطاق والوصول للمستأجرين
 // ================================================================
 router.get('/config', async (req, res) => {
@@ -395,6 +460,13 @@ router.post('/payment/create-session', signupLimiter, async (req, res) => {
   const pending = await _loadPending(token);
   if (!pending) {
     return res.status(400).json({ success: false, message: 'رمز التسجيل غير صالح أو منتهي الصلاحية.' });
+  }
+  if (!pending.data?.moduleSelection?.pages?.length) {
+    return res.status(400).json({
+      success: false,
+      message: 'يرجى اختيار الأنظمة والصفحات قبل إتمام الدفع.',
+      code: 'MODULES_REQUIRED'
+    });
   }
 
   const { plan } = pending.data;
@@ -790,7 +862,7 @@ async function _handlePostPaymentProvisioning(registrationToken, provider, trans
 
   const {
     subdomain, companyName, adminName, adminEmail,
-    adminPhone, adminPassword, plan
+    adminPhone, adminPassword, plan, moduleSelection
   } = pending.data;
 
   await ensureSaasSchema();
@@ -809,7 +881,8 @@ async function _handlePostPaymentProvisioning(registrationToken, provider, trans
         subdomain,
         plan,
         amount: pricing?.amount ?? null,
-        currency: pricing?.currency || 'USD'
+        currency: pricing?.currency || 'USD',
+        module_count: moduleSelection?.pages?.length || 0
       })
     ]
   );
@@ -818,7 +891,8 @@ async function _handlePostPaymentProvisioning(registrationToken, provider, trans
   // تجهيز المستأجر
   const result = await provisionTenant({
     subdomain, companyName, plan,
-    adminName, adminEmail, adminPhone, adminPassword
+    adminName, adminEmail, adminPhone, adminPassword,
+    moduleSelection: moduleSelection || null
   });
 
   // ربط معاملة الدفع بالمستأجر المُنشأ

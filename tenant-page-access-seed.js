@@ -139,10 +139,33 @@ async function seedTenantPageAccess(tenantId, plan = 'basic', options = {}) {
   return { seeded: true, pages };
 }
 
+async function seedTenantPageAccessFromSelection(tenantId, moduleSelection = {}) {
+  const normalizedTenantId = Number.parseInt(tenantId, 10);
+  if (!Number.isInteger(normalizedTenantId) || normalizedTenantId <= 0) {
+    throw new Error(`معرّف المستأجر غير صالح: ${tenantId}`);
+  }
+
+  const tenantRes = await db.query('SELECT * FROM tenants WHERE id = $1 LIMIT 1', [normalizedTenantId]);
+  const tenant = tenantRes.rows[0];
+  if (!tenant) {
+    throw new Error('المستأجر غير موجود');
+  }
+
+  const { saveTenantPermissionBundle } = require('./tenant-page-permissions');
+  const { buildSavePayload } = require('./page-permissions-registry');
+  const payload = buildSavePayload({
+    pages: [...new Set(['dashboard', 'settings', ...(moduleSelection.pages || [])])],
+    pageRestrictions: moduleSelection.page_restrictions || moduleSelection.pageRestrictions || {}
+  });
+  const saved = await saveTenantPermissionBundle(db, tenant, payload);
+  return { seeded: true, pages: saved.pages, page_restrictions: saved.page_restrictions };
+}
+
 module.exports = {
   DEFAULT_PAGES_BY_PLAN,
   FALLBACK_TENANT_PAGES,
   ensureTenantPageAccessTable,
   seedTenantPageAccess,
+  seedTenantPageAccessFromSelection,
   resolvePagesForPlan
 };
