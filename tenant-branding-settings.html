@@ -226,8 +226,16 @@
         }
 
         PaymentUI.showAlert('alert', 'تم حفظ هوية النظام بنجاح', 'ok');
-        if (window.applyTenantBranding) {
-          window.applyTenantBranding();
+        const subdomain = (location.pathname.match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1];
+        if (subdomain) {
+          try {
+            sessionStorage.setItem('tenant_identity_v1_' + subdomain.toLowerCase(), JSON.stringify(result.data || payload));
+          } catch (_) {}
+        }
+        if (window.applyTenantIdentity) {
+          window.applyTenantIdentity(result.data || payload);
+        } else if (window.applyTenantBranding) {
+          window.applyTenantBranding({ forceRemote: true });
         } else {
           window.location.reload();
         }

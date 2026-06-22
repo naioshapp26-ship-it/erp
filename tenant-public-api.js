@@ -236,8 +236,8 @@ router.get('/api/tenant-public/identity', async (req, res) => {
       data: {
         site_name: req.tenant?.company_name || 'NAIOSH ERP',
         site_tagline: '',
-        logo_url: branding?.logo_url || '/public/naiosh-logo.png',
-        favicon_url: branding?.favicon_url || '/public/naiosh-logo-64.png',
+        logo_url: branding?.logo_url || '',
+        favicon_url: branding?.favicon_url || '',
         primary_color: primaryColor,
         secondary_color: sanitizeCssColor(branding?.secondary_color, '#1a1a1a'),
         font_family: branding?.font_family || '',

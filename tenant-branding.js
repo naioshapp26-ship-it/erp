@@ -3,6 +3,21 @@
 
   const DEFAULT_PRIMARY = '#990e1e';
   const DEFAULT_SECONDARY = '#1a1a1a';
+  const CACHE_PREFIX = 'tenant_identity_v1_';
+  let lockedLogoUrl = '';
+  let observerStarted = false;
+
+  function getTenantSubdomain() {
+    const pathMatch = String(window.location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i);
+    if (pathMatch) return pathMatch[1].toLowerCase();
+    try {
+      const user = readStoredUser();
+      const sub = user?.tenantSubdomain || user?.tenant_subdomain;
+      return sub ? String(sub).toLowerCase() : '';
+    } catch (_) {
+      return '';
+    }
+  }
 
   function readStoredUser() {
     try {
@@ -17,9 +32,7 @@
   }
 
   function isTenantContext() {
-    if (String(window.location.pathname || '').match(/^\/t\/[a-z0-9][a-z0-9-]*/i)) {
-      return true;
-    }
+    if (getTenantSubdomain()) return true;
     const user = readStoredUser();
     return user?.tenantType === 'TENANT' || user?.tenant_type === 'TENANT' || Boolean(user?.tenantId);
   }
@@ -29,6 +42,24 @@
       return window.getTenantScopedPath(path);
     }
     return path;
+  }
+
+  function readCachedIdentity() {
+    const subdomain = getTenantSubdomain();
+    if (!subdomain) return window.__TENANT_IDENTITY_BOOT__ || null;
+    try {
+      const raw = sessionStorage.getItem(`${CACHE_PREFIX}${subdomain}`);
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return window.__TENANT_IDENTITY_BOOT__ || window.__TENANT_IDENTITY__ || null;
+  }
+
+  function writeCachedIdentity(identity) {
+    const subdomain = getTenantSubdomain();
+    if (!subdomain || !identity) return;
+    try {
+      sessionStorage.setItem(`${CACHE_PREFIX}${subdomain}`, JSON.stringify(identity));
+    } catch (_) {}
   }
 
   function hexToRgbParts(hex) {
@@ -44,6 +75,17 @@
 
   function shadeRgb(parts, factor) {
     return parts.map((part) => Math.max(0, Math.min(255, Math.round(part * factor))));
+  }
+
+  function hidePlatformMarks() {
+    document.querySelectorAll('.hq-hero-logo, #branches-watermark h1').forEach((node) => {
+      if (/نايو|NAIOSH/i.test(node.textContent || '') || node.matches('.hq-hero-logo')) {
+        node.style.display = 'none';
+      }
+    });
+    document.querySelectorAll('img[src*="naiosh-logo"]:not([data-tenant-brand="logo"])').forEach((img) => {
+      if (!lockedLogoUrl) img.style.visibility = 'hidden';
+    });
   }
 
   function applyBrandPalette(primary, secondary) {
@@ -75,15 +117,40 @@
       root.style.setProperty('--charcoal', secondary);
     }
 
-    document.body.classList.add('tenant-branded');
+    document.body?.classList.add('tenant-branded');
   }
 
   function applyLogo(logoUrl) {
     if (!logoUrl) return;
-    document.querySelectorAll('img[src*="naiosh-logo"], img[data-tenant-brand="logo"]').forEach((img) => {
-      img.src = logoUrl;
-      img.alt = img.alt || 'شعار الشركة';
+    lockedLogoUrl = logoUrl;
+    document.querySelectorAll('img[src*="naiosh-logo"], img[data-tenant-brand="logo"], img[data-tenant-logo="1"]').forEach((img) => {
+      if (img.src !== logoUrl) img.src = logoUrl;
+      img.setAttribute('data-tenant-logo', '1');
+      img.style.visibility = 'visible';
+      img.alt = img.alt && !/نايو|NAIOSH/i.test(img.alt) ? img.alt : 'شعار الشركة';
     });
+    ensureLogoObserver();
+  }
+
+  function ensureLogoObserver() {
+    if (observerStarted || !lockedLogoUrl) return;
+    observerStarted = true;
+    const observer = new MutationObserver(() => {
+      if (!lockedLogoUrl) return;
+      document.querySelectorAll('img[src*="naiosh-logo"], img[data-tenant-brand="logo"]').forEach((img) => {
+        if (img.getAttribute('data-tenant-logo') === '1' && img.src === lockedLogoUrl) return;
+        img.src = lockedLogoUrl;
+        img.setAttribute('data-tenant-logo', '1');
+        img.style.visibility = 'visible';
+      });
+    });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['src']
+    });
+    window.__tenantBrandingObserver = observer;
   }
 
   function applyFavicon(faviconUrl, logoUrl) {
@@ -105,15 +172,13 @@
       node.textContent = siteName;
     });
 
-    if (siteName) {
-      const titleBase = siteTagline ? `${siteName} | ${siteTagline}` : siteName;
-      if (/نايو|NAIOSH|نظام/i.test(document.title)) {
-        document.title = document.title
-          .replace(/نايوش|NAIOSH ERP|NAIOSH/gi, siteName)
-          .replace(/نظام نايو/gi, siteName);
-      } else if (isTenantContext()) {
-        document.title = titleBase;
-      }
+    const titleBase = siteTagline ? `${siteName} | ${siteTagline}` : siteName;
+    if (isTenantContext()) {
+      document.title = titleBase;
+    } else if (/نايو|NAIOSH|نظام/i.test(document.title)) {
+      document.title = document.title
+        .replace(/نايوش|NAIOSH ERP|NAIOSH/gi, siteName)
+        .replace(/نظام نايو/gi, siteName);
     }
 
     if (siteTagline) {
@@ -169,7 +234,8 @@
       }
       body.tenant-branded .bg-gradient-to-b.from-red-950.to-red-900,
       body.tenant-branded .bg-gradient-to-br.from-red-900,
-      body.tenant-branded #sidebar.bg-gradient-to-b {
+      body.tenant-branded #sidebar.bg-gradient-to-b,
+      body.tenant-branded #sidebar {
         background: linear-gradient(180deg, ${secondary} 0%, ${primary} 100%) !important;
       }
       body.tenant-branded [data-tenant-brand="header"] {
@@ -189,14 +255,35 @@
       body.tenant-branded .border-red-800 {
         border-color: ${primary} !important;
       }
-      body.tenant-branded #sidebar {
-        background: linear-gradient(180deg, ${secondary} 0%, ${primary} 100%) !important;
-      }
       body.tenant-branded .bg-primary {
         background-color: ${primary} !important;
         background-image: linear-gradient(135deg, ${secondary}, ${primary}) !important;
       }
+      body.tenant-branded img[src*="naiosh-logo"]:not([data-tenant-logo="1"]) {
+        visibility: hidden !important;
+      }
     `;
+  }
+
+  function markBrandingReady() {
+    document.documentElement.classList.remove('tenant-branding-pending');
+    document.documentElement.setAttribute('data-tenant-brand-ready', '1');
+  }
+
+  function applyIdentity(identity, options = {}) {
+    if (!identity) return;
+    applyBrandPalette(identity.primary_color, identity.secondary_color);
+    applyLogo(identity.logo_url);
+    applyFavicon(identity.favicon_url, identity.logo_url);
+    applySiteName(identity.site_name, identity.site_tagline);
+    applySidebarChrome(identity.primary_color, identity.secondary_color);
+    injectBrandingStyles(identity);
+    hidePlatformMarks();
+    window.__TENANT_IDENTITY__ = identity;
+    if (!options.silent) {
+      markBrandingReady();
+      window.dispatchEvent(new CustomEvent('tenant-branding:ready', { detail: identity }));
+    }
   }
 
   async function fetchIdentity() {
@@ -211,50 +298,72 @@
     return payload.data || null;
   }
 
-  async function applyTenantBranding() {
+  function maybeShowSetupBanner(identity) {
+    if (identity.setup_completed !== false) return;
+    if (typeof window.getTenantScopedPath !== 'function') return;
+    const onSettingsPage = /tenant-branding-settings\.html$/i.test(window.location.pathname);
+    const onLoginPage = /login-page\.html$/i.test(window.location.pathname);
+    const role = readStoredUser()?.role;
+    if (onSettingsPage || onLoginPage || !['admin', 'tenant_admin'].includes(role)) return;
+
+    const bannerId = 'tenant-branding-setup-banner';
+    if (document.getElementById(bannerId)) return;
+    const banner = document.createElement('div');
+    banner.id = bannerId;
+    banner.style.cssText = 'position:fixed;inset-inline:16px;top:16px;z-index:9999;background:#111827;color:#fff;padding:14px 18px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;gap:12px;align-items:center;justify-content:space-between;';
+    banner.innerHTML = `
+      <div style="font-weight:700;">أكمل إعداد هوية نظام شركتك (الاسم، الشعار، الألوان)</div>
+      <a href="${window.getTenantScopedPath('/tenant-branding-settings.html')}" style="background:#fff;color:#111827;padding:8px 14px;border-radius:10px;font-weight:800;text-decoration:none;">فتح الإعدادات</a>
+    `;
+    document.body.appendChild(banner);
+  }
+
+  async function applyTenantBranding(options = {}) {
     if (!isTenantContext()) return;
+
+    const cached = readCachedIdentity();
+    if (cached && !options.forceRemote) {
+      applyIdentity(cached, { silent: true });
+      markBrandingReady();
+    }
 
     try {
       const identity = await fetchIdentity();
-      if (!identity) return;
-
-      applyBrandPalette(identity.primary_color, identity.secondary_color);
-      applyLogo(identity.logo_url);
-      applyFavicon(identity.favicon_url, identity.logo_url);
-      applySiteName(identity.site_name, identity.site_tagline);
-      applySidebarChrome(identity.primary_color, identity.secondary_color);
-      injectBrandingStyles(identity);
-
-      window.__TENANT_IDENTITY__ = identity;
-      window.dispatchEvent(new CustomEvent('tenant-branding:ready', { detail: identity }));
-
-      if (identity.setup_completed === false && typeof window.getTenantScopedPath === 'function') {
-        const onSettingsPage = /tenant-branding-settings\.html$/i.test(window.location.pathname);
-        const onLoginPage = /login-page\.html$/i.test(window.location.pathname);
-        if (!onSettingsPage && !onLoginPage && (readStoredUser()?.role === 'admin' || readStoredUser()?.role === 'tenant_admin')) {
-          const bannerId = 'tenant-branding-setup-banner';
-          if (!document.getElementById(bannerId)) {
-            const banner = document.createElement('div');
-            banner.id = bannerId;
-            banner.style.cssText = 'position:fixed;inset-inline:16px;top:16px;z-index:9999;background:#111827;color:#fff;padding:14px 18px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;gap:12px;align-items:center;justify-content:space-between;';
-            banner.innerHTML = `
-              <div style="font-weight:700;">أكمل إعداد هوية نظام شركتك (الاسم، الشعار، الألوان)</div>
-              <a href="${window.getTenantScopedPath('/tenant-branding-settings.html')}" style="background:#fff;color:#111827;padding:8px 14px;border-radius:10px;font-weight:800;text-decoration:none;">فتح الإعدادات</a>
-            `;
-            document.body.appendChild(banner);
-          }
-        }
+      if (!identity) {
+        if (cached) maybeShowSetupBanner(cached);
+        return;
       }
+      writeCachedIdentity(identity);
+      applyIdentity(identity);
+      maybeShowSetupBanner(identity);
     } catch (error) {
+      if (cached) {
+        applyIdentity(cached);
+        maybeShowSetupBanner(cached);
+        return;
+      }
       console.warn('Tenant branding apply skipped:', error.message);
+      markBrandingReady();
     }
   }
 
   window.applyTenantBranding = applyTenantBranding;
+  window.applyTenantIdentity = applyIdentity;
+
+  const bootIdentity = readCachedIdentity();
+  if (bootIdentity && isTenantContext()) {
+    applyIdentity(bootIdentity, { silent: true });
+    markBrandingReady();
+  }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyTenantBranding);
+    document.addEventListener('DOMContentLoaded', () => applyTenantBranding());
   } else {
     applyTenantBranding();
   }
+
+  window.addEventListener('pageshow', () => {
+    const identity = window.__TENANT_IDENTITY__ || readCachedIdentity();
+    if (identity) applyIdentity(identity);
+  });
 })();

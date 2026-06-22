@@ -133,14 +133,14 @@ const injectFormValidationAssets = (html) => {
   return injectBodyAssetIfExists(withCss, '/public/form-validation.js', scriptTag);
 };
 
-const sendHtmlWithNumberFormat = (res, filePath) => {
+const sendHtmlWithNumberFormat = (res, filePath, req = null) => {
   fs.readFile(filePath, 'utf8', (err, html) => {
     if (err) {
       res.status(500).send('Page not available');
       return;
     }
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(prepareHtmlPayload(html, filePath));
+    res.send(prepareHtmlPayload(html, filePath, req));
   });
 };
 
@@ -150,8 +150,13 @@ function injectTenantBrandingAssets(html) {
   return html.replace('</head>', `${injection}</head>`);
 }
 
-const prepareHtmlPayload = (html, filePath) => {
-  const withNumberFormat = injectNumberFormatScript(html);
+const prepareHtmlPayload = (html, filePath, req = null) => {
+  let payload = html;
+  if (req?.tenant && req?.tenantIdentity) {
+    const { injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
+    payload = injectTenantBrandingHtml(payload, req.tenantIdentity, req.tenant);
+  }
+  const withNumberFormat = injectNumberFormatScript(payload);
   const withFormValidation = injectFormValidationAssets(withNumberFormat);
   const fileName = path.basename(filePath || '');
   if (fileName === 'login-page.html' || fileName === 'register.html') {
@@ -180,7 +185,7 @@ const sendHubPageHtml = (res, filePath, req) => {
       payload = filterHubHtml(html, req.tenant, req.tenantPermissionBundle);
     }
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(prepareHtmlPayload(payload, filePath));
+    res.send(prepareHtmlPayload(payload, filePath, req));
   });
 };
 
@@ -2434,7 +2439,21 @@ app.get('/api/auth/debug', async (req, res) => {
 
 // ---- Phase 2: Tenant Resolution Middleware ----
 const { tenantResolver } = require('./tenant-resolver');
+const { readIdentitySettings } = require('./tenant-branding-service');
 app.use(tenantResolver);
+
+async function tenantIdentityPreload(req, res, next) {
+  if (!req.tenant || !req.tenantPool || req.path.startsWith('/api/')) {
+    return next();
+  }
+  try {
+    req.tenantIdentity = await readIdentitySettings(req.tenantPool, req.tenant);
+  } catch (error) {
+    console.warn('[tenantIdentityPreload]', error.message);
+  }
+  return next();
+}
+app.use(tenantIdentityPreload);
 
 const paymentWebhooks = require('./payment/webhooks');
 app.use('/api/payment/webhook', paymentWebhooks);
@@ -2896,16 +2915,16 @@ const requireAuthForHtml = async (req, res, next) => {
 
 app.use(requireAuthForHtml);
 
-app.get('/login-page.html', (_req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'login-page.html'));
+app.get('/login-page.html', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'login-page.html'), req);
 });
 
-app.get('/access-denied.html', (_req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'access-denied.html'));
+app.get('/access-denied.html', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'access-denied.html'), req);
 });
 
-app.get('/tenant-branding-settings.html', (_req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'tenant-branding-settings.html'));
+app.get('/tenant-branding-settings.html', (req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'tenant-branding-settings.html'), req);
 });
 
 app.get('/register.html', (_req, res) => {
@@ -2969,7 +2988,12 @@ app.get('/finance*', (req, res, next) => {
       ? '    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="/tenant-path-client.js"></script>\n    <script src="/tenant-branding.js"></script>\n'
       : '    <link rel="stylesheet" href="/finance/brand-theme.css?v=20260215">\n    <script src="/finance/brand-theme.js"></script>\n    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="/tenant-path-client.js"></script>\n    <script src="/tenant-branding.js"></script>\n';
     const injected = html.replace('</head>', `${injection}</head>`);
-    res.type('html').send(injectGlobalBackButtonAssets(injectFormValidationAssets(injected)));
+    let payload = injectGlobalBackButtonAssets(injectFormValidationAssets(injected));
+    if (req?.tenant && req?.tenantIdentity) {
+      const { injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
+      payload = injectTenantBrandingHtml(payload, req.tenantIdentity, req.tenant);
+    }
+    res.type('html').send(payload);
   } catch (error) {
     next();
   }
@@ -3481,7 +3505,7 @@ app.get('/index.html', (req, res) => {
 });
 
 app.get('/dashboard.html', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/home', (req, res) => {
@@ -3489,55 +3513,55 @@ app.get('/home', (req, res) => {
 });
 
 app.get('/e-offices', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/e-offices/:section', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/platforms', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/platforms/:section', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/incubators-hub', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/incubators-hub/:section', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/branches', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/branches/:section', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/sectors', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/sectors/:section', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/employee', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 app.get('/employee/:section', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 });
 
 const serveDashboardSpa = (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'));
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
 };
 
 [
