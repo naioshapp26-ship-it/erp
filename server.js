@@ -2447,7 +2447,11 @@ async function tenantIdentityPreload(req, res, next) {
     return next();
   }
   try {
-    req.tenantIdentity = await readIdentitySettings(req.tenantPool, req.tenant);
+    const identityPromise = readIdentitySettings(req.tenantPool, req.tenant);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('identity_preload_timeout')), 2500);
+    });
+    req.tenantIdentity = await Promise.race([identityPromise, timeoutPromise]);
   } catch (error) {
     console.warn('[tenantIdentityPreload]', error.message);
   }

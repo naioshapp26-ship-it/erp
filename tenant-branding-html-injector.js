@@ -35,8 +35,6 @@ function buildCriticalBrandingBlock(identity, tenant = null) {
   return `
     <meta name="tenant-branding" content="active">
     <style id="tenant-branding-critical">
-      html.tenant-branding-pending body { opacity: 0 !important; }
-      html[data-tenant-brand-ready="1"] body { opacity: 1 !important; transition: opacity .12s ease; }
       :root {
         --tenant-primary: ${primary};
         --tenant-secondary: ${secondary};
@@ -115,7 +113,6 @@ function buildCriticalBrandingBlock(identity, tenant = null) {
             }
             link.href = boot.favicon_url;
           }
-          document.documentElement.classList.add('tenant-branding-pending');
           document.documentElement.setAttribute('data-tenant-brand-ready', '1');
           if (document.body) document.body.classList.add('tenant-branded');
         }
