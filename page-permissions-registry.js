@@ -371,6 +371,17 @@ const PAGE_LABELS = {
   settings: 'إعدادات الصفحة الرئيسية',
   'audit-logs': 'سجل النظام',
   'executive-management': 'الإدارة التنفيذية',
+  'employee-management': 'إدارة الموظفين',
+  'smart-systems': 'الأنظمة الذكية',
+  'subscription-management': 'إدارة الاشتراكات',
+  'operations-management': 'إدارة العمليات',
+  'financial-approvals': 'الموافقات المالية',
+  'advertisers-center': 'مركز المعلنين',
+  'training-development': 'التدريب والتطوير',
+  'evaluation': 'التقييم',
+  'tasks-strategic': 'المهام',
+  'identity-settings': 'إعدادات الهوية',
+  'system-log': 'سجل النظام',
   'information-center': 'مركز المعلومات',
   'e-offices': 'المكاتب الالكترونيه',
   platforms: 'المنصات',
@@ -561,6 +572,9 @@ function getRuntimeRouteParents() {
 
   collectFinanceRouteEntries().forEach((entry) => {
     if (entry.key !== 'finance' && !runtimeRouteParents[entry.key]) {
+      runtimeRouteParents[entry.key] = 'finance';
+    }
+    if (entry.key !== 'finance' && !ROUTE_TO_PATH[entry.key]) {
       ROUTE_TO_PATH[entry.key] = entry.routePath;
     }
   });
@@ -590,7 +604,10 @@ function buildHubPagesList(systemKey) {
 function getPagesForSystem(systemKey) {
   const normalized = normalizePageKey(systemKey);
   if (HUB_SYSTEM_SOURCES[normalized]) {
-    return buildHubPagesList(normalized);
+    const hubPages = buildHubPagesList(normalized);
+    if (hubPages.length > 1) {
+      return hubPages;
+    }
   }
 
   const children = getChildrenByParent()[normalized] || [];
@@ -599,6 +616,15 @@ function getPagesForSystem(systemKey) {
     pages.push({ key: child, label: getPageLabel(child) });
   });
   return pages;
+}
+
+function getSystemPageSource(systemKey) {
+  const normalized = normalizePageKey(systemKey);
+  if (HUB_SYSTEM_SOURCES[normalized]) {
+    const hubPages = getHubPagesBySystem()[normalized] || [];
+    if (hubPages.length > 0) return 'hub';
+  }
+  return 'routes';
 }
 
 function getSystemRootKeys() {
@@ -625,6 +651,7 @@ function buildPermissionRegistry() {
       key,
       label: getPageLabel(key),
       pages: getPagesForSystem(key),
+      pageSource: getSystemPageSource(key),
       isPrimary: PRIMARY_TENANT_SYSTEM_KEYS.includes(key)
     }))
     .filter((system) => system.pages.length > 0);
@@ -843,6 +870,7 @@ module.exports = {
   PAGE_LABELS,
   buildPermissionRegistry,
   getPagesForSystem,
+  getSystemPageSource,
   getPageKeysForPath,
   normalizeAllowedPages,
   normalizePageRestrictions,
