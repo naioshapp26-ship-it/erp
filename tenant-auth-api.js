@@ -35,6 +35,7 @@ const {
 } = require('./tenant-directory-sync');
 const { seedTenantPageAccess } = require('./tenant-page-access-seed');
 const { getTenantPermissionBundle, getTenantAllowedPages } = require('./tenant-page-permissions');
+const { isPathAllowed } = require('./page-permissions-registry');
 
 const router = express.Router();
 
@@ -144,6 +145,53 @@ function _requireTenantPool(req, res) {
     return false;
   }
   return true;
+}
+
+async function _resolveTenantSession(req, token) {
+  let tenantPool = req.tenantPool;
+  let tenant = req.tenant;
+
+  if (!tenantPool) {
+    const indexRes = await db.query(
+      `SELECT tsi.tenant_id, t.subdomain, t.company_name, t.encrypted_db_url, t.status
+       FROM tenant_session_index tsi
+       JOIN tenants t ON t.id = tsi.tenant_id
+       WHERE tsi.session_token = $1 AND tsi.expires_at > NOW()
+       LIMIT 1`,
+      [token]
+    );
+
+    if (!indexRes.rows.length) {
+      return null;
+    }
+
+    const row = indexRes.rows[0];
+    if (row.status !== 'active') {
+      return { inactive: true };
+    }
+
+    tenant = row;
+    tenantPool = getTenantPool(row.subdomain, row.encrypted_db_url);
+  }
+
+  const sessionRes = await tenantPool.query(
+    `SELECT s.user_id, s.tenant_id, s.expires_at, u.*
+     FROM sessions s
+     JOIN users u ON s.user_id = u.id
+     WHERE s.session_token = $1 AND s.expires_at > NOW() AND u.is_active = true
+     LIMIT 1`,
+    [token]
+  );
+
+  if (!sessionRes.rows.length) {
+    return null;
+  }
+
+  return {
+    tenant,
+    tenantPool,
+    user: sessionRes.rows[0]
+  };
 }
 
 /**
@@ -376,55 +424,21 @@ router.get('/verify', verifyLimiter, async (req, res) => {
   }
 
   try {
-    let tenantPool = req.tenantPool;
-    let tenant = req.tenant;
-
-    // إعادة حل سياق المستأجر إذا لم يكن موجوداً (طلب من خارج النطاق الفرعي)
-    if (!tenantPool) {
-      const indexRes = await db.query(
-        `SELECT tsi.tenant_id, t.subdomain, t.company_name, t.encrypted_db_url, t.status
-         FROM tenant_session_index tsi
-         JOIN tenants t ON t.id = tsi.tenant_id
-         WHERE tsi.session_token = $1 AND tsi.expires_at > NOW()
-         LIMIT 1`,
-        [token]
-      );
-
-      if (!indexRes.rows.length) {
-        return res.status(401).json({ success: false, message: 'الجلسة غير صحيحة أو منتهية.' });
-      }
-
-      const row = indexRes.rows[0];
-      if (row.status !== 'active') {
-        return res.status(403).json({ success: false, message: 'حساب المستأجر غير نشط.' });
-      }
-
-      tenant = row;
-      tenantPool = getTenantPool(row.subdomain, row.encrypted_db_url);
-    }
-
-    // التحقق من الجلسة في قاعدة بيانات المستأجر
-    const sessionRes = await tenantPool.query(
-      `SELECT s.user_id, s.tenant_id, s.expires_at, u.*
-       FROM sessions s
-       JOIN users u ON s.user_id = u.id
-       WHERE s.session_token = $1 AND s.expires_at > NOW() AND u.is_active = true
-       LIMIT 1`,
-      [token]
-    );
-
-    if (!sessionRes.rows.length) {
+    const resolved = await _resolveTenantSession(req, token);
+    if (!resolved) {
       return res.status(401).json({ success: false, message: 'الجلسة غير صحيحة أو منتهية.' });
     }
+    if (resolved.inactive) {
+      return res.status(403).json({ success: false, message: 'حساب المستأجر غير نشط.' });
+    }
 
-    const row = sessionRes.rows[0];
+    const { tenant, tenantPool, user: row } = resolved;
 
-    // تحديث آخر نشاط للجلسة
     await tenantPool.query(
       `UPDATE sessions SET last_activity = NOW() WHERE session_token = $1`,
       [token]
     );
-    const allowedPages = await _getAllowedTenantPages(tenant);
+
     const responseUser = await _applyTenantPermissionBundle({
       ..._buildUserResponse(row, tenant)
     }, tenant);
@@ -441,6 +455,61 @@ router.get('/verify', verifyLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error('[TenantAuth] verify error:', err.message);
+    return res.status(500).json({ success: false, message: 'خطأ داخلي.' });
+  }
+});
+
+// ================================================================
+// POST /api/tenant-auth/filter-paths
+// ================================================================
+router.post('/filter-paths', verifyLimiter, async (req, res) => {
+  const paths = Array.isArray(req.body?.paths) ? req.body.paths : [];
+  const token = _extractToken(req);
+
+  if (!paths.length) {
+    return res.json({ success: true, bypass: true, allowed: [] });
+  }
+
+  if (!token) {
+    return res.json({ success: true, bypass: true, allowed: paths });
+  }
+
+  try {
+    const resolved = await _resolveTenantSession(req, token);
+    if (!resolved) {
+      return res.json({ success: true, bypass: true, allowed: paths });
+    }
+    if (resolved.inactive) {
+      return res.status(403).json({ success: false, message: 'حساب المستأجر غير نشط.' });
+    }
+
+    const { tenant } = resolved;
+    const permissionBundle = await getTenantPermissionBundle(db, tenant);
+    const context = {
+      tenantType: 'TENANT',
+      entityId: buildCentralTenantEntityId(tenant.id),
+      allowedPages: permissionBundle.allowed_pages,
+      pageRestrictions: permissionBundle.page_restrictions
+    };
+
+    const normalizeRequestPath = (requestPath) => {
+      const raw = String(requestPath || '').split('?')[0];
+      const normalized = raw.replace(/\/+$/, '') || '/';
+      return normalized;
+    };
+
+    const allowed = paths
+      .map(normalizeRequestPath)
+      .filter((requestPath, index, list) => list.indexOf(requestPath) === index)
+      .filter((requestPath) => isPathAllowed(requestPath, context));
+
+    return res.json({
+      success: true,
+      bypass: false,
+      allowed
+    });
+  } catch (err) {
+    console.error('[TenantAuth] filter-paths error:', err.message);
     return res.status(500).json({ success: false, message: 'خطأ داخلي.' });
   }
 });
