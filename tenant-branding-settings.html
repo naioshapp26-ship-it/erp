@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>هوية النظام</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/payment-ui-shared.css">
+  <style>
+    body { font-family: 'Cairo', sans-serif; }
+    .preview-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    .preview-header {
+      padding: 18px 20px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .preview-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      object-fit: contain;
+      background: rgba(255,255,255,.12);
+      padding: 6px;
+    }
+    .color-input {
+      width: 100%;
+      height: 46px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 4px;
+      background: #fff;
+    }
+  </style>
+</head>
+<body class="pay-ui bg-slate-50">
+  <div class="pay-container">
+    <div class="pay-header">
+      <div>
+        <h1><i class="fa fa-palette text-rose-600"></i> هوية النظام</h1>
+        <p>خصص اسم شركتك، الشعار، والألوان لتظهر في كل صفحات نظامك</p>
+      </div>
+      <a href="#" id="back-dashboard" class="pay-back"><i class="fa fa-arrow-right"></i> لوحة التحكم</a>
+    </div>
+
+    <div id="alert" class="pay-alert"></div>
+
+    <div class="pay-info-box">
+      <i class="fa fa-circle-info"></i>
+      <p>هذه الإعدادات إلزامية لكل مستأجر. بعد الحفظ سيتم تطبيق الهوية على تسجيل الدخول، لوحة التحكم، وصفحات الأنظمة الداخلية.</p>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div class="pay-card">
+        <h2 class="pay-card-title">بيانات الهوية</h2>
+        <p class="pay-card-desc">الاسم والشعار والألوان الأساسية</p>
+
+        <div class="pay-field">
+          <label for="site_name">اسم الشركة / النظام *</label>
+          <input id="site_name" placeholder="مثال: شركة مام للتجارة">
+        </div>
+
+        <div class="pay-field">
+          <label for="site_tagline">الشعار النصي (اختياري)</label>
+          <input id="site_tagline" placeholder="مثال: نظام إدارة متكامل">
+        </div>
+
+        <div class="pay-field">
+          <label>شعار الشركة *</label>
+          <div class="flex items-center gap-4 flex-wrap">
+            <img id="logo_preview" src="/public/naiosh-logo.png" alt="معاينة الشعار" class="w-20 h-20 rounded-xl border border-slate-200 object-contain bg-white p-2">
+            <div>
+              <input type="file" id="logo_file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="hidden">
+              <button type="button" class="pay-btn pay-btn-secondary" onclick="document.getElementById('logo_file').click()">
+                <i class="fa fa-upload"></i> رفع الشعار
+              </button>
+              <div class="text-xs text-slate-500 mt-2">PNG / JPG / WEBP حتى 5MB</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="pay-field">
+            <label for="primary_color">اللون الأساسي *</label>
+            <input id="primary_color" type="color" class="color-input" value="#990e1e">
+          </div>
+          <div class="pay-field">
+            <label for="secondary_color">اللون الثانوي *</label>
+            <input id="secondary_color" type="color" class="color-input" value="#1a1a1a">
+          </div>
+        </div>
+
+        <div class="pay-actions">
+          <button class="pay-btn pay-btn-primary" id="save-btn" onclick="saveIdentity()">
+            <i class="fa fa-save"></i> حفظ الهوية
+          </button>
+        </div>
+      </div>
+
+      <div class="preview-card">
+        <div id="preview_header" class="preview-header" style="background: linear-gradient(135deg, #1a1a1a, #990e1e);">
+          <img id="preview_logo" src="/public/naiosh-logo.png" alt="معاينة" class="preview-logo">
+          <div>
+            <div id="preview_name" class="text-xl font-black">اسم الشركة</div>
+            <div id="preview_tagline" class="text-sm opacity-90">الشعار النصي</div>
+          </div>
+        </div>
+        <div class="p-5 space-y-3">
+          <div class="text-sm text-slate-500">معاينة سريعة</div>
+          <button id="preview_button" type="button" class="px-4 py-2 rounded-xl text-white font-bold" style="background:#990e1e;">زر أساسي</button>
+          <div id="preview_badge" class="inline-flex px-3 py-1 rounded-full text-xs font-bold text-white" style="background:#990e1e;">شارة</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/tenant-path-client.js"></script>
+  <script src="/payment-ui-shared.js"></script>
+  <script src="/tenant-branding.js"></script>
+  <script>
+    let currentLogoUrl = '';
+
+    function scopedPath(path) {
+      return typeof getTenantScopedPath === 'function' ? getTenantScopedPath(path) : path;
+    }
+
+    function authHeaders(isJson = true) {
+      const headers = { Authorization: `Bearer ${PaymentUI.getToken()}` };
+      if (isJson) headers['Content-Type'] = 'application/json';
+      return headers;
+    }
+
+    function updatePreview() {
+      const name = document.getElementById('site_name').value.trim() || 'اسم الشركة';
+      const tagline = document.getElementById('site_tagline').value.trim() || 'الشعار النصي';
+      const primary = document.getElementById('primary_color').value;
+      const secondary = document.getElementById('secondary_color').value;
+      const logo = currentLogoUrl || document.getElementById('logo_preview').src;
+
+      document.getElementById('preview_name').textContent = name;
+      document.getElementById('preview_tagline').textContent = tagline;
+      document.getElementById('preview_logo').src = logo;
+      document.getElementById('preview_header').style.background = `linear-gradient(135deg, ${secondary}, ${primary})`;
+      document.getElementById('preview_button').style.background = primary;
+      document.getElementById('preview_badge').style.background = primary;
+    }
+
+    async function loadIdentity() {
+      const response = await fetch(scopedPath('/api/tenant-settings/identity'), {
+        headers: authHeaders(false)
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'تعذر تحميل الإعدادات');
+      }
+
+      const data = result.data || {};
+      document.getElementById('site_name').value = data.site_name || '';
+      document.getElementById('site_tagline').value = data.site_tagline || '';
+      document.getElementById('primary_color').value = data.primary_color || '#990e1e';
+      document.getElementById('secondary_color').value = data.secondary_color || '#1a1a1a';
+      currentLogoUrl = data.logo_url || '';
+      if (currentLogoUrl) {
+        document.getElementById('logo_preview').src = currentLogoUrl;
+      }
+      updatePreview();
+    }
+
+    async function uploadLogo(file) {
+      const formData = new FormData();
+      formData.append('logo', file);
+      const response = await fetch(scopedPath('/api/tenant-settings/branding/logo'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${PaymentUI.getToken()}` },
+        body: formData
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'تعذر رفع الشعار');
+      }
+      currentLogoUrl = result.logo_url;
+      document.getElementById('logo_preview').src = currentLogoUrl;
+      updatePreview();
+      PaymentUI.showAlert('alert', 'تم رفع الشعار بنجاح', 'ok');
+    }
+
+    async function saveIdentity() {
+      const saveBtn = document.getElementById('save-btn');
+      saveBtn.disabled = true;
+      try {
+        const payload = {
+          site_name: document.getElementById('site_name').value.trim(),
+          site_tagline: document.getElementById('site_tagline').value.trim(),
+          primary_color: document.getElementById('primary_color').value,
+          secondary_color: document.getElementById('secondary_color').value,
+          logo_url: currentLogoUrl || null,
+          setup_completed: true
+        };
+
+        if (!payload.site_name) {
+          PaymentUI.showAlert('alert', 'اسم الشركة مطلوب', 'error');
+          return;
+        }
+        if (!payload.logo_url) {
+          PaymentUI.showAlert('alert', 'يرجى رفع شعار الشركة', 'error');
+          return;
+        }
+
+        const response = await fetch(scopedPath('/api/tenant-settings/identity'), {
+          method: 'PUT',
+          headers: authHeaders(true),
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'تعذر حفظ الهوية');
+        }
+
+        PaymentUI.showAlert('alert', 'تم حفظ هوية النظام بنجاح', 'ok');
+        if (window.applyTenantBranding) {
+          window.applyTenantBranding();
+        } else {
+          window.location.reload();
+        }
+      } catch (error) {
+        PaymentUI.showAlert('alert', error.message, 'error');
+      } finally {
+        saveBtn.disabled = false;
+      }
+    }
+
+    document.getElementById('logo_file').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        await uploadLogo(file);
+      } catch (error) {
+        PaymentUI.showAlert('alert', error.message, 'error');
+      }
+    });
+
+    ['site_name', 'site_tagline', 'primary_color', 'secondary_color'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', updatePreview);
+    });
+
+    document.getElementById('back-dashboard').href = scopedPath('/dashboard.html');
+
+    loadIdentity().catch((error) => {
+      PaymentUI.showAlert('alert', error.message, 'error');
+    });
+  </script>
+</body>
+</html>

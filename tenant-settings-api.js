@@ -40,7 +40,18 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const { rateLimit } = require('express-rate-limit');
+const { resolveUploadsRootDir } = require('./uploads-config');
+const {
+  readIdentitySettings,
+  saveIdentitySettings,
+  saveLogoUrl,
+  ensureDefaultIdentitySettings,
+  isSharedTenant
+} = require('./tenant-branding-service');
 
 const router = express.Router();
 
@@ -118,25 +129,43 @@ router.use(requireTenantContext);
  */
 async function requireTenantAuth(req, res, next) {
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ')
+  let token = authHeader.startsWith('Bearer ')
     ? authHeader.slice(7).trim()
-    : req.cookies?.tenant_session;
+    : '';
+
+  if (!token) {
+    const cookies = String(req.headers.cookie || '').split(';').reduce((acc, part) => {
+      const [k, ...v] = part.trim().split('=');
+      if (k) acc[k.trim()] = decodeURIComponent(v.join('=') || '');
+      return acc;
+    }, {});
+    token = cookies.authToken || cookies.tenant_session || '';
+  }
 
   if (!token) {
     return res.status(401).json({ success: false, message: 'غير مصرح — يرجى تسجيل الدخول.' });
   }
 
   try {
-    const result = await req.tenantPool.query(
-      `SELECT s.user_id, u.role, u.is_active
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       WHERE s.session_token = $1
-         AND s.expires_at > NOW()
-         AND u.is_active = true
-       LIMIT 1`,
-      [token]
-    );
+    const sharedDb = isSharedTenant(req.tenant);
+    const sessionQuery = sharedDb
+      ? `SELECT s.user_id, u.role, u.is_active
+         FROM sessions s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.session_token = $1
+           AND s.tenant_id = $2
+           AND s.expires_at > NOW()
+           AND u.is_active = true
+         LIMIT 1`
+      : `SELECT s.user_id, u.role, u.is_active
+         FROM sessions s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.session_token = $1
+           AND s.expires_at > NOW()
+           AND u.is_active = true
+         LIMIT 1`;
+    const sessionParams = sharedDb ? [token, req.tenant.id] : [token];
+    const result = await req.tenantPool.query(sessionQuery, sessionParams);
     if (!result.rows.length) {
       return res.status(401).json({ success: false, message: 'الجلسة منتهية أو غير صالحة.' });
     }
@@ -149,7 +178,8 @@ async function requireTenantAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (!req.tenantUser || req.tenantUser.role !== 'admin') {
+  const role = req.tenantUser?.role;
+  if (!role || !['admin', 'tenant_admin'].includes(role)) {
     return res.status(403).json({ success: false, message: 'يتطلب صلاحيات المشرف.' });
   }
   return next();
@@ -586,6 +616,82 @@ router.put('/branding', async (req, res) => {
     console.error('[TenantSettings] PUT branding:', err.message);
     return res.status(500).json({ success: false, message: 'خطأ في حفظ إعدادات الواجهة.' });
   }
+});
+
+const uploadsRoot = resolveUploadsRootDir();
+const tenantLogoStorage = multer.diskStorage({
+  destination(req, _file, cb) {
+    const subdomain = req.tenant?.subdomain || req.tenantPathSubdomain || 'tenant';
+    const dir = path.join(uploadsRoot, 'tenant-branding', subdomain);
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename(_req, file, cb) {
+    const ext = path.extname(file.originalname || '').toLowerCase() || '.png';
+    cb(null, `logo-${Date.now()}${ext}`);
+  }
+});
+
+const tenantLogoUpload = multer({
+  storage: tenantLogoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(_req, file, cb) {
+    if (/^image\/(png|jpe?g|webp|gif|svg\+xml)$/.test(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('INVALID_IMAGE_TYPE'));
+  }
+});
+
+router.get('/identity', async (req, res) => {
+  try {
+    let data = await readIdentitySettings(req.tenantPool, req.tenant);
+    if (!data.branding_id && !data.site_id && !data.site_name) {
+      await ensureDefaultIdentitySettings(req.tenantPool, req.tenant?.company_name || '', req.tenant);
+      data = await readIdentitySettings(req.tenantPool, req.tenant);
+    }
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[TenantSettings] GET identity:', err.message);
+    return res.status(500).json({ success: false, message: 'خطأ في قراءة هوية النظام.' });
+  }
+});
+
+router.put('/identity', async (req, res) => {
+  try {
+    const data = await saveIdentitySettings(req.tenantPool, req.tenant, req.body || {});
+    return res.json({ success: true, message: 'تم حفظ هوية النظام بنجاح.', data });
+  } catch (err) {
+    if (err.code === 'SITE_NAME_REQUIRED') {
+      return res.status(400).json({ success: false, message: 'اسم الشركة مطلوب.' });
+    }
+    console.error('[TenantSettings] PUT identity:', err.message);
+    return res.status(500).json({ success: false, message: 'خطأ في حفظ هوية النظام.' });
+  }
+});
+
+router.post('/branding/logo', (req, res) => {
+  tenantLogoUpload.single('logo')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      const message = uploadErr.message === 'INVALID_IMAGE_TYPE'
+        ? 'نوع الصورة غير مدعوم.'
+        : 'تعذر رفع الشعار.';
+      return res.status(400).json({ success: false, message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'يرجى اختيار صورة الشعار.' });
+    }
+
+    try {
+      const logoUrl = `/uploads/tenant-branding/${req.tenant?.subdomain || req.tenantPathSubdomain || 'tenant'}/${req.file.filename}`;
+      await saveLogoUrl(req.tenantPool, req.tenant, logoUrl);
+      return res.json({ success: true, message: 'تم رفع الشعار بنجاح.', logo_url: logoUrl });
+    } catch (err) {
+      console.error('[TenantSettings] POST branding/logo:', err.message);
+      return res.status(500).json({ success: false, message: 'خطأ في حفظ الشعار.' });
+    }
+  });
 });
 
 // ================================================================

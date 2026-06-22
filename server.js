@@ -144,12 +144,18 @@ const sendHtmlWithNumberFormat = (res, filePath) => {
   });
 };
 
+function injectTenantBrandingAssets(html) {
+  if (html.includes('tenant-branding.js')) return html;
+  const injection = '    <script src="/tenant-path-client.js"></script>\n    <script src="/tenant-branding.js"></script>\n';
+  return html.replace('</head>', `${injection}</head>`);
+}
+
 const prepareHtmlPayload = (html, filePath) => {
   const withNumberFormat = injectNumberFormatScript(html);
   const withFormValidation = injectFormValidationAssets(withNumberFormat);
   const fileName = path.basename(filePath || '');
   if (fileName === 'login-page.html' || fileName === 'register.html') {
-    return injectDarkModeAssets(withFormValidation);
+    return injectTenantBrandingAssets(injectDarkModeAssets(withFormValidation));
   }
   const isNewhomePage = filePath.includes(`${path.sep}newhome${path.sep}`);
   if (isNewhomePage) {
@@ -160,7 +166,7 @@ const prepareHtmlPayload = (html, filePath) => {
     return injectGlobalBackButtonAssets(withDarkMode);
   }
   const withGlobalBack = injectGlobalBackButtonAssets(withFormValidation);
-  return injectDarkModeAssets(withGlobalBack);
+  return injectTenantBrandingAssets(injectDarkModeAssets(withGlobalBack));
 };
 
 const sendHubPageHtml = (res, filePath, req) => {
@@ -2897,6 +2903,10 @@ app.get('/access-denied.html', (_req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'access-denied.html'));
 });
 
+app.get('/tenant-branding-settings.html', (_req, res) => {
+  sendHtmlWithNumberFormat(res, path.join(__dirname, 'tenant-branding-settings.html'));
+});
+
 app.get('/register.html', (_req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'register.html'));
 });
@@ -2955,8 +2965,8 @@ app.get('/finance*', (req, res, next) => {
       .replace(/const AR_ENTITY_ID = 'HQ001';/g, "const AR_ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';");
     const hasTheme = html.includes('/finance/brand-theme.css');
     const injection = hasTheme
-      ? '    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n'
-      : '    <link rel="stylesheet" href="/finance/brand-theme.css?v=20260215">\n    <script src="/finance/brand-theme.js"></script>\n    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n';
+      ? '    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="/tenant-path-client.js"></script>\n    <script src="/tenant-branding.js"></script>\n'
+      : '    <link rel="stylesheet" href="/finance/brand-theme.css?v=20260215">\n    <script src="/finance/brand-theme.js"></script>\n    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="/tenant-path-client.js"></script>\n    <script src="/tenant-branding.js"></script>\n';
     const injected = html.replace('</head>', `${injection}</head>`);
     res.type('html').send(injectGlobalBackButtonAssets(injectFormValidationAssets(injected)));
   } catch (error) {
