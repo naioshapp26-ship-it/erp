@@ -22,7 +22,8 @@ const db = require('./db');
 const {
   readIdentitySettings,
   sanitizeCssColor,
-  ensureDefaultIdentitySettings
+  ensureDefaultIdentitySettings,
+  readLogoBinary
 } = require('./tenant-branding-service');
 
 const router = express.Router();
@@ -205,6 +206,37 @@ router.get('/terms', async (req, res) => {
 // ================================================================
 // نقاط نهاية JSON العامة (للاستخدام في الواجهة الأمامية)
 // ================================================================
+
+/**
+ * GET /api/tenant-public/logo
+ * شعار المستأجر من قاعدة البيانات (مستقر على Railway).
+ */
+router.get('/api/tenant-public/logo', async (req, res) => {
+  try {
+    if (!req.tenant) {
+      return res.status(404).end();
+    }
+    const payload = await readLogoBinary(req.tenantPool, req.tenant);
+    if (!payload?.data) {
+      return res.status(404).end();
+    }
+
+    const raw = String(payload.data || '');
+    const match = raw.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) {
+      return res.status(404).end();
+    }
+
+    const mime = match[1] || payload.mime || 'image/png';
+    const buffer = Buffer.from(match[2], 'base64');
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'public, max-age=600');
+    return res.send(buffer);
+  } catch (err) {
+    console.error('[TenantPublic] GET logo:', err.message);
+    return res.status(500).end();
+  }
+});
 
 /**
  * GET /api/tenant-public/identity
