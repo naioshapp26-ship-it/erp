@@ -453,6 +453,10 @@ const app = (() => {
             return tenantType === 'HQ';
         },
         isAdmin: () => currentUser?.role === ROLES.ADMIN,
+        isTenantAdmin: () => {
+            const role = String(currentUser?.role || '').trim();
+            return role === 'admin' || role === 'tenant_admin' || role === ROLES.ADMIN;
+        },
         isFinance: () => currentUser?.role === ROLES.FINANCE || currentUser?.role === ROLES.ADMIN,
         isSupport: () => currentUser?.role === ROLES.SUPPORT,
         isHR: () => currentUser?.role === ROLES.HR || currentUser?.role === ROLES.ADMIN,
@@ -783,6 +787,9 @@ const app = (() => {
 
     const isOfficeRouteAllowed = (route) => {
         if (route === 'download-app') {
+            return true;
+        }
+        if (route === 'tenant-branding' && getAppAuthContext().isTenant && perms.isTenantAdmin()) {
             return true;
         }
         const tenantType = currentUser?.tenantType || currentUser?.tenant_type;
@@ -3693,7 +3700,7 @@ const app = (() => {
                     ]
                 },
                 { id: 'my-page-analytics', icon: 'fa-chart-column', label: 'إحصائيات صفحتي', show: isOfficeRouteAllowed('my-page-analytics') },
-                { id: 'tenant-branding', icon: 'fa-palette', label: 'هوية النظام', show: isDedicatedTenantContext(currentUser) && perms.isAdmin() },
+                { id: 'tenant-branding', icon: 'fa-palette', label: 'هوية النظام', show: getAppAuthContext().isTenant && perms.isTenantAdmin() },
                 { id: 'settings', icon: 'fa-paint-brush', label: 'إعدادات الصفحة الرئيسية', show: perms.isAdmin() && isOfficeRouteAllowed('settings') && !isDedicatedTenantContext(currentUser) },
                 { id: 'audit-logs', icon: 'fa-history', label: 'سجل النظام', show: perms.canViewAuditLogs() && isOfficeRouteAllowed('audit-logs') },
                 {
