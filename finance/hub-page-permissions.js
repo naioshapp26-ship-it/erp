@@ -22,9 +22,25 @@
     }
   }
 
+  function readAuthToken() {
+    const fromStorage = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    if (fromStorage) {
+      return fromStorage;
+    }
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)authToken=([^;]+)/);
+    return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+  }
+
+  function getApiUrl(targetPath) {
+    if (typeof window.getTenantScopedPath === 'function') {
+      return window.getTenantScopedPath(targetPath);
+    }
+    return targetPath;
+  }
+
   function getAuthHeaders() {
     const headers = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    const token = readAuthToken();
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
@@ -84,6 +100,10 @@
     showEmptyState('finance-cards', 'لا توجد وحدات مالية متاحة ضمن صلاحيات حسابك.');
   }
 
+  function hideAllHubLinks() {
+    collectLinks().forEach(({ element }) => hideLink(element));
+  }
+
   async function filterHubPages() {
     const links = collectLinks();
     if (!links.length) {
@@ -91,8 +111,13 @@
     }
 
     const paths = [...new Set(links.map((link) => link.path))];
+    const token = readAuthToken();
+    if (!token) {
+      return;
+    }
+
     try {
-      const response = await fetch('/api/tenant-auth/filter-paths', {
+      const response = await fetch(getApiUrl('/api/tenant-auth/filter-paths'), {
         method: 'POST',
         headers: getAuthHeaders(),
         credentials: 'include',
@@ -100,6 +125,7 @@
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
+        hideAllHubLinks();
         return;
       }
       if (data.bypass) {
@@ -107,7 +133,8 @@
       }
       applyAllowedPaths(data.allowed || []);
     } catch (error) {
-      console.warn('Hub permission filter skipped:', error.message);
+      console.warn('Hub permission filter failed:', error.message);
+      hideAllHubLinks();
     }
   }
 

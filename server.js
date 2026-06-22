@@ -14,6 +14,7 @@ const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
 const { resolveUploadsRootDir } = require('./uploads-config');
 const { getTenantPermissionBundle } = require('./tenant-page-permissions');
 const { isPathAllowed } = require('./page-permissions-registry');
+const { filterHubHtml } = require('./hub-html-filter');
 const { getTenantPool } = require('./tenant-connection-manager');
 const { buildProductsModulesBundle } = require('./products-modules-builder');
 const {
@@ -139,25 +140,41 @@ const sendHtmlWithNumberFormat = (res, filePath) => {
       return;
     }
     res.set('Content-Type', 'text/html; charset=utf-8');
-    const withNumberFormat = injectNumberFormatScript(html);
-    const withFormValidation = injectFormValidationAssets(withNumberFormat);
-    const fileName = path.basename(filePath || '');
-    if (fileName === 'login-page.html' || fileName === 'register.html') {
-      res.send(injectDarkModeAssets(withFormValidation));
+    res.send(prepareHtmlPayload(html, filePath));
+  });
+};
+
+const prepareHtmlPayload = (html, filePath) => {
+  const withNumberFormat = injectNumberFormatScript(html);
+  const withFormValidation = injectFormValidationAssets(withNumberFormat);
+  const fileName = path.basename(filePath || '');
+  if (fileName === 'login-page.html' || fileName === 'register.html') {
+    return injectDarkModeAssets(withFormValidation);
+  }
+  const isNewhomePage = filePath.includes(`${path.sep}newhome${path.sep}`);
+  if (isNewhomePage) {
+    const withDarkMode = injectDarkModeAssets(withFormValidation);
+    if (isPublicHomepageFile(filePath)) {
+      return withDarkMode;
+    }
+    return injectGlobalBackButtonAssets(withDarkMode);
+  }
+  const withGlobalBack = injectGlobalBackButtonAssets(withFormValidation);
+  return injectDarkModeAssets(withGlobalBack);
+};
+
+const sendHubPageHtml = (res, filePath, req) => {
+  fs.readFile(filePath, 'utf8', (err, html) => {
+    if (err) {
+      res.status(500).send('Page not available');
       return;
     }
-    const isNewhomePage = filePath.includes(`${path.sep}newhome${path.sep}`);
-    if (isNewhomePage) {
-      const withDarkMode = injectDarkModeAssets(withFormValidation);
-      if (isPublicHomepageFile(filePath)) {
-        res.send(withDarkMode);
-        return;
-      }
-      res.send(injectGlobalBackButtonAssets(withDarkMode));
-      return;
+    let payload = html;
+    if (req.tenant && req.tenantPermissionBundle) {
+      payload = filterHubHtml(html, req.tenant, req.tenantPermissionBundle);
     }
-    const withGlobalBack = injectGlobalBackButtonAssets(withFormValidation);
-    res.send(injectDarkModeAssets(withGlobalBack));
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(prepareHtmlPayload(payload, filePath));
   });
 };
 
@@ -2851,6 +2868,7 @@ const requireAuthForHtml = async (req, res, next) => {
 
     if (req.tenant && req.tenantPool && String(resolvedContext.type || '').toUpperCase() === 'TENANT') {
       const permissionBundle = await getTenantPermissionBundle(db, req.tenant);
+      req.tenantPermissionBundle = permissionBundle;
       const allowed = isPathAllowed(req.path, {
         tenantType: 'TENANT',
         entityId: resolvedContext.id,
@@ -2927,6 +2945,9 @@ app.get('/finance*', (req, res, next) => {
     }
 
     let html = fs.readFileSync(filePath, 'utf8');
+    if (req.tenant && req.tenantPermissionBundle && path.basename(filePath) === 'index.html') {
+      html = filterHubHtml(html, req.tenant, req.tenantPermissionBundle);
+    }
     html = html
       .replace(/const ENTITY_ID = '1';/g, "const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';")
       .replace(/const ENTITY_ID = 'HQ001';/g, "const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';")
@@ -3704,7 +3725,12 @@ const serveHrHome = (req, res, next) => {
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     res.set('Surrogate-Control', 'no-store');
-    sendHtmlWithNumberFormat(res, path.join(__dirname, 'finance', target));
+    const hrFilePath = path.join(__dirname, 'finance', target);
+    if (target === 'hr-home.html') {
+      sendHubPageHtml(res, hrFilePath, req);
+    } else {
+      sendHtmlWithNumberFormat(res, hrFilePath);
+    }
   } catch (error) {
     res.status(500).send('HR page not available');
   }
@@ -3749,7 +3775,7 @@ const serveArchiveHome = (req, res, next) => {
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     res.set('Surrogate-Control', 'no-store');
-    sendHtmlWithNumberFormat(res, path.join(__dirname, 'finance', 'archive-home.html'));
+    sendHubPageHtml(res, path.join(__dirname, 'finance', 'archive-home.html'), req);
   } catch (error) {
     res.status(500).send('Archive page not available');
   }

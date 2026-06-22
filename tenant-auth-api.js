@@ -477,7 +477,7 @@ router.post('/filter-paths', verifyLimiter, async (req, res) => {
   try {
     const resolved = await _resolveTenantSession(req, token);
     if (!resolved) {
-      return res.json({ success: true, bypass: true, allowed: paths });
+      return res.json({ success: true, bypass: false, allowed: [] });
     }
     if (resolved.inactive) {
       return res.status(403).json({ success: false, message: 'حساب المستأجر غير نشط.' });
