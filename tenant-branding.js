@@ -105,15 +105,15 @@
       node.textContent = siteName;
     });
 
-    if (document.title.includes('نايو') || document.title.includes('NAIOSH') || document.title.includes('نظام')) {
-      document.title = document.title
-        .replace(/نايوش|NAIOSH ERP|NAIOSH/gi, siteName)
-        .replace(/نظام نايو/gi, siteName);
-    }
-
-    const sidebarTitle = document.querySelector('#sidebar .sidebar-brand-name, #sidebar h2, #sidebar .font-black');
-    if (sidebarTitle && sidebarTitle.textContent && /نايو|NAIOSH/i.test(sidebarTitle.textContent)) {
-      sidebarTitle.textContent = siteName;
+    if (siteName) {
+      const titleBase = siteTagline ? `${siteName} | ${siteTagline}` : siteName;
+      if (/نايو|NAIOSH|نظام/i.test(document.title)) {
+        document.title = document.title
+          .replace(/نايوش|NAIOSH ERP|NAIOSH/gi, siteName)
+          .replace(/نظام نايو/gi, siteName);
+      } else if (isTenantContext()) {
+        document.title = titleBase;
+      }
     }
 
     if (siteTagline) {
@@ -121,6 +121,25 @@
         node.textContent = siteTagline;
       });
     }
+  }
+
+  function applySidebarChrome(primary, secondary) {
+    const gradientHeader = `linear-gradient(135deg, ${secondary} 0%, ${primary} 52%, ${secondary} 100%)`;
+    const gradientSidebar = `linear-gradient(180deg, ${secondary} 0%, ${primary} 100%)`;
+
+    document.querySelectorAll('[data-tenant-brand="header"]').forEach((el) => {
+      el.style.setProperty('background', gradientHeader, 'important');
+    });
+
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      sidebar.style.setProperty('background', gradientSidebar, 'important');
+    }
+
+    document.querySelectorAll('[data-tenant-brand="footer"]').forEach((el) => {
+      el.style.setProperty('background-color', secondary, 'important');
+      el.style.setProperty('opacity', '0.92', 'important');
+    });
   }
 
   function injectBrandingStyles(identity) {
@@ -139,9 +158,25 @@
       body.tenant-branded .bg-red-700,
       body.tenant-branded .from-red-600,
       body.tenant-branded .to-red-700,
+      body.tenant-branded .from-red-900,
+      body.tenant-branded .via-red-800,
+      body.tenant-branded .to-red-950,
+      body.tenant-branded .bg-red-950,
+      body.tenant-branded .bg-red-950\\/50,
       body.tenant-branded button.bg-red-600,
       body.tenant-branded a.bg-red-600 {
         background-color: ${primary} !important;
+      }
+      body.tenant-branded .bg-gradient-to-b.from-red-950.to-red-900,
+      body.tenant-branded .bg-gradient-to-br.from-red-900,
+      body.tenant-branded #sidebar.bg-gradient-to-b {
+        background: linear-gradient(180deg, ${secondary} 0%, ${primary} 100%) !important;
+      }
+      body.tenant-branded [data-tenant-brand="header"] {
+        background: linear-gradient(135deg, ${secondary} 0%, ${primary} 52%, ${secondary} 100%) !important;
+      }
+      body.tenant-branded [data-tenant-brand="footer"] {
+        background-color: ${secondary} !important;
       }
       body.tenant-branded .text-red-600,
       body.tenant-branded .text-red-700,
@@ -150,11 +185,16 @@
         color: ${primary} !important;
       }
       body.tenant-branded .border-red-500,
-      body.tenant-branded .hover\\:border-red-500:hover {
+      body.tenant-branded .hover\\:border-red-500:hover,
+      body.tenant-branded .border-red-800 {
         border-color: ${primary} !important;
       }
       body.tenant-branded #sidebar {
         background: linear-gradient(180deg, ${secondary} 0%, ${primary} 100%) !important;
+      }
+      body.tenant-branded .bg-primary {
+        background-color: ${primary} !important;
+        background-image: linear-gradient(135deg, ${secondary}, ${primary}) !important;
       }
     `;
   }
@@ -182,6 +222,7 @@
       applyLogo(identity.logo_url);
       applyFavicon(identity.favicon_url, identity.logo_url);
       applySiteName(identity.site_name, identity.site_tagline);
+      applySidebarChrome(identity.primary_color, identity.secondary_color);
       injectBrandingStyles(identity);
 
       window.__TENANT_IDENTITY__ = identity;
