@@ -5,6 +5,7 @@
  * المرحلة 1 — واجهة برمجية للانضمام الذاتي عبر SaaS
  *
  * المسارات:
+ *  GET  /api/saas/config                      — إعدادات النطاق وطريقة وصول المستأجر
  *  POST /api/saas/validate-subdomain         — التحقق من توفر النطاق الفرعي
  *  POST /api/saas/signup/start               — الخطوة 1: حفظ بيانات التسجيل مؤقتاً
  *  POST /api/saas/payment/create-session     — الخطوة 2: إنشاء جلسة دفع
@@ -25,7 +26,7 @@ const crypto = require('crypto');
 const { rateLimit } = require('express-rate-limit');
 const db = require('./db');
 const { provisionTenant } = require('./tenant-provisioner');
-const { buildTenantLoginUrl } = require('./tenant-login-url');
+const { buildTenantLoginUrl, getTenantDomainConfig } = require('./tenant-login-url');
 const { seedTenantPageAccess } = require('./tenant-page-access-seed');
 const platformPayment = require('./payment/platform-service');
 const { decryptPlatformSecret } = require('./payment/secrets');
@@ -274,6 +275,21 @@ async function _getProvisioningStepsByTenantId(tenantId) {
 
   return res.rows;
 }
+
+// ================================================================
+// GET /api/saas/config — إعدادات النطاق والوصول للمستأجرين
+// ================================================================
+router.get('/config', async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      ...getTenantDomainConfig(req)
+    });
+  } catch (err) {
+    console.error('[SaaS] config error:', err.message);
+    return res.status(500).json({ success: false, message: 'تعذّر تحميل إعدادات المنصة.' });
+  }
+});
 
 // ================================================================
 // POST /api/saas/validate-subdomain
@@ -737,7 +753,7 @@ router.get('/signup/status/:token', async (req, res) => {
     }
   }
 
-  const loginUrl = buildTenantLoginUrl(row.subdomain);
+  const loginUrl = buildTenantLoginUrl(row.subdomain, req);
   const steps = await _getProvisioningStepsByTenantId(row.tenant_id);
   const hasFailure = steps.some(step => step.status === 'failed');
 

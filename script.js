@@ -17,9 +17,21 @@ function hideGlobalLoading() {
 // Global API Configuration (accessible from all functions)
 const API_BASE_URL = '/api';
 
-function getAppAuthContext() {
-    const host = window.location.hostname.toLowerCase();
+function getTenantAuthContextFromLocation(locationRef = window.location) {
     const reserved = new Set(['www', 'app', 'api', 'admin', 'saas']);
+    const pathMatch = String(locationRef.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)(?:\/|$)/i);
+    if (pathMatch) {
+        const pathSubdomain = pathMatch[1].toLowerCase();
+        if (!reserved.has(pathSubdomain)) {
+            return {
+                isTenant: true,
+                tenantSubdomain: pathSubdomain,
+                tenantAccessMode: 'path'
+            };
+        }
+    }
+
+    const host = locationRef.hostname.toLowerCase();
     const parts = host.split('.');
     const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : host;
     const subdomain = host.endsWith('.' + baseDomain)
@@ -35,8 +47,37 @@ function getAppAuthContext() {
 
     return {
         isTenant,
-        verifyEndpoint: isTenant ? '/api/tenant-auth/verify' : '/api/auth/verify'
+        tenantSubdomain: isTenant ? subdomain : null,
+        tenantAccessMode: isTenant ? 'subdomain' : 'central'
     };
+}
+
+function getAppAuthContext() {
+    const params = new URLSearchParams(window.location.search);
+    const queryTenant = (params.get('tenant') || params.get('subdomain') || '').trim().toLowerCase();
+    const reserved = new Set(['www', 'app', 'api', 'admin', 'saas']);
+
+    if (queryTenant && !queryTenant.includes('.') && !reserved.has(queryTenant)) {
+        return {
+            isTenant: true,
+            tenantSubdomain: queryTenant,
+            tenantAccessMode: 'query',
+            verifyEndpoint: '/api/tenant-auth/verify'
+        };
+    }
+
+    const locationContext = getTenantAuthContextFromLocation();
+    return {
+        ...locationContext,
+        verifyEndpoint: locationContext.isTenant ? '/api/tenant-auth/verify' : '/api/auth/verify'
+    };
+}
+
+function getTenantAuthHeaders(authContext = getAppAuthContext()) {
+    if (!authContext?.isTenant || !authContext.tenantSubdomain) {
+        return {};
+    }
+    return { 'X-Tenant-Subdomain': authContext.tenantSubdomain };
 }
 
 const app = (() => {
@@ -56,6 +97,7 @@ const app = (() => {
         try {
             const headers = {
                 'Content-Type': 'application/json',
+                ...getTenantAuthHeaders(),
                 ...options.headers
             };
 
@@ -350,7 +392,8 @@ const app = (() => {
                 const authContext = getAppAuthContext();
                 const verifyResponse = await fetch(authContext.verifyEndpoint, {
                     headers: {
-                        'Authorization': `Bearer ${authToken}`
+                        'Authorization': `Bearer ${authToken}`,
+                        ...getTenantAuthHeaders(authContext)
                     }
                 });
 

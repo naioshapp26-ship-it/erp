@@ -4,12 +4,13 @@
  * tenant-resolver.js
  * المرحلة 0 — وسيط تحديد هوية المستأجر (Tenant Resolution Middleware)
  *
- * يستنتج سياق المستأجر من النطاق الفرعي في كل طلب، ويُضيف إلى req:
+ * يستنتج سياق المستأجر من النطاق الفرعي أو المسار /t/{subdomain} في كل طلب، ويُضيف إلى req:
  *   req.tenant      — صف المستأجر من الجدول المركزي (أو null للنطاق الرئيسي)
  *   req.tenantPool  — حمام اتصال قاعدة بيانات المستأجر (أو null للنطاق الرئيسي)
  *
  * السلوك:
  *   - apex (example.com) أو www.example.com → تطبيق مركزي، req.tenant = null
+ *   - /t/{subdomain}/... → مستأجر عبر مسار بديل (بدون wildcard DNS)
  *   - نطاق فرعي محجوز (app, api, admin, saas) → 400
  *   - نطاق فرعي صالح + مستأجر نشط → req.tenant + req.tenantPool
  *   - مستأجر موقوف (suspended) → صفحة HTML للمتصفح، 403 JSON لـ API
@@ -17,64 +18,21 @@
  *   - محذوف أو غير موجود → 404
  *
  * متطلبات بيئة التشغيل:
- *   BASE_DOMAIN  — النطاق الرئيسي مثل "example.com"
+ *   BASE_DOMAIN       — النطاق الرئيسي مثل "example.com"
+ *   PUBLIC_APP_URL    — اختياري: الرابط العام للتطبيق عند استخدام مسار /t/{subdomain}
  */
 
 const db = require('./db');
 const { getTenantPool } = require('./tenant-connection-manager');
-const { isRailwayOrPlatformHost } = require('./tenant-login-url');
-
-const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'api', 'admin', 'saas']);
-
-/**
- * استخراج النطاق الفرعي من hostname.
- * مثال: "acme.example.com" مع BASE_DOMAIN="example.com" → "acme"
- * @param {string} hostname
- * @param {string} baseDomain
- * @returns {string|null}  النطاق الفرعي، أو null إذا كان النطاق هو apex أو www
- */
-function extractSubdomain(hostname, baseDomain) {
-  // أزل المنفذ إن وُجد
-  const host = hostname.split(':')[0].toLowerCase();
-  const base = baseDomain.toLowerCase();
-
-  if (host === base || host === `www.${base}`) return null;
-  if (host.endsWith(`.${base}`)) {
-    const sub = host.slice(0, host.length - base.length - 1);
-    // نطاق فرعي من مستوى واحد فقط
-    if (!sub.includes('.')) return sub;
-  }
-  return null;
-}
-
-function normalizeSubdomainCandidate(value) {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (!normalized || normalized.includes('.') || RESERVED_SUBDOMAINS.has(normalized)) {
-    return null;
-  }
-  return normalized;
-}
-
-/**
- * استخراج النطاق الفرعي من الرأس أو معاملات الاستعلام (للاستضافة المركزية مثل Railway).
- */
-function resolveSubdomainFromRequest(req) {
-  const baseDomain = String(process.env.BASE_DOMAIN || '').trim().toLowerCase();
-  const host = String(req.hostname || '').split(':')[0].toLowerCase();
-
-  if (baseDomain && !isRailwayOrPlatformHost(host)) {
-    const fromHost = extractSubdomain(host, baseDomain);
-    if (fromHost) return fromHost;
-  }
-
-  const fromHeader = normalizeSubdomainCandidate(req.headers['x-tenant-subdomain']);
-  if (fromHeader) return fromHeader;
-
-  const fromQuery = normalizeSubdomainCandidate(req.query?.tenant || req.query?.subdomain);
-  if (fromQuery) return fromQuery;
-
-  return null;
-}
+const {
+  RESERVED_SUBDOMAINS,
+  getConfiguredBaseDomain,
+  extractSubdomainFromHostname,
+  extractSubdomainFromPath,
+  stripTenantPathPrefix,
+  rewriteRequestPath,
+  isValidTenantSubdomain
+} = require('./tenant-domain');
 
 /**
  * صفحة HTML للمستأجر الموقوف.
@@ -111,21 +69,65 @@ function suspendedHtmlPage(companyName) {
  * وسيط Express الرئيسي لتحديد هوية المستأجر.
  */
 async function tenantResolver(req, res, next) {
-  const subdomain = resolveSubdomainFromRequest(req);
+  const baseDomain = getConfiguredBaseDomain();
+  let subdomain = null;
+  let accessMode = 'central';
 
-  // لا يوجد نطاق فرعي → تطبيق مركزي
+  const pathSubdomain = extractSubdomainFromPath(req.path);
+  if (pathSubdomain) {
+    const pathOnly = String(req.path || '').split('?')[0];
+    if (pathOnly === `/t/${pathSubdomain}`) {
+      return res.redirect(302, `/t/${pathSubdomain}/login-page.html`);
+    }
+
+    subdomain = pathSubdomain;
+    accessMode = 'path';
+    req.tenantAccessMode = 'path';
+    req.tenantPathSubdomain = pathSubdomain;
+    rewriteRequestPath(req, stripTenantPathPrefix(req.path, pathSubdomain));
+  } else if (baseDomain) {
+    subdomain = extractSubdomainFromHostname(req.hostname, baseDomain);
+    if (subdomain === null) {
+      const headerSubdomain = String(req.headers['x-tenant-subdomain'] || '').trim().toLowerCase();
+      if (headerSubdomain && isValidTenantSubdomain(headerSubdomain)) {
+        subdomain = headerSubdomain;
+        accessMode = 'header';
+        req.tenantAccessMode = 'header';
+      } else {
+        req.tenant = null;
+        req.tenantPool = null;
+        req.tenantAccessMode = 'central';
+        return next();
+      }
+    } else {
+      accessMode = 'subdomain';
+      req.tenantAccessMode = 'subdomain';
+    }
+  } else {
+    const headerSubdomain = String(req.headers['x-tenant-subdomain'] || '').trim().toLowerCase();
+    if (headerSubdomain && isValidTenantSubdomain(headerSubdomain)) {
+      subdomain = headerSubdomain;
+      accessMode = 'header';
+      req.tenantAccessMode = 'header';
+    } else {
+      req.tenant = null;
+      req.tenantPool = null;
+      req.tenantAccessMode = 'central';
+      return next();
+    }
+  }
+
   if (!subdomain) {
     req.tenant = null;
     req.tenantPool = null;
+    req.tenantAccessMode = accessMode;
     return next();
   }
 
-  // نطاق فرعي محجوز
-  if (RESERVED_SUBDOMAINS.has(subdomain)) {
-    return res.status(400).json({ error: 'النطاق الفرعي محجوز ولا يمكن استخدامه.' });
+  if (!isValidTenantSubdomain(subdomain) || RESERVED_SUBDOMAINS.has(subdomain)) {
+    return res.status(400).json({ error: 'النطاق الفرعي محجوز أو غير صالح.' });
   }
 
-  // تحميل المستأجر من الجدول المركزي
   let tenant;
   try {
     const result = await db.query(
@@ -142,7 +144,6 @@ async function tenantResolver(req, res, next) {
     return res.status(404).json({ error: 'المستأجر غير موجود.' });
   }
 
-  // معالجة حالات المستأجر
   switch (tenant.status) {
     case 'active':
       break;
@@ -170,10 +171,10 @@ async function tenantResolver(req, res, next) {
       return res.status(404).json({ error: 'المستأجر غير موجود.' });
   }
 
-  // ربط حمام الاتصال بالطلب
   try {
     req.tenant = tenant;
     req.tenantPool = getTenantPool(tenant.subdomain, tenant.encrypted_db_url);
+    req.tenantAccessMode = accessMode;
     return next();
   } catch (err) {
     console.error('[tenantResolver] خطأ في إنشاء حمام اتصال المستأجر:', err.message);
@@ -183,7 +184,6 @@ async function tenantResolver(req, res, next) {
 
 module.exports = {
   tenantResolver,
-  extractSubdomain,
-  resolveSubdomainFromRequest,
+  extractSubdomain: extractSubdomainFromHostname,
   RESERVED_SUBDOMAINS
 };

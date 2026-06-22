@@ -346,13 +346,31 @@ function setSubdomainStatus(html, cls) {
   el.className = 'subdomain-status ' + cls;
 }
 
-// اكتشاف النطاق الأساسي
-(function setSubdomainSuffix() {
+// اكتشاف النطاق الأساسي من إعدادات المنصة
+(async function setSubdomainSuffix() {
+  const suffixEl = document.getElementById('subdomainSuffix');
+  try {
+    const r = await fetch('/api/saas/config');
+    const data = await r.json();
+    if (data.success) {
+      if (data.accessMode === 'subdomain' && data.subdomainSuffix) {
+        suffixEl.textContent = data.subdomainSuffix;
+        return;
+      }
+      if (data.accessMode === 'path') {
+        suffixEl.textContent = `${data.tenantPathPrefix || '/t'}/`;
+        suffixEl.title = data.subdomainPreview || '';
+        return;
+      }
+    }
+  } catch (_) {
+    // fallback below
+  }
+
   const host = window.location.hostname;
   const parts = host.split('.');
-  // apex أو www → نطاق رئيسي
   const base = parts.length >= 2 ? parts.slice(-2).join('.') : host;
-  document.getElementById('subdomainSuffix').textContent = '.' + base;
+  suffixEl.textContent = '.' + base;
 })();
 
 function selectPlan(card) {
