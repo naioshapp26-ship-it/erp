@@ -196,9 +196,7 @@ function buildHrModules() {
 }
 
 function buildArchiveModules() {
-  const registryModules = modulesFromParentKey('records-archive-home');
-  const hubModules = parseHubFromFile('finance/archive-home.html', 'archive-cards', '/hr');
-  return dedupeModules([...registryModules, ...hubModules]);
+  return parseHubFromFile('finance/archive-home.html', 'archive-cards', '/hr');
 }
 
 function buildPaymentModules() {

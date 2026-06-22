@@ -65,20 +65,6 @@ const OFFICE_ROUTE_PARENTS = {
   'identity-settings': 'strategic-management',
   'system-log': 'strategic-management',
   reports: 'strategic-management',
-  'records-master-register': 'records-archive-home',
-  'records-students': 'records-archive-home',
-  'records-financial-collection': 'records-archive-home',
-  'records-financial-affairs': 'records-archive-home',
-  'records-academic-admin': 'records-archive-home',
-  'records-quality': 'records-archive-home',
-  'records-executive': 'records-archive-home',
-  'records-facilities': 'records-archive-home',
-  'records-confidential': 'records-archive-home',
-  'records-reports': 'records-archive-home',
-  'records-user-guide': 'records-archive-home',
-  'records-system-analysis': 'records-archive-home',
-  'records-secure-access': 'records-archive-home',
-  'records-security-log': 'records-archive-home',
   'invoices-enhanced': 'payment-menu',
   'payment-methods': 'payment-menu',
   'installment-plans': 'payment-menu',
@@ -255,20 +241,6 @@ const OFFICE_ROUTE_PARENTS = {
 const ROUTE_TO_PATH = {
   dashboard: '/home',
   'records-archive-home': '/archive',
-  'records-master-register': '/archive/general-admin-files',
-  'records-students': '/archive/student-affairs',
-  'records-financial-collection': '/archive/marketing-sales',
-  'records-financial-affairs': '/archive/finance-accounting',
-  'records-academic-admin': '/archive/academic-admin',
-  'records-quality': '/archive/training-education',
-  'records-executive': '/archive/human-resources',
-  'records-facilities': '/archive/projects',
-  'records-confidential': '/archive/confidential',
-  'records-reports': '/archive/outgoing',
-  'records-user-guide': '/archive/user-guide',
-  'records-system-analysis': '/archive/it',
-  'records-secure-access': '/archive/access-control',
-  'records-security-log': '/archive/audit-log',
   hr: '/hr',
   finance: '/finance',
   'strategic-management': '/strategic',
@@ -340,20 +312,6 @@ function getPageLabel(key) {
 const PAGE_LABELS = {
   dashboard: 'الرئيسية',
   'records-archive-home': 'نظام السجلات والأرشفة',
-  'records-master-register': 'قسم ملفات عامة و إدارية',
-  'records-students': 'شؤون الطلاب',
-  'records-financial-collection': 'قسم التسويق و المبيعات',
-  'records-financial-affairs': 'قسم المالية و المحاسبة',
-  'records-academic-admin': 'الادارة الاكاديمية',
-  'records-quality': 'قسم التدريب و التعليم',
-  'records-executive': 'قسم الموارد البشرية',
-  'records-facilities': 'قسم المشاريع',
-  'records-confidential': 'المستندات السرية',
-  'records-reports': 'قسم الصادر',
-  'records-user-guide': 'دليل الاستخدام',
-  'records-system-analysis': 'قسم IT',
-  'records-secure-access': 'نظام الوصول الآمن',
-  'records-security-log': 'سجل النشاطات الأمنية',
   hr: 'الموارد البشرية',
   'strategic-management': 'الإدارة الاستراتيجية',
   hierarchy: 'الهيكل الهرمي',
@@ -463,6 +421,93 @@ function financeRelativePathToLabel(relativePath) {
   return base.replace(/-/g, ' ');
 }
 
+const HUB_SYSTEM_SOURCES = {
+  'records-archive-home': {
+    file: 'finance/archive-home.html',
+    containerId: 'archive-cards',
+    hrefPrefix: '/hr'
+  },
+  hr: {
+    file: 'finance/hr-home.html',
+    containerId: 'hr-cards',
+    hrefPrefix: '/hr'
+  },
+  finance: {
+    file: 'finance/index.html',
+    containerId: 'finance-cards',
+    hrefPrefix: '/finance'
+  }
+};
+
+let hubPagesCache = null;
+
+function parseHubCardsFromFile(relativeFile, containerId, hrefPrefix) {
+  const filePath = path.join(__dirname, relativeFile);
+  if (!fs.existsSync(filePath)) return [];
+  const html = fs.readFileSync(filePath, 'utf8');
+  const blockMatch = html.match(
+    new RegExp(`id="${containerId}"[\\s\\S]*?(?=</div>\\s*</div>|</main>|</body>)`)
+  );
+  if (!blockMatch) return [];
+
+  const pages = [];
+  const seen = new Set();
+  const linkRe = /href="([^"]+)"[\s\S]*?<span class="flex-1 text-right">([^<]+)<\/span>/g;
+  let match;
+  while ((match = linkRe.exec(blockMatch[0])) !== null) {
+    const href = match[1].trim();
+    const label = match[2].replace(/\s+/g, ' ').trim();
+    if (!href.startsWith(hrefPrefix) || href.includes('#') || !label || seen.has(href)) continue;
+    seen.add(href);
+    pages.push({ href, label });
+  }
+  return pages;
+}
+
+function hrefToHubPageKey(href, systemKey) {
+  const normalizedHref = href.replace(/\/+$/, '');
+  if (systemKey === 'records-archive-home') {
+    const slug = normalizedHref.replace(/^\/hr\//, '').replace(/\//g, '-');
+    return `archive-${slug}`;
+  }
+  if (systemKey === 'hr') {
+    return normalizedHref.replace(/^\/hr\//, '').replace(/\//g, '-');
+  }
+  if (systemKey === 'finance') {
+    const rel = normalizedHref.replace(/^\/finance\//, '');
+    return financeRelativePathToKey(rel);
+  }
+  return null;
+}
+
+function buildHubSystemPages(systemKey) {
+  const src = HUB_SYSTEM_SOURCES[systemKey];
+  if (!src) return [];
+  return parseHubCardsFromFile(src.file, src.containerId, src.hrefPrefix).map(({ href, label }) => {
+    const key = hrefToHubPageKey(href, systemKey);
+    const routePath = href.startsWith('/') ? href : `/${href}`;
+    PAGE_LABELS[key] = label;
+    ROUTE_TO_PATH[key] = routePath.replace(/\/+$/, '') || routePath;
+    return { key, label, path: routePath };
+  });
+}
+
+function getHubPagesBySystem() {
+  if (hubPagesCache) return hubPagesCache;
+  hubPagesCache = {};
+  Object.keys(HUB_SYSTEM_SOURCES).forEach((systemKey) => {
+    hubPagesCache[systemKey] = buildHubSystemPages(systemKey);
+  });
+  return hubPagesCache;
+}
+
+function getArchivePathToKeyMap() {
+  const pages = getHubPagesBySystem()['records-archive-home'] || [];
+  return Object.fromEntries(
+    pages.map((page) => [page.path.replace(/\/+$/, ''), page.key])
+  );
+}
+
 function collectFinanceRouteEntries() {
   if (financeRouteEntries) return financeRouteEntries;
   const financeRoot = path.join(__dirname, 'finance');
@@ -502,15 +547,20 @@ function getRuntimeRouteParents() {
   if (runtimeRouteParents) return runtimeRouteParents;
   runtimeRouteParents = { ...OFFICE_ROUTE_PARENTS };
 
+  Object.entries(getHubPagesBySystem()).forEach(([systemKey, pages]) => {
+    pages.forEach((page) => {
+      runtimeRouteParents[page.key] = systemKey;
+    });
+  });
+
   Object.entries(ROUTE_TO_PATH).forEach(([key, routePath]) => {
-    if (routePath === '/hr' || routePath.startsWith('/hr/')) {
-      if (key !== 'hr') runtimeRouteParents[key] = 'hr';
+    if ((routePath === '/hr' || routePath.startsWith('/hr/')) && key !== 'hr' && !runtimeRouteParents[key]) {
+      runtimeRouteParents[key] = 'hr';
     }
   });
 
   collectFinanceRouteEntries().forEach((entry) => {
-    if (entry.key !== 'finance') {
-      runtimeRouteParents[entry.key] = 'finance';
+    if (entry.key !== 'finance' && !runtimeRouteParents[entry.key]) {
       ROUTE_TO_PATH[entry.key] = entry.routePath;
     }
   });
@@ -529,26 +579,19 @@ function getChildrenByParent() {
   return map;
 }
 
-function buildHrPages() {
-  const pages = [{ key: 'hr', label: getPageLabel('hr') }];
-  const seen = new Set(['hr']);
-  Object.entries(ROUTE_TO_PATH).forEach(([key, routePath]) => {
-    if ((routePath === '/hr' || routePath.startsWith('/hr/')) && !seen.has(key)) {
-      pages.push({ key, label: getPageLabel(key) });
-      seen.add(key);
-    }
-  });
-  return pages.sort((a, b) => a.label.localeCompare(b.label, 'ar'));
-}
-
-function buildFinancePages() {
-  return collectFinanceRouteEntries().map(({ key, label }) => ({ key, label }));
+function buildHubPagesList(systemKey) {
+  const hubPages = getHubPagesBySystem()[systemKey] || [];
+  return [
+    { key: systemKey, label: getPageLabel(systemKey) },
+    ...hubPages.map((page) => ({ key: page.key, label: page.label }))
+  ];
 }
 
 function getPagesForSystem(systemKey) {
   const normalized = normalizePageKey(systemKey);
-  if (normalized === 'hr') return buildHrPages();
-  if (normalized === 'finance') return buildFinancePages();
+  if (HUB_SYSTEM_SOURCES[normalized]) {
+    return buildHubPagesList(normalized);
+  }
 
   const children = getChildrenByParent()[normalized] || [];
   const pages = [{ key: normalized, label: getPageLabel(normalized) }];
@@ -572,6 +615,9 @@ function getSystemRootKeys() {
 
 function buildPermissionRegistry() {
   if (cachedRegistry) return cachedRegistry;
+
+  hubPagesCache = null;
+  runtimeRouteParents = null;
 
   getRuntimeRouteParents();
   const allSystems = getSystemRootKeys()
@@ -631,17 +677,17 @@ function getPageKeysForPath(requestPath) {
   if (normalized === '/dashboard.html' || normalized === '/home') return ['dashboard'];
   if (normalized === '/archive') return ['records-archive-home'];
   if (normalized.startsWith('/archive/')) {
-    const archivePathMap = Object.fromEntries(
-      Object.entries(ROUTE_TO_PATH)
-        .filter(([, routePath]) => routePath.startsWith('/archive/'))
-        .map(([key, routePath]) => [routePath.replace(/\/+$/, ''), key])
-    );
-    const match = archivePathMap[normalized];
-    return match ? [match, 'records-archive-home'] : ['records-archive-home'];
+    return ['records-archive-home'];
   }
   if (normalized === '/hr') return ['hr'];
   if (normalized.startsWith('/hr/')) {
-    const hrMatch = Object.entries(ROUTE_TO_PATH).find(([, routePath]) => routePath.replace(/\/+$/, '') === normalized);
+    const archivePathMap = getArchivePathToKeyMap();
+    if (archivePathMap[normalized]) {
+      return [archivePathMap[normalized], 'records-archive-home'];
+    }
+    const hrMatch = Object.entries(ROUTE_TO_PATH).find(
+      ([, routePath]) => routePath.replace(/\/+$/, '') === normalized
+    );
     return hrMatch ? [hrMatch[0], 'hr'] : ['hr'];
   }
   if (normalized === '/finance' || normalized === '/finance/index.html') return ['finance'];
