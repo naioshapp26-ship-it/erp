@@ -77,7 +77,7 @@ async function tenantResolver(req, res, next) {
   if (pathSubdomain) {
     const pathOnly = String(req.path || '').split('?')[0];
     if (pathOnly === `/t/${pathSubdomain}`) {
-      return res.redirect(302, `/t/${pathSubdomain}/login-page.html`);
+      return res.redirect(302, `/t/${pathSubdomain}/`);
     }
 
     subdomain = pathSubdomain;
