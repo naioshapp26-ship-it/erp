@@ -1,5 +1,7 @@
 'use strict';
 
+const { buildFinanceHubBrandingCss } = require('./tenant-finance-hub-branding-css');
+
 const { sanitizeCssColor } = require('./tenant-branding-service');
 
 function escapeHtml(value) {
@@ -189,6 +191,7 @@ function buildCriticalBrandingBlock(identity, tenant = null) {
       html[data-tenant-brand-ready="1"] img[src*="tenant-public/logo"] {
         visibility: visible !important;
       }
+      ${buildFinanceHubBrandingCss(primary, secondary)}
     </style>
     <script id="tenant-branding-boot">
       (function () {
