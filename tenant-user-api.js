@@ -322,6 +322,21 @@ router.patch('/:id', requireTenantAuth, async (req, res) => {
   if (email !== undefined) {
     params.push(email ? String(email).trim().toLowerCase() : null);
     updates.push(`email = $${params.length}`);
+    if (isAdmin || isSelf) {
+      const currentUserResult = await req.tenantPool.query(
+        `SELECT email, username FROM users WHERE id = $1 LIMIT 1`,
+        [userId]
+      );
+      const currentRow = currentUserResult.rows[0];
+      if (currentRow?.email && currentRow?.username) {
+        const prevEmail = String(currentRow.email).trim().toLowerCase();
+        const prevUsername = String(currentRow.username).trim().toLowerCase();
+        if (prevUsername === prevEmail) {
+          params.push(email ? String(email).trim().toLowerCase() : null);
+          updates.push(`username = $${params.length}`);
+        }
+      }
+    }
   }
   if (phone !== undefined) {
     params.push(phone ? String(phone).trim() : null);

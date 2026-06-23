@@ -104,6 +104,30 @@
             <i class="fa fa-save"></i> حفظ الهوية
           </button>
         </div>
+
+        <hr class="my-6 border-slate-200">
+
+        <h3 class="text-lg font-black text-slate-900 mb-1">بريد الدخول للمنصة</h3>
+        <p class="text-sm text-slate-500 mb-4">غيّر البريد الذي تستخدمه لتسجيل الدخول ليتماشى مع اسم وهوية شركتك</p>
+
+        <div class="pay-field">
+          <label for="login_email">البريد الحالي / الجديد *</label>
+          <input id="login_email" type="email" placeholder="مثال: admin@posha.com" dir="ltr">
+        </div>
+
+        <div class="pay-info-box mb-4">
+          <i class="fa fa-lightbulb"></i>
+          <p id="email-suggestion">اقتراح: استخدم بريداً يحمل اسم شركتك مثل admin@اسم-الشركة.com</p>
+        </div>
+
+        <div class="pay-actions">
+          <button type="button" class="pay-btn pay-btn-secondary" id="suggest-email-btn">
+            <i class="fa fa-wand-magic-sparkles"></i> اقتراح بريد مناسب
+          </button>
+          <button type="button" class="pay-btn pay-btn-primary" id="save-email-btn" onclick="saveLoginEmail()">
+            <i class="fa fa-envelope"></i> حفظ بريد الدخول
+          </button>
+        </div>
       </div>
 
       <div class="preview-card">
@@ -159,6 +183,69 @@
       document.getElementById('preview_header').style.background = `linear-gradient(135deg, ${secondary}, ${primary})`;
       document.getElementById('preview_button').style.background = primary;
       document.getElementById('preview_badge').style.background = primary;
+    }
+
+    function updateEmailSuggestion() {
+      const siteName = document.getElementById('site_name').value.trim();
+      const subdomain = ((location.pathname.match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1] || 'company').toLowerCase();
+      const latinName = siteName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toLowerCase();
+      const slug = latinName || subdomain;
+      const suggestion = `admin@${slug}.com`;
+      document.getElementById('email-suggestion').textContent = `اقتراح: ${suggestion}`;
+      return suggestion;
+    }
+
+    async function loadLoginEmail() {
+      const response = await fetch(scopedPath('/api/tenant-settings/login-account'), {
+        headers: authHeaders(false)
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'تعذر تحميل بريد الدخول');
+      }
+      document.getElementById('login_email').value = result.data?.email || '';
+      updateEmailSuggestion();
+    }
+
+    async function saveLoginEmail() {
+      const saveBtn = document.getElementById('save-email-btn');
+      saveBtn.disabled = true;
+      try {
+        const email = document.getElementById('login_email').value.trim().toLowerCase();
+        if (!email) {
+          PaymentUI.showAlert('alert', 'يرجى إدخال بريد الدخول', 'error');
+          return;
+        }
+
+        const response = await fetch(scopedPath('/api/tenant-settings/login-account'), {
+          method: 'PATCH',
+          headers: authHeaders(true),
+          body: JSON.stringify({ email })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'تعذر تحديث بريد الدخول');
+        }
+
+        PaymentUI.showAlert('alert', 'تم تحديث بريد الدخول بنجاح. استخدمه في المرة القادمة لتسجيل الدخول.', 'ok');
+
+        try {
+          const stored = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || 'null');
+          if (stored) {
+            stored.email = result.data?.email || email;
+            sessionStorage.setItem('user', JSON.stringify(stored));
+            localStorage.setItem('user', JSON.stringify(stored));
+          }
+        } catch (_) {}
+      } catch (error) {
+        PaymentUI.showAlert('alert', error.message, 'error');
+      } finally {
+        saveBtn.disabled = false;
+      }
     }
 
     async function loadIdentity() {
@@ -272,12 +359,19 @@
     });
 
     ['site_name', 'site_tagline', 'primary_color', 'secondary_color'].forEach((id) => {
-      document.getElementById(id).addEventListener('input', updatePreview);
+      document.getElementById(id).addEventListener('input', () => {
+        updatePreview();
+        updateEmailSuggestion();
+      });
+    });
+
+    document.getElementById('suggest-email-btn').addEventListener('click', () => {
+      document.getElementById('login_email').value = updateEmailSuggestion();
     });
 
     document.getElementById('back-dashboard').href = scopedPath('/dashboard.html');
 
-    loadIdentity().catch((error) => {
+    Promise.all([loadIdentity(), loadLoginEmail()]).catch((error) => {
       PaymentUI.showAlert('alert', error.message, 'error');
     });
   </script>

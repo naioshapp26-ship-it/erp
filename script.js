@@ -4989,6 +4989,169 @@ const app = (() => {
         ensureCreditTopupClickable();
     };
 
+    const getTenantIdentitySnapshot = () => (
+        window.__TENANT_IDENTITY__
+        || window.__TENANT_IDENTITY_BOOT__
+        || {}
+    );
+
+    const collectTenantDashboardModules = () => {
+        const catalog = [
+            { route: 'records-archive-home', icon: 'fa-box-archive', desc: 'إدارة الوثائق والسجلات والأرشفة الإلكترونية' },
+            { route: 'hr', icon: 'fa-users', desc: 'إدارة الموارد البشرية والموظفين' },
+            { route: 'finance', icon: 'fa-coins', desc: 'النظام المالي والمحاسبة والتقارير' },
+            { route: 'marketing-campaigns-studio', icon: 'fa-bullhorn', desc: 'استوديو الحملات التسويقية' },
+            { route: 'events-studio-main', icon: 'fa-calendar-star', desc: 'استوديو الفعاليات والأنشطة' },
+            { route: 'tenant-branding', icon: 'fa-palette', desc: 'تخصيص الشعار والألوان واسم الشركة', adminOnly: true }
+        ];
+
+        return catalog.filter((item) => {
+            if (item.adminOnly) {
+                return getAppAuthContext().isTenant && perms.isTenantAdmin();
+            }
+            return isOfficeRouteAllowed(item.route);
+        }).map((item) => ({
+            ...item,
+            title: getTitle(item.route)
+        }));
+    };
+
+    const renderTenantWorkspaceDashboard = (entity) => {
+        const identity = getTenantIdentitySnapshot();
+        const siteName = identity.site_name || entity.name || currentUser?.entityName || 'منصتك';
+        const siteTagline = identity.site_tagline || 'منصة متعددة المستأجرين';
+        const logoUrl = identity.logo_url || '/public/naiosh-logo.png';
+        const userName = currentUser?.name || 'مدير النظام';
+        const modules = collectTenantDashboardModules();
+        const modulesCount = modules.length;
+        const identityReady = identity.setup_completed !== false && Boolean(identity.logo_url && identity.site_name);
+        const loginEmail = currentUser?.email || '—';
+        const usersCount = entity.users || 1;
+        const planLabel = entity.plan || 'ENTERPRISE';
+
+        const checklist = [
+            {
+                title: 'إكمال هوية النظام',
+                desc: 'ارفع الشعار وحدد ألوان شركتك',
+                done: identityReady,
+                action: identityReady ? '' : `app.loadRoute('tenant-branding')`,
+                cta: identityReady ? 'مكتمل' : 'فتح الإعدادات'
+            },
+            {
+                title: 'تحديث بريد الدخول',
+                desc: 'استخدم بريداً يناسب اسم منصتك وهويتها',
+                done: Boolean(loginEmail && loginEmail !== '—' && !/naiosh/i.test(loginEmail)),
+                action: `app.loadRoute('tenant-branding')`,
+                cta: 'تحديث البريد'
+            },
+            {
+                title: 'بدء استخدام الأنظمة',
+                desc: modulesCount ? 'افتح أول نظام مفعّل في منصتك' : 'تواصل مع الدعم لتفعيل الأنظمة',
+                done: false,
+                action: modules[0] ? `app.loadRoute('${modules[0].route}')` : '',
+                cta: modules[0] ? `فتح ${modules[0].title}` : 'لا أنظمة بعد'
+            }
+        ];
+
+        return `
+        <div class="tenant-workspace-dashboard space-y-7 pb-6">
+            <section class="tenant-workspace-hero">
+                <div class="relative z-10 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
+                    <div class="flex items-start gap-4">
+                        <img src="${logoUrl}" alt="${siteName}" class="tenant-workspace-logo" data-tenant-brand="logo">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <span class="px-3 py-1 rounded-full bg-white/15 text-[11px] font-bold border border-white/20">النظام نشط</span>
+                                <span class="px-3 py-1 rounded-full bg-white/10 text-[11px] font-bold border border-white/15">${siteTagline}</span>
+                            </div>
+                            <p class="text-white/75 text-sm mb-1">${getHqGreeting()}، <span class="font-black text-white">${userName}</span></p>
+                            <h2 class="text-3xl md:text-4xl font-black leading-tight">${siteName}</h2>
+                            <p class="text-white/70 text-sm mt-2 max-w-2xl">لوحة موحدة لإدارة أنظمتك، هوية شركتك، وصلاحيات المستخدمين من مكان واحد.</p>
+                            <div class="flex flex-wrap items-center gap-2 mt-4 text-xs text-white/70">
+                                <span class="px-3 py-1 rounded-lg bg-white/10 border border-white/10 font-mono">ID: ${entity.id}</span>
+                                <span class="px-3 py-1 rounded-lg bg-white/10 border border-white/10">${planLabel}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <div class="tenant-workspace-stat">
+                            <p class="text-[10px] uppercase tracking-[0.14em] text-white/60 font-extrabold mb-1">الأنظمة المفعّلة</p>
+                            <p class="text-2xl font-black hq-counter" data-hq-count="${modulesCount}">${modulesCount}</p>
+                        </div>
+                        <div class="tenant-workspace-stat">
+                            <p class="text-[10px] uppercase tracking-[0.14em] text-white/60 font-extrabold mb-1">حالة الهوية</p>
+                            <p class="text-lg font-black">${identityReady ? 'مكتملة' : 'تحتاج إعداد'}</p>
+                        </div>
+                        <div class="tenant-workspace-stat">
+                            <p class="text-[10px] uppercase tracking-[0.14em] text-white/60 font-extrabold mb-1">بريد الدخول</p>
+                            <p class="text-sm font-bold break-all">${loginEmail}</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            ${renderCreditBalanceWidget()}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                ${renderKpiCard('الأنظمة المفعّلة', modulesCount, 'fa-layer-group', 'text-slate-700', 'bg-slate-100')}
+                ${renderKpiCard('المستخدمون', usersCount, 'fa-users', 'text-slate-700', 'bg-slate-100')}
+                ${renderKpiCard('خطة الاشتراك', planLabel, 'fa-crown', 'text-slate-700', 'bg-slate-100')}
+                ${renderKpiCard('حالة الهوية', identityReady ? 'مكتملة' : 'غير مكتملة', 'fa-palette', 'text-slate-700', 'bg-slate-100')}
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div class="xl:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                    <div class="flex items-center justify-between gap-3 mb-5">
+                        <div>
+                            <h3 class="text-xl font-black text-slate-900">الأنظمة والخدمات</h3>
+                            <p class="text-sm text-slate-500 mt-1">وصول سريع لكل ما تم تفعيله في منصتك</p>
+                        </div>
+                        <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600">${modulesCount} نظام</span>
+                    </div>
+                    ${modules.length ? `
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            ${modules.map((mod) => `
+                                <button type="button" onclick="app.loadRoute('${mod.route}')" class="tenant-workspace-module text-right w-full">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <span class="tenant-workspace-module-icon"><i class="fas ${mod.icon}"></i></span>
+                                        <i class="fas fa-arrow-left text-slate-300 text-sm mt-1"></i>
+                                    </div>
+                                    <h4 class="font-black text-slate-900 mb-1">${mod.title}</h4>
+                                    <p class="text-sm text-slate-500 leading-relaxed">${mod.desc}</p>
+                                </button>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+                            <i class="fas fa-box-open text-3xl text-slate-300 mb-3"></i>
+                            <p class="font-bold text-slate-700">لا توجد أنظمة مفعّلة بعد</p>
+                            <p class="text-sm text-slate-500 mt-2">تواصل مع إدارة المنصة لتفعيل الأنظمة المناسبة لعملك.</p>
+                        </div>
+                    `}
+                </div>
+
+                <div class="tenant-workspace-checklist p-5 space-y-3">
+                    <div class="mb-2">
+                        <h3 class="text-lg font-black text-slate-900">ابدأ بسرعة</h3>
+                        <p class="text-sm text-slate-500">خطوات بسيطة لتجهيز منصتك بالكامل</p>
+                    </div>
+                    ${checklist.map((item) => `
+                        <div class="tenant-workspace-check-item">
+                            <div>
+                                <div class="font-bold text-slate-800 flex items-center gap-2">
+                                    <i class="fas ${item.done ? 'fa-circle-check text-emerald-500' : 'fa-circle text-slate-300'}"></i>
+                                    ${item.title}
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">${item.desc}</p>
+                            </div>
+                            ${item.action ? `<button type="button" onclick="${item.action}" class="shrink-0 px-3 py-2 rounded-xl text-xs font-bold text-white" style="background:var(--tenant-primary,#0e139a)">${item.cta}</button>` : `<span class="text-xs font-bold text-emerald-600">${item.cta}</span>`}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>`;
+    };
+
     const renderDashboard = async () => {
         // Verify currentUser exists
         if (!currentUser || !currentUser.entityId) {
@@ -5020,6 +5183,10 @@ const app = (() => {
         if (!entity) {
             console.error('❌ Entity still not found after fetch attempt');
             return renderPlaceholder('لم يتم العثور على بيانات الكيان');
+        }
+
+        if (getAppAuthContext().isTenant && currentUser?.entityId !== 'HQ001') {
+            return renderTenantWorkspaceDashboard(entity);
         }
 
         // Check if entity has specific dashboard type
