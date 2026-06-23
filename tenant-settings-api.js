@@ -45,6 +45,7 @@ const path = require('path');
 const multer = require('multer');
 const { rateLimit } = require('express-rate-limit');
 const { resolveUploadsRootDir } = require('./uploads-config');
+const db = require('./db');
 const {
   readIdentitySettings,
   saveIdentitySettings,
@@ -52,6 +53,7 @@ const {
   ensureDefaultIdentitySettings,
   isSharedTenant
 } = require('./tenant-branding-service');
+const { syncCentralTenantUserDirectoryEntry } = require('./tenant-directory-sync');
 
 const router = express.Router();
 
@@ -641,6 +643,119 @@ const tenantLogoUpload = multer({
       return;
     }
     cb(new Error('INVALID_IMAGE_TYPE'));
+  }
+});
+
+router.get('/login-account', async (req, res) => {
+  try {
+    const userId = req.tenantUser.user_id;
+    const result = await req.tenantPool.query(
+      `SELECT id, email, username, first_name, last_name, role
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [userId]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ success: false, message: 'لم يتم العثور على حساب الدخول.' });
+    }
+    const user = result.rows[0];
+    return res.json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email || '',
+        username: user.username || '',
+        name: [user.first_name, user.last_name].filter(Boolean).join(' ').trim()
+      }
+    });
+  } catch (err) {
+    console.error('[TenantSettings] GET login-account:', err.message);
+    return res.status(500).json({ success: false, message: 'تعذر قراءة بريد الدخول.' });
+  }
+});
+
+router.patch('/login-account', async (req, res) => {
+  try {
+    const userId = req.tenantUser.user_id;
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'يرجى إدخال بريد إلكتروني صالح.' });
+    }
+
+    const previousResult = await req.tenantPool.query(
+      `SELECT id, email, username
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [userId]
+    );
+    const previousUser = previousResult.rows[0];
+    if (!previousUser) {
+      return res.status(404).json({ success: false, message: 'لم يتم العثور على حساب الدخول.' });
+    }
+
+    const previousEmail = String(previousUser.email || '').trim().toLowerCase();
+    const previousUsername = String(previousUser.username || '').trim().toLowerCase();
+    const shouldUpdateUsername = Boolean(
+      previousEmail
+      && previousUsername
+      && (previousUsername === previousEmail || previousUsername === String(previousUser.email || '').trim())
+    );
+
+    const updateResult = await req.tenantPool.query(
+      `UPDATE users
+       SET email = $1,
+           username = CASE WHEN $2 THEN $1 ELSE username END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3
+       RETURNING id, email, username, first_name, last_name, role, is_active`,
+      [email, shouldUpdateUsername, userId]
+    );
+    const updatedUser = updateResult.rows[0];
+
+    try {
+      await syncCentralTenantUserDirectoryEntry({
+        tenant: req.tenant,
+        user: updatedUser,
+        previousEmail: previousUser.email || null
+      });
+    } catch (syncError) {
+      console.warn('[TenantSettings] login-account central sync failed:', syncError.message);
+    }
+
+    try {
+      await db.query(
+        `UPDATE tenants
+         SET settings = jsonb_set(
+           COALESCE(settings, '{}'::jsonb),
+           '{directoryContact,adminEmail}',
+           to_jsonb($1::text),
+           true
+         ),
+         updated_at = NOW()
+         WHERE id = $2`,
+        [email, req.tenant.id]
+      );
+    } catch (metaError) {
+      console.warn('[TenantSettings] login-account metadata sync failed:', metaError.message);
+    }
+
+    return res.json({
+      success: true,
+      message: 'تم تحديث بريد الدخول بنجاح.',
+      data: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        username: updatedUser.username
+      }
+    });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ success: false, message: 'هذا البريد الإلكتروني مستخدم بالفعل.' });
+    }
+    console.error('[TenantSettings] PATCH login-account:', err.message);
+    return res.status(500).json({ success: false, message: 'تعذر تحديث بريد الدخول.' });
   }
 });
 
