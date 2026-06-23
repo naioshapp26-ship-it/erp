@@ -2947,6 +2947,13 @@ app.get('/login-page.html', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'login-page.html'), req);
 });
 
+app.get('/tenant-landing.html', (req, res) => {
+  if (!req.tenant) {
+    return res.redirect(302, '/');
+  }
+  return sendHtmlWithNumberFormat(res, path.join(__dirname, 'tenant-landing.html'), req);
+});
+
 app.get('/access-denied.html', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'access-denied.html'), req);
 });
@@ -3505,7 +3512,7 @@ app.get('/', async (req, res) => {
     if (token) {
       return res.redirect(302, getTenantScopedRedirect(req, '/dashboard.html'));
     }
-    return res.redirect(302, getTenantScopedRedirect(req, '/login-page.html'));
+    return sendHtmlWithNumberFormat(res, path.join(__dirname, 'tenant-landing.html'), req);
   }
 
   const filePath = path.join(__dirname, 'newhome', 'index.html');
@@ -3529,6 +3536,9 @@ app.get('/', async (req, res) => {
 
 // إن وُجد index.html قديم بالروت (Apache DirectoryIndex) — لا يفتح الداشبورد على /
 app.get('/index.html', (req, res) => {
+  if (req.tenant && req.tenant.status === 'active') {
+    return res.redirect(301, getTenantScopedRedirect(req, '/'));
+  }
   res.redirect(301, '/');
 });
 
