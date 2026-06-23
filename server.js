@@ -2828,6 +2828,13 @@ const getTenantScopedRedirect = (req, targetPath) => {
   return normalizedPath;
 };
 
+const getTenantAuthEntryRedirect = (req) => {
+  if (req?.tenant?.subdomain) {
+    return getTenantScopedRedirect(req, '/');
+  }
+  return getTenantScopedRedirect(req, '/login-page.html');
+};
+
 const shouldGuardHtml = (req) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/public/') || req.path.startsWith('/uploads/')) {
     return false;
@@ -2902,13 +2909,13 @@ const requireAuthForHtml = async (req, res, next) => {
 
   const token = getAuthToken(req);
   if (!token) {
-    return res.redirect(302, getTenantScopedRedirect(req, '/login-page.html'));
+    return res.redirect(302, getTenantAuthEntryRedirect(req));
   }
 
   try {
     const resolvedContext = await resolveProtectedHtmlSession(req, token);
     if (!resolvedContext) {
-      return res.redirect(302, getTenantScopedRedirect(req, '/login-page.html'));
+      return res.redirect(302, getTenantAuthEntryRedirect(req));
     }
 
     if (req.tenant && req.tenantPool && String(resolvedContext.type || '').toUpperCase() === 'TENANT') {
@@ -2937,7 +2944,7 @@ const requireAuthForHtml = async (req, res, next) => {
     return next();
   } catch (error) {
     console.error('HTML auth guard failed:', error.message);
-    return res.redirect(302, getTenantScopedRedirect(req, '/login-page.html'));
+    return res.redirect(302, getTenantAuthEntryRedirect(req));
   }
 };
 

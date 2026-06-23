@@ -53,7 +53,16 @@
     return `/t/${subdomain}${normalizedPath}`;
   }
 
+  function getTenantLandingPath() {
+    const subdomain = getStoredTenantSubdomain();
+    if (!subdomain || !isTenantPathMode()) {
+      return '/';
+    }
+    return `/t/${subdomain}/`;
+  }
+
   global.isTenantPathMode = isTenantPathMode;
   global.getStoredTenantSubdomain = getStoredTenantSubdomain;
   global.getTenantScopedPath = getTenantScopedPath;
+  global.getTenantLandingPath = getTenantLandingPath;
 })(window);

@@ -285,13 +285,15 @@ const app = (() => {
         sessionStorage.clear();
         document.cookie = 'authToken=; Max-Age=0; Path=/; SameSite=Lax';
 
-        let loginPath = '/login-page.html';
+        let landingPath = '/';
         if (tenantSubdomain) {
-            loginPath = `/t/${tenantSubdomain}/login-page.html`;
+            landingPath = `/t/${tenantSubdomain}/`;
+        } else if (typeof getTenantLandingPath === 'function') {
+            landingPath = getTenantLandingPath();
         } else if (typeof getTenantScopedPath === 'function') {
-            loginPath = getTenantScopedPath('/login-page.html');
+            landingPath = getTenantScopedPath('/');
         }
-        window.location.href = loginPath;
+        window.location.href = landingPath;
     };
 
     const getSessionAuthToken = () => {

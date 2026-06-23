@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const landing = fs.readFileSync(path.join(__dirname, 'tenant-landing.html'), 'utf8');
+const login = fs.readFileSync(path.join(__dirname, 'login-page.html'), 'utf8');
 const resolver = fs.readFileSync(path.join(__dirname, 'tenant-resolver.js'), 'utf8');
 const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
 
@@ -13,7 +14,8 @@ if (!fs.existsSync(path.join(__dirname, 'tenant-landing.html'))) {
 const checks = [
   ['landing hero', landing.includes('tenant-landing-hero')],
   ['branding name', landing.includes('data-tenant-brand="name"')],
-  ['login CTA', landing.includes('/login-page.html')],
+  ['landing CTA', landing.includes('login-page.html?login=1')],
+  ['login gate', login.includes("params.get('login')")],
   ['server route', server.includes("path.join(__dirname, 'tenant-landing.html')")],
   ['tenant root redirect', resolver.includes('/t/${pathSubdomain}/`')]
 ];
