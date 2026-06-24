@@ -166,6 +166,23 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
     const { injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
     payload = injectTenantBrandingHtml(payload, req.tenantIdentity, req.tenant);
   }
+  if (req?.tenant && path.basename(filePath || '') === 'dashboard.html') {
+    const optionalTenantScripts = [
+      'e-offices-pages.js',
+      'platforms-pages.js',
+      'branches-pages.js',
+      'incubators-pages.js',
+      'education-incubators-pages.js',
+      'entity-hierarchy-ui.js',
+      'sector-pages.js',
+      'hierarchy-accordion.js',
+      'rbac-system.js'
+    ];
+    optionalTenantScripts.forEach((scriptName) => {
+      const pattern = new RegExp(`\\s*<script[^>]+src="/${scriptName.replace('.', '\\.')}[^"]*"[^>]*>\\s*</script>`, 'gi');
+      payload = payload.replace(pattern, '');
+    });
+  }
   const withNumberFormat = injectNumberFormatScript(payload);
   const withFormValidation = injectFormValidationAssets(withNumberFormat);
   const fileName = path.basename(filePath || '');

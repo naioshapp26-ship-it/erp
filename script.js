@@ -84,6 +84,8 @@ const app = (() => {
     // --- API CONFIGURATION (using global) ---
     
     // Helper function to fetch data from API with data isolation headers
+    const FETCH_TIMEOUT_MS = 15000;
+
     async function fetchAPI(endpoint, options = {}) {
         // Use cached fetch if available and not a POST/PUT/DELETE request
         const method = options.method || 'GET';
@@ -131,12 +133,15 @@ const app = (() => {
             
             // Show global loading indicator for write operations
             if (method !== 'GET') showGlobalLoading();
-            
+
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
             const response = await fetch(url, {
                 ...options,
                 headers,
-                timeout: 30000 // 30 second timeout
+                signal: options.signal || controller.signal
             });
+            window.clearTimeout(timeoutId);
             
             console.log(`📥 [fetchAPI] Response status for ${endpoint}: ${response.status}`);
             
@@ -419,12 +424,16 @@ const app = (() => {
         authSyncInFlight = (async () => {
             try {
                 const authContext = getAppAuthContext();
+                const controller = new AbortController();
+                const timeoutId = window.setTimeout(() => controller.abort(), 10000);
                 const verifyResponse = await fetch(authContext.verifyEndpoint, {
                     headers: {
                         'Authorization': `Bearer ${authToken}`,
                         ...getTenantAuthHeaders(authContext)
-                    }
+                    },
+                    signal: controller.signal
                 });
+                window.clearTimeout(timeoutId);
 
                 if (!verifyResponse.ok) {
                     if (forceRedirectOnFailure) {
@@ -1093,6 +1102,54 @@ const app = (() => {
         }
     }
 
+    async function loadTenantEssentialData() {
+        if (!currentUser?.entityId) {
+            throw new Error('User not selected. Cannot load data.');
+        }
+
+        const entityId = currentUser.entityId;
+        try {
+            const entity = await fetchAPI(`/entities/${entityId}`);
+            if (entity) {
+                db.entities = [{
+                    id: entity.id,
+                    name: entity.name,
+                    type: entity.type,
+                    status: entity.status,
+                    balance: parseFloat(entity.balance) || 0,
+                    location: entity.location,
+                    users: entity.users_count || 1,
+                    plan: entity.plan,
+                    expiry: entity.expiry_date,
+                    theme: entity.theme
+                }];
+            }
+        } catch (error) {
+            console.warn('⚠️ تعذر تحميل بيانات كيان المستأجر؛ سيتم استخدام بيانات افتراضية', error.message);
+            db.entities = [{
+                id: entityId,
+                name: currentUser.entityName || currentUser.companyName || 'منصة المستأجر',
+                type: currentUser.tenantType || 'TENANT',
+                status: 'Active',
+                balance: 0,
+                location: 'السعودية',
+                users: 1,
+                plan: 'ENTERPRISE',
+                expiry: null,
+                theme: null
+            }];
+        }
+
+        db.users = db.users || [];
+        db.invoices = db.invoices || [];
+        db.transactions = db.transactions || [];
+        db.ledger = db.ledger || [];
+        db.ads = db.ads || [];
+        db.tasks = db.tasks || [];
+        db.tickets = db.tickets || [];
+        db.notifications = db.notifications || [];
+    }
+
     async function loadDataFromAPI(routeName = null) {
         console.log('🔄 Starting loadDataFromAPI for route:', routeName || 'ALL');
         console.log('👤 Current user:', currentUser);
@@ -1450,10 +1507,21 @@ const app = (() => {
         }
     }
 
+    const showDashboardBootLoader = (message = 'جاري تحميل لوحة التحكم...') => {
+        const view = document.getElementById('main-view');
+        if (!view) return;
+        view.innerHTML = `
+            <div class="flex h-full min-h-[50vh] items-center justify-center flex-col gap-4 p-8 text-center">
+                <div class="w-16 h-16 rounded-full border-4 border-slate-200 border-t-slate-700 animate-spin"></div>
+                <p class="text-slate-600 font-bold">${message}</p>
+            </div>`;
+    };
+
     // --- INIT & NAV ---
     const init = async () => {
         console.log('🔄 بدء التهيئة...');
         lockSidebarNaioshColor();
+        showDashboardBootLoader();
         
         try {
             // ========================================
@@ -1510,12 +1578,18 @@ const app = (() => {
             
             // Load data from API (now with proper entity headers)
             try {
-                await loadDataFromAPI();
+                if (getAppAuthContext().isTenant) {
+                    await loadTenantEssentialData();
+                } else {
+                    await loadDataFromAPI();
+                }
                 console.log('📊 تم تحميل البيانات:', { entities: db.entities.length, users: db.users.length, invoices: db.invoices.length });
             } catch (apiError) {
                 console.error('❌ خطأ في تحميل البيانات من API:', apiError);
-                // Continue with empty data - app will still work
-                console.log('⚠️ الاستمرار مع بيانات فارغة...');
+                if (getAppAuthContext().isTenant) {
+                    await loadTenantEssentialData().catch(() => {});
+                }
+                console.log('⚠️ الاستمرار مع بيانات محدودة...');
             }
             
             // User is already selected from tenant selector
@@ -32006,9 +32080,13 @@ window.deleteOffice = async function(officeId, officeName) {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     app.init();
-    loadBranchesWatermark();
+    if (!getAppAuthContext().isTenant) {
+      loadBranchesWatermark();
+    }
   });
 } else {
   app.init();
-  loadBranchesWatermark();
+  if (!getAppAuthContext().isTenant) {
+    loadBranchesWatermark();
+  }
 }
