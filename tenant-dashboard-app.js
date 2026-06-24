@@ -266,8 +266,7 @@
   function boot() {
     try {
       const token = getToken();
-      const cachedUser = getStoredUser();
-      if (!token || !cachedUser) {
+      if (!token) {
         redirectToLogin();
         return;
       }
@@ -277,6 +276,33 @@
 
       const identity = window.__TENANT_IDENTITY_BOOT__ || window.__TENANT_IDENTITY__ || {};
       applyBranding(identity);
+
+      let cachedUser = getStoredUser();
+      if (!cachedUser) {
+        const main = document.getElementById('td-main');
+        if (main) {
+          main.innerHTML = '<div class="td-loader"><div class="td-spinner"></div><p>جاري استعادة الجلسة...</p></div>';
+        }
+        fetchJson(scopedPath('/api/tenant-auth/verify'), {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then((verify) => {
+          const freshUser = verify?.data?.user || verify?.user;
+          if (!freshUser) {
+            clearSession();
+            return;
+          }
+          const serialized = JSON.stringify(freshUser);
+          sessionStorage.setItem('authToken', token);
+          sessionStorage.setItem('user', serialized);
+          document.cookie = `authToken=${encodeURIComponent(token)}; Path=/; SameSite=Lax`;
+          const modules = getAllowedModules(freshUser);
+          paintDashboard(freshUser, identity, buildEntityFromUser(freshUser), modules);
+          refreshInBackground(freshUser, token, identity);
+        }).catch(() => {
+          clearSession();
+        });
+        return;
+      }
 
       const modules = getAllowedModules(cachedUser);
       const entity = buildEntityFromUser(cachedUser);
