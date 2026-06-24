@@ -218,18 +218,47 @@ const optimizeTenantDashboardHtml = (html) => {
   return payload;
 };
 
+const injectMinimalTenantDashboardBranding = (html, identity, tenant) => {
+  if (!html || !identity) return html;
+  const primary = identity.primary_color || '#0e139a';
+  const secondary = identity.secondary_color || '#1a1a1a';
+  const subdomain = String(tenant?.subdomain || '').toLowerCase();
+  const logoUrl = identity.logo_url
+    ? (String(identity.logo_url).includes('/api/tenant-public/logo') && subdomain
+      ? `/t/${subdomain}/api/tenant-public/logo`
+      : identity.logo_url)
+    : '';
+  const boot = {
+    site_name: identity.site_name || tenant?.company_name || '',
+    site_tagline: identity.site_tagline || '',
+    logo_url: logoUrl,
+    primary_color: primary,
+    secondary_color: secondary,
+    setup_completed: identity.setup_completed !== false
+  };
+  const safeJson = JSON.stringify(boot).replace(/</g, '\\u003c');
+  const block = `<style id="tenant-dash-vars">:root{--tenant-primary:${primary};--tenant-secondary:${secondary};--brand-red:${primary};}</style><script>window.__TENANT_IDENTITY_BOOT__=${safeJson};window.__TENANT_IDENTITY__=${safeJson};</script>`;
+  if (/<meta\s+charset/i.test(html)) {
+    return html.replace(/(<meta\s+charset[^>]*>)/i, `$1${block}`);
+  }
+  return block + html;
+};
+
 const prepareHtmlPayload = (html, filePath, req = null) => {
   let payload = html;
+  const fileName = path.basename(filePath || '');
+  if (fileName === 'tenant-dashboard.html') {
+    if (req?.tenant && req?.tenantIdentity) {
+      payload = injectMinimalTenantDashboardBranding(payload, req.tenantIdentity, req.tenant);
+    }
+    return payload;
+  }
   if (req?.tenant && req?.tenantIdentity) {
     const { injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
     payload = injectTenantBrandingHtml(payload, req.tenantIdentity, req.tenant);
   }
-  if (req?.tenant && path.basename(filePath || '') === 'dashboard.html') {
+  if (req?.tenant && fileName === 'dashboard.html') {
     payload = optimizeTenantDashboardHtml(payload);
-  }
-  const fileName = path.basename(filePath || '');
-  if (fileName === 'tenant-dashboard.html') {
-    return payload;
   }
   const withNumberFormat = injectNumberFormatScript(payload);
   const withFormValidation = injectFormValidationAssets(withNumberFormat);
@@ -3622,6 +3651,14 @@ app.get('/index.html', (req, res) => {
 });
 
 app.get('/dashboard.html', (req, res) => {
+  const mode = String(req?.tenantAccessMode || '').toLowerCase();
+  const explicitTenant = mode === 'path' || mode === 'subdomain' || mode === 'header';
+  if (req?.tenant && explicitTenant) {
+    const token = getAuthToken(req);
+    if (!token) {
+      return res.redirect(302, `/t/${req.tenant.subdomain}/?login=1`);
+    }
+  }
   sendDashboardHtml(req, res);
 });
 

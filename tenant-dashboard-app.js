@@ -1,7 +1,7 @@
 'use strict';
 
 (function () {
-  const FETCH_TIMEOUT_MS = 8000;
+  const FETCH_TIMEOUT_MS = 6000;
 
   function getSubdomain() {
     const match = String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i);
@@ -28,7 +28,8 @@
 
   function getStoredUser() {
     try {
-      return JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+      const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
+      return raw ? JSON.parse(raw) : null;
     } catch (_) {
       return null;
     }
@@ -58,9 +59,7 @@
           ...(options.headers || {})
         }
       });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     } finally {
       window.clearTimeout(timer);
@@ -93,20 +92,21 @@
     if (identity.logo_url) {
       const logo = document.getElementById('td-brand-logo');
       if (logo) {
-        logo.src = identity.logo_url.includes('/api/tenant-public/logo')
+        logo.src = String(identity.logo_url).includes('/api/tenant-public/logo')
           ? scopedPath('/api/tenant-public/logo')
           : identity.logo_url;
+        logo.style.visibility = 'visible';
       }
     }
   }
 
   const MODULE_CATALOG = [
-    { key: 'records-archive-home', path: '/archive', icon: 'fa-box-archive', title: 'نظام الأرشفة', desc: 'إدارة الوثائق والسجلات والأرشفة الإلكترونية' },
-    { key: 'hr', path: '/hr', icon: 'fa-users', title: 'الموارد البشرية', desc: 'إدارة الموظفين والحضور والإجازات' },
-    { key: 'finance', path: '/finance', icon: 'fa-coins', title: 'النظام المالي', desc: 'المحاسبة والتقارير المالية' },
-    { key: 'marketing-campaigns-studio', path: '/marketing-campaigns-studio', icon: 'fa-bullhorn', title: 'استوديو التسويق', desc: 'إدارة الحملات التسويقية' },
-    { key: 'events-studio-main', path: '/finance/events-studio-main.html', icon: 'fa-calendar-star', title: 'استوديو الفعاليات', desc: 'تنظيم الفعاليات والأنشطة' },
-    { key: 'tenant-branding', path: '/tenant-branding-settings.html', icon: 'fa-palette', title: 'هوية النظام', desc: 'تخصيص الشعار والألوان واسم الشركة', adminOnly: true }
+    { key: 'records-archive-home', path: '/archive', icon: '📦', title: 'نظام الأرشفة', desc: 'إدارة الوثائق والسجلات والأرشفة الإلكترونية' },
+    { key: 'hr', path: '/hr', icon: '👥', title: 'الموارد البشرية', desc: 'إدارة الموظفين والحضور والإجازات' },
+    { key: 'finance', path: '/finance', icon: '💰', title: 'النظام المالي', desc: 'المحاسبة والتقارير المالية' },
+    { key: 'marketing-campaigns-studio', path: '/marketing-campaigns-studio', icon: '📣', title: 'استوديو التسويق', desc: 'إدارة الحملات التسويقية' },
+    { key: 'events-studio-main', path: '/finance/events-studio-main.html', icon: '📅', title: 'استوديو الفعاليات', desc: 'تنظيم الفعاليات والأنشطة' },
+    { key: 'tenant-branding', path: '/tenant-branding-settings.html', icon: '🎨', title: 'هوية النظام', desc: 'تخصيص الشعار والألوان واسم الشركة', adminOnly: true }
   ];
 
   function getAllowedModules(user) {
@@ -116,6 +116,15 @@
       if (item.adminOnly) return isAdmin;
       return allowed.has(item.key);
     });
+  }
+
+  function buildEntityFromUser(user) {
+    return {
+      id: user.entityId || user.entity_id || '',
+      name: user.entityName || user.companyName || 'منصة المستأجر',
+      plan: user.plan || 'BASIC',
+      users_count: 1
+    };
   }
 
   function renderDashboard(user, identity, entity, modules) {
@@ -132,48 +141,48 @@
     const moduleCards = modules.length
       ? modules.map((mod) => `
           <a class="tenant-workspace-module" href="${escapeHtml(scopedPath(mod.path))}">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem">
-              <span class="tenant-workspace-module-icon"><i class="fas ${mod.icon}"></i></span>
-              <i class="fas fa-arrow-left" style="color:#cbd5e1;margin-top:0.2rem"></i>
+            <div class="td-module-head">
+              <span class="tenant-workspace-module-icon">${mod.icon}</span>
+              <span class="td-arrow">←</span>
             </div>
-            <h4 style="margin:0.6rem 0 0.25rem;font-weight:900;color:#0f172a">${escapeHtml(mod.title)}</h4>
-            <p style="margin:0;color:#64748b;font-size:0.85rem;line-height:1.6">${escapeHtml(mod.desc)}</p>
+            <h4>${escapeHtml(mod.title)}</h4>
+            <p>${escapeHtml(mod.desc)}</p>
           </a>
         `).join('')
-      : `<div class="td-empty"><i class="fas fa-box-open" style="font-size:2rem;margin-bottom:0.5rem"></i><p style="margin:0;font-weight:700">لا توجد أنظمة مفعّلة بعد</p></div>`;
+      : '<div class="td-empty"><p>📭</p><p><strong>لا توجد أنظمة مفعّلة بعد</strong></p></div>';
 
     return `
-      <div class="tenant-workspace-dashboard" style="display:flex;flex-direction:column;gap:1.5rem">
+      <div class="tenant-workspace-dashboard">
         <section class="tenant-workspace-hero">
-          <div style="position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:space-between;align-items:center">
-            <div style="display:flex;gap:1rem;align-items:flex-start">
+          <div class="td-hero-inner">
+            <div class="td-hero-copy">
               <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(siteName)}" class="tenant-workspace-logo">
               <div>
-                <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.5rem">
-                  <span style="padding:0.2rem 0.7rem;border-radius:999px;background:rgba(255,255,255,0.15);font-size:0.7rem;font-weight:700">النظام نشط</span>
-                  <span style="padding:0.2rem 0.7rem;border-radius:999px;background:rgba(255,255,255,0.1);font-size:0.7rem;font-weight:700">${escapeHtml(siteTagline)}</span>
+                <div class="td-badges">
+                  <span class="td-badge">النظام نشط</span>
+                  <span class="td-badge td-badge-soft">${escapeHtml(siteTagline)}</span>
                 </div>
-                <p style="margin:0 0 0.25rem;opacity:0.8;font-size:0.85rem">مرحباً، <strong>${escapeHtml(userName)}</strong></p>
-                <h2 style="margin:0;font-size:clamp(1.5rem,4vw,2.2rem);font-weight:900">${escapeHtml(siteName)}</h2>
-                <p style="margin:0.5rem 0 0;opacity:0.75;font-size:0.85rem;max-width:36rem">لوحة موحدة لإدارة أنظمتك، هوية شركتك، وصلاحيات المستخدمين.</p>
+                <p class="td-greeting">مرحباً، <strong>${escapeHtml(userName)}</strong></p>
+                <h2>${escapeHtml(siteName)}</h2>
+                <p class="td-lead">لوحة موحدة لإدارة أنظمتك، هوية شركتك، وصلاحيات المستخدمين.</p>
               </div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:0.75rem">
-              <div class="tenant-workspace-stat"><p style="margin:0 0 0.25rem;font-size:0.65rem;opacity:0.7;font-weight:800">الأنظمة</p><p style="margin:0;font-size:1.5rem;font-weight:900">${modules.length}</p></div>
-              <div class="tenant-workspace-stat"><p style="margin:0 0 0.25rem;font-size:0.65rem;opacity:0.7;font-weight:800">الهوية</p><p style="margin:0;font-size:1rem;font-weight:900">${identityReady ? 'مكتملة' : 'تحتاج إعداد'}</p></div>
-              <div class="tenant-workspace-stat"><p style="margin:0 0 0.25rem;font-size:0.65rem;opacity:0.7;font-weight:800">البريد</p><p style="margin:0;font-size:0.8rem;font-weight:700;word-break:break-all">${escapeHtml(loginEmail)}</p></div>
+            <div class="td-hero-stats">
+              <div class="tenant-workspace-stat"><p>الأنظمة</p><strong>${modules.length}</strong></div>
+              <div class="tenant-workspace-stat"><p>الهوية</p><strong>${identityReady ? 'مكتملة' : 'تحتاج إعداد'}</strong></div>
+              <div class="tenant-workspace-stat"><p>البريد</p><strong class="td-email">${escapeHtml(loginEmail)}</strong></div>
             </div>
           </div>
         </section>
 
         <div class="td-grid-4">
-          <div class="tenant-workspace-kpi"><div class="tenant-workspace-kpi-icon" style="background:#f1f5f9;color:#334155"><i class="fas fa-layer-group"></i></div><p style="margin:0.5rem 0 0;color:#64748b;font-size:0.75rem">الأنظمة المفعّلة</p><p style="margin:0;font-size:1.5rem;font-weight:900">${modules.length}</p></div>
-          <div class="tenant-workspace-kpi"><div class="tenant-workspace-kpi-icon" style="background:#f1f5f9;color:#334155"><i class="fas fa-users"></i></div><p style="margin:0.5rem 0 0;color:#64748b;font-size:0.75rem">المستخدمون</p><p style="margin:0;font-size:1.5rem;font-weight:900">${usersCount}</p></div>
-          <div class="tenant-workspace-kpi"><div class="tenant-workspace-kpi-icon" style="background:#f1f5f9;color:#334155"><i class="fas fa-crown"></i></div><p style="margin:0.5rem 0 0;color:#64748b;font-size:0.75rem">خطة الاشتراك</p><p style="margin:0;font-size:1.2rem;font-weight:900">${escapeHtml(planLabel)}</p></div>
-          <div class="tenant-workspace-kpi"><div class="tenant-workspace-kpi-icon" style="background:#f1f5f9;color:#334155"><i class="fas fa-palette"></i></div><p style="margin:0.5rem 0 0;color:#64748b;font-size:0.75rem">حالة الهوية</p><p style="margin:0;font-size:1.1rem;font-weight:900">${identityReady ? 'مكتملة' : 'غير مكتملة'}</p></div>
+          <div class="tenant-workspace-kpi"><div class="tenant-workspace-kpi-icon">📊</div><p>الأنظمة المفعّلة</p><strong>${modules.length}</strong></div>
+          <div class="tenant-workspace-kpi"><div class="tenant-workspace-kpi-icon">👤</div><p>المستخدمون</p><strong>${usersCount}</strong></div>
+          <div class="tenant-workspace-kpi"><div class="tenant-workspace-kpi-icon">👑</div><p>خطة الاشتراك</p><strong>${escapeHtml(planLabel)}</strong></div>
+          <div class="tenant-workspace-kpi"><div class="tenant-workspace-kpi-icon">🎨</div><p>حالة الهوية</p><strong>${identityReady ? 'مكتملة' : 'غير مكتملة'}</strong></div>
         </div>
 
-        <div class="td-grid-2" style="grid-template-columns:minmax(0,2fr) minmax(0,1fr)">
+        <div class="td-layout">
           <div class="td-panel">
             <h3>الأنظمة والخدمات</h3>
             <p class="sub">وصول سريع لكل ما تم تفعيله في منصتك</p>
@@ -183,24 +192,18 @@
             <h3>ابدأ بسرعة</h3>
             <p class="sub">خطوات بسيطة لتجهيز منصتك</p>
             <div class="td-check-item">
-              <div><strong>${identityReady ? '✓ هوية النظام' : 'إكمال هوية النظام'}</strong><p style="margin:0.25rem 0 0;font-size:0.75rem;color:#64748b">ارفع الشعار وحدد ألوان شركتك</p></div>
-              ${identityReady ? '<span style="color:#059669;font-size:0.75rem;font-weight:700">مكتمل</span>' : `<a class="td-btn td-btn-primary" style="background:var(--tenant-primary);color:#fff" href="${brandingPath}">فتح الإعدادات</a>`}
+              <div><strong>${identityReady ? '✓ هوية النظام' : 'إكمال هوية النظام'}</strong><p>ارفع الشعار وحدد ألوان شركتك</p></div>
+              ${identityReady ? '<span class="td-done">مكتمل</span>' : `<a class="td-btn td-btn-solid" href="${brandingPath}">فتح الإعدادات</a>`}
             </div>
             <div class="td-check-item">
-              <div><strong>تحديث بريد الدخول</strong><p style="margin:0.25rem 0 0;font-size:0.75rem;color:#64748b">${escapeHtml(loginEmail)}</p></div>
-              <a class="td-btn td-btn-primary" style="background:var(--tenant-primary);color:#fff" href="${brandingPath}">تحديث</a>
+              <div><strong>تحديث بريد الدخول</strong><p>${escapeHtml(loginEmail)}</p></div>
+              <a class="td-btn td-btn-solid" href="${brandingPath}">تحديث</a>
             </div>
-            ${modules[0] ? `<div class="td-check-item"><div><strong>بدء الاستخدام</strong><p style="margin:0.25rem 0 0;font-size:0.75rem;color:#64748b">افتح ${escapeHtml(modules[0].title)}</p></div><a class="td-btn td-btn-primary" style="background:var(--tenant-primary);color:#fff" href="${escapeHtml(scopedPath(modules[0].path))}">فتح</a></div>` : ''}
+            ${modules[0] ? `<div class="td-check-item"><div><strong>بدء الاستخدام</strong><p>افتح ${escapeHtml(modules[0].title)}</p></div><a class="td-btn td-btn-solid" href="${escapeHtml(scopedPath(modules[0].path))}">فتح</a></div>` : ''}
           </div>
         </div>
       </div>
     `;
-  }
-
-  function showLoader(message) {
-    const main = document.getElementById('td-main');
-    if (!main) return;
-    main.innerHTML = `<div class="td-loader"><div class="td-spinner"></div><p style="margin:0;font-weight:700">${escapeHtml(message)}</p></div>`;
   }
 
   function showError(message) {
@@ -208,70 +211,81 @@
     if (!main) return;
     main.innerHTML = `
       <div class="td-error">
-        <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:#dc2626;margin-bottom:0.75rem"></i>
-        <h2 style="margin:0 0 0.5rem">${escapeHtml(message)}</h2>
-        <p style="margin:0 0 1rem;color:#64748b;font-size:0.9rem">جرّب تسجيل الدخول مرة أخرى أو تحديث الصفحة</p>
-        <button type="button" class="td-btn td-btn-primary" onclick="location.reload()">تحديث الصفحة</button>
-        <button type="button" class="td-btn td-btn-ghost" style="margin-inline-start:0.5rem;background:#e2e8f0;color:#334155" onclick="window.__tdLogout && window.__tdLogout()">تسجيل الدخول</button>
+        <p style="font-size:2rem;margin:0">⚠️</p>
+        <h2>${escapeHtml(message)}</h2>
+        <p>جرّب تسجيل الدخول مرة أخرى أو تحديث الصفحة</p>
+        <div class="td-error-actions">
+          <button type="button" class="td-btn td-btn-solid" onclick="location.reload()">تحديث الصفحة</button>
+          <button type="button" class="td-btn td-btn-ghost-dark" onclick="window.__tdLogout && window.__tdLogout()">تسجيل الدخول</button>
+        </div>
       </div>`;
   }
 
-  async function boot() {
-    const token = getToken();
-    const cachedUser = getStoredUser();
-    if (!token || !cachedUser) {
-      redirectToLogin();
-      return;
-    }
+  function paintDashboard(user, identity, entity, modules) {
+    const main = document.getElementById('td-main');
+    if (!main) return;
+    main.innerHTML = renderDashboard(user, identity, entity, modules);
+  }
 
-    window.__tdLogout = clearSession;
-    document.getElementById('td-logout-btn')?.addEventListener('click', clearSession);
-
-    const identity = window.__TENANT_IDENTITY_BOOT__ || window.__TENANT_IDENTITY__ || null;
-    applyBranding(identity);
-    showLoader('جاري تحميل لوحة التحكم...');
-
-    let user = cachedUser;
+  async function refreshInBackground(user, token, identity) {
     try {
       const verify = await fetchJson(scopedPath('/api/tenant-auth/verify'), {
         headers: { Authorization: `Bearer ${token}` }
       });
-      user = verify?.data?.user || verify?.user || cachedUser;
-      const serialized = JSON.stringify(user);
-      if (localStorage.getItem('authToken')) localStorage.setItem('user', serialized);
-      if (sessionStorage.getItem('authToken')) sessionStorage.setItem('user', serialized);
+      const freshUser = verify?.data?.user || verify?.user;
+      if (freshUser) {
+        const serialized = JSON.stringify(freshUser);
+        if (localStorage.getItem('authToken')) localStorage.setItem('user', serialized);
+        if (sessionStorage.getItem('authToken')) sessionStorage.setItem('user', serialized);
+        paintDashboard(freshUser, identity, buildEntityFromUser(freshUser), getAllowedModules(freshUser));
+        user = freshUser;
+      }
     } catch (error) {
       console.warn('[tenant-dashboard] verify skipped:', error.message);
     }
 
-    let entity = {
-      id: user.entityId || user.entity_id,
-      name: user.entityName || user.companyName || 'منصة المستأجر',
-      plan: 'BASIC',
-      users_count: 1
-    };
-
     try {
       const entityId = user.entityId || user.entity_id;
-      if (entityId) {
-        const fetched = await fetchJson(scopedPath(`/api/entities/${entityId}`), {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'x-entity-type': user.tenantType || user.tenant_type || 'TENANT',
-            'x-entity-id': entityId,
-            'x-user-id': String(user.id || '')
-          }
-        });
-        if (fetched) entity = fetched;
+      if (!entityId) return;
+      const fetched = await fetchJson(scopedPath(`/api/entities/${entityId}`), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'x-entity-type': user.tenantType || user.tenant_type || 'TENANT',
+          'x-entity-id': entityId,
+          'x-user-id': String(user.id || '')
+        }
+      });
+      if (fetched) {
+        paintDashboard(user, identity, fetched, getAllowedModules(user));
       }
     } catch (error) {
-      console.warn('[tenant-dashboard] entity fetch skipped:', error.message);
+      console.warn('[tenant-dashboard] entity refresh skipped:', error.message);
     }
+  }
 
-    const modules = getAllowedModules(user);
-    const main = document.getElementById('td-main');
-    if (main) {
-      main.innerHTML = renderDashboard(user, identity, entity, modules);
+  function boot() {
+    try {
+      const token = getToken();
+      const cachedUser = getStoredUser();
+      if (!token || !cachedUser) {
+        redirectToLogin();
+        return;
+      }
+
+      window.__tdLogout = clearSession;
+      document.getElementById('td-logout-btn')?.addEventListener('click', clearSession);
+
+      const identity = window.__TENANT_IDENTITY_BOOT__ || window.__TENANT_IDENTITY__ || {};
+      applyBranding(identity);
+
+      const modules = getAllowedModules(cachedUser);
+      const entity = buildEntityFromUser(cachedUser);
+      paintDashboard(cachedUser, identity, entity, modules);
+
+      refreshInBackground(cachedUser, token, identity);
+    } catch (error) {
+      console.error('[tenant-dashboard] boot failed:', error);
+      showError('تعذر تحميل لوحة التحكم');
     }
   }
 
