@@ -20,7 +20,7 @@
         }
         var tenantMatch = path.match(/^\/t\/([a-z0-9][a-z0-9-]*)/i);
         var redirectPath = tenantMatch
-          ? '/t/' + tenantMatch[1].toLowerCase() + '/'
+          ? '/t/' + tenantMatch[1].toLowerCase() + '/?login=1'
           : '/login-page.html';
         var token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
         var user = localStorage.getItem('user') || sessionStorage.getItem('user');
@@ -998,6 +998,27 @@
     <script src="/education-incubators-pages.js?v=1.0.0"></script>
     <script src="/tenant-path-client.js"></script>
     <script src="/script.js?v=20260618-mktstudio"></script>
+    <script>
+      (function () {
+        var bootLoader = document.getElementById('dashboard-boot-loader');
+        if (!bootLoader) return;
+        var startedAt = Date.now();
+        var timer = window.setInterval(function () {
+          if (!document.getElementById('dashboard-boot-loader')) {
+            window.clearInterval(timer);
+            return;
+          }
+          if (window.currentUserData && document.getElementById('main-view')?.querySelector('.tenant-workspace-dashboard, .credit-balance-widget, canvas#adsChart')) {
+            window.clearInterval(timer);
+            return;
+          }
+          if (Date.now() - startedAt > 45000) {
+            window.clearInterval(timer);
+            bootLoader.innerHTML = '<div class="max-w-md mx-auto space-y-4"><p class="text-slate-700 font-bold">استغرق التحميل وقتاً أطول من المعتاد</p><p class="text-sm text-slate-500">جرّب تحديث الصفحة أو تسجيل الدخول مرة أخرى</p><button type="button" onclick="location.reload()" class="bg-red-700 text-white px-6 py-3 rounded-xl font-bold">تحديث الصفحة</button></div>';
+          }
+        }, 1000);
+      })();
+    </script>
     
     <!-- Global Loading Indicator -->
     <div id="global-loading" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">

@@ -424,8 +424,9 @@ const app = (() => {
         authSyncInFlight = (async () => {
             try {
                 const authContext = getAppAuthContext();
+                const verifyTimeoutMs = authContext.isTenant ? 5000 : 10000;
                 const controller = new AbortController();
-                const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+                const timeoutId = window.setTimeout(() => controller.abort(), verifyTimeoutMs);
                 const verifyResponse = await fetch(authContext.verifyEndpoint, {
                     headers: {
                         'Authorization': `Bearer ${authToken}`,
@@ -1108,9 +1109,31 @@ const app = (() => {
         }
 
         const entityId = currentUser.entityId;
-        try {
-            const entity = await fetchAPI(`/entities/${entityId}`);
-            if (entity) {
+        const fallbackEntity = {
+            id: entityId,
+            name: currentUser.entityName || currentUser.companyName || 'منصة المستأجر',
+            type: currentUser.tenantType || 'TENANT',
+            status: 'Active',
+            balance: 0,
+            location: 'السعودية',
+            users: 1,
+            plan: 'ENTERPRISE',
+            expiry: null,
+            theme: null
+        };
+        db.entities = [fallbackEntity];
+        db.users = db.users || [];
+        db.invoices = db.invoices || [];
+        db.transactions = db.transactions || [];
+        db.ledger = db.ledger || [];
+        db.ads = db.ads || [];
+        db.tasks = db.tasks || [];
+        db.tickets = db.tickets || [];
+        db.notifications = db.notifications || [];
+
+        fetchAPI(`/entities/${entityId}`)
+            .then((entity) => {
+                if (!entity) return;
                 db.entities = [{
                     id: entity.id,
                     name: entity.name,
@@ -1123,31 +1146,10 @@ const app = (() => {
                     expiry: entity.expiry_date,
                     theme: entity.theme
                 }];
-            }
-        } catch (error) {
-            console.warn('⚠️ تعذر تحميل بيانات كيان المستأجر؛ سيتم استخدام بيانات افتراضية', error.message);
-            db.entities = [{
-                id: entityId,
-                name: currentUser.entityName || currentUser.companyName || 'منصة المستأجر',
-                type: currentUser.tenantType || 'TENANT',
-                status: 'Active',
-                balance: 0,
-                location: 'السعودية',
-                users: 1,
-                plan: 'ENTERPRISE',
-                expiry: null,
-                theme: null
-            }];
-        }
-
-        db.users = db.users || [];
-        db.invoices = db.invoices || [];
-        db.transactions = db.transactions || [];
-        db.ledger = db.ledger || [];
-        db.ads = db.ads || [];
-        db.tasks = db.tasks || [];
-        db.tickets = db.tickets || [];
-        db.notifications = db.notifications || [];
+            })
+            .catch((error) => {
+                console.warn('⚠️ تعذر تحديث بيانات كيان المستأجر في الخلفية', error.message);
+            });
     }
 
     async function loadDataFromAPI(routeName = null) {
@@ -1552,16 +1554,30 @@ const app = (() => {
             
             // التحقق من صلاحية التوكن مع السيرفر (اختياري)
             try {
-                const verifiedUser = await syncCurrentSessionUser({ forceRedirectOnFailure: true });
+                const verifiedUser = await syncCurrentSessionUser({ forceRedirectOnFailure: false });
                 if (!verifiedUser) {
-                    console.log('❌ التوكن غير صالح - إعادة توجيه للصفحة الرئيسية');
+                    const tenantType = String(currentUser?.tenantType || currentUser?.tenant_type || '').trim().toUpperCase();
+                    const canUseCachedTenantSession = getAppAuthContext().isTenant
+                        && tenantType === 'TENANT'
+                        && currentUser?.entityId;
+                    if (!canUseCachedTenantSession) {
+                        console.log('❌ التوكن غير صالح - إعادة توجيه للصفحة الرئيسية');
+                        clearAuthSessionAndRedirect();
+                        return;
+                    }
+                    console.warn('⚠️ تعذر التحقق من الجلسة؛ الاستمرار بالبيانات المحفوظة');
+                }
+            } catch (verifyError) {
+                const tenantType = String(currentUser?.tenantType || currentUser?.tenant_type || '').trim().toUpperCase();
+                const canUseCachedTenantSession = getAppAuthContext().isTenant
+                    && tenantType === 'TENANT'
+                    && currentUser?.entityId;
+                if (!canUseCachedTenantSession) {
+                    console.warn('⚠️ تعذر التحقق من التوكن:', verifyError);
                     clearAuthSessionAndRedirect();
                     return;
                 }
-            } catch (verifyError) {
-                console.warn('⚠️ تعذر التحقق من التوكن:', verifyError);
-                clearAuthSessionAndRedirect();
-                return;
+                console.warn('⚠️ تعذر التحقق من الجلسة؛ الاستمرار بالبيانات المحفوظة');
             }
             
             const view = document.getElementById('main-view');
@@ -2277,7 +2293,19 @@ const app = (() => {
             loadRecordsStudentsData();
         }
 
-        if (route === 'dashboard') requestAnimationFrame(() => { initDashboardChart(); initHqDashboardEffects(); initCreditBalanceWidget(); ensureCreditTopupClickable(); });
+        if (route === 'dashboard') {
+            requestAnimationFrame(() => {
+                const isTenantWorkspace = getAppAuthContext().isTenant && currentUser?.entityId !== 'HQ001';
+                if (isTenantWorkspace) {
+                    ensureCreditTopupClickable();
+                    return;
+                }
+                initDashboardChart();
+                initHqDashboardEffects();
+                initCreditBalanceWidget();
+                ensureCreditTopupClickable();
+            });
+        }
         if (route === 'control-panel') requestAnimationFrame(() => { initCreditBalanceWidget(); ensureCreditTopupClickable(); });
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
         if (route.startsWith('eo-') && window.EOfficesPages?.init) {
@@ -5165,8 +5193,6 @@ const app = (() => {
                     </div>
                 </div>
             </section>
-
-            ${renderCreditBalanceWidget()}
 
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 ${renderKpiCard('الأنظمة المفعّلة', modulesCount, 'fa-layer-group', 'text-slate-700', 'bg-slate-100')}

@@ -160,6 +160,51 @@ function injectTenantBrandingAssets(html) {
   return payload.replace('</head>', `${injection}</head>`);
 }
 
+const stripScriptByName = (html, scriptName) => {
+  if (!html || !scriptName) return html;
+  const escaped = scriptName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`\\s*<script[^>]+src="[^"]*${escaped}[^"]*"[^>]*>\\s*</script>`, 'gi');
+  return html.replace(pattern, '');
+};
+
+const optimizeTenantDashboardHtml = (html) => {
+  if (!html) return html;
+
+  const optionalTenantScripts = [
+    'e-offices-pages.js',
+    'platforms-pages.js',
+    'branches-pages.js',
+    'incubators-pages.js',
+    'education-incubators-pages.js',
+    'entity-hierarchy-ui.js',
+    'sector-pages.js',
+    'hierarchy-accordion.js',
+    'rbac-system.js',
+    'performance.js',
+    'chart.js'
+  ];
+
+  let payload = html;
+  optionalTenantScripts.forEach((scriptName) => {
+    payload = stripScriptByName(payload, scriptName);
+  });
+
+  const tenantPathClientPattern = /<script[^>]+src="\/tenant-path-client\.js"[^>]*>\s*<\/script>\s*/gi;
+  let seenTenantPathClient = false;
+  payload = payload.replace(tenantPathClientPattern, (match) => {
+    if (seenTenantPathClient) return '';
+    seenTenantPathClient = true;
+    return match;
+  });
+
+  payload = payload.replace(
+    /<script([^>]*\ssrc="\/script\.js[^"]*")([^>]*)>/i,
+    '<script$1 defer$2>'
+  );
+
+  return payload;
+};
+
 const prepareHtmlPayload = (html, filePath, req = null) => {
   let payload = html;
   if (req?.tenant && req?.tenantIdentity) {
@@ -167,21 +212,7 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
     payload = injectTenantBrandingHtml(payload, req.tenantIdentity, req.tenant);
   }
   if (req?.tenant && path.basename(filePath || '') === 'dashboard.html') {
-    const optionalTenantScripts = [
-      'e-offices-pages.js',
-      'platforms-pages.js',
-      'branches-pages.js',
-      'incubators-pages.js',
-      'education-incubators-pages.js',
-      'entity-hierarchy-ui.js',
-      'sector-pages.js',
-      'hierarchy-accordion.js',
-      'rbac-system.js'
-    ];
-    optionalTenantScripts.forEach((scriptName) => {
-      const pattern = new RegExp(`\\s*<script[^>]+src="/${scriptName.replace('.', '\\.')}[^"]*"[^>]*>\\s*</script>`, 'gi');
-      payload = payload.replace(pattern, '');
-    });
+    payload = optimizeTenantDashboardHtml(payload);
   }
   const withNumberFormat = injectNumberFormatScript(payload);
   const withFormValidation = injectFormValidationAssets(withNumberFormat);
