@@ -10,8 +10,8 @@ const checks = [
   ['uses full dashboard shell', server.includes("path.join(__dirname, 'dashboard.html')")],
   ['tenant landing redirect from dashboard', dashboard.includes("'/t/' + tenantMatch[1].toLowerCase() + '/'")],
   ['sidebar home link', dashboard.includes('sidebar-home-link')],
-  ['landing login cta', landing.includes('login-page.html?login=1')],
-  ['landing dashboard cta for session', landing.includes('دخول لوحة التحكم')],
+  ['landing login always visible', landing.includes('تسجيل الدخول') && landing.includes('login-page.html?login=1')],
+  ['landing dashboard secondary cta', landing.includes('dashboard-cta')],
   ['server landing redirect', server.includes('`/t/${req.tenant.subdomain}/`')],
 ];
 
