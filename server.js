@@ -144,6 +144,19 @@ const sendHtmlWithNumberFormat = (res, filePath, req = null) => {
   });
 };
 
+const resolveDashboardHtmlPath = (req) => {
+  const mode = String(req?.tenantAccessMode || '').toLowerCase();
+  const explicitTenant = mode === 'path' || mode === 'subdomain' || mode === 'header';
+  if (req?.tenant && explicitTenant) {
+    return path.join(__dirname, 'tenant-dashboard.html');
+  }
+  return path.join(__dirname, 'dashboard.html');
+};
+
+const sendDashboardHtml = (req, res) => {
+  sendHtmlWithNumberFormat(res, resolveDashboardHtmlPath(req), req);
+};
+
 function injectTenantBrandingAssets(html) {
   const { buildSyncCacheBootScript } = require('./tenant-branding-html-injector');
   let payload = html;
@@ -214,9 +227,12 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   if (req?.tenant && path.basename(filePath || '') === 'dashboard.html') {
     payload = optimizeTenantDashboardHtml(payload);
   }
+  const fileName = path.basename(filePath || '');
+  if (fileName === 'tenant-dashboard.html') {
+    return payload;
+  }
   const withNumberFormat = injectNumberFormatScript(payload);
   const withFormValidation = injectFormValidationAssets(withNumberFormat);
-  const fileName = path.basename(filePath || '');
   if (fileName === 'login-page.html' || fileName === 'register.html') {
     return injectTenantBrandingAssets(injectDarkModeAssets(withFormValidation));
   }
@@ -3606,7 +3622,7 @@ app.get('/index.html', (req, res) => {
 });
 
 app.get('/dashboard.html', (req, res) => {
-  sendHtmlWithNumberFormat(res, path.join(__dirname, 'dashboard.html'), req);
+  sendDashboardHtml(req, res);
 });
 
 app.get('/home', (req, res) => {
