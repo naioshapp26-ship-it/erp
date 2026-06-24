@@ -300,7 +300,9 @@ function injectTenantBrandingHtml(html, identity, tenant = null) {
   if (next.includes('id="tenant-branding-boot"')) {
     return next;
   }
-  if (next.includes('<head>')) {
+  if (/<meta\s+charset/i.test(next)) {
+    next = next.replace(/(<meta\s+charset[^>]*>)/i, `$1${block}`);
+  } else if (next.includes('<head>')) {
     next = next.replace('<head>', `<head>${block}`);
   } else if (next.includes('<head ')) {
     next = next.replace(/<head([^>]*)>/, `<head$1>${block}`);
