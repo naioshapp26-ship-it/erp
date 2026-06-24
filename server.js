@@ -144,14 +144,7 @@ const sendHtmlWithNumberFormat = (res, filePath, req = null) => {
   });
 };
 
-const resolveDashboardHtmlPath = (req) => {
-  const mode = String(req?.tenantAccessMode || '').toLowerCase();
-  const explicitTenant = mode === 'path' || mode === 'subdomain' || mode === 'header';
-  if (req?.tenant && explicitTenant) {
-    return path.join(__dirname, 'tenant-dashboard.html');
-  }
-  return path.join(__dirname, 'dashboard.html');
-};
+const resolveDashboardHtmlPath = () => path.join(__dirname, 'dashboard.html');
 
 const sendDashboardHtml = (req, res) => {
   sendHtmlWithNumberFormat(res, resolveDashboardHtmlPath(req), req);
@@ -3616,10 +3609,6 @@ const injectHomepageBootstrap = (html, payload) => {
 // Root health check for Railway
 app.get('/', async (req, res) => {
   if (req.tenant && req.tenant.status === 'active' && isExplicitTenantContext(req)) {
-    const token = getAuthToken(req);
-    if (token) {
-      return res.redirect(302, getTenantScopedRedirect(req, '/dashboard.html'));
-    }
     return sendHtmlWithNumberFormat(res, path.join(__dirname, 'tenant-landing.html'), req);
   }
 
@@ -3656,7 +3645,7 @@ app.get('/dashboard.html', (req, res) => {
   if (req?.tenant && explicitTenant) {
     const token = getAuthToken(req);
     if (!token) {
-      return res.redirect(302, `/t/${req.tenant.subdomain}/?login=1`);
+      return res.redirect(302, `/t/${req.tenant.subdomain}/`);
     }
   }
   sendDashboardHtml(req, res);

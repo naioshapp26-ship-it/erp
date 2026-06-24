@@ -39,7 +39,7 @@ const checks = [
   ['strip public entity hierarchy', !optimized.includes('entity-hierarchy-ui.js')],
   ['defer script.js', optimized.includes('defer')],
   ['soft tenant verify', script.includes('canUseCachedTenantSession')],
-  ['tenant login redirect', dashboard.includes('?login=1')]
+  ['tenant landing redirect', dashboard.includes("'/t/' + tenantMatch[1].toLowerCase() + '/'")],
 ];
 
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);

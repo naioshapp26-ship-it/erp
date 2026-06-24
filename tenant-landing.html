@@ -360,7 +360,22 @@
       }
 
       const loginCta = document.getElementById('login-cta');
-      loginCta.href = scoped('/login-page.html?login=1');
+      const loginCtaLabel = loginCta ? loginCta.querySelector('span') : null;
+      const cookieMatch = document.cookie.match(/authToken=([^;]+)/);
+      const cookieToken = cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+      const hasSession = Boolean(
+        localStorage.getItem('authToken')
+        || sessionStorage.getItem('authToken')
+        || cookieToken
+      );
+
+      if (hasSession) {
+        loginCta.href = scoped('/dashboard.html');
+        if (loginCtaLabel) loginCtaLabel.textContent = 'دخول لوحة التحكم';
+      } else {
+        loginCta.href = scoped('/login-page.html?login=1');
+        if (loginCtaLabel) loginCtaLabel.textContent = 'تسجيل الدخول';
+      }
 
       if (window.applyTenantBranding) {
         window.applyTenantBranding();
