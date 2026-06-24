@@ -68,7 +68,7 @@ async function attachTenantFromSession(req) {
       req.tenantPool = getTenantPool(tenant.subdomain, tenant.encrypted_db_url);
       req.tenantPathSubdomain = req.tenantPathSubdomain || tenant.subdomain;
       if (!req.tenantAccessMode || req.tenantAccessMode === 'central') {
-        req.tenantAccessMode = 'path';
+        req.tenantAccessMode = 'session';
       }
     }
   } catch (error) {

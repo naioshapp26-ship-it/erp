@@ -2837,6 +2837,11 @@ const isProtectedHtmlPath = (requestPath = '') => {
   return protectedHtmlPathPrefixes.some(prefix => normalizedPath.startsWith(prefix));
 };
 
+const isExplicitTenantContext = (req) => {
+  const mode = String(req?.tenantAccessMode || '').toLowerCase();
+  return mode === 'path' || mode === 'subdomain' || mode === 'header';
+};
+
 const getTenantScopedRedirect = (req, targetPath) => {
   const normalizedPath = String(targetPath || '').startsWith('/') ? String(targetPath) : `/${targetPath || ''}`;
   if (req?.tenant?.subdomain && req.tenantAccessMode === 'path') {
@@ -2846,8 +2851,11 @@ const getTenantScopedRedirect = (req, targetPath) => {
 };
 
 const getTenantAuthEntryRedirect = (req) => {
-  if (req?.tenant?.subdomain) {
+  if (req?.tenant?.subdomain && isExplicitTenantContext(req)) {
     return getTenantScopedRedirect(req, '/');
+  }
+  if (req?.tenant?.subdomain && req.tenantAccessMode === 'session') {
+    return `/t/${req.tenant.subdomain}/`;
   }
   return getTenantScopedRedirect(req, '/login-page.html');
 };
@@ -3531,7 +3539,7 @@ const injectHomepageBootstrap = (html, payload) => {
 
 // Root health check for Railway
 app.get('/', async (req, res) => {
-  if (req.tenant && req.tenant.status === 'active') {
+  if (req.tenant && req.tenant.status === 'active' && isExplicitTenantContext(req)) {
     const token = getAuthToken(req);
     if (token) {
       return res.redirect(302, getTenantScopedRedirect(req, '/dashboard.html'));
@@ -3560,7 +3568,7 @@ app.get('/', async (req, res) => {
 
 // إن وُجد index.html قديم بالروت (Apache DirectoryIndex) — لا يفتح الداشبورد على /
 app.get('/index.html', (req, res) => {
-  if (req.tenant && req.tenant.status === 'active') {
+  if (req.tenant && req.tenant.status === 'active' && isExplicitTenantContext(req)) {
     return res.redirect(301, getTenantScopedRedirect(req, '/'));
   }
   res.redirect(301, '/');
