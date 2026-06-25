@@ -4323,9 +4323,9 @@ app.post('/api/hr/modules/:moduleKey/records', async (req, res) => {
 
     if (moduleKey === 'e-archive' && displayOrderSafe === null) {
       const maxOrderResult = await db.query(
-        `SELECT COALESCE(MAX(display_order), 0) AS max_order
-         FROM hr_module_records
-         WHERE module_key = 'e-archive' AND ${getEntityFilter(req.userEntity, 'r')}`
+        `SELECT COALESCE(MAX(r.display_order), 0) AS max_order
+         FROM hr_module_records r
+         WHERE r.module_key = 'e-archive' AND ${getEntityFilter(req.userEntity, 'r')}`
       );
       displayOrderSafe = Number(maxOrderResult.rows[0]?.max_order || 0) + 1;
     }
