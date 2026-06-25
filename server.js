@@ -3763,6 +3763,8 @@ app.get('/api/products/modules', (req, res) => {
   }
 });
 
+app.get('/services/:section', serveDashboardSpa);
+
 app.get('/services', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'services.html'));
 });

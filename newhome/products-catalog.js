@@ -81,15 +81,15 @@
           mod('التنبؤات بالذكاء الاصطناعي', '/finance/ai-forecasts.html')
         ], '/finance'),
         system('payment-system', 'fa-credit-card', 'نظام الدفع', 'إدارة الدفع والتحصيل والفوترة الذكية بشكل متكامل.', [
-          mod('الفواتير الذكية', '/finance'),
-          mod('طرق الدفع', '/finance'),
-          mod('خطط الأقساط', '/finance'),
-          mod('تتبع الدفعات', '/finance'),
-          mod('إعدادات الضرائب', '/finance'),
-          mod('قواعد التحصيل', '/finance'),
-          mod('التذكيرات الآلية', '/finance'),
-          mod('إدارة المتأخرات', '/finance'),
-          mod('تحليلات الدفع', '/finance'),
+          mod('الفواتير الذكية', '/finance/payments/smart-invoices.html'),
+          mod('طرق الدفع', '/finance/payments/'),
+          mod('خطط الأقساط', '/finance/payment-plans.html'),
+          mod('تتبع الدفعات', '/finance/payments/tracking.html'),
+          mod('إعدادات الضرائب', '/finance/multiple-taxes.html'),
+          mod('قواعد التحصيل', '/finance/payments/collection-rules.html'),
+          mod('التذكيرات الآلية', '/finance/payments/reminders.html'),
+          mod('إدارة المتأخرات', '/finance/payments/arrears.html'),
+          mod('تحليلات الدفع', '/finance/payments/analytics.html'),
           mod('بوابات الدفع', '/gateway-payments'),
           mod('شحن الرصيد', '/credit-topup'),
           mod('المتجر والسلة', '/online-store')
@@ -158,17 +158,17 @@
           mod('جدول الحضور', '/hr/attendance-table')
         ]),
         system('services', 'fa-headset', 'الخدمات', 'منظومة متكاملة لإدارة طلبات الخدمة ومستوى الدعم وفق SLA محدد.', [
-          mod('مكتب إدارة المشاريع', '/home'),
-          mod('إدارة الأداء المؤسسي', '/home'),
-          mod('متابعة العمليات', '/home'),
-          mod('دراسة السوق بالذكاء الاصطناعي', '/home'),
-          mod('خدمة العملاء', '/home'),
-          mod('الخدمات الإدارية للعميل', '/home'),
-          mod('القاعات الافتراضية', '/home'),
-          mod('دراسات الجدوى', '/home'),
-          mod('البحوث', '/home'),
-          mod('الاستشارات والتدريب', '/home')
-        ]),
+          mod('مكتب إدارة المشاريع', '/services/project-management-office'),
+          mod('إدارة الأداء المؤسسي', '/services/institutional-performance'),
+          mod('متابعة العمليات', '/services/operations-monitoring'),
+          mod('دراسة السوق بالذكاء الاصطناعي', '/services/ai-market-research'),
+          mod('خدمة العملاء', '/services/customer-service'),
+          mod('الخدمات الإدارية للعميل', '/services/client-admin-services'),
+          mod('القاعات الافتراضية', '/services/virtual-halls'),
+          mod('دراسات الجدوى', '/services/feasibility-studies'),
+          mod('البحوث', '/services/research'),
+          mod('الاستشارات والتدريب', '/services/consulting-training')
+        ], '/services'),
         system('tasks-management', 'fa-list-check', 'المهام', 'تكليف وتتبع المهام بين الفرق مع أولويات وتواريخ استحقاق واضحة.', [
           mod('القائمة الرئيسية', '/tasks/main-menu'),
           mod('لوحة التحكم', '/tasks/control-panel'),
@@ -417,6 +417,36 @@
     }
   }
 
+  function hasArabicText(value) {
+    return /[\u0600-\u06FF]/.test(String(value || ''));
+  }
+
+  function normalizeModuleHref(href) {
+    return String(href || '').split('#')[0].replace(/\/+$/, '') || '/';
+  }
+
+  function mergeCatalogModules(staticModules, remoteModules) {
+    if (!Array.isArray(remoteModules) || !remoteModules.length) {
+      return staticModules;
+    }
+    const staticByHref = new Map(
+      (staticModules || []).map((entry) => [normalizeModuleHref(entry.href), entry])
+    );
+
+    return remoteModules.map((remote) => {
+      const staticMatch = staticByHref.get(normalizeModuleHref(remote.href));
+      const remoteName = String(remote.name || '').trim();
+      const staticName = staticMatch?.name;
+      const name = (
+        staticName &&
+        hasArabicText(staticName) &&
+        !hasArabicText(remoteName)
+      ) ? staticName : (hasArabicText(remoteName) ? remoteName : (staticName || remoteName));
+      const href = remote.href || staticMatch?.href;
+      return { name, href };
+    });
+  }
+
   async function hydrateCatalogModules() {
     try {
       const response = await fetch('/api/products/modules', {
@@ -429,10 +459,7 @@
         section.systems.forEach((sys) => {
           const remote = bySystem[sys.id];
           if (Array.isArray(remote) && remote.length) {
-            sys.modules = remote.map((entry) => ({
-              name: entry.name,
-              href: entry.href
-            }));
+            sys.modules = mergeCatalogModules(sys.modules, remote);
           }
         });
       });

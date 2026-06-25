@@ -5,6 +5,7 @@ const {
   ROUTE_TO_PATH,
   PAGE_LABELS,
   buildPermissionRegistry,
+  getPageLabel,
   getPagesForSystem
 } = require('./page-permissions-registry');
 
@@ -54,7 +55,30 @@ const SUPPLEMENTAL_ROUTE_PATHS = {
   'gateway-payments': '/gateway-payments',
   'credit-topup': '/credit-topup',
   'online-store': '/online-store',
-  'payment-menu': '/finance/payments/'
+  'payment-menu': '/finance/payments/',
+  purchases: '/supply-chain/purchases',
+  logistics: '/supply-chain/logistics',
+  inventory: '/supply-chain/inventory',
+  suppliers: '/supply-chain/suppliers',
+  'orders-delivery': '/supply-chain/orders-delivery',
+  'smart-procurement': '/supply-chain/smart-procurement',
+  manufacturing: '/supply-chain/manufacturing',
+  'product-lifecycle': '/supply-chain/product-lifecycle',
+  maintenance: '/supply-chain/maintenance',
+  'quality-control': '/supply-chain/quality-control',
+  safety: '/supply-chain/safety',
+  'specs-estimates': '/supply-chain/specs-estimates',
+  'customs-clearance': '/supply-chain/customs-clearance',
+  'project-management-office': '/services/project-management-office',
+  'institutional-performance': '/services/institutional-performance',
+  'operations-monitoring': '/services/operations-monitoring',
+  'ai-market-research': '/services/ai-market-research',
+  'customer-service': '/services/customer-service',
+  'client-admin-services': '/services/client-admin-services',
+  'virtual-halls': '/services/virtual-halls',
+  'feasibility-studies': '/services/feasibility-studies',
+  research: '/services/research',
+  'consulting-training': '/services/consulting-training'
 };
 
 function parseHubFromFile(relativeFile, containerId, hrefPrefix) {
@@ -88,10 +112,50 @@ function dedupeModules(modules) {
 }
 
 function labelForKey(key) {
-  return PAGE_LABELS[key] || key.replace(/__/g, ' / ').replace(/-/g, ' ');
+  const registryLabel = getPageLabel(key);
+  if (registryLabel && registryLabel !== key) return registryLabel;
+  const scriptLabel = loadScriptPageLabels()[key];
+  if (scriptLabel) return scriptLabel;
+  return registryLabel;
 }
 
 let scriptRoutePaths = null;
+let scriptPageLabels = null;
+
+function loadScriptPageLabels() {
+  if (scriptPageLabels) return scriptPageLabels;
+  const content = fs.readFileSync(path.join(__dirname, 'script.js'), 'utf8');
+  const marker = 'const getTitle = (r) => {';
+  const start = content.indexOf(marker);
+  if (start < 0) {
+    scriptPageLabels = {};
+    return scriptPageLabels;
+  }
+  const mapStart = content.indexOf('const map = {', start);
+  if (mapStart < 0) {
+    scriptPageLabels = {};
+    return scriptPageLabels;
+  }
+  let depth = 0;
+  let end = mapStart;
+  const openBrace = content.indexOf('{', mapStart);
+  for (let i = openBrace; i < content.length; i += 1) {
+    if (content[i] === '{') depth += 1;
+    if (content[i] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+  }
+  const labels = {};
+  [...content.slice(mapStart, end).matchAll(/'([^']+)':\s*'([^']*)'/g)].forEach((match) => {
+    labels[match[1]] = match[2];
+  });
+  scriptPageLabels = labels;
+  return scriptPageLabels;
+}
 
 function loadScriptRoutePaths() {
   if (scriptRoutePaths) return scriptRoutePaths;
