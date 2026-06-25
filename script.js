@@ -3434,6 +3434,17 @@ const app = (() => {
         '/credit-topup': 'credit-topup',
         '/gateway-payments': 'gateway-payments',
         '/tenant-branding-settings.html': 'tenant-branding',
+        // Services paths
+        '/services/project-management-office': 'project-management-office',
+        '/services/institutional-performance': 'institutional-performance',
+        '/services/operations-monitoring': 'operations-monitoring',
+        '/services/ai-market-research': 'ai-market-research',
+        '/services/customer-service': 'customer-service',
+        '/services/client-admin-services': 'client-admin-services',
+        '/services/virtual-halls': 'virtual-halls',
+        '/services/feasibility-studies': 'feasibility-studies',
+        '/services/research': 'research',
+        '/services/consulting-training': 'consulting-training',
     });
 
     // Extend routeToPath with missing sections
@@ -3479,6 +3490,17 @@ const app = (() => {
         'credit-topup': '/credit-topup',
         'gateway-payments': '/gateway-payments',
         'tenant-branding': '/tenant-branding-settings.html',
+        // Services routes
+        'project-management-office': '/services/project-management-office',
+        'institutional-performance': '/services/institutional-performance',
+        'operations-monitoring': '/services/operations-monitoring',
+        'ai-market-research': '/services/ai-market-research',
+        'customer-service': '/services/customer-service',
+        'client-admin-services': '/services/client-admin-services',
+        'virtual-halls': '/services/virtual-halls',
+        'feasibility-studies': '/services/feasibility-studies',
+        'research': '/services/research',
+        'consulting-training': '/services/consulting-training',
     });
 
     const buildGlobalSearchIndex = () => {
