@@ -3909,7 +3909,7 @@ const serveHrHome = (req, res, next) => {
     if (target === 'hr-home.html') {
       sendHubPageHtml(res, hrFilePath, req);
     } else {
-      sendHtmlWithNumberFormat(res, hrFilePath);
+      sendHtmlWithNumberFormat(res, hrFilePath, req);
     }
   } catch (error) {
     res.status(500).send('HR page not available');
@@ -4173,7 +4173,14 @@ const archiveFileFilter = (req, file, cb) => {
   cb(new Error('Unsupported file type'));
 };
 
-const archiveUpload = multer({ storage: archiveStorage, fileFilter: archiveFileFilter });
+const archiveUpload = multer({
+  storage: archiveStorage,
+  fileFilter: archiveFileFilter,
+  limits: {
+    fileSize: 25 * 1024 * 1024,
+    files: 12
+  }
+});
 
 const deleteArchiveFilesByRecordId = async (recordId, moduleKey, userEntity) => {
   if (!recordId) return;
