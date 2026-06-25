@@ -732,7 +732,8 @@
       .rs-report-row > :nth-child(4) { display: none; }
     }
   </style>
-  <link rel="stylesheet" href="contrast-overrides.css">
+  <link rel="stylesheet" href="/finance/contrast-overrides.css">
+  <script src="/tenant-path-client.js"></script>
 </head>
 <body>
   <div class="container mx-auto px-4 py-8">
@@ -2208,6 +2209,7 @@
     let archiveLockedOnly = false;
     let archiveConfidentialOnly = false;
     let archiveHasFilesOnly = false;
+    let selectedArchiveFiles = [];
 
     const encodeHeaderValue = (value) => {
       if (value === null || value === undefined || value === '') return '';
@@ -2226,6 +2228,30 @@
           if (user?.tenant_type) headers['x-entity-type'] = user.tenant_type;
           if (user?.role) headers['x-user-role'] = encodeHeaderValue(user.role);
           if (user?.name) headers['x-user-name'] = encodeHeaderValue(user.name);
+        } catch (error) {
+          console.warn('Failed to parse user context:', error);
+        }
+      }
+      return headers;
+    };
+
+    const resolveApiPath = (targetPath) => (
+      typeof globalThis.getTenantScopedPath === 'function'
+        ? globalThis.getTenantScopedPath(targetPath)
+        : targetPath
+    );
+
+    const buildFormHeaders = () => {
+      const headers = {};
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      const userRaw = localStorage.getItem('user') || sessionStorage.getItem('user');
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (userRaw) {
+        try {
+          const user = JSON.parse(userRaw);
+          if (user?.entity_id) headers['x-entity-id'] = String(user.entity_id);
+          if (user?.tenant_type) headers['x-entity-type'] = String(user.tenant_type);
+          if (user?.role) headers['x-user-role'] = encodeHeaderValue(user.role);
         } catch (error) {
           console.warn('Failed to parse user context:', error);
         }
@@ -2387,18 +2413,34 @@
         recordArchiveAttachmentsList.innerHTML = '<div class="text-xs text-slate-500">لا توجد مرفقات بعد.</div>';
         return;
       }
-      recordArchiveAttachmentsList.innerHTML = files.map(file => `
+      recordArchiveAttachmentsList.innerHTML = files.map((file, index) => `
         <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
           <div class="flex flex-col">
             <span class="font-semibold text-slate-700">${file.original_name || file.originalName || file.name || 'ملف'}</span>
-            <span class="text-xs text-slate-500">${file.mime_type || file.mimeType || 'ملف'} • ${formatFileSize(file.size_bytes || file.size || 0)}</span>
+            <span class="text-xs text-slate-500">${file.mime_type || file.mimeType || file.type || 'ملف'} • ${formatFileSize(file.size_bytes || file.size || 0)}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="file-pill ${getArchiveFileTypeInfo(file).className}"><i class="fas ${getArchiveFileTypeInfo(file).icon}"></i>${getArchiveFileTypeInfo(file).label}</span>
-            <button class="btn bg-white text-slate-700 border border-slate-200" onclick="downloadArchiveFile(${file.record_id || activeRecordId}, ${file.id})"><i class="fas fa-download"></i> تنزيل</button>
+            ${file.id ? `<span class="file-pill ${getArchiveFileTypeInfo(file).className}"><i class="fas ${getArchiveFileTypeInfo(file).icon}"></i>${getArchiveFileTypeInfo(file).label}</span>
+            <button class="btn bg-white text-slate-700 border border-slate-200" onclick="downloadArchiveFile(${file.record_id || activeRecordId}, ${file.id})"><i class="fas fa-download"></i> تنزيل</button>` : `<button type="button" class="btn bg-white text-rose-700 border border-rose-200" onclick="removePendingArchiveFile(${index})"><i class="fas fa-times"></i> إزالة</button>`}
           </div>
         </div>
       `).join('');
+    };
+
+    const renderPendingArchiveAttachments = () => {
+      renderArchiveAttachmentsList(selectedArchiveFiles);
+    };
+
+    window.removePendingArchiveFile = (index) => {
+      selectedArchiveFiles = selectedArchiveFiles.filter((_, itemIndex) => itemIndex !== index);
+      renderPendingArchiveAttachments();
+      const zone = document.getElementById('archiveUploadZone');
+      const info = document.getElementById('archiveUploadZoneInfo');
+      if (!selectedArchiveFiles.length) {
+        if (recordArchiveAttachments) recordArchiveAttachments.value = '';
+        if (zone) zone.classList.remove('has-files', 'dragover');
+        if (info) info.classList.add('hidden');
+      }
     };
 
     const renderArchivePreview = (files = []) => {
@@ -2970,6 +3012,9 @@
       if (!modal) return;
       activeMode = mode;
       activeRecordId = recordId;
+      if (mode === 'add') {
+        selectedArchiveFiles = [];
+      }
       const isArchive = isEArchiveModule();
       const isMail = isInboundOutboundMailModule();
 
@@ -3046,6 +3091,7 @@
           if (recordArchiveActivityList) recordArchiveActivityList.innerHTML = '';
         }
         if (recordArchiveAttachments) recordArchiveAttachments.value = '';
+        selectedArchiveFiles = [];
         // Reset the upload zone UI
         const zone = document.getElementById('archiveUploadZone');
         const info = document.getElementById('archiveUploadZoneInfo');
@@ -3080,13 +3126,15 @@
       if (!modal) return;
       modal.classList.add('hidden');
       modal.classList.remove('flex');
+      selectedArchiveFiles = [];
     };
 
     const loadModuleRecords = async () => {
       if (!activeModuleKey) return;
       try {
-        const response = await fetch(`/api/hr/modules/${encodeURIComponent(activeModuleKey)}/records`, {
-          headers: buildEntityHeaders()
+        const response = await fetch(resolveApiPath(`/api/hr/modules/${encodeURIComponent(activeModuleKey)}/records`), {
+          headers: buildEntityHeaders(),
+          credentials: 'include'
         });
         const data = await response.json();
         activeRecords = Array.isArray(data) ? data : [];
@@ -4163,14 +4211,15 @@
 
       try {
         const url = activeMode === 'edit'
-          ? `/api/hr/modules/${encodeURIComponent(activeModuleKey)}/records/${activeRecordId}`
-          : `/api/hr/modules/${encodeURIComponent(activeModuleKey)}/records`;
+          ? resolveApiPath(`/api/hr/modules/${encodeURIComponent(activeModuleKey)}/records/${activeRecordId}`)
+          : resolveApiPath(`/api/hr/modules/${encodeURIComponent(activeModuleKey)}/records`);
         const method = activeMode === 'edit' ? 'PUT' : 'POST';
 
         const response = await fetch(url, {
           method,
           headers: buildEntityHeaders(),
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          credentials: 'include'
         });
 
         if (!response.ok) {
@@ -4179,13 +4228,18 @@
         }
 
         const savedRecord = await response.json();
-        if (isArchive && recordArchiveAttachments && recordArchiveAttachments.files.length) {
-          await uploadArchiveFiles(savedRecord.id || activeRecordId, recordArchiveAttachments.files);
+        let uploadFailed = false;
+        if (isArchive && selectedArchiveFiles.length) {
+          try {
+            await uploadArchiveFiles(savedRecord.id || activeRecordId, selectedArchiveFiles);
+          } catch (_) {
+            uploadFailed = true;
+          }
         }
 
         closeRecordsModal();
         await loadModuleRecords();
-        showRecordsToast('تم حفظ السجل بنجاح');
+        showRecordsToast(uploadFailed ? 'تم حفظ السجل، لكن تعذر رفع المرفقات' : 'تم حفظ السجل بنجاح');
       } catch (error) {
         console.error(error);
         showRecordsToast('تعذر حفظ السجل');
@@ -4193,24 +4247,32 @@
     };
 
     const uploadArchiveFiles = async (recordId, files) => {
-      if (!recordId || !files || !files.length) return;
+      const uploadList = Array.from(files || selectedArchiveFiles || []);
+      if (!recordId || !uploadList.length) return;
       const formData = new FormData();
-      Array.from(files).forEach(file => formData.append('files', file));
-      const headers = buildEntityHeaders();
-      delete headers['Content-Type'];
+      uploadList.forEach((file) => formData.append('files', file));
       try {
-        const response = await fetch(`/api/hr/modules/e-archive/records/${recordId}/files`, {
+        const response = await fetch(resolveApiPath(`/api/hr/modules/e-archive/records/${recordId}/files`), {
           method: 'POST',
-          headers,
-          body: formData
+          headers: buildFormHeaders(),
+          body: formData,
+          credentials: 'include'
         });
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to upload files');
+          let errorMessage = 'Failed to upload files';
+          try {
+            const error = await response.json();
+            errorMessage = error.error || errorMessage;
+          } catch (_) {
+            errorMessage = `HTTP ${response.status}`;
+          }
+          throw new Error(errorMessage);
         }
+        selectedArchiveFiles = [];
       } catch (error) {
         console.error(error);
-        showRecordsToast('تعذر رفع المرفقات');
+        showRecordsToast(error?.message ? `تعذر رفع المرفقات: ${error.message}` : 'تعذر رفع المرفقات');
+        throw error;
       }
     };
 
@@ -5110,6 +5172,8 @@
       if (recordArchiveAttachments) {
         recordArchiveAttachments.addEventListener('change', (event) => {
           const files = Array.from(event.target.files || []);
+          selectedArchiveFiles = files;
+          renderPendingArchiveAttachments();
           suggestArchiveClassification(files);
           const zone = document.getElementById('archiveUploadZone');
           const info = document.getElementById('archiveUploadZoneInfo');
@@ -5139,12 +5203,15 @@
             const dt = e.dataTransfer;
             if (dt && dt.files.length) {
               try {
+                selectedArchiveFiles = Array.from(dt.files);
+                renderPendingArchiveAttachments();
+                suggestArchiveClassification(selectedArchiveFiles);
                 const transfer = new DataTransfer();
-                Array.from(dt.files).forEach(file => transfer.items.add(file));
+                selectedArchiveFiles.forEach((file) => transfer.items.add(file));
                 recordArchiveAttachments.files = transfer.files;
                 recordArchiveAttachments.dispatchEvent(new Event('change', { bubbles: true }));
               } catch (_) {
-                showRecordsToast('اسحب الملفات إلى المنطقة الخضراء فقط');
+                showRecordsToast('تعذر إضافة الملفات المسحوبة، استخدم زر اختيار الملفات');
               }
             }
           });
