@@ -4059,24 +4059,16 @@ const isValidHrModuleKey = (moduleKey) => HR_MODULE_KEYS.has(moduleKey);
 
 const HR_ARCHIVE_UPLOAD_ROOT = path.join(__dirname, 'uploads', 'hr-archive');
 
-const getRequestActor = (req) => {
-  const actorName = req.headers['x-user-name'] || req.headers['x-user'] || 'مستخدم النظام';
-  const actorRole = req.headers['x-user-role'] || req.headers['x-role'] || 'admin';
-  return { actorName, actorRole };
-};
+const {
+  getArchiveRequestActor,
+  canPerformArchiveAction
+} = require('./hr-archive-permissions');
 
-const ARCHIVE_ROLE_PERMISSIONS = {
-  admin: new Set(['create', 'update', 'delete', 'upload', 'lock', 'share', 'review', 'archive', 'confidentiality', 'reorder']),
-  manager: new Set(['create', 'update', 'upload', 'share', 'review', 'archive', 'confidentiality', 'reorder']),
-  archivist: new Set(['create', 'update', 'upload', 'lock', 'share', 'review', 'archive', 'confidentiality', 'reorder']),
-  reviewer: new Set(['review', 'share']),
-  viewer: new Set([])
-};
+const getRequestActor = (req) => getArchiveRequestActor(req);
 
 const requireArchivePermission = (req, res, action) => {
-  const { actorRole } = getRequestActor(req);
-  const permissions = ARCHIVE_ROLE_PERMISSIONS[actorRole] || ARCHIVE_ROLE_PERMISSIONS.viewer;
-  if (!permissions.has(action)) {
+  const hasAuthToken = Boolean(getAuthToken(req));
+  if (!canPerformArchiveAction(req, action, hasAuthToken)) {
     res.status(403).json({ error: 'Insufficient permissions' });
     return false;
   }
