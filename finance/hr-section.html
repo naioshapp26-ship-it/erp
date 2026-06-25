@@ -896,6 +896,10 @@
           <i class="fas fa-download"></i>
           <span class="hidden sm:inline">تنزيل</span>
         </button>
+        <button id="docViewerDeleteBtn" class="btn bg-white text-rose-600 border border-rose-200" onclick="docViewerDeleteCurrent()">
+          <i class="fas fa-trash-alt"></i>
+          <span class="hidden sm:inline">حذف المرفق</span>
+        </button>
         <button class="archive-doc-viewer-close" onclick="closeArchiveDocViewer()" title="إغلاق (Esc)">
           <i class="fas fa-times"></i>
         </button>
@@ -2421,7 +2425,8 @@
           </div>
           <div class="flex items-center gap-2">
             ${file.id ? `<span class="file-pill ${getArchiveFileTypeInfo(file).className}"><i class="fas ${getArchiveFileTypeInfo(file).icon}"></i>${getArchiveFileTypeInfo(file).label}</span>
-            <button class="btn bg-white text-slate-700 border border-slate-200" onclick="downloadArchiveFile(${file.record_id || activeRecordId}, ${file.id})"><i class="fas fa-download"></i> تنزيل</button>` : `<button type="button" class="btn bg-white text-rose-700 border border-rose-200" onclick="removePendingArchiveFile(${index})"><i class="fas fa-times"></i> إزالة</button>`}
+            <button class="btn bg-white text-slate-700 border border-slate-200" onclick="downloadArchiveFile(${file.record_id || activeRecordId}, ${file.id})"><i class="fas fa-download"></i> تنزيل</button>
+            <button class="btn bg-white text-rose-600 border border-rose-200" onclick="deleteArchiveFile(${file.record_id || activeRecordId}, ${file.id})"><i class="fas fa-trash-alt"></i> حذف</button>` : `<button type="button" class="btn bg-white text-rose-700 border border-rose-200" onclick="removePendingArchiveFile(${index})"><i class="fas fa-times"></i> إزالة</button>`}
           </div>
         </div>
       `).join('');
@@ -2451,7 +2456,7 @@
         return;
       }
       const file = files[0];
-      const previewUrl = `/api/hr/modules/e-archive/records/${file.record_id || activeRecordId}/files/${file.id}`;
+      const previewUrl = resolveApiPath(`/api/hr/modules/e-archive/records/${file.record_id || activeRecordId}/files/${file.id}`);
       const mime = (file.mime_type || file.mimeType || '').toLowerCase();
       const typeInfo = getArchiveFileTypeInfo(file);
       let previewHtml = '';
@@ -2464,9 +2469,16 @@
       } else {
         previewHtml = `<div class="text-sm text-slate-600">لا توجد معاينة مباشرة لهذا النوع. استخدم زر التحميل.</div>`;
       }
+      const recordId = file.record_id || activeRecordId;
       recordArchivePreview.innerHTML = `
         <div class="bg-white border border-slate-200 rounded-2xl p-4">
-          <div class="text-xs font-bold text-slate-500 mb-2">معاينة المرفق الأول</div>
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div class="text-xs font-bold text-slate-500">معاينة المرفق الأول</div>
+            <div class="flex items-center gap-2">
+              <button class="btn bg-white text-slate-700 border border-slate-200 text-xs" onclick="downloadArchiveFile(${recordId}, ${file.id})"><i class="fas fa-download"></i> تنزيل</button>
+              <button class="btn bg-white text-rose-600 border border-rose-200 text-xs" onclick="deleteArchiveFile(${recordId}, ${file.id})"><i class="fas fa-trash-alt"></i> حذف</button>
+            </div>
+          </div>
           <div class="file-pill ${typeInfo.className} mb-3"><i class="fas ${typeInfo.icon}"></i>${typeInfo.label}</div>
           ${previewHtml}
         </div>
@@ -3600,6 +3612,7 @@
                   <span class="file-pill ${info.className}">${info.label}</span>
                   <button class="btn bg-sky-600 text-white" onclick="openArchiveDocViewer(${record.id}); setTimeout(() => docViewerSwitchFile(${record.id}, ${file.id}), 200)"><i class="fas fa-eye"></i> عرض</button>
                   <button class="btn bg-white text-slate-700 border border-slate-200" onclick="downloadArchiveFile(${record.id}, ${file.id})"><i class="fas fa-download"></i> تنزيل</button>
+                  <button class="btn bg-white text-rose-600 border border-rose-200" onclick="deleteArchiveFile(${record.id}, ${file.id})"><i class="fas fa-trash-alt"></i> حذف</button>
                   </div>
               </div>
             `;
@@ -4501,14 +4514,74 @@
       }
     };
 
+    const refreshArchiveViewsAfterFileDelete = async (recordId, deletedFileId) => {
+      const previousPreviewId = activePreviewRecordId;
+      const wasDocViewerOpen = docViewerCurrentRecordId === recordId;
+      const previousDocFileId = docViewerCurrentFileId;
+      const modal = document.getElementById('recordsModal');
+      const modalOpenForRecord = modal && !modal.classList.contains('hidden') && activeRecordId === recordId;
+
+      await loadModuleRecords();
+
+      const record = activeRecords.find(item => item.id === recordId);
+      if (previousPreviewId === recordId) {
+        if (record) {
+          await setArchivePreview(recordId);
+        } else {
+          activePreviewRecordId = null;
+        }
+      }
+
+      if (modalOpenForRecord && record) {
+        renderArchiveAttachmentsList(record.files || []);
+        renderArchivePreview(record.files || []);
+        loadArchiveActivity(recordId);
+      }
+
+      if (wasDocViewerOpen) {
+        if (!record || !Array.isArray(record.files) || !record.files.length) {
+          closeArchiveDocViewer();
+        } else {
+          const nextFileId = record.files.some(file => file.id === previousDocFileId && file.id !== deletedFileId)
+            ? previousDocFileId
+            : record.files[0].id;
+          docViewerSwitchFile(recordId, nextFileId);
+        }
+      }
+    };
+
+    const deleteArchiveFile = async (recordId, fileId) => {
+      if (!recordId || !fileId) return;
+      if (!confirm('هل أنت متأكد من حذف هذا المرفق؟ لا يمكن التراجع عن هذه العملية.')) return;
+      try {
+        const response = await fetch(
+          resolveApiPath(`/api/hr/modules/e-archive/records/${recordId}/files/${fileId}`),
+          {
+            method: 'DELETE',
+            headers: buildEntityHeaders(),
+            credentials: 'include'
+          }
+        );
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.error || 'Failed to delete file');
+        }
+        await refreshArchiveViewsAfterFileDelete(recordId, fileId);
+        showRecordsToast('تم حذف المرفق');
+      } catch (error) {
+        console.error(error);
+        showRecordsToast(error?.message ? `تعذر حذف المرفق: ${error.message}` : 'تعذر حذف المرفق');
+      }
+    };
+
     const downloadArchiveFile = async (recordId, fileId) => {
       if (!recordId || !fileId) return;
       showRecordsToast('جارٍ التحميل...');
       try {
         const headers = buildEntityHeaders();
         const response = await fetch(
-          `/api/hr/modules/e-archive/records/${recordId}/files/${fileId}?download=1`,
-          { headers }
+          resolveApiPath(`/api/hr/modules/e-archive/records/${recordId}/files/${fileId}?download=1`),
+          { headers, credentials: 'include' }
         );
         if (!response.ok) throw new Error('Failed to download');
         const contentDisposition = response.headers.get('content-disposition') || '';
@@ -4599,6 +4672,7 @@
 
     window.openRecordsModal = openRecordsModal;
     window.deleteRecord = deleteRecord;
+    window.deleteArchiveFile = deleteArchiveFile;
     window.downloadArchiveFile = downloadArchiveFile;
     window.downloadArchiveFirstFile = downloadArchiveFirstFile;
     window.setArchivePreview = setArchivePreview;
@@ -5358,7 +5432,7 @@
       if (!main) return;
 
       const headers = buildEntityHeaders();
-      const url = `/api/hr/modules/e-archive/records/${recordId}/files/${file.id}`;
+      const url = resolveApiPath(`/api/hr/modules/e-archive/records/${recordId}/files/${file.id}`);
       const mime = (file.mime_type || '').toLowerCase();
       const info = getArchiveFileTypeInfo(file);
       const name = file.original_name || file.name || 'ملف';
@@ -5440,6 +5514,14 @@
       }
     };
 
+    const docViewerDeleteCurrent = () => {
+      if (!docViewerCurrentRecordId || !docViewerCurrentFileId) {
+        showRecordsToast('لا يوجد مرفق محدد للحذف');
+        return;
+      }
+      deleteArchiveFile(docViewerCurrentRecordId, docViewerCurrentFileId);
+    };
+
     const closeArchiveDocViewer = () => {
       const viewer = document.getElementById('archiveDocViewer');
       if (!viewer) return;
@@ -5465,6 +5547,8 @@
     window.closeArchiveDocViewer = closeArchiveDocViewer;
     window.docViewerSwitchFile = docViewerSwitchFile;
     window.docViewerDownloadCurrent = docViewerDownloadCurrent;
+    window.docViewerDeleteCurrent = docViewerDeleteCurrent;
+    window.deleteArchiveFile = deleteArchiveFile;
     window.copyArchiveDocNumber = async (recordId) => {
       const record = activeRecords.find(item => item.id === recordId);
       if (!record || !record.doc_number) {
