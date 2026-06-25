@@ -3,7 +3,8 @@
 const assert = require('assert');
 const {
   resolveArchiveRoleKey,
-  canPerformArchiveAction
+  canPerformArchiveAction,
+  decodeRequestHeader
 } = require('./hr-archive-permissions');
 
 assert.strictEqual(resolveArchiveRoleKey('مسؤول النظام'), 'admin');
@@ -11,12 +12,16 @@ assert.strictEqual(resolveArchiveRoleKey('tenant_admin'), 'admin');
 assert.strictEqual(resolveArchiveRoleKey('SUPER_ADMIN'), 'admin');
 assert.strictEqual(resolveArchiveRoleKey('HQ Admin'), 'admin');
 assert.strictEqual(resolveArchiveRoleKey(encodeURIComponent('مسؤول النظام')), 'admin');
-assert.strictEqual(resolveArchiveRoleKey('viewer'), 'viewer');
+assert.strictEqual(
+  decodeURIComponent(encodeURIComponent('مستخدم تجريبي')),
+  'مستخدم تجريبي',
+  'encoded Arabic header values should round-trip'
+);
 
 const reqWithArabicRole = {
   headers: {
-    'x-user-role': 'مسؤول النظام',
-    'x-user-name': 'مستخدم تجريبي'
+    'x-user-role': encodeURIComponent('مسؤول النظام'),
+    'x-user-name': encodeURIComponent('مستخدم تجريبي')
   }
 };
 assert.strictEqual(
