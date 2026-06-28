@@ -82,8 +82,21 @@
     });
   }
 
+  function installTenantNavigationGuard() {
+    if (!isTenantPathMode()) return;
+    document.addEventListener('click', (event) => {
+      const anchor = event.target && event.target.closest ? event.target.closest('a[href^="/"]') : null;
+      if (!anchor || anchor.hasAttribute('data-tenant-scope-skip')) return;
+      const href = anchor.getAttribute('href');
+      if (!shouldScopeInternalHref(href)) return;
+      event.preventDefault();
+      window.location.assign(getTenantScopedPath(href));
+    }, true);
+  }
+
   function bootTenantPathHelpers() {
     rewriteTenantAnchors(document);
+    installTenantNavigationGuard();
     if (typeof MutationObserver === 'function' && document.body) {
       const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
@@ -105,10 +118,15 @@
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootTenantPathHelpers);
-  } else {
+  function scheduleTenantPathBoot() {
     bootTenantPathHelpers();
+    window.addEventListener('load', () => rewriteTenantAnchors(document), { once: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scheduleTenantPathBoot);
+  } else {
+    scheduleTenantPathBoot();
   }
 
   global.isTenantPathMode = isTenantPathMode;

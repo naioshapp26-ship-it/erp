@@ -144,6 +144,8 @@ const sendHtmlWithNumberFormat = (res, filePath, req = null) => {
   });
 };
 
+const TENANT_PATH_CLIENT_SRC = '/tenant-path-client.js?v=20260628-tenant-scope';
+
 const resolveDashboardHtmlPath = () => path.join(__dirname, 'dashboard.html');
 
 const sendDashboardHtml = (req, res) => {
@@ -162,7 +164,7 @@ function injectTenantBrandingAssets(html) {
     }
   }
   if (payload.includes('tenant-branding.js')) return payload;
-  const injection = '    <script src="/tenant-path-client.js"></script>\n    <script src="/tenant-branding.js"></script>\n';
+  const injection = `    <script src="${TENANT_PATH_CLIENT_SRC}"></script>\n    <script src="/tenant-branding.js"></script>\n`;
   return payload.replace('</head>', `${injection}</head>`);
 }
 
@@ -3135,8 +3137,8 @@ app.get('/finance*', (req, res, next) => {
       .replace(/const AR_ENTITY_ID = 'HQ001';/g, "const AR_ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';");
     const hasTheme = html.includes('/finance/brand-theme.css');
     const injection = hasTheme
-      ? '    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="/tenant-path-client.js"></script>\n    <script src="/tenant-branding.js"></script>\n'
-      : '    <link rel="stylesheet" href="/finance/brand-theme.css?v=20260215">\n    <script src="/finance/brand-theme.js"></script>\n    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="/tenant-path-client.js"></script>\n    <script src="/tenant-branding.js"></script>\n';
+      ? `    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="${TENANT_PATH_CLIENT_SRC}"></script>\n    <script src="/tenant-branding.js"></script>\n`
+      : `    <link rel="stylesheet" href="/finance/brand-theme.css?v=20260215">\n    <script src="/finance/brand-theme.js"></script>\n    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="${TENANT_PATH_CLIENT_SRC}"></script>\n    <script src="/tenant-branding.js"></script>\n`;
     const injected = html.replace('</head>', `${injection}</head>`);
     let payload = injectGlobalBackButtonAssets(injectFormValidationAssets(injected));
     if (req?.tenant && req?.tenantIdentity) {
