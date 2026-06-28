@@ -312,6 +312,12 @@ const app = (() => {
             || '';
     };
 
+    const resolveTenantAwarePath = (targetPath) => (
+        typeof getTenantScopedPath === 'function'
+            ? getTenantScopedPath(targetPath)
+            : targetPath
+    );
+
     const readStoredMenu = () => {
         try {
             return JSON.parse(localStorage.getItem('menu') || sessionStorage.getItem('menu') || 'null');
@@ -1940,17 +1946,27 @@ const app = (() => {
 
         if (legacyHrRoutes.has(route)) {
             const targetPath = routeToPath[route] || '/hr';
-            window.location.href = targetPath;
+            window.location.href = resolveTenantAwarePath(targetPath);
             return;
         }
 
         if (route === 'operational-policies') {
-            window.location.href = '/operational-policies';
+            window.location.href = resolveTenantAwarePath('/operational-policies');
             return;
         }
 
         if (route === 'records-archive-home' || route === 'records-archive') {
-            window.location.href = '/archive';
+            window.location.href = resolveTenantAwarePath('/archive');
+            return;
+        }
+
+        if (route === 'finance') {
+            window.location.replace(resolveTenantAwarePath('/finance'));
+            return;
+        }
+
+        if (route === 'events-studio-main') {
+            window.location.href = resolveTenantAwarePath('/finance/events-studio-main.html');
             return;
         }
 
@@ -5038,12 +5054,8 @@ const app = (() => {
         </div>`;
     };
 
-    const resolveEmbeddedPageUrl = (url) => (
-        typeof getTenantScopedPath === 'function' ? getTenantScopedPath(url) : url
-    );
-
     const renderEmbeddedPaymentPage = (url, title) => {
-        const scopedUrl = resolveEmbeddedPageUrl(url);
+        const scopedUrl = resolveTenantAwarePath(url);
         return `
 <div class="space-y-4 animate-fade-in p-2">
     <div class="flex items-center justify-between">
@@ -6170,8 +6182,7 @@ const app = (() => {
 
     // --- FINANCE MODULE (المالية) ---
     const renderFinance = () => {
-        // توجيه المستخدم إلى صفحة المالية الخارجية
-        window.location.replace('/finance');
+        window.location.replace(resolveTenantAwarePath('/finance'));
         return '';
     };
 
@@ -6864,7 +6875,7 @@ const app = (() => {
     // --- EMPLOYEE REQUESTS MODULE ---
     
     const renderEventsStudioMain = () => {
-        window.location.href = '/finance/events-studio-main.html';
+        window.location.href = resolveTenantAwarePath('/finance/events-studio-main.html');
         return '';
     };
 
