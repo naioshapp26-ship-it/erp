@@ -312,11 +312,82 @@ const app = (() => {
             || '';
     };
 
-    const resolveTenantAwarePath = (targetPath) => (
-        typeof getTenantScopedPath === 'function'
-            ? getTenantScopedPath(targetPath)
-            : targetPath
-    );
+    const resolveTenantAwarePath = (targetPath) => {
+        const normalizedPath = String(targetPath || '').startsWith('/')
+            ? String(targetPath || '')
+            : `/${targetPath || ''}`;
+        if (typeof getTenantScopedPath === 'function') {
+            return getTenantScopedPath(normalizedPath);
+        }
+        const pathMatch = String(window.location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i);
+        const subdomain = pathMatch
+            ? pathMatch[1].toLowerCase()
+            : String(currentUser?.tenantSubdomain || currentUser?.tenant_subdomain || '').toLowerCase();
+        if (!subdomain) {
+            return normalizedPath;
+        }
+        if (normalizedPath.startsWith(`/t/${subdomain}`)) {
+            return normalizedPath;
+        }
+        return `/t/${subdomain}${normalizedPath}`;
+    };
+
+    const TENANT_EXTERNAL_ROUTE_PATHS = {
+        finance: '/finance',
+        'events-studio-main': '/finance/events-studio-main.html',
+        'records-archive-home': '/archive',
+        'records-archive': '/archive',
+        'operational-policies': '/operational-policies',
+        'tenant-branding': '/tenant-branding-settings.html'
+    };
+
+    const LEGACY_HR_ROUTE_IDS = new Set([
+        'hr',
+        'employees',
+        'attendance-departure',
+        'emp-requests',
+        'emp-leaves',
+        'leave-balance',
+        'notifications-warnings',
+        'emp-decisions',
+        'company-violations',
+        'evaluation-forms',
+        'circulars',
+        'advances-receivables',
+        'surveys',
+        'business-activities',
+        'emp-letters',
+        'custodies',
+        'assets-custodies',
+        'salary-slips',
+        'attendance-register',
+        'attendance-table'
+    ]);
+
+    const getExternalNavigationPath = (route) => {
+        if (TENANT_EXTERNAL_ROUTE_PATHS[route]) {
+            return resolveTenantAwarePath(TENANT_EXTERNAL_ROUTE_PATHS[route]);
+        }
+        if (LEGACY_HR_ROUTE_IDS.has(route)) {
+            return resolveTenantAwarePath(routeToPath[route] || '/hr');
+        }
+        return null;
+    };
+
+    const navigateToExternalRoute = (route) => {
+        const targetPath = getExternalNavigationPath(route);
+        if (!targetPath) return false;
+        window.location.href = targetPath;
+        return true;
+    };
+
+    const buildRouteOpenAction = (route) => {
+        const externalPath = getExternalNavigationPath(route);
+        if (externalPath) {
+            return `window.location.href='${externalPath.replace(/'/g, "\\'")}'`;
+        }
+        return `app.loadRoute('${route}')`;
+    };
 
     const readStoredMenu = () => {
         try {
@@ -1921,52 +1992,30 @@ const app = (() => {
         const sidebar = document.getElementById('sidebar');
         if (sidebar && sidebar.classList.contains('translate-x-0') && window.innerWidth < 768) toggleMobileMenu();
 
-        const legacyHrRoutes = new Set([
-            'hr',
-            'employees',
-            'attendance-departure',
-            'emp-requests',
-            'emp-leaves',
-            'leave-balance',
-            'notifications-warnings',
-            'emp-decisions',
-            'company-violations',
-            'evaluation-forms',
-            'circulars',
-            'advances-receivables',
-            'surveys',
-            'business-activities',
-            'emp-letters',
-            'custodies',
-            'assets-custodies',
-            'salary-slips',
-            'attendance-register',
-            'attendance-table'
-        ]);
+        const legacyHrRoutes = LEGACY_HR_ROUTE_IDS;
 
         if (legacyHrRoutes.has(route)) {
-            const targetPath = routeToPath[route] || '/hr';
-            window.location.href = resolveTenantAwarePath(targetPath);
+            navigateToExternalRoute(route);
             return;
         }
 
         if (route === 'operational-policies') {
-            window.location.href = resolveTenantAwarePath('/operational-policies');
+            navigateToExternalRoute(route);
             return;
         }
 
         if (route === 'records-archive-home' || route === 'records-archive') {
-            window.location.href = resolveTenantAwarePath('/archive');
+            navigateToExternalRoute(route);
             return;
         }
 
         if (route === 'finance') {
-            window.location.replace(resolveTenantAwarePath('/finance'));
+            navigateToExternalRoute(route);
             return;
         }
 
         if (route === 'events-studio-main') {
-            window.location.href = resolveTenantAwarePath('/finance/events-studio-main.html');
+            navigateToExternalRoute(route);
             return;
         }
 
@@ -3890,7 +3939,11 @@ const app = (() => {
             });
 
         menu.innerHTML = items.filter(i => i.show).map(item => {
-            const path = routeToPath[item.id] || '/';
+            const externalPath = getExternalNavigationPath(item.id);
+            const path = externalPath || resolveTenantAwarePath(routeToPath[item.id] || '/dashboard.html');
+            const navAttrs = externalPath
+                ? `href="${path}"`
+                : `href="${path}" onclick="event.preventDefault(); app.loadRoute('${item.id}')"`;
             
             // Check if item has submenu
             if (item.subItems) {
@@ -3904,19 +3957,26 @@ const app = (() => {
                            <i class="fas fa-chevron-down z-10 transition-transform duration-200 submenu-arrow-${item.id}"></i>
                         </button>
                         <div id="submenu-${item.id}" class="hidden mt-2 mr-6 space-y-1">
-                            ${item.subItems.map(subItem => `
-                                <a href="#${subItem.id}" id="link-${subItem.id}" onclick="event.preventDefault(); app.loadRoute('${subItem.id}')" 
+                            ${item.subItems.map(subItem => {
+                                const subExternalPath = getExternalNavigationPath(subItem.id);
+                                const subPath = subExternalPath || resolveTenantAwarePath(routeToPath[subItem.id] || '/dashboard.html');
+                                const subNavAttrs = subExternalPath
+                                    ? `href="${subPath}"`
+                                    : `href="#${subItem.id}" onclick="event.preventDefault(); app.loadRoute('${subItem.id}')"`;
+                                return `
+                                <a ${subNavAttrs} id="link-${subItem.id}" 
                                    class="flex items-center gap-2 px-4 py-2.5 text-red-300 hover:text-white hover:bg-red-800/30 rounded-lg transition-all text-sm">
                                    <i class="fas ${subItem.icon} w-5 text-center"></i>
                                    <span>${subItem.label}</span>
                                 </a>
-                            `).join('')}
+                            `;
+                            }).join('')}
                         </div>
                     </div>
                 </li>`;
             }
             return `<li>
-                <a href="${path}" id="link-${item.id}" onclick="event.preventDefault(); app.loadRoute('${item.id}')" 
+                <a ${navAttrs} id="link-${item.id}" 
                    class="flex items-center gap-3 px-4 py-3.5 text-red-200 hover:text-white hover:bg-red-800/50 rounded-lg transition-all group relative overflow-hidden">
                    <i class="fas ${item.icon} w-6 text-center group-hover:text-red-400 transition-colors z-10"></i> 
                    <span class="z-10 relative font-medium">${item.label}</span>
@@ -5172,21 +5232,21 @@ const app = (() => {
                 title: 'إكمال هوية النظام',
                 desc: 'ارفع الشعار وحدد ألوان شركتك',
                 done: identityReady,
-                action: identityReady ? '' : `app.loadRoute('tenant-branding')`,
+                action: identityReady ? '' : buildRouteOpenAction('tenant-branding'),
                 cta: identityReady ? 'مكتمل' : 'فتح الإعدادات'
             },
             {
                 title: 'تحديث بريد الدخول',
                 desc: 'استخدم بريداً يناسب اسم منصتك وهويتها',
                 done: Boolean(loginEmail && loginEmail !== '—' && !/naiosh/i.test(loginEmail)),
-                action: `app.loadRoute('tenant-branding')`,
+                action: buildRouteOpenAction('tenant-branding'),
                 cta: 'تحديث البريد'
             },
             {
                 title: 'بدء استخدام الأنظمة',
                 desc: modulesCount ? 'افتح أول نظام مفعّل في منصتك' : 'تواصل مع الدعم لتفعيل الأنظمة',
                 done: false,
-                action: modules[0] ? `app.loadRoute('${modules[0].route}')` : '',
+                action: modules[0] ? buildRouteOpenAction(modules[0].route) : '',
                 cta: modules[0] ? `فتح ${modules[0].title}` : 'لا أنظمة بعد'
             }
         ];
@@ -5246,8 +5306,10 @@ const app = (() => {
                     </div>
                     ${modules.length ? `
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            ${modules.map((mod) => `
-                                <button type="button" onclick="app.loadRoute('${mod.route}')" class="tenant-workspace-module text-right w-full">
+                            ${modules.map((mod) => {
+                                const openAction = buildRouteOpenAction(mod.route);
+                                return `
+                                <button type="button" onclick="${openAction}" class="tenant-workspace-module text-right w-full">
                                     <div class="flex items-start justify-between gap-3">
                                         <span class="tenant-workspace-module-icon"><i class="fas ${mod.icon}"></i></span>
                                         <i class="fas fa-arrow-left text-slate-300 text-sm mt-1"></i>
@@ -5255,7 +5317,8 @@ const app = (() => {
                                     <h4 class="font-black text-slate-900 mb-1">${mod.title}</h4>
                                     <p class="text-sm text-slate-500 leading-relaxed">${mod.desc}</p>
                                 </button>
-                            `).join('')}
+                            `;
+                            }).join('')}
                         </div>
                     ` : `
                         <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
@@ -6182,7 +6245,7 @@ const app = (() => {
 
     // --- FINANCE MODULE (المالية) ---
     const renderFinance = () => {
-        window.location.replace(resolveTenantAwarePath('/finance'));
+        navigateToExternalRoute('finance');
         return '';
     };
 
@@ -6875,7 +6938,7 @@ const app = (() => {
     // --- EMPLOYEE REQUESTS MODULE ---
     
     const renderEventsStudioMain = () => {
-        window.location.href = resolveTenantAwarePath('/finance/events-studio-main.html');
+        navigateToExternalRoute('events-studio-main');
         return '';
     };
 
