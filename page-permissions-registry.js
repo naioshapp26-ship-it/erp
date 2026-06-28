@@ -485,7 +485,7 @@ const HUB_SYSTEM_SOURCES = {
 
 let hubPagesCache = null;
 
-function parseHubCardsFromFile(relativeFile, containerId, hrefPrefix) {
+function parseHubCardsFromFile(relativeFile, containerId, hrefPrefix, systemKey) {
   const filePath = path.join(__dirname, relativeFile);
   if (!fs.existsSync(filePath)) return [];
   const html = fs.readFileSync(filePath, 'utf8');
@@ -501,11 +501,18 @@ function parseHubCardsFromFile(relativeFile, containerId, hrefPrefix) {
   while ((match = linkRe.exec(blockMatch[0])) !== null) {
     const href = match[1].trim();
     const label = match[2].replace(/\s+/g, ' ').trim();
-    if (!href.startsWith(hrefPrefix) || href.includes('#') || !label || seen.has(href)) continue;
-    seen.add(href);
-    pages.push({ href, label });
+    if (!href.startsWith(hrefPrefix) || href.includes('#') || !label) continue;
+    const pageKey = hrefToHubPageKey(href, systemKey);
+    if (!pageKey || seen.has(pageKey)) continue;
+    seen.add(pageKey);
+    pages.push({ href, label, key: pageKey });
   }
-  return pages;
+  return pages.map(({ href, label, key }) => {
+    const routePath = href.startsWith('/') ? href : `/${href}`;
+    PAGE_LABELS[key] = label;
+    ROUTE_TO_PATH[key] = routePath.replace(/\/+$/, '') || routePath;
+    return { key, label, path: routePath };
+  });
 }
 
 function hrefToHubPageKey(href, systemKey) {
@@ -527,13 +534,7 @@ function hrefToHubPageKey(href, systemKey) {
 function buildHubSystemPages(systemKey) {
   const src = HUB_SYSTEM_SOURCES[systemKey];
   if (!src) return [];
-  return parseHubCardsFromFile(src.file, src.containerId, src.hrefPrefix).map(({ href, label }) => {
-    const key = hrefToHubPageKey(href, systemKey);
-    const routePath = href.startsWith('/') ? href : `/${href}`;
-    PAGE_LABELS[key] = label;
-    ROUTE_TO_PATH[key] = routePath.replace(/\/+$/, '') || routePath;
-    return { key, label, path: routePath };
-  });
+  return parseHubCardsFromFile(src.file, src.containerId, src.hrefPrefix, systemKey);
 }
 
 function getHubPagesBySystem() {
@@ -628,10 +629,14 @@ function getChildrenByParent() {
 
 function buildHubPagesList(systemKey) {
   const hubPages = getHubPagesBySystem()[systemKey] || [];
-  return [
-    { key: systemKey, label: getPageLabel(systemKey) },
-    ...hubPages.map((page) => ({ key: page.key, label: page.label }))
-  ];
+  const pages = [{ key: systemKey, label: getPageLabel(systemKey) }];
+  const seen = new Set([systemKey]);
+  hubPages.forEach((page) => {
+    if (seen.has(page.key)) return;
+    seen.add(page.key);
+    pages.push({ key: page.key, label: page.label });
+  });
+  return pages;
 }
 
 function getPagesForSystem(systemKey) {
@@ -843,7 +848,7 @@ function buildSavePayload({ pages, pageRestrictions }) {
 
   Object.entries(restrictions).forEach(([systemKey, value]) => {
     if (!value.restricted) return;
-    const systemPages = getPagesForSystem(systemKey).map((page) => page.key);
+    const systemPages = [...new Set(getPagesForSystem(systemKey).map((page) => page.key))];
     const selected = normalizeAllowedPages(value.pages);
     const allSelected = selected.length >= systemPages.length
       && systemPages.every((pageKey) => selected.includes(pageKey));

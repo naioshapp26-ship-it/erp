@@ -1462,12 +1462,14 @@
             const checked = selectedTenantSystems.has(system.key);
             const selectedSet = checked ? ensureTenantSystemSelection(system.key) : new Set();
             const filterValue = (tenantSystemPageFilters[system.key] || '').trim().toLowerCase();
+            const systemPageKeys = getUniqueSystemPageKeys(system);
             const visiblePages = system.pages.filter((page) => {
                 if (!filterValue) return true;
                 return page.label.toLowerCase().includes(filterValue) || page.key.toLowerCase().includes(filterValue);
-            });
+            }).filter((page, index, list) => list.findIndex((entry) => entry.key === page.key) === index);
+            const systemPageKeys = getUniqueSystemPageKeys(system);
             const selectedCount = checked
-                ? [...selectedSet].filter((pageKey) => system.pages.some((page) => page.key === pageKey)).length
+                ? [...selectedSet].filter((pageKey) => systemPageKeys.includes(pageKey)).length
                 : 0;
 
             const card = document.createElement('div');
@@ -1478,10 +1480,10 @@
                     <input type="checkbox" class="mt-1 h-4 w-4 text-brand-600 border-slate-300 rounded" data-system-select="${system.key}" ${checked ? 'checked' : ''}>
                     <div class="flex-1 min-w-0">
                         <div class="font-bold text-slate-800">${system.label}</div>
-                        <div class="text-xs text-slate-500 mt-1">${system.pages.length} صفحة داخلية</div>
+                        <div class="text-xs text-slate-500 mt-1">${systemPageKeys.length} صفحة داخلية</div>
                     </div>
                     <span class="text-xs font-semibold px-2 py-1 rounded-full ${checked ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-slate-500'}" data-system-badge="${system.key}">
-                        ${checked ? `${selectedCount}/${system.pages.length}` : 'غير مفعّل'}
+                        ${checked ? `${selectedCount}/${systemPageKeys.length}` : 'غير مفعّل'}
                     </span>
                 </label>
                 <div class="${checked ? '' : 'hidden'} border-t border-slate-100 p-4 bg-slate-50/70" data-system-pages-panel="${system.key}">
@@ -1522,7 +1524,7 @@
                 renderTenantSystemsWorkspace();
             });
             card.querySelector(`[data-select-all="${system.key}"]`)?.addEventListener('click', () => {
-                tenantSystemPageSelection[system.key] = new Set(system.pages.map((page) => page.key));
+                tenantSystemPageSelection[system.key] = new Set(getUniqueSystemPageKeys(system));
                 renderTenantSystemsWorkspace();
                 updateTenantPagesDisplay();
             });
@@ -1541,8 +1543,8 @@
                         selection.delete(pageKey);
                     }
                     const badge = card.querySelector(`[data-system-badge="${system.key}"]`);
-                    const count = [...selection].filter((key) => system.pages.some((page) => page.key === key)).length;
-                    if (badge) badge.textContent = `${count}/${system.pages.length}`;
+                    const count = [...selection].filter((key) => getUniqueSystemPageKeys(system).includes(key)).length;
+                    if (badge) badge.textContent = `${count}/${getUniqueSystemPageKeys(system).length}`;
                     updateTenantPagesDisplay();
                 });
             });
@@ -1572,6 +1574,10 @@
             }
         }
 
+        function getUniqueSystemPageKeys(system) {
+            return [...new Set((system?.pages || []).map((page) => page.key))];
+        }
+
         function buildTenantPermissionPayload() {
             const pages = [];
             const page_restrictions = {};
@@ -1579,9 +1585,11 @@
             selectedTenantSystems.forEach((systemKey) => {
                 const system = getTenantSystemDefinition(systemKey);
                 if (!system) return;
-                const selected = [...ensureTenantSystemSelection(systemKey)];
+                const systemPageKeys = getUniqueSystemPageKeys(system);
+                const selected = [...new Set([...ensureTenantSystemSelection(systemKey)]
+                  .filter((pageKey) => systemPageKeys.includes(pageKey)))];
                 pages.push(systemKey);
-                if (selected.length > 0 && selected.length < system.pages.length) {
+                if (selected.length > 0 && selected.length < systemPageKeys.length) {
                     page_restrictions[systemKey] = {
                         restricted: true,
                         pages: selected

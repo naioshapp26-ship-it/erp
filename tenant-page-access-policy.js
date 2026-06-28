@@ -122,13 +122,25 @@ function expandIncompleteParentOnlyRestrictions(pageRestrictions, allowedPages =
       return;
     }
     const systemPages = getPagesForSystem(systemKey).map((page) => page.key);
-    const childKeys = systemPages.filter((pageKey) => pageKey !== systemKey);
+    const uniqueSystemPages = [...new Set(systemPages)];
     const selected = normalizeRestrictionPages(value.pages || []);
-    const selectedChildren = selected.filter((pageKey) => childKeys.includes(pageKey));
-    const selectedParentOnly = selected.length > 0
-      && selected.every((pageKey) => pageKey === systemKey);
+    const uniqueSelected = [...new Set(selected)];
+    const selectedChildren = uniqueSelected.filter((pageKey) => pageKey !== systemKey);
+    const childKeys = uniqueSystemPages.filter((pageKey) => pageKey !== systemKey);
+    const selectedParentOnly = uniqueSelected.length > 0
+      && uniqueSelected.every((pageKey) => pageKey === systemKey);
+
+    if (uniqueSelected.length >= uniqueSystemPages.length) {
+      delete output[systemKey];
+      return;
+    }
 
     if (childKeys.length > 0 && selectedParentOnly) {
+      delete output[systemKey];
+      return;
+    }
+
+    if (childKeys.length > 0 && selectedChildren.length >= childKeys.length) {
       delete output[systemKey];
       return;
     }
