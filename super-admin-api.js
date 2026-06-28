@@ -3277,6 +3277,49 @@ router.post('/tenant-page-access', superAdminWriteLimiter, verifySuperAdmin, asy
     }
 });
 
+router.post('/tenant-page-access/reseed-all', superAdminWriteLimiter, verifySuperAdmin, async (req, res) => {
+    try {
+        const { sanitizeAllActiveTenantPermissions } = require('./tenant-page-access-policy');
+        const forcePlanDefaults = Boolean(req.body?.force_plan_defaults);
+        const reports = await sanitizeAllActiveTenantPermissions(pool, { forcePlanDefaults });
+        const changedTenants = reports.filter((report) => report.changed && !report.error);
+        return res.json({
+            success: true,
+            message: `تمت إعادة ضبط صلاحيات ${changedTenants.length} مستأجر`,
+            changed_count: changedTenants.length,
+            reports
+        });
+    } catch (error) {
+        console.error('خطأ في إعادة ضبط صلاحيات المستأجرين:', error);
+        return res.status(500).json({ success: false, message: 'تعذّر إعادة ضبط صلاحيات المستأجرين' });
+    }
+});
+
+router.post('/tenant-page-access/:tenantId/reseed', superAdminWriteLimiter, verifySuperAdmin, async (req, res) => {
+    try {
+        const { reseedTenantPageAccessForTenant } = require('./tenant-page-access-policy');
+        const tenantResult = await resolveTenantReference(pool, req.params.tenantId);
+        if (!tenantResult) {
+            return res.status(404).json({ success: false, message: 'المستأجر غير موجود' });
+        }
+        const { getTenantPermissionBundle } = require('./tenant-page-permissions');
+        const existingBundle = await getTenantPermissionBundle(pool, tenantResult);
+        const reseeded = await reseedTenantPageAccessForTenant(pool, tenantResult, {
+            existingBundle,
+            preserveExisting: !req.body?.force_plan_defaults,
+            forcePlanDefaults: Boolean(req.body?.force_plan_defaults)
+        });
+        return res.json({
+            success: true,
+            message: reseeded.changed ? 'تمت إعادة ضبط صلاحيات المستأجر' : 'صلاحيات المستأجر كانت نظيفة بالفعل',
+            ...reseeded
+        });
+    } catch (error) {
+        console.error('خطأ في إعادة ضبط صلاحيات المستأجر:', error);
+        return res.status(500).json({ success: false, message: 'تعذّر إعادة ضبط صلاحيات المستأجر' });
+    }
+});
+
 // ========== 7.10. جلب إعدادات القائمة الجانبية لنوع الحساب ==========
 router.get('/account-type-sidebar', verifySuperAdmin, async (req, res) => {
     try {

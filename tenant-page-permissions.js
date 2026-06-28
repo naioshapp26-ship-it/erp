@@ -5,6 +5,11 @@ const {
   buildSavePayload
 } = require('./page-permissions-registry');
 const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
+const {
+  sanitizeTenantAllowedPages,
+  sanitizeTenantPageRestrictions,
+  sanitizeTenantPermissionBundle
+} = require('./tenant-page-access-policy');
 
 async function ensureTenantPageAccessTable(db) {
   await db.query(`
@@ -103,17 +108,19 @@ async function getTenantAllowedPages(db, tenant) {
 }
 
 async function getTenantPermissionBundle(db, tenant) {
-  const allowedPages = await getTenantAllowedPages(db, tenant);
+  const allowedPagesRaw = await getTenantAllowedPages(db, tenant);
+  const allowedPages = sanitizeTenantAllowedPages(allowedPagesRaw);
   const storedRestrictions = tenant?.id
     ? await getTenantPageRestrictions(db, tenant.id)
     : {};
-  const pageRestrictions = mergeRestrictions(storedRestrictions, allowedPages);
-  return {
+  const pageRestrictions = sanitizeTenantPageRestrictions(
+    mergeRestrictions(storedRestrictions, allowedPagesRaw),
+    allowedPages
+  );
+  return sanitizeTenantPermissionBundle({
     allowed_pages: allowedPages,
-    allowedPages,
-    page_restrictions: pageRestrictions,
-    pageRestrictions
-  };
+    page_restrictions: pageRestrictions
+  });
 }
 
 async function saveTenantPermissionBundle(client, tenant, payload = {}) {
@@ -122,8 +129,11 @@ async function saveTenantPermissionBundle(client, tenant, payload = {}) {
     ? buildCentralTenantEntityId(tenantId)
     : tenant?.entity_id;
   const savePayload = buildSavePayload({
-    pages: payload.pages || [],
-    pageRestrictions: payload.page_restrictions || payload.pageRestrictions || {}
+    pages: sanitizeTenantAllowedPages(payload.pages || []),
+    pageRestrictions: sanitizeTenantPageRestrictions(
+      payload.page_restrictions || payload.pageRestrictions || {},
+      payload.pages || []
+    )
   });
 
   await ensureTenantPageAccessTable(client);

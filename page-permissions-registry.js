@@ -868,7 +868,9 @@ function isRouteAllowed(route, context = {}) {
 
   const tenantType = context.tenantType || context.tenant_type;
   if (!tenantType || tenantType === 'HQ') return true;
-  if (context.entityId === 'HQ001' || context.entity_id === 'HQ001') return true;
+  if (String(tenantType).toUpperCase() !== 'TENANT' && (context.entityId === 'HQ001' || context.entity_id === 'HQ001')) {
+    return true;
+  }
 
   const allowedPages = normalizeAllowedPages(context.allowedPages || context.allowed_pages);
   const pageRestrictions = mergeRestrictions(context.pageRestrictions || context.page_restrictions, allowedPages);

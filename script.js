@@ -935,11 +935,11 @@ const app = (() => {
         if (route === 'tenant-branding' && getAppAuthContext().isTenant && perms.isTenantAdmin()) {
             return true;
         }
-        const tenantType = currentUser?.tenantType || currentUser?.tenant_type;
+        const tenantType = String(currentUser?.tenantType || currentUser?.tenant_type || '').trim().toUpperCase();
         if (tenantType === 'HQ') {
             return true;
         }
-        if (currentUser?.entityId === 'HQ001' || currentUser?.entity_id === 'HQ001') {
+        if (tenantType !== 'TENANT' && (currentUser?.entityId === 'HQ001' || currentUser?.entity_id === 'HQ001')) {
             return true;
         }
         if ((route === 'strategic-management' || route === 'quality-audit') && currentUser?.role === ROLES.ADMIN) {

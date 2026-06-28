@@ -2,19 +2,22 @@
 
 const db = require('./db');
 const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
+const {
+  resolveTenantSafePagesForPlan,
+  sanitizeTenantAllowedPages
+} = require('./tenant-page-access-policy');
 
 const DEFAULT_PAGES_BY_PLAN = {
   basic: [
     'dashboard',
-    'settings',
     'tasks-management',
     'requests',
     'hr',
-    'employees'
+    'employees',
+    'tenant-branding'
   ],
   pro: [
     'dashboard',
-    'settings',
     'tasks-management',
     'requests',
     'hr',
@@ -23,11 +26,11 @@ const DEFAULT_PAGES_BY_PLAN = {
     'ads',
     'facilities',
     'audit-logs',
-    'incubator'
+    'incubator',
+    'tenant-branding'
   ],
   enterprise: [
     'dashboard',
-    'settings',
     'tasks-management',
     'requests',
     'hr',
@@ -45,7 +48,7 @@ const DEFAULT_PAGES_BY_PLAN = {
   ]
 };
 
-const FALLBACK_TENANT_PAGES = ['dashboard', 'settings'];
+const FALLBACK_TENANT_PAGES = ['dashboard', 'tenant-branding'];
 
 async function ensureTenantPageAccessTable() {
   await db.query(`
@@ -70,32 +73,12 @@ async function ensureTenantPageAccessTable() {
 }
 
 async function getConfiguredTenantTypePages() {
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS account_type_sidebar_config (
-      id SERIAL PRIMARY KEY,
-      account_type VARCHAR(50) NOT NULL,
-      page_key VARCHAR(120) NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW(),
-      UNIQUE(account_type, page_key)
-    )
-  `);
-
-  const result = await db.query(
-    `SELECT page_key
-     FROM account_type_sidebar_config
-     WHERE account_type = 'TENANT'
-     ORDER BY page_key`
-  );
-  return result.rows.map((row) => row.page_key);
+  const { getConfiguredTenantTypePages: readConfiguredPages } = require('./tenant-page-access-policy');
+  return readConfiguredPages(db);
 }
 
 function resolvePagesForPlan(plan, configuredPages = []) {
-  if (configuredPages.length > 0) {
-    return configuredPages;
-  }
-
-  const normalizedPlan = String(plan || 'basic').trim().toLowerCase();
-  return DEFAULT_PAGES_BY_PLAN[normalizedPlan] || FALLBACK_TENANT_PAGES;
+  return resolveTenantSafePagesForPlan(plan, configuredPages);
 }
 
 async function seedTenantPageAccess(tenantId, plan = 'basic', options = {}) {
@@ -106,32 +89,42 @@ async function seedTenantPageAccess(tenantId, plan = 'basic', options = {}) {
 
   await ensureTenantPageAccessTable();
 
+  const tenantRes = await db.query('SELECT * FROM tenants WHERE id = $1 LIMIT 1', [normalizedTenantId]);
+  const tenant = tenantRes.rows[0];
+  if (!tenant) {
+    throw new Error('المستأجر غير موجود');
+  }
+
   if (!options.force) {
     const existing = await db.query(
-      `SELECT COUNT(*)::int AS total
+      `SELECT page_key
        FROM tenant_page_access
        WHERE tenant_id = $1`,
       [normalizedTenantId]
     );
-    if ((existing.rows[0]?.total || 0) > 0) {
-      return { seeded: false, pages: [] };
+    if (existing.rows.length > 0) {
+      const { reseedTenantPageAccessForTenant } = require('./tenant-page-access-policy');
+      const { getTenantPermissionBundle } = require('./tenant-page-permissions');
+      const existingBundle = await getTenantPermissionBundle(db, tenant);
+      const sanitizedPages = sanitizeTenantAllowedPages(existingBundle.allowed_pages);
+      const hasCentralPages = sanitizedPages.length !== existingBundle.allowed_pages.length
+        || existingBundle.allowed_pages.some((pageKey) => !sanitizedPages.includes(pageKey));
+      if (!hasCentralPages) {
+        return { seeded: false, pages: existingBundle.allowed_pages };
+      }
+      const reseeded = await reseedTenantPageAccessForTenant(db, tenant, {
+        existingBundle,
+        preserveExisting: true
+      });
+      return { seeded: true, sanitized: true, pages: reseeded.pages };
     }
   }
 
-  const configuredPages = await getConfiguredTenantTypePages();
-  const pages = resolvePagesForPlan(plan, configuredPages);
-  const entityId = buildCentralTenantEntityId(normalizedTenantId);
-
-  for (const pageKey of pages) {
-    await db.query(
-      `INSERT INTO tenant_page_access (tenant_id, tenant_entity_id, page_key)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (tenant_id, page_key) DO NOTHING`,
-      [normalizedTenantId, entityId, pageKey]
-    );
-  }
-
-  return { seeded: true, pages };
+  const { reseedTenantPageAccessForTenant } = require('./tenant-page-access-policy');
+  const reseeded = await reseedTenantPageAccessForTenant(db, tenant, {
+    forcePlanDefaults: Boolean(options.force)
+  });
+  return { seeded: true, pages: reseeded.pages };
 }
 
 async function seedTenantPageAccessFromSelection(tenantId, moduleSelection = {}) {
@@ -160,6 +153,7 @@ module.exports = {
   DEFAULT_PAGES_BY_PLAN,
   FALLBACK_TENANT_PAGES,
   ensureTenantPageAccessTable,
+  getConfiguredTenantTypePages,
   seedTenantPageAccess,
   seedTenantPageAccessFromSelection,
   resolvePagesForPlan

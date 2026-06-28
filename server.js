@@ -2569,6 +2569,24 @@ ensurePaymentBootstrap().catch((err) => {
   console.warn('[Payment] bootstrap warning:', err.message);
 });
 
+databaseReady
+  .then(async () => {
+    try {
+      const { sanitizeAllActiveTenantPermissions } = require('./tenant-page-access-policy');
+      const reports = await sanitizeAllActiveTenantPermissions(db);
+      const changedTenants = reports.filter((report) => report.changed && !report.error);
+      if (changedTenants.length) {
+        console.log(`[tenant-permissions] sanitized ${changedTenants.length} active tenant(s):`,
+          changedTenants.map((report) => report.subdomain).join(', '));
+      }
+    } catch (sanitizeError) {
+      console.warn('[tenant-permissions] startup sanitize skipped:', sanitizeError.message);
+    }
+  })
+  .catch((error) => {
+    console.warn('[tenant-permissions] startup sanitize failed:', error.message);
+  });
+
 // Authentication API Routes
 try {
   const authRoutes = require('./auth-api');
