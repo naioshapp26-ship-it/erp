@@ -3,7 +3,10 @@
 const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
 const {
   normalizeAllowedPages,
-  normalizePageRestrictions
+  normalizePageRestrictions,
+  normalizePageKey,
+  getPagesForSystem,
+  getRuntimeRouteParents
 } = require('./page-permissions-registry');
 
 const CENTRAL_ONLY_TENANT_PAGE_KEYS = new Set([
@@ -85,26 +88,86 @@ function sanitizeTenantAllowedPages(pages) {
   return [...new Set(filtered)];
 }
 
+function normalizeRestrictionPages(pages) {
+  if (!Array.isArray(pages)) return [];
+  return [...new Set(pages.map((pageKey) => normalizePageKey(pageKey)).filter(Boolean))];
+}
+
+function isAllowedTenantRestrictionPage(systemKey, pageKey, safeAllowed) {
+  if (pageKey === systemKey) {
+    return safeAllowed.has(systemKey);
+  }
+  if (safeAllowed.has(pageKey)) {
+    return true;
+  }
+  if (isCentralOnlyTenantPage(pageKey)) {
+    return false;
+  }
+  if (!safeAllowed.has(systemKey)) {
+    return false;
+  }
+  if (pageKey.startsWith(`${systemKey}__`)) {
+    return true;
+  }
+  const routeParents = getRuntimeRouteParents();
+  return routeParents[pageKey] === systemKey;
+}
+
+function expandIncompleteParentOnlyRestrictions(pageRestrictions, allowedPages = []) {
+  const output = { ...pageRestrictions };
+  const safeAllowed = new Set(sanitizeTenantAllowedPages(allowedPages));
+
+  Object.entries(output).forEach(([systemKey, value]) => {
+    if (!safeAllowed.has(systemKey) || !value?.restricted) {
+      return;
+    }
+    const systemPages = getPagesForSystem(systemKey).map((page) => page.key);
+    const childKeys = systemPages.filter((pageKey) => pageKey !== systemKey);
+    const selected = normalizeRestrictionPages(value.pages || []);
+    const selectedChildren = selected.filter((pageKey) => childKeys.includes(pageKey));
+    const selectedParentOnly = selected.length > 0
+      && selected.every((pageKey) => pageKey === systemKey);
+
+    if (childKeys.length > 0 && selectedParentOnly) {
+      delete output[systemKey];
+      return;
+    }
+
+    if (childKeys.length > 0 && selectedChildren.length > 0 && selectedChildren.length < childKeys.length) {
+      output[systemKey] = {
+        restricted: true,
+        pages: [...new Set([systemKey, ...selectedChildren])]
+      };
+    }
+  });
+
+  return output;
+}
+
 function sanitizeTenantPageRestrictions(pageRestrictions, allowedPages = []) {
   const normalized = normalizePageRestrictions(pageRestrictions);
   const safeAllowed = new Set(sanitizeTenantAllowedPages(allowedPages));
   const output = {};
 
   Object.entries(normalized).forEach(([systemKey, value]) => {
-    if (isCentralOnlyTenantPage(systemKey)) {
+    if (isCentralOnlyTenantPage(systemKey) || !safeAllowed.has(systemKey)) {
       return;
     }
-    const pages = sanitizeTenantAllowedPages(value?.pages || []);
+
+    const pages = normalizeRestrictionPages(value?.pages || [])
+      .filter((pageKey) => isAllowedTenantRestrictionPage(systemKey, pageKey, safeAllowed));
+
     if (!pages.length) {
       return;
     }
+
     output[systemKey] = {
       restricted: Boolean(value?.restricted),
-      pages: pages.filter((pageKey) => safeAllowed.has(pageKey) || pageKey === systemKey)
+      pages: pages.includes(systemKey) ? pages : [systemKey, ...pages]
     };
   });
 
-  return output;
+  return expandIncompleteParentOnlyRestrictions(output, allowedPages);
 }
 
 function sanitizeTenantPermissionBundle(bundle = {}) {

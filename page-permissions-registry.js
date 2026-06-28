@@ -908,11 +908,13 @@ module.exports = {
   getPagesForSystem,
   getSystemPageSource,
   getPageKeysForPath,
+  normalizePageKey,
   normalizeAllowedPages,
   normalizePageRestrictions,
   derivePageRestrictionsFromPages,
   mergeRestrictions,
   buildSavePayload,
   isRouteAllowed,
-  isPathAllowed
+  isPathAllowed,
+  getRuntimeRouteParents
 };

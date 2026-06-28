@@ -105,15 +105,25 @@ async function seedTenantPageAccess(tenantId, plan = 'basic', options = {}) {
     if (existing.rows.length > 0) {
       const { reseedTenantPageAccessForTenant } = require('./tenant-page-access-policy');
       const { getTenantPermissionBundle } = require('./tenant-page-permissions');
+      const { getTenantPageRestrictions } = require('./tenant-page-permissions');
       const existingBundle = await getTenantPermissionBundle(db, tenant);
+      const storedRestrictions = await getTenantPageRestrictions(db, tenant.id);
       const sanitizedPages = sanitizeTenantAllowedPages(existingBundle.allowed_pages);
       const hasCentralPages = sanitizedPages.length !== existingBundle.allowed_pages.length
         || existingBundle.allowed_pages.some((pageKey) => !sanitizedPages.includes(pageKey));
-      if (!hasCentralPages) {
+      const repairedRestrictions = sanitizeTenantPageRestrictions(storedRestrictions, sanitizedPages);
+      const restrictionsNeedRepair = JSON.stringify(repairedRestrictions)
+        !== JSON.stringify(storedRestrictions);
+
+      if (!hasCentralPages && !restrictionsNeedRepair) {
         return { seeded: false, pages: existingBundle.allowed_pages };
       }
+
       const reseeded = await reseedTenantPageAccessForTenant(db, tenant, {
-        existingBundle,
+        existingBundle: {
+          allowed_pages: sanitizedPages,
+          page_restrictions: repairedRestrictions
+        },
         preserveExisting: true
       });
       return { seeded: true, sanitized: true, pages: reseeded.pages };

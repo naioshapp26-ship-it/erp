@@ -2573,11 +2573,13 @@ databaseReady
   .then(async () => {
     try {
       const { sanitizeAllActiveTenantPermissions } = require('./tenant-page-access-policy');
-      const reports = await sanitizeAllActiveTenantPermissions(db);
-      const changedTenants = reports.filter((report) => report.changed && !report.error);
-      if (changedTenants.length) {
-        console.log(`[tenant-permissions] sanitized ${changedTenants.length} active tenant(s):`,
-          changedTenants.map((report) => report.subdomain).join(', '));
+      if (process.env.TENANT_PERMISSIONS_SANITIZE_ON_BOOT === 'true') {
+        const reports = await sanitizeAllActiveTenantPermissions(db);
+        const changedTenants = reports.filter((report) => report.changed && !report.error);
+        if (changedTenants.length) {
+          console.log(`[tenant-permissions] sanitized ${changedTenants.length} active tenant(s):`,
+            changedTenants.map((report) => report.subdomain).join(', '));
+        }
       }
     } catch (sanitizeError) {
       console.warn('[tenant-permissions] startup sanitize skipped:', sanitizeError.message);
