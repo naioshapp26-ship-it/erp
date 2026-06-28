@@ -281,6 +281,12 @@ const app = (() => {
         window.location.href = loginPath;
     };
 
+    const resolveTenantAwarePath = (targetPath) => (
+        typeof getTenantScopedPath === 'function'
+            ? getTenantScopedPath(targetPath)
+            : targetPath
+    );
+
     const readStoredMenu = () => {
         try {
             return JSON.parse(localStorage.getItem('menu') || sessionStorage.getItem('menu') || 'null');
@@ -1824,17 +1830,27 @@ const app = (() => {
 
         if (legacyHrRoutes.has(route)) {
             const targetPath = routeToPath[route] || '/hr';
-            window.location.href = targetPath;
+            window.location.href = resolveTenantAwarePath(targetPath);
             return;
         }
 
         if (route === 'operational-policies') {
-            window.location.href = '/operational-policies';
+            window.location.href = resolveTenantAwarePath('/operational-policies');
             return;
         }
 
         if (route === 'records-archive-home' || route === 'records-archive') {
-            window.location.href = '/archive';
+            window.location.href = resolveTenantAwarePath('/archive');
+            return;
+        }
+
+        if (route === 'finance') {
+            window.location.replace(resolveTenantAwarePath('/finance'));
+            return;
+        }
+
+        if (route === 'events-studio-main') {
+            window.location.href = resolveTenantAwarePath('/finance/events-studio-main.html');
             return;
         }
 
@@ -4885,14 +4901,17 @@ const app = (() => {
         </div>`;
     };
 
-    const renderEmbeddedPaymentPage = (url, title) => `
+    const renderEmbeddedPaymentPage = (url, title) => {
+        const scopedUrl = resolveTenantAwarePath(url);
+        return `
 <div class="space-y-4 animate-fade-in p-2">
     <div class="flex items-center justify-between">
         <h2 class="text-2xl font-bold text-slate-800">${title}</h2>
-        <a href="${url}" target="_blank" rel="noopener" class="text-sm text-red-700 font-bold hover:underline">فتح في نافذة جديدة</a>
+        <a href="${scopedUrl}" target="_blank" rel="noopener" class="text-sm text-red-700 font-bold hover:underline">فتح في نافذة جديدة</a>
     </div>
-    <iframe src="${url}" title="${title}" class="w-full border-0 rounded-2xl shadow-lg bg-white" style="min-height:78vh"></iframe>
+    <iframe src="${scopedUrl}" title="${title}" class="w-full border-0 rounded-2xl shadow-lg bg-white" style="min-height:78vh"></iframe>
 </div>`;
+    };
 
     const goToCreditTopup = () => {
         window.location.href = '/credit-topup.html';
@@ -5845,8 +5864,7 @@ const app = (() => {
 
     // --- FINANCE MODULE (المالية) ---
     const renderFinance = () => {
-        // توجيه المستخدم إلى صفحة المالية الخارجية
-        window.location.replace('/finance');
+        window.location.replace(resolveTenantAwarePath('/finance'));
         return '';
     };
 
@@ -6539,7 +6557,7 @@ const app = (() => {
     // --- EMPLOYEE REQUESTS MODULE ---
     
     const renderEventsStudioMain = () => {
-        window.location.href = '/finance/events-studio-main.html';
+        window.location.href = resolveTenantAwarePath('/finance/events-studio-main.html');
         return '';
     };
 
