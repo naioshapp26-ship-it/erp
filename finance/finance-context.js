@@ -1,6 +1,24 @@
 (function () {
   const DEFAULT_CONTEXT = { entityId: '', entityType: '' };
 
+  function clearStaleCentralFinanceContext() {
+    if (!String(window.location.pathname || '').startsWith('/t/')) return;
+    try {
+      const stored = localStorage.getItem('nayosh_selected_entity');
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      const entityId = String(parsed.entityId || parsed.entity_id || '').trim();
+      const entityType = String(parsed.tenantType || parsed.tenant_type || '').trim().toUpperCase();
+      if (!entityId || entityId === 'HQ001' || entityType === 'HQ') {
+        localStorage.removeItem('nayosh_selected_entity');
+      }
+    } catch (_) {
+      localStorage.removeItem('nayosh_selected_entity');
+    }
+  }
+
+  clearStaleCentralFinanceContext();
+
   function readStoredContext() {
     try {
       const stored = localStorage.getItem('nayosh_selected_entity');

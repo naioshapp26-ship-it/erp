@@ -907,9 +907,30 @@ const app = (() => {
         return officeRouteParents[route];
     };
 
+    const CENTRAL_REGISTRY_OFFICE_ROUTES = new Set([
+        'hierarchy',
+        'entities',
+        'saas',
+        'billing',
+        'tenants',
+        'register-tenant',
+        'e-offices',
+        'platforms',
+        'branches-hub',
+        'incubators-hub',
+        'education-training-incubators',
+        'naiosh-sectors',
+        'settings'
+    ]);
+
     const isOfficeRouteAllowed = (route) => {
         if (route === 'download-app') {
             return true;
+        }
+        if (getAppAuthContext().isTenant || isDedicatedTenantContext(currentUser)) {
+            if (CENTRAL_REGISTRY_OFFICE_ROUTES.has(route)) {
+                return false;
+            }
         }
         if (route === 'tenant-branding' && getAppAuthContext().isTenant && perms.isTenantAdmin()) {
             return true;
@@ -1239,6 +1260,10 @@ const app = (() => {
     }
 
     async function loadDataFromAPI(routeName = null) {
+        if (getAppAuthContext().isTenant || isDedicatedTenantContext(currentUser)) {
+            return loadTenantEssentialData();
+        }
+
         console.log('🔄 Starting loadDataFromAPI for route:', routeName || 'ALL');
         console.log('👤 Current user:', currentUser);
         

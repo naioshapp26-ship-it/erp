@@ -3396,6 +3396,61 @@ const isHqEntityContext = (req) => getRequestEntityContext(req).type === 'HQ';
 
 const isDedicatedTenantEntityContext = (req) => !SUPPORTED_ENTITY_CONTEXT_TYPES.has(getRequestEntityContext(req).type);
 
+const SHARED_CENTRAL_DB_MARKER = 'shared://central';
+
+const isSharedCentralTenantPool = (req) =>
+  Boolean(req?.tenant?.encrypted_db_url === SHARED_CENTRAL_DB_MARKER);
+
+const denyCentralRegistryForTenantHost = (req, res) => {
+  if (isTenantHostRequest(req) || isDedicatedTenantEntityContext(req)) {
+    res.status(403).json({
+      success: false,
+      error: 'غير مسموح بالوصول لبيانات النظام العام.'
+    });
+    return true;
+  }
+  return false;
+};
+
+const CENTRAL_REGISTRY_API_PATTERNS = [
+  /^\/api\/hierarchy(?:\/|$)/,
+  /^\/api\/headquarters(?:\/|$)/,
+  /^\/api\/branches(?:\/|$)/,
+  /^\/api\/incubators(?:\/|$)/,
+  /^\/api\/platforms(?:\/|$)/,
+  /^\/api\/offices(?:\/|$)/,
+  /^\/api\/office-platforms(?:\/|$)/
+];
+
+app.use((req, res, next) => {
+  if (!isTenantHostRequest(req) && !isDedicatedTenantEntityContext(req)) {
+    return next();
+  }
+  const requestPath = String(req.path || '');
+  if (CENTRAL_REGISTRY_API_PATTERNS.some((pattern) => pattern.test(requestPath))) {
+    return res.status(403).json({
+      success: false,
+      error: 'غير مسموح بالوصول لبيانات النظام العام.'
+    });
+  }
+  return next();
+});
+
+const appendNonHqEntityScope = (req, query, params) => {
+  if (req.userEntity?.type === 'HQ') {
+    return query;
+  }
+  const paramIndex = params.length + 1;
+  return `${query} AND entity_id = $${paramIndex}`;
+};
+
+const pushNonHqEntityScopeParam = (req, params) => {
+  if (req.userEntity?.type !== 'HQ') {
+    params.push(req.userEntity.id);
+  }
+  return params;
+};
+
 const isCurrentEntityScope = (req, entityId) => {
   if (isHqEntityContext(req)) return true;
   return String(entityId || '').trim() === getRequestEntityContext(req).id;
@@ -3437,6 +3492,84 @@ const isTenantHostRequest = (req) => Boolean(req.tenant && req.tenantPool);
 const getTenantHostEntityId = (req) => {
   if (!req?.tenant?.id) return null;
   return buildCentralTenantEntityId(req.tenant.id);
+};
+
+const mapTenantEmployeeRow = (row) => ({
+  ...row,
+  employment_type: mapTenantEmploymentTypeToUi(row.employment_type)
+});
+
+const queryTenantHostEmployees = async (req, { employeeId = null } = {}) => {
+  const entityId = getTenantHostEntityId(req);
+  const baseParams = [entityId, req.tenant.company_name, req.tenant.subdomain];
+
+  if (isSharedCentralTenantPool(req)) {
+    const params = [...baseParams, req.tenant.id];
+    let query = `
+      SELECT DISTINCT ON (u.id)
+        u.id,
+        u.username AS employee_number,
+        TRIM(CONCAT(u.first_name, ' ', COALESCE(u.last_name, ''))) AS full_name,
+        u.email,
+        u.phone,
+        NULL AS position,
+        '' AS department,
+        'TENANT' AS assigned_entity_type,
+        $1 AS entity_id,
+        $2 AS entity_name,
+        $3 AS entity_code,
+        NULL::date AS hire_date,
+        NULL::numeric AS salary,
+        'full_time' AS employment_type,
+        u.is_active,
+        NULL AS address,
+        NULL AS branch_id,
+        NULL AS department_id
+      FROM users u
+      INNER JOIN sessions s ON s.user_id = u.id AND s.tenant_id = $4
+      WHERE u.is_active = true
+    `;
+    if (employeeId) {
+      params.push(employeeId);
+      query += ` AND u.id = $${params.length}`;
+    }
+    query += ' ORDER BY u.id, s.created_at DESC';
+    const tenantResult = await req.tenantPool.query(query, params);
+    return tenantResult.rows;
+  }
+
+  const params = [...baseParams];
+  let query = `
+    SELECT
+      emp.id,
+      emp.employee_number,
+      TRIM(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, ''))) AS full_name,
+      emp.email,
+      emp.phone,
+      emp.job_title AS position,
+      COALESCE(td.name, emp.metadata->>'department', '') AS department,
+      'TENANT' AS assigned_entity_type,
+      $1 AS entity_id,
+      $2 AS entity_name,
+      $3 AS entity_code,
+      emp.hire_date,
+      emp.basic_salary AS salary,
+      emp.employment_type,
+      (emp.status = 'active') AS is_active,
+      emp.address,
+      emp.branch_id,
+      emp.department_id
+    FROM employees emp
+    LEFT JOIN tenant_departments td ON emp.department_id = td.id
+    WHERE 1=1
+  `;
+  if (employeeId) {
+    params.push(employeeId);
+    query += ` AND emp.id = $${params.length}`;
+  }
+  query += ' ORDER BY emp.created_at DESC, emp.id DESC';
+  const tenantResult = await req.tenantPool.query(query, params);
+  return tenantResult.rows;
 };
 
 const mapTenantEmploymentTypeToUi = (value) => {
@@ -6161,24 +6294,10 @@ app.get('/api/invoices', async (req, res) => {
     let paramIndex = 1;
     
     // Apply user's entity filter
-    if (req.userEntity.type === 'HQ') {
-      // HQ sees all invoices
-    } else if (req.userEntity.type === 'BRANCH') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
-    } else if (req.userEntity.type === 'INCUBATOR') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
-    } else if (req.userEntity.type === 'PLATFORM') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
-    } else if (req.userEntity.type === 'OFFICE') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
+    if (req.userEntity.type !== 'HQ') {
+      query = appendNonHqEntityScope(req, query, params);
+      pushNonHqEntityScopeParam(req, params);
+      paramIndex = params.length + 1;
     }
     
     // Additional filters
@@ -8229,24 +8348,10 @@ app.get('/api/transactions', async (req, res) => {
     let paramIndex = 1;
     
     // Apply user's entity filter
-    if (req.userEntity.type === 'HQ') {
-      // HQ sees all transactions
-    } else if (req.userEntity.type === 'BRANCH') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
-    } else if (req.userEntity.type === 'INCUBATOR') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
-    } else if (req.userEntity.type === 'PLATFORM') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
-    } else if (req.userEntity.type === 'OFFICE') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
+    if (req.userEntity.type !== 'HQ') {
+      query = appendNonHqEntityScope(req, query, params);
+      pushNonHqEntityScopeParam(req, params);
+      paramIndex = params.length + 1;
     }
     
     // Additional entity_id filter if provided
@@ -8273,24 +8378,10 @@ app.get('/api/ledger', async (req, res) => {
     let paramIndex = 1;
     
     // Apply user's entity filter
-    if (req.userEntity.type === 'HQ') {
-      // HQ sees all ledger entries
-    } else if (req.userEntity.type === 'BRANCH') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
-    } else if (req.userEntity.type === 'INCUBATOR') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
-    } else if (req.userEntity.type === 'PLATFORM') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
-    } else if (req.userEntity.type === 'OFFICE') {
-      query += ` AND entity_id = $${paramIndex}`;
-      params.push(req.userEntity.id);
-      paramIndex++;
+    if (req.userEntity.type !== 'HQ') {
+      query = appendNonHqEntityScope(req, query, params);
+      pushNonHqEntityScopeParam(req, params);
+      paramIndex = params.length + 1;
     }
     
     // Additional entity_id filter if provided
@@ -9276,35 +9367,8 @@ app.get('/api/employees', async (req, res) => {
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
       if (!tenantSessionUser) return;
-      const tenantResult = await req.tenantPool.query(`
-        SELECT
-          emp.id,
-          emp.employee_number,
-          TRIM(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, ''))) AS full_name,
-          emp.email,
-          emp.phone,
-          emp.job_title AS position,
-          COALESCE(td.name, emp.metadata->>'department', '') AS department,
-          'TENANT' AS assigned_entity_type,
-          $1 AS entity_id,
-          $2 AS entity_name,
-          $3 AS entity_code,
-          emp.hire_date,
-          emp.basic_salary AS salary,
-          emp.employment_type,
-          (emp.status = 'active') AS is_active,
-          emp.address,
-          emp.branch_id,
-          emp.department_id
-        FROM employees emp
-        LEFT JOIN tenant_departments td ON emp.department_id = td.id
-        ORDER BY emp.created_at DESC, emp.id DESC
-      `, [getTenantHostEntityId(req), req.tenant.company_name, req.tenant.subdomain]);
-
-      return res.json(tenantResult.rows.map((row) => ({
-        ...row,
-        employment_type: mapTenantEmploymentTypeToUi(row.employment_type)
-      })));
+      const rows = await queryTenantHostEmployees(req);
+      return res.json(rows.map(mapTenantEmployeeRow));
     }
 
     const { entity_type, entity_id, is_active } = req.query;
@@ -9386,41 +9450,11 @@ app.get('/api/employees/:id', async (req, res) => {
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
       if (!tenantSessionUser) return;
-      const tenantResult = await req.tenantPool.query(`
-        SELECT
-          emp.id,
-          emp.employee_number,
-          TRIM(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, ''))) AS full_name,
-          emp.email,
-          emp.phone,
-          emp.national_id,
-          emp.job_title AS position,
-          COALESCE(td.name, emp.metadata->>'department', '') AS department,
-          'TENANT' AS assigned_entity_type,
-          $1 AS entity_id,
-          $2 AS entity_name,
-          $3 AS entity_code,
-          emp.hire_date,
-          emp.basic_salary AS salary,
-          emp.employment_type,
-          (emp.status = 'active') AS is_active,
-          emp.address,
-          emp.created_at,
-          emp.updated_at
-        FROM employees emp
-        LEFT JOIN tenant_departments td ON emp.department_id = td.id
-        WHERE emp.id = $4
-        LIMIT 1
-      `, [getTenantHostEntityId(req), req.tenant.company_name, req.tenant.subdomain, id]);
-
-      if (tenantResult.rows.length === 0) {
+      const rows = await queryTenantHostEmployees(req, { employeeId: id });
+      if (!rows.length) {
         return res.status(404).json({ error: 'الموظف غير موجود' });
       }
-
-      return res.json({
-        ...tenantResult.rows[0],
-        employment_type: mapTenantEmploymentTypeToUi(tenantResult.rows[0].employment_type)
-      });
+      return res.json(mapTenantEmployeeRow(rows[0]));
     }
 
     const params = [id];
