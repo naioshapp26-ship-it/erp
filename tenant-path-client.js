@@ -61,8 +61,59 @@
     return `/t/${subdomain}/`;
   }
 
+  function shouldScopeInternalHref(href) {
+    if (!href || typeof href !== 'string') return false;
+    if (!href.startsWith('/')) return false;
+    if (href.startsWith('//') || href.startsWith('/api/') || href.startsWith('/public/') || href.startsWith('/uploads/')) {
+      return false;
+    }
+    const subdomain = getStoredTenantSubdomain();
+    if (!subdomain) return false;
+    return !href.startsWith(`/t/${subdomain}`);
+  }
+
+  function rewriteTenantAnchors(root) {
+    if (!isTenantPathMode()) return;
+    const scopeRoot = root && root.querySelectorAll ? root : document;
+    scopeRoot.querySelectorAll('a[href^="/"]').forEach((anchor) => {
+      const href = anchor.getAttribute('href');
+      if (!shouldScopeInternalHref(href)) return;
+      anchor.setAttribute('href', getTenantScopedPath(href));
+    });
+  }
+
+  function bootTenantPathHelpers() {
+    rewriteTenantAnchors(document);
+    if (typeof MutationObserver === 'function' && document.body) {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (!(node instanceof Element)) return;
+            if (node.matches && node.matches('a[href^="/"]')) {
+              const href = node.getAttribute('href');
+              if (shouldScopeInternalHref(href)) {
+                node.setAttribute('href', getTenantScopedPath(href));
+              }
+            }
+            if (node.querySelectorAll) {
+              rewriteTenantAnchors(node);
+            }
+          });
+        });
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootTenantPathHelpers);
+  } else {
+    bootTenantPathHelpers();
+  }
+
   global.isTenantPathMode = isTenantPathMode;
   global.getStoredTenantSubdomain = getStoredTenantSubdomain;
   global.getTenantScopedPath = getTenantScopedPath;
   global.getTenantLandingPath = getTenantLandingPath;
+  global.rewriteTenantAnchors = rewriteTenantAnchors;
 })(window);

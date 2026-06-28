@@ -105,6 +105,10 @@ function rewriteRequestPath(req, newPath) {
   const query = queryIndex >= 0 ? req.url.slice(queryIndex) : '';
   const normalizedPath = newPath.startsWith('/') ? newPath : `/${newPath}`;
   req.url = `${normalizedPath}${query}`;
+  // Express derives req.path from req.url; clear any cached parse so routing/auth see the rewritten path.
+  if (req._parsedUrl) {
+    delete req._parsedUrl;
+  }
 }
 
 function resolveTenantAccessMode(req) {

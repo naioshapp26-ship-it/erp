@@ -2658,8 +2658,22 @@ const getAuthToken = (req) => {
   return cookies.authToken || '';
 };
 
+const isTenantHtmlPageNavigation = (req) => {
+  if (req.method !== 'GET') return false;
+  const acceptHeader = String(req.headers.accept || '').toLowerCase();
+  if (!acceptHeader.includes('text/html')) return false;
+  const requestPath = String(req.path || '').split('?')[0];
+  if (requestPath === '/finance' || requestPath === '/finance/') return true;
+  if (!requestPath.startsWith('/finance/')) return false;
+  const extension = path.extname(requestPath);
+  return !extension || extension === '.html';
+};
+
 const isScopedBusinessRequest = (req) => {
   const requestPath = String(req.path || '');
+  if (isTenantHtmlPageNavigation(req)) {
+    return false;
+  }
   return requestPath.startsWith('/finance/')
     || requestPath === '/finance'
     || requestPath.startsWith('/api/hr/')
@@ -2921,7 +2935,7 @@ const getTenantScopedRedirect = (req, targetPath) => {
 
 const getTenantAuthEntryRedirect = (req) => {
   if (req?.tenant?.subdomain && isExplicitTenantContext(req)) {
-    return getTenantScopedRedirect(req, '/');
+    return getTenantScopedRedirect(req, '/login-page.html');
   }
   if (req?.tenant?.subdomain && req.tenantAccessMode === 'session') {
     return `/t/${req.tenant.subdomain}/`;

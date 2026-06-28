@@ -333,7 +333,7 @@ const app = (() => {
     };
 
     const TENANT_EXTERNAL_ROUTE_PATHS = {
-        finance: '/finance',
+        finance: '/finance/index.html',
         'events-studio-main': '/finance/events-studio-main.html',
         'records-archive-home': '/archive',
         'records-archive': '/archive',
@@ -364,6 +364,14 @@ const app = (() => {
         'attendance-table'
     ]);
 
+    const syncAuthCookieForNavigation = () => {
+        const token = getSessionAuthToken();
+        if (!token) return;
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+        const maxAge = 60 * 60 * 24 * 7;
+        document.cookie = `authToken=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+    };
+
     const getExternalNavigationPath = (route) => {
         if (TENANT_EXTERNAL_ROUTE_PATHS[route]) {
             return resolveTenantAwarePath(TENANT_EXTERNAL_ROUTE_PATHS[route]);
@@ -377,6 +385,7 @@ const app = (() => {
     const navigateToExternalRoute = (route) => {
         const targetPath = getExternalNavigationPath(route);
         if (!targetPath) return false;
+        syncAuthCookieForNavigation();
         window.location.href = targetPath;
         return true;
     };
