@@ -46,6 +46,7 @@ router.use(async (req, res, next) => {
 
 const UPLOADS_ROOT_DIR = resolveUploadsRootDir(path.join(__dirname, 'uploads'));
 const HOMEPAGE_UPLOAD_PUBLIC_PREFIX = '/uploads/homepage/';
+const HOMEPAGE_MEDIA_ASSET_PREFIX = '/api/homepage-media/asset/';
 const HOMEPAGE_UPLOAD_ROOT = path.join(UPLOADS_ROOT_DIR, 'homepage');
 const MAX_HOMEPAGE_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_HOMEPAGE_VIDEO_SIZE_BYTES = 100 * 1024 * 1024;
@@ -104,65 +105,219 @@ const getCloudinaryClient = () => {
     return cloudinary;
 };
 
-const persistHomepageVideoFile = async (file) => {
+const persistHomepageVideoFile = async (file) => persistHomepageMediaFile(file, 'video');
+
+const usesEphemeralHomepageStorage = () => {
+    const onRailway = Boolean(process.env.RAILWAY_ENVIRONMENT);
+    return onRailway && isEphemeralUploadStorage(UPLOADS_ROOT_DIR) && !isCloudinaryConfigured();
+};
+
+const buildHomepageMediaAssetUrl = (assetId) => {
+    const id = Number(assetId);
+    if (!Number.isInteger(id) || id <= 0) return '';
+    return `${HOMEPAGE_MEDIA_ASSET_PREFIX}${id}`;
+};
+
+const extractHomepageMediaAssetId = (url = '') => {
+    if (typeof url !== 'string') return null;
+    const normalized = url.trim().split('?')[0].split('#')[0];
+    if (!normalized.startsWith(HOMEPAGE_MEDIA_ASSET_PREFIX)) return null;
+    const id = Number(normalized.slice(HOMEPAGE_MEDIA_ASSET_PREFIX.length));
+    return Number.isInteger(id) && id > 0 ? id : null;
+};
+
+const isRemoteHomepageMediaUrl = (url = '') => /^https?:\/\//i.test(String(url || '').trim());
+
+const isDatabaseBackedHomepageMediaUrl = (url = '') => extractHomepageMediaAssetId(url) !== null;
+
+let homepagePersistentAssetsTableEnsured = false;
+const ensureHomepagePersistentAssetsTable = async () => {
+    if (homepagePersistentAssetsTableEnsured) return;
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS homepage_persistent_assets (
+            id SERIAL PRIMARY KEY,
+            mime_type VARCHAR(120),
+            file_data BYTEA NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    `);
+    homepagePersistentAssetsTableEnsured = true;
+};
+
+const saveHomepagePersistentAsset = async (fileData, mimeType = 'application/octet-stream') => {
+    if (!fileData || !fileData.length) {
+        throw new Error('تعذر حفظ الوسائط في قاعدة البيانات');
+    }
+    await ensureHomepagePersistentAssetsTable();
+    const result = await pool.query(
+        `INSERT INTO homepage_persistent_assets (mime_type, file_data)
+         VALUES ($1, $2)
+         RETURNING id`,
+        [mimeType || 'application/octet-stream', fileData]
+    );
+    return result.rows[0]?.id;
+};
+
+const deleteHomepagePersistentAsset = async (assetId) => {
+    const id = Number(assetId);
+    if (!Number.isInteger(id) || id <= 0) return false;
+    await ensureHomepagePersistentAssetsTable();
+    const result = await pool.query('DELETE FROM homepage_persistent_assets WHERE id = $1', [id]);
+    return result.rowCount > 0;
+};
+
+const persistHomepageImageFile = async (file) => persistHomepageMediaFile(file, 'image');
+
+const persistHomepageMediaFile = async (file, resourceType = 'image') => {
     const localPath = file?.path;
     if (!localPath || !file?.filename) {
-        throw new Error('فشل استلام ملف الفيديو من الخادم');
+        throw new Error(resourceType === 'video' ? 'فشل استلام ملف الفيديو من الخادم' : 'فشل استلام ملف الصورة من الخادم');
     }
 
     const cloudinaryClient = getCloudinaryClient();
     if (cloudinaryClient) {
         try {
             const uploaded = await cloudinaryClient.uploader.upload(localPath, {
-                resource_type: 'video',
+                resource_type: resourceType,
                 folder: 'naiosh/homepage',
-                timeout: 180000
+                timeout: resourceType === 'video' ? 180000 : 60000
             });
             await fs.promises.unlink(localPath).catch(() => {});
             return {
                 url: uploaded.secure_url,
                 publicId: uploaded.public_id || null,
-                storage: 'cloudinary'
+                storage: 'cloudinary',
+                persistentAssetId: null,
+                mimeType: file.mimetype || null,
+                warning: null
             };
         } catch (error) {
-            console.error('Cloudinary hero video upload failed:', error.message);
-            throw new Error('تعذر رفع الفيديو إلى التخزين السحابي. تحقق من إعدادات Cloudinary وحاول مرة أخرى.');
+            console.error(`Cloudinary ${resourceType} upload failed:`, error.message);
+            throw new Error(
+                resourceType === 'video'
+                    ? 'تعذر رفع الفيديو إلى التخزين السحابي. تحقق من إعدادات Cloudinary وحاول مرة أخرى.'
+                    : 'تعذر رفع الصورة إلى التخزين السحابي. تحقق من إعدادات Cloudinary وحاول مرة أخرى.'
+            );
         }
     }
 
-    const onRailway = Boolean(process.env.RAILWAY_ENVIRONMENT);
-    const ephemeralStorage = onRailway && isEphemeralUploadStorage(UPLOADS_ROOT_DIR) && !isCloudinaryConfigured();
+    const ephemeralStorage = usesEphemeralHomepageStorage();
+    if (!ephemeralStorage) {
+        const localUrl = buildHomepageUploadUrl(file.filename);
+        if (!localUrl) {
+            throw new Error(resourceType === 'video' ? 'تعذر إنشاء رابط الفيديو بعد الرفع' : 'تعذر إنشاء رابط الصورة بعد الرفع');
+        }
+        try {
+            await fs.promises.access(localPath, fs.constants.F_OK);
+        } catch (_error) {
+            throw new Error(resourceType === 'video' ? 'فشل حفظ ملف الفيديو على السيرفر' : 'فشل حفظ ملف الصورة على السيرفر');
+        }
+        return {
+            url: localUrl,
+            publicId: null,
+            storage: 'local',
+            persistentAssetId: null,
+            mimeType: file.mimetype || null,
+            warning: null
+        };
+    }
 
-    const localUrl = buildHomepageUploadUrl(file.filename);
-    if (!localUrl) {
-        throw new Error('تعذر إنشاء رابط الفيديو بعد الرفع');
+    if (resourceType === 'video') {
+        const localUrl = buildHomepageUploadUrl(file.filename);
+        if (!localUrl) {
+            throw new Error('تعذر إنشاء رابط الفيديو بعد الرفع');
+        }
+        try {
+            await fs.promises.access(localPath, fs.constants.F_OK);
+        } catch (_error) {
+            throw new Error('فشل حفظ ملف الفيديو على السيرفر');
+        }
+        return {
+            url: localUrl,
+            publicId: null,
+            storage: 'local-ephemeral',
+            persistentAssetId: null,
+            mimeType: file.mimetype || null,
+            warning: 'تم رفع الفيديو بنجاح. للحفظ الدائم بعد إعادة النشر: أضف Cloudinary في Railway (CLOUDINARY_CLOUD_NAME و CLOUDINARY_API_KEY و CLOUDINARY_API_SECRET) أو ثبّت Volume على /data/uploads.'
+        };
     }
-    try {
-        await fs.promises.access(localPath, fs.constants.F_OK);
-    } catch (_error) {
-        throw new Error('فشل حفظ ملف الفيديو على السيرفر');
-    }
+
+    const fileData = await fs.promises.readFile(localPath);
+    await fs.promises.unlink(localPath).catch(() => {});
+    const persistentAssetId = await saveHomepagePersistentAsset(
+        fileData,
+        file.mimetype || 'image/png'
+    );
     return {
-        url: localUrl,
+        url: buildHomepageMediaAssetUrl(persistentAssetId),
         publicId: null,
-        storage: ephemeralStorage ? 'local-ephemeral' : 'local',
-        warning: ephemeralStorage
-            ? 'تم رفع الفيديو بنجاح. للحفظ الدائم بعد إعادة النشر: أضف Cloudinary في Railway (CLOUDINARY_CLOUD_NAME و CLOUDINARY_API_KEY و CLOUDINARY_API_SECRET) أو ثبّت Volume على /data/uploads.'
-            : null
+        storage: 'database',
+        persistentAssetId,
+        mimeType: file.mimetype || 'image/png',
+        warning: 'تم حفظ الصورة في قاعدة البيانات بشكل دائم. للأداء الأفضل يمكنك إضافة Cloudinary لاحقاً.'
     };
 };
 
-const deleteHomepageMediaAsset = async ({ url, cloudinaryPublicId } = {}) => {
+const deleteHomepageMediaAsset = async ({ url, cloudinaryPublicId, resourceType = 'image', persistentAssetId = null } = {}) => {
     if (cloudinaryPublicId && isCloudinaryConfigured()) {
         try {
             const cloudinaryClient = getCloudinaryClient();
-            await cloudinaryClient.uploader.destroy(cloudinaryPublicId, { resource_type: 'video' });
+            const resolvedType = resourceType === 'video' ? 'video' : 'image';
+            await cloudinaryClient.uploader.destroy(cloudinaryPublicId, { resource_type: resolvedType });
         } catch (error) {
             console.error('Failed to delete Cloudinary asset:', cloudinaryPublicId, error.message);
         }
     }
-    if (url) {
+
+    const assetId = Number(persistentAssetId) || extractHomepageMediaAssetId(url);
+    if (assetId) {
+        await deleteHomepagePersistentAsset(assetId);
+    }
+
+    if (url && !isDatabaseBackedHomepageMediaUrl(url) && !isRemoteHomepageMediaUrl(url)) {
         await deleteHomepageUploadByUrl(url);
+    }
+};
+
+const serveHomepageMediaAsset = async (req, res) => {
+    try {
+        const assetId = Number(req.params.id);
+        if (!Number.isInteger(assetId) || assetId <= 0) {
+            return res.status(400).json({ success: false, message: 'معرّف الوسائط غير صالح' });
+        }
+
+        await ensureHomepagePersistentAssetsTable();
+        const assetResult = await pool.query(
+            'SELECT mime_type, file_data FROM homepage_persistent_assets WHERE id = $1',
+            [assetId]
+        );
+        const assetRow = assetResult.rows[0];
+        if (assetRow?.file_data) {
+            res.set('Content-Type', assetRow.mime_type || 'application/octet-stream');
+            res.set('Cache-Control', 'public, max-age=31536000, immutable');
+            return res.send(assetRow.file_data);
+        }
+
+        await ensureHeroMediaTable();
+        const mediaResult = await pool.query(
+            'SELECT url, type FROM hero_media WHERE persistent_asset_id = $1 OR url = $2 LIMIT 1',
+            [assetId, buildHomepageMediaAssetUrl(assetId)]
+        );
+        const mediaRow = mediaResult.rows[0];
+        if (!mediaRow?.url) {
+            return res.status(404).json({ success: false, message: 'الوسائط غير موجودة' });
+        }
+        if (isRemoteHomepageMediaUrl(mediaRow.url)) {
+            return res.redirect(302, mediaRow.url);
+        }
+        const localFilePath = getHomepageUploadFilePathFromUrl(mediaRow.url);
+        if (localFilePath && fs.existsSync(localFilePath)) {
+            return res.sendFile(localFilePath);
+        }
+        return res.status(404).json({ success: false, message: 'ملف الوسائط غير متوفر' });
+    } catch (error) {
+        console.error('خطأ في تقديم وسائط الصفحة الرئيسية:', error);
+        return res.status(500).json({ success: false, message: 'تعذر تحميل الوسائط' });
     }
 };
 
@@ -229,7 +384,7 @@ const DEFAULT_HOMEPAGE_SETTINGS = {
     },
     tourMedia: {
         activeType: 'image',
-        imageUrl: '/%D8%B5%D9%88%D8%B1%D8%A9%20%D8%A7%D9%84%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9.png',
+        imageUrl: '/newhome/booking-workspace.svg',
         imagePublicId: null,
         videoUrl: '',
         videoPublicId: null,
@@ -600,6 +755,18 @@ const ensureHeroMediaTable = async () => {
         ALTER TABLE hero_media
         ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT
     `);
+    await pool.query(`
+        ALTER TABLE hero_media
+        ADD COLUMN IF NOT EXISTS persistent_asset_id INTEGER
+    `);
+    await pool.query(`
+        ALTER TABLE hero_media
+        ADD COLUMN IF NOT EXISTS storage_type VARCHAR(20) NOT NULL DEFAULT 'local'
+    `);
+    await pool.query(`
+        ALTER TABLE hero_media
+        ADD COLUMN IF NOT EXISTS mime_type VARCHAR(120)
+    `);
     heroMediaTableEnsured = true;
 };
 
@@ -607,7 +774,8 @@ const getHeroMediaList = async (activeOnly = false) => {
     await ensureHeroMediaTable();
     const whereClause = activeOnly ? 'WHERE is_active = true' : '';
     const result = await pool.query(`
-        SELECT id, type, url, title, target, order_index, is_active, created_at
+        SELECT id, type, url, title, target, order_index, is_active, created_at,
+               storage_type, persistent_asset_id, cloudinary_public_id
         FROM hero_media
         ${whereClause}
         ORDER BY order_index ASC, id ASC
@@ -724,7 +892,9 @@ const sanitizeHomepageSettings = (input = {}) => {
             linkColor: normalizeColor(typographyInput.linkColor, DEFAULT_HOMEPAGE_SETTINGS.typography.linkColor)
         },
         logoUrl: sanitizeUrlPath(input.logoUrl, DEFAULT_HOMEPAGE_SETTINGS.logoUrl),
-        logoPublicId: null,
+        logoPublicId: typeof input.logoPublicId === 'string' && input.logoPublicId.trim()
+            ? input.logoPublicId.trim()
+            : null,
         heroImageUrl: activeImageUrl,
         heroImageMode: input.heroImageMode === 'center' ? 'center' : 'cover',
         heroMedia: {
@@ -757,9 +927,13 @@ const sanitizeHomepageSettings = (input = {}) => {
         tourMedia: {
             activeType: tourActiveType,
             imageUrl: sanitizeOptionalUrlPath(tourMediaInput.imageUrl) || DEFAULT_HOMEPAGE_SETTINGS.tourMedia.imageUrl,
-            imagePublicId: null,
+            imagePublicId: typeof tourMediaInput.imagePublicId === 'string' && tourMediaInput.imagePublicId.trim()
+                ? tourMediaInput.imagePublicId.trim()
+                : null,
             videoUrl: sanitizeOptionalUrlPath(tourMediaInput.videoUrl),
-            videoPublicId: null,
+            videoPublicId: typeof tourMediaInput.videoPublicId === 'string' && tourMediaInput.videoPublicId.trim()
+                ? tourMediaInput.videoPublicId.trim()
+                : null,
             overlayStrength: clampNumber(tourMediaInput.overlayStrength, 0, 1, 0.55)
         }
     };
@@ -2606,6 +2780,10 @@ const loadPublicHomepagePayload = async () => {
 
     const heroMediaList = [];
     for (const item of heroMediaListRaw) {
+        if (isRemoteHomepageMediaUrl(item.url) || isDatabaseBackedHomepageMediaUrl(item.url) || item.storage_type === 'database') {
+            heroMediaList.push(item);
+            continue;
+        }
         const localPath = getHomepageUploadFilePathFromUrl(item.url);
         if (!localPath) {
             heroMediaList.push(item);
@@ -2716,16 +2894,38 @@ router.post('/homepage-settings/logo', homepageSettingsUploadLimiter, verifySupe
         }
         const currentSettings = await getHomepageSettings();
         const previousLogoUrl = currentSettings.logoUrl;
-        const logoUrl = buildHomepageUploadUrl(req.file.filename);
-        const settings = sanitizeHomepageSettings({ ...currentSettings, logoUrl, logoPublicId: null });
+        const previousLogoAssetId = extractHomepageMediaAssetId(previousLogoUrl);
+        const {
+            url: logoUrl,
+            publicId: logoPublicId,
+            persistentAssetId,
+            warning: storageWarning
+        } = await persistHomepageImageFile(req.file);
+        const settings = sanitizeHomepageSettings({
+            ...currentSettings,
+            logoUrl,
+            logoPublicId: logoPublicId || null,
+            logoPersistentAssetId: persistentAssetId || null
+        });
         await saveHomepageSettings(settings);
         if (previousLogoUrl && previousLogoUrl !== logoUrl) {
-            await deleteHomepageUploadByUrl(previousLogoUrl);
+            await deleteHomepageMediaAsset({
+                url: previousLogoUrl,
+                cloudinaryPublicId: currentSettings.logoPublicId,
+                resourceType: 'image',
+                persistentAssetId: previousLogoAssetId || currentSettings.logoPersistentAssetId
+            });
         }
-        res.json({ success: true, message: 'تم رفع الشعار بنجاح', logoUrl, settings });
+        res.json({
+            success: true,
+            message: storageWarning || 'تم رفع الشعار بنجاح',
+            logoUrl,
+            settings,
+            warning: storageWarning || null
+        });
     } catch (error) {
         console.error('خطأ في رفع شعار الصفحة الرئيسية:', error);
-        res.status(500).json({ success: false, message: 'تعذر رفع الشعار' });
+        res.status(500).json({ success: false, message: error?.message || 'تعذر رفع الشعار' });
     }
 });
 
@@ -2738,23 +2938,39 @@ router.post('/homepage-settings/hero-image', homepageSettingsUploadLimiter, veri
             return res.status(400).json({ success: false, message: 'فشل رفع الصورة: لم يتم استلام ملف صالح. يرجى إعادة المحاولة.' });
         }
         const currentSettings = await getHomepageSettings();
-        const heroImageUrl = buildHomepageUploadUrl(req.file.filename);
+        const {
+            url: heroImageUrl,
+            publicId: cloudinaryPublicId,
+            storage,
+            persistentAssetId,
+            warning: storageWarning
+        } = await persistHomepageImageFile(req.file);
         const caption = sanitizeCaptionText(req.body?.heroCaption || req.body?.mediaCaption || '');
         const title = String(req.body?.title || caption || '').trim().slice(0, 200) || null;
         const rawTarget = String(req.body?.target || 'frame').toLowerCase();
         const target = rawTarget === 'background' ? 'background' : 'frame';
 
-        // Save to hero_media table
         await ensureHeroMediaTable();
         const { rows: existingRows } = await pool.query('SELECT COALESCE(MAX(order_index),0) AS max_order FROM hero_media');
         const nextOrder = (existingRows[0]?.max_order || 0) + 1;
         const insertResult = await pool.query(
-            `INSERT INTO hero_media (type, url, title, target, order_index, is_active, cloudinary_public_id) VALUES ($1, $2, $3, $4, $5, true, $6) RETURNING id`,
-            ['image', heroImageUrl, title, target, nextOrder, null]
+            `INSERT INTO hero_media (type, url, title, target, order_index, is_active, cloudinary_public_id, persistent_asset_id, storage_type, mime_type)
+             VALUES ($1, $2, $3, $4, $5, true, $6, $7, $8, $9)
+             RETURNING id`,
+            [
+                'image',
+                heroImageUrl,
+                title,
+                target,
+                nextOrder,
+                cloudinaryPublicId,
+                persistentAssetId,
+                storage,
+                req.file.mimetype || null
+            ]
         );
         const newId = insertResult.rows[0]?.id;
 
-        // Also keep heroMedia JSONB settings in sync for backward compat
         const imageUrls = [
             ...(Array.isArray(currentSettings.heroMedia?.imageUrls) ? currentSettings.heroMedia.imageUrls : []),
             heroImageUrl
@@ -2775,10 +2991,19 @@ router.post('/homepage-settings/hero-image', homepageSettingsUploadLimiter, veri
             }
         });
         await saveHomepageSettings(settings);
-        res.json({ success: true, message: 'تم رفع صورة الـ Hero بنجاح', heroImageUrl, heroMediaId: newId, settings });
+        invalidatePublicHomepageCache();
+        res.json({
+            success: true,
+            message: storageWarning || 'تم رفع صورة الـ Hero بنجاح — لن تختفي إلا عند حذفها من الإعدادات',
+            heroImageUrl,
+            heroMediaId: newId,
+            settings,
+            storage,
+            warning: storageWarning || null
+        });
     } catch (error) {
         console.error('خطأ في رفع صورة Hero:', error);
-        res.status(500).json({ success: false, message: 'تعذر رفع صورة Hero' });
+        res.status(500).json({ success: false, message: error?.message || 'تعذر رفع صورة Hero' });
     }
 });
 
@@ -2803,8 +3028,20 @@ router.post('/homepage-settings/hero-video', homepageSettingsUploadLimiter, veri
         const { rows: existingRows } = await pool.query('SELECT COALESCE(MAX(order_index),0) AS max_order FROM hero_media');
         const nextOrder = (existingRows[0]?.max_order || 0) + 1;
         const insertResult = await pool.query(
-            `INSERT INTO hero_media (type, url, title, target, order_index, is_active, cloudinary_public_id) VALUES ($1, $2, $3, $4, $5, true, $6) RETURNING id`,
-            ['video', uploadedVideoUrl, title, target, nextOrder, cloudinaryPublicId]
+            `INSERT INTO hero_media (type, url, title, target, order_index, is_active, cloudinary_public_id, persistent_asset_id, storage_type, mime_type)
+             VALUES ($1, $2, $3, $4, $5, true, $6, $7, $8, $9)
+             RETURNING id`,
+            [
+                'video',
+                uploadedVideoUrl,
+                title,
+                target,
+                nextOrder,
+                cloudinaryPublicId,
+                null,
+                storage,
+                req.file.mimetype || null
+            ]
         );
         const newId = insertResult.rows[0]?.id;
 
@@ -2862,24 +3099,42 @@ router.post('/homepage-settings/tour-image', homepageSettingsUploadLimiter, veri
         }
         const currentSettings = await getHomepageSettings();
         const previousImageUrl = currentSettings.tourMedia?.imageUrl;
-        const imageUrl = buildHomepageUploadUrl(req.file.filename);
+        const previousImageAssetId = extractHomepageMediaAssetId(previousImageUrl);
+        const {
+            url: imageUrl,
+            publicId: imagePublicId,
+            persistentAssetId,
+            warning: storageWarning
+        } = await persistHomepageImageFile(req.file);
         const settings = sanitizeHomepageSettings({
             ...currentSettings,
             tourMedia: {
                 ...(currentSettings.tourMedia || {}),
                 activeType: 'image',
                 imageUrl,
-                imagePublicId: null
+                imagePublicId: imagePublicId || null,
+                imagePersistentAssetId: persistentAssetId || null
             }
         });
         await saveHomepageSettings(settings);
         if (previousImageUrl && previousImageUrl !== imageUrl) {
-            await deleteHomepageUploadByUrl(previousImageUrl);
+            await deleteHomepageMediaAsset({
+                url: previousImageUrl,
+                cloudinaryPublicId: currentSettings.tourMedia?.imagePublicId,
+                resourceType: 'image',
+                persistentAssetId: previousImageAssetId || currentSettings.tourMedia?.imagePersistentAssetId
+            });
         }
-        res.json({ success: true, message: 'تم رفع صورة قسم الجولة بنجاح', imageUrl, settings });
+        res.json({
+            success: true,
+            message: storageWarning || 'تم رفع صورة قسم الجولة بنجاح',
+            imageUrl,
+            settings,
+            warning: storageWarning || null
+        });
     } catch (error) {
         console.error('خطأ في رفع صورة قسم الجولة:', error);
-        res.status(500).json({ success: false, message: 'تعذر رفع صورة قسم الجولة' });
+        res.status(500).json({ success: false, message: error?.message || 'تعذر رفع صورة قسم الجولة' });
     }
 });
 
@@ -3043,7 +3298,7 @@ router.delete('/hero-media/:id', verifySuperAdmin, homepageSettingsWriteLimiter,
         }
         await ensureHeroMediaTable();
         const deleteResult = await pool.query(
-            'DELETE FROM hero_media WHERE id = $1 RETURNING url, type, cloudinary_public_id',
+            'DELETE FROM hero_media WHERE id = $1 RETURNING url, type, cloudinary_public_id, persistent_asset_id',
             [id]
         );
         if (deleteResult.rowCount === 0) {
@@ -3052,7 +3307,9 @@ router.delete('/hero-media/:id', verifySuperAdmin, homepageSettingsWriteLimiter,
         const deletedRow = deleteResult.rows[0];
         await deleteHomepageMediaAsset({
             url: deletedRow.url,
-            cloudinaryPublicId: deletedRow.cloudinary_public_id
+            cloudinaryPublicId: deletedRow.cloudinary_public_id,
+            resourceType: deletedRow.type === 'video' ? 'video' : 'image',
+            persistentAssetId: deletedRow.persistent_asset_id
         });
         invalidatePublicHomepageCache();
         const items = await getHeroMediaList(false);
@@ -3388,3 +3645,4 @@ router.post('/account-type-sidebar', verifySuperAdmin, async (req, res) => {
 
 module.exports = router;
 module.exports.loadPublicHomepagePayload = loadPublicHomepagePayload;
+module.exports.serveHomepageMediaAsset = serveHomepageMediaAsset;

@@ -2611,7 +2611,8 @@ app.use('/api/menu', menuRoutes);
 
 // Super Admin API Routes
 const superAdminRoutes = require('./super-admin-api');
-const { loadPublicHomepagePayload } = require('./super-admin-api');
+const { loadPublicHomepagePayload, serveHomepageMediaAsset } = require('./super-admin-api');
+app.get('/api/homepage-media/asset/:id', serveHomepageMediaAsset);
 app.use('/api/admin', superAdminRoutes);
 
 // Permissions API Routes
