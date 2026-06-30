@@ -104,7 +104,7 @@
     { key: 'records-archive-home', path: '/archive', icon: '📦', title: 'نظام الأرشفة', desc: 'إدارة الوثائق والسجلات والأرشفة الإلكترونية' },
     { key: 'hr', path: '/hr', icon: '👥', title: 'الموارد البشرية', desc: 'إدارة الموظفين والحضور والإجازات' },
     { key: 'finance', path: '/finance/index.html', icon: '💰', title: 'النظام المالي', desc: 'المحاسبة والتقارير المالية' },
-    { key: 'marketing-campaigns-studio', path: '/marketing-campaigns-studio', icon: '📣', title: 'استوديو التسويق', desc: 'إدارة الحملات التسويقية' },
+    { key: 'marketing-campaigns-studio', path: '/marketing-campaigns-studio.html', icon: '📣', title: 'استوديو التسويق', desc: 'إدارة الحملات التسويقية' },
     { key: 'events-studio-main', path: '/finance/events-studio-main.html', icon: '📅', title: 'استوديو الفعاليات', desc: 'تنظيم الفعاليات والأنشطة' },
     { key: 'tenant-branding', path: '/tenant-branding-settings.html', icon: '🎨', title: 'هوية النظام', desc: 'تخصيص الشعار والألوان واسم الشركة', adminOnly: true }
   ];

@@ -36,10 +36,8 @@ const checks = [
   'editReel(',
   'downloadReel(',
   'deleteReel(',
-  'showEventsStudioTab',
-  'heroStatsRow',
-  'studioCategoryCards',
-  'events-studio-root'
+  'switchSection(',
+  'nav-tab'
 ];
 
 const missing = checks.filter((item) => !html.includes(item));

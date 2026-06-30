@@ -2863,6 +2863,7 @@ const protectedHtmlExactPaths = new Set([
   '/billing',
   '/finance',
   '/events-studio-main.html',
+  '/marketing-campaigns-studio.html',
   '/requests',
   '/incubator',
   '/tenants',
@@ -2893,6 +2894,9 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/hr' || p.startsWith('/hr/')) return ['hr'];
   if (p === '/finance/events-studio-main' || p === '/finance/events-studio-main.html' || p.startsWith('/finance/events-studio-main/')) return ['events-studio-main', 'finance'];
   if (p === '/events-studio-main.html') return ['events-studio-main', 'finance'];
+  if (p === '/marketing-campaigns-studio' || p === '/marketing-campaigns-studio.html') {
+    return ['marketing-campaigns-studio', 'marketing'];
+  }
   if (p === '/finance' || p.startsWith('/finance/')) return ['finance'];
   if (p === '/strategic' || p.startsWith('/strategic/')) return ['strategic-management'];
   if (p === '/saas' || p.startsWith('/saas/')) return ['saas'];
@@ -3181,6 +3185,22 @@ app.get('/finance*', (req, res, next) => {
 
 // Serve Events Studio on its finance path
 app.get('/finance/events-studio-main.html', (req, res) => serveEventsStudio(req, res));
+
+// Marketing Campaigns Studio (standalone page with events-studio features)
+const serveMarketingCampaignsStudio = (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+    sendHtmlWithNumberFormat(res, path.join(__dirname, 'marketing-campaigns-studio.html'), req);
+  } catch (error) {
+    res.status(500).send('Marketing Campaigns Studio page not available');
+  }
+};
+
+app.get('/marketing-campaigns-studio.html', (req, res) => serveMarketingCampaignsStudio(req, res));
+app.get('/marketing-campaigns-studio', (req, res) => res.redirect(301, '/marketing-campaigns-studio.html'));
 
 // Finance System API Routes
 const financeRoutes = require('./finance/api/finance-routes');
@@ -3898,7 +3918,6 @@ const serveDashboardSpa = (req, res) => {
   '/education-incubators',
   '/credit-topup',
   '/gateway-payments',
-  '/marketing-campaigns-studio',
 ].forEach((routePath) => {
   app.get(routePath, serveDashboardSpa);
 });

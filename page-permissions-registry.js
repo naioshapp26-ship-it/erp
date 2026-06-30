@@ -262,8 +262,8 @@ const ROUTE_TO_PATH = {
   'employee-menu': '/employee',
   entities: '/tenants',
   'events-studio-main': '/finance/events-studio-main.html',
-  'marketing-campaigns-studio': '/marketing-campaigns-studio',
-  marketing: '/marketing-campaigns-studio',
+  'marketing-campaigns-studio': '/marketing-campaigns-studio.html',
+  marketing: '/marketing-campaigns-studio.html',
   'operational-policies': '/operational-policies',
   'payment-menu': '/payment',
   'supply-chain': '/supply-chain',
@@ -758,6 +758,9 @@ function getPageKeysForPath(requestPath) {
   if (normalized === '/finance' || normalized === '/finance/index.html') return ['finance'];
   if (normalized === '/finance/events-studio-main' || normalized === '/finance/events-studio-main.html') {
     return ['events-studio-main', 'finance__events-studio-main', 'finance'];
+  }
+  if (normalized === '/marketing-campaigns-studio' || normalized === '/marketing-campaigns-studio.html') {
+    return ['marketing-campaigns-studio', 'marketing'];
   }
   if (normalized.startsWith('/finance/')) {
     const financeKey = financeRelativePathToKey(normalized.replace(/^\/finance\//, ''));
