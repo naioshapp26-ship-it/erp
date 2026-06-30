@@ -756,6 +756,9 @@ function getPageKeysForPath(requestPath) {
     return hrMatch ? [hrMatch[0], 'hr'] : ['hr'];
   }
   if (normalized === '/finance' || normalized === '/finance/index.html') return ['finance'];
+  if (normalized === '/finance/events-studio-main' || normalized === '/finance/events-studio-main.html') {
+    return ['events-studio-main', 'finance__events-studio-main', 'finance'];
+  }
   if (normalized.startsWith('/finance/')) {
     const financeKey = financeRelativePathToKey(normalized.replace(/^\/finance\//, ''));
     return [financeKey, 'finance'];
