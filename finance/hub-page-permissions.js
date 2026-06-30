@@ -9,18 +9,25 @@
     'nav.floating-actions a[href^="/"]'
   ];
 
-  function normalizePath(href) {
-    try {
-      const url = new URL(href, window.location.origin);
-      let pathname = url.pathname || '/';
-      if (pathname.length > 1) {
-        pathname = pathname.replace(/\/+$/, '');
+    function normalizePath(href) {
+      try {
+        const url = new URL(href, window.location.origin);
+        let pathname = url.pathname || '/';
+        if (pathname.length > 1) {
+          pathname = pathname.replace(/\/+$/, '');
+        }
+        const tenantMatch = pathname.match(/^\/t\/[a-z0-9][a-z0-9-]*(\/.*)?$/i);
+        if (tenantMatch) {
+          pathname = pathname.replace(/^\/t\/[a-z0-9][a-z0-9-]*/i, '') || '/';
+          if (pathname.length > 1) {
+            pathname = pathname.replace(/\/+$/, '');
+          }
+        }
+        return pathname || '/';
+      } catch (_) {
+        return href;
       }
-      return pathname || '/';
-    } catch (_) {
-      return href;
     }
-  }
 
   function readAuthToken() {
     const fromStorage = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');

@@ -89,6 +89,24 @@ function extractSubdomainFromPath(requestPath = '') {
   return isValidTenantSubdomain(subdomain) ? subdomain : null;
 }
 
+function stripAnyTenantPathPrefix(requestPath = '') {
+  const pathOnly = String(requestPath || '').split('?')[0];
+  const match = pathOnly.match(new RegExp(`^${TENANT_PATH_PREFIX}/([a-z0-9][a-z0-9-]*)(?:/|$)`, 'i'));
+  if (!match) return pathOnly;
+  const prefix = `${TENANT_PATH_PREFIX}/${match[1].toLowerCase()}`;
+  if (pathOnly === prefix) return '/';
+  if (pathOnly.startsWith(`${prefix}/`)) {
+    return pathOnly.slice(prefix.length) || '/';
+  }
+  return pathOnly;
+}
+
+function normalizeTenantAwareRequestPath(requestPath = '') {
+  const stripped = stripAnyTenantPathPrefix(requestPath);
+  const normalized = stripped.replace(/\/+$/, '') || '/';
+  return normalized;
+}
+
 function stripTenantPathPrefix(requestPath = '', subdomain) {
   const pathOnly = String(requestPath || '').split('?')[0];
   const normalizedSubdomain = String(subdomain || '').toLowerCase();
@@ -230,6 +248,8 @@ module.exports = {
   extractSubdomainFromHostname,
   extractSubdomainFromPath,
   stripTenantPathPrefix,
+  stripAnyTenantPathPrefix,
+  normalizeTenantAwareRequestPath,
   rewriteRequestPath,
   isValidTenantSubdomain,
   resolveTenantAccessMode,
