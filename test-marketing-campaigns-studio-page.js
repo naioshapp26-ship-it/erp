@@ -27,7 +27,10 @@ const checks = [
   '--primary: #b91c1c',
   'viewVideoDetails(',
   'prepareReelFromVideo(',
-  'deleteReel('
+  'deleteReel(',
+  'openAddFlow(',
+  'إضافة حملة',
+  'رفع فيديو'
 ];
 
 const missing = checks.filter((item) => !html.includes(item));

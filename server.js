@@ -3202,6 +3202,10 @@ const serveMarketingCampaignsStudio = (req, res) => {
 app.get('/marketing-campaigns-studio.html', (req, res) => serveMarketingCampaignsStudio(req, res));
 app.get('/marketing-campaigns-studio', (req, res) => res.redirect(301, '/marketing-campaigns-studio.html'));
 
+// Events Studio API (campaigns, recordings, clips, publishing)
+const eventsStudioRoutes = require('./finance/api/events-studio-routes');
+app.use('/api/events-studio', eventsStudioRoutes);
+
 // Finance System API Routes
 const financeRoutes = require('./finance/api/finance-routes');
 app.use('/finance', financeRoutes);
