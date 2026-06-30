@@ -20,11 +20,20 @@ ensureDir(EVENTS_STUDIO_DIR);
 
 const resolveEntityId = (req) => getRequestEntityContext(req).id;
 
+const formatDate = (value) => {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? text.slice(0, 10) : parsed.toISOString().slice(0, 10);
+};
+
 const mapEventRow = (row) => ({
   id: row.id,
   name: row.name,
   description: row.description || '',
-  date: row.event_date ? String(row.event_date).slice(0, 10) : '',
+  date: formatDate(row.event_date),
   time: row.event_time || '',
   platform: row.platform || '',
   status: row.status || 'نشطة',
@@ -41,7 +50,7 @@ const mapRecordingRow = (row) => ({
   name: row.name || row.content_title || '',
   contentTitle: row.content_title || row.name || '',
   contentDescription: row.content_description || '',
-  recordingDate: row.recording_date ? String(row.recording_date).slice(0, 10) : '',
+  recordingDate: formatDate(row.recording_date),
   createdAt: row.created_at,
   duration: Number(row.duration || 0),
   owner: row.owner || '',
