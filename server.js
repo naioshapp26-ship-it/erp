@@ -15,6 +15,10 @@ const { resolveUploadsRootDir } = require('./uploads-config');
 const { getTenantPermissionBundle } = require('./tenant-page-permissions');
 const { isPathAllowed } = require('./page-permissions-registry');
 const { filterHubHtml } = require('./hub-html-filter');
+const {
+  resolveProjectHtmlPath,
+  applyHubPermissionFilterToHtml
+} = require('./hub-permission-html');
 const { getTenantPool } = require('./tenant-connection-manager');
 const { buildProductsModulesBundle } = require('./products-modules-builder');
 const {
@@ -240,7 +244,7 @@ const injectMinimalTenantDashboardBranding = (html, identity, tenant) => {
 };
 
 const prepareHtmlPayload = (html, filePath, req = null) => {
-  let payload = html;
+  let payload = applyHubPermissionFilterToHtml(html, filePath, req, __dirname);
   const fileName = path.basename(filePath || '');
   if (fileName === 'tenant-dashboard.html') {
     if (req?.tenant && req?.tenantIdentity) {
@@ -278,12 +282,8 @@ const sendHubPageHtml = (res, filePath, req) => {
       res.status(500).send('Page not available');
       return;
     }
-    let payload = html;
-    if (req.tenant && req.tenantPermissionBundle) {
-      payload = filterHubHtml(html, req.tenant, req.tenantPermissionBundle);
-    }
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(prepareHtmlPayload(payload, filePath, req));
+    res.send(prepareHtmlPayload(html, filePath, req));
   });
 };
 
@@ -3144,16 +3144,18 @@ app.get('/finance*', (req, res, next) => {
     }
 
     const safePath = decodeURIComponent(requestPath).replace(/\.{2,}/g, '');
-    const filePath = path.join(__dirname, safePath);
+    const filePath = resolveProjectHtmlPath(__dirname, safePath);
 
     if (!filePath.startsWith(path.join(__dirname, 'finance')) || !fs.existsSync(filePath)) {
       return next();
     }
 
-    let html = fs.readFileSync(filePath, 'utf8');
-    if (req.tenant && req.tenantPermissionBundle && path.basename(filePath) === 'index.html') {
-      html = filterHubHtml(html, req.tenant, req.tenantPermissionBundle);
-    }
+    let html = applyHubPermissionFilterToHtml(
+      fs.readFileSync(filePath, 'utf8'),
+      filePath,
+      req,
+      __dirname
+    );
     html = html
       .replace(/const ENTITY_ID = '1';/g, "const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';")
       .replace(/const ENTITY_ID = 'HQ001';/g, "const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';")
@@ -3171,6 +3173,7 @@ app.get('/finance*', (req, res, next) => {
     }
     res.type('html').send(payload);
   } catch (error) {
+    console.error('[finance html] failed to serve page:', req.path, error.message);
     next();
   }
 });
@@ -15099,7 +15102,7 @@ app.get('/*.html', (req, res, next) => {
   const filePath = path.join(__dirname, safePath);
   fs.access(filePath, fs.constants.F_OK, (err) => {
     if (err) return next();
-    sendHtmlWithNumberFormat(res, filePath);
+    sendHtmlWithNumberFormat(res, filePath, req);
   });
 });
 

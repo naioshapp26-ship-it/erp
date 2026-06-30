@@ -2,11 +2,11 @@
   'use strict';
 
   const LINK_SELECTORS = [
-    '#archive-cards a[href^="/"]',
-    '#hr-cards a[href^="/"]',
-    '#finance-cards a[href^="/"]',
-    'a.hero-cta-secondary[href^="/"]',
-    'nav.floating-actions a[href^="/"]'
+    '#archive-cards a[href]',
+    '#hr-cards a[href]',
+    '#finance-cards a[href]',
+    'a.hero-cta-secondary[href]',
+    'nav.floating-actions a[href]'
   ];
 
     function normalizePath(href) {
@@ -54,13 +54,34 @@
     return headers;
   }
 
+  function isInternalHubHref(href) {
+    if (!href || typeof href !== 'string') return false;
+    if (href.startsWith('#') || href.startsWith('javascript:')) return false;
+    return href.startsWith('/') || href.startsWith('./') || href.startsWith('../');
+  }
+
+  function isTenantScopedHubPage() {
+    const hasHubContainer = Boolean(
+      document.getElementById('finance-cards')
+      || document.getElementById('hr-cards')
+      || document.getElementById('archive-cards')
+    );
+    if (!hasHubContainer) {
+      return false;
+    }
+    if (typeof window.isTenantPathMode === 'function') {
+      return window.isTenantPathMode();
+    }
+    return /^\/t\/[a-z0-9][a-z0-9-]*/i.test(String(window.location.pathname || ''));
+  }
+
   function collectLinks() {
     const links = [];
     const seen = new Set();
     LINK_SELECTORS.forEach((selector) => {
       document.querySelectorAll(selector).forEach((element) => {
         const href = element.getAttribute('href');
-        if (!href || href.startsWith('#') || href.startsWith('javascript:') || seen.has(element)) {
+        if (!isInternalHubHref(href) || seen.has(element)) {
           return;
         }
         seen.add(element);
@@ -120,6 +141,9 @@
     const paths = [...new Set(links.map((link) => link.path))];
     const token = readAuthToken();
     if (!token) {
+      if (isTenantScopedHubPage()) {
+        hideAllHubLinks();
+      }
       return;
     }
 
