@@ -145,5 +145,13 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', filterHubPages);
+  function scheduleHubPermissionFilter() {
+    if (typeof globalThis.rewriteTenantAnchors === 'function') {
+      globalThis.rewriteTenantAnchors(document);
+    }
+    filterHubPages();
+  }
+
+  document.addEventListener('DOMContentLoaded', scheduleHubPermissionFilter);
+  window.addEventListener('load', scheduleHubPermissionFilter);
 })();
