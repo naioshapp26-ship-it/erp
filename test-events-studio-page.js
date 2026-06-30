@@ -36,7 +36,10 @@ const checks = [
   'editReel(',
   'downloadReel(',
   'deleteReel(',
-  'href="/index.html"'
+  'showEventsStudioTab',
+  'heroStatsRow',
+  'studioCategoryCards',
+  'events-studio-root'
 ];
 
 const missing = checks.filter((item) => !html.includes(item));
@@ -48,12 +51,12 @@ const navigationChecks = [
   { description: 'pathToRoute reverse mapping for events studio page', pattern: /['"]\/finance\/events-studio-main\.html['"]\s*:\s*['"]events-studio-main['"]/ },
   { description: 'route loader branch for events-studio-main', pattern: /route\s*===\s*['"]events-studio-main['"]/ },
   { description: 'renderEventsStudioMain handler declaration', pattern: /const\s+renderEventsStudioMain\s*=/ },
-  { description: 'renderEventsStudioMain redirect target', pattern: /window\.location\.href\s*=\s*['"]\/finance\/events-studio-main\.html['"]/ }
+  { description: 'renderEventsStudioMain redirect target', pattern: /navigateToExternalRoute\(['"]events-studio-main['"]\)/ },
 ];
 const missingNavigation = navigationChecks.filter(({ pattern }) => !pattern.test(scriptContent));
 const hasEventsStudioLinkInFinanceMenu = /<a[^>]+href=["']\/finance\/events-studio-main\.html["'][^>]*>/.test(financeHomeContent);
 const isEventsStudioMappedToFinance = /route === ['"]events-studio['"] \|\| route === ['"]events-studio-main['"]\)\s*\{\s*route = ['"]finance['"];\s*\}/.test(scriptContent);
-const hasFinancePrimaryRoute = /app\.get\('\/finance\/events-studio-main\.html',\s*\(req,\s*res,\s*next\)\s*=>\s*serveEventsStudio\(req,\s*res,\s*next\)\);/.test(serverContent);
+const hasFinancePrimaryRoute = /app\.get\('\/finance\/events-studio-main\.html',\s*\(req,\s*res\)\s*=>\s*serveEventsStudio\(req,\s*res\)\);/.test(serverContent);
 const hasLegacyRedirectToFinance = /app\.get\('\/events-studio-main\.html',\s*\(req,\s*res\)\s*=>\s*res\.redirect\(301,\s*'\/finance\/events-studio-main\.html'\)\);/.test(serverContent);
 const hasShortRedirectToFinance = /app\.get\('\/events-studio',\s*\(req,\s*res\)\s*=>\s*res\.redirect\(301,\s*'\/finance\/events-studio-main\.html'\)\);/.test(serverContent);
 const hasOfficePermissionToggle = /key:\s*['"]events-studio-main['"]\s*,\s*label:\s*['"]استوديو الفعاليات['"]/.test(superAdminContent);

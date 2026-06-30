@@ -3180,7 +3180,7 @@ app.get('/finance*', (req, res, next) => {
 
 
 // Serve Events Studio on its finance path
-app.get('/finance/events-studio-main.html', (req, res, next) => serveEventsStudio(req, res, next));
+app.get('/finance/events-studio-main.html', (req, res) => serveEventsStudio(req, res));
 
 // Finance System API Routes
 const financeRoutes = require('./finance/api/finance-routes');
@@ -4103,15 +4103,13 @@ app.get('/hr', serveHrHome);
 app.get('/hr/*', serveHrHome);
 
 // Events Studio page (standalone outside /finance)
-const serveEventsStudio = (req, res, next) => {
+const serveEventsStudio = (req, res) => {
   try {
-    const hasExt = path.extname(req.path || '') !== '';
-    if (hasExt) return next();
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     res.set('Surrogate-Control', 'no-store');
-    sendHtmlWithNumberFormat(res, path.join(__dirname, 'finance', 'events-studio-main.html'));
+    sendHtmlWithNumberFormat(res, path.join(__dirname, 'finance', 'events-studio-main.html'), req);
   } catch (error) {
     res.status(500).send('Events Studio page not available');
   }
