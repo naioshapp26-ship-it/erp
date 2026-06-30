@@ -3059,7 +3059,7 @@ const requireAuthForHtml = async (req, res, next) => {
         return next();
       }
 
-      const permissionBundle = await getTenantPermissionBundle(db, req.tenant);
+      const permissionBundle = req.tenantPermissionBundle || await getTenantPermissionBundle(db, req.tenant);
       req.tenantPermissionBundle = permissionBundle;
       const allowed = isPathAllowed(req.path, {
         tenantType: 'TENANT',
@@ -3070,6 +3070,9 @@ const requireAuthForHtml = async (req, res, next) => {
       if (!allowed) {
         return res.redirect(302, getTenantScopedRedirect(req, '/access-denied.html'));
       }
+    } else if (req.tenant) {
+      const permissionBundle = await getTenantPermissionBundle(db, req.tenant);
+      req.tenantPermissionBundle = permissionBundle;
     }
 
     return next();

@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { normalizeTenantAwareRequestPath } = require('./tenant-domain');
 
 const PRIMARY_TENANT_SYSTEM_KEYS = [
   'dashboard',
@@ -724,8 +725,7 @@ function getPathToPageKeysMap() {
 
 function getPageKeysForPath(requestPath) {
   getRuntimeRouteParents();
-  const raw = String(requestPath || '').split('?')[0];
-  const normalized = raw.replace(/\/+$/, '') || '/';
+  const normalized = normalizeTenantAwareRequestPath(requestPath);
   const pathMap = getPathToPageKeysMap();
 
   if (pathMap[normalized]) {

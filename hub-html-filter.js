@@ -3,12 +3,14 @@ const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
 
 const HUB_CONTAINER_IDS = ['archive-cards', 'hr-cards', 'finance-cards'];
 
+const { normalizeTenantAwareRequestPath } = require('./tenant-domain');
+
 function normalizeHrefPath(href) {
   const raw = String(href || '').split('?')[0].trim();
   if (!raw || raw.startsWith('#') || raw.startsWith('javascript:')) {
     return null;
   }
-  const pathOnly = raw.replace(/\/+$/, '') || '/';
+  const pathOnly = normalizeTenantAwareRequestPath(raw);
   return pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
 }
 
