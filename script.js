@@ -3113,6 +3113,7 @@ const app = (() => {
     };
 
     const updateHelpGuide = (route) => {
+        setHelpGuideOpen(false);
         const button = document.getElementById('help-guide-button');
         const titleEl = document.getElementById('help-guide-title');
         const descEl = document.getElementById('help-guide-description');
