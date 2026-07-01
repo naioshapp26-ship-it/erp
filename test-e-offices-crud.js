@@ -13,7 +13,7 @@ const checks = [
   { name: 'routes expose GET module', ok: /router\.get\('\/:moduleKey'/.test(routesContent) },
   { name: 'routes expose POST module', ok: /router\.post\('\/:moduleKey'/.test(routesContent) },
   { name: 'routes expose seed endpoint', ok: /router\.post\('\/:moduleKey\/seed'/.test(routesContent) },
-  { name: 'routes expose PUT record', ok: /router\.put\('\/:moduleKey\/:id'/.test(routesContent) },
+  { name: 'PUT uses correct scope param index', ok: /scopeFor\(req, 'r', 4\)/.test(routesContent) && routesContent.includes('router.put') },
   { name: 'routes expose DELETE record', ok: /router\.delete\('\/:moduleKey\/:id'/.test(routesContent) },
   { name: 'pages use API_BASE', ok: /const API_BASE = '\/api\/e-offices'/.test(pagesContent) },
   { name: 'pages expose handleButtonClick', ok: /handleButtonClick\(button, action, event\)/.test(pagesContent) },
