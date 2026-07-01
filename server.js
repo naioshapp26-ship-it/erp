@@ -3206,6 +3206,9 @@ app.get('/marketing-campaigns-studio', (req, res) => res.redirect(301, '/marketi
 const eventsStudioRoutes = require('./finance/api/events-studio-routes');
 app.use('/api/events-studio', eventsStudioRoutes);
 
+const eOfficesRoutes = require('./finance/api/e-offices-routes');
+app.use('/api/e-offices', eOfficesRoutes);
+
 // Finance System API Routes
 const financeRoutes = require('./finance/api/finance-routes');
 app.use('/finance', financeRoutes);
