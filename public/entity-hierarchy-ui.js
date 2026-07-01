@@ -111,23 +111,28 @@
   function renderHubRowActions(dataAttr, route, index, options = {}) {
     const prefix = dataAttr;
     const recordId = options.recordId ?? '';
+    const indexArg = typeof index === 'number' ? String(index) : 'undefined';
+    const onClick = (action) => {
+      if (!options.actionHandler) return '';
+      return ` onclick="${options.actionHandler}('${action}','${route}',${indexArg},event);return false;"`;
+    };
     const addButton = options.hideAdd ? '' : `
-        <button type="button" data-${prefix}-action="add" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
+        <button type="button" data-${prefix}-action="add" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${onClick('add')}
           class="px-2.5 py-1.5 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-bold" title="إضافة">
           <i class="fas fa-plus"></i>
         </button>`;
     return `
       <div class="flex flex-wrap items-center justify-end gap-1.5">
         ${addButton}
-        <button type="button" data-${prefix}-action="view" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
+        <button type="button" data-${prefix}-action="view" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${onClick('view')}
           class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold" title="عرض">
           <i class="fas fa-eye"></i>
         </button>
-        <button type="button" data-${prefix}-action="edit" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
+        <button type="button" data-${prefix}-action="edit" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${onClick('edit')}
           class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold" title="تعديل">
           <i class="fas fa-pen"></i>
         </button>
-        <button type="button" data-${prefix}-action="delete" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
+        <button type="button" data-${prefix}-action="delete" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${onClick('delete')}
           class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold" title="حذف">
           <i class="fas fa-trash"></i>
         </button>
@@ -621,8 +626,14 @@
       config,
       rows,
       renderRowActions,
-      dataAttr = 'hub'
+      dataAttr = 'hub',
+      actionHandler = ''
     } = options;
+
+    const toolbarClick = (action) => {
+      if (!actionHandler) return '';
+      return ` onclick="${actionHandler}('${action}','${route}',undefined,event);return false;"`;
+    };
 
     const displayColumns = getDisplayColumns(config);
     const normalizedRows = normalizeRows(rows, config);
@@ -666,13 +677,13 @@
         <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <h3 class="font-bold text-slate-800">${tableTitle}</h3>
           <div class="flex flex-wrap gap-2">
-            <button type="button" data-${dataAttr}-action="refresh" data-route="${route}" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
+            <button type="button" data-${dataAttr}-action="refresh" data-route="${route}"${toolbarClick('refresh')} class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
               <i class="fas fa-rotate"></i> تحديث
             </button>
-            <button type="button" data-${dataAttr}-action="add" data-route="${route}" class="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold">
+            <button type="button" data-${dataAttr}-action="add" data-route="${route}"${toolbarClick('add')} class="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold">
               <i class="fas fa-plus"></i> إضافة
             </button>
-            <button type="button" data-${dataAttr}-action="export" data-route="${route}" class="px-3 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold">
+            <button type="button" data-${dataAttr}-action="export" data-route="${route}"${toolbarClick('export')} class="px-3 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold">
               <i class="fas fa-download"></i> تصدير
             </button>
           </div>

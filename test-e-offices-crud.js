@@ -16,7 +16,8 @@ const checks = [
   { name: 'routes expose PUT record', ok: /router\.put\('\/:moduleKey\/:id'/.test(routesContent) },
   { name: 'routes expose DELETE record', ok: /router\.delete\('\/:moduleKey\/:id'/.test(routesContent) },
   { name: 'pages use API_BASE', ok: /const API_BASE = '\/api\/e-offices'/.test(pagesContent) },
-  { name: 'pages persist to server', ok: /async function persistRecord/.test(pagesContent) },
+  { name: 'pages expose handleAction', ok: /handleAction\(action, route, index, event\)/.test(pagesContent) },
+  { name: 'pages use onclick handlers', ok: /eoOnClick\(/.test(pagesContent) },
   { name: 'pages remove record on server', ok: /async function removeRecord/.test(pagesContent) },
   { name: 'all 15 eo routes configured', ok: (pagesContent.match(/'eo-[^']+':\s*\{/g) || []).length >= 15 }
 ];

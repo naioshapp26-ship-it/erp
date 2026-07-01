@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20260618c';
+const CACHE_VERSION = '20260701a';
 const STATIC_CACHE = `app-static-${CACHE_VERSION}`;
 const API_CACHE = `app-api-${CACHE_VERSION}`;
 
@@ -60,7 +60,14 @@ self.addEventListener('fetch', (event) => {
 
   const isApi = url.pathname.startsWith('/api/') || url.pathname.startsWith('/dashboard/');
 
+  const isMutableScript = /-(pages|hub)\.js$/i.test(url.pathname) || url.pathname.includes('entity-hierarchy-ui.js');
+
   if (isApi) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  if (isMutableScript) {
     event.respondWith(networkFirst(request));
     return;
   }

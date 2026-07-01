@@ -3,6 +3,7 @@
 
   const STORAGE_PREFIX = 'eoffices:data:v2:';
   const API_BASE = '/api/e-offices';
+  const ACTION_HANDLER = 'window.EOfficesPages.handleAction';
   const rowCache = {};
 
   function asRecord(row) {
@@ -500,6 +501,29 @@
     return { total, active, done, urgent };
   }
 
+  function eoOnClick(action, route, index) {
+    const indexArg = typeof index === 'number' ? String(index) : 'undefined';
+    return ` onclick="${ACTION_HANDLER}('${action}','${route}',${indexArg},event);return false;"`;
+  }
+
+  function bindPageActions(route) {
+    const scope = document.querySelector(`[data-eo-page="${route}"]`);
+    if (!scope) return;
+    scope.querySelectorAll('[data-eo-action]').forEach((button) => {
+      if (button.dataset.eoBound === '1') return;
+      button.dataset.eoBound = '1';
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const action = button.dataset.eoAction;
+        const pageRoute = button.dataset.route;
+        if (!action || !pageRoute || !PAGE_CONFIGS[pageRoute]) return;
+        const rowIndex = button.dataset.index !== undefined ? Number(button.dataset.index) : undefined;
+        void handleEoAction(action, pageRoute, rowIndex);
+      });
+    });
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -528,19 +552,23 @@
   function renderRowActions(route, index, record) {
     const recordId = record?.id ?? '';
     if (window.EntityHierarchyUI?.renderHubRowActions) {
-      return window.EntityHierarchyUI.renderHubRowActions('eo', route, index, { hideAdd: true, recordId });
+      return window.EntityHierarchyUI.renderHubRowActions('eo', route, index, {
+        hideAdd: true,
+        recordId,
+        actionHandler: ACTION_HANDLER
+      });
     }
     return `
       <div class="flex flex-wrap items-center justify-end gap-1.5">
-        <button type="button" data-eo-action="view" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
+        <button type="button" data-eo-action="view" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${eoOnClick('view', route, index)}
           class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold" title="عرض">
           <i class="fas fa-eye"></i>
         </button>
-        <button type="button" data-eo-action="edit" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
+        <button type="button" data-eo-action="edit" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${eoOnClick('edit', route, index)}
           class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold" title="تعديل">
           <i class="fas fa-pen"></i>
         </button>
-        <button type="button" data-eo-action="delete" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
+        <button type="button" data-eo-action="delete" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${eoOnClick('delete', route, index)}
           class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold" title="حذف">
           <i class="fas fa-trash"></i>
         </button>
@@ -556,7 +584,8 @@
         rows: records.map(getRowCells),
         records,
         renderRowActions: (pageRoute, index) => renderRowActions(pageRoute, index, records[index]),
-        dataAttr: 'eo'
+        dataAttr: 'eo',
+        actionHandler: ACTION_HANDLER
       });
     }
 
@@ -577,13 +606,13 @@
         <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <h3 class="font-bold text-slate-800">سجل ${config.title}</h3>
           <div class="flex flex-wrap gap-2">
-            <button type="button" data-eo-action="refresh" data-route="${route}" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
+            <button type="button" data-eo-action="refresh" data-route="${route}"${eoOnClick('refresh', route)} class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
               <i class="fas fa-rotate"></i> تحديث
             </button>
-            <button type="button" data-eo-action="add" data-route="${route}" class="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold">
+            <button type="button" data-eo-action="add" data-route="${route}"${eoOnClick('add', route)} class="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold">
               <i class="fas fa-plus"></i> إضافة
             </button>
-            <button type="button" data-eo-action="export" data-route="${route}" class="px-3 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold">
+            <button type="button" data-eo-action="export" data-route="${route}"${eoOnClick('export', route)} class="px-3 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold">
               <i class="fas fa-download"></i> تصدير
             </button>
           </div>
@@ -702,6 +731,7 @@
       table.replaceWith(wrapper.firstElementChild);
     }
     refreshStats(route, records);
+    bindPageActions(route);
   }
 
   function closeModal() {
@@ -930,6 +960,14 @@
 
   window.EOfficesPages = {
     routes: Object.keys(PAGE_CONFIGS),
+    handleAction(action, route, index, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (!action || !route || !PAGE_CONFIGS[route]) return;
+      void handleEoAction(action, route, typeof index === 'number' ? index : undefined);
+    },
     render(route) {
       return renderPage(route);
     },
@@ -940,8 +978,16 @@
       const records = await fetchRows(route);
       saveLocalRows(route, records);
       refreshPage(route, records);
+      bindPageActions(route);
     }
   };
+
+  document.addEventListener('page:rendered', (event) => {
+    const route = event.detail?.route;
+    if (route?.startsWith('eo-')) {
+      bindPageActions(route);
+    }
+  });
 
   ensureDelegation();
 })();
