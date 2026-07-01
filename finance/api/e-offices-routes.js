@@ -127,7 +127,7 @@ router.put('/:moduleKey/:id', async (req, res) => {
     if (!id) return res.status(400).json({ error: 'معرّف السجل غير صالح.' });
     if (!cells.length) return res.status(400).json({ error: 'لا توجد بيانات للتحديث.' });
 
-    const scope = scopeFor(req, 'r', 3);
+    const scope = scopeFor(req, 'r', 4);
     const result = await db.query(
       `UPDATE e_offices_records r
        SET row_data = $1::jsonb, updated_at = NOW()
