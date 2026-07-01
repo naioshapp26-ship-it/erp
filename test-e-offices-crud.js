@@ -19,7 +19,11 @@ const checks = [
   { name: 'pages expose handleButtonClick', ok: /handleButtonClick\(button, action, event\)/.test(pagesContent) },
   { name: 'pages use onclick handlers', ok: /eoOnClick\(/.test(pagesContent) },
   { name: 'pages remove record on server', ok: /async function removeRecord/.test(pagesContent) },
-  { name: 'all 15 eo routes configured', ok: (pagesContent.match(/'eo-[^']+':\s*\{/g) || []).length >= 15 }
+  { name: 'routes expose replenish endpoint', ok: /router\.post\('\/:moduleKey\/replenish'/.test(routesContent) },
+  { name: 'pages use normalizeRows API', ok: /EntityHierarchyUI\.normalizeRows/.test(pagesContent) && !/EntityHierarchyUI\.normalizeRow\(/.test(pagesContent) },
+  { name: 'pages define seed minimum', ok: /SEED_MINIMUM\s*=\s*10/.test(pagesContent) },
+  { name: 'all 15 eo routes configured', ok: (pagesContent.match(/'eo-[^']+':\s*\{/g) || []).length >= 15 },
+  { name: 'each page has rich seed data', ok: (pagesContent.match(/seed:\s*\[/g) || []).length >= 15 }
 ];
 
 const failed = checks.filter((check) => !check.ok);
