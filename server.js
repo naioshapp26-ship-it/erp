@@ -6073,12 +6073,12 @@ app.get('/api/entities', async (req, res) => {
     // Filter by entity types (comma-separated)
     if (types) {
       const typeArray = types.split(',').map(t => t.trim());
-      query += ` AND type = ANY($${paramIndex})`;
+      query += ` AND e.type = ANY($${paramIndex})`;
       values.push(typeArray);
       paramIndex++;
     }
     
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY e.created_at DESC';
     
     // Apply limit
     if (limit) {
