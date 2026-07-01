@@ -2024,7 +2024,12 @@ const app = (() => {
         `;
     };
 
+    let loadRouteGeneration = 0;
+    window.loadRouteGeneration = 0;
+
     const loadRoute = async (route, skipHistory = false) => {
+        const generation = ++loadRouteGeneration;
+        window.loadRouteGeneration = generation;
         const sidebar = document.getElementById('sidebar');
         if (sidebar && sidebar.classList.contains('translate-x-0') && window.innerWidth < 768) toggleMobileMenu();
 
@@ -2335,7 +2340,12 @@ const app = (() => {
             return;
         }
         else if (route.startsWith('eo-') && window.EOfficesPages?.render) {
-            content = window.EOfficesPages.render(route);
+            try {
+                content = window.EOfficesPages.render(route);
+            } catch (error) {
+                console.error('[EOffices] render failed:', route, error);
+                content = renderPlaceholder(`تعذر تحميل صفحة المكاتب الإلكترونية: ${error.message || 'خطأ غير معروف'}`);
+            }
         }
         else if (route === 'branches-hub') {
             loadRoute('br-daily-operations', skipHistory);
@@ -2374,6 +2384,7 @@ const app = (() => {
         else content = renderPlaceholder();
 
         if (route !== 'incubator') {
+            if (generation !== loadRouteGeneration) return;
             view.innerHTML = `<div class="fade-in" data-page-scope>${content}</div>`;
             if (route === 'dashboard' || route === 'control-panel') {
                 ensureCreditTopupClickable();
@@ -2415,7 +2426,7 @@ const app = (() => {
         if (route === 'control-panel') requestAnimationFrame(() => { initCreditBalanceWidget(); ensureCreditTopupClickable(); });
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
         if (route.startsWith('eo-') && window.EOfficesPages?.init) {
-            await window.EOfficesPages.init(route);
+            await window.EOfficesPages.init(route, generation);
         }
         if (route.startsWith('br-') && window.BranchesPages?.init) {
             window.BranchesPages.init(route);
@@ -4005,7 +4016,7 @@ const app = (() => {
                                 const subPath = subExternalPath || resolveTenantAwarePath(routeToPath[subItem.id] || '/dashboard.html');
                                 const subNavAttrs = subExternalPath
                                     ? `href="${subPath}"`
-                                    : `href="#${subItem.id}" onclick="event.preventDefault(); app.loadRoute('${subItem.id}')"`;
+                                    : `href="${subPath}" onclick="event.preventDefault(); app.loadRoute('${subItem.id}')"`;
                                 return `
                                 <a ${subNavAttrs} id="link-${subItem.id}" 
                                    class="flex items-center gap-2 px-4 py-2.5 text-red-300 hover:text-white hover:bg-red-800/30 rounded-lg transition-all text-sm">

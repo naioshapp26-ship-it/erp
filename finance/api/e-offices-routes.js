@@ -119,6 +119,52 @@ router.post('/:moduleKey/seed', async (req, res) => {
   }
 });
 
+router.post('/:moduleKey/replenish', async (req, res) => {
+  try {
+    const moduleKey = String(req.params.moduleKey || '').trim();
+    const seedRows = Array.isArray(req.body?.seed) ? req.body.seed : [];
+    const minimum = Math.max(1, Number(req.body?.minimum) || 10);
+    if (!moduleKey || !seedRows.length) {
+      return res.status(400).json({ error: 'بيانات التعبئة غير صالحة.' });
+    }
+
+    const context = getRequestEntityContext(req);
+    const scope = scopeFor(req, 'r', 2);
+    const existing = await db.query(
+      `SELECT row_data FROM e_offices_records r WHERE r.module_key = $1 AND ${scope.clause}`,
+      [moduleKey, scope.value]
+    );
+    const signatures = new Set(
+      existing.rows.map((row) => JSON.stringify(normalizeCells(row.row_data)))
+    );
+    let count = existing.rows.length;
+    if (count >= minimum) {
+      return res.json({ replenished: false, count, message: 'الحد الأدنى من السجلات متوفر.' });
+    }
+
+    const rowsToInsert = seedRows
+      .map((cells) => normalizeCells(cells))
+      .filter((cells) => cells.length && !signatures.has(JSON.stringify(cells)));
+
+    let inserted = 0;
+    for (const cells of rowsToInsert) {
+      if (count >= minimum) break;
+      await db.query(
+        `INSERT INTO e_offices_records (module_key, entity_id, entity_type, row_data)
+         VALUES ($1, $2, $3, $4::jsonb)`,
+        [moduleKey, context.id, context.type, JSON.stringify(cells)]
+      );
+      signatures.add(JSON.stringify(cells));
+      count += 1;
+      inserted += 1;
+    }
+
+    res.status(inserted ? 201 : 200).json({ replenished: inserted > 0, inserted, count });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.put('/:moduleKey/:id', async (req, res) => {
   try {
     const moduleKey = String(req.params.moduleKey || '').trim();
