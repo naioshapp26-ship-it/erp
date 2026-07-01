@@ -111,10 +111,9 @@
   function renderHubRowActions(dataAttr, route, index, options = {}) {
     const prefix = dataAttr;
     const recordId = options.recordId ?? '';
-    const indexArg = typeof index === 'number' ? String(index) : 'undefined';
     const onClick = (action) => {
       if (!options.actionHandler) return '';
-      return ` onclick="${options.actionHandler}('${action}','${route}',${indexArg},event);return false;"`;
+      return ` onclick="${options.actionHandler}(this,'${action}',event);return false;"`;
     };
     const addButton = options.hideAdd ? '' : `
         <button type="button" data-${prefix}-action="add" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${onClick('add')}
@@ -632,7 +631,7 @@
 
     const toolbarClick = (action) => {
       if (!actionHandler) return '';
-      return ` onclick="${actionHandler}('${action}','${route}',undefined,event);return false;"`;
+      return ` onclick="${actionHandler}(this,'${action}',event);return false;"`;
     };
 
     const displayColumns = getDisplayColumns(config);

@@ -3,7 +3,7 @@
 
   const STORAGE_PREFIX = 'eoffices:data:v2:';
   const API_BASE = '/api/e-offices';
-  const ACTION_HANDLER = 'window.EOfficesPages.handleAction';
+  const ACTION_HANDLER = 'window.EOfficesPages.handleButtonClick';
   const rowCache = {};
 
   function asRecord(row) {
@@ -501,9 +501,20 @@
     return { total, active, done, urgent };
   }
 
-  function eoOnClick(action, route, index) {
-    const indexArg = typeof index === 'number' ? String(index) : 'undefined';
-    return ` onclick="${ACTION_HANDLER}('${action}','${route}',${indexArg},event);return false;"`;
+  function resolveRouteKey(route) {
+    const raw = String(route || '').trim();
+    if (!raw) return '';
+    if (PAGE_CONFIGS[raw]) return raw;
+    const section = raw.replace(/^\/e-offices\//, '').replace(/\/$/, '');
+    if (section && !section.includes('/')) {
+      const key = section.startsWith('eo-') ? section : `eo-${section}`;
+      if (PAGE_CONFIGS[key]) return key;
+    }
+    return raw;
+  }
+
+  function eoOnClick(action) {
+    return ` onclick="${ACTION_HANDLER}(this,'${action}',event);return false;"`;
   }
 
   function bindPageActions(route) {
@@ -516,7 +527,7 @@
         event.preventDefault();
         event.stopPropagation();
         const action = button.dataset.eoAction;
-        const pageRoute = button.dataset.route;
+        const pageRoute = resolveRouteKey(button.dataset.route);
         if (!action || !pageRoute || !PAGE_CONFIGS[pageRoute]) return;
         const rowIndex = button.dataset.index !== undefined ? Number(button.dataset.index) : undefined;
         void handleEoAction(action, pageRoute, rowIndex);
@@ -560,15 +571,15 @@
     }
     return `
       <div class="flex flex-wrap items-center justify-end gap-1.5">
-        <button type="button" data-eo-action="view" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${eoOnClick('view', route, index)}
+        <button type="button" data-eo-action="view" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${eoOnClick('view')}
           class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold" title="عرض">
           <i class="fas fa-eye"></i>
         </button>
-        <button type="button" data-eo-action="edit" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${eoOnClick('edit', route, index)}
+        <button type="button" data-eo-action="edit" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${eoOnClick('edit')}
           class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold" title="تعديل">
           <i class="fas fa-pen"></i>
         </button>
-        <button type="button" data-eo-action="delete" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${eoOnClick('delete', route, index)}
+        <button type="button" data-eo-action="delete" data-route="${route}" data-index="${index}" data-record-id="${recordId}"${eoOnClick('delete')}
           class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold" title="حذف">
           <i class="fas fa-trash"></i>
         </button>
@@ -606,13 +617,13 @@
         <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <h3 class="font-bold text-slate-800">سجل ${config.title}</h3>
           <div class="flex flex-wrap gap-2">
-            <button type="button" data-eo-action="refresh" data-route="${route}"${eoOnClick('refresh', route)} class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
+            <button type="button" data-eo-action="refresh" data-route="${route}"${eoOnClick('refresh')} class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
               <i class="fas fa-rotate"></i> تحديث
             </button>
-            <button type="button" data-eo-action="add" data-route="${route}"${eoOnClick('add', route)} class="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold">
+            <button type="button" data-eo-action="add" data-route="${route}"${eoOnClick('add')} class="px-3 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold">
               <i class="fas fa-plus"></i> إضافة
             </button>
-            <button type="button" data-eo-action="export" data-route="${route}"${eoOnClick('export', route)} class="px-3 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold">
+            <button type="button" data-eo-action="export" data-route="${route}"${eoOnClick('export')} class="px-3 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold">
               <i class="fas fa-download"></i> تصدير
             </button>
           </div>
@@ -949,7 +960,7 @@
       const button = event.target.closest('[data-eo-action]');
       if (!button) return;
       const action = button.dataset.eoAction;
-      const route = button.dataset.route;
+      const route = resolveRouteKey(button.dataset.route);
       if (!action || !route || !PAGE_CONFIGS[route]) return;
       event.preventDefault();
       event.stopPropagation();
@@ -960,13 +971,34 @@
 
   window.EOfficesPages = {
     routes: Object.keys(PAGE_CONFIGS),
-    handleAction(action, route, index, event) {
+    handleButtonClick(button, action, event) {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
-      if (!action || !route || !PAGE_CONFIGS[route]) return;
-      void handleEoAction(action, route, typeof index === 'number' ? index : undefined);
+      const route = resolveRouteKey(button?.dataset?.route);
+      const index = button?.dataset?.index !== undefined ? Number(button.dataset.index) : undefined;
+      if (!action || !route || !PAGE_CONFIGS[route]) {
+        console.warn('[EOffices] تعذر تنفيذ الإجراء', { action, route: button?.dataset?.route });
+        return;
+      }
+      void handleEoAction(action, route, Number.isFinite(index) ? index : undefined);
+    },
+    handleAction(action, route, index, event) {
+      const resolvedRoute = resolveRouteKey(route);
+      const button = event?.currentTarget instanceof HTMLElement
+        ? event.currentTarget
+        : event?.target?.closest?.('[data-eo-action]');
+      if (button) {
+        this.handleButtonClick(button, action, event);
+        return;
+      }
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (!action || !resolvedRoute || !PAGE_CONFIGS[resolvedRoute]) return;
+      void handleEoAction(action, resolvedRoute, typeof index === 'number' ? index : undefined);
     },
     render(route) {
       return renderPage(route);
