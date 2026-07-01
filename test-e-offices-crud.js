@@ -7,6 +7,8 @@ const pagesContent = fs.readFileSync(path.join(__dirname, 'e-offices-pages.js'),
 const routesContent = fs.readFileSync(path.join(__dirname, 'finance', 'api', 'e-offices-routes.js'), 'utf8');
 
 const checks = [
+  { name: 'entities query qualifies type column', ok: /AND e\.type = ANY/.test(serverContent) },
+  { name: 'entities query qualifies created_at', ok: /ORDER BY e\.created_at DESC/.test(serverContent) },
   { name: 'server mounts /api/e-offices', ok: /app\.use\('\/api\/e-offices',\s*eOfficesRoutes\)/.test(serverContent) },
   { name: 'routes expose GET module', ok: /router\.get\('\/:moduleKey'/.test(routesContent) },
   { name: 'routes expose POST module', ok: /router\.post\('\/:moduleKey'/.test(routesContent) },

@@ -918,14 +918,14 @@
     document.addEventListener('click', (event) => {
       const button = event.target.closest('[data-eo-action]');
       if (!button) return;
-      event.preventDefault();
-      event.stopPropagation();
       const action = button.dataset.eoAction;
       const route = button.dataset.route;
       if (!action || !route || !PAGE_CONFIGS[route]) return;
+      event.preventDefault();
+      event.stopPropagation();
       const index = button.dataset.index !== undefined ? Number(button.dataset.index) : undefined;
-      handleEoAction(action, route, index);
-    });
+      void handleEoAction(action, route, index);
+    }, true);
   }
 
   window.EOfficesPages = {
