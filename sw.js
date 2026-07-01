@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20260701c';
+const CACHE_VERSION = '20260701d';
 const STATIC_CACHE = `app-static-${CACHE_VERSION}`;
 const API_CACHE = `app-api-${CACHE_VERSION}`;
 
