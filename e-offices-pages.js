@@ -517,21 +517,38 @@
     return ` onclick="${ACTION_HANDLER}(this,'${action}',event);return false;"`;
   }
 
+  function ensurePageDelegation(route) {
+    const scope = document.querySelector(`[data-eo-page="${route}"]`);
+    if (!scope || scope.dataset.eoDelegated === '1') return;
+    scope.dataset.eoDelegated = '1';
+    scope.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-eo-action]');
+      if (!button || !scope.contains(button)) return;
+      event.preventDefault();
+      const action = button.dataset.eoAction;
+      const pageRoute = resolveRouteKey(button.dataset.route);
+      if (!action || !pageRoute || !PAGE_CONFIGS[pageRoute]) return;
+      const rowIndex = button.dataset.index !== undefined ? Number(button.dataset.index) : undefined;
+      void handleEoAction(action, pageRoute, Number.isFinite(rowIndex) ? rowIndex : undefined);
+    });
+  }
+
   function bindPageActions(route) {
+    ensurePageDelegation(route);
     const scope = document.querySelector(`[data-eo-page="${route}"]`);
     if (!scope) return;
     scope.querySelectorAll('[data-eo-action]').forEach((button) => {
       if (button.dataset.eoBound === '1') return;
       button.dataset.eoBound = '1';
-      button.addEventListener('click', (event) => {
+      const run = (event) => {
         event.preventDefault();
-        event.stopPropagation();
         const action = button.dataset.eoAction;
         const pageRoute = resolveRouteKey(button.dataset.route);
         if (!action || !pageRoute || !PAGE_CONFIGS[pageRoute]) return;
         const rowIndex = button.dataset.index !== undefined ? Number(button.dataset.index) : undefined;
-        void handleEoAction(action, pageRoute, rowIndex);
-      });
+        void handleEoAction(action, pageRoute, Number.isFinite(rowIndex) ? rowIndex : undefined);
+      };
+      button.addEventListener('click', run);
     });
   }
 
@@ -653,7 +670,7 @@
     const stats = computeStats(records, route);
 
     return `
-      <div class="space-y-6" data-eo-page="${route}">
+      <div class="space-y-6 relative z-20" data-eo-page="${route}">
         <div class="bg-gradient-to-r ${config.gradient} rounded-2xl p-6 text-white shadow-lg">
           <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">
             <i class="fas ${config.icon}"></i>
@@ -954,19 +971,8 @@
   let delegationReady = false;
 
   function ensureDelegation() {
-    if (delegationReady) return;
+    // Legacy no-op: page-scoped delegation is attached per route in bindPageActions.
     delegationReady = true;
-    document.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-eo-action]');
-      if (!button) return;
-      const action = button.dataset.eoAction;
-      const route = resolveRouteKey(button.dataset.route);
-      if (!action || !route || !PAGE_CONFIGS[route]) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const index = button.dataset.index !== undefined ? Number(button.dataset.index) : undefined;
-      void handleEoAction(action, route, index);
-    }, true);
   }
 
   window.EOfficesPages = {
@@ -1017,7 +1023,7 @@
   document.addEventListener('page:rendered', (event) => {
     const route = event.detail?.route;
     if (route?.startsWith('eo-')) {
-      bindPageActions(route);
+      requestAnimationFrame(() => bindPageActions(route));
     }
   });
 

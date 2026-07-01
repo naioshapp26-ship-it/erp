@@ -2415,7 +2415,7 @@ const app = (() => {
         if (route === 'control-panel') requestAnimationFrame(() => { initCreditBalanceWidget(); ensureCreditTopupClickable(); });
         if (route === 'ads' && perms.canManageAds()) requestAnimationFrame(initAnalyticsChart);
         if (route.startsWith('eo-') && window.EOfficesPages?.init) {
-            window.EOfficesPages.init(route);
+            await window.EOfficesPages.init(route);
         }
         if (route.startsWith('br-') && window.BranchesPages?.init) {
             window.BranchesPages.init(route);
