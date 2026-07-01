@@ -108,23 +108,26 @@
     return normalizeRows(resolved, config);
   }
 
-  function renderHubRowActions(dataAttr, route, index) {
+  function renderHubRowActions(dataAttr, route, index, options = {}) {
     const prefix = dataAttr;
-    return `
-      <div class="flex flex-wrap items-center justify-end gap-1.5">
-        <button type="button" data-${prefix}-action="add" data-route="${route}" data-index="${index}"
+    const recordId = options.recordId ?? '';
+    const addButton = options.hideAdd ? '' : `
+        <button type="button" data-${prefix}-action="add" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
           class="px-2.5 py-1.5 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-bold" title="إضافة">
           <i class="fas fa-plus"></i>
-        </button>
-        <button type="button" data-${prefix}-action="view" data-route="${route}" data-index="${index}"
+        </button>`;
+    return `
+      <div class="flex flex-wrap items-center justify-end gap-1.5">
+        ${addButton}
+        <button type="button" data-${prefix}-action="view" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
           class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold" title="عرض">
           <i class="fas fa-eye"></i>
         </button>
-        <button type="button" data-${prefix}-action="edit" data-route="${route}" data-index="${index}"
+        <button type="button" data-${prefix}-action="edit" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
           class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold" title="تعديل">
           <i class="fas fa-pen"></i>
         </button>
-        <button type="button" data-${prefix}-action="delete" data-route="${route}" data-index="${index}"
+        <button type="button" data-${prefix}-action="delete" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
           class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold" title="حذف">
           <i class="fas fa-trash"></i>
         </button>

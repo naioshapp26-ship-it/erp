@@ -2,6 +2,65 @@
   'use strict';
 
   const STORAGE_PREFIX = 'eoffices:data:v2:';
+  const API_BASE = '/api/e-offices';
+  const rowCache = {};
+
+  function asRecord(row) {
+    if (row && Array.isArray(row.cells)) {
+      return { id: row.id ?? null, cells: row.cells.slice() };
+    }
+    if (Array.isArray(row)) {
+      return { id: null, cells: row.slice() };
+    }
+    return { id: null, cells: [] };
+  }
+
+  function getRowCells(record) {
+    return asRecord(record).cells;
+  }
+
+  function normalizeRecords(route, records) {
+    const config = PAGE_CONFIGS[route];
+    const normalized = records.map(asRecord);
+    if (config?.hierarchyLayout && window.EntityHierarchyUI) {
+      return normalized.map((record) => ({
+        ...record,
+        cells: window.EntityHierarchyUI.normalizeRow(record.cells, config)
+      }));
+    }
+    return normalized;
+  }
+
+  async function apiRequest(route, options = {}) {
+    const response = await fetch(`${API_BASE}/${encodeURIComponent(route)}${options.suffix || ''}`, {
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...getEntityHeaders(),
+        ...(options.headers || {})
+      },
+      method: options.method || 'GET',
+      body: options.body ? JSON.stringify(options.body) : undefined
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || 'تعذر تنفيذ العملية');
+    }
+    return payload;
+  }
+
+  async function seedModuleIfEmpty(route, config) {
+    const seedRows = config.customerProfile === 'customer-service' && window.EntityHierarchyUI
+      ? window.EntityHierarchyUI.getCustomerServiceSeed()
+      : (config.seed || []).slice();
+    if (!seedRows.length) return;
+    await apiRequest(route, {
+      method: 'POST',
+      suffix: '/seed',
+      body: { seed: seedRows }
+    });
+  }
 
   const PAGE_CONFIGS = {
     'eo-daily-operations': {
@@ -331,18 +390,15 @@
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return null;
-      const config = PAGE_CONFIGS[route];
-      if (config?.hierarchyLayout && window.EntityHierarchyUI) {
-        return window.EntityHierarchyUI.normalizeRows(parsed, config);
-      }
-      return parsed;
+      return normalizeRecords(route, parsed);
     } catch (_) {
       return null;
     }
   }
 
-  function saveLocalRows(route, rows) {
-    localStorage.setItem(STORAGE_PREFIX + route, JSON.stringify(rows));
+  function saveLocalRows(route, records) {
+    localStorage.setItem(STORAGE_PREFIX + route, JSON.stringify(records));
+    rowCache[route] = records.slice();
   }
 
   function mapApiRows(route, payload) {
@@ -431,7 +487,8 @@
     return null;
   }
 
-  function computeStats(rows, route) {
+  function computeStats(records, route) {
+    const rows = records.map(getRowCells);
     const config = route ? PAGE_CONFIGS[route] : null;
     if (config?.hierarchyLayout && window.EntityHierarchyUI) {
       return window.EntityHierarchyUI.computeStats(rows, config);
@@ -454,35 +511,36 @@
   function getRows(route) {
     const config = PAGE_CONFIGS[route];
     if (!config) return [];
+    if (rowCache[route]) return rowCache[route];
     const stored = loadLocalRows(route);
+    if (stored?.length) {
+      rowCache[route] = stored;
+      return stored;
+    }
     const seed = config.customerProfile === 'customer-service' && window.EntityHierarchyUI
       ? window.EntityHierarchyUI.getCustomerServiceSeed()
       : config.seed.slice();
-    if (config.customerProfile === 'customer-service' && window.EntityHierarchyUI?.resolveStoredCustomerRows) {
-      return window.EntityHierarchyUI.resolveStoredCustomerRows(stored, config, seed);
-    }
-    const rows = stored || seed;
-    if (config.hierarchyLayout && window.EntityHierarchyUI) {
-      return window.EntityHierarchyUI.normalizeRows(rows, config);
-    }
-    return rows;
+    const records = normalizeRecords(route, seed);
+    rowCache[route] = records;
+    return records;
   }
 
-  function renderRowActions(route, index) {
+  function renderRowActions(route, index, record) {
+    const recordId = record?.id ?? '';
     if (window.EntityHierarchyUI?.renderHubRowActions) {
-      return window.EntityHierarchyUI.renderHubRowActions('eo', route, index);
+      return window.EntityHierarchyUI.renderHubRowActions('eo', route, index, { hideAdd: true, recordId });
     }
     return `
       <div class="flex flex-wrap items-center justify-end gap-1.5">
-        <button type="button" data-eo-action="view" data-route="${route}" data-index="${index}"
+        <button type="button" data-eo-action="view" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
           class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold" title="عرض">
           <i class="fas fa-eye"></i>
         </button>
-        <button type="button" data-eo-action="edit" data-route="${route}" data-index="${index}"
+        <button type="button" data-eo-action="edit" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
           class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold" title="تعديل">
           <i class="fas fa-pen"></i>
         </button>
-        <button type="button" data-eo-action="delete" data-route="${route}" data-index="${index}"
+        <button type="button" data-eo-action="delete" data-route="${route}" data-index="${index}" data-record-id="${recordId}"
           class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold" title="حذف">
           <i class="fas fa-trash"></i>
         </button>
@@ -490,24 +548,28 @@
     `;
   }
 
-  function renderTable(route, config, rows) {
+  function renderTable(route, config, records) {
     if (config.hierarchyLayout && window.EntityHierarchyUI) {
       return window.EntityHierarchyUI.renderHubTable({
         route,
         config,
-        rows,
-        renderRowActions,
+        rows: records.map(getRowCells),
+        records,
+        renderRowActions: (pageRoute, index) => renderRowActions(pageRoute, index, records[index]),
         dataAttr: 'eo'
       });
     }
 
-    const body = rows.length
-      ? rows.map((row, index) => `
-      <tr class="border-b border-slate-100 hover:bg-red-50/40 transition" data-eo-row="${index}">
+    const body = records.length
+      ? records.map((record, index) => {
+        const row = getRowCells(record);
+        return `
+      <tr class="border-b border-slate-100 hover:bg-red-50/40 transition" data-eo-row="${index}" data-record-id="${record.id || ''}">
         ${row.map((cell) => `<td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(cell)}</td>`).join('')}
-        <td class="px-4 py-3">${renderRowActions(route, index)}</td>
+        <td class="px-4 py-3">${renderRowActions(route, index, record)}</td>
       </tr>
-    `).join('')
+    `;
+      }).join('')
       : `<tr><td colspan="${config.columns.length + 1}" class="px-4 py-10 text-center text-slate-400 text-sm">لا توجد بيانات — استخدم زر الإضافة لإنشاء سجل جديد</td></tr>`;
 
     return `
@@ -547,8 +609,8 @@
       return '<div class="p-6 text-center text-slate-500">الصفحة غير موجودة</div>';
     }
 
-    const rows = getRows(route);
-    const stats = computeStats(rows, route);
+    const records = getRows(route);
+    const stats = computeStats(records, route);
 
     return `
       <div class="space-y-6" data-eo-page="${route}">
@@ -572,43 +634,63 @@
           `).join('')}
         </div>
 
-        ${renderTable(route, config, rows)}
+        ${renderTable(route, config, records)}
       </div>
     `;
   }
 
   async function fetchRows(route) {
     const config = PAGE_CONFIGS[route];
-    if (!config?.api || config.customerProfile === 'customer-service') return getRows(route);
+    if (!config) return getRows(route);
 
     try {
-      const response = await fetch(config.api, { headers: getEntityHeaders(), credentials: 'same-origin' });
-      if (!response.ok) throw new Error('تعذر جلب البيانات');
-      const payload = await response.json();
-      const mapped = mapApiRows(route, payload);
-      if (mapped?.length) {
-        const fallback = getRows(route);
-        const resolved = window.EntityHierarchyUI?.resolveHubRowsFromApi
-          ? window.EntityHierarchyUI.resolveHubRowsFromApi(mapped, config, fallback)
-          : mapped;
-        saveLocalRows(route, resolved);
-        return resolved;
+      const payload = await apiRequest(route);
+      let records = normalizeRecords(route, payload.records || []);
+      if (!records.length) {
+        await seedModuleIfEmpty(route, config);
+        const seededPayload = await apiRequest(route);
+        records = normalizeRecords(route, seededPayload.records || []);
       }
+      saveLocalRows(route, records);
+      return records;
     } catch (error) {
       console.warn('[EOffices] API fallback for', route, error.message);
+      return getRows(route);
     }
-    return getRows(route);
   }
 
-  function refreshStats(route, rows) {
-    const stats = computeStats(rows, route);
+  async function persistRecord(route, mode, values, recordId) {
+    if (mode === 'edit' && recordId) {
+      const payload = await apiRequest(route, {
+        method: 'PUT',
+        suffix: `/${recordId}`,
+        body: { cells: values }
+      });
+      return asRecord(payload.record);
+    }
+    const payload = await apiRequest(route, {
+      method: 'POST',
+      body: { cells: values }
+    });
+    return asRecord(payload.record);
+  }
+
+  async function removeRecord(route, recordId) {
+    await apiRequest(route, {
+      method: 'DELETE',
+      suffix: `/${recordId}`
+    });
+  }
+
+  function refreshStats(route, records) {
+    const stats = computeStats(records, route);
     Object.keys(stats).forEach((key) => {
       const el = document.querySelector(`[data-eo-stat="${route}:${key}"]`);
       if (el) el.textContent = String(stats[key]);
     });
   }
 
-  function refreshPage(route, rows) {
+  function refreshPage(route, records) {
     const config = PAGE_CONFIGS[route];
     if (!config) return;
     const page = document.querySelector(`[data-eo-page="${route}"]`);
@@ -616,10 +698,10 @@
     const table = page.querySelector(`[data-eo-table="${route}"]`);
     if (table) {
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = renderTable(route, config, rows);
+      wrapper.innerHTML = renderTable(route, config, records);
       table.replaceWith(wrapper.firstElementChild);
     }
-    refreshStats(route, rows);
+    refreshStats(route, records);
   }
 
   function closeModal() {
@@ -630,17 +712,17 @@
     const config = PAGE_CONFIGS[route];
     if (!config) return;
 
-    const rows = getRows(route);
-    const row = typeof index === 'number' ? rows[index] : null;
+    const records = getRows(route);
+    const row = typeof index === 'number' ? records[index] : null;
     const isView = mode === 'view';
     const titleMap = { add: 'إضافة سجل جديد', edit: 'تعديل السجل', view: 'عرض السجل' };
 
     closeModal();
 
     const fields = window.EntityHierarchyUI
-      ? window.EntityHierarchyUI.buildModalFields(config, row, mode, escapeHtml)
+      ? window.EntityHierarchyUI.buildModalFields(config, row ? getRowCells(row) : null, mode, escapeHtml)
       : config.columns.map((col, colIndex) => {
-        const value = row ? (row[colIndex] ?? '') : '';
+        const value = row ? (getRowCells(row)[colIndex] ?? '') : '';
         const inputAttrs = isView
           ? `readonly class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"`
           : `class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none"`;
@@ -690,12 +772,12 @@
     if (isView) return;
 
     const form = overlay.querySelector('#eo-record-form');
-    form?.addEventListener('submit', (event) => {
+    form?.addEventListener('submit', async (event) => {
       event.preventDefault();
       const values = window.EntityHierarchyUI
         ? window.EntityHierarchyUI.collectModalValues(config, form)
         : config.columns.map((_, colIndex) => {
-          const input = form.querySelector(`[name="eo-field-${colIndex}"]`);
+          const input = form.querySelector(`[name="eo-field-${colIndex}"]`) || form.querySelector(`[name="hub-field-${colIndex}"]`);
           return (input?.value || '').trim() || '—';
         });
 
@@ -715,18 +797,28 @@
         return;
       }
 
-      const nextRows = getRows(route).slice();
-      if (mode === 'edit' && typeof index === 'number') {
-        nextRows[index] = values;
-        toast('تم تحديث السجل بنجاح', 'success');
-      } else {
-        nextRows.unshift(values);
-        toast('تمت إضافة السجل بنجاح', 'success');
-      }
+      const submitButton = form.querySelector('button[type="submit"]');
+      if (submitButton) submitButton.disabled = true;
 
-      saveLocalRows(route, nextRows);
-      refreshPage(route, nextRows);
-      closeModal();
+      try {
+        const recordId = row?.id || null;
+        const saved = await persistRecord(route, mode, values, recordId);
+        const nextRecords = getRows(route).slice();
+        if (mode === 'edit' && typeof index === 'number') {
+          nextRecords[index] = saved;
+          toast('تم تحديث السجل بنجاح', 'success');
+        } else {
+          nextRecords.unshift(saved);
+          toast('تمت إضافة السجل بنجاح', 'success');
+        }
+        saveLocalRows(route, nextRecords);
+        refreshPage(route, nextRecords);
+        closeModal();
+      } catch (error) {
+        toast(error.message || 'تعذر حفظ السجل', 'error');
+      } finally {
+        if (submitButton) submitButton.disabled = false;
+      }
     });
   }
 
@@ -756,7 +848,8 @@
     }
 
     if (action === 'export') {
-      const rows = getRows(route);
+      const records = getRows(route);
+      const rows = records.map(getRowCells);
       const csv = config.hierarchyLayout && window.EntityHierarchyUI
         ? window.EntityHierarchyUI.exportHierarchyCsv(rows, config)
         : [config.columns.join(','), ...rows.map((row) => row.join(','))].join('\n');
@@ -774,8 +867,8 @@
     }
 
     if (action === 'view') {
-      const rows = getRows(route);
-      if (!rows[index]) {
+      const records = getRows(route);
+      if (!records[index]) {
         toast('لا توجد بيانات لهذا السجل', 'error');
         return;
       }
@@ -784,8 +877,8 @@
     }
 
     if (action === 'edit') {
-      const rows = getRows(route);
-      if (!rows[index]) {
+      const records = getRows(route);
+      if (!records[index]) {
         toast('لا توجد بيانات لهذا السجل', 'error');
         return;
       }
@@ -794,18 +887,26 @@
     }
 
     if (action === 'delete') {
-      const rows = getRows(route);
-      const row = rows[index];
-      if (!row) {
+      const records = getRows(route);
+      const record = records[index];
+      if (!record) {
         toast('لا توجد بيانات لهذا السجل', 'error');
         return;
       }
-      const confirmed = window.confirm(`هل تريد حذف "${row[0]}"؟`);
+      const label = getRowCells(record)[0] || 'هذا السجل';
+      const confirmed = window.confirm(`هل تريد حذف "${label}"؟`);
       if (!confirmed) return;
-      rows.splice(index, 1);
-      saveLocalRows(route, rows);
-      refreshPage(route, rows);
-      toast('تم حذف السجل', 'success');
+      try {
+        if (record.id) {
+          await removeRecord(route, record.id);
+        }
+        records.splice(index, 1);
+        saveLocalRows(route, records);
+        refreshPage(route, records);
+        toast('تم حذف السجل', 'success');
+      } catch (error) {
+        toast(error.message || 'تعذر حذف السجل', 'error');
+      }
     }
   }
 
@@ -836,15 +937,9 @@
       const config = PAGE_CONFIGS[route];
       if (!config) return;
       ensureDelegation();
-      if (config.customerProfile === 'customer-service') {
-        const rows = getRows(route);
-        saveLocalRows(route, rows);
-        refreshPage(route, rows);
-        return;
-      }
-      const rows = await fetchRows(route);
-      saveLocalRows(route, rows);
-      refreshPage(route, rows);
+      const records = await fetchRows(route);
+      saveLocalRows(route, records);
+      refreshPage(route, records);
     }
   };
 
