@@ -9,6 +9,8 @@ const creditBilling = require('./credit-billing');
 const { ensureStoreSchema } = require('./store-schema');
 const { capturePayPalOrder, createPayPalOrder, formatPayPalAmount } = require('./paypal-client');
 const { createPaymobIntention } = require('./paymob-client');
+const { confirmPaymentSession, confirmDemoCreditPurchase } = require('./confirm-service');
+const { isDemoPaymentMode } = require('./env-seed');
 
 const router = express.Router();
 
@@ -185,9 +187,32 @@ router.get('/status/:provider', async (req, res) => {
     const configured = req.tenantPool
       ? await tenantService.isProviderConfigured(req.tenantPool, provider)
       : await platformService.isProviderConfigured(provider);
-    return res.json({ configured, provider });
+    return res.json({
+      configured,
+      provider,
+      demoMode: isDemoPaymentMode(),
+    });
   } catch (err) {
     return res.status(500).json({ configured: false, message: err.message });
+  }
+});
+
+router.get('/gateways', async (req, res) => {
+  const providers = ['stripe', 'paypal', 'paymob'];
+  try {
+    const rows = await Promise.all(providers.map(async (provider) => {
+      const configured = req.tenantPool
+        ? await tenantService.isProviderConfigured(req.tenantPool, provider)
+        : await platformService.isProviderConfigured(provider);
+      return { provider, configured, label: provider };
+    }));
+    return res.json({
+      success: true,
+      providers: rows,
+      demoMode: isDemoPaymentMode(),
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -299,7 +324,7 @@ router.post('/credits/checkout', async (req, res) => {
   }
 
   const configured = await isProviderConfiguredForContext(ctx, paymentProvider);
-  if (!configured) {
+  if (!configured && !isDemoPaymentMode()) {
     const hint = ctx.isPlatform
       ? 'فعّل بوابة الدفع من إعدادات المنصة أولاً.'
       : 'فعّل بوابة الدفع من إعدادات المستأجر أولاً.';
@@ -322,7 +347,30 @@ router.post('/credits/checkout', async (req, res) => {
       scope: ctx.isPlatform ? 'platform' : 'tenant',
     };
 
-    const session = ctx.isPlatform
+    if (!configured && isDemoPaymentMode()) {
+      const demoSessionId = `demo-${Date.now()}-${bundle.id}`;
+      await creditBilling.createPendingCreditPurchase(ctx.pool, {
+        creditAccountId: account.id,
+        bundleId: bundle.id,
+        creditsDelta: bundle.credits,
+        amountPaid: bundle.amount,
+        currency: bundle.currency,
+        checkoutSessionId: demoSessionId,
+        provider: 'demo',
+        metadata,
+      });
+      return res.json({
+        success: true,
+        sessionId: demoSessionId,
+        checkoutUrl: null,
+        clientSecret: null,
+        paymentProvider: 'demo',
+        bundle,
+        demoMode: true,
+      });
+    }
+
+    const checkoutSession = ctx.isPlatform
       ? await createPlatformCreditSession({
         provider: paymentProvider,
         bundle,
@@ -349,7 +397,7 @@ router.post('/credits/checkout', async (req, res) => {
       creditsDelta: bundle.credits,
       amountPaid: bundle.amount,
       currency: bundle.currency,
-      checkoutSessionId: session.sessionId,
+      checkoutSessionId: checkoutSession.sessionId,
       provider: paymentProvider,
       metadata,
     });
@@ -357,7 +405,7 @@ router.post('/credits/checkout', async (req, res) => {
     if (ctx.isPlatform) {
       await platformService.logPlatformTransaction({
         provider: paymentProvider,
-        providerTransactionId: session.sessionId,
+        providerTransactionId: checkoutSession.sessionId,
         amount: bundle.amount,
         currency: bundle.currency,
         status: 'pending',
@@ -367,7 +415,7 @@ router.post('/credits/checkout', async (req, res) => {
     } else {
       await tenantService.logTenantTransaction(ctx.pool, {
         provider: paymentProvider,
-        providerTransactionId: session.sessionId,
+        providerTransactionId: checkoutSession.sessionId,
         amount: bundle.amount,
         currency: bundle.currency,
         status: 'pending',
@@ -379,15 +427,84 @@ router.post('/credits/checkout', async (req, res) => {
 
     return res.json({
       success: true,
-      sessionId: session.sessionId,
-      checkoutUrl: session.checkoutUrl,
-      clientSecret: session.clientSecret,
+      sessionId: checkoutSession.sessionId,
+      checkoutUrl: checkoutSession.checkoutUrl,
+      clientSecret: checkoutSession.clientSecret,
       paymentProvider,
       bundle,
+      demoMode: isDemoPaymentMode(),
     });
   } catch (err) {
     console.error('[Payment] credit checkout error:', err.message);
     return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/credits/confirm-session', async (req, res) => {
+  const ctx = await resolveCreditsContext(req);
+  if (!ctx.pool || !ctx.userId) {
+    return res.status(401).json({ success: false, message: 'يرجى تسجيل الدخول.' });
+  }
+
+  const { sessionId, paymentProvider = 'stripe' } = req.body || {};
+  if (!sessionId) {
+    return res.status(400).json({ success: false, message: 'معرّف الجلسة مطلوب.' });
+  }
+
+  try {
+    const result = await confirmPaymentSession({
+      pool: ctx.pool,
+      isPlatform: ctx.isPlatform,
+      provider: paymentProvider,
+      sessionId,
+    });
+    if (!result.confirmed) {
+      return res.json({
+        success: false,
+        confirmed: false,
+        status: result.status,
+        message: 'الدفع لم يكتمل بعد.',
+      });
+    }
+    const balance = await creditBilling.getCreditBalance(ctx.pool, { userId: Number(ctx.userId) });
+    return res.json({
+      success: true,
+      confirmed: true,
+      status: result.status,
+      balance: balance.balance,
+      currency: balance.currency,
+    });
+  } catch (err) {
+    console.error('[Payment] confirm-session error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/credits/confirm-demo', async (req, res) => {
+  const ctx = await resolveCreditsContext(req);
+  if (!ctx.pool || !ctx.userId) {
+    return res.status(401).json({ success: false, message: 'يرجى تسجيل الدخول.' });
+  }
+  const { sessionId } = req.body || {};
+  if (!sessionId) {
+    return res.status(400).json({ success: false, message: 'معرّف الجلسة مطلوب.' });
+  }
+  try {
+    await confirmDemoCreditPurchase({
+      pool: ctx.pool,
+      isPlatform: ctx.isPlatform,
+      sessionId,
+    });
+    const balance = await creditBilling.getCreditBalance(ctx.pool, { userId: Number(ctx.userId) });
+    return res.json({
+      success: true,
+      confirmed: true,
+      demo: true,
+      balance: balance.balance,
+      currency: balance.currency,
+    });
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
   }
 });
 
