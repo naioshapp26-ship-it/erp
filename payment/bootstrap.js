@@ -1,6 +1,7 @@
 'use strict';
 
 const db = require('../db');
+const { seedPlatformPaymentFromEnv } = require('./env-seed');
 
 let ready = false;
 
@@ -24,6 +25,10 @@ async function ensurePaymentBootstrap() {
     ON CONFLICT (provider) DO NOTHING;
   `).catch((err) => {
     console.warn('[Payment Bootstrap] partial skip:', err.message);
+  });
+
+  await seedPlatformPaymentFromEnv().catch((err) => {
+    console.warn('[Payment Bootstrap] env seed skip:', err.message);
   });
 
   ready = true;

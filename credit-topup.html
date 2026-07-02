@@ -49,6 +49,13 @@
         <a href="/tenant-payment-settings.html" class="underline font-bold">إعدادات المستأجر</a>
       </div>
 
+      <div id="demoPaymentBox" class="pay-alert info" style="display:none">
+        <p class="mb-2">وضع الدفع التجريبي مفعّل — يمكنك محاكاة عملية دفع لاختبار شحن الرصيد.</p>
+        <button type="button" class="pay-btn pay-btn-secondary" onclick="confirmDemoPayment()">
+          <i class="fa fa-vial"></i> محاكاة دفع تجريبي
+        </button>
+      </div>
+
       <div class="pay-actions">
         <button id="checkoutBtn" class="pay-btn pay-btn-primary" onclick="startCreditCheckout()" disabled>
           <i class="fa fa-lock"></i> متابعة الدفع
@@ -74,6 +81,7 @@
     let stripeInstance = null;
     let bundlesData = [];
     let gatewayStatus = { stripe: false, paypal: false, paymob: false };
+    let demoMode = false;
 
     const PROVIDERS = [
       { id: 'stripe', label: 'Stripe', icon: 'fa-brands fa-stripe' },
@@ -84,10 +92,32 @@
     function handleReturnStatus() {
       const params = new URLSearchParams(window.location.search);
       const status = params.get('status');
-      if (status === 'success') {
-        PaymentUI.showAlert('alert', 'تم الدفع بنجاح! جاري تحديث رصيدك...', 'ok');
+      const paypalToken = params.get('token');
+      const sessionId = sessionStorage.getItem('lastCheckoutSession');
+      const provider = sessionStorage.getItem('lastCheckoutProvider') || 'stripe';
+
+      if (status === 'success' || paypalToken) {
+        PaymentUI.showAlert('alert', 'جاري تأكيد عملية الدفع...', 'info');
         window.history.replaceState({}, '', window.location.pathname);
-        setTimeout(refreshBalance, 1500);
+        const confirmId = paypalToken || sessionId;
+        if (confirmId) {
+          PaymentUI.api('/api/payment/credits/confirm-session', {
+            method: 'POST',
+            body: JSON.stringify({ sessionId: confirmId, paymentProvider: paypalToken ? 'paypal' : provider })
+          }).then((data) => {
+            if (data.confirmed) {
+              PaymentUI.showAlert('alert', 'تم الدفع وتأكيد الرصيد بنجاح ✓', 'ok');
+              refreshBalance();
+            } else {
+              PaymentUI.showAlert('alert', data.message || 'الدفع قيد المعالجة — سيتم التحديث خلال لحظات', 'info');
+              setTimeout(refreshBalance, 2500);
+            }
+          }).catch((err) => {
+            PaymentUI.showAlert('alert', err.message || 'تعذر تأكيد الدفع', 'err');
+          });
+        } else {
+          setTimeout(refreshBalance, 1500);
+        }
       } else if (status === 'cancelled') {
         PaymentUI.showAlert('alert', 'تم إلغاء عملية الدفع', 'info');
         window.history.replaceState({}, '', window.location.pathname);
@@ -102,7 +132,10 @@
           }).then(r => r.json()).catch(() => ({ configured: false }))
         )
       );
-      PROVIDERS.forEach((p, i) => { gatewayStatus[p.id] = !!results[i].configured; });
+      PROVIDERS.forEach((p, i) => {
+        gatewayStatus[p.id] = !!results[i].configured;
+        if (results[i].demoMode) demoMode = true;
+      });
 
       const configured = PROVIDERS.filter(p => gatewayStatus[p.id]);
       if (configured.length && !gatewayStatus[selectedProvider]) {
@@ -120,7 +153,26 @@
 
       const any = configured.length > 0;
       document.getElementById('gatewayWarning').style.display = any ? 'none' : 'block';
+      document.getElementById('demoPaymentBox').style.display = (!any && demoMode) ? 'block' : 'none';
       document.getElementById('checkoutBtn').disabled = !any || !selectedBundle;
+    }
+
+    async function confirmDemoPayment() {
+      if (!selectedBundle) return PaymentUI.showAlert('alert', 'اختر باقة أولاً', 'err');
+      try {
+        const data = await PaymentUI.api('/api/payment/credits/checkout', {
+          method: 'POST',
+          body: JSON.stringify({ bundleId: selectedBundle, paymentProvider: 'stripe' })
+        });
+        const confirmed = await PaymentUI.api('/api/payment/credits/confirm-demo', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId: data.sessionId })
+        });
+        PaymentUI.showAlert('alert', `تمت محاكاة الدفع — الرصيد: ${PaymentUI.formatMoney(confirmed.balance, confirmed.currency)}`, 'ok');
+        refreshBalance();
+      } catch (e) {
+        PaymentUI.showAlert('alert', e.message, 'err');
+      }
     }
 
     function selectProvider(id) {
@@ -184,6 +236,8 @@
           body: JSON.stringify({ bundleId: selectedBundle, paymentProvider: selectedProvider })
         });
 
+        sessionStorage.setItem('lastCheckoutSession', data.sessionId);
+        sessionStorage.setItem('lastCheckoutProvider', selectedProvider);
         document.getElementById('checkout-container').innerHTML = '';
 
         if (data.checkoutUrl && !data.clientSecret) {
@@ -197,6 +251,18 @@
           const checkout = await stripeInstance.initEmbeddedCheckout({ clientSecret: data.clientSecret });
           checkout.mount('#checkout-container');
           PaymentUI.showAlert('alert', 'أكمل الدفع في النموذج أدناه', 'info');
+          stripeInstance.on?.('complete', async () => {
+            try {
+              const confirmed = await PaymentUI.api('/api/payment/credits/confirm-session', {
+                method: 'POST',
+                body: JSON.stringify({ sessionId: data.sessionId, paymentProvider: 'stripe' })
+              });
+              if (confirmed.confirmed) {
+                PaymentUI.showAlert('alert', 'تم الدفع وتأكيد الرصيد ✓', 'ok');
+                refreshBalance();
+              }
+            } catch (_) { /* webhook may settle */ }
+          });
           return;
         }
 

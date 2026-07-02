@@ -85,11 +85,27 @@ router.post('/paypal/platform', async (req, res) => {
     }
     const event = req.body || {};
     if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED' || event.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+      const orderId = event.resource?.supplementary_data?.related_ids?.order_id || event.resource?.id;
       const token = event.resource?.custom_id;
       if (token) {
         const saasApi = require('../saas-signup-api');
         if (typeof saasApi.handlePayPalPaymentSuccess === 'function') {
-          await saasApi.handlePayPalPaymentSuccess(token, event.resource?.id || event.id);
+          await saasApi.handlePayPalPaymentSuccess(token, orderId || event.id);
+        }
+      }
+      if (orderId) {
+        const centralDb = require('../db');
+        const tx = await centralDb.query(
+          `SELECT metadata FROM platform_payment_transactions WHERE provider_transaction_id = $1 LIMIT 1`,
+          [orderId]
+        );
+        const metadata = tx.rows[0]?.metadata || {};
+        if (metadata.payment_type === 'credit_topup') {
+          await creditBilling.settleCreditPurchase(centralDb, orderId, event.resource?.id || orderId);
+          await centralDb.query(
+            `UPDATE platform_payment_transactions SET status = 'succeeded', updated_at = CURRENT_TIMESTAMP WHERE provider_transaction_id = $1`,
+            [orderId]
+          );
         }
       }
     }
@@ -150,13 +166,29 @@ router.post('/paymob/platform', async (req, res) => {
     }
     const payload = req.body || {};
     if (payload.type === 'TRANSACTION' && payload.obj?.success === true) {
+      const ref = String(payload.obj?.id || '');
       const token = payload.obj?.payment_key_claims?.extra?.registration_token
         || payload.obj?.order?.merchant_order_id
         || payload.obj?.metadata?.registration_token;
       if (token) {
         const saasApi = require('../saas-signup-api');
         if (typeof saasApi.handlePaymobPaymentSuccess === 'function') {
-          await saasApi.handlePaymobPaymentSuccess(token, String(payload.obj?.id));
+          await saasApi.handlePaymobPaymentSuccess(token, ref);
+        }
+      }
+      if (ref) {
+        const centralDb = require('../db');
+        const tx = await centralDb.query(
+          `SELECT metadata FROM platform_payment_transactions WHERE provider_transaction_id = $1 LIMIT 1`,
+          [ref]
+        );
+        const metadata = tx.rows[0]?.metadata || {};
+        if (metadata.payment_type === 'credit_topup') {
+          await creditBilling.settleCreditPurchase(centralDb, ref, ref);
+          await centralDb.query(
+            `UPDATE platform_payment_transactions SET status = 'succeeded', updated_at = CURRENT_TIMESTAMP WHERE provider_transaction_id = $1`,
+            [ref]
+          );
         }
       }
     }
