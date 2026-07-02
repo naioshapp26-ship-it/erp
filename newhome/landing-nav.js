@@ -19,8 +19,17 @@
       icon: 'fa-info-circle',
       className: 'nav-info-center',
       paths: ['/strategic/information']
+    },
+    {
+      href: '/#register-with-us',
+      label: 'سجل معانا',
+      icon: 'fa-user-plus',
+      className: 'nav-register-with-us',
+      paths: ['/#register-with-us']
     }
   ];
+
+  const HOME_SECTION_IDS = new Set(['book-tour', 'register-with-us', 'modules', 'contact']);
 
   const normalizePath = (pathname) => {
     const path = String(pathname || '/').replace(/\/+$/, '') || '/';
@@ -31,6 +40,65 @@
     const normalized = normalizePath(candidate);
     return normalized === path;
   });
+
+  const isHomePage = () => {
+    const path = normalizePath(window.location.pathname);
+    return path === '/' || path === '/newhome' || path === '/newhome/index.html';
+  };
+
+  const getSectionIdFromHref = (href) => {
+    const match = String(href || '').match(/#([A-Za-z0-9_-]+)/);
+    return match ? match[1] : '';
+  };
+
+  const scrollToHomeSection = (sectionId, behavior = 'smooth') => {
+    if (!sectionId || !HOME_SECTION_IDS.has(sectionId)) return false;
+    const target = document.getElementById(sectionId);
+    if (!target) return false;
+    target.scrollIntoView({ behavior, block: 'start' });
+    return true;
+  };
+
+  const bindHomeSectionNavigation = () => {
+    document.addEventListener('click', (event) => {
+      const link = event.target.closest('a[href*="#"]');
+      if (!link) return;
+
+      const href = link.getAttribute('href') || '';
+      const sectionId = getSectionIdFromHref(href);
+      if (!sectionId || !HOME_SECTION_IDS.has(sectionId)) return;
+
+      const isSamePageHash = href.startsWith('#');
+      const isRootHash = href.startsWith('/#');
+
+      if (!isSamePageHash && !(isRootHash && isHomePage())) return;
+
+      event.preventDefault();
+      const hash = `#${sectionId}`;
+      if (window.history?.replaceState) {
+        window.history.replaceState(null, '', hash);
+      } else {
+        window.location.hash = hash;
+      }
+      scrollToHomeSection(sectionId);
+    });
+
+    const scrollToInitialHash = () => {
+      if (!isHomePage() || !window.location.hash) return;
+      const sectionId = getSectionIdFromHref(window.location.hash);
+      if (!sectionId) return;
+      requestAnimationFrame(() => {
+        scrollToHomeSection(sectionId, 'auto');
+      });
+    };
+
+    window.addEventListener('hashchange', () => {
+      if (!isHomePage()) return;
+      scrollToHomeSection(getSectionIdFromHref(window.location.hash));
+    });
+
+    scrollToInitialHash();
+  };
 
   const renderNav = () => {
     const path = normalizePath(window.location.pathname);
@@ -47,9 +115,14 @@
     });
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderNav);
-  } else {
+  const init = () => {
     renderNav();
+    bindHomeSectionNavigation();
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();
