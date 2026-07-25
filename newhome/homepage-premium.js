@@ -125,6 +125,8 @@
 
   function initMagneticButtons() {
     if (reduceMotion || typeof gsap === 'undefined') return;
+    // Skip magnetic drift on phones — it leaves CTA buttons misaligned
+    if (window.matchMedia('(max-width: 768px), (hover: none)').matches) return;
     const selectors = [
       'body.homepage .auth-btn',
       'body.homepage .hero-ctas .btn',

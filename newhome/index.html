@@ -9,11 +9,12 @@
   <link rel="preload" href="/public/naiosh-logo.png" as="image">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/newhome/styles.css?v=20260617" />
+  <link rel="stylesheet" href="/newhome/styles.css?v=20260725-slider2" />
   <link rel="stylesheet" href="/newhome/homepage-premium.css?v=20260609-hero-gradient" />
   <link rel="stylesheet" href="/newhome/dark-mode.css?v=20260609">
   <link rel="stylesheet" href="/newhome/homepage-dark-fix.css?v=20260609-hero-gradient">
-  <link rel="stylesheet" href="/newhome/mobile-header.css?v=20260612g" />
+  <link rel="stylesheet" href="/newhome/mobile-header.css?v=20260725-slider2" />
+  <link rel="stylesheet" href="/newhome/mobile-only.css?v=20260725-slider2" />
   <style>
     html[data-hide-platform-only="true"] [data-platform-only] {
       display: none !important;
@@ -604,12 +605,82 @@
       let heroDotsClickHandler = null;
       let heroVideoMountedInVisual = false;
       let heroVideoSwitchTimeout = null;
+      let heroSwipeCleanup = null;
       const HERO_VIDEO_MAX_RETRIES = 6;
       const HERO_VIDEO_READY_TIMEOUT_MS = 60000;
       const HERO_VIDEO_SWITCH_TRANSITION_MS = 220;
       const HERO_MEDIA_SLIDER_INTERVAL_MS = 6000;
+      const HERO_SWIPE_THRESHOLD_PX = 48;
       let homepagePayloadSignature = '';
 
+      const bindHeroSliderSwipe = (onPrev, onNext) => {
+        if (typeof heroSwipeCleanup === 'function') {
+          heroSwipeCleanup();
+          heroSwipeCleanup = null;
+        }
+        const visual = document.querySelector('.hero-visual');
+        if (!visual || typeof onPrev !== 'function' || typeof onNext !== 'function') return;
+
+        let startX = 0;
+        let startY = 0;
+        let tracking = false;
+        let lockedAxis = null;
+
+        const onTouchStart = (event) => {
+          if (!event.touches || event.touches.length !== 1) return;
+          const touch = event.touches[0];
+          startX = touch.clientX;
+          startY = touch.clientY;
+          tracking = true;
+          lockedAxis = null;
+        };
+
+        const onTouchMove = (event) => {
+          if (!tracking || !event.touches || event.touches.length !== 1) return;
+          const touch = event.touches[0];
+          const dx = touch.clientX - startX;
+          const dy = touch.clientY - startY;
+          if (!lockedAxis && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+            lockedAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+          }
+          if (lockedAxis === 'x' && event.cancelable) {
+            event.preventDefault();
+          }
+        };
+
+        const onTouchEnd = (event) => {
+          if (!tracking) return;
+          tracking = false;
+          const touch = event.changedTouches && event.changedTouches[0];
+          if (!touch || lockedAxis === 'y') {
+            lockedAxis = null;
+            return;
+          }
+          const dx = touch.clientX - startX;
+          lockedAxis = null;
+          if (Math.abs(dx) < HERO_SWIPE_THRESHOLD_PX) return;
+          // RTL: swipe right → السابق, swipe left → التالي
+          if (dx > 0) onPrev();
+          else onNext();
+        };
+
+        const onTouchCancel = () => {
+          tracking = false;
+          lockedAxis = null;
+        };
+
+        visual.addEventListener('touchstart', onTouchStart, { passive: true });
+        visual.addEventListener('touchmove', onTouchMove, { passive: false });
+        visual.addEventListener('touchend', onTouchEnd, { passive: true });
+        visual.addEventListener('touchcancel', onTouchCancel, { passive: true });
+
+        heroSwipeCleanup = () => {
+          visual.removeEventListener('touchstart', onTouchStart);
+          visual.removeEventListener('touchmove', onTouchMove);
+          visual.removeEventListener('touchend', onTouchEnd);
+          visual.removeEventListener('touchcancel', onTouchCancel);
+        };
+      };
       const waitForHeroVideoReady = (videoEl, timeoutMs = HERO_VIDEO_READY_TIMEOUT_MS) => new Promise((resolve) => {
         if (!videoEl) return resolve(false);
         if (videoEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return resolve(true);
@@ -833,6 +904,7 @@
         if (heroPrevClickHandler && heroPrevBtn) { heroPrevBtn.removeEventListener('click', heroPrevClickHandler); heroPrevClickHandler = null; }
         if (heroNextClickHandler && heroNextBtn) { heroNextBtn.removeEventListener('click', heroNextClickHandler); heroNextClickHandler = null; }
         if (heroDotsClickHandler && heroDots) { heroDots.removeEventListener('click', heroDotsClickHandler); heroDotsClickHandler = null; }
+        if (typeof heroSwipeCleanup === 'function') { heroSwipeCleanup(); heroSwipeCleanup = null; }
         if (heroSliderTimer) { window.clearInterval(heroSliderTimer); heroSliderTimer = null; }
         if (heroMixedTimer) { window.clearTimeout(heroMixedTimer); heroMixedTimer = null; }
         if (heroVideoSwitchTimeout) { window.clearTimeout(heroVideoSwitchTimeout); heroVideoSwitchTimeout = null; }
@@ -1077,6 +1149,13 @@
             };
           }
 
+          if (heroMixedPlaylist.length > 1) {
+            bindHeroSliderSwipe(
+              () => { heroMixedPaused = true; showMixedItem(heroMixedIndex - 1); },
+              () => { heroMixedPaused = true; showMixedItem(heroMixedIndex + 1); }
+            );
+          }
+
           showMixedItem(0);
           return; // done with DB-based playlist
         }
@@ -1216,6 +1295,7 @@
             heroNextClickHandler = () => { heroVideoIndex = (heroVideoIndex + 1) % heroVideoPlaylist.length; playVideoAtIndex(heroVideoIndex); };
             heroPrevBtn.addEventListener('click', heroPrevClickHandler);
             heroNextBtn.addEventListener('click', heroNextClickHandler);
+            bindHeroSliderSwipe(heroPrevClickHandler, heroNextClickHandler);
           }
           startHeroAutoSlider(playVideoAtIndex);
           heroVideo.addEventListener('error', () => {
@@ -1235,6 +1315,20 @@
           if (heroMediaDescription) heroMediaDescription.textContent = '';
           renderHeroDots();
           startHeroAutoSlider();
+          if (images.length > 1) {
+            let swipeIndex = selectedIndex;
+            const showImageAt = (nextIndex) => {
+              swipeIndex = ((nextIndex % images.length) + images.length) % images.length;
+              root.style.setProperty('--hero-custom-image', `url('${toSafeCssUrl(images[swipeIndex], '/newhome/booking-workspace.svg')}')`);
+              setHeroFramePoster(images[swipeIndex], true);
+              if (heroMediaCaption) heroMediaCaption.textContent = (imageCaptions[swipeIndex] || '').trim();
+              if (heroBgImg) { heroBgImg.src = images[swipeIndex]; heroBgImg.style.display = 'block'; }
+            };
+            bindHeroSliderSwipe(
+              () => showImageAt(swipeIndex - 1),
+              () => showImageAt(swipeIndex + 1)
+            );
+          }
         }
       };
 
@@ -1488,7 +1582,7 @@
   </script>
   <script src="/newhome/landing-nav.js?v=20260618"></script>
   <script src="/newhome/hero-sidebar-nav.js?v=20260609-sidebar"></script>
-  <script src="/newhome/homepage-premium.js?v=20260608-fast-white" defer></script>
+  <script src="/newhome/homepage-premium.js?v=20260725-slider" defer></script>
   <script src="/newhome/mobile-nav.js?v=20260612f" defer></script>
   <script src="/newhome/dark-mode.js" defer></script>
 </body>
