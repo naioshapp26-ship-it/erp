@@ -8311,6 +8311,30 @@ app.get('/api/branches/:branchId/platforms', async (req, res) => {
   }
 });
 
+// Get offices for a specific branch (via incubators)
+app.get('/api/branches/:branchId/offices', async (req, res) => {
+  try {
+    const { branchId } = req.params;
+    const query = `
+      SELECT
+        o.*,
+        i.name AS incubator_name,
+        i.code AS incubator_code,
+        b.name AS branch_name
+      FROM offices o
+      JOIN incubators i ON o.incubator_id = i.id
+      JOIN branches b ON i.branch_id = b.id
+      WHERE i.branch_id = $1 AND o.is_active = true
+      ORDER BY i.name, o.name
+    `;
+    const result = await db.query(query, [branchId]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching branch offices:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get all branches with their relationship counts
 app.get('/api/branches/stats', async (req, res) => {
   try {
@@ -9404,6 +9428,29 @@ app.get('/api/hierarchy/stats', async (req, res) => {
     `);
     res.json(stats.rows[0]);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Restore hierarchy catalog (branches / incubators / platforms / offices) from bundled seed
+app.post('/api/hierarchy/restore-catalog', async (req, res) => {
+  try {
+    if (isTenantHostRequest(req) || isDedicatedTenantEntityContext(req)) {
+      return res.status(403).json({ error: 'استعادة الهيكل متاحة للمقر الرئيسي فقط' });
+    }
+    const { ensureHierarchyCatalog } = require('./hierarchy-catalog-bootstrap');
+    const result = await ensureHierarchyCatalog(db, { force: true });
+    const stats = await db.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM headquarters WHERE is_active = true) as active_hqs,
+        (SELECT COUNT(*) FROM branches WHERE is_active = true) as active_branches,
+        (SELECT COUNT(*) FROM incubators WHERE is_active = true) as active_incubators,
+        (SELECT COUNT(*) FROM platforms WHERE is_active = true) as active_platforms,
+        (SELECT COUNT(*) FROM offices WHERE is_active = true) as active_offices
+    `);
+    res.json({ ok: true, result, stats: stats.rows[0] });
+  } catch (error) {
+    console.error('Error restoring hierarchy catalog:', error);
     res.status(500).json({ error: error.message });
   }
 });

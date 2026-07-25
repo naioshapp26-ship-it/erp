@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./db');
 const { ensureFinanceReady, FINANCE_CORE_TABLES } = require('./finance-bootstrap');
+const { ensureHierarchyCatalog } = require('./hierarchy-catalog-bootstrap');
 
 const REQUIRED_TABLES = [
   'entities',
@@ -409,6 +410,8 @@ async function ensureDatabaseReady() {
     await ensureMultiTenantHierarchy();
     await ensureHierarchyJunctionTables();
     await seedExtendedEntities();
+    // Re-seed full hierarchy catalog when wiped / bootstrap-only (الفروع والحاضنات والمنصات والمكاتب)
+    await ensureHierarchyCatalog(db);
     await ensureStrategicModules();
     await ensureFinanceReady();
     await verifyRequiredTables();
