@@ -174,10 +174,10 @@
     return `
       <div class="hr-sidebar-brand">
         <div class="logo-row">
-          <div class="logo-icon"><i class="fas fa-gem"></i></div>
+          <div class="logo-icon"><i class="fas fa-chart-line"></i></div>
           <div>
-            <h2>نايوش للموارد البشرية</h2>
-            <p>القائمة الجانبية</p>
+            <h2>لوحة المدير العام</h2>
+            <p>نظام نايوش · الموارد البشرية</p>
           </div>
         </div>
       </div>
