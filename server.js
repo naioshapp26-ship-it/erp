@@ -6459,18 +6459,21 @@ const syncLeaveMirrorFromEmployeeRequest = async (clientOrDb, requestRow) => {
     return 'pending';
   };
 
+  const leaveStatus = mapToLeaveStatus(requestRow.status);
+  const isFinal = leaveStatus === 'approved' || leaveStatus === 'rejected';
   await clientOrDb.query(
     `UPDATE leave_requests
      SET status = $1,
          decision_reason = COALESCE($2, decision_reason),
          reviewed_by = COALESCE($3, reviewed_by),
-         decision_at = CASE WHEN $1 IN ('approved', 'rejected') THEN CURRENT_TIMESTAMP ELSE decision_at END,
+         decision_at = CASE WHEN $4 THEN CURRENT_TIMESTAMP ELSE decision_at END,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = $4`,
+     WHERE id = $5`,
     [
-      mapToLeaveStatus(requestRow.status),
+      leaveStatus,
       requestRow.approval_notes || null,
       requestRow.approver_name || null,
+      isFinal,
       leaveId
     ]
   );
@@ -6756,7 +6759,7 @@ app.post('/api/employee-requests', async (req, res) => {
 
 // Multi-step approve / reject for employee requests
 app.post('/api/employee-requests/:id/decide', async (req, res) => {
-  const client = isTenantHostRequest(req) ? null : await db.connect();
+  const client = isTenantHostRequest(req) ? null : await db.pool.connect();
   try {
     const { id } = req.params;
     const {
@@ -6798,12 +6801,12 @@ app.post('/api/employee-requests/:id/decide', async (req, res) => {
         `UPDATE employee_requests
          SET status = $1,
              current_stage = $2,
-             workflow_stages = $3,
-             workflow_history = $4,
+             workflow_stages = $3::jsonb,
+             workflow_history = $4::jsonb,
              approver_name = $5,
              approval_notes = $6,
-             approval_date = CASE WHEN $1 IN ('APPROVED', 'REJECTED') THEN CURRENT_TIMESTAMP ELSE approval_date END,
-             completion_date = $7,
+             approval_date = CURRENT_TIMESTAMP,
+             completion_date = $7::date,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $8
          RETURNING *`,
@@ -6845,12 +6848,12 @@ app.post('/api/employee-requests/:id/decide', async (req, res) => {
       `UPDATE employee_requests
        SET status = $1,
            current_stage = $2,
-           workflow_stages = $3,
-           workflow_history = $4,
+           workflow_stages = $3::jsonb,
+           workflow_history = $4::jsonb,
            approver_name = $5,
            approval_notes = $6,
-           approval_date = CASE WHEN $1 IN ('APPROVED', 'REJECTED') THEN CURRENT_TIMESTAMP ELSE approval_date END,
-           completion_date = $7,
+           approval_date = CURRENT_TIMESTAMP,
+           completion_date = $7::date,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $8
        RETURNING *`,
@@ -6943,10 +6946,10 @@ app.put('/api/employee-requests/:id', async (req, res) => {
         });
         const updated = await req.tenantPool.query(
           `UPDATE employee_requests
-           SET status = $1, current_stage = $2, workflow_stages = $3, workflow_history = $4,
+           SET status = $1, current_stage = $2, workflow_stages = $3::jsonb, workflow_history = $4::jsonb,
                approver_name = $5, approval_notes = $6,
-               approval_date = CASE WHEN $1 IN ('APPROVED', 'REJECTED') THEN CURRENT_TIMESTAMP ELSE approval_date END,
-               completion_date = $7, updated_at = CURRENT_TIMESTAMP
+               approval_date = CURRENT_TIMESTAMP,
+               completion_date = $7::date, updated_at = CURRENT_TIMESTAMP
            WHERE id = $8 RETURNING *`,
           [patch.status, patch.current_stage, JSON.stringify(patch.workflow_stages), JSON.stringify(patch.workflow_history), patch.approver_name, patch.approval_notes, patch.completion_date, id]
         );
@@ -7027,10 +7030,10 @@ app.put('/api/employee-requests/:id', async (req, res) => {
       });
       const updated = await db.query(
         `UPDATE employee_requests
-         SET status = $1, current_stage = $2, workflow_stages = $3, workflow_history = $4,
+         SET status = $1, current_stage = $2, workflow_stages = $3::jsonb, workflow_history = $4::jsonb,
              approver_name = $5, approval_notes = $6,
-             approval_date = CASE WHEN $1 IN ('APPROVED', 'REJECTED') THEN CURRENT_TIMESTAMP ELSE approval_date END,
-             completion_date = $7, updated_at = CURRENT_TIMESTAMP
+             approval_date = CURRENT_TIMESTAMP,
+             completion_date = $7::date, updated_at = CURRENT_TIMESTAMP
          WHERE id = $8 RETURNING *`,
         [patch.status, patch.current_stage, JSON.stringify(patch.workflow_stages), JSON.stringify(patch.workflow_history), patch.approver_name, patch.approval_notes, patch.completion_date, id]
       );
@@ -11272,7 +11275,7 @@ app.get('/api/leave-requests', async (req, res) => {
 
 // Create leave request
 app.post('/api/leave-requests', async (req, res) => {
-  const client = await db.connect();
+  const client = await db.pool.connect();
   try {
     const {
       employee_id,
@@ -11392,7 +11395,7 @@ app.post('/api/leave-requests', async (req, res) => {
 
 // Update leave request
 app.put('/api/leave-requests/:id', async (req, res) => {
-  const client = await db.connect();
+  const client = await db.pool.connect();
   try {
     const { id } = req.params;
     const {
@@ -11569,7 +11572,7 @@ app.put('/api/leave-requests/:id', async (req, res) => {
 
 // Delete leave request
 app.delete('/api/leave-requests/:id', async (req, res) => {
-  const client = await db.connect();
+  const client = await db.pool.connect();
   try {
     const { id } = req.params;
     await client.query('BEGIN');
