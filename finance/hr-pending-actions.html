@@ -61,10 +61,10 @@
     .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     .toast.error { background:#b91c1c; }
     .modal {
-      position:fixed; inset:0; background:rgba(15,23,42,.45); display:none;
-      align-items:center; justify-content:center; z-index:50; padding:16px;
+      position:fixed; inset:0; background:rgba(15,23,42,.55); display:none !important;
+      align-items:center; justify-content:center; z-index:9999; padding:16px;
     }
-    .modal.open { display:flex; }
+    .modal.open { display:flex !important; }
     .modal-box { background:#fff; border-radius:18px; width:100%; max-width:440px; padding:20px; }
     .form-input {
       width:100%; border:1px solid var(--line); border-radius:12px; padding:11px 14px;
@@ -213,6 +213,23 @@
       }).join('')}</div>`;
     };
 
+    const openDecision = (id, action) => {
+      const req = requests.find((r) => String(r.id) === String(id));
+      if (!req) return;
+      pendingDecision = { id: String(id), action };
+      document.getElementById('modalTitle').textContent = action === 'approve' ? 'موافقة على الطلب' : 'رفض الطلب';
+      document.getElementById('modalSubtitle').textContent = `${req.request_title || ''} — المرحلة: ${req.current_stage_label || ''}`;
+      document.getElementById('actorName').value = req.current_stage_label || 'مسؤول';
+      document.getElementById('decisionNotes').value = '';
+      const confirmBtn = document.getElementById('confirmDecision');
+      confirmBtn.className = `btn ${action === 'approve' ? 'btn-approve' : 'btn-reject'}`;
+      confirmBtn.textContent = action === 'approve' ? 'تأكيد الموافقة' : 'تأكيد الرفض';
+      document.getElementById('decisionModal').classList.add('open');
+    };
+
+    // Expose for inline handlers (more reliable than delegated clicks in some browsers)
+    window.__hrDecide = openDecision;
+
     const render = () => {
       const rows = filtered();
       const list = document.getElementById('list');
@@ -248,7 +265,8 @@
         const meta = data.amount
           ? `المبلغ: ${sanitize(data.amount)} ر.س`
           : (r.start_date ? `من ${sanitize(formatDate(r.start_date))} إلى ${sanitize(formatDate(r.end_date))}` : '');
-        const id = sanitize(String(r.id));
+        const id = String(r.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const safeIdAttr = sanitize(String(r.id));
         return `
           <div class="card p-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
@@ -264,10 +282,10 @@
                 ${workflowHtml(r)}
               </div>
               <div class="flex flex-col gap-2">
-                <button class="btn btn-approve" data-action="approve" data-id="${id}">
+                <button type="button" class="btn btn-approve" data-action="approve" data-id="${safeIdAttr}" onclick="window.__hrDecide('${id}','approve')">
                   <i class="fas fa-check"></i> موافقة
                 </button>
-                <button class="btn btn-reject" data-action="reject" data-id="${id}">
+                <button type="button" class="btn btn-reject" data-action="reject" data-id="${safeIdAttr}" onclick="window.__hrDecide('${id}','reject')">
                   <i class="fas fa-xmark"></i> رفض
                 </button>
               </div>
@@ -298,19 +316,8 @@
     document.getElementById('list').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
-      const id = btn.dataset.id;
-      const action = btn.dataset.action;
-      const req = requests.find((r) => String(r.id) === String(id));
-      if (!req) return;
-      pendingDecision = { id, action };
-      document.getElementById('modalTitle').textContent = action === 'approve' ? 'موافقة على الطلب' : 'رفض الطلب';
-      document.getElementById('modalSubtitle').textContent = `${req.request_title || ''} — المرحلة: ${req.current_stage_label || ''}`;
-      document.getElementById('actorName').value = req.current_stage_label || 'مسؤول';
-      document.getElementById('decisionNotes').value = '';
-      const confirmBtn = document.getElementById('confirmDecision');
-      confirmBtn.className = `btn ${action === 'approve' ? 'btn-approve' : 'btn-reject'}`;
-      confirmBtn.textContent = action === 'approve' ? 'تأكيد الموافقة' : 'تأكيد الرفض';
-      document.getElementById('decisionModal').classList.add('open');
+      e.preventDefault();
+      openDecision(btn.dataset.id, btn.dataset.action);
     });
 
     document.getElementById('cancelDecision').addEventListener('click', () => {
