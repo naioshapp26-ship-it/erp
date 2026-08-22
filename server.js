@@ -27,9 +27,35 @@ const {
   getRequestEntityContext,
   buildEntityScopeCondition
 } = require('./entity-context');
+const hrRequestWorkflow = require('./hr-request-workflow');
 
 const app = express();
 const databaseReady = ensureDatabaseReady();
+let hrWorkflowReadyPromise = null;
+
+const ensureHRWorkflowReady = async (pool = null) => {
+  const queryFn = pool
+    ? async (sql) => pool.query(sql)
+    : async (sql) => db.query(sql);
+  if (pool) {
+    await hrRequestWorkflow.ensureWorkflowColumns(queryFn);
+    return;
+  }
+  if (!hrWorkflowReadyPromise) {
+    hrWorkflowReadyPromise = databaseReady
+      .then(() => hrRequestWorkflow.ensureWorkflowColumns(queryFn))
+      .catch((error) => {
+        hrWorkflowReadyPromise = null;
+        throw error;
+      });
+  }
+  await hrWorkflowReadyPromise;
+};
+
+databaseReady
+  .then(() => ensureHRWorkflowReady())
+  .then(() => console.log('✅ HR request workflow columns ready'))
+  .catch((error) => console.warn('⚠️ HR workflow bootstrap deferred:', error.message));
 // cPanel يمرّر PORT ديناميكياً — لا تثبّته في .env
 const listenHost = process.env.HOST || '0.0.0.0';
 const listenPort = Number(process.env.PORT) || 3000;
@@ -3686,6 +3712,9 @@ const ensureTenantEmployeeRequestsTable = async (tenantPool) => {
       attachments TEXT[],
       notes TEXT,
       created_by VARCHAR(50),
+      current_stage VARCHAR(40),
+      workflow_stages JSONB,
+      workflow_history JSONB DEFAULT '[]'::jsonb,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT tenant_employee_requests_dates_chk
@@ -3705,6 +3734,7 @@ const ensureTenantEmployeeRequestsTable = async (tenantPool) => {
     CREATE INDEX IF NOT EXISTS idx_tenant_employee_requests_date
       ON employee_requests(requested_date)
   `);
+  await ensureHRWorkflowReady(tenantPool);
 };
 
 const extractAuthTokenFromRequest = (req) => {
@@ -4037,6 +4067,10 @@ const hrRouteMap = {
   '/hr': 'hr-home.html',
   '/hr/employees': 'admin-erp-hr.html',
   '/hr/requests': 'requests-processing.html',
+  '/hr/my-requests': 'hr-my-requests.html',
+  '/hr/pending-actions': 'hr-pending-actions.html',
+  '/hr/leaves': 'hr-my-requests.html',
+  '/hr/advances': 'hr-my-requests.html',
   '/hr/operations': 'hr-portal-workflows.html',
   '/hr/employee-360': 'hr-employee-360.html',
   '/hr/attendance-hub': 'hr-attendance-hub.html',
@@ -6410,15 +6444,49 @@ app.delete('/api/invoices/:id', async (req, res) => {
 // EMPLOYEE REQUESTS APIs
 // ========================================
 
+const syncLeaveMirrorFromEmployeeRequest = async (clientOrDb, requestRow) => {
+  if (!requestRow || !hrRequestWorkflow.isLeaveType(requestRow.request_type)) return;
+  const data = typeof requestRow.request_data === 'string'
+    ? (() => { try { return JSON.parse(requestRow.request_data); } catch (_) { return {}; } })()
+    : (requestRow.request_data || {});
+  const leaveId = data.leave_request_id;
+  if (!leaveId) return;
+
+  const mapToLeaveStatus = (status) => {
+    const normalized = String(status || '').toUpperCase();
+    if (normalized === 'APPROVED') return 'approved';
+    if (normalized === 'REJECTED') return 'rejected';
+    return 'pending';
+  };
+
+  await clientOrDb.query(
+    `UPDATE leave_requests
+     SET status = $1,
+         decision_reason = COALESCE($2, decision_reason),
+         reviewed_by = COALESCE($3, reviewed_by),
+         decision_at = CASE WHEN $1 IN ('approved', 'rejected') THEN CURRENT_TIMESTAMP ELSE decision_at END,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $4`,
+    [
+      mapToLeaveStatus(requestRow.status),
+      requestRow.approval_notes || null,
+      requestRow.approver_name || null,
+      leaveId
+    ]
+  );
+};
+
 // Get all employee requests with data isolation
 app.get('/api/employee-requests', async (req, res) => {
   try {
+    await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
+
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
       if (!tenantSessionUser) return;
       await ensureTenantEmployeeRequestsTable(req.tenantPool);
 
-      const { status, request_type, employee_id } = req.query;
+      const { status, request_type, employee_id, pending_only, current_stage } = req.query;
       let query = 'SELECT * FROM employee_requests WHERE 1=1';
       const params = [];
       let paramIndex = 1;
@@ -6438,12 +6506,21 @@ app.get('/api/employee-requests', async (req, res) => {
         params.push(employee_id);
       }
 
+      if (current_stage) {
+        query += ` AND current_stage = $${paramIndex++}`;
+        params.push(current_stage);
+      }
+
+      if (String(pending_only || '') === '1' || String(pending_only || '').toLowerCase() === 'true') {
+        query += ` AND status IN ('PENDING', 'IN_PROGRESS') AND current_stage IS NOT NULL AND current_stage NOT IN ('completed', 'rejected')`;
+      }
+
       query += ' ORDER BY created_at DESC';
       const tenantResult = await req.tenantPool.query(query, params);
-      return res.json(tenantResult.rows);
+      return res.json(tenantResult.rows.map(hrRequestWorkflow.enrichRequest));
     }
 
-    const { status, request_type, employee_id } = req.query;
+    const { status, request_type, employee_id, pending_only, current_stage } = req.query;
     let query = 'SELECT * FROM employee_requests WHERE 1=1';
     let params = [];
     let paramIndex = 1;
@@ -6473,12 +6550,79 @@ app.get('/api/employee-requests', async (req, res) => {
       params.push(employee_id);
       paramIndex++;
     }
+
+    if (current_stage) {
+      query += ` AND current_stage = $${paramIndex}`;
+      params.push(current_stage);
+      paramIndex++;
+    }
+
+    if (String(pending_only || '') === '1' || String(pending_only || '').toLowerCase() === 'true') {
+      query += ` AND status IN ('PENDING', 'IN_PROGRESS') AND current_stage IS NOT NULL AND current_stage NOT IN ('completed', 'rejected')`;
+    }
     
     query += ' ORDER BY created_at DESC';
     const result = await db.query(query, params);
-    res.json(result.rows);
+    res.json(result.rows.map(hrRequestWorkflow.enrichRequest));
   } catch (error) {
     console.error('Error fetching employee requests:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Pending actions inbox (Malachite-style "عمليات بانتظار إجراء")
+app.get('/api/hr/pending-actions', async (req, res) => {
+  try {
+    await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
+    const countOnly = String(req.query.count_only || '') === '1' || String(req.query.count_only || '').toLowerCase() === 'true';
+    const pool = isTenantHostRequest(req) ? req.tenantPool : db;
+
+    if (isTenantHostRequest(req)) {
+      const tenantSessionUser = await requireTenantSessionUser(req, res);
+      if (!tenantSessionUser) return;
+      await ensureTenantEmployeeRequestsTable(req.tenantPool);
+    }
+
+    let query = `
+      SELECT * FROM employee_requests
+      WHERE status IN ('PENDING', 'IN_PROGRESS')
+        AND current_stage IS NOT NULL
+        AND current_stage NOT IN ('completed', 'rejected')
+    `;
+    const params = [];
+    if (!isTenantHostRequest(req) && req.userEntity?.type !== 'HQ') {
+      params.push(req.userEntity.id);
+      query += ` AND entity_id = $1`;
+    }
+    query += ' ORDER BY created_at DESC';
+
+    const result = await pool.query(query, params);
+    const rows = result.rows.map(hrRequestWorkflow.enrichRequest);
+    const byStage = {};
+    const byType = {};
+    rows.forEach((row) => {
+      const stage = row.current_stage || 'manager';
+      byStage[stage] = (byStage[stage] || 0) + 1;
+      const type = row.request_type || 'أخرى';
+      byType[type] = (byType[type] || 0) + 1;
+    });
+
+    if (countOnly) {
+      return res.json({
+        count: rows.length,
+        by_stage: byStage,
+        by_type: byType
+      });
+    }
+
+    res.json({
+      count: rows.length,
+      by_stage: byStage,
+      by_type: byType,
+      requests: rows
+    });
+  } catch (error) {
+    console.error('Error fetching pending HR actions:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -6486,6 +6630,8 @@ app.get('/api/employee-requests', async (req, res) => {
 // Create new employee request
 app.post('/api/employee-requests', async (req, res) => {
   try {
+    await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
+
     const {
       id,
       entityId,
@@ -6505,6 +6651,13 @@ app.post('/api/employee-requests', async (req, res) => {
       createdBy
     } = req.body;
 
+    const workflow = hrRequestWorkflow.buildInitialWorkflow(requestType);
+    const initialStatus = status || 'PENDING';
+    const withWorkflowStatus = ['APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED'].includes(String(initialStatus).toUpperCase())
+      ? initialStatus
+      : 'PENDING';
+    const stageForInsert = withWorkflowStatus === 'PENDING' ? workflow.current_stage : (String(withWorkflowStatus).toUpperCase() === 'APPROVED' ? 'completed' : 'rejected');
+
     // Validate required fields
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
@@ -6522,8 +6675,9 @@ app.post('/api/employee-requests', async (req, res) => {
         INSERT INTO employee_requests (
           id, entity_id, employee_id, employee_name, request_type, request_title,
           description, status, priority, request_data, requires_approval,
-          requested_date, start_date, end_date, notes, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          requested_date, start_date, end_date, notes, created_by,
+          current_stage, workflow_stages, workflow_history
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING *
       `;
 
@@ -6535,7 +6689,7 @@ app.post('/api/employee-requests', async (req, res) => {
         requestType,
         requestTitle,
         description || null,
-        status || 'PENDING',
+        withWorkflowStatus,
         priority || 'NORMAL',
         requestData ? JSON.stringify(requestData) : null,
         requiresApproval !== undefined ? requiresApproval : true,
@@ -6543,11 +6697,14 @@ app.post('/api/employee-requests', async (req, res) => {
         startDate || null,
         endDate || null,
         notes || null,
-        createdBy || null
+        createdBy || null,
+        stageForInsert,
+        JSON.stringify(workflow.workflow_stages),
+        JSON.stringify(workflow.workflow_history)
       ];
 
       const tenantResult = await req.tenantPool.query(tenantInsertQuery, tenantValues);
-      return res.json({ success: true, request: tenantResult.rows[0] });
+      return res.json({ success: true, request: hrRequestWorkflow.enrichRequest(tenantResult.rows[0]) });
     }
 
     const owningEntityId = isHqEntityContext(req) ? entityId : getRequestEntityContext(req).id;
@@ -6561,8 +6718,9 @@ app.post('/api/employee-requests', async (req, res) => {
       INSERT INTO employee_requests (
         id, entity_id, employee_id, employee_name, request_type, request_title,
         description, status, priority, request_data, requires_approval,
-        requested_date, start_date, end_date, notes, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        requested_date, start_date, end_date, notes, created_by,
+        current_stage, workflow_stages, workflow_history
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       RETURNING *
     `;
     
@@ -6574,7 +6732,7 @@ app.post('/api/employee-requests', async (req, res) => {
       requestType,
       requestTitle,
       description || null,
-      status || 'PENDING',
+      withWorkflowStatus,
       priority || 'NORMAL',
       requestData ? JSON.stringify(requestData) : null,
       requiresApproval !== undefined ? requiresApproval : true,
@@ -6582,20 +6740,151 @@ app.post('/api/employee-requests', async (req, res) => {
       startDate || null,
       endDate || null,
       notes || null,
-      createdBy || null
+      createdBy || null,
+      stageForInsert,
+      JSON.stringify(workflow.workflow_stages),
+      JSON.stringify(workflow.workflow_history)
     ];
 
     const result = await db.query(query, values);
-    res.json({ success: true, request: result.rows[0] });
+    res.json({ success: true, request: hrRequestWorkflow.enrichRequest(result.rows[0]) });
   } catch (error) {
     console.error('Error creating employee request:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
+// Multi-step approve / reject for employee requests
+app.post('/api/employee-requests/:id/decide', async (req, res) => {
+  const client = isTenantHostRequest(req) ? null : await db.connect();
+  try {
+    const { id } = req.params;
+    const {
+      decision,
+      action,
+      approverName,
+      actorName,
+      approvalNotes,
+      notes
+    } = req.body || {};
+
+    const normalizedDecision = String(decision || action || '').toLowerCase();
+    const isReject = ['reject', 'rejected', 'رفض', 'مرفوض'].includes(normalizedDecision);
+    const isApprove = ['approve', 'approved', 'موافق', 'اعتماد', 'قبول', 'مقبول'].includes(normalizedDecision);
+    if (!isReject && !isApprove) {
+      if (client) client.release();
+      return res.status(400).json({ error: 'القرار يجب أن يكون موافقة أو رفض' });
+    }
+
+    await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
+
+    if (isTenantHostRequest(req)) {
+      const tenantSessionUser = await requireTenantSessionUser(req, res);
+      if (!tenantSessionUser) return;
+      await ensureTenantEmployeeRequestsTable(req.tenantPool);
+
+      const existing = await req.tenantPool.query('SELECT * FROM employee_requests WHERE id = $1', [id]);
+      if (!existing.rows.length) {
+        return res.status(404).json({ error: 'الطلب غير موجود' });
+      }
+
+      const patch = hrRequestWorkflow.applyDecision(existing.rows[0], {
+        decision: isReject ? 'reject' : 'approve',
+        actorName: actorName || approverName || tenantSessionUser?.role || 'مسؤول',
+        notes: notes || approvalNotes
+      });
+
+      const updated = await req.tenantPool.query(
+        `UPDATE employee_requests
+         SET status = $1,
+             current_stage = $2,
+             workflow_stages = $3,
+             workflow_history = $4,
+             approver_name = $5,
+             approval_notes = $6,
+             approval_date = CASE WHEN $1 IN ('APPROVED', 'REJECTED') THEN CURRENT_TIMESTAMP ELSE approval_date END,
+             completion_date = $7,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $8
+         RETURNING *`,
+        [
+          patch.status,
+          patch.current_stage,
+          JSON.stringify(patch.workflow_stages),
+          JSON.stringify(patch.workflow_history),
+          patch.approver_name,
+          patch.approval_notes,
+          patch.completion_date,
+          id
+        ]
+      );
+
+      await syncLeaveMirrorFromEmployeeRequest(req.tenantPool, updated.rows[0]);
+      return res.json({ success: true, request: hrRequestWorkflow.enrichRequest(updated.rows[0]) });
+    }
+
+    await client.query('BEGIN');
+    const existing = await client.query('SELECT * FROM employee_requests WHERE id = $1 FOR UPDATE', [id]);
+    if (!existing.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'الطلب غير موجود' });
+    }
+
+    if (!isHqEntityContext(req) && existing.rows[0].entity_id !== getRequestEntityContext(req).id) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'الطلب غير موجود' });
+    }
+
+    const patch = hrRequestWorkflow.applyDecision(existing.rows[0], {
+      decision: isReject ? 'reject' : 'approve',
+      actorName: actorName || approverName || 'مسؤول النظام',
+      notes: notes || approvalNotes
+    });
+
+    const updated = await client.query(
+      `UPDATE employee_requests
+       SET status = $1,
+           current_stage = $2,
+           workflow_stages = $3,
+           workflow_history = $4,
+           approver_name = $5,
+           approval_notes = $6,
+           approval_date = CASE WHEN $1 IN ('APPROVED', 'REJECTED') THEN CURRENT_TIMESTAMP ELSE approval_date END,
+           completion_date = $7,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $8
+       RETURNING *`,
+      [
+        patch.status,
+        patch.current_stage,
+        JSON.stringify(patch.workflow_stages),
+        JSON.stringify(patch.workflow_history),
+        patch.approver_name,
+        patch.approval_notes,
+        patch.completion_date,
+        id
+      ]
+    );
+
+    await syncLeaveMirrorFromEmployeeRequest(client, updated.rows[0]);
+    await client.query('COMMIT');
+    res.json({ success: true, request: hrRequestWorkflow.enrichRequest(updated.rows[0]) });
+  } catch (error) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) { /* ignore */ }
+    }
+    console.error('Error deciding employee request:', error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 // Update employee request status
 app.put('/api/employee-requests/:id', async (req, res) => {
   try {
+    await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
+
     const { id } = req.params;
     const {
       status,
@@ -6614,13 +6903,56 @@ app.put('/api/employee-requests/:id', async (req, res) => {
       employeeName,
       employeeId,
       requestType,
-      entityId
+      entityId,
+      decision,
+      action
     } = req.body;
+
+    // If body asks for approve/reject, route through multi-step workflow
+    const normalizedDecision = String(decision || action || status || '').toLowerCase();
+    const wantsWorkflowDecision =
+      ['approve', 'approved', 'reject', 'rejected', 'موافق', 'رفض', 'اعتماد'].includes(normalizedDecision) ||
+      ['APPROVED', 'REJECTED'].includes(String(status || '').toUpperCase());
+
+    if (wantsWorkflowDecision && (decision || action || ['APPROVED', 'REJECTED'].includes(String(status || '').toUpperCase()))) {
+      // Reuse decide endpoint logic via internal call pattern
+      req.body.decision = ['REJECTED', 'reject', 'rejected', 'رفض'].includes(String(status || decision || action || '').toUpperCase()) ||
+        ['reject', 'rejected', 'رفض'].includes(normalizedDecision)
+        ? 'reject'
+        : 'approve';
+      req.body.approverName = approverName;
+      req.body.approvalNotes = approvalNotes || notes;
+      // Fall through by calling decide handler inline is hard; instead redirect body to decide
+      // We'll handle below with shared path by continuing to decide-compatible update
+    }
 
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
       if (!tenantSessionUser) return;
       await ensureTenantEmployeeRequestsTable(req.tenantPool);
+
+      if (wantsWorkflowDecision && (decision || action || ['APPROVED', 'REJECTED'].includes(String(status || '').toUpperCase()))) {
+        const existing = await req.tenantPool.query('SELECT * FROM employee_requests WHERE id = $1', [id]);
+        if (!existing.rows.length) return res.status(404).json({ error: 'الطلب غير موجود' });
+        const isReject = ['REJECTED', 'reject', 'rejected', 'رفض'].includes(String(status || decision || action || '').toUpperCase()) ||
+          ['reject', 'rejected', 'رفض'].includes(normalizedDecision);
+        const patch = hrRequestWorkflow.applyDecision(existing.rows[0], {
+          decision: isReject ? 'reject' : 'approve',
+          actorName: approverName || 'مسؤول',
+          notes: approvalNotes || notes
+        });
+        const updated = await req.tenantPool.query(
+          `UPDATE employee_requests
+           SET status = $1, current_stage = $2, workflow_stages = $3, workflow_history = $4,
+               approver_name = $5, approval_notes = $6,
+               approval_date = CASE WHEN $1 IN ('APPROVED', 'REJECTED') THEN CURRENT_TIMESTAMP ELSE approval_date END,
+               completion_date = $7, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $8 RETURNING *`,
+          [patch.status, patch.current_stage, JSON.stringify(patch.workflow_stages), JSON.stringify(patch.workflow_history), patch.approver_name, patch.approval_notes, patch.completion_date, id]
+        );
+        await syncLeaveMirrorFromEmployeeRequest(req.tenantPool, updated.rows[0]);
+        return res.json({ success: true, request: hrRequestWorkflow.enrichRequest(updated.rows[0]) });
+      }
 
       const tenantResult = await req.tenantPool.query(`
         UPDATE employee_requests
@@ -6670,7 +7002,7 @@ app.put('/api/employee-requests/:id', async (req, res) => {
         return res.status(404).json({ error: 'الطلب غير موجود' });
       }
 
-      return res.json({ success: true, request: tenantResult.rows[0] });
+      return res.json({ success: true, request: hrRequestWorkflow.enrichRequest(tenantResult.rows[0]) });
     }
 
     if (!isHqEntityContext(req)) {
@@ -6681,6 +7013,29 @@ app.put('/api/employee-requests/:id', async (req, res) => {
       if (scopeCheck.rows.length === 0) {
         return res.status(404).json({ error: 'الطلب غير موجود' });
       }
+    }
+
+    if (wantsWorkflowDecision && (decision || action || ['APPROVED', 'REJECTED'].includes(String(status || '').toUpperCase()))) {
+      const existing = await db.query('SELECT * FROM employee_requests WHERE id = $1', [id]);
+      if (!existing.rows.length) return res.status(404).json({ error: 'الطلب غير موجود' });
+      const isReject = ['REJECTED', 'reject', 'rejected', 'رفض'].includes(String(status || decision || action || '').toUpperCase()) ||
+        ['reject', 'rejected', 'رفض'].includes(normalizedDecision);
+      const patch = hrRequestWorkflow.applyDecision(existing.rows[0], {
+        decision: isReject ? 'reject' : 'approve',
+        actorName: approverName || 'مسؤول النظام',
+        notes: approvalNotes || notes
+      });
+      const updated = await db.query(
+        `UPDATE employee_requests
+         SET status = $1, current_stage = $2, workflow_stages = $3, workflow_history = $4,
+             approver_name = $5, approval_notes = $6,
+             approval_date = CASE WHEN $1 IN ('APPROVED', 'REJECTED') THEN CURRENT_TIMESTAMP ELSE approval_date END,
+             completion_date = $7, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $8 RETURNING *`,
+        [patch.status, patch.current_stage, JSON.stringify(patch.workflow_stages), JSON.stringify(patch.workflow_history), patch.approver_name, patch.approval_notes, patch.completion_date, id]
+      );
+      await syncLeaveMirrorFromEmployeeRequest(db, updated.rows[0]);
+      return res.json({ success: true, request: hrRequestWorkflow.enrichRequest(updated.rows[0]) });
     }
 
     const query = `
@@ -6733,7 +7088,7 @@ app.put('/api/employee-requests/:id', async (req, res) => {
       return res.status(404).json({ error: 'الطلب غير موجود' });
     }
     
-    res.json({ success: true, request: result.rows[0] });
+    res.json({ success: true, request: hrRequestWorkflow.enrichRequest(result.rows[0]) });
   } catch (error) {
     console.error('Error updating employee request:', error);
     res.status(500).json({ error: error.message });
@@ -6769,14 +7124,10 @@ app.delete('/api/employee-requests/:id', async (req, res) => {
       query += ' AND entity_id = $2';
     }
 
-    query += ' RETURNING *';
-
     const result = await db.query(query, params);
-    
-    if (result.rows.length === 0) {
+    if (!result.rowCount) {
       return res.status(404).json({ error: 'الطلب غير موجود' });
     }
-    
     res.json({ success: true, message: 'تم حذف الطلب بنجاح' });
   } catch (error) {
     console.error('Error deleting employee request:', error);
@@ -10978,13 +11329,16 @@ app.post('/api/leave-requests', async (req, res) => {
     const employeeRequestId = `LR-${leaveRecord.id}`;
     const employeeStatus = mapLeaveStatus(status);
     const requestTitle = leave_type ? `طلب اجازة (${leave_type})` : 'طلب اجازة';
+    const leaveWorkflow = hrRequestWorkflow.buildInitialWorkflow('إجازة');
+    const leaveStage = employeeStatus === 'PENDING' ? leaveWorkflow.current_stage : (employeeStatus === 'APPROVED' ? 'completed' : 'rejected');
 
     await client.query(
       `INSERT INTO employee_requests (
         id, entity_id, employee_id, employee_name, request_type, request_title,
         description, status, priority, request_data, requires_approval,
-        requested_date, start_date, end_date, notes, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'NORMAL', $9, $10, CURRENT_DATE, $11, $12, $13, $14)
+        requested_date, start_date, end_date, notes, created_by,
+        current_stage, workflow_stages, workflow_history
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'NORMAL', $9, $10, CURRENT_DATE, $11, $12, $13, $14, $15, $16, $17)
       ON CONFLICT (id) DO NOTHING`,
       [
         employeeRequestId,
@@ -11000,7 +11354,10 @@ app.post('/api/leave-requests', async (req, res) => {
         start_date,
         end_date,
         null,
-        null
+        null,
+        leaveStage,
+        JSON.stringify(leaveWorkflow.workflow_stages),
+        JSON.stringify(leaveWorkflow.workflow_history)
       ]
     );
 
@@ -11139,13 +11496,16 @@ app.put('/api/leave-requests/:id', async (req, res) => {
     const mergedLeaveType = leave_type || current.leave_type || null;
     const requestTitle = mergedLeaveType ? `طلب اجازة (${mergedLeaveType})` : 'طلب اجازة';
     const requestData = JSON.stringify({ leave_request_id: current.id, leave_type: mergedLeaveType, days_count: updatedDays });
+    const leaveWorkflow = hrRequestWorkflow.buildInitialWorkflow('إجازة');
+    const leaveStage = employeeStatus === 'PENDING' ? leaveWorkflow.current_stage : (employeeStatus === 'APPROVED' ? 'completed' : 'rejected');
 
     await client.query(
       `INSERT INTO employee_requests (
         id, entity_id, employee_id, employee_name, request_type, request_title,
         description, status, priority, request_data, requires_approval,
-        requested_date, start_date, end_date, notes, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'NORMAL', $9, $10, CURRENT_DATE, $11, $12, $13, $14)
+        requested_date, start_date, end_date, notes, created_by,
+        current_stage, workflow_stages, workflow_history
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'NORMAL', $9, $10, CURRENT_DATE, $11, $12, $13, $14, $15, $16, $17)
       ON CONFLICT (id) DO UPDATE SET
         status = EXCLUDED.status,
         request_title = EXCLUDED.request_title,
@@ -11153,8 +11513,10 @@ app.put('/api/leave-requests/:id', async (req, res) => {
         request_data = EXCLUDED.request_data,
         start_date = EXCLUDED.start_date,
         end_date = EXCLUDED.end_date,
-        approval_notes = COALESCE($15, employee_requests.approval_notes),
-        approver_name = COALESCE($16, employee_requests.approver_name),
+        current_stage = EXCLUDED.current_stage,
+        workflow_stages = COALESCE(employee_requests.workflow_stages, EXCLUDED.workflow_stages),
+        approval_notes = COALESCE($18, employee_requests.approval_notes),
+        approver_name = COALESCE($19, employee_requests.approver_name),
         approval_date = CASE WHEN EXCLUDED.status IN ('APPROVED', 'REJECTED') THEN CURRENT_TIMESTAMP ELSE employee_requests.approval_date END,
         updated_at = CURRENT_TIMESTAMP`,
       [
@@ -11172,6 +11534,9 @@ app.put('/api/leave-requests/:id', async (req, res) => {
         updatedEnd,
         null,
         null,
+        leaveStage,
+        JSON.stringify(leaveWorkflow.workflow_stages),
+        JSON.stringify(leaveWorkflow.workflow_history),
         decision_reason || null,
         reviewed_by || null
       ]

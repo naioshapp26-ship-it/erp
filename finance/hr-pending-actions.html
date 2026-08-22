@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>عمليات بانتظار إجراء - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root { --navy:#0f172a; --accent:#b91c1c; --line:#e2e8f0; }
+    body {
+      font-family:'Cairo',sans-serif; min-height:100vh; color:var(--navy);
+      background:
+        radial-gradient(circle at 90% 0%, rgba(37,99,235,0.10), transparent 40%),
+        linear-gradient(180deg,#f8fafc 0%, #eef2ff 100%);
+    }
+    .shell { max-width:1100px; margin:0 auto; padding:1.25rem; }
+    .card {
+      background:#fff; border:1px solid var(--line); border-radius:20px;
+      box-shadow:0 10px 30px -22px rgba(15,23,42,.35);
+    }
+    .nav-pill {
+      display:inline-flex; align-items:center; gap:8px; padding:10px 16px;
+      border-radius:999px; font-weight:800; font-size:14px; border:1px solid var(--line);
+      background:#fff; color:#334155; text-decoration:none;
+    }
+    .nav-pill.active { background:#1e293b; color:#fff; border-color:#1e293b; }
+    .badge {
+      min-width:22px; height:22px; border-radius:999px; display:inline-flex;
+      align-items:center; justify-content:center; font-size:12px; font-weight:800;
+      background:#2563eb; color:#fff; padding:0 6px;
+    }
+    .btn {
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding:10px 14px; border-radius:12px; font-weight:800; border:none; cursor:pointer;
+      font-family:inherit; font-size:13px;
+    }
+    .btn-approve { background:#059669; color:#fff; }
+    .btn-reject { background:#e11d48; color:#fff; }
+    .btn-ghost { background:#fff; border:1px solid var(--line); color:#334155; }
+    .chip {
+      display:inline-flex; align-items:center; gap:6px; padding:4px 10px;
+      border-radius:999px; font-size:12px; font-weight:800;
+    }
+    .workflow {
+      display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;
+    }
+    .workflow .step {
+      padding:6px 10px; border-radius:10px; font-size:11px; font-weight:800;
+      background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0;
+    }
+    .workflow .step.done { background:#d1fae5; color:#047857; border-color:#a7f3d0; }
+    .workflow .step.current { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+    .workflow .step.rejected { background:#fee2e2; color:#b91c1c; border-color:#fecaca; }
+    .toast {
+      position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+      background:#0f172a; color:#fff; padding:12px 18px; border-radius:12px;
+      opacity:0; transition:all .25s; z-index:60; font-weight:700;
+    }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.error { background:#b91c1c; }
+    .modal {
+      position:fixed; inset:0; background:rgba(15,23,42,.45); display:none;
+      align-items:center; justify-content:center; z-index:50; padding:16px;
+    }
+    .modal.open { display:flex; }
+    .modal-box { background:#fff; border-radius:18px; width:100%; max-width:440px; padding:20px; }
+    .form-input {
+      width:100%; border:1px solid var(--line); border-radius:12px; padding:11px 14px;
+      font-family:inherit; font-size:14px;
+    }
+    .stat {
+      background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div>
+        <a href="/hr" class="text-sm font-bold text-slate-500 hover:text-slate-800">← الموارد البشرية</a>
+        <h1 class="text-2xl md:text-3xl font-black mt-1 flex items-center gap-3">
+          عمليات بانتظار إجراء
+          <span class="badge" id="heroBadge">0</span>
+        </h1>
+        <p class="text-slate-500 text-sm mt-1">هنا تظهر طلبات الموظفين (إجازة / سلفة / غيرها) بعد إرسالها مباشرة للموافقة</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr/my-requests" class="nav-pill"><i class="fas fa-file-lines"></i> الطلبات</a>
+        <a href="/hr/pending-actions" class="nav-pill active">
+          <i class="fas fa-hourglass-half"></i> بانتظار إجراء
+          <span class="badge" id="navBadge">0</span>
+        </a>
+        <a href="/hr/requests" class="nav-pill"><i class="fas fa-inbox"></i> معالجة الطلبات</a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div class="stat">
+        <div class="text-xs text-slate-500 font-bold">الإجمالي</div>
+        <div class="text-2xl font-black" id="statTotal">0</div>
+      </div>
+      <div class="stat">
+        <div class="text-xs text-slate-500 font-bold">إجازات</div>
+        <div class="text-2xl font-black text-amber-600" id="statLeave">0</div>
+      </div>
+      <div class="stat">
+        <div class="text-xs text-slate-500 font-bold">سلف</div>
+        <div class="text-2xl font-black text-emerald-600" id="statAdvance">0</div>
+      </div>
+      <div class="stat">
+        <div class="text-xs text-slate-500 font-bold">المرحلة الحالية</div>
+        <div class="text-sm font-black text-blue-700 mt-2" id="statStage">—</div>
+      </div>
+    </div>
+
+    <div class="card p-4 mb-4 flex flex-wrap gap-2 items-center justify-between">
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="nav-pill active text-xs" data-filter="all">الكل</button>
+        <button type="button" class="nav-pill text-xs" data-filter="leave">إجازات</button>
+        <button type="button" class="nav-pill text-xs" data-filter="advance">سلف</button>
+        <button type="button" class="nav-pill text-xs" data-filter="manager">المدير المباشر</button>
+        <button type="button" class="nav-pill text-xs" data-filter="hr">الموارد البشرية</button>
+        <button type="button" class="nav-pill text-xs" data-filter="finance">المالية</button>
+      </div>
+      <button type="button" class="btn btn-ghost" id="refreshBtn"><i class="fas fa-rotate"></i> تحديث</button>
+    </div>
+
+    <div id="list" class="space-y-3">
+      <div class="card p-10 text-center text-slate-400">جاري التحميل...</div>
+    </div>
+  </div>
+
+  <div class="modal" id="decisionModal">
+    <div class="modal-box">
+      <h3 class="text-lg font-black mb-1" id="modalTitle">اتخاذ قرار</h3>
+      <p class="text-sm text-slate-500 mb-4" id="modalSubtitle"></p>
+      <label class="text-xs font-bold text-slate-500 mb-1 block">اسم المعتمد</label>
+      <input class="form-input mb-3" id="actorName" value="المدير المباشر" placeholder="اسمك">
+      <label class="text-xs font-bold text-slate-500 mb-1 block">ملاحظات (اختياري)</label>
+      <textarea class="form-input mb-4" id="decisionNotes" rows="3" placeholder="أضف ملاحظة القرار"></textarea>
+      <div class="flex gap-2 justify-end">
+        <button type="button" class="btn btn-ghost" id="cancelDecision">إلغاء</button>
+        <button type="button" class="btn" id="confirmDecision">تأكيد</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API = '';
+    let requests = [];
+    let filter = 'all';
+    let pendingDecision = null;
+
+    const sanitize = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+
+    const toast = (msg, isError=false) => {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.toggle('error', isError);
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2800);
+    };
+
+    const api = async (url, options = {}) => {
+      const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' },
+        ...options
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'تعذر تنفيذ العملية');
+      return data;
+    };
+
+    const formatDate = (v) => {
+      if (!v) return '—';
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return String(v);
+      return d.toLocaleDateString('ar-SA');
+    };
+
+    const isLeave = (r) => /إجازة|اجازة|leave/i.test(r.request_type || '');
+    const isAdvance = (r) => /سلف|قرض|advance|loan/i.test(r.request_type || '');
+
+    const filtered = () => {
+      return requests.filter((r) => {
+        if (filter === 'leave') return isLeave(r);
+        if (filter === 'advance') return isAdvance(r);
+        if (['manager','hr','supervisor','executive','finance'].includes(filter)) {
+          return r.current_stage === filter;
+        }
+        return true;
+      });
+    };
+
+    const workflowHtml = (r) => {
+      const stages = r.workflow_stages || [];
+      const history = r.workflow_history || [];
+      const done = new Set(history.filter((h) => h.decision === 'approved').map((h) => h.stage));
+      const rejected = history.some((h) => h.decision === 'rejected');
+      return `<div class="workflow">${stages.map((key) => {
+        let cls = 'step';
+        if (rejected && r.current_stage === 'rejected') cls += ' rejected';
+        else if (done.has(key)) cls += ' done';
+        else if (key === r.current_stage) cls += ' current';
+        const label = (r.stage_labels || []).find((s) => s.key === key)?.label || key;
+        return `<span class="${cls}">${sanitize(label)}</span>`;
+      }).join('')}</div>`;
+    };
+
+    const render = () => {
+      const rows = filtered();
+      const list = document.getElementById('list');
+      const leaveCount = requests.filter(isLeave).length;
+      const advanceCount = requests.filter(isAdvance).length;
+      document.getElementById('statTotal').textContent = String(requests.length);
+      document.getElementById('statLeave').textContent = String(leaveCount);
+      document.getElementById('statAdvance').textContent = String(advanceCount);
+      document.getElementById('heroBadge').textContent = String(requests.length);
+      document.getElementById('navBadge').textContent = String(requests.length);
+
+      const stageCounts = {};
+      requests.forEach((r) => {
+        const key = r.current_stage_label || r.current_stage || '—';
+        stageCounts[key] = (stageCounts[key] || 0) + 1;
+      });
+      const topStage = Object.entries(stageCounts).sort((a,b) => b[1]-a[1])[0];
+      document.getElementById('statStage').textContent = topStage ? `${topStage[0]} (${topStage[1]})` : 'لا يوجد';
+
+      if (!rows.length) {
+        list.innerHTML = `
+          <div class="card p-12 text-center">
+            <div class="text-4xl mb-3">✅</div>
+            <div class="font-black text-slate-700">لا توجد عمليات بانتظار إجراء</div>
+            <div class="text-sm text-slate-400 mt-2">عندما يرسل موظف طلب إجازة أو سلفة سيظهر هنا فوراً</div>
+            <a href="/hr/my-requests" class="btn btn-ghost mt-4 inline-flex">إرسال طلب تجريبي</a>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = rows.map((r) => {
+        const data = typeof r.request_data === 'string' ? (() => { try { return JSON.parse(r.request_data); } catch { return {}; } })() : (r.request_data || {});
+        const meta = data.amount
+          ? `المبلغ: ${sanitize(data.amount)} ر.س`
+          : (r.start_date ? `من ${sanitize(formatDate(r.start_date))} إلى ${sanitize(formatDate(r.end_date))}` : '');
+        const id = sanitize(String(r.id));
+        return `
+          <div class="card p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                  <span class="chip ${isLeave(r) ? 'bg-amber-100 text-amber-800' : isAdvance(r) ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}">${sanitize(r.request_type || 'طلب')}</span>
+                  <span class="chip bg-blue-100 text-blue-800">${sanitize(r.current_stage_label || '—')}</span>
+                </div>
+                <div class="font-black text-lg text-slate-800">${sanitize(r.request_title || '—')}</div>
+                <div class="text-sm text-slate-500 mt-1">${sanitize(r.employee_name || '—')} ${r.employee_id ? '· ' + sanitize(r.employee_id) : ''}</div>
+                ${meta ? `<div class="text-xs text-slate-500 mt-1">${meta}</div>` : ''}
+                ${r.description ? `<div class="text-sm text-slate-600 mt-2">${sanitize(r.description)}</div>` : ''}
+                ${workflowHtml(r)}
+              </div>
+              <div class="flex flex-col gap-2">
+                <button class="btn btn-approve" data-action="approve" data-id="${id}">
+                  <i class="fas fa-check"></i> موافقة
+                </button>
+                <button class="btn btn-reject" data-action="reject" data-id="${id}">
+                  <i class="fas fa-xmark"></i> رفض
+                </button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    };
+
+    const load = async () => {
+      try {
+        const data = await api('/api/hr/pending-actions');
+        requests = Array.isArray(data.requests) ? data.requests : [];
+        render();
+      } catch (err) {
+        document.getElementById('list').innerHTML = `<div class="card p-8 text-center text-rose-600 font-bold">${sanitize(err.message)}</div>`;
+      }
+    };
+
+    document.getElementById('refreshBtn').addEventListener('click', load);
+    document.querySelectorAll('[data-filter]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filter = btn.dataset.filter;
+        document.querySelectorAll('[data-filter]').forEach((b) => b.classList.toggle('active', b === btn));
+        render();
+      });
+    });
+
+    document.getElementById('list').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const action = btn.dataset.action;
+      const req = requests.find((r) => String(r.id) === String(id));
+      if (!req) return;
+      pendingDecision = { id, action };
+      document.getElementById('modalTitle').textContent = action === 'approve' ? 'موافقة على الطلب' : 'رفض الطلب';
+      document.getElementById('modalSubtitle').textContent = `${req.request_title || ''} — المرحلة: ${req.current_stage_label || ''}`;
+      document.getElementById('actorName').value = req.current_stage_label || 'مسؤول';
+      document.getElementById('decisionNotes').value = '';
+      const confirmBtn = document.getElementById('confirmDecision');
+      confirmBtn.className = `btn ${action === 'approve' ? 'btn-approve' : 'btn-reject'}`;
+      confirmBtn.textContent = action === 'approve' ? 'تأكيد الموافقة' : 'تأكيد الرفض';
+      document.getElementById('decisionModal').classList.add('open');
+    });
+
+    document.getElementById('cancelDecision').addEventListener('click', () => {
+      document.getElementById('decisionModal').classList.remove('open');
+      pendingDecision = null;
+    });
+
+    document.getElementById('confirmDecision').addEventListener('click', async () => {
+      if (!pendingDecision) return;
+      const btn = document.getElementById('confirmDecision');
+      btn.disabled = true;
+      try {
+        const result = await api(`/api/employee-requests/${encodeURIComponent(pendingDecision.id)}/decide`, {
+          method: 'POST',
+          body: JSON.stringify({
+            decision: pendingDecision.action,
+            actorName: document.getElementById('actorName').value.trim() || 'مسؤول',
+            notes: document.getElementById('decisionNotes').value.trim() || null
+          })
+        });
+        const req = result.request || {};
+        if (req.status === 'APPROVED') toast('تم قبول الطلب نهائياً');
+        else if (req.status === 'REJECTED') toast('تم رفض الطلب');
+        else toast(`تمت الموافقة — انتقل إلى: ${req.current_stage_label || ''}`);
+        document.getElementById('decisionModal').classList.remove('open');
+        pendingDecision = null;
+        await load();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    load();
+    setInterval(load, 20000);
+  </script>
+  <script src="/tenant-path-client.js"></script>
+</body>
+</html>

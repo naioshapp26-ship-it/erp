@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الطلبات - نظام نايوش</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --navy: #0f172a;
+      --accent: #b91c1c;
+      --accent-soft: #fee2e2;
+      --line: #e2e8f0;
+    }
+    body {
+      font-family: 'Cairo', sans-serif;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(185,28,28,0.08), transparent 42%),
+        linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      min-height: 100vh;
+      color: var(--navy);
+    }
+    .shell { max-width: 1100px; margin: 0 auto; padding: 1.25rem; }
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 10px 30px -22px rgba(15,23,42,0.35);
+    }
+    .nav-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 16px; border-radius: 999px; font-weight: 800; font-size: 14px;
+      border: 1px solid var(--line); background: #fff; color: #334155; text-decoration: none;
+    }
+    .nav-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .nav-pill .badge {
+      min-width: 22px; height: 22px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800; background: #2563eb; color: #fff; padding: 0 6px;
+    }
+    .tab-btn {
+      flex: 1; padding: 14px; border-radius: 14px; font-weight: 800;
+      border: 1px solid var(--line); background: #f8fafc; color: #475569; cursor: pointer;
+    }
+    .tab-btn.active { background: var(--accent-soft); color: #991b1b; border-color: #fecaca; }
+    .form-label { display: block; font-size: 13px; font-weight: 700; color: #475569; margin-bottom: 6px; }
+    .form-input, .form-select, .form-textarea {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px;
+      padding: 11px 14px; font-family: inherit; font-size: 14px; background: #fff;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none; border-color: #f87171; box-shadow: 0 0 0 3px rgba(248,113,113,0.15);
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 18px; border-radius: 12px; font-weight: 800; border: none; cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-primary { background: linear-gradient(135deg, #dc2626, #991b1b); color: #fff; }
+    .btn-ghost { background: #fff; border: 1px solid var(--line); color: #334155; }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800;
+    }
+    .status-pending { background: #fef3c7; color: #b45309; }
+    .status-approved { background: #d1fae5; color: #047857; }
+    .status-rejected { background: #fee2e2; color: #b91c1c; }
+    .stage-chip { background: #e0e7ff; color: #3730a3; }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #0f172a; color: #fff; padding: 12px 18px; border-radius: 12px;
+      opacity: 0; transition: all .25s; z-index: 50; font-weight: 700;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.error { background: #b91c1c; }
+    .req-row { border-bottom: 1px solid var(--line); padding: 14px 0; }
+    .req-row:last-child { border-bottom: none; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div>
+        <a href="/hr" class="text-sm font-bold text-slate-500 hover:text-red-700">← الموارد البشرية</a>
+        <h1 class="text-2xl md:text-3xl font-black mt-1">الطلبات</h1>
+        <p class="text-slate-500 text-sm mt-1">قدّم طلب إجازة أو سلفة وتابع حالته من مكان واحد</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/hr/my-requests" class="nav-pill active"><i class="fas fa-file-lines"></i> الطلبات</a>
+        <a href="/hr/pending-actions" class="nav-pill">
+          <i class="fas fa-hourglass-half"></i> عمليات بانتظار إجراء
+          <span class="badge" id="pendingBadge">0</span>
+        </a>
+        <a href="/hr/requests" class="nav-pill"><i class="fas fa-inbox"></i> معالجة الطلبات</a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div class="lg:col-span-2 card p-5">
+        <div class="flex gap-2 mb-4">
+          <button type="button" class="tab-btn active" data-tab="leave" id="tabLeave">
+            <i class="fas fa-umbrella-beach ml-1"></i> طلب إجازة
+          </button>
+          <button type="button" class="tab-btn" data-tab="advance" id="tabAdvance">
+            <i class="fas fa-hand-holding-dollar ml-1"></i> طلب سلفة
+          </button>
+        </div>
+
+        <form id="leaveForm" class="panel active space-y-3">
+          <div>
+            <label class="form-label">اسم الموظف *</label>
+            <input class="form-input" name="employee_name" id="leaveName" required placeholder="مثال: أحمد محمد">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="form-label">رقم الموظف</label>
+              <input class="form-input" name="employee_id" id="leaveEmpId" placeholder="EMP-001">
+            </div>
+            <div>
+              <label class="form-label">القسم</label>
+              <input class="form-input" name="department" id="leaveDept" placeholder="الموارد البشرية">
+            </div>
+          </div>
+          <div>
+            <label class="form-label">نوع الإجازة *</label>
+            <select class="form-select" name="leave_type" id="leaveType" required>
+              <option value="سنوية">سنوية</option>
+              <option value="مرضية">مرضية</option>
+              <option value="اضطرارية">اضطرارية</option>
+              <option value="بدون راتب">بدون راتب</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="form-label">من تاريخ *</label>
+              <input class="form-input" type="date" name="start_date" id="leaveStart" required>
+            </div>
+            <div>
+              <label class="form-label">إلى تاريخ *</label>
+              <input class="form-input" type="date" name="end_date" id="leaveEnd" required>
+            </div>
+          </div>
+          <div>
+            <label class="form-label">السبب</label>
+            <textarea class="form-textarea" name="reason" id="leaveReason" rows="3" placeholder="سبب الإجازة (اختياري)"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary w-full" id="leaveSubmit">
+            <i class="fas fa-paper-plane"></i> إرسال طلب الإجازة
+          </button>
+        </form>
+
+        <form id="advanceForm" class="panel space-y-3">
+          <div>
+            <label class="form-label">اسم الموظف *</label>
+            <input class="form-input" name="employee_name" id="advName" required placeholder="مثال: سارة علي">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="form-label">رقم الموظف</label>
+              <input class="form-input" name="employee_id" id="advEmpId" placeholder="EMP-002">
+            </div>
+            <div>
+              <label class="form-label">المبلغ (ر.س) *</label>
+              <input class="form-input" type="number" min="1" step="0.01" name="amount" id="advAmount" required placeholder="3000">
+            </div>
+          </div>
+          <div>
+            <label class="form-label">عدد الأقساط</label>
+            <input class="form-input" type="number" min="1" name="installments" id="advInstallments" value="3">
+          </div>
+          <div>
+            <label class="form-label">سبب السلفة *</label>
+            <textarea class="form-textarea" name="reason" id="advReason" rows="3" required placeholder="اكتب سبب طلب السلفة"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary w-full" id="advSubmit">
+            <i class="fas fa-paper-plane"></i> إرسال طلب السلفة
+          </button>
+        </form>
+      </div>
+
+      <div class="lg:col-span-3 card p-5">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-lg font-black">طلباتي</h2>
+            <p class="text-xs text-slate-500">تظهر هنا كل الطلبات بعد الإرسال مباشرة</p>
+          </div>
+          <button type="button" class="btn btn-ghost text-sm" id="refreshBtn">
+            <i class="fas fa-rotate"></i> تحديث
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-4">
+          <button type="button" class="nav-pill active text-xs" data-filter="all">الكل</button>
+          <button type="button" class="nav-pill text-xs" data-filter="إجازة">إجازات</button>
+          <button type="button" class="nav-pill text-xs" data-filter="سلفة">سلف</button>
+          <button type="button" class="nav-pill text-xs" data-filter="PENDING">قيد الإجراء</button>
+        </div>
+        <div id="requestsList">
+          <div class="text-center text-slate-400 py-10">جاري التحميل...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API = '';
+    let requests = [];
+    let filter = 'all';
+    let activeTab = 'leave';
+
+    const sanitize = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+
+    const toast = (msg, isError = false) => {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.toggle('error', isError);
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2800);
+    };
+
+    const statusClass = (status) => {
+      const s = String(status || '').toUpperCase();
+      if (s === 'APPROVED' || s === 'COMPLETED') return 'status-approved';
+      if (s === 'REJECTED' || s === 'CANCELLED') return 'status-rejected';
+      return 'status-pending';
+    };
+
+    const statusLabel = (status) => {
+      const s = String(status || '').toUpperCase();
+      if (s === 'APPROVED') return 'مقبول';
+      if (s === 'REJECTED') return 'مرفوض';
+      if (s === 'COMPLETED') return 'مكتمل';
+      if (s === 'IN_PROGRESS') return 'قيد التنفيذ';
+      return 'بانتظار إجراء';
+    };
+
+    const formatDate = (v) => {
+      if (!v) return '—';
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return String(v);
+      return d.toLocaleDateString('ar-SA');
+    };
+
+    const api = async (url, options = {}) => {
+      const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' },
+        ...options
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'تعذر تنفيذ العملية');
+      return data;
+    };
+
+    const setTab = (tab) => {
+      activeTab = tab;
+      document.getElementById('tabLeave').classList.toggle('active', tab === 'leave');
+      document.getElementById('tabAdvance').classList.toggle('active', tab === 'advance');
+      document.getElementById('leaveForm').classList.toggle('active', tab === 'leave');
+      document.getElementById('advanceForm').classList.toggle('active', tab === 'advance');
+      const params = new URLSearchParams(location.search);
+      if (tab === 'advance') params.set('type', 'advance');
+      else params.delete('type');
+      history.replaceState({}, '', `${location.pathname}${params.toString() ? '?' + params.toString() : ''}`);
+    };
+
+    const renderRequests = () => {
+      const list = document.getElementById('requestsList');
+      let rows = [...requests];
+      if (filter === 'إجازة') rows = rows.filter((r) => /إجازة|اجازة|leave/i.test(r.request_type || ''));
+      else if (filter === 'سلفة') rows = rows.filter((r) => /سلف|قرض|advance|loan/i.test(r.request_type || ''));
+      else if (filter === 'PENDING') rows = rows.filter((r) => ['PENDING', 'IN_PROGRESS'].includes(String(r.status || '').toUpperCase()));
+
+      if (!rows.length) {
+        list.innerHTML = `
+          <div class="text-center py-12 text-slate-400">
+            <div class="text-4xl mb-3">📭</div>
+            <div class="font-bold text-slate-600">لا توجد طلبات بعد</div>
+            <div class="text-sm mt-1">أرسل طلب إجازة أو سلفة من النموذج على اليمين</div>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = rows.map((r) => {
+        const data = typeof r.request_data === 'string' ? (() => { try { return JSON.parse(r.request_data); } catch { return {}; } })() : (r.request_data || {});
+        const extra = data.amount
+          ? `<div class="text-xs text-slate-500 mt-1">المبلغ: ${sanitize(data.amount)} ر.س</div>`
+          : (data.days_count ? `<div class="text-xs text-slate-500 mt-1">الأيام: ${sanitize(data.days_count)}</div>` : '');
+        return `
+          <div class="req-row">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div class="font-extrabold text-slate-800">${sanitize(r.request_title || r.request_type)}</div>
+                <div class="text-sm text-slate-500 mt-1">${sanitize(r.employee_name || '—')} · ${sanitize(r.request_type || '')}</div>
+                ${extra}
+                <div class="text-xs text-slate-400 mt-1">تاريخ الطلب: ${sanitize(formatDate(r.requested_date || r.created_at))}</div>
+              </div>
+              <div class="flex flex-col items-end gap-2">
+                <span class="status ${statusClass(r.status)}">${statusLabel(r.status)}</span>
+                <span class="status stage-chip">${sanitize(r.current_stage_label || '—')}</span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    };
+
+    const loadPendingBadge = async () => {
+      try {
+        const data = await api('/api/hr/pending-actions?count_only=1');
+        document.getElementById('pendingBadge').textContent = String(data.count || 0);
+      } catch (_) {
+        document.getElementById('pendingBadge').textContent = '0';
+      }
+    };
+
+    const loadRequests = async () => {
+      try {
+        requests = await api('/api/employee-requests');
+        if (!Array.isArray(requests)) requests = [];
+        renderRequests();
+        await loadPendingBadge();
+      } catch (err) {
+        document.getElementById('requestsList').innerHTML = `<div class="text-center text-rose-600 py-8 font-bold">${sanitize(err.message)}</div>`;
+      }
+    };
+
+    document.querySelectorAll('[data-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => setTab(btn.dataset.tab));
+    });
+
+    document.querySelectorAll('[data-filter]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filter = btn.dataset.filter;
+        document.querySelectorAll('[data-filter]').forEach((b) => b.classList.toggle('active', b === btn));
+        renderRequests();
+      });
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', loadRequests);
+
+    document.getElementById('leaveForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('leaveSubmit');
+      btn.disabled = true;
+      try {
+        const body = {
+          employee_name: document.getElementById('leaveName').value.trim(),
+          employee_id: document.getElementById('leaveEmpId').value.trim() || null,
+          department: document.getElementById('leaveDept').value.trim() || null,
+          leave_type: document.getElementById('leaveType').value,
+          start_date: document.getElementById('leaveStart').value,
+          end_date: document.getElementById('leaveEnd').value,
+          reason: document.getElementById('leaveReason').value.trim() || null,
+          entity_id: 'HQ001'
+        };
+        await api('/api/leave-requests', { method: 'POST', body: JSON.stringify(body) });
+        toast('تم إرسال طلب الإجازة — سيظهر الآن في الطلبات وعمليات الانتظار');
+        e.target.reset();
+        await loadRequests();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('advanceForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('advSubmit');
+      btn.disabled = true;
+      try {
+        const amount = Number(document.getElementById('advAmount').value);
+        const name = document.getElementById('advName').value.trim();
+        const empId = document.getElementById('advEmpId').value.trim() || null;
+        const installments = Number(document.getElementById('advInstallments').value) || 1;
+        const reason = document.getElementById('advReason').value.trim();
+        const id = `ADV-${Date.now()}`;
+        const today = new Date().toISOString().slice(0, 10);
+        await api('/api/employee-requests', {
+          method: 'POST',
+          body: JSON.stringify({
+            id,
+            entityId: 'HQ001',
+            employeeId: empId,
+            employeeName: name,
+            requestType: 'سلفة',
+            requestTitle: `طلب سلفة بمبلغ ${amount} ر.س`,
+            description: reason,
+            requestedDate: today,
+            priority: 'NORMAL',
+            requestData: { amount, installments, reason },
+            notes: reason,
+            createdBy: name
+          })
+        });
+        toast('تم إرسال طلب السلفة — سيظهر في الطلبات وعمليات الانتظار');
+        e.target.reset();
+        document.getElementById('advInstallments').value = '3';
+        await loadRequests();
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Prefill dates + open advance tab if needed
+    const today = new Date();
+    const iso = today.toISOString().slice(0, 10);
+    const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 3);
+    document.getElementById('leaveStart').value = iso;
+    document.getElementById('leaveEnd').value = nextWeek.toISOString().slice(0, 10);
+    if (new URLSearchParams(location.search).get('type') === 'advance' || location.pathname.includes('/advances')) {
+      setTab('advance');
+    }
+
+    loadRequests();
+    setInterval(loadPendingBadge, 15000);
+  </script>
+  <script src="/tenant-path-client.js"></script>
+</body>
+</html>

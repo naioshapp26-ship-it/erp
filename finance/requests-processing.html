@@ -649,7 +649,7 @@
   };
 
   const statusMeta = {
-    PENDING:     { label: 'قيد المعالجة', className: 'bg-amber-100 text-amber-700' },
+    PENDING:     { label: 'بانتظار إجراء', className: 'bg-amber-100 text-amber-700' },
     IN_PROGRESS: { label: 'قيد التنفيذ',  className: 'bg-sky-100 text-sky-700' },
     APPROVED:    { label: 'معتمد',         className: 'bg-emerald-100 text-emerald-700' },
     COMPLETED:   { label: 'مكتمل',         className: 'bg-slate-100 text-slate-700' },
@@ -671,7 +671,11 @@
 
   const apiRequest = async (url, options = {}) => {
     const response = await fetch(url, {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-entity-type': 'HQ',
+        'x-entity-id': 'HQ001'
+      },
       ...options
     });
     if (!response.ok) {
@@ -829,6 +833,7 @@
         <td class="px-4 py-3">${formatDate(item.requested_date)}</td>
         <td class="px-4 py-3">
           <span class="chip ${status.className}">${status.label}</span>
+          <div class="text-xs text-slate-500 mt-1">${sanitize(item.current_stage_label || '')}</div>
         </td>
         <td class="px-4 py-3">
           <div class="text-xs text-slate-500 mb-1">${slaDetails.ageDays !== null ? `عمر ${sanitize(String(slaDetails.ageDays))} يوم` : 'غير محدد'}</div>
@@ -966,9 +971,23 @@
   document.getElementById('confirmDecision').addEventListener('click', async () => {
     if (!currentDecision.id || !currentDecision.status) return;
     const notes = document.getElementById('decisionNotes').value.trim();
-    document.getElementById('decisionModal').classList.remove('open');
-    await updateRequestStatus(currentDecision.id, currentDecision.status, notes || null);
-    currentDecision = { id: null, status: null };
+    const decision = currentDecision.status === 'APPROVED' ? 'approve' : 'reject';
+    try {
+      await apiRequest(API_BASE + '/api/employee-requests/' + encodeURIComponent(currentDecision.id) + '/decide', {
+        method: 'POST',
+        body: JSON.stringify({
+          decision,
+          actorName: 'مسؤول الموارد البشرية',
+          notes: notes || null
+        })
+      });
+      document.getElementById('decisionModal').classList.remove('open');
+      currentDecision = { id: null, status: null };
+      showToast(decision === 'approve' ? 'تم تسجيل الموافقة (قد ينتقل للمرحلة التالية)' : 'تم رفض الطلب');
+      await loadRequests();
+    } catch (err) {
+      showToast(err.message || 'فشل حفظ القرار', true);
+    }
   });
 
   // Close modals on backdrop click
