@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/finance/hr-portal-shell.css">
     <style>
         body {
             font-family: 'Tajawal', 'Cairo', sans-serif;
@@ -278,7 +279,10 @@
     </style>
     <link rel="stylesheet" href="contrast-overrides.css">
 </head>
-<body class="finance-home-theme">
+<body class="finance-home-theme hr-shell-active" data-hr-page="hr-home">
+<div class="hr-app-layout">
+    <aside class="hr-sidebar" id="hr-sidebar" aria-label="القائمة الجانبية"></aside>
+    <main class="hr-main" id="hr-main">
     <div class="container mx-auto px-4 py-8">
         <section class="hero-section p-5 md:p-8 mb-8">
             <div class="hero-content grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
@@ -309,26 +313,6 @@
         <div class="mb-4 text-slate-900">
             <h1 class="text-3xl font-black mb-2">👥 الموارد البشرية</h1>
             <p class="text-lg opacity-90">إدارة الموظفين والحضور والرواتب والتطوير والتنبيهات من مكان واحد</p>
-        </div>
-        <div class="mb-8 flex flex-wrap gap-2">
-            <a href="/" class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm hover:shadow-md transition">
-                <i class="fas fa-house"></i>
-                العودة للرئيسية
-            </a>
-            <a href="/hr/my-requests" class="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 shadow-sm hover:shadow-md transition">
-                <i class="fas fa-file-lines"></i>
-                الطلبات
-            </a>
-            <a href="/hr/pending-actions" class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 shadow-sm hover:shadow-md transition">
-                <i class="fas fa-hourglass-half"></i>
-                عمليات بانتظار إجراء
-                <span id="hr-pending-badge" class="inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-blue-600 text-white text-xs font-black px-1.5">0</span>
-            </a>
-            <a href="/hr/manager" class="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-800 shadow-sm hover:shadow-md transition">
-                <i class="fas fa-chart-line"></i>
-                لوحة المدير
-                <span id="hr-manager-badge" class="inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-black px-1.5">0</span>
-            </a>
         </div>
 
         <div class="mb-8">
@@ -626,11 +610,18 @@
             </div>
         </div>
     </div>
+    </main>
+</div>
 
+    <script src="/finance/hr-portal-shell.js"></script>
     <script>
         const API_BASE = window.location.origin;
 
         async function loadPendingBadge() {
+            if (window.HRPortalShell?.refreshBadges) {
+                await window.HRPortalShell.refreshBadges();
+                return;
+            }
             try {
                 const response = await fetch(`${API_BASE}/api/hr/manager-dashboard`, {
                     headers: { 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' }
@@ -638,14 +629,9 @@
                 if (!response.ok) return;
                 const data = await response.json();
                 const count = String(data.pending?.count || 0);
-                const newHires = String(data.new_hires_pending || 0);
-                const badge = document.getElementById('hr-pending-badge');
-                const cardBadge = document.getElementById('hr-pending-card-badge');
-                const managerBadge = document.getElementById('hr-manager-badge');
+                const badge = document.getElementById('hr-pending-card-badge');
                 const managerCardBadge = document.getElementById('hr-manager-card-badge');
                 if (badge) badge.textContent = count;
-                if (cardBadge) cardBadge.textContent = count;
-                if (managerBadge) managerBadge.textContent = count;
                 if (managerCardBadge) managerCardBadge.textContent = count;
             } catch (error) {
                 console.warn('Pending badge unavailable', error);
