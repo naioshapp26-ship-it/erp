@@ -4069,6 +4069,7 @@ const hrRouteMap = {
   '/hr/requests': 'requests-processing.html',
   '/hr/my-requests': 'hr-my-requests.html',
   '/hr/pending-actions': 'hr-pending-actions.html',
+  '/hr/manager': 'hr-manager-dashboard.html',
   '/hr/leaves': 'hr-my-requests.html',
   '/hr/advances': 'hr-my-requests.html',
   '/hr/operations': 'hr-portal-workflows.html',
@@ -6626,6 +6627,100 @@ app.get('/api/hr/pending-actions', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching pending HR actions:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Manager dashboard aggregate (pending counts, new hires, recent activity)
+app.get('/api/hr/manager-dashboard', async (req, res) => {
+  try {
+    await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
+    const pool = isTenantHostRequest(req) ? req.tenantPool : db;
+
+    if (isTenantHostRequest(req)) {
+      const tenantSessionUser = await requireTenantSessionUser(req, res);
+      if (!tenantSessionUser) return;
+      await ensureTenantEmployeeRequestsTable(req.tenantPool);
+    }
+
+    let pendingQuery = `
+      SELECT * FROM employee_requests
+      WHERE status IN ('PENDING', 'IN_PROGRESS')
+        AND current_stage IS NOT NULL
+        AND current_stage NOT IN ('completed', 'rejected')
+    `;
+    const pendingParams = [];
+    if (!isTenantHostRequest(req) && req.userEntity?.type !== 'HQ') {
+      pendingParams.push(req.userEntity.id);
+      pendingQuery += ' AND entity_id = $1';
+    }
+    pendingQuery += ' ORDER BY created_at DESC';
+
+    const pendingResult = await pool.query(pendingQuery, pendingParams);
+    const pendingRows = pendingResult.rows.map(hrRequestWorkflow.enrichRequest);
+    const byStage = {};
+    const byType = {};
+    pendingRows.forEach((row) => {
+      const stage = row.current_stage || 'manager';
+      byStage[stage] = (byStage[stage] || 0) + 1;
+      const type = row.request_type || 'أخرى';
+      byType[type] = (byType[type] || 0) + 1;
+    });
+
+    const stageLabels = Object.fromEntries(
+      hrRequestWorkflow.STAGE_DEFS.map((s) => [s.key, s.label])
+    );
+    const byStageDetailed = Object.entries(byStage).map(([key, count]) => ({
+      key,
+      label: stageLabels[key] || hrRequestWorkflow.getStageLabel(key),
+      count
+    }));
+
+    let newHiresPending = 0;
+    let recentNewHires = [];
+    if (!isTenantHostRequest(req)) {
+      const nhParams = [];
+      let nhQuery = `
+        SELECT id, full_name, reference_code, phone, employee_info, interview_date, status, created_at
+        FROM new_hires
+        WHERE COALESCE(status, 'pending') = 'pending'
+      `;
+      if (req.userEntity?.type !== 'HQ') {
+        nhParams.push(req.userEntity.id);
+        nhQuery += ` AND entity_id = $1`;
+      }
+      nhQuery += ' ORDER BY created_at DESC LIMIT 8';
+      const nhResult = await db.query(nhQuery, nhParams);
+      newHiresPending = nhResult.rows.length;
+      recentNewHires = nhResult.rows.map((row) => {
+        let info = {};
+        try {
+          info = row.employee_info ? JSON.parse(row.employee_info) : {};
+        } catch (_) {
+          info = {};
+        }
+        return {
+          ...row,
+          job_title: info.job_title || null,
+          department: info.department || null
+        };
+      });
+    }
+
+    res.json({
+      pending: {
+        count: pendingRows.length,
+        by_stage: byStage,
+        by_stage_detailed: byStageDetailed,
+        by_type: byType
+      },
+      new_hires_pending: newHiresPending,
+      recent_pending_requests: pendingRows.slice(0, 10),
+      recent_new_hires: recentNewHires,
+      stage_labels: stageLabels
+    });
+  } catch (error) {
+    console.error('Error fetching manager dashboard:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -10543,7 +10638,37 @@ app.put('/api/new-hires/:id', async (req, res) => {
       return res.status(404).json({ error: 'المرشح غير موجود أو غير مسموح بتعديله' });
     }
 
-    res.json(rows[0]);
+    const updated = rows[0];
+    if (updated.status === 'accepted') {
+      let info = {};
+      try {
+        info = updated.employee_info ? JSON.parse(updated.employee_info) : {};
+      } catch (_) {
+        info = {};
+      }
+      const jobTitle = String(info.job_title || 'موظف').trim() || 'موظف';
+      const hireDate = updated.interview_date || new Date().toISOString().slice(0, 10);
+      const entityId = updated.entity_id || (req.userEntity.type === 'HQ' ? 'HQ001' : req.userEntity.id);
+      try {
+        await db.query(
+          `INSERT INTO accepted_employees (full_name, job_title, email, phone, hire_date, entity_id)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (full_name, job_title, hire_date, entity_id) DO NOTHING`,
+          [
+            updated.full_name.trim(),
+            jobTitle,
+            info.email || null,
+            updated.phone || null,
+            hireDate,
+            entityId
+          ]
+        );
+      } catch (syncError) {
+        console.warn('Accepted employee sync skipped:', syncError.message);
+      }
+    }
+
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

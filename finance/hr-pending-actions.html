@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/finance/hr-portal-shell.css">
   <style>
     :root { --navy:#0f172a; --accent:#b91c1c; --line:#e2e8f0; }
     body {
@@ -15,7 +16,7 @@
         radial-gradient(circle at 90% 0%, rgba(37,99,235,0.10), transparent 40%),
         linear-gradient(180deg,#f8fafc 0%, #eef2ff 100%);
     }
-    .shell { max-width:1100px; margin:0 auto; padding:1.25rem; }
+    .shell { max-width: none; margin: 0; padding: 0; }
     .card {
       background:#fff; border:1px solid var(--line); border-radius:20px;
       box-shadow:0 10px 30px -22px rgba(15,23,42,.35);
@@ -75,25 +76,21 @@
     }
   </style>
 </head>
-<body>
+<body class="hr-shell-active" data-hr-page="pending-actions">
+  <div class="hr-app-layout">
+    <aside class="hr-sidebar" id="hr-sidebar"></aside>
+    <main class="hr-main" id="hr-main">
+      <div class="hr-main-inner">
   <div class="shell">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
       <div>
-        <a href="/hr" class="text-sm font-bold text-slate-500 hover:text-slate-800">← الموارد البشرية</a>
-        <h1 class="text-2xl md:text-3xl font-black mt-1 flex items-center gap-3">
+        <h1 class="hr-page-title flex items-center gap-3">
           عمليات بانتظار إجراء
           <span class="badge" id="heroBadge">0</span>
         </h1>
-        <p class="text-slate-500 text-sm mt-1">هنا تظهر طلبات الموظفين (إجازة / سلفة / غيرها) بعد إرسالها مباشرة للموافقة</p>
+        <p class="hr-page-subtitle">هنا تظهر طلبات الموظفين (إجازة / سلفة / غيرها) بعد إرسالها مباشرة للموافقة</p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <a href="/hr/my-requests" class="nav-pill"><i class="fas fa-file-lines"></i> الطلبات</a>
-        <a href="/hr/pending-actions" class="nav-pill active">
-          <i class="fas fa-hourglass-half"></i> بانتظار إجراء
-          <span class="badge" id="navBadge">0</span>
-        </a>
-        <a href="/hr/requests" class="nav-pill"><i class="fas fa-inbox"></i> معالجة الطلبات</a>
-      </div>
+      <a href="/hr/manager" class="nav-pill"><i class="fas fa-chart-line"></i> لوحة المدير</a>
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
@@ -131,6 +128,9 @@
       <div class="card p-10 text-center text-slate-400">جاري التحميل...</div>
     </div>
   </div>
+      </div>
+    </main>
+  </div>
 
   <div class="modal" id="decisionModal">
     <div class="modal-box">
@@ -153,6 +153,8 @@
     const API = '';
     let requests = [];
     let filter = 'all';
+    const urlStage = new URLSearchParams(location.search).get('stage');
+    if (urlStage) filter = urlStage;
     let pendingDecision = null;
 
     const sanitize = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({
@@ -239,7 +241,6 @@
       document.getElementById('statLeave').textContent = String(leaveCount);
       document.getElementById('statAdvance').textContent = String(advanceCount);
       document.getElementById('heroBadge').textContent = String(requests.length);
-      document.getElementById('navBadge').textContent = String(requests.length);
 
       const stageCounts = {};
       requests.forEach((r) => {
@@ -311,6 +312,10 @@
         document.querySelectorAll('[data-filter]').forEach((b) => b.classList.toggle('active', b === btn));
         render();
       });
+      if (urlStage && btn.dataset.filter === urlStage) {
+        document.querySelectorAll('[data-filter]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+      }
     });
 
     document.getElementById('list').addEventListener('click', (e) => {
@@ -345,6 +350,7 @@
         document.getElementById('decisionModal').classList.remove('open');
         pendingDecision = null;
         await load();
+        if (window.HRPortalShell?.refreshBadges) window.HRPortalShell.refreshBadges();
       } catch (err) {
         toast(err.message, true);
       } finally {
@@ -355,6 +361,7 @@
     load();
     setInterval(load, 20000);
   </script>
+  <script src="/finance/hr-portal-shell.js"></script>
   <script src="/tenant-path-client.js"></script>
 </body>
 </html>

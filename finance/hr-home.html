@@ -324,12 +324,23 @@
                 عمليات بانتظار إجراء
                 <span id="hr-pending-badge" class="inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-blue-600 text-white text-xs font-black px-1.5">0</span>
             </a>
+            <a href="/hr/manager" class="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-800 shadow-sm hover:shadow-md transition">
+                <i class="fas fa-chart-line"></i>
+                لوحة المدير
+                <span id="hr-manager-badge" class="inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-black px-1.5">0</span>
+            </a>
         </div>
 
         <div class="mb-8">
             <h3 class="text-slate-800 text-xl font-bold mb-2 opacity-90"><i class="fas fa-bolt ml-2"></i>مساحة العمل اليومية</h3>
             <p class="text-sm text-slate-500 mb-4">من هنا يبدأ الموظف طلبه، وهنا يظهر للمدير/الموارد البشرية بعد الإرسال مباشرة</p>
             <div class="finance-links" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));">
+                <a href="/hr/manager" class="w-full bg-gradient-to-l from-indigo-600 to-blue-700 text-white px-6 py-4 rounded-xl font-bold shadow-md hover:shadow-lg transition flex items-center gap-4 border border-indigo-500 group relative">
+                    <i class="fas fa-chart-line text-xl w-8 text-center text-white/90 group-hover:text-white transition"></i>
+                    <span class="flex-1 text-right">لوحة المدير العام<br><small class="font-semibold text-indigo-100">كل الطلبات المعلقة والتعيينات في مكان واحد</small></span>
+                    <span id="hr-manager-card-badge" class="absolute top-3 left-3 inline-flex min-w-[24px] h-[24px] items-center justify-center rounded-full bg-white text-indigo-700 text-xs font-black px-1.5">0</span>
+                    <i class="fas fa-chevron-left text-white/60"></i>
+                </a>
                 <a href="/hr/my-requests" class="w-full bg-white text-gray-800 px-6 py-4 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-4 border border-gray-200 hover:border-red-500 group relative">
                     <i class="fas fa-file-lines text-xl w-8 text-center text-red-600 group-hover:text-red-700 transition"></i>
                     <span class="flex-1 text-right">الطلبات<br><small class="font-semibold text-slate-500">إجازة · سلفة · متابعة حالتي</small></span>
@@ -621,16 +632,21 @@
 
         async function loadPendingBadge() {
             try {
-                const response = await fetch(`${API_BASE}/api/hr/pending-actions?count_only=1`, {
+                const response = await fetch(`${API_BASE}/api/hr/manager-dashboard`, {
                     headers: { 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' }
                 });
                 if (!response.ok) return;
                 const data = await response.json();
-                const count = String(data.count || 0);
+                const count = String(data.pending?.count || 0);
+                const newHires = String(data.new_hires_pending || 0);
                 const badge = document.getElementById('hr-pending-badge');
                 const cardBadge = document.getElementById('hr-pending-card-badge');
+                const managerBadge = document.getElementById('hr-manager-badge');
+                const managerCardBadge = document.getElementById('hr-manager-card-badge');
                 if (badge) badge.textContent = count;
                 if (cardBadge) cardBadge.textContent = count;
+                if (managerBadge) managerBadge.textContent = count;
+                if (managerCardBadge) managerCardBadge.textContent = count;
             } catch (error) {
                 console.warn('Pending badge unavailable', error);
             }

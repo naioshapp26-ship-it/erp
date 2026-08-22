@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/finance/hr-portal-shell.css">
   <style>
     :root {
       --navy: #0f172a;
@@ -22,7 +23,7 @@
       min-height: 100vh;
       color: var(--navy);
     }
-    .shell { max-width: 1100px; margin: 0 auto; padding: 1.25rem; }
+    .shell { max-width: none; margin: 0; padding: 0; }
     .card {
       background: #fff;
       border: 1px solid var(--line);
@@ -84,22 +85,18 @@
     .panel.active { display: block; }
   </style>
 </head>
-<body>
+<body class="hr-shell-active" data-hr-page="my-requests">
+  <div class="hr-app-layout">
+    <aside class="hr-sidebar" id="hr-sidebar"></aside>
+    <main class="hr-main" id="hr-main">
+      <div class="hr-main-inner">
   <div class="shell">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
       <div>
-        <a href="/hr" class="text-sm font-bold text-slate-500 hover:text-red-700">← الموارد البشرية</a>
-        <h1 class="text-2xl md:text-3xl font-black mt-1">الطلبات</h1>
-        <p class="text-slate-500 text-sm mt-1">قدّم طلب إجازة أو سلفة وتابع حالته من مكان واحد</p>
+        <h1 class="hr-page-title">الطلبات</h1>
+        <p class="hr-page-subtitle">قدّم طلب إجازة أو سلفة وتابع حالته — يظهر فوراً في لوحة المدير وعمليات الانتظار</p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <a href="/hr/my-requests" class="nav-pill active"><i class="fas fa-file-lines"></i> الطلبات</a>
-        <a href="/hr/pending-actions" class="nav-pill">
-          <i class="fas fa-hourglass-half"></i> عمليات بانتظار إجراء
-          <span class="badge" id="pendingBadge">0</span>
-        </a>
-        <a href="/hr/requests" class="nav-pill"><i class="fas fa-inbox"></i> معالجة الطلبات</a>
-      </div>
+      <a href="/hr/manager" class="nav-pill"><i class="fas fa-chart-line"></i> لوحة المدير</a>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -206,6 +203,9 @@
         </div>
       </div>
     </div>
+  </div>
+      </div>
+    </main>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -316,9 +316,10 @@
     const loadPendingBadge = async () => {
       try {
         const data = await api('/api/hr/pending-actions?count_only=1');
-        document.getElementById('pendingBadge').textContent = String(data.count || 0);
+        if (window.HRPortalShell?.refreshBadges) await window.HRPortalShell.refreshBadges();
+        return data.count || 0;
       } catch (_) {
-        document.getElementById('pendingBadge').textContent = '0';
+        return 0;
       }
     };
 
@@ -426,6 +427,7 @@
     loadRequests();
     setInterval(loadPendingBadge, 15000);
   </script>
+  <script src="/finance/hr-portal-shell.js"></script>
   <script src="/tenant-path-client.js"></script>
 </body>
 </html>
