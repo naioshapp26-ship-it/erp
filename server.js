@@ -514,6 +514,9 @@ const ensureHrEmployeeProfileTables = async () => {
         hire_date DATE,
         manager TEXT,
         avatar_initials TEXT,
+        photo_url TEXT,
+        intro_video_url TEXT,
+        cv_url TEXT,
         entity_id TEXT,
         entity_type TEXT,
         created_at TIMESTAMP DEFAULT NOW(),
@@ -521,6 +524,9 @@ const ensureHrEmployeeProfileTables = async () => {
       );
       ALTER TABLE hr_employee_profiles ADD COLUMN IF NOT EXISTS entity_id TEXT;
       ALTER TABLE hr_employee_profiles ADD COLUMN IF NOT EXISTS entity_type TEXT;
+      ALTER TABLE hr_employee_profiles ADD COLUMN IF NOT EXISTS photo_url TEXT;
+      ALTER TABLE hr_employee_profiles ADD COLUMN IF NOT EXISTS intro_video_url TEXT;
+      ALTER TABLE hr_employee_profiles ADD COLUMN IF NOT EXISTS cv_url TEXT;
       ALTER TABLE hr_employee_profiles DROP CONSTRAINT IF EXISTS hr_employee_profiles_employee_id_key;
       CREATE TABLE IF NOT EXISTS hr_employee_records (
         id SERIAL PRIMARY KEY,
@@ -565,11 +571,33 @@ const ensureHrEmployeeProfileTables = async () => {
     if (profileCheck.rows[0]?.count === 0) {
       await db.query(
         `INSERT INTO hr_employee_profiles
-         (employee_id, name, title, department, status, hire_date, manager, avatar_initials, entity_id, entity_type)
+         (employee_id, name, title, department, status, hire_date, manager, avatar_initials, photo_url, intro_video_url, cv_url, entity_id, entity_type)
          VALUES
-         ('EMP001', 'رانيا السبيعي', 'مدير شؤون الموظفين', 'الموارد البشرية', 'نشط', '2019-04-12', 'مها الفقيه', 'را', 'HQ001', 'HQ')`
+         ('EMP001', 'رانيا السبيعي', 'مدير شؤون الموظفين', 'الموارد البشرية', 'نشط', '2019-04-12', 'مها الفقيه', 'را',
+          '/uploads/hr-employee-360/HQ001/EMP001/photo.svg',
+          '/uploads/hr-employee-360/HQ001/EMP001/intro-video.mp4',
+          '/uploads/hr-employee-360/HQ001/EMP001/cv.pdf',
+          'HQ001', 'HQ')`
+      );
+    } else {
+      await db.query(
+        `UPDATE hr_employee_profiles
+         SET photo_url = COALESCE(NULLIF(photo_url, ''), '/uploads/hr-employee-360/HQ001/EMP001/photo.svg'),
+             intro_video_url = COALESCE(NULLIF(intro_video_url, ''), '/uploads/hr-employee-360/HQ001/EMP001/intro-video.mp4'),
+             cv_url = COALESCE(NULLIF(cv_url, ''), '/uploads/hr-employee-360/HQ001/EMP001/cv.pdf')
+         WHERE employee_id = 'EMP001' AND entity_id = 'HQ001'
+           AND (photo_url IS NULL OR photo_url = '' OR intro_video_url IS NULL OR intro_video_url = '' OR cv_url IS NULL OR cv_url = '')`
       );
     }
+
+    await db.query(
+      `DELETE FROM hr_employee_records
+       WHERE employee_id = 'EMP001' AND entity_id = 'HQ001'
+         AND (
+           period ~ '^[a-zA-Z\u0600-\u06FF]{1,6}$'
+           OR (record->>'date') ~ '^[a-zA-Z\u0600-\u06FF]{1,6}$'
+         )`
+    );
 
     const recordsCheck = await db.query(
       "SELECT COUNT(*)::int AS count FROM hr_employee_records WHERE employee_id = 'EMP001' AND entity_id = 'HQ001'"
@@ -597,6 +625,20 @@ const ensureHrEmployeeProfileTables = async () => {
          ('EMP001', 'attachments', 'موثق', '2025-12-10', '{"name":"شهادة تدريب قيادي","type":"PDF","date":"2025-12-10","size":"850 KB","status":"موثق"}', 'HQ001', 'HQ'),
          ('EMP001', 'attachments', 'موثق', '2025-12-30', '{"name":"مراجعة أداء 2025","type":"PDF","date":"2025-12-30","size":"980 KB","status":"موثق"}', 'HQ001', 'HQ')
         `
+      );
+    }
+
+    const mediaAttachmentsCheck = await db.query(
+      `SELECT COUNT(*)::int AS count FROM hr_employee_records
+       WHERE employee_id = 'EMP001' AND entity_id = 'HQ001' AND section = 'attachments'
+         AND record->>'file_url' IS NOT NULL`
+    );
+    if (mediaAttachmentsCheck.rows[0]?.count === 0) {
+      await db.query(
+        `INSERT INTO hr_employee_records (employee_id, section, status, period, record, entity_id, entity_type) VALUES
+         ('EMP001', 'attachments', 'معتمد', '2019-04-12', '{"name":"الصورة الشخصية","type":"صورة","date":"2019-04-12","size":"120 KB","status":"معتمد","file_url":"/uploads/hr-employee-360/HQ001/EMP001/photo.svg","media_type":"photo"}', 'HQ001', 'HQ'),
+         ('EMP001', 'attachments', 'معتمد', '2019-04-12', '{"name":"فيديو تعريفي","type":"فيديو","date":"2019-04-12","size":"1.5 MB","status":"معتمد","file_url":"/uploads/hr-employee-360/HQ001/EMP001/intro-video.mp4","media_type":"intro_video"}', 'HQ001', 'HQ'),
+         ('EMP001', 'attachments', 'معتمد', '2019-04-12', '{"name":"السيرة الذاتية","type":"PDF","date":"2019-04-12","size":"450 KB","status":"معتمد","file_url":"/uploads/hr-employee-360/HQ001/EMP001/cv.pdf","media_type":"cv"}', 'HQ001', 'HQ')`
       );
     }
 
@@ -13479,7 +13521,10 @@ const updateHrEmployeeProfile = async (req, res) => {
       status,
       hire_date,
       manager,
-      avatar_initials
+      avatar_initials,
+      photo_url,
+      intro_video_url,
+      cv_url
     } = req.body || {};
 
     const result = await db.query(
@@ -13491,8 +13536,11 @@ const updateHrEmployeeProfile = async (req, res) => {
            hire_date = $5,
            manager = $6,
            avatar_initials = $7,
+           photo_url = $8,
+           intro_video_url = $9,
+           cv_url = $10,
            updated_at = NOW()
-       WHERE employee_id = $8 AND ${getStrictRequestEntityCondition(req, 'entity_id', 9)}
+       WHERE employee_id = $11 AND ${getStrictRequestEntityCondition(req, 'entity_id', 12)}
        RETURNING *`,
       [
         name,
@@ -13502,6 +13550,9 @@ const updateHrEmployeeProfile = async (req, res) => {
         hire_date || null,
         manager || null,
         avatar_initials || null,
+        photo_url || null,
+        intro_video_url || null,
+        cv_url || null,
         employeeId,
         getRequestEntityContext(req).id
       ]
@@ -13522,6 +13573,144 @@ app.get('/api/hr-employee-profile', getHrEmployeeProfile);
 app.put('/api/hr-employee-profile/:employeeId', updateHrEmployeeProfile);
 app.get('/api/hr/employee-profile', getHrEmployeeProfile);
 app.put('/api/hr/employee-profile/:employeeId', updateHrEmployeeProfile);
+
+const HR_EMPLOYEE_360_UPLOAD_ROOT = path.join(UPLOADS_ROOT_DIR, 'hr-employee-360');
+
+const employee360Storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const entityId = getRequestEntityContext(req).id || 'HQ001';
+    const employeeId = req.params.employeeId || 'unknown';
+    const targetDir = path.join(HR_EMPLOYEE_360_UPLOAD_ROOT, entityId, employeeId);
+    ensureDir(targetDir);
+    cb(null, targetDir);
+  },
+  filename: (req, file, cb) => {
+    const mediaType = req.query.mediaType || req.body?.mediaType || 'file';
+    const ext = path.extname(file.originalname || '') || '';
+    const baseNames = {
+      photo: 'photo',
+      intro_video: 'intro-video',
+      cv: 'cv',
+      attachment: sanitizeFileName(path.basename(file.originalname || 'file', ext)) || 'attachment'
+    };
+    const baseName = baseNames[mediaType] || 'file';
+    const suffix = mediaType === 'attachment' ? `-${Date.now()}` : '';
+    cb(null, `${baseName}${suffix}${ext || (mediaType === 'photo' ? '.jpg' : mediaType === 'intro_video' ? '.mp4' : '')}`);
+  }
+});
+
+const employee360Upload = multer({
+  storage: employee360Storage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const mediaType = req.query.mediaType || req.body?.mediaType || 'attachment';
+    const mime = file.mimetype || '';
+    if (mediaType === 'photo' && !mime.startsWith('image/')) {
+      return cb(new Error('يجب رفع صورة للملف الشخصي'));
+    }
+    if (mediaType === 'intro_video' && !mime.startsWith('video/')) {
+      return cb(new Error('يجب رفع فيديو تعريفي'));
+    }
+    if (mediaType === 'cv' && !['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(mime)) {
+      return cb(new Error('يجب رفع السيرة الذاتية بصيغة PDF أو Word'));
+    }
+    cb(null, true);
+  }
+});
+
+const uploadHrEmployeeMedia = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const mediaType = req.query.mediaType || req.body?.mediaType || 'attachment';
+
+    employee360Upload.single('file')(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({ error: err.message || 'تعذر رفع الملف' });
+      }
+      if (!req.file) {
+        return res.status(400).json({ error: 'لم يتم اختيار ملف' });
+      }
+
+      const resolvedMediaType = req.query.mediaType || req.body?.mediaType || mediaType || 'attachment';
+
+      const entityId = getRequestEntityContext(req).id;
+      const relativeUrl = `/uploads/hr-employee-360/${entityId}/${employeeId}/${req.file.filename}`;
+      const profileColumnMap = {
+        photo: 'photo_url',
+        intro_video: 'intro_video_url',
+        cv: 'cv_url'
+      };
+      const profileColumn = profileColumnMap[resolvedMediaType];
+
+      if (profileColumn) {
+        await db.query(
+          `UPDATE hr_employee_profiles
+           SET ${profileColumn} = $1, updated_at = NOW()
+           WHERE employee_id = $2 AND ${getStrictRequestEntityCondition(req, 'entity_id', 3)}`,
+          [relativeUrl, employeeId, entityId]
+        );
+      }
+
+      if (resolvedMediaType === 'attachment' || !profileColumn) {
+        const typeLabels = {
+          image: 'صورة',
+          video: 'فيديو',
+          pdf: 'PDF',
+          document: 'مستند'
+        };
+        let attachmentType = 'مستند';
+        if ((req.file.mimetype || '').startsWith('image/')) attachmentType = 'صورة';
+        else if ((req.file.mimetype || '').startsWith('video/')) attachmentType = 'فيديو';
+        else if ((req.file.mimetype || '').includes('pdf')) attachmentType = 'PDF';
+
+        const sizeMb = (req.file.size / (1024 * 1024)).toFixed(2);
+        const record = {
+          name: req.file.originalname || req.file.filename,
+          type: attachmentType,
+          date: new Date().toISOString().slice(0, 10),
+          size: `${sizeMb} MB`,
+          status: 'موثق',
+          file_url: relativeUrl,
+          media_type: resolvedMediaType === 'attachment' ? attachmentType : resolvedMediaType
+        };
+
+        await db.query(
+          `INSERT INTO hr_employee_records
+           (employee_id, section, status, period, record, entity_id, entity_type)
+           VALUES ($1, 'attachments', $2, $3, $4, $5, $6)`,
+          [
+            employeeId,
+            'موثق',
+            record.date,
+            JSON.stringify(record),
+            entityId,
+            getRequestEntityContext(req).type
+          ]
+        );
+      }
+
+      const profileResult = await db.query(
+        `SELECT * FROM hr_employee_profiles
+         WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
+         LIMIT 1`,
+        [employeeId, entityId]
+      );
+
+      res.json({
+        success: true,
+        url: relativeUrl,
+        mediaType: resolvedMediaType,
+        profile: profileResult.rows[0] || null
+      });
+    });
+  } catch (error) {
+    console.error('Error uploading HR employee media:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+app.post('/api/hr/employee-profile/:employeeId/media', uploadHrEmployeeMedia);
+app.post('/api/hr-employee-profile/:employeeId/media', uploadHrEmployeeMedia);
 
 // HR Employee 360 Records
 const getHrEmployeeRecords = async (req, res) => {
