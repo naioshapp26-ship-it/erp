@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>قسم الموارد البشرية - نايوش HCM</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/finance/hr-portal-shell.css">
+  <style>
+    body { font-family: 'Tajawal', sans-serif; background: #f3f4f6; color: #0f172a; }
+    .box { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; }
+    .field label { display: block; font-size: 13px; font-weight: 800; color: #475569; margin-bottom: 6px; }
+    .field input, .field select, .field textarea {
+      width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-family: inherit;
+    }
+    .btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 10px; padding: 10px 14px; font-weight: 800; cursor: pointer; font-family: inherit; }
+    .btn-primary { background: #0f766e; color: #fff; }
+    .btn-ghost { background: #fff; border: 1px solid #e2e8f0; }
+    .btn-danger { background: #fef2f2; color: #be123c; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: right; font-size: 12px; color: #64748b; padding: 10px; background: #f8fafc; }
+    td { padding: 10px; border-top: 1px solid #f1f5f9; font-size: 13px; }
+    .hub-link { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; text-decoration: none; color: #0f172a; font-weight: 800; background: #fff; }
+    .hub-link:hover { border-color: #0f766e; color: #0f766e; }
+  </style>
+</head>
+<body class="hr-shell-active">
+  <div class="hr-app-layout">
+    <aside class="hr-sidebar" id="hr-sidebar"></aside>
+    <main class="hr-main">
+      <div class="hr-main-inner">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h1 class="hr-page-title" id="pageTitle">القسم</h1>
+            <p class="hr-page-subtitle" id="pageSubtitle">قسم تشغيلي جاهز، وأي طلب يذهب مباشرة إلى المدير للاعتماد.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <a id="dedicatedLink" class="btn btn-ghost" hidden href="#"><i class="fas fa-arrow-up-left"></i> الصفحة التفصيلية</a>
+            <span class="hr-chip stage" id="statusChip">جاهز للتشغيل</span>
+          </div>
+        </div>
+        <div id="extraPanel" class="mb-4"></div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <form id="opsForm" class="box p-4 space-y-3">
+            <h3 class="font-extrabold" id="formTitle">تسجيل / إرسال للمدير</h3>
+            <div id="fieldsWrap" class="space-y-3"></div>
+            <input type="hidden" id="recordId">
+            <div class="flex gap-2">
+              <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i> <span id="submitLabel">حفظ وإرسال للمدير</span></button>
+              <button class="btn btn-ghost" type="button" id="resetBtn">جديد</button>
+            </div>
+            <div id="formMsg" class="text-sm font-bold"></div>
+          </form>
+          <div class="box xl:col-span-2">
+            <div class="p-4 font-extrabold border-b flex items-center justify-between">
+              <span>السجلات الحالية</span>
+              <span class="text-xs text-slate-400" id="recordCount"></span>
+            </div>
+            <div id="tableWrap" class="p-2">جاري التحميل...</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="/finance/hr-portal-shell.js"></script>
+  <script>
+    const headers = { 'Content-Type': 'application/json', 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' };
+    const key = decodeURIComponent(location.pathname.replace(/\/$/, '').split('/').pop());
+    let moduleInfo = null;
+    let records = [];
+    const settingsCache = {};
+    const HUB_LINKS = [
+      { href: '/hr/employees', icon: 'fa-users', label: 'سجل الموظفين' },
+      { href: '/hr/my-requests', icon: 'fa-inbox', label: 'طلبات الموظفين' },
+      { href: '/hr/pending-actions', icon: 'fa-hourglass-half', label: 'بانتظار المدير' },
+      { href: '/hr/system-settings', icon: 'fa-gear', label: 'إعدادات النظام' },
+      { href: '/hr/new-hires', icon: 'fa-user-plus', label: 'التعيين' },
+      { href: '/hr/payroll', icon: 'fa-sack-dollar', label: 'الرواتب' }
+    ];
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    async function settingOptions(settingsKey) {
+      if (!settingsKey) return [];
+      if (settingsCache[settingsKey]) return settingsCache[settingsKey];
+      const loader = window.HRPortalShell && window.HRPortalShell.loadSettingRecords;
+      let rows = [];
+      if (loader) {
+        rows = await loader(settingsKey);
+      } else {
+        const res = await fetch(`/api/hr/system-settings/${encodeURIComponent(settingsKey)}`, { headers });
+        const data = await res.json();
+        rows = data.records || [];
+      }
+      const options = rows.map((row) => {
+        const data = row.data && typeof row.data === 'object' ? row.data : {};
+        return data.name || row.name || data.code || '';
+      }).filter(Boolean);
+      settingsCache[settingsKey] = options;
+      return options;
+    }
+
+    async function fieldInput(field, value = '') {
+      const val = value == null ? '' : String(value);
+      if (field.settingsKey || field.type === 'select') {
+        const fromSettings = field.settingsKey ? await settingOptions(field.settingsKey) : [];
+        const source = fromSettings.length ? fromSettings : (field.options || []);
+        const opts = source.map((o) => {
+          const optionValue = typeof o === 'object' ? o.value : o;
+          const label = typeof o === 'object' ? o.label : o;
+          return `<option value="${escapeHtml(optionValue)}" ${String(optionValue) === val ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+        }).join('');
+        return `<select name="${field.key}">${opts}</select>`;
+      }
+      if (field.type === 'textarea') return `<textarea name="${field.key}" rows="3">${escapeHtml(val)}</textarea>`;
+      return `<input name="${field.key}" type="${field.type || 'text'}" value="${escapeHtml(val)}">`;
+    }
+
+    function valuesFromForm() {
+      const data = {};
+      (moduleInfo.fields || []).forEach((f) => {
+        const el = document.querySelector(`[name="${f.key}"]`);
+        data[f.key] = el ? el.value : '';
+      });
+      return data;
+    }
+
+    async function renderFields(values = {}) {
+      const html = [];
+      for (const field of (moduleInfo.fields || [])) {
+        html.push(`<div class="field"><label>${escapeHtml(field.label)}</label>${await fieldInput(field, values[field.key])}</div>`);
+      }
+      document.getElementById('fieldsWrap').innerHTML = html.join('');
+    }
+
+    function renderTable() {
+      if (!records.length) {
+        document.getElementById('tableWrap').innerHTML = '<div class="p-6 text-slate-400 font-bold">لا توجد سجلات بعد</div>';
+        document.getElementById('recordCount').textContent = '';
+        return;
+      }
+      const cols = (moduleInfo.fields || []).slice(0, 4);
+      document.getElementById('recordCount').textContent = records.length + ' سجل';
+      document.getElementById('tableWrap').innerHTML = `
+        <table>
+          <thead><tr>${cols.map((c) => `<th>${escapeHtml(c.label)}</th>`).join('')}<th>الحالة</th><th></th></tr></thead>
+          <tbody>
+            ${records.map((row) => `
+              <tr>
+                ${cols.map((c) => `<td>${escapeHtml(row.data?.[c.key] ?? row[c.key] ?? row.name ?? '—')}</td>`).join('')}
+                <td>${escapeHtml(row.status || '—')}</td>
+                <td class="whitespace-nowrap">
+                  <button class="btn btn-ghost" data-edit="${row.id}" type="button">تعديل</button>
+                  <button class="btn btn-danger" data-del="${row.id}" type="button">حذف</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+      document.querySelectorAll('[data-edit]').forEach((btn) => btn.addEventListener('click', async () => {
+        const rec = records.find((r) => String(r.id) === btn.dataset.edit);
+        if (!rec) return;
+        document.getElementById('recordId').value = rec.id;
+        await renderFields(rec.data || rec);
+      }));
+      document.querySelectorAll('[data-del]').forEach((btn) => btn.addEventListener('click', async () => {
+        if (!confirm('حذف السجل؟')) return;
+        await fetch(`/api/hr/ops/${key}/${btn.dataset.del}`, { method: 'DELETE', headers });
+        await load();
+      }));
+    }
+
+    async function renderExtra() {
+      const panel = document.getElementById('extraPanel');
+      if (key === 'human-resources') {
+        panel.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-3">${HUB_LINKS.map((l) => `
+          <a class="hub-link" href="${l.href}"><i class="fas ${l.icon} text-teal-700"></i>${l.label}</a>
+        `).join('')}</div>`;
+        return;
+      }
+      if (key === 'reports') {
+        try {
+          const pending = await fetch('/api/hr/pending-actions', { headers }).then((r) => r.json());
+          const reqs = await fetch('/api/employee-requests', { headers }).then((r) => r.json());
+          const list = Array.isArray(reqs) ? reqs : [];
+          const managerCount = (pending.by_stage && pending.by_stage.manager) || 0;
+          panel.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="box p-4"><div class="text-xs text-slate-500 font-bold">عمليات بانتظار إجراء</div><div class="text-2xl font-black text-blue-700">${pending.count || 0}</div></div>
+              <div class="box p-4"><div class="text-xs text-slate-500 font-bold">بانتظار المدير المباشر</div><div class="text-2xl font-black text-violet-700">${managerCount}</div></div>
+              <div class="box p-4"><div class="text-xs text-slate-500 font-bold">إجمالي الطلبات</div><div class="text-2xl font-black text-slate-800">${list.length}</div></div>
+            </div>`;
+        } catch (err) {
+          panel.innerHTML = `<div class="box p-4 text-rose-600 font-bold">${escapeHtml(err.message)}</div>`;
+        }
+        return;
+      }
+      panel.innerHTML = '';
+    }
+
+    async function load() {
+      const res = await fetch(`/api/hr/ops/${key}`, { headers });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'تعذر التحميل');
+      moduleInfo = data.module;
+      records = data.records || [];
+      document.getElementById('pageTitle').textContent = moduleInfo.title;
+      document.getElementById('pageSubtitle').textContent = moduleInfo.subtitle;
+      document.title = moduleInfo.title + ' - نايوش HCM';
+      document.getElementById('submitLabel').textContent = moduleInfo.requestType ? 'إرسال للمدير المباشر' : 'حفظ السجل';
+      const dedicated = document.getElementById('dedicatedLink');
+      if (moduleInfo.href && moduleInfo.href !== '/hr/' + key) {
+        dedicated.hidden = false;
+        dedicated.href = moduleInfo.href;
+      }
+      if (!document.getElementById('recordId').value) await renderFields();
+      renderTable();
+      await renderExtra();
+    }
+
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      document.getElementById('recordId').value = '';
+      await renderFields();
+    });
+
+    document.getElementById('opsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const payload = valuesFromForm();
+        payload.name = payload.name || payload.title || payload.employee_name || moduleInfo.title;
+        const id = document.getElementById('recordId').value;
+        const saveRes = await fetch(id ? `/api/hr/ops/${key}/${id}` : `/api/hr/ops/${key}`, {
+          method: id ? 'PUT' : 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        const saved = await saveRes.json();
+        if (!saved.success) throw new Error(saved.error || 'فشل الحفظ');
+
+        if (moduleInfo.requestType && !id) {
+          const reqRes = await fetch('/api/employee-requests', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              id: `OPS-${Date.now()}`,
+              entityId: 'HQ001',
+              employeeId: payload.employee_id || payload.employeeId || 'EMP-SELF',
+              employeeName: payload.employee_name || payload.name || 'موظف',
+              requestType: moduleInfo.requestType,
+              requestTitle: moduleInfo.requestLabel || payload.name,
+              description: JSON.stringify(payload),
+              requestedDate: new Date().toISOString().slice(0, 10),
+              requestData: payload,
+              createdBy: payload.employee_name || 'موظف'
+            })
+          });
+          const reqData = await reqRes.json();
+          if (!reqData.success) throw new Error(reqData.error || 'فشل إرسال الطلب');
+        }
+
+        document.getElementById('formMsg').textContent = moduleInfo.requestType && !id
+          ? 'تم الحفظ وإرسال الطلب مباشرة إلى المدير المباشر'
+          : 'تم حفظ السجل وتشغيله';
+        document.getElementById('formMsg').className = 'text-sm font-bold text-emerald-700';
+        document.getElementById('recordId').value = '';
+        e.target.reset();
+        await load();
+      } catch (err) {
+        document.getElementById('formMsg').textContent = err.message;
+        document.getElementById('formMsg').className = 'text-sm font-bold text-rose-600';
+      }
+    });
+
+    load().catch((err) => {
+      document.getElementById('tableWrap').innerHTML = `<div class="p-6 text-rose-600 font-bold">${escapeHtml(err.message)}</div>`;
+    });
+  </script>
+</body>
+</html>

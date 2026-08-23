@@ -34,11 +34,13 @@ function isAdvanceType(requestType) {
  * Other: manager → hr
  */
 function getStagesForRequestType(requestType) {
-  if (isAdvanceType(requestType)) {
-    return STAGE_DEFS.map((s) => s.key);
+  const stages = isAdvanceType(requestType)
+    ? STAGE_DEFS.map((s) => s.key)
+    : ['manager', 'hr'];
+  if (stages[0] !== 'manager') {
+    return ['manager', ...stages.filter((s) => s !== 'manager')];
   }
-  // leave + general employee requests
-  return ['manager', 'hr'];
+  return stages;
 }
 
 function getStageLabel(stageKey) {

@@ -299,7 +299,30 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
     return injectGlobalBackButtonAssets(withDarkMode);
   }
   const withGlobalBack = injectGlobalBackButtonAssets(withFormValidation);
-  return injectTenantBrandingAssets(injectDarkModeAssets(withGlobalBack));
+  const withBranding = injectTenantBrandingAssets(injectDarkModeAssets(withGlobalBack));
+  const requestPath = String(req?.originalUrl || req?.path || '').split('?')[0];
+  if (requestPath === '/hr' || requestPath.startsWith('/hr/')) {
+    return injectHrPortalShellAssets(withBranding);
+  }
+  return withBranding;
+};
+
+const injectHrPortalShellAssets = (html) => {
+  if (!html) return html;
+  const cssTag = '<link rel="stylesheet" href="/finance/hr-portal-shell.css?v=hcm-ready-20260823">';
+  const jsTag = '<script src="/finance/hr-portal-shell.js?v=hcm-ready-20260823" defer></script>';
+  let output = html;
+  if (!output.includes('hr-portal-shell.css')) {
+    output = output.includes('</head>')
+      ? output.replace('</head>', `${cssTag}</head>`)
+      : `${cssTag}${output}`;
+  }
+  if (!output.includes('hr-portal-shell.js')) {
+    output = output.includes('</body>')
+      ? output.replace('</body>', `${jsTag}</body>`)
+      : `${output}${jsTag}`;
+  }
+  return output;
 };
 
 const sendHubPageHtml = (res, filePath, req) => {
@@ -3866,6 +3889,12 @@ app.use('/api/hr/skills', skillsManagementRoutes);
 const tasksManagementRoutes = require('./hr/api/tasks-management');
 app.use('/api/hr/tasks', tasksManagementRoutes);
 
+const hrSystemSettingsRoutes = require('./hr/api/system-settings');
+app.use('/api/hr/system-settings', hrSystemSettingsRoutes);
+
+const hrOpsModulesRoutes = require('./hr/api/ops-modules');
+app.use('/api/hr/ops', hrOpsModulesRoutes);
+
 // Helper function to build entity filter WHERE clause
 const getEntityFilter = (userEntity, tableAlias = '') => {
   const alias = tableAlias ? `${tableAlias}.` : '';
@@ -4187,7 +4216,18 @@ const hrRouteMap = {
   '/hr/quality-scoring': 'hr-quality-scoring.html',
   '/hr/text-chat': 'hr-text-chat.html',
   '/hr/assets-custodies': 'hr-assets-custodies.html',
-  '/hr/policies': 'hr-policies.html'
+  '/hr/policies': 'hr-policies.html',
+  '/hr/system-settings': 'hr-system-settings.html',
+  '/hr/human-resources': 'hr-ops-workspace.html',
+  '/hr/decisions': 'hr-ops-workspace.html',
+  '/hr/government-services': 'hr-ops-workspace.html',
+  '/hr/third-party-services': 'hr-ops-workspace.html',
+  '/hr/circulars': 'hr-ops-workspace.html',
+  '/hr/letters': 'hr-ops-workspace.html',
+  '/hr/recruitment': 'hr-ops-workspace.html',
+  '/hr/offers-benefits': 'hr-ops-workspace.html',
+  '/hr/surveys': 'hr-ops-workspace.html',
+  '/hr/reports': 'hr-ops-workspace.html'
 };
 
 const resolveHrTarget = (reqPath) => {
@@ -4195,6 +4235,9 @@ const resolveHrTarget = (reqPath) => {
   // Handle dynamic nocode system viewer routes like /hr/nocode-system/123
   if (/^\/hr\/nocode-system\/\d+$/.test(cleanPath)) {
     return 'hr-nocode-system.html';
+  }
+  if (/^\/hr\/system-settings\/[A-Za-z0-9_-]+$/.test(cleanPath)) {
+    return 'hr-system-settings-item.html';
   }
   return hrRouteMap[cleanPath] || 'hr-section.html';
 };
@@ -6821,7 +6864,12 @@ app.post('/api/employee-requests', async (req, res) => {
     const withWorkflowStatus = ['APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED'].includes(String(initialStatus).toUpperCase())
       ? initialStatus
       : 'PENDING';
-    const stageForInsert = withWorkflowStatus === 'PENDING' ? workflow.current_stage : (String(withWorkflowStatus).toUpperCase() === 'APPROVED' ? 'completed' : 'rejected');
+    if (withWorkflowStatus === 'PENDING') {
+      workflow.current_stage = 'manager';
+      const stages = Array.isArray(workflow.workflow_stages) ? workflow.workflow_stages.filter((s) => s !== 'manager') : ['hr'];
+      workflow.workflow_stages = ['manager', ...stages];
+    }
+    const stageForInsert = withWorkflowStatus === 'PENDING' ? 'manager' : (String(withWorkflowStatus).toUpperCase() === 'APPROVED' ? 'completed' : 'rejected');
 
     // Validate required fields
     if (isTenantHostRequest(req)) {
@@ -11535,7 +11583,7 @@ app.post('/api/leave-requests', async (req, res) => {
     const employeeStatus = mapLeaveStatus(status);
     const requestTitle = leave_type ? `طلب اجازة (${leave_type})` : 'طلب اجازة';
     const leaveWorkflow = hrRequestWorkflow.buildInitialWorkflow('إجازة');
-    const leaveStage = employeeStatus === 'PENDING' ? leaveWorkflow.current_stage : (employeeStatus === 'APPROVED' ? 'completed' : 'rejected');
+    const leaveStage = employeeStatus === 'PENDING' ? 'manager' : (employeeStatus === 'APPROVED' ? 'completed' : 'rejected');
 
     await client.query(
       `INSERT INTO employee_requests (
@@ -11702,7 +11750,7 @@ app.put('/api/leave-requests/:id', async (req, res) => {
     const requestTitle = mergedLeaveType ? `طلب اجازة (${mergedLeaveType})` : 'طلب اجازة';
     const requestData = JSON.stringify({ leave_request_id: current.id, leave_type: mergedLeaveType, days_count: updatedDays });
     const leaveWorkflow = hrRequestWorkflow.buildInitialWorkflow('إجازة');
-    const leaveStage = employeeStatus === 'PENDING' ? leaveWorkflow.current_stage : (employeeStatus === 'APPROVED' ? 'completed' : 'rejected');
+    const leaveStage = employeeStatus === 'PENDING' ? 'manager' : (employeeStatus === 'APPROVED' ? 'completed' : 'rejected');
 
     await client.query(
       `INSERT INTO employee_requests (

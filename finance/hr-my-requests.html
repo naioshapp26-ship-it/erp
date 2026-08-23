@@ -313,6 +313,25 @@
       }).join('');
     };
 
+    const fillLeaveTypes = async () => {
+      try {
+        const res = await fetch('/api/hr/system-settings/leave-types', {
+          headers: { 'Content-Type': 'application/json', 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' }
+        });
+        const data = await res.json();
+        const rows = data.records || [];
+        if (!rows.length) return;
+        const sel = document.getElementById('leaveType');
+        const current = sel.value;
+        sel.innerHTML = rows.map((row) => {
+          const rec = row.data && typeof row.data === 'object' ? row.data : {};
+          const name = rec.name || row.name;
+          return `<option value="${sanitize(name)}">${sanitize(name)}</option>`;
+        }).join('');
+        if ([...sel.options].some((o) => o.value === current)) sel.value = current;
+      } catch (_) { /* keep defaults */ }
+    };
+
     const loadPendingBadge = async () => {
       try {
         const data = await api('/api/hr/pending-actions?count_only=1');
@@ -424,6 +443,7 @@
       setTab('advance');
     }
 
+    fillLeaveTypes();
     loadRequests();
     setInterval(loadPendingBadge, 15000);
   </script>
