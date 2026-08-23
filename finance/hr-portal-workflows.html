@@ -168,7 +168,7 @@
     @media (max-width: 768px) { .hero-orb { width: 120px; height: 120px; } .btn { width: 100%; } }
     button.bg-white, a.bg-white, .btn-ghost { color: #0f172a !important; }
   </style>
-  <link rel="stylesheet" href="contrast-overrides.css">
+  <link rel="stylesheet" href="/finance/contrast-overrides.css">
 </head>
 <body>
 <div class="container mx-auto px-4 py-8 max-w-7xl">
@@ -968,31 +968,49 @@ ______________________________
 
         async function loadData() {
             setStatus('جاري تحميل البيانات...', 'info');
-            try {
-                const [employeesData, requestsData, typesData, branchesData, hqData] = await Promise.all([
-                    fetchJSON(`${API_BASE}/api/employees`),
-                    fetchJSON(`${API_BASE}/api/employee-requests`),
-                    fetchJSON(`${API_BASE}/api/request-types`),
-                    fetchJSON(`${API_BASE}/api/branches`),
-                    fetchJSON(`${API_BASE}/api/headquarters`)
-                ]);
+            const endpoints = [
+                { key: 'employees', url: `${API_BASE}/api/employees`, fallback: [] },
+                { key: 'requests', url: `${API_BASE}/api/employee-requests`, fallback: [] },
+                { key: 'types', url: `${API_BASE}/api/request-types`, fallback: [] },
+                { key: 'branches', url: `${API_BASE}/api/branches`, fallback: [] },
+                { key: 'headquarters', url: `${API_BASE}/api/headquarters`, fallback: [] }
+            ];
 
-                employees = Array.isArray(employeesData) ? employeesData : [];
-                requests = Array.isArray(requestsData) ? requestsData : [];
-                requestTypes = Array.isArray(typesData) ? typesData : [];
-                branches = Array.isArray(branchesData) ? branchesData : [];
-                headquarters = Array.isArray(hqData) ? hqData : [];
+            const results = await Promise.allSettled(
+                endpoints.map((entry) => fetchJSON(entry.url))
+            );
 
-                populateSelectors();
-                renderTables();
-                resetRequestForm();
-                resetEmployeeForm();
-                resetTypeForm();
-                setStatus('تم تحديث البيانات بنجاح', 'success');
-            } catch (error) {
-                console.error('خطأ في تحميل البيانات:', error);
+            const data = {};
+            let failedCount = 0;
+            endpoints.forEach((entry, index) => {
+                const result = results[index];
+                if (result.status === 'fulfilled') {
+                    data[entry.key] = Array.isArray(result.value) ? result.value : (result.value?.rows || []);
+                } else {
+                    failedCount += 1;
+                    data[entry.key] = entry.fallback;
+                    console.warn(`تعذر تحميل ${entry.key}:`, result.reason?.message || result.reason);
+                }
+            });
+
+            employees = data.employees || [];
+            requests = data.requests || [];
+            requestTypes = data.types || [];
+            branches = data.branches || [];
+            headquarters = data.headquarters || [];
+
+            populateSelectors();
+            renderTables();
+            resetRequestForm();
+            resetEmployeeForm();
+            resetTypeForm();
+
+            if (failedCount === endpoints.length) {
                 setStatus('تعذر تحميل البيانات - تحقق من الاتصال', 'danger');
-                renderTables();
+            } else if (failedCount > 0) {
+                setStatus(`تم تحميل البيانات جزئياً (${failedCount} مصدر غير متاح)`, 'warning');
+            } else {
+                setStatus('تم تحديث البيانات بنجاح', 'success');
             }
         }
 
@@ -1755,6 +1773,13 @@ ______________________________
             if (el) el.scrollIntoView({ behavior: 'smooth' });
         }
     
+        window.switchTab = switchTab;
+        window.openFormModal = openFormModal;
+        window.closeFormModal = closeFormModal;
+        window.refreshData = refreshData;
+        window.downloadAllCSV = downloadAllCSV;
+        window.printReport = printReport;
+
         document.querySelectorAll('.modal-overlay').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) modal.classList.remove('open');
