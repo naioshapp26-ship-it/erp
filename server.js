@@ -309,8 +309,8 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
 
 const injectHrPortalShellAssets = (html) => {
   if (!html) return html;
-  const cssTag = '<link rel="stylesheet" href="/finance/hr-portal-shell.css?v=hcm-nav-20260823">';
-  const jsTag = '<script src="/finance/hr-portal-shell.js?v=hcm-nav-20260823" defer></script>';
+  const cssTag = '<link rel="stylesheet" href="/finance/hr-portal-shell.css?v=hcm-ready-20260823">';
+  const jsTag = '<script src="/finance/hr-portal-shell.js?v=hcm-ready-20260823" defer></script>';
   let output = html;
   if (!output.includes('hr-portal-shell.css')) {
     output = output.includes('</head>')

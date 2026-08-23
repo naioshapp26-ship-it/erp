@@ -48,6 +48,11 @@
               <button class="btn btn-ghost" type="button" id="resetBtn">جديد</button>
             </div>
             <div id="formMsg" class="text-sm font-bold"></div>
+            <div class="pt-3 border-t">
+              <label class="text-xs font-extrabold text-slate-500">استيراد CSV</label>
+              <input id="csvFile" type="file" accept=".csv,text/csv" class="mt-2 text-sm">
+              <div class="text-xs text-slate-400 mt-1">العمود الأول الرمز ثم الاسم ثم بقية الحقول بالترتيب.</div>
+            </div>
           </form>
           <div class="box xl:col-span-2 overflow-auto">
             <div class="p-4 font-extrabold border-b">السجلات التشغيلية</div>
@@ -162,6 +167,30 @@
     document.getElementById('resetBtn').addEventListener('click', () => {
       document.getElementById('recordId').value = '';
       renderFields();
+    });
+
+    document.getElementById('csvFile').addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      if (!lines.length) return;
+      const start = /رمز|code|الاسم/i.test(lines[0]) ? 1 : 0;
+      let imported = 0;
+      for (const line of lines.slice(start)) {
+        const cells = line.split(',').map((c) => c.replace(/^"|"$/g, '').trim());
+        const payload = {};
+        fields.forEach((f, idx) => { payload[f.key] = cells[idx] || ''; });
+        if (!payload.name) payload.name = cells[1] || cells[0] || 'سجل مستورد';
+        if (!payload.code) payload.code = cells[0] || `IMP-${Date.now()}-${imported}`;
+        const res = await fetch(`/api/hr/system-settings/${key}`, { method: 'POST', headers, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (data.success) imported += 1;
+      }
+      document.getElementById('formMsg').textContent = `تم استيراد ${imported} سجل`;
+      document.getElementById('formMsg').className = 'text-sm font-bold text-emerald-600';
+      e.target.value = '';
+      await load();
     });
 
     load().catch((err) => {

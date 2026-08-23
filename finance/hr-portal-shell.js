@@ -117,32 +117,33 @@
       </div>`;
   }
 
+  async function loadSettingRecords(key) {
+    try {
+      const res = await fetch(`/api/hr/system-settings/${encodeURIComponent(key)}`, { headers: apiHeaders() });
+      const data = await res.json();
+      if (!data.success) return [];
+      return data.records || [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function recordLabel(record) {
+    const data = record?.data && typeof record.data === 'object' ? record.data : {};
+    return data.name || record?.name || data.code || record?.code || `#${record?.id || ''}`;
+  }
+
   function ensureLayout() {
     document.body.classList.add('hr-shell-active');
-    if (document.getElementById('hr-sidebar')) {
-      return document.getElementById('hr-sidebar');
-    }
+    const existing = document.getElementById('hr-sidebar');
+    if (existing) return existing;
 
-    const layout = document.createElement('div');
-    layout.className = 'hr-app-layout hr-injected-layout';
     const sidebar = document.createElement('aside');
     sidebar.className = 'hr-sidebar';
     sidebar.id = 'hr-sidebar';
     sidebar.setAttribute('aria-label', 'القائمة الجانبية');
-    const main = document.createElement('main');
-    main.className = 'hr-main';
-    main.id = 'hr-main-injected';
-
-    const skipTags = new Set(['SCRIPT', 'LINK', 'STYLE']);
-    const moving = [];
-    Array.from(document.body.childNodes).forEach((node) => {
-      if (node.nodeType === 1 && skipTags.has(node.tagName)) return;
-      moving.push(node);
-    });
-    moving.forEach((node) => main.appendChild(node));
-    layout.appendChild(sidebar);
-    layout.appendChild(main);
-    document.body.appendChild(layout);
+    document.body.appendChild(sidebar);
+    document.body.classList.add('hr-has-injected-sidebar');
     return sidebar;
   }
 
@@ -197,6 +198,9 @@
     window.HRPortalShell = {
       STAGE_LABELS,
       NAV,
+      headers: apiHeaders,
+      loadSettingRecords,
+      recordLabel,
       refreshBadges: async () => {
         const d = await fetchDashboard();
         const next = { pending: d.pending?.count || 0, newHires: d.new_hires_pending || 0 };

@@ -81,6 +81,29 @@ router.get('/:key', async (req, res) => {
   }
 });
 
+router.put('/:key/:id', async (req, res) => {
+  try {
+    await readyPromise;
+    const mod = getOpsModule(req.params.key);
+    if (!mod) return res.status(404).json({ success: false, error: 'القسم غير موجود' });
+    const entityId = entityIdOf(req);
+    const body = req.body || {};
+    const name = String(body.name || body.title || '').trim();
+    if (!name) return res.status(400).json({ success: false, error: 'الاسم مطلوب' });
+    const updated = await db.query(
+      `UPDATE hr_ops_records
+       SET name = $1, status = $2, data = $3::jsonb, updated_at = NOW()
+       WHERE id = $4 AND module_key = $5 AND entity_id = $6
+       RETURNING *`,
+      [name, body.status || 'نشط', JSON.stringify(body), req.params.id, mod.key, entityId]
+    );
+    if (!updated.rows.length) return res.status(404).json({ success: false, error: 'السجل غير موجود' });
+    res.json({ success: true, record: updated.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.post('/:key', async (req, res) => {
   try {
     await readyPromise;

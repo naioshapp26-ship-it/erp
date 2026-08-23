@@ -37,7 +37,7 @@ const OPS_MODULES = {
     requestLabel: 'طلب إجراء موارد بشرية',
     fields: [
       { key: 'name', label: 'عنوان الإجراء' },
-      { key: 'department', label: 'القسم' },
+      { key: 'department', label: 'القسم', settingsKey: 'departments' },
       { key: 'priority', label: 'الأولوية', type: 'select', options: ['عادي', 'عاجل'] }
     ],
     seeds: [
@@ -179,7 +179,7 @@ const OPS_MODULES = {
     requestType: 'خطاب',
     requestLabel: 'طلب خطاب',
     fields: [
-      { key: 'name', label: 'نوع الخطاب' },
+      { key: 'name', label: 'نوع الخطاب', settingsKey: 'letter-types' },
       { key: 'employee_name', label: 'الموظف' },
       { key: 'destination', label: 'الجهة' }
     ],
@@ -197,8 +197,8 @@ const OPS_MODULES = {
     requestType: 'توظيف',
     requestLabel: 'طلب توظيف',
     fields: [
-      { key: 'name', label: 'المسمى المطلوب' },
-      { key: 'department', label: 'القسم' },
+      { key: 'name', label: 'المسمى المطلوب', settingsKey: 'job-titles' },
+      { key: 'department', label: 'القسم', settingsKey: 'departments' },
       { key: 'headcount', label: 'العدد', type: 'number' }
     ],
     seeds: [
@@ -231,7 +231,7 @@ const OPS_MODULES = {
     requestType: 'عهدة',
     requestLabel: 'طلب صرف عهدة',
     fields: [
-      { key: 'name', label: 'الصنف' },
+      { key: 'name', label: 'الصنف', settingsKey: 'asset-types' },
       { key: 'employee_name', label: 'الموظف' },
       { key: 'serial', label: 'الرقم التسلسلي' }
     ],

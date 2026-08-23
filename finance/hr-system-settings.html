@@ -32,7 +32,7 @@
         <div class="topbar">
           <div class="font-bold text-slate-600">مرحباً بك في إعدادات النظام</div>
           <div class="topbar-actions">
-            <i class="fas fa-magnifying-glass"></i>
+            <input id="settingsSearch" type="search" placeholder="بحث في الإعدادات" class="border border-slate-200 rounded-lg px-3 py-1 text-sm w-48">
             <i class="fas fa-expand"></i>
             <i class="fas fa-bell"></i>
             <i class="fas fa-user-circle text-lg"></i>
@@ -58,19 +58,34 @@
       return `<a href="${item.href}"><i class="fas fa-gear"></i><span>${item.label}</span>${tag}</a>`;
     }
 
+    let catalogGroups = [];
+
+    function renderCatalog(filter = '') {
+      const q = String(filter || '').trim();
+      const grid = document.getElementById('settingsGrid');
+      const groups = catalogGroups.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !q || item.label.includes(q) || group.title.includes(q))
+      })).filter((group) => group.items.length);
+      grid.innerHTML = groups.map((group) => `
+        <section class="settings-card">
+          <h3>${group.title}</h3>
+          ${group.items.map(gearLink).join('')}
+        </section>
+      `).join('') || '<div class="text-slate-500 font-bold">لا توجد نتائج</div>';
+    }
+
     async function loadCatalog() {
       const grid = document.getElementById('settingsGrid');
       grid.innerHTML = '<div class="text-slate-500">جاري التحميل...</div>';
       const res = await fetch('/api/hr/system-settings/catalog', { headers });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'فشل التحميل');
-      grid.innerHTML = data.groups.map((group) => `
-        <section class="settings-card">
-          <h3>${group.title}</h3>
-          ${group.items.map(gearLink).join('')}
-        </section>
-      `).join('');
+      catalogGroups = data.groups || [];
+      renderCatalog();
     }
+
+    document.getElementById('settingsSearch').addEventListener('input', (e) => renderCatalog(e.target.value));
 
     loadCatalog().catch((err) => {
       document.getElementById('settingsGrid').innerHTML = `<div class="text-rose-600 font-bold">${err.message}</div>`;
