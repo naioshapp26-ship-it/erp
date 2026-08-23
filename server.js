@@ -307,11 +307,16 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   return withBranding;
 };
 
+const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-hero-red-20260823b';
+
 const injectHrPortalShellAssets = (html) => {
   if (!html) return html;
-  const cssTag = '<link rel="stylesheet" href="/finance/hr-portal-shell.css?v=hcm-hero-red-20260823">';
-  const jsTag = '<script src="/finance/hr-portal-shell.js?v=hcm-hero-red-20260823" defer></script>';
-  let output = html;
+  const cssHref = `/finance/hr-portal-shell.css?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
+  const jsHref = `/finance/hr-portal-shell.js?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
+  const cssTag = `<link rel="stylesheet" href="${cssHref}">`;
+  const jsTag = `<script src="${jsHref}" defer></script>`;
+  let output = html.replace(/\/finance\/hr-portal-shell\.css(\?[^"'>\s]*)?/g, cssHref.replace(/^\//, '/'));
+  output = output.replace(/\/finance\/hr-portal-shell\.js(\?[^"'>\s]*)?/g, jsHref.replace(/^\//, '/'));
   if (!output.includes('hr-portal-shell.css')) {
     output = output.includes('</head>')
       ? output.replace('</head>', `${cssTag}</head>`)
