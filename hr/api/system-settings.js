@@ -12,6 +12,11 @@ const {
   settingRequiresEmployeeNumber,
   payloadEmployeeNumber
 } = require('../../hr-employee-fields');
+const {
+  isReadableSettingText,
+  isCorruptedSettingRecord,
+  normalizeSeedData
+} = require('../../hr-setting-record-safety');
 
 const DEFAULT_ENTITY = 'HQ001';
 
@@ -51,16 +56,62 @@ const seedIfEmpty = async (catalogKey, entityId) => {
   if ((countRes.rows[0]?.count || 0) > 0) return;
 
   for (const seed of item.seeds || []) {
-    const data = { ...seed };
-    const name = data.name || item.label;
-    const code = data.code || null;
-    const status = data.status || 'نشط';
-    await db.query(
-      `INSERT INTO hr_system_setting_records (catalog_key, code, name, status, data, entity_id)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
-      [catalogKey, code, name, status, JSON.stringify(data), entityId]
-    );
+    await upsertSeedRecord(item, entityId, seed);
   }
+};
+
+const upsertSeedRecord = async (item, entityId, seed) => {
+  const data = normalizeSeedData(seed, item);
+  const code = data.code || null;
+  const name = data.name || item.label;
+  const status = data.status || 'نشط';
+  if (code) {
+    const existing = await db.query(
+      'SELECT id FROM hr_system_setting_records WHERE catalog_key = $1 AND entity_id = $2 AND code = $3',
+      [item.key, entityId, code]
+    );
+    if (existing.rows.length) {
+      await db.query(
+        `UPDATE hr_system_setting_records
+         SET name = $1, status = $2, data = $3::jsonb, updated_at = NOW()
+         WHERE id = $4`,
+        [name, status, JSON.stringify(data), existing.rows[0].id]
+      );
+      return;
+    }
+  }
+  await db.query(
+    `INSERT INTO hr_system_setting_records (catalog_key, code, name, status, data, entity_id)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
+    [item.key, code, name, status, JSON.stringify(data), entityId]
+  );
+};
+
+const repairCatalogSeedRecords = async (item, entityId) => {
+  for (const seed of item.seeds || []) {
+    if (!seed?.code) continue;
+    await upsertSeedRecord(item, entityId, seed);
+  }
+};
+
+const purgeCorruptedSettingRecords = async (catalogKey, entityId, seedCodes = []) => {
+  const protectedCodes = new Set(seedCodes.filter(Boolean));
+  const result = await db.query(
+    'SELECT id, code, name FROM hr_system_setting_records WHERE catalog_key = $1 AND entity_id = $2',
+    [catalogKey, entityId]
+  );
+  for (const row of result.rows) {
+    if (!isCorruptedSettingRecord(row)) continue;
+    if (row.code && protectedCodes.has(row.code)) continue;
+    await db.query('DELETE FROM hr_system_setting_records WHERE id = $1', [row.id]);
+  }
+};
+
+const prepareCatalogRecords = async (item, entityId) => {
+  await seedIfEmpty(item.key, entityId);
+  await repairCatalogSeedRecords(item, entityId);
+  const seedCodes = (item.seeds || []).map((seed) => seed.code).filter(Boolean);
+  await purgeCorruptedSettingRecords(item.key, entityId, seedCodes);
 };
 
 const mapRow = (row, item) => {
@@ -79,7 +130,9 @@ const mapRow = (row, item) => {
       ? item.fields.map((f) => ({
           key: f.key,
           label: f.label,
-          value: data[f.key] != null ? data[f.key] : (row[f.key] != null ? row[f.key] : '')
+          value: (['name', 'code', 'status'].includes(f.key) && row[f.key] != null)
+            ? row[f.key]
+            : (data[f.key] != null ? data[f.key] : (row[f.key] != null ? row[f.key] : ''))
         }))
       : []
   };
@@ -104,7 +157,7 @@ router.get('/:key', async (req, res) => {
     const item = getItem(req.params.key);
     if (!item) return res.status(404).json({ success: false, error: 'عنصر الإعدادات غير موجود' });
     const entityId = entityIdOf(req);
-    await seedIfEmpty(item.key, entityId);
+    await prepareCatalogRecords(item, entityId);
     const result = await db.query(
       `SELECT * FROM hr_system_setting_records
        WHERE catalog_key = $1 AND entity_id = $2
@@ -144,10 +197,16 @@ router.post('/:key', async (req, res) => {
     });
     const name = String(data.name || body.name || '').trim();
     if (!name) return res.status(400).json({ success: false, error: 'الاسم مطلوب' });
+    if (!isReadableSettingText(name)) {
+      return res.status(400).json({ success: false, error: 'الاسم يحتوي على بيانات غير صالحة. تأكد من ترميز الملف UTF-8 عند الاستيراد.' });
+    }
     if (settingRequiresEmployeeNumber(item.key) && !payloadEmployeeNumber({ ...data, ...body })) {
       return res.status(400).json({ success: false, error: 'رقم الموظف مطلوب' });
     }
     const code = data.code || body.code || null;
+    if (code && !isReadableSettingText(code, { minReadableRatio: 0.6, maxLength: 80 })) {
+      return res.status(400).json({ success: false, error: 'الرمز يحتوي على بيانات غير صالحة' });
+    }
     const status = data.status || body.status || 'نشط';
     const inserted = await db.query(
       `INSERT INTO hr_system_setting_records (catalog_key, code, name, status, data, entity_id)
@@ -181,10 +240,16 @@ router.put('/:key/:id', async (req, res) => {
       else if (body.data && body.data[f.key] !== undefined) data[f.key] = body.data[f.key];
     });
     const name = String(data.name || body.name || prev.name).trim();
+    if (!isReadableSettingText(name)) {
+      return res.status(400).json({ success: false, error: 'الاسم يحتوي على بيانات غير صالحة' });
+    }
     if (settingRequiresEmployeeNumber(item.key) && !payloadEmployeeNumber({ ...data, ...body })) {
       return res.status(400).json({ success: false, error: 'رقم الموظف مطلوب' });
     }
     const code = data.code || body.code || prev.code;
+    if (code && !isReadableSettingText(code, { minReadableRatio: 0.6, maxLength: 80 })) {
+      return res.status(400).json({ success: false, error: 'الرمز يحتوي على بيانات غير صالحة' });
+    }
     const status = data.status || body.status || prev.status;
     const updated = await db.query(
       `UPDATE hr_system_setting_records

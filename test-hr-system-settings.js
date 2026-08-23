@@ -4,6 +4,10 @@ const { getCatalogPublic, getItem, listItemKeys } = require('./hr-system-setting
 const { listOpsModules, getOpsModule } = require('./hr-ops-modules');
 const { buildInitialWorkflow, getStagesForRequestType } = require('./hr-request-workflow');
 const { settingRequiresEmployeeNumber } = require('./hr-employee-fields');
+const {
+  isReadableSettingText,
+  isCorruptedSettingRecord
+} = require('./hr-setting-record-safety');
 
 const groups = getCatalogPublic();
 assert.ok(groups.length >= 12, `expected 12+ settings groups, got ${groups.length}`);
@@ -34,6 +38,11 @@ assert.ok(uploadEmployees.fields.some((f) => f.key === 'employee_number' && f.re
 
 const letters = getOpsModule('letters');
 assert.ok(letters.fields.some((f) => f.key === 'employee_id' && f.required), 'letters must require employee_id');
+
+assert.ok(isReadableSettingText('قالب الموظفين الأساسي'));
+assert.ok(!isReadableSettingText('\uFFFD\uFFFD'));
+assert.ok(isCorruptedSettingRecord({ name: '\uFFFD\uFFFD', code: 'X' }));
+assert.ok(!isCorruptedSettingRecord({ name: 'قالب الموظفين الأساسي', code: 'UPE-001' }));
 
 const ops = listOpsModules();
 assert.ok(ops.find((m) => m.key === 'decisions'));
