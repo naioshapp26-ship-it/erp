@@ -28,6 +28,7 @@ const {
   buildEntityScopeCondition
 } = require('./entity-context');
 const hrRequestWorkflow = require('./hr-request-workflow');
+const { payloadEmployeeNumber } = require('./hr-employee-fields');
 
 const app = express();
 const databaseReady = ensureDatabaseReady();
@@ -6888,6 +6889,9 @@ app.post('/api/employee-requests', async (req, res) => {
       if (!id || !employeeName || !requestType || !requestTitle || !requestedDate) {
         return res.status(400).json({ error: 'الرجاء تعبئة جميع الحقول المطلوبة' });
       }
+      if (!payloadEmployeeNumber({ employee_id: employeeId, employeeId })) {
+        return res.status(400).json({ error: 'رقم الموظف مطلوب' });
+      }
 
       const tenantInsertQuery = `
         INSERT INTO employee_requests (
@@ -6929,6 +6933,9 @@ app.post('/api/employee-requests', async (req, res) => {
 
     if (!id || !owningEntityId || !employeeName || !requestType || !requestTitle || !requestedDate) {
       return res.status(400).json({ error: 'الرجاء تعبئة جميع الحقول المطلوبة' });
+    }
+    if (!payloadEmployeeNumber({ employee_id: employeeId, employeeId })) {
+      return res.status(400).json({ error: 'رقم الموظف مطلوب' });
     }
 
     // Insert request
@@ -11548,6 +11555,10 @@ app.post('/api/leave-requests', async (req, res) => {
     if (!employee_name || !start_date || !end_date) {
       client.release();
       return res.status(400).json({ error: 'اسم الموظف وتواريخ الإجازة مطلوبة' });
+    }
+    if (!payloadEmployeeNumber({ employee_id, employee_number: employee_id })) {
+      client.release();
+      return res.status(400).json({ error: 'رقم الموظف مطلوب' });
     }
 
     const computedDays = Number(days_count) || computeLeaveDays(start_date, end_date) || 0;

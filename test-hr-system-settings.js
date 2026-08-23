@@ -3,6 +3,7 @@ const assert = require('assert');
 const { getCatalogPublic, getItem, listItemKeys } = require('./hr-system-settings-catalog');
 const { listOpsModules, getOpsModule } = require('./hr-ops-modules');
 const { buildInitialWorkflow, getStagesForRequestType } = require('./hr-request-workflow');
+const { settingRequiresEmployeeNumber } = require('./hr-employee-fields');
 
 const groups = getCatalogPublic();
 assert.ok(groups.length >= 12, `expected 12+ settings groups, got ${groups.length}`);
@@ -19,7 +20,20 @@ keys.forEach((key) => {
   assert.ok(item, `missing item ${key}`);
   assert.ok(item.fields.length >= 2, `fields missing for ${key}`);
   assert.ok(item.seeds.length >= 1, `seeds missing for ${key}`);
+  if (settingRequiresEmployeeNumber(key)) {
+    const field = item.fields.find((f) => f.key === 'employee_number');
+    assert.ok(field && field.required, `employee_number required field missing for ${key}`);
+    item.seeds.forEach((seed, index) => {
+      assert.ok(seed.employee_number, `seed ${index} missing employee_number for ${key}`);
+    });
+  }
 });
+
+const uploadEmployees = getItem('upload-employees');
+assert.ok(uploadEmployees.fields.some((f) => f.key === 'employee_number' && f.required), 'upload-employees must require employee_number');
+
+const letters = getOpsModule('letters');
+assert.ok(letters.fields.some((f) => f.key === 'employee_id' && f.required), 'letters must require employee_id');
 
 const ops = listOpsModules();
 assert.ok(ops.find((m) => m.key === 'decisions'));

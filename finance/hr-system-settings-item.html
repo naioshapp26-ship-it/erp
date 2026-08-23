@@ -51,7 +51,7 @@
             <div class="pt-3 border-t">
               <label class="text-xs font-extrabold text-slate-500">استيراد CSV</label>
               <input id="csvFile" type="file" accept=".csv,text/csv" class="mt-2 text-sm">
-              <div class="text-xs text-slate-400 mt-1">العمود الأول الرمز ثم الاسم ثم بقية الحقول بالترتيب.</div>
+              <div class="text-xs text-slate-400 mt-1">الأعمدة بالترتيب: الرمز، رقم الموظف (إن وجد)، الاسم، ثم بقية الحقول.</div>
             </div>
           </form>
           <div class="box xl:col-span-2 overflow-auto">
@@ -70,12 +70,13 @@
 
     function inputHtml(field, value = '') {
       const val = value == null ? '' : value;
+      const requiredAttr = field.required ? ' required' : '';
       if (field.type === 'select') {
         const opts = (field.options || []).map((o) => `<option value="${o.value}" ${String(o.value) === String(val) ? 'selected' : ''}>${o.label}</option>`).join('');
-        return `<select name="${field.key}">${opts}</select>`;
+        return `<select name="${field.key}"${requiredAttr}>${opts}</select>`;
       }
-      if (field.type === 'textarea') return `<textarea name="${field.key}" rows="3">${val}</textarea>`;
-      return `<input name="${field.key}" type="${field.type || 'text'}" value="${val}">`;
+      if (field.type === 'textarea') return `<textarea name="${field.key}" rows="3"${requiredAttr}>${val}</textarea>`;
+      return `<input name="${field.key}" type="${field.type || 'text'}" value="${val}"${requiredAttr}>`;
     }
 
     function renderFields(values = {}) {
@@ -144,14 +145,29 @@
       return data;
     }
 
+    function validateForm(payload) {
+      for (const field of fields) {
+        if (field.required && !String(payload[field.key] || '').trim()) {
+          return `${field.label} مطلوب`;
+        }
+      }
+      return '';
+    }
+
     document.getElementById('recordForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const payload = formValues();
+      const validationError = validateForm(payload);
+      const msg = document.getElementById('formMsg');
+      if (validationError) {
+        msg.textContent = validationError;
+        msg.className = 'text-sm font-bold text-rose-600';
+        return;
+      }
       const id = document.getElementById('recordId').value;
       const url = id ? `/api/hr/system-settings/${key}/${id}` : `/api/hr/system-settings/${key}`;
       const res = await fetch(url, { method: id ? 'PUT' : 'POST', headers, body: JSON.stringify(payload) });
       const data = await res.json();
-      const msg = document.getElementById('formMsg');
       if (!data.success) {
         msg.textContent = data.error || 'فشل الحفظ';
         msg.className = 'text-sm font-bold text-rose-600';

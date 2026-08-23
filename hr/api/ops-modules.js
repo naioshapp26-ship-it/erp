@@ -4,6 +4,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../../db');
 const { listOpsModules, getOpsModule } = require('../../hr-ops-modules');
+const {
+  moduleRequiresEmployeeNumber,
+  payloadEmployeeNumber
+} = require('../../hr-employee-fields');
 
 const DEFAULT_ENTITY = 'HQ001';
 
@@ -90,6 +94,9 @@ router.put('/:key/:id', async (req, res) => {
     const body = req.body || {};
     const name = String(body.name || body.title || '').trim();
     if (!name) return res.status(400).json({ success: false, error: 'الاسم مطلوب' });
+    if (moduleRequiresEmployeeNumber(mod.fields) && !payloadEmployeeNumber(body)) {
+      return res.status(400).json({ success: false, error: 'رقم الموظف مطلوب' });
+    }
     const updated = await db.query(
       `UPDATE hr_ops_records
        SET name = $1, status = $2, data = $3::jsonb, updated_at = NOW()
@@ -113,6 +120,9 @@ router.post('/:key', async (req, res) => {
     const body = req.body || {};
     const name = String(body.name || body.title || '').trim();
     if (!name) return res.status(400).json({ success: false, error: 'الاسم مطلوب' });
+    if (moduleRequiresEmployeeNumber(mod.fields) && !payloadEmployeeNumber(body)) {
+      return res.status(400).json({ success: false, error: 'رقم الموظف مطلوب' });
+    }
     const inserted = await db.query(
       `INSERT INTO hr_ops_records (module_key, name, status, data, entity_id)
        VALUES ($1, $2, $3, $4::jsonb, $5) RETURNING *`,

@@ -8,6 +8,10 @@ const {
   getItem,
   listItemKeys
 } = require('../../hr-system-settings-catalog');
+const {
+  settingRequiresEmployeeNumber,
+  payloadEmployeeNumber
+} = require('../../hr-employee-fields');
 
 const DEFAULT_ENTITY = 'HQ001';
 
@@ -140,6 +144,9 @@ router.post('/:key', async (req, res) => {
     });
     const name = String(data.name || body.name || '').trim();
     if (!name) return res.status(400).json({ success: false, error: 'الاسم مطلوب' });
+    if (settingRequiresEmployeeNumber(item.key) && !payloadEmployeeNumber({ ...data, ...body })) {
+      return res.status(400).json({ success: false, error: 'رقم الموظف مطلوب' });
+    }
     const code = data.code || body.code || null;
     const status = data.status || body.status || 'نشط';
     const inserted = await db.query(
@@ -174,6 +181,9 @@ router.put('/:key/:id', async (req, res) => {
       else if (body.data && body.data[f.key] !== undefined) data[f.key] = body.data[f.key];
     });
     const name = String(data.name || body.name || prev.name).trim();
+    if (settingRequiresEmployeeNumber(item.key) && !payloadEmployeeNumber({ ...data, ...body })) {
+      return res.status(400).json({ success: false, error: 'رقم الموظف مطلوب' });
+    }
     const code = data.code || body.code || prev.code;
     const status = data.status || body.status || prev.status;
     const updated = await db.query(

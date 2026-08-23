@@ -1,5 +1,14 @@
 'use strict';
 
+const {
+  withCatalogEmployeeNumber,
+  withOpsEmployeeId,
+  settingRequiresEmployeeNumber,
+  payloadEmployeeNumber,
+  moduleRequiresEmployeeNumber,
+  EMPLOYEE_NUMBER_KEY
+} = require('./hr-employee-fields');
+
 const STATUS_OPTIONS = [
   { value: 'نشط', label: 'نشط' },
   { value: 'موقوف', label: 'موقوف' }
@@ -32,17 +41,29 @@ const nameFields = [
 ];
 
 function item(key, label, extras = {}) {
+  let fields = extras.fields || nameFields;
+  if (extras.employeeScoped || settingRequiresEmployeeNumber(key)) {
+    fields = withCatalogEmployeeNumber(fields);
+  }
+  const defaultSeeds = extras.seeds || [
+    { code: `${key.toUpperCase().slice(0, 4)}-01`, name: `${label} أساسي`, status: 'نشط', notes: 'سجل تشغيلي جاهز' },
+    { code: `${key.toUpperCase().slice(0, 4)}-02`, name: `${label} إضافي`, status: 'نشط', notes: 'سجل احتياطي' }
+  ];
+  const seeds = (extras.employeeScoped || settingRequiresEmployeeNumber(key))
+    ? defaultSeeds.map((seed, index) => ({
+      employee_number: seed.employee_number || `EMP-${String(index + 1).padStart(4, '0')}`,
+      ...seed
+    }))
+    : defaultSeeds;
   return {
     key,
     label,
     icon: extras.icon || 'fa-gear',
     isNew: Boolean(extras.isNew),
+    employeeScoped: Boolean(extras.employeeScoped || settingRequiresEmployeeNumber(key)),
     description: extras.description || `إدارة ${label} وتشغيلها مباشرة داخل النظام.`,
-    fields: extras.fields || nameFields,
-    seeds: extras.seeds || [
-      { code: `${key.toUpperCase().slice(0, 4)}-01`, name: `${label} أساسي`, status: 'نشط', notes: 'سجل تشغيلي جاهز' },
-      { code: `${key.toUpperCase().slice(0, 4)}-02`, name: `${label} إضافي`, status: 'نشط', notes: 'سجل احتياطي' }
-    ]
+    fields,
+    seeds
   };
 }
 
