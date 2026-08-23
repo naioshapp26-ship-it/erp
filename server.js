@@ -906,6 +906,7 @@ const ensureHrProductivityRecordsTable = async () => {
     await db.query(`
       CREATE TABLE IF NOT EXISTS hr_productivity_records (
         id SERIAL PRIMARY KEY,
+        employee_id TEXT,
         employee_name TEXT NOT NULL,
         department TEXT NOT NULL,
         work_hours INTEGER NOT NULL,
@@ -913,6 +914,7 @@ const ensureHrProductivityRecordsTable = async () => {
         productivity_level INTEGER NOT NULL,
         efficiency_percent INTEGER NOT NULL,
         final_rating TEXT,
+        evidence_files JSONB DEFAULT '[]'::jsonb,
         entity_id TEXT,
         entity_type TEXT,
         created_at TIMESTAMP DEFAULT NOW(),
@@ -920,9 +922,15 @@ const ensureHrProductivityRecordsTable = async () => {
       );
       ALTER TABLE hr_productivity_records ADD COLUMN IF NOT EXISTS entity_id TEXT;
       ALTER TABLE hr_productivity_records ADD COLUMN IF NOT EXISTS entity_type TEXT;
+      ALTER TABLE hr_productivity_records ADD COLUMN IF NOT EXISTS employee_id TEXT;
+      ALTER TABLE hr_productivity_records ADD COLUMN IF NOT EXISTS evidence_files JSONB DEFAULT '[]'::jsonb;
       CREATE INDEX IF NOT EXISTS idx_hr_prod_department ON hr_productivity_records(department);
       CREATE INDEX IF NOT EXISTS idx_hr_prod_efficiency ON hr_productivity_records(efficiency_percent);
       CREATE INDEX IF NOT EXISTS idx_hr_prod_entity ON hr_productivity_records(entity_id);
+      CREATE INDEX IF NOT EXISTS idx_hr_prod_employee_id ON hr_productivity_records(employee_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_hr_prod_entity_employee_id
+        ON hr_productivity_records(entity_id, employee_id)
+        WHERE employee_id IS NOT NULL AND employee_id <> '';
     `);
 
     await db.query(`
@@ -938,19 +946,30 @@ const ensureHrProductivityRecordsTable = async () => {
     if (seedCheck.rows[0]?.count === 0) {
       await db.query(
         `INSERT INTO hr_productivity_records
-          (employee_name, department, work_hours, overtime_hours, productivity_level, efficiency_percent, final_rating, entity_id, entity_type)
+          (employee_id, employee_name, department, work_hours, overtime_hours, productivity_level, efficiency_percent, final_rating, entity_id, entity_type)
          VALUES
-          ('داليا عمر', 'التطوير المؤسسي', 192, 12, 94, 92, 'ممتاز', 'HQ001', 'HQ'),
-          ('زياد المصري', 'العمليات الإدارية', 208, 26, 68, 63, 'منخفض', 'HQ001', 'HQ'),
-          ('هند عبد الرحمن', 'التوظيف والاستقطاب', 180, 10, 86, 84, 'جيد جدا', 'HQ001', 'HQ'),
-          ('سيف النجار', 'علاقات الموظفين', 165, 8, 88, 90, 'ممتاز', 'HQ001', 'HQ'),
-          ('نجلاء يوسف', 'الرواتب والتعويضات', 176, 14, 78, 75, 'جيد', 'HQ001', 'HQ'),
-          ('مروان السيد', 'تحليلات الموارد البشرية', 158, 6, 96, 95, 'ممتاز', 'HQ001', 'HQ'),
-          ('ريم خالد', 'العمليات الإدارية', 214, 28, 70, 66, 'متوسط', 'HQ001', 'HQ'),
-          ('حسين مجدي', 'التوظيف والاستقطاب', 186, 16, 82, 80, 'جيد جدا', 'HQ001', 'HQ')
+          ('EMP002', 'داليا عمر', 'التطوير المؤسسي', 192, 12, 94, 92, 'ممتاز', 'HQ001', 'HQ'),
+          ('EMP003', 'زياد المصري', 'العمليات الإدارية', 208, 26, 68, 63, 'منخفض', 'HQ001', 'HQ'),
+          ('EMP004', 'هند عبد الرحمن', 'التوظيف والاستقطاب', 180, 10, 86, 84, 'جيد جدا', 'HQ001', 'HQ'),
+          ('EMP005', 'سيف النجار', 'علاقات الموظفين', 165, 8, 88, 90, 'ممتاز', 'HQ001', 'HQ'),
+          ('EMP006', 'نجلاء يوسف', 'الرواتب والتعويضات', 176, 14, 78, 75, 'جيد', 'HQ001', 'HQ'),
+          ('EMP007', 'مروان السيد', 'تحليلات الموارد البشرية', 158, 6, 96, 95, 'ممتاز', 'HQ001', 'HQ'),
+          ('EMP008', 'ريم خالد', 'العمليات الإدارية', 214, 28, 70, 66, 'متوسط', 'HQ001', 'HQ'),
+          ('EMP009', 'حسين مجدي', 'التوظيف والاستقطاب', 186, 16, 82, 80, 'جيد جدا', 'HQ001', 'HQ')
         `
       );
     }
+
+    await db.query(`
+      UPDATE hr_productivity_records SET employee_id = 'EMP002' WHERE entity_id = 'HQ001' AND employee_name = 'داليا عمر' AND (employee_id IS NULL OR employee_id = '');
+      UPDATE hr_productivity_records SET employee_id = 'EMP003' WHERE entity_id = 'HQ001' AND employee_name = 'زياد المصري' AND (employee_id IS NULL OR employee_id = '');
+      UPDATE hr_productivity_records SET employee_id = 'EMP004' WHERE entity_id = 'HQ001' AND employee_name = 'هند عبد الرحمن' AND (employee_id IS NULL OR employee_id = '');
+      UPDATE hr_productivity_records SET employee_id = 'EMP005' WHERE entity_id = 'HQ001' AND employee_name = 'سيف النجار' AND (employee_id IS NULL OR employee_id = '');
+      UPDATE hr_productivity_records SET employee_id = 'EMP006' WHERE entity_id = 'HQ001' AND employee_name = 'نجلاء يوسف' AND (employee_id IS NULL OR employee_id = '');
+      UPDATE hr_productivity_records SET employee_id = 'EMP007' WHERE entity_id = 'HQ001' AND employee_name = 'مروان السيد' AND (employee_id IS NULL OR employee_id = '');
+      UPDATE hr_productivity_records SET employee_id = 'EMP008' WHERE entity_id = 'HQ001' AND employee_name = 'ريم خالد' AND (employee_id IS NULL OR employee_id = '');
+      UPDATE hr_productivity_records SET employee_id = 'EMP009' WHERE entity_id = 'HQ001' AND employee_name = 'حسين مجدي' AND (employee_id IS NULL OR employee_id = '');
+    `);
 
     console.log('✅ hr_productivity_records table ready');
   } catch (error) {
@@ -14585,6 +14604,34 @@ app.put('/api/hr/cost-optimization-departments/:id', updateHrCostOptimizationDep
 app.delete('/api/hr/cost-optimization-departments/:id', deleteHrCostOptimizationDepartment);
 
 // HR Productivity Records
+const getNextProductivityEmployeeId = async (req) => {
+  const entityId = getRequestEntityContext(req).id;
+  const result = await db.query(
+    `SELECT employee_id FROM hr_productivity_records
+     WHERE entity_id = $1 AND employee_id ~ '^EMP[0-9]+$'
+     ORDER BY CAST(SUBSTRING(employee_id FROM 4) AS INTEGER) DESC
+     LIMIT 1`,
+    [entityId]
+  );
+  const lastId = result.rows[0]?.employee_id;
+  const lastNumber = lastId ? Number(lastId.replace('EMP', '')) : 1;
+  return `EMP${String(lastNumber + 1).padStart(3, '0')}`;
+};
+
+const parseEvidenceFiles = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+  return [];
+};
+
 const getHrProductivityRecords = async (req, res) => {
   try {
     const result = await db.query(
@@ -14603,13 +14650,15 @@ const getHrProductivityRecords = async (req, res) => {
 const createHrProductivityRecord = async (req, res) => {
   try {
     const {
+      employee_id,
       employee_name,
       department,
       work_hours,
       overtime_hours,
       productivity_level,
       efficiency_percent,
-      final_rating
+      final_rating,
+      evidence_files
     } = req.body || {};
 
     if (!employee_name || !department || work_hours === undefined || productivity_level === undefined || efficiency_percent === undefined) {
@@ -14618,12 +14667,15 @@ const createHrProductivityRecord = async (req, res) => {
       });
     }
 
+    const resolvedEmployeeId = employee_id?.trim() || await getNextProductivityEmployeeId(req);
+
     const result = await db.query(
       `INSERT INTO hr_productivity_records
-        (employee_name, department, work_hours, overtime_hours, productivity_level, efficiency_percent, final_rating, entity_id, entity_type)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        (employee_id, employee_name, department, work_hours, overtime_hours, productivity_level, efficiency_percent, final_rating, evidence_files, entity_id, entity_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING *`,
       [
+        resolvedEmployeeId,
         employee_name,
         department,
         Number(work_hours),
@@ -14631,6 +14683,7 @@ const createHrProductivityRecord = async (req, res) => {
         Number(productivity_level),
         Number(efficiency_percent),
         final_rating || null,
+        JSON.stringify(parseEvidenceFiles(evidence_files)),
         getRequestEntityContext(req).id,
         getRequestEntityContext(req).type
       ]
@@ -14647,28 +14700,33 @@ const updateHrProductivityRecord = async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      employee_id,
       employee_name,
       department,
       work_hours,
       overtime_hours,
       productivity_level,
       efficiency_percent,
-      final_rating
+      final_rating,
+      evidence_files
     } = req.body || {};
 
     const result = await db.query(
       `UPDATE hr_productivity_records
-       SET employee_name = $1,
-           department = $2,
-           work_hours = $3,
-           overtime_hours = $4,
-           productivity_level = $5,
-           efficiency_percent = $6,
-           final_rating = $7,
+       SET employee_id = COALESCE($1, employee_id),
+           employee_name = $2,
+           department = $3,
+           work_hours = $4,
+           overtime_hours = $5,
+           productivity_level = $6,
+           efficiency_percent = $7,
+           final_rating = $8,
+           evidence_files = COALESCE($9, evidence_files),
            updated_at = NOW()
-       WHERE id = $8 AND ${getStrictRequestEntityCondition(req, 'entity_id', 9)}
+       WHERE id = $10 AND ${getStrictRequestEntityCondition(req, 'entity_id', 11)}
        RETURNING *`,
       [
+        employee_id || null,
         employee_name,
         department,
         Number(work_hours),
@@ -14676,6 +14734,7 @@ const updateHrProductivityRecord = async (req, res) => {
         Number(productivity_level),
         Number(efficiency_percent),
         final_rating || null,
+        evidence_files !== undefined ? JSON.stringify(parseEvidenceFiles(evidence_files)) : null,
         id,
         getRequestEntityContext(req).id
       ]
@@ -14721,6 +14780,94 @@ app.get('/api/hr/productivity-records', getHrProductivityRecords);
 app.post('/api/hr/productivity-records', createHrProductivityRecord);
 app.put('/api/hr/productivity-records/:id', updateHrProductivityRecord);
 app.delete('/api/hr/productivity-records/:id', deleteHrProductivityRecord);
+
+const HR_PRODUCTIVITY_UPLOAD_ROOT = path.join(UPLOADS_ROOT_DIR, 'hr-productivity-evidence');
+
+const productivityEvidenceStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const entityId = getRequestEntityContext(req).id || 'HQ001';
+    const recordId = req.params.id || 'unknown';
+    const targetDir = path.join(HR_PRODUCTIVITY_UPLOAD_ROOT, entityId, String(recordId));
+    ensureDir(targetDir);
+    cb(null, targetDir);
+  },
+  filename: (req, file, cb) => {
+    const safeName = sanitizeFileName(file.originalname || 'evidence');
+    const suffix = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    cb(null, `${suffix}-${safeName}`);
+  }
+});
+
+const productivityEvidenceUpload = multer({
+  storage: productivityEvidenceStorage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const mime = file.mimetype || '';
+    if (mime.startsWith('image/') || mime.startsWith('video/')) {
+      return cb(null, true);
+    }
+    cb(new Error('يُسمح برفع الصور والفيديو فقط كإثبات'));
+  }
+});
+
+const uploadHrProductivityEvidence = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    productivityEvidenceUpload.single('file')(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({ error: err.message || 'تعذر رفع الإثبات' });
+      }
+      if (!req.file) {
+        return res.status(400).json({ error: 'لم يتم اختيار ملف' });
+      }
+
+      const entityId = getRequestEntityContext(req).id;
+      const relativeUrl = `/uploads/hr-productivity-evidence/${entityId}/${id}/${req.file.filename}`;
+      const mime = req.file.mimetype || '';
+      const evidenceEntry = {
+        name: req.file.originalname || req.file.filename,
+        url: relativeUrl,
+        type: mime.startsWith('video/') ? 'video' : 'image',
+        uploaded_at: new Date().toISOString()
+      };
+
+      const existing = await db.query(
+        `SELECT evidence_files FROM hr_productivity_records
+         WHERE id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
+         LIMIT 1`,
+        [id, entityId]
+      );
+
+      if (!existing.rows[0]) {
+        return res.status(404).json({ error: 'Productivity record not found' });
+      }
+
+      const files = parseEvidenceFiles(existing.rows[0].evidence_files);
+      files.push(evidenceEntry);
+
+      const result = await db.query(
+        `UPDATE hr_productivity_records
+         SET evidence_files = $1, updated_at = NOW()
+         WHERE id = $2 AND ${getStrictRequestEntityCondition(req, 'entity_id', 3)}
+         RETURNING *`,
+        [JSON.stringify(files), id, entityId]
+      );
+
+      res.json({
+        success: true,
+        evidence: evidenceEntry,
+        record: result.rows[0]
+      });
+    });
+  } catch (error) {
+    console.error('Error uploading HR productivity evidence:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+app.post('/api/hr/productivity-records/:id/evidence', uploadHrProductivityEvidence);
+app.post('/api/hr-productivity-records/:id/evidence', uploadHrProductivityEvidence);
 
 // HR Innovation Ideas
 const getHrInnovationIdeas = async (req, res) => {

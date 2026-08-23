@@ -116,6 +116,66 @@
       color: var(--muted);
     }
 
+    .employee-id-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #92400e;
+      font-size: 12px;
+      font-weight: 800;
+      border: 1px solid #fcd34d;
+    }
+
+    .evidence-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .evidence-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .evidence-item img,
+    .evidence-item video {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      background: #0f172a;
+    }
+
+    .evidence-item .meta {
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .upload-zone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 16px;
+      padding: 18px;
+      text-align: center;
+      background: #f8fafc;
+      cursor: pointer;
+    }
+
+    .upload-zone:hover {
+      border-color: #1d4ed8;
+      background: #eff6ff;
+    }
+
+    .btn-evidence {
+      background: #ecfdf5;
+      color: #047857;
+      border-color: #a7f3d0;
+    }
+
     @media (max-width: 1024px) {
       .btn { width: 100%; }
     }
@@ -237,7 +297,7 @@
         <div class="flex flex-wrap gap-2">
           <div class="relative">
             <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-            <input id="searchInput" type="text" placeholder="بحث باسم الموظف" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-56">
+            <input id="searchInput" type="text" placeholder="بحث بالاسم أو رقم الموظف" class="pl-3 pr-10 py-2 border border-slate-200 rounded-full text-sm w-56">
           </div>
           <select id="departmentFilter" class="py-2 px-3 border border-slate-200 rounded-full text-sm">
             <option value="all">كل الأقسام</option>
@@ -251,9 +311,10 @@
       </div>
 
       <div class="table-shell mt-4 overflow-x-auto">
-        <table class="min-w-[960px] w-full text-sm">
+        <table class="min-w-[1100px] w-full text-sm">
           <thead class="bg-slate-50 text-xs font-bold text-slate-500">
             <tr>
+              <th class="px-4 py-3 text-right">رقم الموظف</th>
               <th class="px-4 py-3 text-right">اسم الموظف</th>
               <th class="px-4 py-3 text-right">عدد ساعات العمل</th>
               <th class="px-4 py-3 text-right">ساعات إضافية</th>
@@ -278,6 +339,11 @@
       </div>
       <p id="productivityModalHint" class="text-sm text-slate-500 mt-1">أدخل بيانات التقييم بدقة لضمان موثوقية التحليل.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label class="text-sm text-slate-600">رقم الموظف</label>
+          <input id="employeeIdInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: EMP007">
+          <p class="text-xs text-slate-400 mt-1">يُولَّد تلقائياً عند الإضافة إذا تُرك فارغاً</p>
+        </div>
         <div>
           <label class="text-sm text-slate-600">اسم الموظف</label>
           <input id="employeeNameInput" type="text" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="مثال: خالد عمر">
@@ -317,13 +383,41 @@
     </div>
   </div>
 
+  <div id="evidenceModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-2xl border border-slate-200 w-[92%] max-w-3xl p-6 max-h-[90vh] overflow-auto">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-xl font-extrabold">إثبات التميز</h3>
+          <p id="evidenceModalSubtitle" class="text-sm text-slate-500 mt-1">ارفع صورة أو فيديو يثبت أداء الموظف الممتاز</p>
+        </div>
+        <button id="closeEvidenceModalBtn" class="text-slate-500"><i class="fas fa-xmark"></i></button>
+      </div>
+
+      <label class="upload-zone block mt-4">
+        <input id="evidenceFileInput" type="file" accept="image/*,video/*" class="hidden">
+        <i class="fas fa-cloud-upload-alt text-emerald-600 text-2xl mb-2"></i>
+        <div class="font-bold">رفع إثبات (صورة أو فيديو)</div>
+        <div class="text-xs text-slate-500 mt-1">JPG, PNG, MP4, WebM — حتى 50MB</div>
+      </label>
+
+      <div id="evidenceGallery" class="evidence-grid"></div>
+      <div id="evidenceEmpty" class="text-sm text-slate-500 text-center py-6 hidden">لا توجد ملفات إثبات مرفوعة بعد.</div>
+    </div>
+  </div>
+
   <div id="toast" class="toast">تم حفظ التقييم بنجاح.</div>
 
   <script>
-    const apiBase = '/api/hr-productivity-records';
+    const apiBase = '/api/hr/productivity-records';
+    const entityHeaders = {
+      'x-entity-type': 'HQ',
+      'x-entity-id': 'HQ001',
+      'Accept': 'application/json'
+    };
     let employees = [];
     let currentMode = 'add';
     let currentEditId = null;
+    let currentEvidenceItem = null;
 
     const searchInput = document.getElementById('searchInput');
     const departmentFilter = document.getElementById('departmentFilter');
@@ -346,6 +440,7 @@
     const closeModalBtn = document.getElementById('closeModalBtn');
     const cancelEvaluationBtn = document.getElementById('cancelEvaluationBtn');
     const saveEvaluationBtn = document.getElementById('saveEvaluationBtn');
+    const employeeIdInput = document.getElementById('employeeIdInput');
     const employeeNameInput = document.getElementById('employeeNameInput');
     const employeeDepartmentInput = document.getElementById('employeeDepartmentInput');
     const employeeHoursInput = document.getElementById('employeeHoursInput');
@@ -353,6 +448,12 @@
     const employeeProductivityInput = document.getElementById('employeeProductivityInput');
     const employeeEfficiencyInput = document.getElementById('employeeEfficiencyInput');
     const employeeRatingInput = document.getElementById('employeeRatingInput');
+    const evidenceModal = document.getElementById('evidenceModal');
+    const evidenceModalSubtitle = document.getElementById('evidenceModalSubtitle');
+    const closeEvidenceModalBtn = document.getElementById('closeEvidenceModalBtn');
+    const evidenceFileInput = document.getElementById('evidenceFileInput');
+    const evidenceGallery = document.getElementById('evidenceGallery');
+    const evidenceEmpty = document.getElementById('evidenceEmpty');
 
     const showToast = (message) => {
       toast.textContent = message;
@@ -366,17 +467,23 @@
 
     const normalizeEmployee = (item) => ({
       id: item.id,
+      employeeId: item.employee_id || '',
       name: item.employee_name,
       department: item.department,
       hours: Number(item.work_hours || 0),
       overtime: Number(item.overtime_hours || 0),
       productivity: Number(item.productivity_level || 0),
       efficiency: Number(item.efficiency_percent || 0),
-      rating: item.final_rating || 'غير محدد'
+      rating: item.final_rating || 'غير محدد',
+      evidence: Array.isArray(item.evidence_files)
+        ? item.evidence_files
+        : (typeof item.evidence_files === 'string'
+          ? (() => { try { return JSON.parse(item.evidence_files); } catch (e) { return []; } })()
+          : [])
     });
 
     const fetchEmployees = async () => {
-      const response = await fetch(apiBase);
+      const response = await fetch(apiBase, { headers: entityHeaders });
       if (!response.ok) throw new Error('تعذر تحميل بيانات الإنتاجية.');
       const data = await response.json();
       return data.map(normalizeEmployee);
@@ -385,7 +492,7 @@
     const createEmployee = async (payload) => {
       const response = await fetch(apiBase, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...entityHeaders },
         body: JSON.stringify(payload)
       });
       if (!response.ok) throw new Error('تعذر حفظ التقييم.');
@@ -396,7 +503,7 @@
     const updateEmployee = async (id, payload) => {
       const response = await fetch(`${apiBase}/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...entityHeaders },
         body: JSON.stringify(payload)
       });
       if (!response.ok) throw new Error('تعذر تحديث التقييم.');
@@ -405,7 +512,7 @@
     };
 
     const removeEmployee = async (id) => {
-      const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE', headers: entityHeaders });
       if (!response.ok) throw new Error('تعذر حذف التقييم.');
       return response.json();
     };
@@ -427,8 +534,8 @@
 
       totalHours.textContent = formatNumber(hours);
       avgProductivity.textContent = avgProd.toFixed(1);
-      topEmployee.textContent = top ? top.name : '-';
-      lowEmployee.textContent = low ? low.name : '-';
+      topEmployee.textContent = top ? `${top.name} (${top.employeeId || '—'})` : '-';
+      lowEmployee.textContent = low ? `${low.name} (${low.employeeId || '—'})` : '-';
       overallEfficiency.textContent = `${efficiency.toFixed(1)}%`;
     };
 
@@ -464,12 +571,12 @@
       alertList.innerHTML = '';
       const alerts = employees
         .filter((item) => item.hours > 200 && item.productivity < 75)
-        .map((item) => `${item.name}: ساعات مرتفعة وإنتاجية منخفضة.`);
+        .map((item) => `${item.name} (${item.employeeId || '—'}): ساعات مرتفعة وإنتاجية منخفضة.`);
 
       employees
         .filter((item) => item.productivity > 90)
         .slice(0, 2)
-        .forEach((item) => alerts.push(`${item.name}: أداء مرتفع يمكن نقل خبرته.`));
+        .forEach((item) => alerts.push(`${item.name} (${item.employeeId || '—'}): أداء مرتفع يمكن نقل خبرته.`));
 
       alerts.forEach((alert) => {
         const row = document.createElement('div');
@@ -509,6 +616,7 @@
         const row = document.createElement('tr');
         row.className = 'border-b border-slate-100';
         row.innerHTML = `
+          <td class="px-4 py-3"><span class="employee-id-pill">${item.employeeId || '—'}</span></td>
           <td class="px-4 py-3 font-bold text-slate-700">${item.name}</td>
           <td class="px-4 py-3">${item.hours}</td>
           <td class="px-4 py-3">${item.overtime}</td>
@@ -520,6 +628,7 @@
               <button data-action="view">عرض</button>
               <button data-action="preview">معاينة</button>
               <button data-action="edit">تعديل</button>
+              <button data-action="evidence" class="btn-evidence">إثبات</button>
               <button data-action="delete" class="text-rose-600">حذف</button>
               <button data-action="plan" class="text-emerald-600">إضافة تقييم</button>
             </div>
@@ -535,7 +644,8 @@
       const minHours = Number(hoursFilter.value || 0);
 
       const filtered = employees.filter((item) => {
-        const matchesSearch = item.name.toLowerCase().includes(searchValue);
+        const matchesSearch = item.name.toLowerCase().includes(searchValue)
+          || (item.employeeId || '').toLowerCase().includes(searchValue);
         const matchesDepartment = departmentValue === 'all' || item.department === departmentValue;
         const matchesHours = item.hours >= minHours;
         return matchesSearch && matchesDepartment && matchesHours;
@@ -545,6 +655,7 @@
     };
 
     const resetModal = () => {
+      employeeIdInput.value = '';
       employeeNameInput.value = '';
       employeeDepartmentInput.value = '';
       employeeHoursInput.value = '';
@@ -556,6 +667,7 @@
 
     const setModalDisabled = (disabled) => {
       [
+        employeeIdInput,
         employeeNameInput,
         employeeDepartmentInput,
         employeeHoursInput,
@@ -576,6 +688,7 @@
       if (!item) {
         resetModal();
       } else {
+        employeeIdInput.value = item.employeeId || '';
         employeeNameInput.value = item.name;
         employeeDepartmentInput.value = item.department;
         employeeHoursInput.value = item.hours;
@@ -597,6 +710,69 @@
     const closeModal = () => {
       productivityModal.classList.add('hidden');
       productivityModal.classList.remove('flex');
+    };
+
+    const renderEvidenceGallery = (item) => {
+      const files = item?.evidence || [];
+      evidenceGallery.innerHTML = '';
+      evidenceEmpty.classList.toggle('hidden', files.length > 0);
+
+      files.forEach((file) => {
+        const card = document.createElement('div');
+        card.className = 'evidence-item';
+        const media = file.type === 'video'
+          ? `<video src="${file.url}" controls playsinline></video>`
+          : `<img src="${file.url}" alt="${file.name || 'إثبات'}">`;
+        card.innerHTML = `
+          ${media}
+          <div class="meta">
+            <div class="font-bold text-slate-700">${file.name || 'ملف إثبات'}</div>
+            <div>${file.type === 'video' ? 'فيديو' : 'صورة'}</div>
+          </div>
+        `;
+        evidenceGallery.appendChild(card);
+      });
+    };
+
+    const openEvidenceModal = (item) => {
+      currentEvidenceItem = item;
+      evidenceModalSubtitle.textContent = `إثبات أداء الموظف ${item.name} — رقم ${item.employeeId || '—'}`;
+      renderEvidenceGallery(item);
+      evidenceModal.classList.remove('hidden');
+      evidenceModal.classList.add('flex');
+    };
+
+    const closeEvidenceModal = () => {
+      evidenceModal.classList.add('hidden');
+      evidenceModal.classList.remove('flex');
+      currentEvidenceItem = null;
+      evidenceFileInput.value = '';
+    };
+
+    const uploadEvidence = async (file) => {
+      if (!currentEvidenceItem || !file) return;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${apiBase}/${currentEvidenceItem.id}/evidence`, {
+        method: 'POST',
+        headers: entityHeaders,
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'تعذر رفع الإثبات');
+      }
+
+      const result = await response.json();
+      const updated = normalizeEmployee(result.record);
+      const index = employees.findIndex((entry) => entry.id === updated.id);
+      if (index !== -1) employees[index] = updated;
+      currentEvidenceItem = updated;
+      renderEvidenceGallery(updated);
+      applyFilters();
+      showToast('تم رفع الإثبات بنجاح.');
     };
 
     searchInput.addEventListener('input', applyFilters);
@@ -632,6 +808,10 @@
         if (item) openModal('edit', item);
         return;
       }
+      if (action === 'evidence' && item) {
+        openEvidenceModal(item);
+        return;
+      }
       if (action === 'edit') {
         if (item) openModal('edit', item);
         return;
@@ -649,6 +829,18 @@
     addEvaluationBtn.addEventListener('click', () => openModal('add'));
     closeModalBtn.addEventListener('click', closeModal);
     cancelEvaluationBtn.addEventListener('click', closeModal);
+    closeEvidenceModalBtn.addEventListener('click', closeEvidenceModal);
+    evidenceFileInput.addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        await uploadEvidence(file);
+      } catch (error) {
+        showToast(error.message);
+      } finally {
+        event.target.value = '';
+      }
+    });
 
     saveEvaluationBtn.addEventListener('click', () => {
       if (!employeeNameInput.value.trim() || !employeeDepartmentInput.value.trim() || !employeeHoursInput.value || !employeeProductivityInput.value || !employeeEfficiencyInput.value) {
@@ -657,6 +849,7 @@
       }
 
       const payload = {
+        employee_id: employeeIdInput.value.trim() || null,
         employee_name: employeeNameInput.value.trim(),
         department: employeeDepartmentInput.value.trim(),
         work_hours: Number(employeeHoursInput.value),
