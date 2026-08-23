@@ -307,7 +307,7 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   return withBranding;
 };
 
-const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-hero-red-20260823b';
+const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-settings-tiles-20260823';
 
 const injectHrPortalShellAssets = (html) => {
   if (!html) return html;
