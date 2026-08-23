@@ -308,7 +308,7 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   return withBranding;
 };
 
-const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-settings-tiles-20260823';
+const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-nav-hub-20260824';
 
 const injectHrPortalShellAssets = (html) => {
   if (!html) return html;
@@ -3900,6 +3900,20 @@ app.use('/api/hr/system-settings', hrSystemSettingsRoutes);
 
 const hrOpsModulesRoutes = require('./hr/api/ops-modules');
 app.use('/api/hr/ops', hrOpsModulesRoutes);
+
+const {
+  listHrHomeModules,
+  HR_MODULE_CATEGORIES,
+  findHrModuleByPath
+} = require('./hr-home-modules');
+
+app.get('/api/hr/home-modules', (_req, res) => {
+  res.json({
+    success: true,
+    modules: listHrHomeModules(),
+    categories: HR_MODULE_CATEGORIES
+  });
+});
 
 // Helper function to build entity filter WHERE clause
 const getEntityFilter = (userEntity, tableAlias = '') => {

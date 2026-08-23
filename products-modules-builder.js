@@ -256,7 +256,11 @@ function buildFinanceModules() {
 }
 
 function buildHrModules() {
-  return parseHubFromFile('finance/hr-home.html', 'hr-cards', '/hr');
+  const { listHrHomeModules } = require('./hr-home-modules');
+  return listHrHomeModules().map((item) => ({
+    name: item.label,
+    href: item.href
+  }));
 }
 
 function buildArchiveModules() {
