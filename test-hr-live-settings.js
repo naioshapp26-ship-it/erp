@@ -44,6 +44,7 @@ async function main() {
     method: 'POST',
     body: JSON.stringify({
       code: `USR-T-${Date.now()}`,
+      employee_number: `EMP-T-${Date.now()}`,
       name: 'مستخدم اختبار الإعدادات',
       email: 'settings-test@nayosh.com',
       role: 'موظف',
@@ -52,6 +53,19 @@ async function main() {
     })
   });
   assert.ok(created.success && created.record && created.record.id, 'create user setting failed');
+
+  const missingEmpNo = await fetch(`${BASE}/api/hr/system-settings/users`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      code: `USR-BAD-${Date.now()}`,
+      name: 'بدون رقم موظف',
+      status: 'نشط'
+    })
+  });
+  const missingEmpNoData = await missingEmpNo.json();
+  assert.strictEqual(missingEmpNo.status, 400);
+  assert.ok(/رقم الموظف/.test(missingEmpNoData.error || ''), 'users create should reject missing employee_number');
 
   const leaveTypes = await api('/api/hr/system-settings/leave-types');
   assert.ok(leaveTypes.success && leaveTypes.records.length >= 1, 'leave types should seed');
@@ -62,12 +76,27 @@ async function main() {
     method: 'POST',
     body: JSON.stringify({
       name: 'تعريف راتب اختبار',
+      employee_id: 'EMP-SETTINGS',
       employee_name: 'موظف تجربة',
       destination: 'بنك الرياض',
       status: 'نشط'
     })
   });
   assert.ok(letterSave.success, 'letter ops save failed');
+
+  const missingLetterEmp = await fetch(`${BASE}/api/hr/ops/letters`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      name: 'خطاب بدون رقم',
+      employee_name: 'موظف تجربة',
+      destination: 'بنك الرياض',
+      status: 'نشط'
+    })
+  });
+  const missingLetterEmpData = await missingLetterEmp.json();
+  assert.strictEqual(missingLetterEmp.status, 400);
+  assert.ok(/رقم الموظف/.test(missingLetterEmpData.error || ''), 'letters create should reject missing employee_id');
 
   const reqId = `OPS-TEST-${Date.now()}`;
   const request = await api('/api/employee-requests', {

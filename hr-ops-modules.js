@@ -1,5 +1,7 @@
 'use strict';
 
+const { withOpsEmployeeId } = require('./hr-employee-fields');
+
 const OPS_MODULES = {
   employee: {
     key: 'employee',
@@ -9,12 +11,12 @@ const OPS_MODULES = {
     requestType: 'تحديث بيانات',
     requestLabel: 'طلب تحديث بيانات موظف',
     href: '/hr/employees',
-    fields: [
-      { key: 'employee_name', label: 'اسم الموظف', type: 'text' },
-      { key: 'employee_id', label: 'الرقم الوظيفي', type: 'text' },
+    fields: withOpsEmployeeId([
+      { key: 'employee_id', label: 'رقم الموظف', type: 'text', required: true },
+      { key: 'employee_name', label: 'اسم الموظف', type: 'text', required: true },
       { key: 'department', label: 'القسم', type: 'text' },
       { key: 'title', label: 'المسمى', type: 'text' }
-    ],
+    ]),
     seeds: [
       { name: 'ملف موظف جديد', employee_name: 'عبدالله القحطاني', employee_id: 'EMP-120', department: 'العمليات', title: 'أخصائي عمليات', status: 'نشط' }
     ]
@@ -69,14 +71,14 @@ const OPS_MODULES = {
     icon: 'fa-gavel',
     requestType: 'قرار',
     requestLabel: 'طلب اعتماد قرار',
-    fields: [
+    fields: withOpsEmployeeId([
       { key: 'code', label: 'رقم القرار' },
       { key: 'name', label: 'عنوان القرار' },
-      { key: 'employee_name', label: 'الموظف المعني' },
+      { key: 'employee_name', label: 'الموظف المعني', required: true },
       { key: 'decision_type', label: 'نوع القرار', type: 'select', options: ['ترقية', 'نقل', 'إنذار', 'تكليف'] }
-    ],
+    ]),
     seeds: [
-      { code: 'DEC-01', name: 'ترقية أخصائي عمليات', employee_name: 'خالد الدوسري', decision_type: 'ترقية', status: 'نشط' }
+      { code: 'DEC-01', name: 'ترقية أخصائي عمليات', employee_id: 'EMP-120', employee_name: 'خالد الدوسري', decision_type: 'ترقية', status: 'نشط' }
     ]
   },
   'payroll-expenses': {
@@ -87,13 +89,13 @@ const OPS_MODULES = {
     href: '/hr/payroll',
     requestType: 'سلفة',
     requestLabel: 'طلب سلفة / مصروف',
-    fields: [
+    fields: withOpsEmployeeId([
       { key: 'name', label: 'البيان' },
       { key: 'amount', label: 'المبلغ', type: 'number' },
-      { key: 'employee_name', label: 'الموظف' }
-    ],
+      { key: 'employee_name', label: 'الموظف', required: true }
+    ]),
     seeds: [
-      { name: 'سلفة طارئة', amount: 2500, employee_name: 'سارة محمد', status: 'نشط' }
+      { name: 'سلفة طارئة', amount: 2500, employee_id: 'EMP-004', employee_name: 'سارة محمد', status: 'نشط' }
     ]
   },
   'government-services': {
@@ -103,14 +105,14 @@ const OPS_MODULES = {
     icon: 'fa-landmark',
     requestType: 'خدمة حكومية',
     requestLabel: 'طلب خدمة حكومية',
-    fields: [
+    fields: withOpsEmployeeId([
       { key: 'name', label: 'نوع المعاملة' },
-      { key: 'employee_name', label: 'الموظف' },
+      { key: 'employee_name', label: 'الموظف', required: true },
       { key: 'agency', label: 'الجهة' }
-    ],
+    ]),
     seeds: [
-      { name: 'تجديد إقامة', employee_name: 'محمد حسن', agency: 'الجوازات', status: 'نشط' },
-      { name: 'إصدار تأشيرة خروج وعودة', employee_name: 'ليان الشهري', agency: 'أبشر أعمال', status: 'نشط' }
+      { name: 'تجديد إقامة', employee_id: 'EMP-201', employee_name: 'محمد حسن', agency: 'الجوازات', status: 'نشط' },
+      { name: 'إصدار تأشيرة خروج وعودة', employee_id: 'EMP-305', employee_name: 'ليان الشهري', agency: 'أبشر أعمال', status: 'نشط' }
     ]
   },
   'third-party-services': {
@@ -121,13 +123,13 @@ const OPS_MODULES = {
     isNew: true,
     requestType: 'خدمة طرف ثالث',
     requestLabel: 'طلب خدمة طرف ثالث',
-    fields: [
+    fields: withOpsEmployeeId([
       { key: 'name', label: 'الخدمة' },
       { key: 'provider', label: 'المزود' },
-      { key: 'employee_name', label: 'المستفيد' }
-    ],
+      { key: 'employee_name', label: 'المستفيد', required: true }
+    ]),
     seeds: [
-      { name: 'إضافة تابع للتأمين', provider: 'بوبا', employee_name: 'نورة السالم', status: 'نشط' }
+      { name: 'إضافة تابع للتأمين', provider: 'بوبا', employee_id: 'EMP-002', employee_name: 'نورة السالم', status: 'نشط' }
     ]
   },
   'training-development': {
@@ -138,13 +140,13 @@ const OPS_MODULES = {
     href: '/hr/learning',
     requestType: 'تدريب',
     requestLabel: 'طلب برنامج تدريبي',
-    fields: [
+    fields: withOpsEmployeeId([
       { key: 'name', label: 'اسم البرنامج' },
-      { key: 'employee_name', label: 'الموظف' },
+      { key: 'employee_name', label: 'الموظف', required: true },
       { key: 'hours', label: 'عدد الساعات', type: 'number' }
-    ],
+    ]),
     seeds: [
-      { name: 'مهارات القيادة', employee_name: 'خالد الدوسري', hours: 16, status: 'نشط' }
+      { name: 'مهارات القيادة', employee_id: 'EMP-120', employee_name: 'خالد الدوسري', hours: 16, status: 'نشط' }
     ]
   },
   circulars: {
@@ -178,14 +180,14 @@ const OPS_MODULES = {
     icon: 'fa-envelope-open-text',
     requestType: 'خطاب',
     requestLabel: 'طلب خطاب',
-    fields: [
+    fields: withOpsEmployeeId([
       { key: 'name', label: 'نوع الخطاب', settingsKey: 'letter-types' },
-      { key: 'employee_name', label: 'الموظف' },
+      { key: 'employee_name', label: 'الموظف', required: true },
       { key: 'destination', label: 'الجهة' }
-    ],
+    ]),
     seeds: [
-      { name: 'تعريف راتب', employee_name: 'سارة محمد', destination: 'بنك الرياض', status: 'نشط' },
-      { name: 'إلى من يهمه الأمر', employee_name: 'فهد العتيبي', destination: 'سفارة', status: 'نشط' }
+      { name: 'تعريف راتب', employee_id: 'EMP-004', employee_name: 'سارة محمد', destination: 'بنك الرياض', status: 'نشط' },
+      { name: 'إلى من يهمه الأمر', employee_id: 'EMP-118', employee_name: 'فهد العتيبي', destination: 'سفارة', status: 'نشط' }
     ]
   },
   recruitment: {
@@ -213,13 +215,13 @@ const OPS_MODULES = {
     isNew: true,
     requestType: 'عرض وظيفي',
     requestLabel: 'طلب اعتماد عرض / ميزة',
-    fields: [
+    fields: withOpsEmployeeId([
       { key: 'name', label: 'العرض أو الميزة' },
-      { key: 'employee_name', label: 'المستفيد' },
+      { key: 'employee_name', label: 'المستفيد', required: true },
       { key: 'amount', label: 'القيمة', type: 'number' }
-    ],
+    ]),
     seeds: [
-      { name: 'عرض توظيف محاسب', employee_name: 'مرشح جديد', amount: 9000, status: 'نشط' }
+      { name: 'عرض توظيف محاسب', employee_id: 'EMP-CAND-01', employee_name: 'مرشح جديد', amount: 9000, status: 'نشط' }
     ]
   },
   custody: {
@@ -230,13 +232,13 @@ const OPS_MODULES = {
     href: '/hr/assets-custodies',
     requestType: 'عهدة',
     requestLabel: 'طلب صرف عهدة',
-    fields: [
+    fields: withOpsEmployeeId([
       { key: 'name', label: 'الصنف', settingsKey: 'asset-types' },
-      { key: 'employee_name', label: 'الموظف' },
+      { key: 'employee_name', label: 'الموظف', required: true },
       { key: 'serial', label: 'الرقم التسلسلي' }
-    ],
+    ]),
     seeds: [
-      { name: 'جهاز محمول', employee_name: 'ليان الشهري', serial: 'NB-3341', status: 'نشط' }
+      { name: 'جهاز محمول', employee_id: 'EMP-305', employee_name: 'ليان الشهري', serial: 'NB-3341', status: 'نشط' }
     ]
   },
   surveys: {

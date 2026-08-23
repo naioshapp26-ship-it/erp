@@ -108,6 +108,7 @@
 
     async function fieldInput(field, value = '') {
       const val = value == null ? '' : String(value);
+      const requiredAttr = field.required ? ' required' : '';
       if (field.settingsKey || field.type === 'select') {
         const fromSettings = field.settingsKey ? await settingOptions(field.settingsKey) : [];
         const source = fromSettings.length ? fromSettings : (field.options || []);
@@ -116,10 +117,10 @@
           const label = typeof o === 'object' ? o.label : o;
           return `<option value="${escapeHtml(optionValue)}" ${String(optionValue) === val ? 'selected' : ''}>${escapeHtml(label)}</option>`;
         }).join('');
-        return `<select name="${field.key}">${opts}</select>`;
+        return `<select name="${field.key}"${requiredAttr}>${opts}</select>`;
       }
-      if (field.type === 'textarea') return `<textarea name="${field.key}" rows="3">${escapeHtml(val)}</textarea>`;
-      return `<input name="${field.key}" type="${field.type || 'text'}" value="${escapeHtml(val)}">`;
+      if (field.type === 'textarea') return `<textarea name="${field.key}" rows="3"${requiredAttr}>${escapeHtml(val)}</textarea>`;
+      return `<input name="${field.key}" type="${field.type || 'text'}" value="${escapeHtml(val)}"${requiredAttr}>`;
     }
 
     function valuesFromForm() {
@@ -131,10 +132,19 @@
       return data;
     }
 
+    function validateOpsForm(payload) {
+      for (const field of (moduleInfo.fields || [])) {
+        if (field.required && !String(payload[field.key] || '').trim()) {
+          return `${field.label} مطلوب`;
+        }
+      }
+      return '';
+    }
+
     async function renderFields(values = {}) {
       const html = [];
       for (const field of (moduleInfo.fields || [])) {
-        html.push(`<div class="field"><label>${escapeHtml(field.label)}</label>${await fieldInput(field, values[field.key])}</div>`);
+        html.push(`<div class="field"><label>${escapeHtml(field.label)}${field.required ? ' *' : ''}</label>${await fieldInput(field, values[field.key])}</div>`);
       }
       document.getElementById('fieldsWrap').innerHTML = html.join('');
     }
@@ -233,6 +243,8 @@
       e.preventDefault();
       try {
         const payload = valuesFromForm();
+        const validationError = validateOpsForm(payload);
+        if (validationError) throw new Error(validationError);
         payload.name = payload.name || payload.title || payload.employee_name || moduleInfo.title;
         const id = document.getElementById('recordId').value;
         const saveRes = await fetch(id ? `/api/hr/ops/${key}/${id}` : `/api/hr/ops/${key}`, {
@@ -250,7 +262,7 @@
             body: JSON.stringify({
               id: `OPS-${Date.now()}`,
               entityId: 'HQ001',
-              employeeId: payload.employee_id || payload.employeeId || 'EMP-SELF',
+              employeeId: payload.employee_id || payload.employeeId,
               employeeName: payload.employee_name || payload.name || 'موظف',
               requestType: moduleInfo.requestType,
               requestTitle: moduleInfo.requestLabel || payload.name,
