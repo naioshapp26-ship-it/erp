@@ -1750,6 +1750,7 @@ const ensureAttendanceLogsTable = async () => {
         updated_at TIMESTAMP DEFAULT NOW()
       );
       ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS employee_id TEXT;
+      ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS customer_number TEXT;
       ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS department TEXT;
       ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS attendance_date DATE;
       ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS shift_type TEXT;
@@ -1763,6 +1764,8 @@ const ensureAttendanceLogsTable = async () => {
       CREATE INDEX IF NOT EXISTS idx_attendance_logs_entity ON attendance_logs(entity_id);
       CREATE INDEX IF NOT EXISTS idx_attendance_logs_date ON attendance_logs(attendance_date);
       CREATE INDEX IF NOT EXISTS idx_attendance_logs_status ON attendance_logs(status);
+      CREATE INDEX IF NOT EXISTS idx_attendance_logs_employee ON attendance_logs(employee_id);
+      CREATE INDEX IF NOT EXISTS idx_attendance_logs_customer ON attendance_logs(customer_number);
     `);
     console.log('✅ attendance_logs table ready');
   } catch (error) {
@@ -1793,6 +1796,7 @@ const ensureShiftSchedulesTable = async () => {
         updated_at TIMESTAMP DEFAULT NOW()
       );
       ALTER TABLE shift_schedules ADD COLUMN IF NOT EXISTS employee_id TEXT;
+      ALTER TABLE shift_schedules ADD COLUMN IF NOT EXISTS customer_number TEXT;
       ALTER TABLE shift_schedules ADD COLUMN IF NOT EXISTS department TEXT;
       ALTER TABLE shift_schedules ADD COLUMN IF NOT EXISTS work_days TEXT[];
       ALTER TABLE shift_schedules ADD COLUMN IF NOT EXISTS off_days TEXT[];
@@ -1804,6 +1808,8 @@ const ensureShiftSchedulesTable = async () => {
       CREATE INDEX IF NOT EXISTS idx_shift_schedules_entity ON shift_schedules(entity_id);
       CREATE INDEX IF NOT EXISTS idx_shift_schedules_status ON shift_schedules(status);
       CREATE INDEX IF NOT EXISTS idx_shift_schedules_name ON shift_schedules(employee_name);
+      CREATE INDEX IF NOT EXISTS idx_shift_schedules_employee ON shift_schedules(employee_id);
+      CREATE INDEX IF NOT EXISTS idx_shift_schedules_customer ON shift_schedules(customer_number);
     `);
     console.log('✅ shift_schedules table ready');
   } catch (error) {
@@ -4147,7 +4153,7 @@ const hrRouteMap = {
   '/hr/attendance-departure': 'attendance-logs.html',
   '/hr/attendance-register': 'attendance-logs.html',
   '/hr/attendance-table': 'attendance-logs.html',
-  '/hr/shift-schedules': 'shift-schedules.html',
+  '/hr/shift-schedules': 'hr-attendance-hub.html',
   '/hr/payroll': 'payroll-simplified-management.html',
   '/hr/payroll-employees': 'payroll-employees.html',
   '/hr/strategic-analytics': 'hr-strategic-analytics.html',
@@ -10782,7 +10788,7 @@ app.get('/api/attendance-logs', async (req, res) => {
     const params = [];
     let idx = 1;
     let query = `
-            SELECT id, employee_id, employee_name, department, attendance_date, shift_type, check_in, check_out, work_minutes,
+            SELECT id, employee_id, customer_number, employee_name, department, attendance_date, shift_type, check_in, check_out, work_minutes,
              status, decision_reason, decision_at, notes, entity_id, created_at, updated_at
       FROM attendance_logs
       WHERE 1=1
@@ -10817,7 +10823,7 @@ app.get('/api/attendance-logs', async (req, res) => {
     }
 
     if (search) {
-      query += ` AND (employee_name ILIKE $${idx} OR employee_id ILIKE $${idx} OR department ILIKE $${idx})`;
+      query += ` AND (employee_name ILIKE $${idx} OR employee_id ILIKE $${idx} OR customer_number ILIKE $${idx} OR department ILIKE $${idx})`;
       params.push(`%${search}%`);
       idx++;
     }
@@ -10836,6 +10842,7 @@ app.post('/api/attendance-logs', async (req, res) => {
   try {
     const {
       employee_id,
+      customer_number,
       employee_name,
       department,
       shift_type,
@@ -10857,13 +10864,14 @@ app.post('/api/attendance-logs', async (req, res) => {
 
     const { rows } = await db.query(
       `INSERT INTO attendance_logs (
-        employee_id, employee_name, department, shift_type, attendance_date, check_in, check_out,
+        employee_id, customer_number, employee_name, department, shift_type, attendance_date, check_in, check_out,
         work_minutes, status, decision_reason, notes, entity_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING id, employee_id, employee_name, department, shift_type, attendance_date, check_in, check_out, work_minutes,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING id, employee_id, customer_number, employee_name, department, shift_type, attendance_date, check_in, check_out, work_minutes,
                 status, decision_reason, decision_at, notes, entity_id, created_at, updated_at`,
       [
         employee_id || null,
+        customer_number || null,
         employee_name.trim(),
         department || null,
         shift_type || null,
@@ -10890,6 +10898,7 @@ app.put('/api/attendance-logs/:id', async (req, res) => {
     const { id } = req.params;
     const {
       employee_id,
+      customer_number,
       employee_name,
       department,
       shift_type,
@@ -10912,6 +10921,7 @@ app.put('/api/attendance-logs/:id', async (req, res) => {
 
     const params = [
       employee_id || null,
+      customer_number || null,
       employee_name || null,
       department || null,
       shift_type || null,
@@ -10930,28 +10940,29 @@ app.put('/api/attendance-logs/:id', async (req, res) => {
     let query = `
       UPDATE attendance_logs SET
         employee_id = COALESCE($1, employee_id),
-        employee_name = COALESCE($2, employee_name),
-        department = COALESCE($3, department),
-        shift_type = COALESCE($4, shift_type),
-        attendance_date = COALESCE($5, attendance_date),
-        check_in = COALESCE($6, check_in),
-        check_out = COALESCE($7, check_out),
-        work_minutes = COALESCE($8, work_minutes),
-        status = COALESCE($9, status),
-        decision_reason = COALESCE($10, decision_reason),
-        decision_at = COALESCE($11, decision_at),
-        notes = COALESCE($12, notes),
-        entity_id = COALESCE($13, entity_id),
+        customer_number = COALESCE($2, customer_number),
+        employee_name = COALESCE($3, employee_name),
+        department = COALESCE($4, department),
+        shift_type = COALESCE($5, shift_type),
+        attendance_date = COALESCE($6, attendance_date),
+        check_in = COALESCE($7, check_in),
+        check_out = COALESCE($8, check_out),
+        work_minutes = COALESCE($9, work_minutes),
+        status = COALESCE($10, status),
+        decision_reason = COALESCE($11, decision_reason),
+        decision_at = COALESCE($12, decision_at),
+        notes = COALESCE($13, notes),
+        entity_id = COALESCE($14, entity_id),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14
+      WHERE id = $15
     `;
 
     if (req.userEntity.type !== 'HQ') {
-      query += ' AND entity_id = $15';
+      query += ' AND entity_id = $16';
       params.push(req.userEntity.id);
     }
 
-    query += ' RETURNING id, employee_id, employee_name, department, shift_type, attendance_date, check_in, check_out, work_minutes, status, decision_reason, decision_at, notes, entity_id, created_at, updated_at';
+    query += ' RETURNING id, employee_id, customer_number, employee_name, department, shift_type, attendance_date, check_in, check_out, work_minutes, status, decision_reason, decision_at, notes, entity_id, created_at, updated_at';
 
     const { rows } = await db.query(query, params);
 
@@ -11002,7 +11013,7 @@ app.get('/api/shift-schedules', async (req, res) => {
     const params = [];
     let idx = 1;
     let query = `
-      SELECT id, employee_id, employee_name, department, work_days, off_days, shift_type,
+      SELECT id, employee_id, customer_number, employee_name, department, work_days, off_days, shift_type,
              shift_start, shift_end, status, notes, entity_id, created_at, updated_at
       FROM shift_schedules
       WHERE 1=1
@@ -11025,7 +11036,7 @@ app.get('/api/shift-schedules', async (req, res) => {
     }
 
     if (search) {
-      query += ` AND (employee_name ILIKE $${idx} OR employee_id ILIKE $${idx} OR department ILIKE $${idx})`;
+      query += ` AND (employee_name ILIKE $${idx} OR employee_id ILIKE $${idx} OR customer_number ILIKE $${idx} OR department ILIKE $${idx})`;
       params.push(`%${search}%`);
       idx++;
     }
@@ -11044,6 +11055,7 @@ app.post('/api/shift-schedules', async (req, res) => {
   try {
     const {
       employee_id,
+      customer_number,
       employee_name,
       department,
       work_days,
@@ -11064,13 +11076,14 @@ app.post('/api/shift-schedules', async (req, res) => {
 
     const { rows } = await db.query(
       `INSERT INTO shift_schedules (
-        employee_id, employee_name, department, work_days, off_days, shift_type,
+        employee_id, customer_number, employee_name, department, work_days, off_days, shift_type,
         shift_start, shift_end, status, notes, entity_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING id, employee_id, employee_name, department, work_days, off_days, shift_type,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id, employee_id, customer_number, employee_name, department, work_days, off_days, shift_type,
                 shift_start, shift_end, status, notes, entity_id, created_at, updated_at`,
       [
         employee_id || null,
+        customer_number || null,
         employee_name.trim(),
         department || null,
         work_days,
@@ -11096,6 +11109,7 @@ app.put('/api/shift-schedules/:id', async (req, res) => {
     const { id } = req.params;
     const {
       employee_id,
+      customer_number,
       employee_name,
       department,
       work_days,
@@ -11110,6 +11124,7 @@ app.put('/api/shift-schedules/:id', async (req, res) => {
 
     const params = [
       employee_id || null,
+      customer_number || null,
       employee_name || null,
       department || null,
       Array.isArray(work_days) ? work_days : null,
@@ -11126,26 +11141,27 @@ app.put('/api/shift-schedules/:id', async (req, res) => {
     let query = `
       UPDATE shift_schedules SET
         employee_id = COALESCE($1, employee_id),
-        employee_name = COALESCE($2, employee_name),
-        department = COALESCE($3, department),
-        work_days = COALESCE($4, work_days),
-        off_days = COALESCE($5, off_days),
-        shift_type = COALESCE($6, shift_type),
-        shift_start = COALESCE($7, shift_start),
-        shift_end = COALESCE($8, shift_end),
-        status = COALESCE($9, status),
-        notes = COALESCE($10, notes),
-        entity_id = COALESCE($11, entity_id),
+        customer_number = COALESCE($2, customer_number),
+        employee_name = COALESCE($3, employee_name),
+        department = COALESCE($4, department),
+        work_days = COALESCE($5, work_days),
+        off_days = COALESCE($6, off_days),
+        shift_type = COALESCE($7, shift_type),
+        shift_start = COALESCE($8, shift_start),
+        shift_end = COALESCE($9, shift_end),
+        status = COALESCE($10, status),
+        notes = COALESCE($11, notes),
+        entity_id = COALESCE($12, entity_id),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $12
+      WHERE id = $13
     `;
 
     if (req.userEntity.type !== 'HQ') {
-      query += ' AND entity_id = $13';
+      query += ' AND entity_id = $14';
       params.push(req.userEntity.id);
     }
 
-    query += ' RETURNING id, employee_id, employee_name, department, work_days, off_days, shift_type, shift_start, shift_end, status, notes, entity_id, created_at, updated_at';
+    query += ' RETURNING id, employee_id, customer_number, employee_name, department, work_days, off_days, shift_type, shift_start, shift_end, status, notes, entity_id, created_at, updated_at';
 
     const { rows } = await db.query(query, params);
 
