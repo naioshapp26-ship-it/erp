@@ -48,6 +48,30 @@
     return path.replace(/\/$/, '') || '/hr';
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  let homeModulesCache = null;
+
+  async function loadHomeModules() {
+    if (Array.isArray(window.HR_HOME_MODULES) && window.HR_HOME_MODULES.length) {
+      homeModulesCache = window.HR_HOME_MODULES;
+      return homeModulesCache;
+    }
+    if (homeModulesCache) return homeModulesCache;
+    try {
+      const res = await fetch('/api/hr/home-modules', { headers: apiHeaders() });
+      const data = await res.json();
+      homeModulesCache = data.success ? (data.modules || []) : [];
+    } catch (_) {
+      homeModulesCache = [];
+    }
+    return homeModulesCache;
+  }
+
   function isLinkActive(item, currentPath) {
     const itemPath = normalizePath(item.href.split('?')[0]);
     const current = normalizePath(currentPath);
@@ -164,6 +188,108 @@
     });
   }
 
+  function ensureTopBar(badges) {
+    if (document.getElementById('hr-topbar')) return;
+    const current = normalizePath(window.location.pathname || '');
+    if (current === '/hr') return;
+
+    const topbar = document.createElement('div');
+    topbar.id = 'hr-topbar';
+    topbar.className = 'hr-topbar';
+    topbar.innerHTML = `
+      <div class="hr-topbar-inner">
+        <div class="hr-topbar-start">
+          <a href="/hr" class="hr-topbar-btn"><i class="fas fa-house"></i><span>الرئيسية</span></a>
+          <button type="button" class="hr-topbar-btn" id="hr-open-search"><i class="fas fa-magnifying-glass"></i><span>بحث الأنظمة</span></button>
+        </div>
+        <div class="hr-topbar-note"><i class="fas fa-user-tie"></i> كل الطلبات تمر عبر المدير المباشر</div>
+        <div class="hr-topbar-actions">
+          <a href="/hr/my-requests" class="hr-topbar-btn hr-topbar-primary"><i class="fas fa-paper-plane"></i><span>إرسال طلب</span></a>
+          <a href="/hr/pending-actions" class="hr-topbar-btn">
+            <i class="fas fa-hourglass-half"></i><span>بانتظار الإجراء</span>
+            ${badges.pending > 0 ? `<span class="hr-topbar-badge">${badges.pending}</span>` : ''}
+          </a>
+          <a href="/hr/manager" class="hr-topbar-btn"><i class="fas fa-user-tie"></i><span>لوحة المدير</span></a>
+        </div>
+      </div>`;
+    document.body.appendChild(topbar);
+    document.getElementById('hr-open-search')?.addEventListener('click', openModuleSearch);
+    document.body.classList.add('hr-has-topbar');
+  }
+
+  function ensureSearchModal() {
+    if (document.getElementById('hr-module-search-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'hr-module-search-modal';
+    modal.className = 'hr-module-search-modal';
+    modal.hidden = true;
+    modal.innerHTML = `
+      <div class="hr-module-search-backdrop" data-close="1"></div>
+      <div class="hr-module-search-panel" role="dialog" aria-modal="true" aria-label="بحث أنظمة الموارد البشرية">
+        <div class="hr-module-search-head">
+          <i class="fas fa-magnifying-glass"></i>
+          <input id="hr-module-search-input" type="search" placeholder="ابحث عن نظام أو خدمة..." autocomplete="off">
+          <button type="button" class="hr-module-search-close" data-close="1" aria-label="إغلاق"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div id="hr-module-search-results" class="hr-module-search-results"></div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', closeModuleSearch));
+    document.getElementById('hr-module-search-input')?.addEventListener('input', (e) => {
+      renderModuleSearchResults(e.target.value);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModuleSearch();
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openModuleSearch();
+      }
+    });
+  }
+
+  async function renderModuleSearchResults(query = '') {
+    const wrap = document.getElementById('hr-module-search-results');
+    if (!wrap) return;
+    const modules = await loadHomeModules();
+    const q = String(query || '').trim().toLowerCase();
+    const list = modules.filter((item) => {
+      if (!q) return true;
+      return item.label.toLowerCase().includes(q)
+        || item.category.toLowerCase().includes(q)
+        || item.href.toLowerCase().includes(q);
+    }).slice(0, 24);
+    if (!list.length) {
+      wrap.innerHTML = '<div class="hr-module-search-empty">لا توجد نتائج مطابقة</div>';
+      return;
+    }
+    wrap.innerHTML = list.map((item) => `
+      <a class="hr-module-search-item" href="${escapeHtml(item.href)}">
+        <span class="hr-module-search-icon"><i class="fas ${escapeHtml(item.icon)}"></i></span>
+        <span class="hr-module-search-copy">
+          <strong>${escapeHtml(item.label)}</strong>
+          <small>${escapeHtml(item.category)}${item.manager ? ' • يمر عبر المدير' : ''}</small>
+        </span>
+        <i class="fas fa-chevron-left hr-module-search-arrow"></i>
+      </a>
+    `).join('');
+  }
+
+  function openModuleSearch() {
+    ensureSearchModal();
+    const modal = document.getElementById('hr-module-search-modal');
+    const input = document.getElementById('hr-module-search-input');
+    if (!modal || !input) return;
+    modal.hidden = false;
+    input.value = '';
+    renderModuleSearchResults('');
+    setTimeout(() => input.focus(), 0);
+  }
+
+  function closeModuleSearch() {
+    const modal = document.getElementById('hr-module-search-modal');
+    if (modal) modal.hidden = true;
+  }
+
   function updateMobileBadge(badges) {
     const el = document.getElementById('hr-mobile-nav-badge');
     if (!el) return;
@@ -195,6 +321,8 @@
     sidebar.innerHTML = renderSidebar(badges);
     updateMobileBadge(badges);
     wrapMainContent(sidebar);
+    ensureTopBar(badges);
+    ensureSearchModal();
 
     window.HRPortalShell = {
       STAGE_LABELS,
@@ -202,14 +330,23 @@
       headers: apiHeaders,
       loadSettingRecords,
       recordLabel,
+      loadHomeModules,
+      openModuleSearch,
+      closeModuleSearch,
+      findModuleByPath: (path) => {
+        const clean = normalizePath(path || window.location.pathname);
+        return (homeModulesCache || []).find((item) => item.href === clean) || null;
+      },
       refreshBadges: async () => {
         const d = await fetchDashboard();
         const next = { pending: d.pending?.count || 0, newHires: d.new_hires_pending || 0 };
         sidebar.innerHTML = renderSidebar(next);
         updateMobileBadge(next);
+        ensureTopBar(next);
         return next;
       }
     };
+    await loadHomeModules();
     setInterval(() => window.HRPortalShell.refreshBadges(), 20000);
   }
 
