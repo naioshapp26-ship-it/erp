@@ -51,7 +51,7 @@
             <div class="pt-3 border-t">
               <label class="text-xs font-extrabold text-slate-500">استيراد CSV</label>
               <input id="csvFile" type="file" accept=".csv,text/csv" class="mt-2 text-sm">
-              <div class="text-xs text-slate-400 mt-1">الأعمدة بالترتيب: الرمز، رقم الموظف (إن وجد)، الاسم، ثم بقية الحقول.</div>
+              <div class="text-xs text-slate-400 mt-1">الأعمدة بالترتيب: الرمز، رقم الموظف (إن وجد)، الاسم، ثم بقية الحقول. يجب أن يكون الملف بترميز UTF-8.</div>
             </div>
           </form>
           <div class="box xl:col-span-2 overflow-auto">
@@ -68,6 +68,33 @@
     const key = decodeURIComponent(location.pathname.split('/').pop());
     let fields = [];
 
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function looksCorruptedText(value) {
+      const text = String(value || '');
+      if (!text.trim()) return false;
+      if (text.includes('\uFFFD')) return true;
+      const readable = (text.match(/[\p{L}\p{N}\s.,:;()%+\-_/\\'"@#&*]/gu) || []).length;
+      return readable / text.length < 0.45;
+    }
+
+    function cellValue(row, field) {
+      const display = Array.isArray(row.display)
+        ? row.display.find((entry) => entry.key === field.key)
+        : null;
+      if (display && display.value != null && String(display.value).trim() !== '') {
+        return display.value;
+      }
+      if (field.key === 'name' || field.key === 'code' || field.key === 'status') {
+        return row[field.key] ?? row.data?.[field.key] ?? '—';
+      }
+      return row.data?.[field.key] ?? row[field.key] ?? '—';
+    }
+
     function inputHtml(field, value = '') {
       const val = value == null ? '' : value;
       const requiredAttr = field.required ? ' required' : '';
@@ -75,8 +102,8 @@
         const opts = (field.options || []).map((o) => `<option value="${o.value}" ${String(o.value) === String(val) ? 'selected' : ''}>${o.label}</option>`).join('');
         return `<select name="${field.key}"${requiredAttr}>${opts}</select>`;
       }
-      if (field.type === 'textarea') return `<textarea name="${field.key}" rows="3"${requiredAttr}>${val}</textarea>`;
-      return `<input name="${field.key}" type="${field.type || 'text'}" value="${val}"${requiredAttr}>`;
+      if (field.type === 'textarea') return `<textarea name="${field.key}" rows="3"${requiredAttr}>${escapeHtml(val)}</textarea>`;
+      return `<input name="${field.key}" type="${field.type || 'text'}" value="${escapeHtml(val)}"${requiredAttr}>`;
     }
 
     function renderFields(values = {}) {
@@ -105,11 +132,11 @@
       const cols = fields.slice(0, 5);
       document.getElementById('tableWrap').innerHTML = `
         <table>
-          <thead><tr>${cols.map((c) => `<th>${c.label}</th>`).join('')}<th></th></tr></thead>
+          <thead><tr>${cols.map((c) => `<th>${escapeHtml(c.label)}</th>`).join('')}<th></th></tr></thead>
           <tbody>
             ${records.map((row) => `
               <tr>
-                ${cols.map((c) => `<td>${row.data?.[c.key] ?? row[c.key] ?? '—'}</td>`).join('')}
+                ${cols.map((c) => `<td>${escapeHtml(cellValue(row, c))}</td>`).join('')}
                 <td class="whitespace-nowrap">
                   <button class="btn btn-ghost" data-edit="${row.id}">تعديل</button>
                   <button class="btn btn-danger" data-del="${row.id}">حذف</button>
@@ -193,17 +220,25 @@
       if (!lines.length) return;
       const start = /رمز|code|الاسم/i.test(lines[0]) ? 1 : 0;
       let imported = 0;
+      let skipped = 0;
       for (const line of lines.slice(start)) {
         const cells = line.split(',').map((c) => c.replace(/^"|"$/g, '').trim());
         const payload = {};
         fields.forEach((f, idx) => { payload[f.key] = cells[idx] || ''; });
         if (!payload.name) payload.name = cells[1] || cells[0] || 'سجل مستورد';
         if (!payload.code) payload.code = cells[0] || `IMP-${Date.now()}-${imported}`;
+        if (looksCorruptedText(payload.name) || looksCorruptedText(payload.code) || looksCorruptedText(payload.employee_number)) {
+          skipped += 1;
+          continue;
+        }
         const res = await fetch(`/api/hr/system-settings/${key}`, { method: 'POST', headers, body: JSON.stringify(payload) });
         const data = await res.json();
         if (data.success) imported += 1;
+        else skipped += 1;
       }
-      document.getElementById('formMsg').textContent = `تم استيراد ${imported} سجل`;
+      document.getElementById('formMsg').textContent = skipped
+        ? `تم استيراد ${imported} سجل، وتجاهل ${skipped} سطر غير صالح`
+        : `تم استيراد ${imported} سجل`;
       document.getElementById('formMsg').className = 'text-sm font-bold text-emerald-600';
       e.target.value = '';
       await load();
