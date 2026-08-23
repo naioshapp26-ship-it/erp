@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>قسم الموارد البشرية - نايوش HCM</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/finance/hr-portal-shell.css">
+  <style>
+    body { font-family: 'Tajawal', sans-serif; background: #f3f4f6; color: #0f172a; }
+    .box { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; }
+    .field label { display: block; font-size: 13px; font-weight: 800; color: #475569; margin-bottom: 6px; }
+    .field input, .field select, .field textarea {
+      width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-family: inherit;
+    }
+    .btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 10px; padding: 10px 14px; font-weight: 800; cursor: pointer; font-family: inherit; }
+    .btn-primary { background: #0f766e; color: #fff; }
+    .btn-ghost { background: #fff; border: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: right; font-size: 12px; color: #64748b; padding: 10px; background: #f8fafc; }
+    td { padding: 10px; border-top: 1px solid #f1f5f9; font-size: 13px; }
+  </style>
+</head>
+<body class="hr-shell-active">
+  <div class="hr-app-layout">
+    <aside class="hr-sidebar" id="hr-sidebar"></aside>
+    <main class="hr-main">
+      <div class="hr-main-inner">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h1 class="hr-page-title" id="pageTitle">القسم</h1>
+            <p class="hr-page-subtitle" id="pageSubtitle">قسم تشغيلي جاهز، وأي طلب يذهب مباشرة إلى المدير للاعتماد.</p>
+          </div>
+          <span class="hr-chip stage" id="statusChip">جاهز للتشغيل</span>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <form id="opsForm" class="box p-4 space-y-3">
+            <h3 class="font-extrabold" id="formTitle">تسجيل / إرسال للمدير</h3>
+            <div id="fieldsWrap" class="space-y-3"></div>
+            <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i> <span id="submitLabel">حفظ وإرسال للمدير</span></button>
+            <div id="formMsg" class="text-sm font-bold"></div>
+          </form>
+          <div class="box xl:col-span-2">
+            <div class="p-4 font-extrabold border-b">السجلات الحالية</div>
+            <div id="tableWrap" class="p-2">جاري التحميل...</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="/finance/hr-portal-shell.js"></script>
+  <script>
+    const headers = { 'Content-Type': 'application/json', 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' };
+    const key = decodeURIComponent(location.pathname.replace(/\/$/, '').split('/').pop());
+    let moduleInfo = null;
+
+    function fieldInput(field) {
+      if (field.type === 'select') {
+        const opts = (field.options || []).map((o) => `<option>${o}</option>`).join('');
+        return `<select name="${field.key}">${opts}</select>`;
+      }
+      if (field.type === 'textarea') return `<textarea name="${field.key}" rows="3"></textarea>`;
+      return `<input name="${field.key}" type="${field.type || 'text'}">`;
+    }
+
+    function valuesFromForm() {
+      const data = {};
+      (moduleInfo.fields || []).forEach((f) => {
+        const el = document.querySelector(`[name="${f.key}"]`);
+        data[f.key] = el ? el.value : '';
+      });
+      return data;
+    }
+
+    function renderTable(records) {
+      if (!records.length) {
+        document.getElementById('tableWrap').innerHTML = '<div class="p-6 text-slate-400 font-bold">لا توجد سجلات بعد</div>';
+        return;
+      }
+      const cols = (moduleInfo.fields || []).slice(0, 4);
+      document.getElementById('tableWrap').innerHTML = `
+        <table>
+          <thead><tr>${cols.map((c) => `<th>${c.label}</th>`).join('')}<th>الحالة</th></tr></thead>
+          <tbody>
+            ${records.map((row) => `
+              <tr>
+                ${cols.map((c) => `<td>${row.data?.[c.key] ?? row[c.key] ?? row.name ?? '—'}</td>`).join('')}
+                <td>${row.status || '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    async function load() {
+      const res = await fetch(`/api/hr/ops/${key}`, { headers });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'تعذر التحميل');
+      moduleInfo = data.module;
+      document.getElementById('pageTitle').textContent = moduleInfo.title;
+      document.getElementById('pageSubtitle').textContent = moduleInfo.subtitle;
+      document.title = moduleInfo.title + ' - نايوش HCM';
+      document.getElementById('submitLabel').textContent = moduleInfo.requestType ? 'إرسال للمدير المباشر' : 'حفظ السجل';
+      document.getElementById('fieldsWrap').innerHTML = (moduleInfo.fields || []).map((f) => `
+        <div class="field"><label>${f.label}</label>${fieldInput(f)}</div>
+      `).join('');
+      renderTable(data.records || []);
+    }
+
+    document.getElementById('opsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = valuesFromForm();
+      payload.name = payload.name || payload.title || payload.employee_name || moduleInfo.title;
+      const saveRes = await fetch(`/api/hr/ops/${key}`, { method: 'POST', headers, body: JSON.stringify(payload) });
+      const saved = await saveRes.json();
+      if (!saved.success) throw new Error(saved.error || 'فشل الحفظ');
+
+      if (moduleInfo.requestType) {
+        const id = `OPS-${Date.now()}`;
+        const reqRes = await fetch('/api/employee-requests', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            id,
+            entityId: 'HQ001',
+            employeeId: payload.employee_id || payload.employeeId || 'EMP-SELF',
+            employeeName: payload.employee_name || payload.name || 'موظف',
+            requestType: moduleInfo.requestType,
+            requestTitle: moduleInfo.requestLabel || payload.name,
+            description: JSON.stringify(payload),
+            requestedDate: new Date().toISOString().slice(0, 10),
+            requestData: payload,
+            createdBy: payload.employee_name || 'موظف'
+          })
+        });
+        const reqData = await reqRes.json();
+        if (!reqData.success) throw new Error(reqData.error || 'فشل إرسال الطلب');
+      }
+
+      document.getElementById('formMsg').textContent = moduleInfo.requestType
+        ? 'تم الحفظ وإرسال الطلب مباشرة إلى المدير المباشر'
+        : 'تم حفظ السجل وتشغيله';
+      document.getElementById('formMsg').className = 'text-sm font-bold text-emerald-700';
+      e.target.reset();
+      await load();
+    });
+
+    load().catch((err) => {
+      document.getElementById('tableWrap').innerHTML = `<div class="p-6 text-rose-600 font-bold">${err.message}</div>`;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>عنصر إعدادات النظام - نايوش HCM</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/finance/hr-portal-shell.css">
+  <style>
+    body { font-family: 'Tajawal', sans-serif; background: #f3f4f6; color: #0f172a; }
+    .box { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 13px; font-weight: 800; color: #475569; }
+    .field input, .field select, .field textarea {
+      border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-family: inherit;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: right; font-size: 12px; color: #64748b; background: #f8fafc; padding: 10px; }
+    td { padding: 10px; border-top: 1px solid #f1f5f9; font-size: 13px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 10px; padding: 9px 14px; font-weight: 800; cursor: pointer; font-family: inherit; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-ghost { background: #fff; border: 1px solid #e2e8f0; color: #334155; }
+    .btn-danger { background: #fef2f2; color: #be123c; }
+  </style>
+</head>
+<body class="hr-shell-active">
+  <div class="hr-app-layout">
+    <aside class="hr-sidebar" id="hr-sidebar"></aside>
+    <main class="hr-main">
+      <div class="hr-main-inner">
+        <div class="settings-crumb mb-3"><a href="/hr/system-settings" class="text-blue-600 font-bold">إعدادات النظام</a> / <span id="crumbName">...</span></div>
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h1 class="hr-page-title" id="pageTitle">إعدادات</h1>
+            <p class="hr-page-subtitle" id="pageSubtitle">سجلات جاهزة للتشغيل ويمكن الإضافة والتعديل فوراً.</p>
+          </div>
+          <a href="/hr/system-settings" class="btn btn-ghost"><i class="fas fa-arrow-right"></i> رجوع</a>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <form id="recordForm" class="box p-4 space-y-3 xl:col-span-1">
+            <h3 class="font-extrabold mb-2">إضافة / تعديل سجل</h3>
+            <div id="fieldsWrap" class="space-y-3"></div>
+            <input type="hidden" id="recordId">
+            <div class="flex gap-2">
+              <button class="btn btn-primary" type="submit"><i class="fas fa-save"></i> حفظ</button>
+              <button class="btn btn-ghost" type="button" id="resetBtn">جديد</button>
+            </div>
+            <div id="formMsg" class="text-sm font-bold"></div>
+          </form>
+          <div class="box xl:col-span-2 overflow-auto">
+            <div class="p-4 font-extrabold border-b">السجلات التشغيلية</div>
+            <div id="tableWrap" class="p-2">جاري التحميل...</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="/finance/hr-portal-shell.js"></script>
+  <script>
+    const headers = { 'Content-Type': 'application/json', 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' };
+    const key = decodeURIComponent(location.pathname.split('/').pop());
+    let fields = [];
+
+    function inputHtml(field, value = '') {
+      const val = value == null ? '' : value;
+      if (field.type === 'select') {
+        const opts = (field.options || []).map((o) => `<option value="${o.value}" ${String(o.value) === String(val) ? 'selected' : ''}>${o.label}</option>`).join('');
+        return `<select name="${field.key}">${opts}</select>`;
+      }
+      if (field.type === 'textarea') return `<textarea name="${field.key}" rows="3">${val}</textarea>`;
+      return `<input name="${field.key}" type="${field.type || 'text'}" value="${val}">`;
+    }
+
+    function renderFields(values = {}) {
+      document.getElementById('fieldsWrap').innerHTML = fields.map((f) => `
+        <div class="field">
+          <label>${f.label}${f.required ? ' *' : ''}</label>
+          ${inputHtml(f, values[f.key])}
+        </div>
+      `).join('');
+    }
+
+    function formValues() {
+      const data = {};
+      fields.forEach((f) => {
+        const el = document.querySelector(`[name="${f.key}"]`);
+        data[f.key] = el ? el.value : '';
+      });
+      return data;
+    }
+
+    function renderTable(records) {
+      if (!records.length) {
+        document.getElementById('tableWrap').innerHTML = '<div class="p-6 text-slate-400 font-bold">لا توجد سجلات بعد</div>';
+        return;
+      }
+      const cols = fields.slice(0, 5);
+      document.getElementById('tableWrap').innerHTML = `
+        <table>
+          <thead><tr>${cols.map((c) => `<th>${c.label}</th>`).join('')}<th></th></tr></thead>
+          <tbody>
+            ${records.map((row) => `
+              <tr>
+                ${cols.map((c) => `<td>${row.data?.[c.key] ?? row[c.key] ?? '—'}</td>`).join('')}
+                <td class="whitespace-nowrap">
+                  <button class="btn btn-ghost" data-edit="${row.id}">تعديل</button>
+                  <button class="btn btn-danger" data-del="${row.id}">حذف</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      document.querySelectorAll('[data-edit]').forEach((btn) => btn.addEventListener('click', () => {
+        const rec = records.find((r) => String(r.id) === btn.dataset.edit);
+        if (!rec) return;
+        document.getElementById('recordId').value = rec.id;
+        renderFields(rec.data || rec);
+      }));
+      document.querySelectorAll('[data-del]').forEach((btn) => btn.addEventListener('click', async () => {
+        if (!confirm('حذف السجل؟')) return;
+        await fetch(`/api/hr/system-settings/${key}/${btn.dataset.del}`, { method: 'DELETE', headers });
+        await load();
+      }));
+    }
+
+    async function load() {
+      const res = await fetch(`/api/hr/system-settings/${key}`, { headers });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'تعذر التحميل');
+      fields = data.item.fields || [];
+      document.getElementById('pageTitle').textContent = data.item.label;
+      document.getElementById('crumbName').textContent = data.item.label;
+      document.getElementById('pageSubtitle').textContent = data.item.description || '';
+      if (!document.getElementById('recordId').value) renderFields();
+      renderTable(data.records || []);
+      return data;
+    }
+
+    document.getElementById('recordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = formValues();
+      const id = document.getElementById('recordId').value;
+      const url = id ? `/api/hr/system-settings/${key}/${id}` : `/api/hr/system-settings/${key}`;
+      const res = await fetch(url, { method: id ? 'PUT' : 'POST', headers, body: JSON.stringify(payload) });
+      const data = await res.json();
+      const msg = document.getElementById('formMsg');
+      if (!data.success) {
+        msg.textContent = data.error || 'فشل الحفظ';
+        msg.className = 'text-sm font-bold text-rose-600';
+        return;
+      }
+      msg.textContent = 'تم الحفظ بنجاح';
+      msg.className = 'text-sm font-bold text-emerald-600';
+      document.getElementById('recordId').value = '';
+      renderFields();
+      await load();
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      document.getElementById('recordId').value = '';
+      renderFields();
+    });
+
+    load().catch((err) => {
+      document.getElementById('tableWrap').innerHTML = `<div class="p-6 text-rose-600 font-bold">${err.message}</div>`;
+    });
+  </script>
+</body>
+</html>
