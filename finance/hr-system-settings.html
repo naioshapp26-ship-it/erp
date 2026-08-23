@@ -3,74 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>إعدادات النظام - نايوش HCM</title>
+  <title>الإعدادات - نايوش HCM</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/finance/hr-portal-shell.css?v=hcm-hero-red-20260823b">
-  <style>
-    body { font-family: 'Tajawal', sans-serif; background: #f3f4f6; color: #0f172a; }
-    .topbar {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-    .topbar-actions { display: flex; align-items: center; gap: 14px; color: #64748b; }
-    .topbar-actions i { cursor: pointer; }
-  </style>
+  <link rel="stylesheet" href="/finance/hr-portal-shell.css?v=hcm-settings-tiles-20260823">
 </head>
-<body class="hr-shell-active" data-hr-page="system-settings">
+<body class="hr-shell-active settings-page" data-hr-page="system-settings">
   <div class="hr-app-layout">
     <aside class="hr-sidebar" id="hr-sidebar"></aside>
     <main class="hr-main">
-      <div class="hr-main-inner settings-page">
-        <div class="topbar">
-          <div class="font-bold text-slate-600">مرحباً بك في إعدادات النظام</div>
-          <div class="topbar-actions">
-            <input id="settingsSearch" type="search" placeholder="بحث في الإعدادات" class="border border-slate-200 rounded-lg px-3 py-1 text-sm w-48">
-            <i class="fas fa-expand"></i>
-            <i class="fas fa-bell"></i>
-            <i class="fas fa-user-circle text-lg"></i>
+      <div class="hr-main-inner">
+        <section class="settings-board">
+          <div class="settings-crumb">الرئيسية / <b>الإعدادات</b></div>
+          <div class="settings-head">
+            <div>
+              <h1>الإعدادات</h1>
+              <p>لوحة مربعات مستقلة لتشغيل موارد بشرية، حضور، رواتب، نماذج وطلبات من مكان واحد.</p>
+            </div>
+            <input id="settingsSearch" class="settings-search" type="search" placeholder="بحث في الإعدادات">
           </div>
-        </div>
-        <div class="settings-crumb">الرئيسية / إعدادات النظام</div>
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h1 class="hr-page-title">إعدادات النظام</h1>
-            <p class="hr-page-subtitle mb-0">كل الإعدادات جاهزة للتشغيل الفوري بنفس ترتيب شاشة العميل.</p>
-          </div>
-        </div>
-        <div id="settingsGrid" class="settings-grid"></div>
+          <div id="settingsGrid"></div>
+        </section>
       </div>
     </main>
   </div>
-  <script src="/finance/hr-portal-shell.js?v=hcm-hero-red-20260823b"></script>
+  <script src="/finance/hr-portal-shell.js?v=hcm-settings-tiles-20260823"></script>
   <script>
     const headers = { 'Content-Type': 'application/json', 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' };
-
-    function gearLink(item) {
-      const tag = item.isNew ? '<span class="settings-new">جديد</span>' : '';
-      return `<a href="${item.href}"><i class="fas fa-gear"></i><span>${item.label}</span>${tag}</a>`;
-    }
-
     let catalogGroups = [];
+
+    function iconClass(icon) {
+      const name = String(icon || 'fa-gear').replace(/^fa-/, '');
+      return `fas fa-${name}`;
+    }
 
     function renderCatalog(filter = '') {
       const q = String(filter || '').trim();
       const grid = document.getElementById('settingsGrid');
       const groups = catalogGroups.map((group) => ({
         ...group,
-        items: group.items.filter((item) => !q || item.label.includes(q) || group.title.includes(q))
+        items: (group.items || []).filter((item) => !q || item.label.includes(q) || group.title.includes(q))
       })).filter((group) => group.items.length);
+
       grid.innerHTML = groups.map((group) => `
-        <section class="settings-card">
-          <h3>${group.title}</h3>
-          ${group.items.map(gearLink).join('')}
+        <section class="settings-section">
+          <h2>${group.title}</h2>
+          <div class="settings-tiles">
+            ${group.items.map((item) => `
+              <a class="settings-tile" href="${item.href || '/hr/system-settings/' + item.key}">
+                ${item.isNew ? '<span class="settings-new">جديد</span>' : ''}
+                <span class="settings-tile-icon"><i class="${iconClass(item.icon)}"></i></span>
+                <span class="settings-tile-label">${item.label}</span>
+              </a>
+            `).join('')}
+          </div>
         </section>
       `).join('') || '<div class="text-slate-500 font-bold">لا توجد نتائج</div>';
     }
@@ -86,7 +73,6 @@
     }
 
     document.getElementById('settingsSearch').addEventListener('input', (e) => renderCatalog(e.target.value));
-
     loadCatalog().catch((err) => {
       document.getElementById('settingsGrid').innerHTML = `<div class="text-rose-600 font-bold">${err.message}</div>`;
     });

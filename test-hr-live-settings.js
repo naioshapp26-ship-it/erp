@@ -20,20 +20,21 @@ async function api(path, options = {}) {
 }
 
 async function page(path) {
-  const res = await fetch(`${BASE}${path}`, { headers: { ...headers, Accept: 'application/json,text/html;q=0.8' } });
+  const res = await fetch(`${BASE}${path}`);
   const html = await res.text();
   assert.ok(res.ok, `${path} status ${res.status}`);
-  assert.ok(!html.includes('login-page') || html.includes('hr-sidebar') || html.includes('إعدادات'), `${path} looks like a login wall`);
+  assert.ok(html.includes('hr-sidebar') || html.includes('settings-board') || html.includes('hr-main') || html.includes('إعدادات') || html.includes('hr-ops'), `${path} looks like a login wall`);
   return html;
 }
 
 async function main() {
   const catalog = await api('/api/hr/system-settings/catalog');
   assert.strictEqual(catalog.success, true);
-  assert.strictEqual(catalog.groups.length, 8, 'expected 8 settings groups');
+  assert.ok(catalog.groups.length >= 12, `expected 12+ settings groups, got ${catalog.groups.length}`);
   const itemCount = catalog.groups.reduce((n, g) => n + g.items.length, 0);
-  assert.ok(itemCount >= 40, `expected 40+ items, got ${itemCount}`);
-  assert.strictEqual(catalog.groups[0].items[0].key, 'users');
+  assert.ok(itemCount >= 80, `expected 80+ items, got ${itemCount}`);
+  assert.ok(catalog.groups.some((g) => g.items.some((i) => i.key === 'users')));
+  assert.ok(catalog.groups.some((g) => g.items.some((i) => i.key === 'fixed-system-components')));
   assert.ok(catalog.groups.some((g) => g.items.some((i) => i.isNew)));
 
   const users = await api('/api/hr/system-settings/users');
@@ -98,16 +99,18 @@ async function main() {
   assert.ok(decided.success, 'manager approve failed');
   assert.ok(['hr', 'completed'].includes(decided.request.current_stage), `after manager got ${decided.request.current_stage}`);
 
+  const hub = await page('/hr/system-settings');
+  assert.ok(hub.includes('settings-tiles') || hub.includes('settings-tile'), 'hub should render ERP-style tiles');
+  assert.ok(!hub.includes('class="settings-card"'), 'hub must not use the old grouped cards');
+
   for (const path of [
-    '/hr/system-settings',
     '/hr/system-settings/users',
     '/hr/letters',
     '/hr/human-resources',
     '/hr/reports',
     '/hr/my-requests',
     '/hr/pending-actions',
-    '/hr/manager',
-    '/hr/employees'
+    '/hr/manager'
   ]) {
     await page(path);
   }

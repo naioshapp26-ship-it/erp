@@ -46,6 +46,37 @@ function item(key, label, extras = {}) {
   };
 }
 
+function namedSeeds(prefix, names, extra = {}) {
+  return names.map((entry, index) => {
+    const name = Array.isArray(entry) ? entry[0] : entry;
+    const category = Array.isArray(entry) ? entry[1] : extra.category;
+    return {
+      code: `${prefix}-${String(index + 1).padStart(3, '0')}`,
+      name,
+      category,
+      status: 'نشط',
+      notes: extra.notes || 'مكون تشغيلي جاهز للاستخدام'
+    };
+  });
+}
+
+const CATEGORY_FIELD = field('category', 'التصنيف');
+const COMPONENT_FIELDS = [
+  field('code', 'الرمز'),
+  field('name', 'الاسم'),
+  field('category', 'التصنيف'),
+  field('status', 'الحالة', 'select', { options: STATUS_OPTIONS }),
+  field('notes', 'ملاحظات', 'textarea', { required: false })
+];
+const RULE_FIELDS = [
+  field('code', 'الرمز'),
+  field('name', 'الاسم'),
+  field('value', 'القيمة'),
+  field('unit', 'الوحدة', { required: false }),
+  field('status', 'الحالة', 'select', { options: STATUS_OPTIONS }),
+  field('notes', 'ملاحظات', 'textarea', { required: false })
+];
+
 const CATALOG = [
   {
     key: 'general',
@@ -746,6 +777,366 @@ const CATALOG = [
         ]
       })
     ]
+  },
+  {
+    key: 'control-board',
+    title: 'لوحة الإعدادات',
+    items: [
+      item('numbering-systems', 'أنظمة الترقيم', {
+        icon: 'fa-hashtag',
+        fields: [
+          field('code', 'الرمز'),
+          field('name', 'اسم الترقيم'),
+          field('prefix', 'البادئة'),
+          field('next_number', 'الرقم التالي', 'number'),
+          field('status', 'الحالة', 'select', { options: STATUS_OPTIONS })
+        ],
+        seeds: [
+          { code: 'NUM-EMP', name: 'ترقيم الموظفين', prefix: 'EMP', next_number: 1201, status: 'نشط' },
+          { code: 'NUM-REQ', name: 'ترقيم الطلبات', prefix: 'REQ', next_number: 5401, status: 'نشط' },
+          { code: 'NUM-PAY', name: 'ترقيم المسيرات', prefix: 'PAY', next_number: 2608, status: 'نشط' }
+        ]
+      }),
+      item('field-templates', 'قوالب الحقول', {
+        icon: 'fa-table-cells',
+        isNew: true,
+        fields: [
+          field('code', 'الرمز'),
+          field('name', 'اسم القالب'),
+          field('applies_to', 'يطبق على'),
+          field('status', 'الحالة', 'select', { options: STATUS_OPTIONS })
+        ],
+        seeds: [
+          { code: 'FT-EMP', name: 'حقول ملف الموظف', applies_to: 'الموظف', status: 'نشط' },
+          { code: 'FT-REQ', name: 'حقول الطلبات', applies_to: 'الطلبات', status: 'نشط' }
+        ]
+      }),
+      item('action-types', 'أنواع الإجراءات', {
+        icon: 'fa-list-ul',
+        seeds: namedSeeds('ACT', ['اعتماد', 'رفض', 'إرجاع للتعديل', 'تحويل لمدير آخر', 'إغلاق'])
+      }),
+      item('transaction-statuses', 'حالات المعاملات', {
+        icon: 'fa-tags',
+        seeds: namedSeeds('TRX', ['مسودة', 'بانتظار المدير', 'بانتظار الموارد البشرية', 'مكتمل', 'مرفوض'])
+      }),
+      item('request-settings', 'إعدادات الطلبات', {
+        icon: 'fa-sliders',
+        fields: RULE_FIELDS,
+        seeds: [
+          { code: 'RS-MGR', name: 'تمرير كل الطلبات للمدير أولاً', value: 'مفعل', unit: 'قاعدة', status: 'نشط' },
+          { code: 'RS-ATT', name: 'إرفاق ملف مع الطلب', value: 'اختياري', unit: 'قاعدة', status: 'نشط' }
+        ]
+      }),
+      item('task-statuses', 'حالات المهام', {
+        icon: 'fa-clipboard-check',
+        seeds: namedSeeds('TSK', ['جديدة', 'جارية', 'متأخرة', 'مكتملة', 'ملغاة'])
+      }),
+      item('barcode-templates', 'قوالب الباركود', {
+        icon: 'fa-barcode',
+        seeds: [
+          { code: 'BC-EMP', name: 'باركود بطاقة الموظف', status: 'نشط' },
+          { code: 'BC-AST', name: 'باركود العهدة', status: 'نشط' }
+        ]
+      }),
+      item('email-templates', 'قوالب البريد الإلكتروني', {
+        icon: 'fa-at',
+        seeds: namedSeeds('EML', ['بريد الطلبات', 'بريد القرارات', 'رسالة بريد بسيطة', 'رسالة إنشاء مستخدم'])
+      }),
+      item('sms-templates', 'قوالب الرسائل النصية', {
+        icon: 'fa-comment-dots',
+        seeds: namedSeeds('SMS', ['تأكيد طلب', 'اعتماد مدير', 'تنبيه حضور'])
+      }),
+      item('print-templates', 'قوالب الطباعة', {
+        icon: 'fa-print',
+        seeds: namedSeeds('PRT', ['ترويسة الورق الرسمي', 'تذييل الورق الرسمي', 'قسيمة راتب', 'تعريف بالراتب'])
+      }),
+      item('backups', 'النسخ الاحتياطي', {
+        icon: 'fa-database',
+        fields: [
+          field('code', 'الرمز'),
+          field('name', 'اسم النسخة'),
+          field('schedule', 'الجدولة'),
+          field('status', 'الحالة', 'select', { options: STATUS_OPTIONS })
+        ],
+        seeds: [
+          { code: 'BK-DAY', name: 'نسخ يومي', schedule: 'كل يوم 01:00', status: 'نشط' },
+          { code: 'BK-WEEK', name: 'نسخ أسبوعي', schedule: 'الجمعة 02:00', status: 'نشط' }
+        ]
+      }),
+      item('general-settings', 'الإعدادات العامة', {
+        icon: 'fa-gears',
+        fields: RULE_FIELDS,
+        seeds: [
+          { code: 'GS-LANG', name: 'لغة الواجهة', value: 'العربية', unit: 'لغة', status: 'نشط' },
+          { code: 'GS-CAL', name: 'تقويم العمل', value: 'الأحد - الخميس', unit: 'أيام', status: 'نشط' },
+          { code: 'GS-CUR', name: 'عملة الرواتب', value: 'ر.س', unit: 'عملة', status: 'نشط' }
+        ]
+      })
+    ]
+  },
+  {
+    key: 'operating',
+    title: 'إعدادات التشغيل',
+    items: [
+      item('employee-settings', 'إعدادات الموظف', { icon: 'fa-id-badge', fields: RULE_FIELDS, seeds: [
+        { code: 'ES-CODE', name: 'توليد رقم وظيفي تلقائي', value: 'مفعل', unit: 'قاعدة', status: 'نشط' },
+        { code: 'ES-PROB', name: 'فترة التجربة الافتراضية', value: '90', unit: 'يوم', status: 'نشط' }
+      ]}),
+      item('payroll-run-settings', 'إعدادات مسير الرواتب', { icon: 'fa-file-invoice-dollar', fields: RULE_FIELDS, seeds: [
+        { code: 'PR-DAY', name: 'يوم صرف الراتب', value: '27', unit: 'يوم', status: 'نشط' },
+        { code: 'PR-GOSI', name: 'احتساب التأمينات تلقائياً', value: 'مفعل', unit: 'قاعدة', status: 'نشط' }
+      ]}),
+      item('self-service-settings', 'إعدادات الخدمات الذاتية', { icon: 'fa-mobile-screen', fields: RULE_FIELDS, seeds: [
+        { code: 'SS-OPEN', name: 'تفعيل بوابة الموظف', value: 'مفعل', unit: 'قاعدة', status: 'نشط' },
+        { code: 'SS-MGR', name: 'كل طلب موظف يذهب للمدير', value: 'مفعل', unit: 'قاعدة', status: 'نشط' }
+      ]}),
+      item('advance-settings', 'إعدادات السلف/الذمم', { icon: 'fa-sack-dollar', fields: RULE_FIELDS, seeds: [
+        { code: 'AD-MAX', name: 'الحد الأقصى للسلفة', value: '3', unit: 'رواتب', status: 'نشط' },
+        { code: 'AD-INST', name: 'عدد الأقساط الافتراضي', value: '6', unit: 'قسط', status: 'نشط' }
+      ]}),
+      item('email-settings', 'إعدادات البريد الإلكتروني', { icon: 'fa-envelope-circle-check', fields: RULE_FIELDS, seeds: [
+        { code: 'MAIL-HOST', name: 'خادم البريد', value: 'mail.nayosh.com', unit: 'SMTP', status: 'نشط' },
+        { code: 'MAIL-FROM', name: 'اسم المرسل', value: 'نايوش HCM', unit: 'اسم', status: 'نشط' }
+      ]}),
+      item('security-settings', 'إعدادات الأمان', { icon: 'fa-shield-halved', fields: RULE_FIELDS, seeds: [
+        { code: 'SEC-PWD', name: 'طول كلمة المرور', value: '8', unit: 'حرف', status: 'نشط' },
+        { code: 'SEC-OTP', name: 'التحقق بخطوتين', value: 'اختياري', unit: 'قاعدة', status: 'نشط' }
+      ]}),
+      item('integration-settings', 'إعدادات الربط', { icon: 'fa-plug-circle-plus', fields: RULE_FIELDS, seeds: [
+        { code: 'INT-GOSI', name: 'ربط التأمينات', value: 'جاهز', unit: 'API', status: 'نشط' },
+        { code: 'INT-MUDAD', name: 'ربط مدد', value: 'جاهز', unit: 'API', status: 'نشط' }
+      ]})
+    ]
+  },
+  {
+    key: 'attendance-ops',
+    title: 'الحضور والانصراف',
+    items: [
+      item('overtime-settings', 'إعدادات العمل الإضافي', { icon: 'fa-clock-rotate-left', fields: RULE_FIELDS, seeds: [
+        { code: 'OT-RATE', name: 'معامل اليوم العادي', value: '1.5', unit: 'ضعف', status: 'نشط' },
+        { code: 'OT-WEEK', name: 'معامل يوم الراحة', value: '2', unit: 'ضعف', status: 'نشط' }
+      ]}),
+      item('absence-settings', 'إعدادات الغياب', { icon: 'fa-user-xmark', fields: RULE_FIELDS, seeds: [
+        { code: 'ABS-DAY', name: 'خصم يوم الغياب', value: 'يوم كامل', unit: 'خصم', status: 'نشط' },
+        { code: 'ABS-MGR', name: 'إشعار المدير بعد', value: '1', unit: 'يوم', status: 'نشط' }
+      ]}),
+      item('lateness-settings', 'إعدادات التأخير', { icon: 'fa-person-running', fields: RULE_FIELDS, seeds: [
+        { code: 'LT-GRACE', name: 'سماح التأخير', value: '15', unit: 'دقيقة', status: 'نشط' },
+        { code: 'LT-DED', name: 'احتساب الخصم بعد السماح', value: 'مفعل', unit: 'قاعدة', status: 'نشط' }
+      ]}),
+      item('early-leave-settings', 'إعدادات الانصراف المبكر', { icon: 'fa-door-open', fields: RULE_FIELDS, seeds: [
+        { code: 'EL-MIN', name: 'حد الانصراف المبكر', value: '10', unit: 'دقيقة', status: 'نشط' }
+      ]}),
+      item('remaining-hours-settings', 'إعدادات الساعات المتبقية', { icon: 'fa-hourglass-end', fields: RULE_FIELDS, seeds: [
+        { code: 'RH-WEEK', name: 'ساعات الأسبوع المطلوبة', value: '40', unit: 'ساعة', status: 'نشط' }
+      ]}),
+      item('remote-work-settings', 'إعدادات العمل عن بعد', { icon: 'fa-house-laptop', isNew: true, fields: RULE_FIELDS, seeds: [
+        { code: 'RW-DAYS', name: 'أيام عن بعد المسموحة', value: '2', unit: 'يوم/أسبوع', status: 'نشط' }
+      ]}),
+      item('attendance-registration', 'تسجيل الحضور والانصراف', { icon: 'fa-fingerprint', seeds: namedSeeds('REG', ['بصمة', 'تطبيق الجوال', 'لوحة الويب', 'تكامل الجهاز']) })
+    ]
+  },
+  {
+    key: 'hr-components',
+    title: 'مكونات الموارد البشرية',
+    items: [
+      item('fixed-system-components', 'مكونات النظام الثابتة', {
+        icon: 'fa-cubes',
+        isNew: true,
+        fields: COMPONENT_FIELDS,
+        seeds: namedSeeds('CMP', [
+          ['الاسم', 'حقول'],
+          ['تذاكر سفر', 'مزايا'],
+          ['الإقامة', 'مزايا'],
+          ['التأمين الصحي', 'مزايا'],
+          ['تأمين الحياة', 'مزايا'],
+          ['بدل طعام', 'بدلات'],
+          ['بدل نقل', 'بدلات'],
+          ['بدل تعليم', 'بدلات'],
+          ['عضوية الصالة الرياضية', 'مزايا'],
+          ['خطة المعاشات', 'مزايا'],
+          ['بدل الهاتف', 'بدلات'],
+          ['بدل ملابس', 'بدلات'],
+          ['بدل السكن', 'بدلات'],
+          ['مكافأة', 'تعويضات'],
+          ['خيارات الأسهم', 'تعويضات'],
+          ['رعاية الطفل', 'مزايا'],
+          ['نفقات طبية', 'مزايا'],
+          ['تغطية المعالين', 'مزايا'],
+          ['التأمين ضد العجز', 'مزايا'],
+          ['المساعدة القانونية', 'مزايا'],
+          ['العمل من المنزل', 'سياسات'],
+          ['مساعدة القروض', 'مزايا'],
+          ['خطة التقاعد', 'مزايا'],
+          ['إحالة الموظف', 'توظيف'],
+          ['إعادة شراء الإجازة', 'إجازات'],
+          ['مكافأة سنوية', 'تعويضات'],
+          ['مخصص', 'رواتب'],
+          ['مخالصة نهاية الخدمة', 'إنهاء خدمة'],
+          ['تسوية رصيد اجازة', 'إجازات'],
+          ['انتداب', 'تشغيل'],
+          ['سلفة', 'ذمم'],
+          ['ذمة', 'ذمم'],
+          ['مخالصة إجازة', 'إجازات'],
+          ['مشتريات', 'تشغيل'],
+          ['تسوية سلفة', 'ذمم'],
+          ['إجازة مرضية', 'إجازات'],
+          ['ترويسة الخطابات', 'مراسلات'],
+          ['تذييل الخطابات', 'مراسلات'],
+          ['ترويسة النماذج', 'نماذج'],
+          ['تذييل النماذج', 'نماذج'],
+          ['نموذج تعريف بالراتب', 'نماذج'],
+          ['نموذج طلب اجازة', 'نماذج'],
+          ['نموذج طلب استئذان', 'نماذج'],
+          ['نموذج طلب دوام إضافي', 'نماذج'],
+          ['نموذج مخالصة مستحقات نهاية الخدمة', 'نماذج'],
+          ['نموذج شهادة خدمة', 'نماذج'],
+          ['نموذج إنذار/إشعار', 'نماذج'],
+          ['نموذج مسودة العقود', 'نماذج'],
+          ['نموذج قسيمة الراتب', 'نماذج'],
+          ['نموذج تفويض وسيط تأمين', 'نماذج'],
+          ['نموذج تفويض شركة مالية', 'نماذج'],
+          ['نموذج عرض وظيفي', 'نماذج'],
+          ['نموذج سلفة/ ذم', 'نماذج'],
+          ['نموذج مصروف', 'نماذج'],
+          ['تفاصيل نموذج التقييم', 'نماذج'],
+          ['نموذج قرار تعديل الراتب', 'نماذج'],
+          ['نموذج تفاصيل الطلب', 'نماذج'],
+          ['نموذج مقابلة مغادرة موظف', 'نماذج'],
+          ['بدل سكن', 'بدلات'],
+          ['التأمينات الاجتماعية', 'رواتب'],
+          ['انصراف مبكر', 'حضور'],
+          ['حضور غير مكتمل', 'حضور'],
+          ['تاخير', 'حضور'],
+          ['غياب', 'حضور'],
+          ['مكافأة نهاية الخدمة', 'إنهاء خدمة'],
+          ['مبلغ الاجازة', 'رواتب'],
+          ['دوام إضافي', 'حضور'],
+          ['استقطاع سلفة', 'ذمم'],
+          ['استقطاع ذمة', 'ذمم'],
+          ['اضافات نهاية الخدمة', 'إنهاء خدمة'],
+          ['حسومات نهاية الخدمة', 'إنهاء خدمة'],
+          ['مخصص', 'رواتب'],
+          ['مصروفات', 'رواتب'],
+          ['مستحقات راتب', 'رواتب'],
+          ['مخالفة أنظمة الشركة', 'جزاءات'],
+          ['حسم التأمينات الإجتماعية', 'رواتب'],
+          ['راتب مؤجل', 'رواتب'],
+          ['عملية عكسية (اضافي)', 'رواتب'],
+          ['عملية عكسية (حسم)', 'رواتب'],
+          ['عملية عكسية', 'رواتب'],
+          ['إجازة مرضية', 'إجازات'],
+          ['خصم إجازة غير مدفوعة مؤجل من الشهر السابق', 'رواتب'],
+          ['طلب إجازة', 'طلبات'],
+          ['طلب تعريف بالراتب', 'طلبات'],
+          ['طلب فقدان بصمة', 'طلبات'],
+          ['طلب استئذان', 'طلبات'],
+          ['طلب تعديل فترة العمل', 'طلبات'],
+          ['طلب دوام إضافي', 'طلبات'],
+          ['طلب تذاكر سفر', 'طلبات'],
+          ['طلب انتداب', 'طلبات'],
+          ['طلب مشتريات', 'طلبات'],
+          ['طلب تعديل بيانات الموظف', 'طلبات'],
+          ['طلب سلفة', 'طلبات'],
+          ['طلب صرف مخصص', 'طلبات'],
+          ['طلب دوام خارج المكتب', 'طلبات'],
+          ['طلب دورة تدريبية', 'طلبات'],
+          ['طلب انهاء العلاقة التعاقدية', 'طلبات'],
+          ['طلب شكوى', 'طلبات'],
+          ['طلب تثبيت الراتب', 'طلبات'],
+          ['طلب تبديل يوم راحة', 'طلبات'],
+          ['طلب توظيف', 'طلبات'],
+          ['طلب عمل عن بعد', 'طلبات'],
+          ['طلب يوم راحة', 'طلبات'],
+          ['بريد الطلبات', 'مراسلات'],
+          ['بريد القرارات', 'مراسلات'],
+          ['رسالة بريد بسيطة', 'مراسلات'],
+          ['رسالة إنشاء مستخدم', 'مراسلات'],
+          ['تذييل الورق الرسمي', 'مراسلات'],
+          ['ترويسة الورق الرسمي', 'مراسلات'],
+          ['تعريف بالراتب', 'مراسلات'],
+          ['مسودة عقد منشأة', 'مراسلات'],
+          ['شهادة خدمة', 'مراسلات'],
+          ['مخالصة استلام مستحقات نهاية خدمة', 'مراسلات'],
+          ['إقرار استلام عهدة', 'مراسلات'],
+          ['خطاب إنذار/إشعار', 'مراسلات'],
+          ['مخالصة إجازة', 'مراسلات']
+        ])
+      }),
+      item('hr-benefits', 'المزايا والتعويضات', {
+        icon: 'fa-heart-pulse',
+        fields: COMPONENT_FIELDS,
+        seeds: namedSeeds('BEN', [
+          ['تذاكر سفر', 'مزايا'], ['الإقامة', 'مزايا'], ['التأمين الصحي', 'مزايا'], ['تأمين الحياة', 'مزايا'],
+          ['بدل طعام', 'بدلات'], ['بدل نقل', 'بدلات'], ['بدل تعليم', 'بدلات'], ['عضوية الصالة الرياضية', 'مزايا'],
+          ['خطة المعاشات', 'مزايا'], ['بدل الهاتف', 'بدلات'], ['بدل ملابس', 'بدلات'], ['بدل السكن', 'بدلات'],
+          ['مكافأة', 'تعويضات'], ['خيارات الأسهم', 'تعويضات'], ['رعاية الطفل', 'مزايا'], ['نفقات طبية', 'مزايا'],
+          ['تغطية المعالين', 'مزايا'], ['التأمين ضد العجز', 'مزايا'], ['المساعدة القانونية', 'مزايا'],
+          ['مساعدة القروض', 'مزايا'], ['خطة التقاعد', 'مزايا'], ['مكافأة سنوية', 'تعويضات']
+        ])
+      }),
+      item('approved-forms', 'مكتبة النماذج المعتمدة', {
+        icon: 'fa-file-lines',
+        fields: COMPONENT_FIELDS,
+        seeds: namedSeeds('FRM', [
+          'نموذج تعريف بالراتب', 'نموذج طلب اجازة', 'نموذج طلب استئذان', 'نموذج طلب دوام إضافي',
+          'نموذج مخالصة مستحقات نهاية الخدمة', 'نموذج شهادة خدمة', 'نموذج إنذار/إشعار', 'نموذج مسودة العقود',
+          'نموذج قسيمة الراتب', 'نموذج تفويض وسيط تأمين', 'نموذج تفويض شركة مالية', 'نموذج عرض وظيفي',
+          'نموذج سلفة/ ذم', 'نموذج مصروف', 'تفاصيل نموذج التقييم', 'نموذج قرار تعديل الراتب',
+          'نموذج تفاصيل الطلب', 'نموذج مقابلة مغادرة موظف'
+        ], { category: 'نماذج' })
+      }),
+      item('self-request-types', 'أنواع طلبات الموظف', {
+        icon: 'fa-inbox',
+        fields: COMPONENT_FIELDS,
+        seeds: namedSeeds('REQ', [
+          'طلب إجازة', 'طلب تعريف بالراتب', 'طلب فقدان بصمة', 'طلب استئذان', 'طلب تعديل فترة العمل',
+          'طلب دوام إضافي', 'طلب تذاكر سفر', 'طلب انتداب', 'طلب مشتريات', 'طلب تعديل بيانات الموظف',
+          'طلب سلفة', 'طلب صرف مخصص', 'طلب دوام خارج المكتب', 'طلب دورة تدريبية',
+          'طلب انهاء العلاقة التعاقدية', 'طلب شكوى', 'طلب تثبيت الراتب', 'طلب تبديل يوم راحة',
+          'طلب توظيف', 'طلب عمل عن بعد', 'طلب يوم راحة'
+        ], { category: 'طلبات' })
+      }),
+      item('payroll-elements', 'بنود مسير الرواتب', {
+        icon: 'fa-scale-unbalanced',
+        fields: COMPONENT_FIELDS,
+        seeds: namedSeeds('PEL', [
+          ['بدل سكن', 'إضافة'], ['التأمينات الاجتماعية', 'حسم'], ['انصراف مبكر', 'حسم'],
+          ['حضور غير مكتمل', 'حسم'], ['تاخير', 'حسم'], ['غياب', 'حسم'], ['مكافأة نهاية الخدمة', 'إضافة'],
+          ['مبلغ الاجازة', 'إضافة'], ['دوام إضافي', 'إضافة'], ['استقطاع سلفة', 'حسم'], ['استقطاع ذمة', 'حسم'],
+          ['اضافات نهاية الخدمة', 'إضافة'], ['حسومات نهاية الخدمة', 'حسم'], ['مصروفات', 'إضافة'],
+          ['مستحقات راتب', 'إضافة'], ['مخالفة أنظمة الشركة', 'حسم'], ['حسم التأمينات الإجتماعية', 'حسم'],
+          ['راتب مؤجل', 'إضافة'], ['عملية عكسية (اضافي)', 'إضافة'], ['عملية عكسية (حسم)', 'حسم']
+        ])
+      }),
+      item('official-correspondence', 'ترويسات وتذييلات المراسلات', {
+        icon: 'fa-scroll',
+        fields: COMPONENT_FIELDS,
+        seeds: namedSeeds('COR', [
+          'ترويسة الخطابات', 'تذييل الخطابات', 'ترويسة النماذج', 'تذييل النماذج',
+          'ترويسة الورق الرسمي', 'تذييل الورق الرسمي', 'بريد الطلبات', 'بريد القرارات'
+        ], { category: 'مراسلات' })
+      }),
+      item('allocation-types', 'أنواع المخصصات', {
+        icon: 'fa-layer-group',
+        isNew: true,
+        seeds: namedSeeds('ALC', ['مخصص إجازات', 'مخصص نهاية خدمة', 'مخصص تذاكر', 'مخصص تأمين'])
+      })
+    ]
+  },
+  {
+    key: 'data-loads',
+    title: 'رفع البيانات',
+    items: [
+      item('upload-employees', 'رفع الموظفين', { icon: 'fa-users-line', seeds: namedSeeds('UPE', ['قالب الموظفين الأساسي', 'قالب الموظفين التفصيلي']) }),
+      item('upload-salaries', 'رفع الرواتب', { icon: 'fa-money-check-dollar', seeds: namedSeeds('UPS', ['قالب مسير شهري', 'قالب فروقات']) }),
+      item('upload-managers', 'رفع المديرون', { icon: 'fa-user-tie', seeds: namedSeeds('UPM', ['ربط الموظف بالمدير المباشر']) }),
+      item('upload-dependents', 'رفع التابعين', { icon: 'fa-children', seeds: namedSeeds('UPD', ['قالب التابعين والتأمين']) }),
+      item('upload-departments', 'رفع الإدارات / الاقسام', { icon: 'fa-sitemap', seeds: namedSeeds('UPP', ['قالب الهيكل التنظيمي']) }),
+      item('upload-locations', 'رفع المواقع', { icon: 'fa-map-location-dot', seeds: namedSeeds('UPL', ['قالب المواقع والفروع']) }),
+      item('upload-assets', 'رفع العهد', { icon: 'fa-box-open', seeds: namedSeeds('UPA', ['قالب العهد والاستلام']) }),
+      item('upload-bank-accounts', 'رفع حساب البنك', { icon: 'fa-building-columns', seeds: namedSeeds('UPB', ['قالب الآيبان والحسابات']) })
+    ]
   }
 ];
 
@@ -761,8 +1152,24 @@ function flattenItems() {
 
 const ITEMS_BY_KEY = flattenItems();
 
+const PUBLIC_GROUP_ORDER = [
+  'control-board',
+  'operating',
+  'attendance-ops',
+  'hr-components',
+  'data-loads',
+  'general',
+  'organization',
+  'salary',
+  'job',
+  'custody',
+  'workflow',
+  'recruitment',
+  'other'
+];
+
 function getCatalogPublic() {
-  return CATALOG.map((group) => ({
+  const groups = CATALOG.map((group) => ({
     key: group.key,
     title: group.title,
     items: group.items.map((entry) => ({
@@ -773,6 +1180,11 @@ function getCatalogPublic() {
       href: `/hr/system-settings/${entry.key}`
     }))
   }));
+  return groups.sort((a, b) => {
+    const ai = PUBLIC_GROUP_ORDER.indexOf(a.key);
+    const bi = PUBLIC_GROUP_ORDER.indexOf(b.key);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
 }
 
 function getItem(key) {

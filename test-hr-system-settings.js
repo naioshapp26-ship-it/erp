@@ -5,14 +5,15 @@ const { listOpsModules, getOpsModule } = require('./hr-ops-modules');
 const { buildInitialWorkflow, getStagesForRequestType } = require('./hr-request-workflow');
 
 const groups = getCatalogPublic();
-assert.strictEqual(groups.length, 8, 'expected 8 settings groups');
-assert.strictEqual(groups[0].title, groups[0].title);
-assert.ok(groups[0].title.includes('عامة'), groups[0].title);
-assert.strictEqual(groups[0].items[0].key, 'users');
-assert.strictEqual(groups[3].items.find((i) => i.key === 'employee-fields').isNew, true);
+assert.ok(groups.length >= 12, `expected 12+ settings groups, got ${groups.length}`);
+assert.ok(groups.some((g) => g.items.some((i) => i.key === 'users')), 'users tile missing');
+assert.ok(groups.some((g) => g.items.some((i) => i.key === 'fixed-system-components')), 'fixed HR components missing');
+assert.ok(groups.some((g) => g.items.some((i) => i.key === 'overtime-settings')), 'attendance tiles missing');
+assert.strictEqual(groups.find((g) => g.items.some((i) => i.key === 'employee-fields')).items.find((i) => i.key === 'employee-fields').isNew, true);
 
 const keys = listItemKeys();
-assert.ok(keys.length >= 40, `expected 40+ setting items, got ${keys.length}`);
+assert.ok(keys.length >= 80, `expected 80+ setting items, got ${keys.length}`);
+assert.ok(getItem('fixed-system-components').seeds.length >= 110, 'expected 110+ fixed HR components');
 keys.forEach((key) => {
   const item = getItem(key);
   assert.ok(item, `missing item ${key}`);
