@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>poshahub360</title>
-  <!-- FOUC lock: poshahub360 name + branding navy (no red flash) -->
+  <!-- FOUC lock: poshahub360 name + brand CSS vars (hero follows primary_color) -->
   <style id="tenant-landing-fouc-critical">
     :root {
+      /* Defaults only until هوية النظام / branding boot paints real colors */
       --tenant-primary: #11165a;
       --tenant-secondary: #0c1048;
       --tenant-primary-rgb: 17, 22, 90;
@@ -35,7 +36,7 @@
     body.homepage .hero.hero-has-bg-image,
     body.homepage.dark-mode .hero.hero-bg-image,
     body.homepage.dark-mode .hero.hero-has-image {
-      background: #11165a !important;
+      background: var(--tenant-primary, #11165a) !important;
       background-color: var(--tenant-primary, #11165a) !important;
       background-image: none !important;
     }
@@ -141,12 +142,7 @@
         var primary = colors.primary;
         var secondary = colors.secondary;
         var rgb = hexToRgb(primary);
-        // Reject magenta/purple-leaning secondary (R > G) — keep pure navy family
-        var secRgb = hexToRgb(secondary);
-        if (secRgb[0] > secRgb[1] + 2) {
-          secondary = shadeHex(primary, 0.72);
-          secRgb = hexToRgb(secondary);
-        }
+        // Honor whatever colors the tenant picked in هوية النظام (no secondary rewrite)
         var mid = shadeHex(primary, 0.82);
         var dark = shadeHex(primary, 0.64);
         var deep = shadeHex(primary, 0.42);
@@ -156,7 +152,7 @@
         root.style.setProperty('--tenant-primary-rgb', rgb.join(', '));
         root.style.setProperty('--brand-red', primary);
         root.style.setProperty('--brand-red-rgb', rgb.join(', '));
-        root.style.setProperty('--brand-red-soft', primary); // no lightened purple
+        root.style.setProperty('--brand-red-soft', primary);
         root.style.setProperty('--brand-red-mid', mid);
         root.style.setProperty('--brand-red-dark', dark);
         root.style.setProperty('--brand-red-deep', deep);
@@ -169,8 +165,8 @@
         root.style.setProperty('--homepage-hero-gradient-start', primary);
         root.style.setProperty('--homepage-hero-gradient-mid', primary);
         root.style.setProperty('--announcement-bg', secondary);
-        root.style.setProperty('--gradient-brand-primary', 'linear-gradient(135deg, ' + primary + ', ' + dark + ')');
-        // Solid navy face — exact brand degree, no warm/magenta gradient
+        root.style.setProperty('--gradient-brand-primary', 'linear-gradient(135deg, ' + primary + ', ' + secondary + ')');
+        // Solid hero face — exact primary from هوية النظام
         root.style.setProperty('--landing-hero-gradient', 'none');
         root.style.setProperty('--landing-mesh-gradient', 'none');
         var hero = document.querySelector('.hero');
@@ -190,6 +186,16 @@
           heroEl.classList.remove('hero-bg-image', 'hero-has-image', 'hero-has-bg-image', 'hero-has-video');
           heroEl.classList.add('hero-bg-solid');
         }
+        // Keep FABs + frame chrome in sync with identity colors
+        document.querySelectorAll('.floating-actions a, .floating-actions button').forEach(function (el) {
+          el.style.setProperty('background', primary, 'important');
+          el.style.setProperty('background-color', primary, 'important');
+          el.style.setProperty('border-color', primary, 'important');
+          el.style.setProperty('color', '#ffffff', 'important');
+        });
+        document.querySelectorAll('.hero-visual, .premium-video-frame').forEach(function (el) {
+          el.style.setProperty('background', deep, 'important');
+        });
       }
       function lockNames() {
         if (document.title !== NAME) document.title = NAME;
@@ -431,6 +437,7 @@
     }
 
     :root {
+      /* Fallbacks only — paintBrandColors / branding boot override with هوية النظام */
       --tenant-primary: #11165a;
       --tenant-secondary: #0c1048;
       --tenant-primary-rgb: 17, 22, 90;
@@ -442,7 +449,7 @@
       --brand-red-deep: #070a30;
       --homepage-button-color: #11165a;
       --announcement-bg: #0c1048;
-      --gradient-brand-primary: linear-gradient(135deg, #11165a, #0c1048);
+      --gradient-brand-primary: linear-gradient(135deg, var(--tenant-primary, #11165a), var(--tenant-secondary, #0c1048));
     }
     body.homepage {
       --homepage-border: rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.18) !important;
@@ -538,7 +545,7 @@
       box-shadow: 0 10px 24px rgba(30, 58, 138, 0.28) !important;
     }
     body.homepage .hero-note-upload:hover {
-      background: linear-gradient(135deg, #16325a, #081628) !important;
+      background: linear-gradient(135deg, var(--tenant-primary, #11165a), var(--tenant-secondary, #0c1048)) !important;
     }
     body.homepage .hero-float-icon {
       background: var(--gradient-brand-primary) !important;
@@ -654,7 +661,7 @@
       max-width: 18rem;
     }
 
-    /* Absolute navy lock — solid brand navy only (no magenta / red derivatives) */
+    /* Absolute solid hero — color comes from --tenant-primary (هوية النظام) */
     body.homepage .hero-ambient,
     body.homepage .hero-gradient-mesh,
     body.homepage .hero-glow,
@@ -885,7 +892,7 @@
       background-image: none !important;
     }
 
-    /* Floating actions: transparent rail + navy frame + white icons (beat homepage-premium white FABs) */
+    /* Floating actions: transparent rail + brand primary frame + white icons */
     html body.homepage.tenant-branded .floating-actions,
     html body.homepage.tenant-branded:not(.dark-mode) .floating-actions,
     html body.homepage.tenant-branded.dark-mode .floating-actions {
@@ -902,13 +909,13 @@
     html body.homepage.tenant-branded:not(.dark-mode) .floating-actions button,
     html body.homepage.tenant-branded.dark-mode .floating-actions a,
     html body.homepage.tenant-branded.dark-mode .floating-actions button {
-      background: #11165a !important;
-      background-color: #11165a !important;
+      background: var(--tenant-primary, #11165a) !important;
+      background-color: var(--tenant-primary, #11165a) !important;
       background-image: none !important;
       color: #ffffff !important;
-      border: 2px solid #11165a !important;
-      /* Soft light ring so navy FABs stay readable on navy hero */
-      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55), 0 10px 24px rgba(7, 10, 48, 0.45) !important;
+      border: 2px solid var(--tenant-primary, #11165a) !important;
+      /* Soft light ring so brand FABs stay readable on matching hero */
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55), 0 10px 24px rgba(0, 0, 0, 0.35) !important;
     }
     html body.homepage.tenant-branded .floating-actions a i,
     html body.homepage.tenant-branded .floating-actions button i,
@@ -930,16 +937,16 @@
     html body.homepage.tenant-branded .floating-actions button:hover,
     html body.homepage.tenant-branded:not(.dark-mode) .floating-actions a:hover,
     html body.homepage.tenant-branded:not(.dark-mode) .floating-actions button:hover {
-      background: #0c1048 !important;
-      background-color: #0c1048 !important;
-      border-color: #0c1048 !important;
+      background: var(--tenant-secondary, #0c1048) !important;
+      background-color: var(--tenant-secondary, #0c1048) !important;
+      border-color: var(--tenant-secondary, #0c1048) !important;
       color: #ffffff !important;
     }
 
-    /* Hero banner frame: keep poster visible and sharp */
+    /* Hero banner frame: keep poster visible; frame chrome follows brand deep */
     body.homepage .hero-visual,
     body.homepage .premium-video-frame {
-      background: #070a30 !important;
+      background: var(--brand-red-deep, #070a30) !important;
       overflow: hidden !important;
     }
     body.homepage .hero-visual-media,

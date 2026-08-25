@@ -281,12 +281,12 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   }
   if (req?.tenant && req?.tenantIdentity) {
     const { injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
-    // Tenant landing face is locked to poshahub360 + navy — avoid POSHA/red FOUC from branding boot
+    // Tenant landing face locks display name to poshahub360 — colors stay from branding settings
     const brandingIdentity = fileName === 'tenant-landing.html'
       ? {
           ...req.tenantIdentity,
           site_name: 'poshahub360'
-          // Keep primary/secondary from tenant branding settings so the client can change colors
+          // Keep primary/secondary from tenant branding settings so the client can change colors freely
         }
       : req.tenantIdentity;
     payload = injectTenantBrandingHtml(payload, brandingIdentity, req.tenant);
