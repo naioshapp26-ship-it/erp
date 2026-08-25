@@ -4,6 +4,132 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>poshahub360</title>
+  <!-- FOUC lock: keep poshahub360 + navy before branding/homepage scripts repaint -->
+  <style id="tenant-landing-fouc-critical">
+    :root {
+      --tenant-primary: #0b1f3a !important;
+      --tenant-secondary: #0b1224 !important;
+      --brand-red: #0b1f3a !important;
+      --brand-red-rgb: 11, 31, 58 !important;
+      --primary-red: #0b1f3a !important;
+      --primary-red-dark: #0b1224 !important;
+      --homepage-red: #0b1f3a !important;
+      --homepage-button-color: #0b1f3a !important;
+      --homepage-hero-gradient-start: #1e3a5f !important;
+      --homepage-hero-gradient-mid: #0b1f3a !important;
+    }
+    body.homepage .hero,
+    body.homepage.dark-mode .hero {
+      background-color: #020617 !important;
+      background-image: linear-gradient(
+        92deg,
+        #1e3a5f 0%,
+        #16325a 14%,
+        #0f2744 28%,
+        #0b1f3a 44%,
+        #081628 62%,
+        #050d18 78%,
+        #020617 100%
+      ) !important;
+    }
+    body.homepage .hero-gradient-mesh,
+    body.homepage.dark-mode .hero-gradient-mesh {
+      background:
+        radial-gradient(ellipse 80% 70% at 38% 44%, rgba(30, 58, 95, 0.55), transparent 58%),
+        radial-gradient(ellipse 60% 55% at 58% 50%, rgba(11, 31, 58, 0.50), transparent 55%),
+        radial-gradient(ellipse 35% 50% at 92% 46%, rgba(0, 0, 0, 0.35), transparent 58%),
+        radial-gradient(ellipse 55% 42% at 48% 100%, rgba(8, 22, 40, 0.55), transparent 48%) !important;
+      filter: none !important;
+    }
+  </style>
+  <script id="tenant-landing-fouc-lock">
+    (function () {
+      var NAME = 'poshahub360';
+      var NAVY = '#0b1f3a';
+      var NAVY_SECONDARY = '#0b1224';
+      window.__TENANT_LANDING_LOCK__ = { name: NAME, primary: NAVY, secondary: NAVY_SECONDARY };
+
+      function lockIdentityObject(identity) {
+        if (!identity || typeof identity !== 'object') return identity;
+        identity.site_name = NAME;
+        identity.primary_color = NAVY;
+        identity.secondary_color = NAVY_SECONDARY;
+        return identity;
+      }
+
+      function lockCachedIdentity() {
+        try {
+          var sub = (String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1];
+          if (!sub) return;
+          sub = String(sub).toLowerCase();
+          var key = 'tenant_identity_v1_' + sub;
+          var raw = sessionStorage.getItem(key);
+          if (raw) {
+            var boot = JSON.parse(raw);
+            lockIdentityObject(boot);
+            sessionStorage.setItem(key, JSON.stringify(boot));
+          }
+        } catch (_) {}
+        if (window.__TENANT_IDENTITY_BOOT__) lockIdentityObject(window.__TENANT_IDENTITY_BOOT__);
+        if (window.__TENANT_IDENTITY__) lockIdentityObject(window.__TENANT_IDENTITY__);
+      }
+
+      function lockColors() {
+        var root = document.documentElement;
+        root.style.setProperty('--tenant-primary', NAVY);
+        root.style.setProperty('--tenant-secondary', NAVY_SECONDARY);
+        root.style.setProperty('--brand-red', NAVY);
+        root.style.setProperty('--primary-red', NAVY);
+        root.style.setProperty('--primary-red-dark', NAVY_SECONDARY);
+        root.style.setProperty('--homepage-red', NAVY);
+        root.style.setProperty('--homepage-button-color', NAVY);
+        root.style.setProperty('--brand-red-rgb', '11, 31, 58');
+      }
+
+      function lockNames() {
+        if (document.title !== NAME) document.title = NAME;
+        document.querySelectorAll('[data-landing-brand="name"], [data-tenant-brand="name"]').forEach(function (node) {
+          if (node.textContent !== NAME) node.textContent = NAME;
+        });
+        var h1 = document.querySelector('.hero-content h1');
+        if (h1 && h1.textContent !== NAME) h1.textContent = NAME;
+      }
+
+      lockCachedIdentity();
+      lockColors();
+      document.title = NAME;
+
+      var titleEl = document.querySelector('title');
+      if (titleEl) {
+        new MutationObserver(function () {
+          if (document.title !== NAME) document.title = NAME;
+        }).observe(titleEl, { childList: true, characterData: true, subtree: true });
+      }
+
+      new MutationObserver(function () {
+        lockCachedIdentity();
+        lockNames();
+        lockColors();
+      }).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+
+      document.addEventListener('DOMContentLoaded', function () {
+        lockCachedIdentity();
+        lockNames();
+        lockColors();
+      });
+      window.addEventListener('tenant-branding:ready', function () {
+        lockCachedIdentity();
+        lockNames();
+        lockColors();
+      });
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="/public/naiosh-logo.png" as="image">
@@ -499,7 +625,7 @@
       <div class="nav-main">
         <a class="brand" href="#home" id="tenant-brand-home">
           <img id="site-logo-header" src="/public/naiosh-logo.png" alt="شعار المنصة" data-tenant-brand="logo" />
-          <span class="logo-text" data-tenant-brand="name">poshahub360</span>
+          <span class="logo-text" data-landing-brand="name">poshahub360</span>
         </a>
         <nav class="nav-links" aria-label="روابط المستأجر" hidden>
           <span class="nav-active-indicator" id="nav-active-indicator" aria-hidden="true"></span>
@@ -535,7 +661,7 @@
     </div>
     <main class="container hero-inner">
       <div class="hero-content">
-        <h1 data-tenant-brand="name" class="hero-heading-white">poshahub360</h1>
+        <h1 data-landing-brand="name" class="hero-heading-white">poshahub360</h1>
         <p>poshahub360 منصة إدارية متكاملة لإدارة أنظمتك التشغيلية باحترافية وأمان.</p>
         <div class="hero-ctas">
           <a class="btn btn-primary hero-cta-pill magnetic-btn" id="hero-login-cta" href="/login-page.html?login=1">تسجيل الدخول</a>
@@ -733,7 +859,7 @@
       <article class="tour-image-card tour-logo-panel" id="tour-image-card">
         <div class="tour-logo-stage" aria-hidden="false">
           <img id="tour-main-img" class="tour-brand-logo" src="/public/naiosh-logo.png" alt="شعار poshahub360" data-tenant-brand="logo" loading="eager" />
-          <strong class="tour-brand-name" data-tenant-brand="name">poshahub360</strong>
+          <strong class="tour-brand-name" data-landing-brand="name">poshahub360</strong>
           <p class="tour-brand-tagline">منصة تشغيلية متكاملة لإدارة أعمالك باحترافية</p>
         </div>
         <video id="tour-bg-video" muted loop playsinline preload="metadata" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></video>
@@ -863,8 +989,8 @@
     </div>
     <div class="site-footer-bottom">
       <div class="container site-footer-bottom-inner">
-        <span data-tenant-brand="name">poshahub360</span>
-        <span>© 2026 <span data-tenant-brand="name">poshahub360</span> — جميع الحقوق محفوظة.</span>
+        <span data-landing-brand="name">poshahub360</span>
+        <span>© 2026 <span data-landing-brand="name">poshahub360</span> — جميع الحقوق محفوظة.</span>
       </div>
     </div>
   </footer>
@@ -1908,9 +2034,34 @@
         const m = window.location.pathname.match(/^\/t\/([^/]+)/i);
         return m ? String(m[1] || '').toLowerCase() : '';
       }
+      function lockLandingIdentity() {
+        const lock = window.__TENANT_LANDING_LOCK__ || {
+          name: 'poshahub360',
+          primary: '#0b1f3a',
+          secondary: '#0b1224'
+        };
+        const patch = (identity) => {
+          if (!identity || typeof identity !== 'object') return;
+          identity.site_name = lock.name;
+          identity.primary_color = lock.primary;
+          identity.secondary_color = lock.secondary;
+        };
+        patch(window.__TENANT_IDENTITY_BOOT__);
+        patch(window.__TENANT_IDENTITY__);
+        try {
+          const sub = tenantSub();
+          if (!sub) return;
+          const key = `tenant_identity_v1_${sub}`;
+          const raw = sessionStorage.getItem(key);
+          if (!raw) return;
+          const boot = JSON.parse(raw);
+          patch(boot);
+          sessionStorage.setItem(key, JSON.stringify(boot));
+        } catch (_) {}
+      }
       function forceMamName() {
         // Always show poshahub360 on this tenant face (and keep logo from branding)
-        document.querySelectorAll('[data-tenant-brand="name"]').forEach((n) => {
+        document.querySelectorAll('[data-landing-brand="name"], [data-tenant-brand="name"]').forEach((n) => {
           n.textContent = 'poshahub360';
         });
         const h1 = document.querySelector('.hero-content h1');
@@ -1920,17 +2071,19 @@
       function paintDarkBlueFromPrimary() {
         const primary = '#0b1f3a'; // كحلي داكن ثابت — منع رجوع الأحمر من إعدادات الهوم
         document.documentElement.style.setProperty('--tenant-primary', primary);
+        document.documentElement.style.setProperty('--tenant-secondary', '#0b1224');
         document.documentElement.style.setProperty('--brand-red', primary);
+        document.documentElement.style.setProperty('--primary-red', primary);
         document.documentElement.style.setProperty('--homepage-red', primary);
         document.documentElement.style.setProperty('--brand-red-rgb', '11, 31, 58');
         document.documentElement.style.setProperty('--homepage-button-color', primary);
         const hero = document.querySelector('.hero');
         if (hero) {
-          hero.style.backgroundImage = 'linear-gradient(92deg, #1e3a5f 0%, #16325a 14%, #0f2744 28%, #0b1f3a 44%, #081628 62%, #050d18 78%, #020617 100%)';
-          hero.style.backgroundColor = '#020617';
+          hero.style.setProperty('background-image', 'linear-gradient(92deg, #1e3a5f 0%, #16325a 14%, #0f2744 28%, #0b1f3a 44%, #081628 62%, #050d18 78%, #020617 100%)', 'important');
+          hero.style.setProperty('background-color', '#020617', 'important');
         }
         document.querySelectorAll('.hero-gradient-mesh').forEach((el) => {
-          el.style.background = 'radial-gradient(ellipse 80% 70% at 38% 44%, rgba(30,58,95,0.55), transparent 58%), radial-gradient(ellipse 60% 55% at 58% 50%, rgba(11,31,58,0.5), transparent 55%), radial-gradient(ellipse 55% 42% at 48% 100%, rgba(8,22,40,0.55), transparent 48%)';
+          el.style.setProperty('background', 'radial-gradient(ellipse 80% 70% at 38% 44%, rgba(30,58,95,0.55), transparent 58%), radial-gradient(ellipse 60% 55% at 58% 50%, rgba(11,31,58,0.5), transparent 55%), radial-gradient(ellipse 55% 42% at 48% 100%, rgba(8,22,40,0.55), transparent 48%)', 'important');
         });
       }
 
@@ -1948,9 +2101,15 @@
       });
 
       const run = async () => {
-        if (window.applyTenantBranding) {
+        // Lock BEFORE branding fetch so POSHA/red never paints first
+        lockLandingIdentity();
+        forceMamName();
+        paintDarkBlueFromPrimary();
+
+        if (typeof window.applyTenantBranding === 'function') {
           try { await window.applyTenantBranding(); } catch (_) {}
         }
+        lockLandingIdentity();
         forceMamName();
         paintDarkBlueFromPrimary();
         const syncTourBrand = () => {
@@ -1961,9 +2120,9 @@
           if (tourLogo && headerLogo) tourLogo.src = headerLogo;
         };
         syncTourBrand();
-        // Homepage settings script may paint red later — re-assert navy + tour brand
-        setTimeout(() => { forceMamName(); paintDarkBlueFromPrimary(); syncTourBrand(); }, 800);
-        setTimeout(() => { forceMamName(); paintDarkBlueFromPrimary(); syncTourBrand(); }, 2500);
+        // Homepage settings / branding may repaint later — re-assert lock
+        setTimeout(() => { lockLandingIdentity(); forceMamName(); paintDarkBlueFromPrimary(); syncTourBrand(); }, 800);
+        setTimeout(() => { lockLandingIdentity(); forceMamName(); paintDarkBlueFromPrimary(); syncTourBrand(); }, 2500);
       };
       run();
     })();

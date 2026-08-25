@@ -281,7 +281,16 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   }
   if (req?.tenant && req?.tenantIdentity) {
     const { injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
-    payload = injectTenantBrandingHtml(payload, req.tenantIdentity, req.tenant);
+    // Tenant landing face is locked to poshahub360 + navy — avoid POSHA/red FOUC from branding boot
+    const brandingIdentity = fileName === 'tenant-landing.html'
+      ? {
+          ...req.tenantIdentity,
+          site_name: 'poshahub360',
+          primary_color: '#0b1f3a',
+          secondary_color: '#0b1224'
+        }
+      : req.tenantIdentity;
+    payload = injectTenantBrandingHtml(payload, brandingIdentity, req.tenant);
   }
   if (req?.tenant && fileName === 'dashboard.html') {
     payload = optimizeTenantDashboardHtml(payload);
