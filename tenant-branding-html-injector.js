@@ -342,10 +342,38 @@ function injectTenantBrandingHtml(html, identity, tenant = null) {
   return next;
 }
 
+function injectTenantLandingSystemLinks(html, tenant) {
+  const subdomain = String(tenant?.subdomain || '').trim().toLowerCase();
+  if (!html || !subdomain) return html;
+
+  const scope = (targetPath) => `/t/${subdomain}${targetPath}`;
+  const systemPaths = ['/hr', '/finance', '/archive'];
+  let output = html;
+
+  systemPaths.forEach((targetPath) => {
+    const scopedPath = scope(targetPath);
+    output = output.replace(
+      new RegExp(`(class="hero-sidebar-item"[^>]*href=")${targetPath.replace('/', '\\/')}(")`, 'g'),
+      `$1${scopedPath}$2`
+    );
+    output = output.replace(
+      new RegExp(`(data-tenant-system-link="[^"]+"[^>]*href=")${targetPath.replace('/', '\\/')}(")`, 'g'),
+      `$1${scopedPath}$2`
+    );
+    output = output.replace(
+      new RegExp(`(<a class="card" href=")${targetPath.replace('/', '\\/')}(")`, 'g'),
+      `$1${scopedPath}$2`
+    );
+  });
+
+  return output;
+}
+
 module.exports = {
   buildBootIdentity,
   buildSyncCacheBootScript,
   buildCriticalBrandingBlock,
   replacePlatformBrandingInHtml,
-  injectTenantBrandingHtml
+  injectTenantBrandingHtml,
+  injectTenantLandingSystemLinks
 };

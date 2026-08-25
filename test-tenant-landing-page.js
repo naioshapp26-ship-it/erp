@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { injectTenantLandingSystemLinks } = require('./tenant-branding-html-injector');
 
 const landing = fs.readFileSync(path.join(__dirname, 'tenant-landing.html'), 'utf8');
 const login = fs.readFileSync(path.join(__dirname, 'login-page.html'), 'utf8');
@@ -31,6 +32,14 @@ const checks = [
   ['nav contact', landing.includes('تواصل معانا')],
   ['hero sidebar hr link', landing.includes('href="/hr"') && landing.includes('>نظام HR<')],
   ['hero sidebar finance link', landing.includes('href="/finance"') && landing.includes('>نظام المالية<')],
+  ['hero sidebar explicit nav', landing.includes('data-tenant-system-link="finance"') && landing.includes('window.location.href = url')],
+  ['server injects scoped system links', (() => {
+    const injected = injectTenantLandingSystemLinks(
+      '<a class="hero-sidebar-item" href="/finance" data-tenant-system-link="finance">x</a>',
+      { subdomain: 'mam' }
+    );
+    return injected.includes('href="/t/mam/finance"');
+  })()],
   ['hero sidebar archive link', landing.includes('href="/archive"') && landing.includes('>نظام الارشيف<')],
   ['no broken finance-home link', !landing.includes('finance-home.html')],
   ['poshahub360 title', landing.includes('poshahub360')],
