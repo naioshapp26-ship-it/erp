@@ -58,16 +58,27 @@
   }
 
   function countFields(el) {
-    return el.querySelectorAll('input:not([type="hidden"]):not([type="search"]), select, textarea').length;
+    return el.querySelectorAll('input:not([type="hidden"]):not([type="search"]):not([type="checkbox"]):not([type="radio"]), select, textarea').length;
   }
 
   function looksLikeSearchOnly(el) {
     const id = String(el.id || '').toLowerCase();
     const cls = String(el.className || '').toLowerCase();
     if (id.includes('search') || id.includes('filter') || id.includes('login')) return true;
-    if (cls.includes('search') && !cls.includes('modal')) return true;
+    if (cls.includes('search') && !cls.includes('modal') && !id.includes('modal')) return true;
     if (cls.includes('filter') && countFields(el) <= 2) return true;
     return false;
+  }
+
+  function hasSaveAction(el) {
+    const buttons = Array.from(el.querySelectorAll('button, input[type="submit"], a.btn'));
+    return buttons.some((btn) => {
+      const text = `${btn.textContent || ''} ${btn.value || ''} ${btn.getAttribute('aria-label') || ''}`.toLowerCase();
+      return /حفظ|save|submit|إرسال|ارسال|تأكيد|تاكيد|إضافة|اضافه|update|create/.test(text)
+        || btn.type === 'submit'
+        || /save|submit|confirm/i.test(btn.id || '')
+        || /save|submit|confirm/i.test(btn.className || '');
+    });
   }
 
   function shouldSkipHost(host) {
@@ -90,14 +101,31 @@
   function isFormLikeHost(el) {
     if (shouldSkipHost(el)) return false;
     if (el.tagName === 'FORM') return !shouldSkipForm(el);
-    if (countFields(el) < 2) return false;
-    // Prefer modal bodies / explicit hosts
+    if (el.querySelector('[data-hr-attachments-slot]')) return true;
+    if (el.hasAttribute('data-hr-attachments-host')) return true;
+    const fields = countFields(el);
+    if (fields < 2) return false;
     const cls = String(el.className || '').toLowerCase();
     const id = String(el.id || '').toLowerCase();
-    if (el.hasAttribute('data-hr-attachments-host')) return true;
+    const style = String(el.getAttribute('style') || '').toLowerCase();
     if (cls.includes('modal-body') || id.includes('modalbody') || id.endsWith('modalbody')) return true;
-    if (cls.includes('modal') && countFields(el) >= 3) return true;
+    if (id.includes('modal') || cls.includes('modal') || cls.includes('dialog') || cls.includes('drawer')) {
+      return fields >= 1 && (fields >= 2 || hasSaveAction(el));
+    }
+    if (cls.includes('fixed') && cls.includes('inset-0')) return fields >= 2;
+    if (style.includes('position: fixed') || style.includes('position:fixed')) return fields >= 2;
+    if (hasSaveAction(el) && fields >= 2) return true;
     return false;
+  }
+
+  function findSaveButton(host) {
+    const buttons = Array.from(host.querySelectorAll('button, input[type="submit"]'));
+    return buttons.find((btn) => {
+      const text = `${btn.textContent || ''} ${btn.value || ''}`.toLowerCase();
+      return btn.type === 'submit'
+        || /حفظ|save|submit|إرسال|ارسال|تأكيد|تاكيد/.test(text)
+        || /save|submit|confirm/i.test(btn.id || '');
+    }) || null;
   }
 
   function findInsertPoint(host) {
@@ -107,12 +135,17 @@
     const submitRow = host.querySelector(
       '.md\\:col-span-2.flex, .flex.justify-end, .flex.gap-2, .flex.gap-3, [class*="justify-end"], .modal-footer'
     );
-    if (submitRow && host.contains(submitRow) && submitRow.querySelector('button[type="submit"], input[type="submit"], .btn-primary, button')) {
-      // If footer is outside host (sibling), append inside host instead
+    if (submitRow && host.contains(submitRow) && submitRow.querySelector('button, input[type="submit"]')) {
       if (submitRow.classList.contains('modal-footer') && submitRow.parentElement !== host) {
         return { parent: host, before: null, replace: false };
       }
       return { parent: host, before: submitRow, replace: false };
+    }
+
+    const saveBtn = findSaveButton(host);
+    if (saveBtn && host.contains(saveBtn)) {
+      const row = saveBtn.closest('.mt-5, .mt-4, .flex, .modal-footer, div') || saveBtn;
+      if (host.contains(row)) return { parent: host, before: row, replace: false };
     }
 
     const submitBtn = host.querySelector('button[type="submit"], input[type="submit"]');
@@ -258,11 +291,26 @@
     if (host.tagName !== 'FORM' && !isFormLikeHost(host) && !host.querySelector('[data-hr-attachments-slot]')) {
       return null;
     }
+    // Prefer deepest content wrapper when mounting on fixed overlay roots
+    let target = host;
+    const nestedCandidates = Array.from(host.querySelectorAll('div, section, form')).filter((el) => {
+      if (el === host) return false;
+      const cls = String(el.className || '');
+      return /overflow-y-auto|modal-body|modal-card|modal-box|max-h-/.test(cls) && countFields(el) >= 2;
+    });
+    if (nestedCandidates.length) {
+      const nested = nestedCandidates.sort((a, b) => countFields(b) - countFields(a))[0];
+      if (nested && !nested.querySelector('[data-hr-attachments-mounted="1"]')) {
+        if (countFields(nested) >= Math.max(2, countFields(host) - 1)) target = nested;
+      }
+    }
+    if (target.querySelector('[data-hr-attachments-mounted="1"]')) return null;
+
     const uid = `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const wrapper = document.createElement('div');
     wrapper.innerHTML = createSectionMarkup(uid);
     const section = wrapper.firstElementChild;
-    const point = findInsertPoint(host);
+    const point = findInsertPoint(target);
     if (point.replace) {
       point.parent.innerHTML = '';
       point.parent.appendChild(section);
@@ -286,17 +334,28 @@
 
     root.querySelectorAll?.('form').forEach(add);
     root.querySelectorAll?.('.modal-body, [class*="modal-body"], [data-hr-attachments-host]').forEach(add);
-    root.querySelectorAll?.('.modal-box, .modal-overlay, .modal-backdrop, [id$="Modal"]').forEach((modal) => {
-      const body = modal.querySelector('.modal-body, [class*="modal-body"]');
-      if (body) add(body);
-      else if (countFields(modal) >= 2) add(modal);
+    root.querySelectorAll?.('[id*="Modal"], [id*="modal"], .modal, .modal-box, .modal-overlay, .modal-backdrop, .modal-card, .modal-content').forEach(add);
+    root.querySelectorAll?.('.fixed.inset-0, [class*="fixed"][class*="inset-0"]').forEach(add);
+    root.querySelectorAll?.('[style*="position:fixed"], [style*="position: fixed"]').forEach((el) => {
+      if (countFields(el) >= 2) add(el);
     });
+
+    // Any panel with enough fields + a save-like button
+    root.querySelectorAll?.('div, section, article').forEach((el) => {
+      if (countFields(el) < 3) return;
+      if (!hasSaveAction(el)) return;
+      // Prefer mid-level containers: skip huge page wrappers
+      if (el === document.body || el.id === 'hr-main' || el.classList.contains('hr-main')) return;
+      if (el.children.length > 40) return;
+      add(el);
+    });
+
     root.querySelectorAll?.('[data-hr-attachments-slot]').forEach((slot) => {
-      add(slot.closest('form, .modal-body, [data-hr-attachments-host]') || slot.parentElement);
+      add(slot.closest('form, .modal-body, [data-hr-attachments-host], [id*="Modal"], [id*="modal"], .fixed') || slot.parentElement);
     });
 
     if (root instanceof HTMLElement) {
-      if (root.matches?.('form, .modal-body, [data-hr-attachments-host]')) add(root);
+      if (root.matches?.('form, .modal-body, [data-hr-attachments-host], [id*="Modal"], [id*="modal"], .fixed.inset-0')) add(root);
     }
     return hosts;
   }
