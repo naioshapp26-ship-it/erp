@@ -17,7 +17,8 @@ const checks = [
   ['branding logo', landing.includes('data-tenant-brand="logo"')],
   ['fouc lock script', landing.includes('tenant-landing-fouc-lock')],
   ['fouc critical css', landing.includes('tenant-landing-fouc-critical')],
-  ['erp navy theme', landing.includes('--brand-red: #0b1f3a') || landing.includes('--tenant-primary: #0b1f3a')],
+  ['erp navy theme', landing.includes('--tenant-primary: #11165a') || landing.includes("DEFAULT_PRIMARY = '#11165a'")],
+  ['branding-driven paint', landing.includes('__tenantLandingPaintBrandColors') && landing.includes('paintLandingFromBranding')],
   ['nav home', landing.includes('>الرئيسية<')],
   ['nav about', landing.includes('>من نحن<')],
   ['nav login', landing.includes('>تسجيل الدخول<')],
@@ -26,7 +27,7 @@ const checks = [
   ['landing CTA', landing.includes('login-page.html?login=1')],
   ['login gate', login.includes("params.get('login')")],
   ['server route', server.includes("path.join(__dirname, 'tenant-landing.html')")],
-  ['server landing brand lock', server.includes("fileName === 'tenant-landing.html'") && server.includes("site_name: 'poshahub360'")],
+  ['server landing name lock only', server.includes("fileName === 'tenant-landing.html'") && server.includes("site_name: 'poshahub360'") && !server.includes("primary_color: '#0b1f3a'")],
   ['tenant root redirect', resolver.includes('/t/${pathSubdomain}/`')]
 ];
 

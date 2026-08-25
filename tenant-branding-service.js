@@ -2,8 +2,8 @@
 
 const db = require('./db');
 
-const DEFAULT_PRIMARY = '#990e1e';
-const DEFAULT_SECONDARY = '#1a1a1a';
+const DEFAULT_PRIMARY = '#11165a';
+const DEFAULT_SECONDARY = '#1e186d';
 const SHARED_DB_MARKER = 'shared://central';
 const LOGO_API_PATH = '/api/tenant-public/logo';
 const MAX_LOGO_STORE_BYTES = 1.5 * 1024 * 1024;
@@ -283,7 +283,7 @@ async function saveLogoAsset(tenantPool, tenant, { buffer = null, mimeType = 'im
   } else {
     await tenantPool.query(
       `INSERT INTO branding_settings (logo_url, primary_color, secondary_color, extra)
-       VALUES ($1, '#990e1e', '#1a1a1a', $2::jsonb)`,
+       VALUES ($1, '#11165a', '#1e186d', $2::jsonb)`,
       [LOGO_API_PATH, JSON.stringify({ ...mergedExtra, setup_completed: false })]
     );
   }
