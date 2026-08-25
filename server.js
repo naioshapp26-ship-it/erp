@@ -308,7 +308,7 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   return withBranding;
 };
 
-const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-attachments-2gb-20260825';
+const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-attachments-allpages-20260825c';
 
 const injectHrPortalShellAssets = (html) => {
   if (!html) return html;
