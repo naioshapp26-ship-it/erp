@@ -21,10 +21,10 @@
       --primary-red-dark: #0c1048;
       --homepage-red: #11165a;
       --homepage-button-color: #11165a;
-      --homepage-hero-gradient-start: #11165a;
-      --homepage-hero-gradient-mid: #11165a;
-      --landing-hero-gradient: none;
-      --landing-mesh-gradient: none;
+      --homepage-hero-gradient-start: #4d6fd4;
+      --homepage-hero-gradient-mid: #243a8f;
+      --landing-hero-gradient: linear-gradient(135deg, #5b82e0 0%, #3a56b5 32%, #1a2678 68%, #0c1048 100%);
+      --landing-mesh-gradient: radial-gradient(ellipse 70% 55% at 12% 18%, rgba(126, 182, 255, 0.38), transparent 62%), radial-gradient(ellipse 55% 50% at 88% 82%, rgba(7, 10, 48, 0.55), transparent 58%);
       --gradient-brand-primary: linear-gradient(135deg, #11165a, #0c1048);
     }
     body.homepage .hero,
@@ -36,9 +36,10 @@
     body.homepage .hero.hero-has-bg-image,
     body.homepage.dark-mode .hero.hero-bg-image,
     body.homepage.dark-mode .hero.hero-has-image {
-      background: var(--tenant-primary, #11165a) !important;
       background-color: var(--tenant-primary, #11165a) !important;
-      background-image: none !important;
+      background-image: var(--landing-mesh-gradient), var(--landing-hero-gradient) !important;
+      background-repeat: no-repeat !important;
+      background-size: cover !important;
     }
     body.homepage .hero::before,
     body.homepage .hero::after,
@@ -109,6 +110,27 @@
           return part.toString(16).padStart(2, '0');
         }).join('');
       }
+      function mixHex(a, b, t) {
+        var A = hexToRgb(a);
+        var B = hexToRgb(b);
+        var amount = Math.max(0, Math.min(1, Number(t) || 0));
+        return '#' + [0, 1, 2].map(function (i) {
+          return Math.round(A[i] + (B[i] - A[i]) * amount).toString(16).padStart(2, '0');
+        }).join('');
+      }
+      function buildHeroGradient(primary, secondary) {
+        // Light blue → brand mid → deep navy (POSHA-style depth, not flat solid)
+        var light = mixHex(primary, '#9ec5ff', 0.55);
+        var soft = mixHex(primary, '#6b91e8', 0.38);
+        var mid = mixHex(primary, secondary, 0.28);
+        var deep = shadeHex(secondary, 0.78);
+        return 'linear-gradient(135deg, ' + light + ' 0%, ' + soft + ' 28%, ' + mid + ' 58%, ' + primary + ' 82%, ' + deep + ' 100%)';
+      }
+      function buildHeroMesh(primary, secondary) {
+        var glow = mixHex(primary, '#a8cbff', 0.62);
+        var shade = shadeHex(secondary, 0.55);
+        return 'radial-gradient(ellipse 70% 55% at 12% 18%, ' + glow + '66, transparent 62%), radial-gradient(ellipse 55% 50% at 88% 82%, ' + shade + '99, transparent 58%)';
+      }
       function resolveColors() {
         var boot = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
         return {
@@ -162,19 +184,26 @@
         root.style.setProperty('--homepage-red-bright', primary);
         root.style.setProperty('--homepage-red-hover', mid);
         root.style.setProperty('--homepage-button-color', primary);
-        root.style.setProperty('--homepage-hero-gradient-start', primary);
-        root.style.setProperty('--homepage-hero-gradient-mid', primary);
+        var lightStart = mixHex(primary, '#9ec5ff', 0.55);
+        var softMid = mixHex(primary, '#6b91e8', 0.38);
+        root.style.setProperty('--homepage-hero-gradient-start', lightStart);
+        root.style.setProperty('--homepage-hero-gradient-mid', softMid);
         root.style.setProperty('--announcement-bg', secondary);
         root.style.setProperty('--gradient-brand-primary', 'linear-gradient(135deg, ' + primary + ', ' + secondary + ')');
-        // Solid hero face — exact primary from هوية النظام
-        root.style.setProperty('--landing-hero-gradient', 'none');
-        root.style.setProperty('--landing-mesh-gradient', 'none');
+        // Soft light-blue → navy depth (not flat solid), driven by هوية النظام colors
+        var heroGradient = buildHeroGradient(primary, secondary);
+        var heroMesh = buildHeroMesh(primary, secondary);
+        root.style.setProperty('--landing-hero-gradient', heroGradient);
+        root.style.setProperty('--landing-mesh-gradient', heroMesh);
         var hero = document.querySelector('.hero');
         if (hero) {
-          hero.style.setProperty('background', primary, 'important');
           hero.style.setProperty('background-color', primary, 'important');
-          hero.style.setProperty('background-image', 'none', 'important');
+          hero.style.setProperty('background-image', heroMesh + ', ' + heroGradient, 'important');
+          hero.style.setProperty('background-repeat', 'no-repeat', 'important');
+          hero.style.setProperty('background-size', 'cover', 'important');
+          hero.style.removeProperty('background');
         }
+        // Keep killing red homepage skins; brand gradient lives on .hero itself
         document.querySelectorAll('.hero-gradient-mesh, .hero-ambient, .hero-glow, .hero-visual-shine, .hero-visual-reflection').forEach(function (el) {
           el.style.setProperty('display', 'none', 'important');
           el.style.setProperty('opacity', '0', 'important');
@@ -420,11 +449,12 @@
       }
       body.homepage .brand .logo-text { font-size: 1.1rem !important; }
     }
-    /* Brand navy hero — solid exact degree only */
+    /* Brand hero — soft light→navy gradient from هوية النظام */
     body.homepage .hero {
-      background: var(--tenant-primary, #11165a) !important;
       background-color: var(--tenant-primary, #11165a) !important;
-      background-image: none !important;
+      background-image: var(--landing-mesh-gradient), var(--landing-hero-gradient) !important;
+      background-repeat: no-repeat !important;
+      background-size: cover !important;
     }
     body.homepage .hero-gradient-mesh,
     body.homepage .hero-glow,
@@ -661,7 +691,7 @@
       max-width: 18rem;
     }
 
-    /* Absolute solid hero — color comes from --tenant-primary (هوية النظام) */
+    /* Brand hero gradient — from --landing-hero-gradient (هوية النظام), not flat solid */
     body.homepage .hero-ambient,
     body.homepage .hero-gradient-mesh,
     body.homepage .hero-glow,
@@ -687,9 +717,10 @@
     body.homepage .hero.hero-has-video,
     body.homepage .hero.hero-has-solid,
     body.homepage .hero.hero-has-bg-image {
-      background: var(--tenant-primary, #11165a) !important;
       background-color: var(--tenant-primary, #11165a) !important;
-      background-image: none !important;
+      background-image: var(--landing-mesh-gradient), var(--landing-hero-gradient) !important;
+      background-repeat: no-repeat !important;
+      background-size: cover !important;
     }
     body.homepage .hero::before,
     body.homepage .hero::after,
@@ -1697,7 +1728,7 @@
         const heroBgCtrl = document.getElementById('hero-bg-ctrl');
         if (!hero) return;
 
-        // Tenant landing: solid navy only — never apply homepage red image/video hero skins
+        // Tenant landing: brand light→navy gradient only — never apply homepage red image/video hero skins
         hero.classList.remove(
           'hero-bg-image',
           'hero-has-image',

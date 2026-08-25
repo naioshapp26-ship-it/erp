@@ -92,7 +92,7 @@
           <div class="pay-field">
             <label for="primary_color">لون الهيرو / الأساسي *</label>
             <input id="primary_color" type="color" class="color-input" value="#11165a" title="لون خلفية الهيرو والأزرار الرئيسية">
-            <div class="text-xs text-slate-500 mt-1">يظهر في خلفية الهيرو والأزرار الرئيسية</div>
+            <div class="text-xs text-slate-500 mt-1">يظهر كتدرج فاتح → غامق في الهيرو مع اللون الثانوي</div>
           </div>
           <div class="pay-field">
             <label for="secondary_color">اللون الثانوي *</label>
@@ -188,7 +188,17 @@
       document.getElementById('preview_tagline').textContent = tagline;
       document.getElementById('preview_logo').src = logo;
       const heroPreview = document.getElementById('preview_hero');
-      if (heroPreview) heroPreview.style.background = primary;
+      if (heroPreview) {
+        // Match landing: soft light blue into brand navy
+        const mix = (a, b, t) => {
+          const parse = (hex) => hex.replace('#','').match(/.{2}/g).map((x) => parseInt(x, 16));
+          const A = parse(a); const B = parse(b);
+          return '#' + [0,1,2].map((i) => Math.round(A[i] + (B[i]-A[i])*t).toString(16).padStart(2,'0')).join('');
+        };
+        const light = mix(primary, '#9ec5ff', 0.55);
+        const soft = mix(primary, '#6b91e8', 0.38);
+        heroPreview.style.background = `linear-gradient(135deg, ${light} 0%, ${soft} 35%, ${primary} 75%, ${secondary} 100%)`;
+      }
       document.getElementById('preview_header').style.background = `linear-gradient(135deg, ${secondary}, ${primary})`;
       document.getElementById('preview_button').style.background = primary;
       document.getElementById('preview_badge').style.background = primary;
