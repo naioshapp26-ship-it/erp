@@ -3279,11 +3279,24 @@ app.get('/register.html', (_req, res) => {
 });
 
 // Serve static files (must come AFTER API routes to avoid conflicts)
+const getOriginalSearchParams = (req) => {
+  const qs = String(req.originalUrl || req.url || '').split('?')[1] || '';
+  return new URLSearchParams(qs);
+};
+
+const isFinanceDataQuery = (req) => {
+  const params = getOriginalSearchParams(req);
+  return params.has('entity_id')
+    || params.has('fiscal_year')
+    || params.has('payment_id')
+    || params.has('budget_id');
+};
+
 app.get('/finance*', (req, res, next) => {
   try {
     const acceptHeader = (req.headers.accept || '').toLowerCase();
     const wantsJson = acceptHeader.includes('application/json');
-    const isApiQuery = req.query && (req.query.entity_id || req.query.fiscal_year || req.query.payment_id || req.query.budget_id);
+    const isApiQuery = isFinanceDataQuery(req);
     if (req.method !== 'GET' || wantsJson || isApiQuery) {
       return next();
     }
