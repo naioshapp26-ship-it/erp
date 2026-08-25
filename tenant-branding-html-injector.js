@@ -220,6 +220,18 @@ function buildCriticalBrandingBlock(identity, tenant = null) {
           root.style.setProperty('--brand-red', p);
           root.style.setProperty('--primary-red', p);
           root.style.setProperty('--primary-red-dark', s);
+          root.style.setProperty('--homepage-button-color', p);
+          root.style.setProperty('--homepage-hero-gradient-start', p);
+          root.style.setProperty('--homepage-hero-gradient-mid', p);
+          var hero = document.querySelector('body.homepage .hero, .hero');
+          if (hero) {
+            hero.style.setProperty('background', p, 'important');
+            hero.style.setProperty('background-color', p, 'important');
+            hero.style.setProperty('background-image', 'none', 'important');
+          }
+          if (typeof window.__tenantLandingPaintBrandColors === 'function') {
+            try { window.__tenantLandingPaintBrandColors(); } catch (_) {}
+          }
           if (boot.logo_url) {
             var logoSrc = scopedLogo(boot.logo_url);
             document.querySelectorAll('img[src*="naiosh-logo"], img[data-tenant-brand="logo"], .hq-hero-logo').forEach(function (img) {
