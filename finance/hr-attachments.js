@@ -340,11 +340,20 @@
       if (countFields(el) >= 2) add(el);
     });
 
-    // Any panel with enough fields + a save-like button
+    // Opportunistic panels: only dedicated hosts / modal-like containers (avoid duplicate mounts on dashboards)
     root.querySelectorAll?.('div, section, article').forEach((el) => {
-      if (countFields(el) < 3) return;
-      if (!hasSaveAction(el)) return;
-      // Prefer mid-level containers: skip huge page wrappers
+      if (el.querySelector('[data-hr-attachments-slot]') || el.hasAttribute('data-hr-attachments-host')) {
+        add(el);
+        return;
+      }
+      if (countFields(el) < 3 || !hasSaveAction(el)) return;
+      const cls = String(el.className || '').toLowerCase();
+      const id = String(el.id || '').toLowerCase();
+      const style = String(el.getAttribute('style') || '').toLowerCase();
+      const modalLike = id.includes('modal') || cls.includes('modal') || cls.includes('dialog') || cls.includes('drawer')
+        || (cls.includes('fixed') && cls.includes('inset-0'))
+        || style.includes('position:fixed') || style.includes('position: fixed');
+      if (!modalLike) return;
       if (el === document.body || el.id === 'hr-main' || el.classList.contains('hr-main')) return;
       if (el.children.length > 40) return;
       add(el);
