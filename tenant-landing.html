@@ -379,6 +379,55 @@
       background-image: none !important;
     }
 
+
+    /* Tour banner: show brand logo instead of empty media */
+    body.homepage .tour-image-card.tour-logo-panel {
+      background: linear-gradient(160deg, #12263f 0%, #0b1f3a 55%, #071525 100%) !important;
+      min-height: 420px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    body.homepage .tour-logo-stage {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      text-align: center;
+      padding: 2rem 1.5rem 5.5rem;
+      width: 100%;
+    }
+    body.homepage .tour-brand-logo,
+    body.homepage #tour-main-img.tour-brand-logo {
+      width: min(220px, 58%) !important;
+      height: auto !important;
+      max-height: 220px !important;
+      object-fit: contain !important;
+      background: #ffffff !important;
+      border-radius: 28px !important;
+      padding: 1rem !important;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28) !important;
+      display: block !important;
+    }
+    body.homepage .tour-brand-name {
+      color: #fff !important;
+      font-size: clamp(1.4rem, 2.4vw, 1.9rem) !important;
+      font-weight: 900 !important;
+      letter-spacing: -0.03em;
+    }
+    body.homepage .tour-brand-tagline {
+      margin: 0;
+      color: rgba(255,255,255,0.78);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      max-width: 18rem;
+    }
+
     /* Absolute navy lock — no warm/red ambient light */
     body.homepage .hero-ambient,
     body.homepage .hero-gradient-mesh,
@@ -651,9 +700,9 @@
       </div>
     </section>
 
-    <section class="booking-tour-section" id="book-tour" aria-label="احجز جولة في NAIOSH ERP">
+    <section class="booking-tour-section" id="book-tour" aria-label="احجز جولة في poshahub360">
       <article class="tour-form-card">
-        <h3>احجز جولة في NAIOSH ERP</h3>
+        <h3 id="tour-form-title">احجز جولة في poshahub360</h3>
         <p>سجل معلوماتك وسيتواصل معك فريقنا خلال 24 ساعة</p>
         <form class="tour-form">
           <label for="tour-name">الاسم بالكامل</label>
@@ -681,8 +730,12 @@
         </form>
       </article>
 
-      <article class="tour-image-card" id="tour-image-card">
-        <img id="tour-main-img" src="/newhome/booking-workspace.svg" alt="فريق عمل داخل مساحة مكتبية حديثة" loading="lazy" />
+      <article class="tour-image-card tour-logo-panel" id="tour-image-card">
+        <div class="tour-logo-stage" aria-hidden="false">
+          <img id="tour-main-img" class="tour-brand-logo" src="/public/naiosh-logo.png" alt="شعار poshahub360" data-tenant-brand="logo" loading="eager" />
+          <strong class="tour-brand-name" data-tenant-brand="name">poshahub360</strong>
+          <p class="tour-brand-tagline">منصة تشغيلية متكاملة لإدارة أعمالك باحترافية</p>
+        </div>
         <video id="tour-bg-video" muted loop playsinline preload="metadata" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></video>
         <div class="tour-image-overlay">
           <span>الموقع: الرياض - حي المال</span>
@@ -1690,32 +1743,26 @@
       };
 
       const applyTourMedia = (settings = {}) => {
-        const tourMedia = settings.tourMedia || {};
         const tourCard = document.getElementById('tour-image-card');
         const tourMainImg = document.getElementById('tour-main-img');
         const tourVideo = document.getElementById('tour-bg-video');
+        const tourTitle = document.getElementById('tour-form-title');
+        if (tourTitle) tourTitle.textContent = 'احجز جولة في poshahub360';
         if (!tourCard) return;
-
-        const activeType = tourMedia.activeType === 'video' ? 'video' : 'image';
-        const imageUrl = toSafeMediaPath(tourMedia.imageUrl, '/newhome/booking-workspace.svg');
-        const videoUrl = toSafeMediaPath(tourMedia.videoUrl, '');
-        const overlayStrength = clamp(tourMedia.overlayStrength, 0, 1, 0.55);
-        tourCard.style.setProperty('--tour-overlay-strength', `${overlayStrength}`);
-
-        if (activeType === 'video' && videoUrl && tourVideo) {
-          tourCard.classList.add('tour-has-video');
-          tourVideo.src = videoUrl;
-          tourVideo.style.display = 'block';
+        // Keep brand logo panel — do not let empty CMS media blank the banner
+        tourCard.classList.add('tour-logo-panel');
+        tourCard.classList.remove('tour-has-video');
+        if (tourVideo) {
+          tourVideo.pause();
+          tourVideo.removeAttribute('src');
           tourVideo.load();
-          tourVideo.play().catch(() => {
-            tourCard.classList.remove('tour-has-video');
-            tourVideo.style.display = 'none';
-          });
-          if (tourMainImg) tourMainImg.style.display = 'none';
-        } else {
-          tourCard.classList.remove('tour-has-video');
-          if (tourVideo) { tourVideo.pause(); tourVideo.removeAttribute('src'); tourVideo.load(); tourVideo.style.display = 'none'; }
-          if (tourMainImg) { tourMainImg.src = imageUrl; tourMainImg.style.display = 'block'; }
+          tourVideo.style.display = 'none';
+        }
+        if (tourMainImg) {
+          const branded = document.querySelector('#site-logo-header')?.getAttribute('src');
+          if (branded) tourMainImg.src = branded;
+          tourMainImg.style.display = 'block';
+          tourMainImg.classList.add('tour-brand-logo');
         }
       };
 
@@ -1906,9 +1953,17 @@
         }
         forceMamName();
         paintDarkBlueFromPrimary();
-        // Homepage settings script may paint red later — re-assert navy
-        setTimeout(() => { forceMamName(); paintDarkBlueFromPrimary(); }, 800);
-        setTimeout(() => { forceMamName(); paintDarkBlueFromPrimary(); }, 2500);
+        const syncTourBrand = () => {
+          const title = document.getElementById('tour-form-title');
+          if (title) title.textContent = 'احجز جولة في poshahub360';
+          const headerLogo = document.querySelector('#site-logo-header')?.getAttribute('src');
+          const tourLogo = document.getElementById('tour-main-img');
+          if (tourLogo && headerLogo) tourLogo.src = headerLogo;
+        };
+        syncTourBrand();
+        // Homepage settings script may paint red later — re-assert navy + tour brand
+        setTimeout(() => { forceMamName(); paintDarkBlueFromPrimary(); syncTourBrand(); }, 800);
+        setTimeout(() => { forceMamName(); paintDarkBlueFromPrimary(); syncTourBrand(); }, 2500);
       };
       run();
     })();
