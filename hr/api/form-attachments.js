@@ -30,7 +30,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }
+  // Large videos / RAR archives for HR forms (2GB)
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 }
 });
 
 const ensureTable = async () => {
@@ -58,9 +59,24 @@ const readyPromise = ensureTable().catch((error) => {
 
 const entityIdOf = (req) => String(req.userEntity?.id || req.headers['x-entity-id'] || DEFAULT_ENTITY).trim() || DEFAULT_ENTITY;
 
-router.post('/', upload.single('file'), async (req, res) => {
+const runUpload = (req, res) => new Promise((resolve, reject) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) reject(err);
+    else resolve();
+  });
+});
+
+router.post('/', async (req, res) => {
   try {
     await readyPromise;
+    try {
+      await runUpload(req, res);
+    } catch (uploadError) {
+      if (uploadError?.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'الملف أكبر من الحد الأقصى المسموح (2GB)' });
+      }
+      return res.status(400).json({ success: false, error: uploadError.message || 'تعذر رفع الملف' });
+    }
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'لم يتم اختيار ملف' });
     }

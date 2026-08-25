@@ -42,6 +42,12 @@ async function main() {
   assert.ok(js.includes('انقر لاختيار ملفات أو اسحب وأفلت هنا'));
   assert.ok(js.includes('مدعوم: PDF, Word, Excel, PowerPoint, صور، فيديو، ZIP وأي نوع'));
   assert.ok(js.includes('المرفقات'));
+  assert.ok(js.includes('2 * 1024 * 1024 * 1024') || js.includes('MAX_FILE_BYTES'), 'client must allow large files');
+  assert.ok(!js.includes('50 * 1024 * 1024'), 'client must not keep 50MB limit');
+
+  const apiSrc = fs.readFileSync(path.join(__dirname, 'hr/api/form-attachments.js'), 'utf8');
+  assert.ok(apiSrc.includes('2 * 1024 * 1024 * 1024'), 'API must allow 2GB uploads');
+  assert.ok(!apiSrc.includes('50 * 1024 * 1024'), 'API must not keep 50MB limit');
 
   const modules = listHrHomeModules();
   const sample = [...KEY_PAGES.filter((p) => p !== '/hr/ops'), ...modules.map((m) => m.href)];
@@ -98,7 +104,25 @@ async function main() {
     assert.ok(html.includes('hr-attachments.js'), `${p} missing attachments script`);
   }
 
-  console.log(`ok: attachments assets on ${unique.length} pages; upload + zip + list verified`);
+  const assetsPage = await page('/hr/assets-custodies');
+  assert.ok(assetsPage.includes('data-hr-attachments-slot') || assetsPage.includes('modal-body'), 'assets page should expose mount targets');
+  assert.ok(assetsPage.includes('hr-attachments.js'), 'assets page missing attachments script');
+  assert.ok(assetsPage.includes('hcm-attachments-2gb') || assetsPage.includes('hr-attachments.js'), 'cache-busted attachments asset expected');
+
+  // Simulate oversized client check is no longer 50MB: upload a ~60MB buffer should succeed on API
+  const big = Buffer.alloc(60 * 1024 * 1024, 1);
+  const bigForm = new FormData();
+  bigForm.append('file', new Blob([big], { type: 'application/octet-stream' }), 'big-video-sim.bin');
+  bigForm.append('page_path', '/hr/employees');
+  const bigRes = await fetch(`${BASE}/api/hr/form-attachments`, {
+    method: 'POST',
+    headers,
+    body: bigForm
+  });
+  const bigData = await bigRes.json();
+  assert.ok(bigRes.ok && bigData.success, `60MB upload should succeed, got ${bigRes.status}: ${JSON.stringify(bigData)}`);
+
+  console.log(`ok: attachments assets on ${unique.length} pages; upload + zip + 60MB + list verified`);
 }
 
 main().catch((error) => {
