@@ -40,6 +40,8 @@ const checks = [
   ['settings upload video', settingsHtml.includes('branding/hero-video') && settingsApi.includes("'/branding/hero-video'")],
   ['public hero media routes', publicApi.includes('hero-image') && publicApi.includes('hero-video')],
   ['landing apply banner helper', landing.includes('__tenantLandingApplyHeroBanner') && landing.includes("mode === 'video'")],
+  ['landing hero face media css', landing.includes('hero-face-media') && landing.includes('hero-bg-img')],
+  ['landing hero face video bg', landing.includes('hero-bg-video-bg') && landing.includes('applyHeroFaceVideo')],
   ['identity saves hero_mode', /hero_mode:\s*document\.getElementById\('hero_mode'\)/.test(settingsHtml)],
   ['boot scopes hero urls once', bootOnce.hero_banner_image_url === '/t/mam/api/tenant-public/hero-image'
     && bootOnce.hero_banner_video_url === '/t/mam/api/tenant-public/hero-video'],

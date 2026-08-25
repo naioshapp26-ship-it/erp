@@ -41,6 +41,54 @@
       background-repeat: no-repeat !important;
       background-size: cover !important;
     }
+    /* Full hero face media (like Naiosh homepage) — uploaded image/video behind title + buttons */
+    body.homepage.hero-face-media .hero,
+    body.homepage.hero-face-media .hero.hero-has-image,
+    body.homepage.hero-face-media .hero.hero-has-video,
+    body.homepage.hero-face-media .hero.hero-bg-image,
+    body.homepage.hero-face-media .hero.hero-has-bg-image {
+      background-color: var(--brand-red-deep, #070a30) !important;
+      background-image: none !important;
+    }
+    body.homepage.hero-face-media .hero .hero-media-layer {
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: none !important;
+      display: block !important;
+      z-index: 0 !important;
+    }
+    body.homepage.hero-face-media .hero .hero-media-layer img#hero-bg-img,
+    body.homepage.hero-face-media .hero .hero-media-layer video#hero-bg-video-bg {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+    body.homepage.hero-face-media .hero::after {
+      content: '' !important;
+      display: block !important;
+      position: absolute !important;
+      inset: 0 !important;
+      pointer-events: none !important;
+      z-index: 1 !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      background:
+        linear-gradient(180deg, rgba(7, 10, 48, 0.35) 0%, rgba(7, 10, 48, 0.12) 38%, rgba(7, 10, 48, 0.55) 100%),
+        linear-gradient(92deg, rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.42) 0%, transparent 52%, rgba(0, 0, 0, 0.35) 100%) !important;
+    }
+    body.homepage.hero-face-media .hero-inner,
+    body.homepage.hero-face-media .hero-content,
+    body.homepage.hero-face-media .hero-media-stack,
+    body.homepage.hero-face-media .hero-sidebar,
+    body.homepage.hero-face-media .floating-actions {
+      position: relative;
+      z-index: 2;
+    }
     body.homepage .hero::before,
     body.homepage .hero::after,
     body.homepage .hero.hero-bg-image::before,
@@ -159,6 +207,13 @@
         if (window.__TENANT_IDENTITY_BOOT__) lockIdentityName(window.__TENANT_IDENTITY_BOOT__);
         if (window.__TENANT_IDENTITY__) lockIdentityName(window.__TENANT_IDENTITY__);
       }
+      function hasHeroFaceMediaBoot() {
+        var boot = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        var mode = String(boot.hero_mode || 'gradient').toLowerCase();
+        if (mode === 'image' && boot.hero_banner_image_url) return true;
+        if (mode === 'video' && boot.hero_banner_video_url) return true;
+        return false;
+      }
       function paintBrandColors() {
         var colors = resolveColors();
         var primary = colors.primary;
@@ -196,14 +251,20 @@
         root.style.setProperty('--landing-hero-gradient', heroGradient);
         root.style.setProperty('--landing-mesh-gradient', heroMesh);
         var hero = document.querySelector('.hero');
-        if (hero) {
+        if (hero && !hasHeroFaceMediaBoot()) {
           hero.style.setProperty('background-color', primary, 'important');
           hero.style.setProperty('background-image', heroMesh + ', ' + heroGradient, 'important');
           hero.style.setProperty('background-repeat', 'no-repeat', 'important');
           hero.style.setProperty('background-size', 'cover', 'important');
           hero.style.removeProperty('background');
+          hero.classList.remove('hero-bg-image', 'hero-has-image', 'hero-has-bg-image', 'hero-has-video', 'hero-face-media');
+          hero.classList.add('hero-bg-solid');
+          document.body.classList.remove('hero-face-media', 'hero-face-image', 'hero-face-video');
+        } else if (hero && hasHeroFaceMediaBoot()) {
+          hero.style.setProperty('background-image', 'none', 'important');
+          hero.style.setProperty('background-color', deep, 'important');
         }
-        // Keep killing red homepage skins; brand gradient lives on .hero itself
+        // Keep killing red homepage skins; brand gradient lives on .hero itself (unless face media active)
         document.querySelectorAll('.hero-gradient-mesh, .hero-ambient, .hero-glow, .hero-visual-shine, .hero-visual-reflection').forEach(function (el) {
           el.style.setProperty('display', 'none', 'important');
           el.style.setProperty('opacity', '0', 'important');
@@ -211,8 +272,8 @@
           el.style.setProperty('box-shadow', 'none', 'important');
         });
         var heroEl = document.querySelector('.hero');
-        if (heroEl) {
-          heroEl.classList.remove('hero-bg-image', 'hero-has-image', 'hero-has-bg-image', 'hero-has-video');
+        if (heroEl && !hasHeroFaceMediaBoot()) {
+          heroEl.classList.remove('hero-bg-image', 'hero-has-image', 'hero-has-bg-image', 'hero-has-video', 'hero-face-media');
           heroEl.classList.add('hero-bg-solid');
         }
         // Keep FABs + frame chrome in sync with identity colors
@@ -724,6 +785,52 @@
       background-image: var(--landing-mesh-gradient), var(--landing-hero-gradient) !important;
       background-repeat: no-repeat !important;
       background-size: cover !important;
+    }
+    body.homepage.hero-face-media .hero,
+    body.homepage.hero-face-media .hero.hero-has-image,
+    body.homepage.hero-face-media .hero.hero-has-video,
+    body.homepage.hero-face-media .hero.hero-bg-image,
+    body.homepage.hero-face-media .hero.hero-has-bg-image {
+      background-color: var(--brand-red-deep, #070a30) !important;
+      background-image: none !important;
+    }
+    body.homepage.hero-face-media .hero .hero-media-layer {
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: none !important;
+      display: block !important;
+    }
+    body.homepage.hero-face-media .hero .hero-media-layer img#hero-bg-img,
+    body.homepage.hero-face-media .hero .hero-media-layer video#hero-bg-video-bg {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+    body.homepage.hero-face-media .hero::after {
+      content: '' !important;
+      display: block !important;
+      position: absolute !important;
+      inset: 0 !important;
+      pointer-events: none !important;
+      z-index: 1 !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      background:
+        linear-gradient(180deg, rgba(7, 10, 48, 0.35) 0%, rgba(7, 10, 48, 0.12) 38%, rgba(7, 10, 48, 0.55) 100%),
+        linear-gradient(92deg, rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.42) 0%, transparent 52%, rgba(0, 0, 0, 0.35) 100%) !important;
+    }
+    body.homepage.hero-face-media .hero-inner,
+    body.homepage.hero-face-media .hero-content,
+    body.homepage.hero-face-media .hero-media-stack,
+    body.homepage.hero-face-media .hero-sidebar,
+    body.homepage.hero-face-media .floating-actions {
+      position: relative;
+      z-index: 2;
     }
     body.homepage .hero::before,
     body.homepage .hero::after,
@@ -2561,6 +2668,9 @@
         const mode = String(brand.hero_mode || 'gradient').toLowerCase();
         const imageUrl = String(brand.hero_banner_image_url || '').trim();
         const videoUrl = String(brand.hero_banner_video_url || '').trim();
+        const hero = document.querySelector('.hero');
+        const heroBgImg = document.getElementById('hero-bg-img');
+        const heroBgVideoBg = document.getElementById('hero-bg-video-bg');
         const poster = document.getElementById('hero-frame-poster');
         const frameVideo = document.getElementById('hero-bg-video');
         const heroVisualMedia = document.querySelector('.hero-visual-media');
@@ -2572,7 +2682,6 @@
           const sub = (String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1]
             || (window.__TENANT_IDENTITY_BOOT__ && window.__TENANT_IDENTITY_BOOT__.__subdomain)
             || '';
-          // Collapse accidental double prefixes then ensure single /t/{sub}/ scope.
           let path = bare.replace(/^(\/t\/[a-z0-9][a-z0-9-]*)+/i, (m) => {
             const last = m.match(/\/t\/[a-z0-9][a-z0-9-]*$/i);
             return last ? last[0] : m;
@@ -2584,6 +2693,54 @@
             path = window.getTenantScopedPath(path);
           }
           return `${path}?v=${Date.now()}`;
+        };
+
+        const resetHeroFaceMedia = () => {
+          document.body.classList.remove('hero-face-media', 'hero-face-image', 'hero-face-video');
+          if (hero) {
+            hero.classList.remove('hero-has-image', 'hero-has-video', 'hero-bg-image', 'hero-has-bg-image', 'hero-face-media');
+          }
+          if (heroBgImg) {
+            heroBgImg.removeAttribute('src');
+            heroBgImg.style.display = 'none';
+          }
+          if (heroBgVideoBg) {
+            try { heroBgVideoBg.pause(); } catch (_) {}
+            heroBgVideoBg.removeAttribute('src');
+            try { heroBgVideoBg.load(); } catch (_) {}
+            heroBgVideoBg.style.display = 'none';
+          }
+        };
+
+        const applyHeroFaceImage = (src) => {
+          if (!hero || !heroBgImg || !src) return;
+          resetHeroFaceMedia();
+          heroBgImg.src = src;
+          heroBgImg.style.display = 'block';
+          hero.classList.add('hero-has-image', 'hero-bg-image', 'hero-has-bg-image', 'hero-face-media');
+          document.body.classList.add('hero-face-media', 'hero-face-image');
+          hero.style.setProperty('background-image', 'none', 'important');
+          hero.style.setProperty('background-color', 'var(--brand-red-deep, #070a30)', 'important');
+        };
+
+        const applyHeroFaceVideo = (src) => {
+          if (!hero || !heroBgVideoBg || !src) return;
+          resetHeroFaceMedia();
+          heroBgVideoBg.muted = true;
+          heroBgVideoBg.loop = true;
+          heroBgVideoBg.playsInline = true;
+          heroBgVideoBg.setAttribute('playsinline', '');
+          heroBgVideoBg.setAttribute('autoplay', '');
+          if (imageUrl) heroBgVideoBg.setAttribute('poster', scoped(imageUrl));
+          else heroBgVideoBg.removeAttribute('poster');
+          heroBgVideoBg.src = src;
+          heroBgVideoBg.style.display = 'block';
+          try { heroBgVideoBg.load(); } catch (_) {}
+          heroBgVideoBg.play().catch(() => {});
+          hero.classList.add('hero-has-video', 'hero-face-media');
+          document.body.classList.add('hero-face-media', 'hero-face-video');
+          hero.style.setProperty('background-image', 'none', 'important');
+          hero.style.setProperty('background-color', 'var(--brand-red-deep, #070a30)', 'important');
         };
 
         const showPoster = (src, alt = 'بنر الهيرو') => {
@@ -2613,9 +2770,11 @@
         if (heroDashboard) heroDashboard.style.display = 'none';
         if (heroVisual) heroVisual.classList.remove('hero-banner-video', 'hero-banner-image');
         document.body.classList.remove('hero-banner-video', 'hero-banner-image');
+        resetHeroFaceMedia();
 
         if (mode === 'video' && videoUrl) {
           const src = scoped(videoUrl);
+          applyHeroFaceVideo(src);
           if (heroVisual) heroVisual.classList.add('hero-banner-video');
           document.body.classList.add('hero-banner-video');
           if (frameVideo) {
@@ -2654,12 +2813,17 @@
 
         hideFrameVideo();
         if (mode === 'image' && imageUrl) {
+          const src = scoped(imageUrl);
+          applyHeroFaceImage(src);
           if (heroVisual) heroVisual.classList.add('hero-banner-image');
           document.body.classList.add('hero-banner-image');
-          showPoster(scoped(imageUrl), 'بنر صورة الهيرو');
+          showPoster(src, 'بنر صورة الهيرو');
           return;
         }
 
+        if (typeof window.__tenantLandingPaintBrandColors === 'function') {
+          window.__tenantLandingPaintBrandColors();
+        }
         // Default gradient face + built-in artwork
         showPoster('/newhome/tenant-hero-banner.svg', 'واجهة تشغيل poshahub360');
       }
