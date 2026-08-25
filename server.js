@@ -308,25 +308,41 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   return withBranding;
 };
 
-const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-nav-hub-20260824';
+const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-attachments-20260824';
 
 const injectHrPortalShellAssets = (html) => {
   if (!html) return html;
   const cssHref = `/finance/hr-portal-shell.css?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
   const jsHref = `/finance/hr-portal-shell.js?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
+  const attCssHref = `/finance/hr-attachments.css?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
+  const attJsHref = `/finance/hr-attachments.js?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
   const cssTag = `<link rel="stylesheet" href="${cssHref}">`;
   const jsTag = `<script src="${jsHref}" defer></script>`;
+  const attCssTag = `<link rel="stylesheet" href="${attCssHref}">`;
+  const attJsTag = `<script src="${attJsHref}" defer></script>`;
   let output = html.replace(/\/finance\/hr-portal-shell\.css(\?[^"'>\s]*)?/g, cssHref.replace(/^\//, '/'));
   output = output.replace(/\/finance\/hr-portal-shell\.js(\?[^"'>\s]*)?/g, jsHref.replace(/^\//, '/'));
+  output = output.replace(/\/finance\/hr-attachments\.css(\?[^"'>\s]*)?/g, attCssHref.replace(/^\//, '/'));
+  output = output.replace(/\/finance\/hr-attachments\.js(\?[^"'>\s]*)?/g, attJsHref.replace(/^\//, '/'));
   if (!output.includes('hr-portal-shell.css')) {
     output = output.includes('</head>')
       ? output.replace('</head>', `${cssTag}</head>`)
       : `${cssTag}${output}`;
   }
+  if (!output.includes('hr-attachments.css')) {
+    output = output.includes('</head>')
+      ? output.replace('</head>', `${attCssTag}</head>`)
+      : `${attCssTag}${output}`;
+  }
   if (!output.includes('hr-portal-shell.js')) {
     output = output.includes('</body>')
       ? output.replace('</body>', `${jsTag}</body>`)
       : `${output}${jsTag}`;
+  }
+  if (!output.includes('hr-attachments.js')) {
+    output = output.includes('</body>')
+      ? output.replace('</body>', `${attJsTag}</body>`)
+      : `${output}${attJsTag}`;
   }
   return output;
 };
@@ -3900,6 +3916,9 @@ app.use('/api/hr/system-settings', hrSystemSettingsRoutes);
 
 const hrOpsModulesRoutes = require('./hr/api/ops-modules');
 app.use('/api/hr/ops', hrOpsModulesRoutes);
+
+const hrFormAttachmentsRoutes = require('./hr/api/form-attachments');
+app.use('/api/hr/form-attachments', hrFormAttachmentsRoutes);
 
 const {
   listHrHomeModules,
