@@ -285,9 +285,8 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
     const brandingIdentity = fileName === 'tenant-landing.html'
       ? {
           ...req.tenantIdentity,
-          site_name: 'poshahub360',
-          primary_color: '#0b1f3a',
-          secondary_color: '#0b1224'
+          site_name: 'poshahub360'
+          // Keep primary/secondary from tenant branding settings so the client can change colors
         }
       : req.tenantIdentity;
     payload = injectTenantBrandingHtml(payload, brandingIdentity, req.tenant);

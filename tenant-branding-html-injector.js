@@ -66,8 +66,8 @@ function buildSyncCacheBootScript() {
   function paintBoot(boot, sub) {
     if (!boot) return;
     var root = document.documentElement;
-    var primary = boot.primary_color || '#990e1e';
-    var secondary = boot.secondary_color || '#1a1a1a';
+    var primary = boot.primary_color || '#11165a';
+    var secondary = boot.secondary_color || '#1e186d';
     root.setAttribute('data-tenant-branding', 'active');
     root.style.setProperty('--tenant-primary', primary);
     root.style.setProperty('--tenant-secondary', secondary);
@@ -213,8 +213,8 @@ function buildCriticalBrandingBlock(identity, tenant = null) {
         }
         function paintBoot() {
           var root = document.documentElement;
-          var p = boot.primary_color || '#990e1e';
-          var s = boot.secondary_color || '#1a1a1a';
+          var p = boot.primary_color || '#11165a';
+          var s = boot.secondary_color || '#1e186d';
           root.style.setProperty('--tenant-primary', p);
           root.style.setProperty('--tenant-secondary', s);
           root.style.setProperty('--brand-red', p);

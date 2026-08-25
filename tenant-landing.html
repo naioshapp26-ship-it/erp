@@ -4,60 +4,76 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>poshahub360</title>
-  <!-- FOUC lock: keep poshahub360 + navy before branding/homepage scripts repaint -->
+  <!-- FOUC lock: poshahub360 name + branding navy (no red flash) -->
   <style id="tenant-landing-fouc-critical">
     :root {
-      --tenant-primary: #0b1f3a !important;
-      --tenant-secondary: #0b1224 !important;
-      --brand-red: #0b1f3a !important;
-      --brand-red-rgb: 11, 31, 58 !important;
-      --primary-red: #0b1f3a !important;
-      --primary-red-dark: #0b1224 !important;
-      --homepage-red: #0b1f3a !important;
-      --homepage-button-color: #0b1f3a !important;
-      --homepage-hero-gradient-start: #1e3a5f !important;
-      --homepage-hero-gradient-mid: #0b1f3a !important;
+      --tenant-primary: #11165a;
+      --tenant-secondary: #1e186d;
+      --tenant-primary-rgb: 17, 22, 90;
+      --brand-red: var(--tenant-primary);
+      --brand-red-rgb: var(--tenant-primary-rgb);
+      --primary-red: var(--tenant-primary);
+      --primary-red-dark: var(--tenant-secondary);
+      --homepage-red: var(--tenant-primary);
+      --homepage-button-color: var(--tenant-primary);
+      --homepage-hero-gradient-start: #1c2478;
+      --homepage-hero-gradient-mid: var(--tenant-primary);
+      --landing-hero-gradient: linear-gradient(92deg, #1c2478 0%, #171f6e 14%, #141b66 28%, #11165a 44%, #0c1048 62%, #080b30 78%, #05071c 100%);
+      --landing-mesh-gradient:
+        radial-gradient(ellipse 80% 70% at 38% 44%, rgba(28, 36, 120, 0.58), transparent 58%),
+        radial-gradient(ellipse 60% 55% at 58% 50%, rgba(17, 22, 90, 0.52), transparent 55%),
+        radial-gradient(ellipse 35% 50% at 92% 46%, rgba(0, 0, 0, 0.35), transparent 58%),
+        radial-gradient(ellipse 55% 42% at 48% 100%, rgba(8, 11, 48, 0.55), transparent 48%);
     }
     body.homepage .hero,
     body.homepage.dark-mode .hero {
-      background-color: #020617 !important;
-      background-image: linear-gradient(
-        92deg,
-        #1e3a5f 0%,
-        #16325a 14%,
-        #0f2744 28%,
-        #0b1f3a 44%,
-        #081628 62%,
-        #050d18 78%,
-        #020617 100%
-      ) !important;
+      background-color: #05071c !important;
+      background-image: var(--landing-hero-gradient) !important;
     }
     body.homepage .hero-gradient-mesh,
     body.homepage.dark-mode .hero-gradient-mesh {
-      background:
-        radial-gradient(ellipse 80% 70% at 38% 44%, rgba(30, 58, 95, 0.55), transparent 58%),
-        radial-gradient(ellipse 60% 55% at 58% 50%, rgba(11, 31, 58, 0.50), transparent 55%),
-        radial-gradient(ellipse 35% 50% at 92% 46%, rgba(0, 0, 0, 0.35), transparent 58%),
-        radial-gradient(ellipse 55% 42% at 48% 100%, rgba(8, 22, 40, 0.55), transparent 48%) !important;
+      background: var(--landing-mesh-gradient) !important;
       filter: none !important;
     }
   </style>
   <script id="tenant-landing-fouc-lock">
     (function () {
       var NAME = 'poshahub360';
-      var NAVY = '#0b1f3a';
-      var NAVY_SECONDARY = '#0b1224';
-      window.__TENANT_LANDING_LOCK__ = { name: NAME, primary: NAVY, secondary: NAVY_SECONDARY };
+      var DEFAULT_PRIMARY = '#11165a';
+      var DEFAULT_SECONDARY = '#1e186d';
+      window.__TENANT_LANDING_LOCK__ = { name: NAME, defaultPrimary: DEFAULT_PRIMARY, defaultSecondary: DEFAULT_SECONDARY };
 
-      function lockIdentityObject(identity) {
+      function normalizeHex(value, fallback) {
+        var raw = String(value || '').trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
+        if (/^[0-9a-fA-F]{6}$/.test(raw)) return ('#' + raw).toLowerCase();
+        return fallback;
+      }
+      function hexToRgb(hex) {
+        var h = normalizeHex(hex, DEFAULT_PRIMARY).slice(1);
+        return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+      }
+      function shadeHex(hex, factor) {
+        var rgb = hexToRgb(hex).map(function (part) {
+          return Math.max(0, Math.min(255, Math.round(part * factor)));
+        });
+        return '#' + rgb.map(function (part) {
+          return part.toString(16).padStart(2, '0');
+        }).join('');
+      }
+      function resolveColors() {
+        var boot = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        return {
+          primary: normalizeHex(boot.primary_color, DEFAULT_PRIMARY),
+          secondary: normalizeHex(boot.secondary_color, DEFAULT_SECONDARY)
+        };
+      }
+      function lockIdentityName(identity) {
         if (!identity || typeof identity !== 'object') return identity;
         identity.site_name = NAME;
-        identity.primary_color = NAVY;
-        identity.secondary_color = NAVY_SECONDARY;
         return identity;
       }
-
-      function lockCachedIdentity() {
+      function lockCachedIdentityName() {
         try {
           var sub = (String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1];
           if (!sub) return;
@@ -66,26 +82,60 @@
           var raw = sessionStorage.getItem(key);
           if (raw) {
             var boot = JSON.parse(raw);
-            lockIdentityObject(boot);
+            lockIdentityName(boot);
             sessionStorage.setItem(key, JSON.stringify(boot));
           }
         } catch (_) {}
-        if (window.__TENANT_IDENTITY_BOOT__) lockIdentityObject(window.__TENANT_IDENTITY_BOOT__);
-        if (window.__TENANT_IDENTITY__) lockIdentityObject(window.__TENANT_IDENTITY__);
+        if (window.__TENANT_IDENTITY_BOOT__) lockIdentityName(window.__TENANT_IDENTITY_BOOT__);
+        if (window.__TENANT_IDENTITY__) lockIdentityName(window.__TENANT_IDENTITY__);
       }
-
-      function lockColors() {
+      function paintBrandColors() {
+        var colors = resolveColors();
+        var primary = colors.primary;
+        var secondary = colors.secondary;
+        var rgb = hexToRgb(primary);
+        var soft = shadeHex(primary, 1.18);
+        var mid = shadeHex(primary, 0.86);
+        var dark = shadeHex(primary, 0.62);
+        var deep = shadeHex(primary, 0.38);
         var root = document.documentElement;
-        root.style.setProperty('--tenant-primary', NAVY);
-        root.style.setProperty('--tenant-secondary', NAVY_SECONDARY);
-        root.style.setProperty('--brand-red', NAVY);
-        root.style.setProperty('--primary-red', NAVY);
-        root.style.setProperty('--primary-red-dark', NAVY_SECONDARY);
-        root.style.setProperty('--homepage-red', NAVY);
-        root.style.setProperty('--homepage-button-color', NAVY);
-        root.style.setProperty('--brand-red-rgb', '11, 31, 58');
+        root.style.setProperty('--tenant-primary', primary);
+        root.style.setProperty('--tenant-secondary', secondary);
+        root.style.setProperty('--tenant-primary-rgb', rgb.join(', '));
+        root.style.setProperty('--brand-red', primary);
+        root.style.setProperty('--brand-red-rgb', rgb.join(', '));
+        root.style.setProperty('--brand-red-soft', soft);
+        root.style.setProperty('--brand-red-mid', mid);
+        root.style.setProperty('--brand-red-dark', dark);
+        root.style.setProperty('--brand-red-deep', deep);
+        root.style.setProperty('--primary-red', primary);
+        root.style.setProperty('--primary-red-dark', secondary);
+        root.style.setProperty('--homepage-red', primary);
+        root.style.setProperty('--homepage-red-bright', soft);
+        root.style.setProperty('--homepage-red-hover', mid);
+        root.style.setProperty('--homepage-button-color', primary);
+        root.style.setProperty('--homepage-hero-gradient-start', soft);
+        root.style.setProperty('--homepage-hero-gradient-mid', primary);
+        root.style.setProperty('--announcement-bg', secondary);
+        root.style.setProperty('--gradient-brand-primary', 'linear-gradient(135deg, ' + soft + ', ' + primary + ')');
+        root.style.setProperty('--landing-hero-gradient',
+          'linear-gradient(92deg, ' + soft + ' 0%, ' + shadeHex(primary, 1.05) + ' 14%, ' + shadeHex(primary, 0.95) + ' 28%, ' + primary + ' 44%, ' + mid + ' 62%, ' + dark + ' 78%, ' + deep + ' 100%)'
+        );
+        root.style.setProperty('--landing-mesh-gradient',
+          'radial-gradient(ellipse 80% 70% at 38% 44%, rgba(' + rgb.join(',') + ',0.58), transparent 58%),' +
+          'radial-gradient(ellipse 60% 55% at 58% 50%, rgba(' + rgb.join(',') + ',0.5), transparent 55%),' +
+          'radial-gradient(ellipse 35% 50% at 92% 46%, rgba(0,0,0,0.35), transparent 58%),' +
+          'radial-gradient(ellipse 55% 42% at 48% 100%, rgba(' + hexToRgb(dark).join(',') + ',0.55), transparent 48%)'
+        );
+        var hero = document.querySelector('.hero');
+        if (hero) {
+          hero.style.setProperty('background-image', 'var(--landing-hero-gradient)', 'important');
+          hero.style.setProperty('background-color', deep, 'important');
+        }
+        document.querySelectorAll('.hero-gradient-mesh').forEach(function (el) {
+          el.style.setProperty('background', 'var(--landing-mesh-gradient)', 'important');
+        });
       }
-
       function lockNames() {
         if (document.title !== NAME) document.title = NAME;
         document.querySelectorAll('[data-landing-brand="name"], [data-tenant-brand="name"]').forEach(function (node) {
@@ -95,8 +145,8 @@
         if (h1 && h1.textContent !== NAME) h1.textContent = NAME;
       }
 
-      lockCachedIdentity();
-      lockColors();
+      lockCachedIdentityName();
+      paintBrandColors();
       document.title = NAME;
 
       var titleEl = document.querySelector('title');
@@ -107,27 +157,26 @@
       }
 
       new MutationObserver(function () {
-        lockCachedIdentity();
+        lockCachedIdentityName();
         lockNames();
-        lockColors();
       }).observe(document.documentElement, {
         childList: true,
         subtree: true,
-        characterData: true,
-        attributes: true,
-        attributeFilter: ['style', 'class']
+        characterData: true
       });
 
       document.addEventListener('DOMContentLoaded', function () {
-        lockCachedIdentity();
+        lockCachedIdentityName();
         lockNames();
-        lockColors();
+        paintBrandColors();
       });
       window.addEventListener('tenant-branding:ready', function () {
-        lockCachedIdentity();
+        lockCachedIdentityName();
         lockNames();
-        lockColors();
+        paintBrandColors();
       });
+      window.__tenantLandingPaintBrandColors = paintBrandColors;
+      window.__tenantLandingLockNames = lockNames;
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -165,7 +214,7 @@
 
     body.homepage:not(.dark-mode) footer.site-footer,
     body.homepage.dark-mode footer.site-footer {
-      background: var(--brand-red, #d70000) !important;
+      background: var(--brand-red, #11165a) !important;
       color: #ffffff !important;
       border-top: none !important;
     }
@@ -299,7 +348,7 @@
     body.homepage .logo-text {
       font-size: 1.45rem !important;
       font-weight: 900 !important;
-      color: #0b1f3a !important;
+      color: var(--tenant-primary) !important;
       letter-spacing: -0.03em !important;
     }
     @media (max-width: 767px) {
@@ -310,91 +359,86 @@
       }
       body.homepage .brand .logo-text { font-size: 1.1rem !important; }
     }
-    /* Navy / كحلي hero (no red) */
+    /* Brand navy hero (driven by tenant branding colors — no red) */
     body.homepage .hero {
-      background-color: #020617 !important;
-      background-image: linear-gradient(
-        92deg,
-        #1e3a5f 0%,
-        #16325a 14%,
-        #0f2744 28%,
-        #0b1f3a 44%,
-        #081628 62%,
-        #050d18 78%,
-        #020617 100%
-      
-      ) !important;
+      background-color: var(--brand-red-deep, #05071c) !important;
+      background-image: var(--landing-hero-gradient) !important;
     }
     body.homepage .hero-gradient-mesh {
-      background:
-        radial-gradient(ellipse 80% 70% at 38% 44%, rgba(30, 58, 95, 0.55), transparent 58%),
-        radial-gradient(ellipse 60% 55% at 58% 50%, rgba(11, 31, 58, 0.50), transparent 55%),
-        radial-gradient(ellipse 35% 50% at 92% 46%, rgba(0, 0, 0, 0.35), transparent 58%),
-        radial-gradient(ellipse 55% 42% at 48% 100%, rgba(8, 22, 40, 0.55), transparent 48%) !important;
+      background: var(--landing-mesh-gradient) !important;
       filter: none !important;
     }
     body.homepage .hero-glow,
     body.homepage .hero-glow--one,
     body.homepage .hero-glow--two,
     body.homepage .hero-orb {
-      background: radial-gradient(circle, rgba(30, 58, 95, 0.45), transparent 70%) !important;
+      background: radial-gradient(circle, rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.45), transparent 70%) !important;
       opacity: 0.55 !important;
     }
 
     :root {
-      --tenant-primary: #0b1f3a;
-      --tenant-secondary: #0b1224;
-      --brand-red: #0b1f3a;
-      --brand-red-rgb: 11, 31, 58;
-      --brand-red-soft: #1e3a5f;
-      --brand-red-dark: #050d18;
-      --brand-red-mid: #16325a;
-      --brand-red-deep: #020617;
-      --homepage-button-color: #0b1f3a;
-      --announcement-bg: #0b1224;
-      --gradient-brand-primary: linear-gradient(135deg, #1e3a5f, #0b1f3a);
+      --tenant-primary: #11165a;
+      --tenant-secondary: #1e186d;
+      --tenant-primary-rgb: 17, 22, 90;
+      --brand-red: #11165a;
+      --brand-red-rgb: 17, 22, 90;
+      --brand-red-soft: #1c2478;
+      --brand-red-dark: #0c1048;
+      --brand-red-mid: #171f6e;
+      --brand-red-deep: #05071c;
+      --homepage-button-color: #11165a;
+      --announcement-bg: #1e186d;
+      --gradient-brand-primary: linear-gradient(135deg, #1c2478, #11165a);
     }
     body.homepage {
-      --homepage-hero-gradient-start: #1e3a5f !important;
-      --homepage-hero-gradient-mid: #0b1f3a !important;
-      --homepage-red: #0b1f3a !important;
-      --homepage-red-bright: #16325a !important;
-      --homepage-red-hover: #12263f !important;
-      --homepage-hero-overlay-dark-end: rgba(2, 6, 23, 0.35) !important;
-      --homepage-border: rgba(30, 58, 138, 0.18) !important;
+      --homepage-border: rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.18) !important;
+      scrollbar-color: rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.45) transparent !important;
+    }
+    body.homepage .card,
+    body.homepage .list-card,
+    body.homepage .tour-form-card,
+    body.homepage .registration-card,
+    body.homepage .hero-note-box,
+    body.homepage .hero-note-upload,
+    body.homepage .hero-note-upload label,
+    body.homepage .hero-sidebar-item,
+    body.homepage .hero-sidebar a {
+      border-color: rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.22) !important;
+      box-shadow: none !important;
+    }
+    body.homepage .hero-note-upload input[type="file"],
+    body.homepage .hero-note-upload label,
+    body.homepage .hero-note-upload .btn,
+    body.homepage label[for="hero-note-file"],
+    body.homepage .hero-note-file-btn {
+      background: var(--tenant-primary, #11165a) !important;
+      background-image: none !important;
+      border-color: rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.8) !important;
+      color: #fff !important;
+      box-shadow: none !important;
+    }
+    body.homepage *::-webkit-scrollbar-thumb {
+      background: rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.45) !important;
     }
     body.homepage .hero {
-      background-color: #020617 !important;
-      background-image: linear-gradient(
-        92deg,
-        #1e3a5f 0%,
-        #16325a 14%,
-        #0f2744 28%,
-        #0b1f3a 44%,
-        #081628 62%,
-        #050d18 78%,
-        #020617 100%
-      ) !important;
+      background-color: var(--brand-red-deep, #05071c) !important;
+      background-image: var(--landing-hero-gradient) !important;
     }
     body.homepage .hero-gradient-mesh {
-      background:
-        radial-gradient(ellipse 80% 70% at 38% 44%, rgba(30, 58, 95, 0.55), transparent 58%),
-        radial-gradient(ellipse 60% 55% at 58% 50%, rgba(11, 31, 58, 0.50), transparent 55%),
-        radial-gradient(ellipse 35% 50% at 92% 46%, rgba(0, 0, 0, 0.35), transparent 58%),
-        radial-gradient(ellipse 55% 42% at 48% 100%, rgba(8, 22, 40, 0.55), transparent 48%) !important;
+      background: var(--landing-mesh-gradient) !important;
     }
     body.homepage .btn-primary,
     body.homepage .hero-cta-pill,
     body.homepage .registration-submit {
-      background: linear-gradient(135deg, #1e3a5f, #0b1f3a) !important;
+      background: var(--gradient-brand-primary) !important;
       border-color: transparent !important;
     }
     body.homepage .hero-dot,
     body.homepage .progress-fill {
-      background: #0b1f3a !important;
+      background: var(--tenant-primary) !important;
     }
     body.homepage footer.site-footer {
-      background: #0b1f3a !important;
+      background: var(--tenant-primary) !important;
     }
     /* Tenant header: only 4 actions */
     body.homepage .top-nav .nav-links {
@@ -412,7 +456,7 @@
       border: 1px solid rgba(255,255,255,0.14) !important;
     }
     body.homepage .auth-actions .auth-btn.is-contact {
-      background: linear-gradient(135deg, #1e3a5f, #0b1f3a) !important;
+      background: var(--gradient-brand-primary) !important;
       border-color: transparent !important;
     }
     body.homepage .brand .logo-text {
@@ -423,7 +467,7 @@
     /* Recolor remaining ERP red accents → dark blue */
     body.homepage .hero-note-text,
     body.homepage .hero-media-note textarea {
-      background: linear-gradient(180deg, #16325a 0%, #0b1f3a 100%) !important;
+      background: linear-gradient(180deg, var(--brand-red-mid, #171f6e) 0%, var(--tenant-primary) 100%) !important;
       border-color: rgba(255, 255, 255, 0.92) !important;
       color: #ffffff !important;
       caret-color: #ffffff !important;
@@ -432,7 +476,7 @@
       color: rgba(255, 255, 255, 0.72) !important;
     }
     body.homepage .hero-note-upload {
-      background: linear-gradient(135deg, #1e3a5f, #0b1f3a) !important;
+      background: var(--gradient-brand-primary) !important;
       border-color: transparent !important;
       color: #fff !important;
       box-shadow: 0 10px 24px rgba(30, 58, 138, 0.28) !important;
@@ -441,10 +485,10 @@
       background: linear-gradient(135deg, #16325a, #081628) !important;
     }
     body.homepage .hero-float-icon {
-      background: linear-gradient(135deg, #1e3a5f, #0b1f3a) !important;
+      background: var(--gradient-brand-primary) !important;
     }
     body.homepage .hero-float-icon {
-      background: #0b1f3a !important;
+      background: var(--tenant-primary) !important;
       color: #fff !important;
     }
     body.homepage .hero-float-card {
@@ -465,7 +509,7 @@
       box-shadow: 0 4px 24px rgba(30, 58, 138, 0.10) !important;
     }
     body.homepage .container[aria-label="الدفع وشحن الرصيد"] a {
-      color: #0b1f3a !important;
+      color: var(--tenant-primary) !important;
     }
 
 
@@ -501,14 +545,14 @@
     /* Navy underline under section titles (was red) */
     body.homepage .section-head h2::after,
     body.homepage .section-head h2::before {
-      background: #0b1f3a !important;
+      background: var(--tenant-primary) !important;
       background-image: none !important;
     }
 
 
     /* Tour banner: show brand logo instead of empty media */
     body.homepage .tour-image-card.tour-logo-panel {
-      background: linear-gradient(160deg, #12263f 0%, #0b1f3a 55%, #071525 100%) !important;
+      background: linear-gradient(160deg, var(--brand-red-soft, #1c2478) 0%, var(--tenant-primary) 55%, var(--brand-red-deep, #05071c) 100%) !important;
       min-height: 420px;
       display: flex;
       align-items: center;
@@ -571,8 +615,8 @@
       animation: none !important;
     }
     body.homepage .hero {
-      background: #0b1f3a !important;
-      background-image: linear-gradient(160deg, #12263f 0%, #0b1f3a 42%, #071525 100%) !important;
+      background: var(--tenant-primary) !important;
+      background-image: linear-gradient(160deg, var(--brand-red-soft, #1c2478) 0%, var(--tenant-primary) 42%, var(--brand-red-deep, #05071c) 100%) !important;
     }
 
     /* Kill leftover red UI chrome */
@@ -605,6 +649,140 @@
     body.homepage .hero-panel .hero-dot,
     body.homepage .hero-dashboard .hero-dot {
       background: #94a3b8 !important;
+    }
+
+    /* Absolute no-red guarantee on tenant face */
+    body.homepage .hero-panel,
+    body.homepage .hero-panel-main,
+    body.homepage .hero-panel-metrics,
+    body.homepage .hero-panel-status,
+    body.homepage .hero-glass-search {
+      border-color: rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.22) !important;
+      outline-color: var(--tenant-primary, #11165a) !important;
+      box-shadow: 0 14px 28px rgba(5, 7, 28, 0.18) !important;
+    }
+    body.homepage .hero-glass-search {
+      background: rgba(8, 12, 40, 0.92) !important;
+      color: #fff !important;
+    }
+    body.homepage .hero-visual:hover {
+      box-shadow: 0 48px 90px rgba(4, 6, 10, 0.68), 0 0 44px rgba(17, 22, 90, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+    }
+    body.homepage .hero-sidebar-item:hover,
+    body.homepage .hero-sidebar-item:focus-visible,
+    body.homepage .hero-sidebar a:hover,
+    body.homepage .hero-sidebar a:focus-visible {
+      background: linear-gradient(135deg, var(--brand-red-soft, #1c2478), var(--tenant-primary, #11165a)) !important;
+      border-color: rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.7) !important;
+      color: #ffffff !important;
+      box-shadow: 0 8px 22px rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.35) !important;
+    }
+    body.homepage input,
+    body.homepage select,
+    body.homepage textarea,
+    body.homepage .tour-form input,
+    body.homepage .tour-form select,
+    body.homepage .tour-form textarea,
+    body.homepage .registration-form input,
+    body.homepage .registration-form select,
+    body.homepage .registration-form textarea,
+    body.homepage .newsletter-form input {
+      accent-color: var(--tenant-primary, #11165a) !important;
+      caret-color: var(--tenant-primary, #11165a) !important;
+      outline-color: var(--tenant-primary, #11165a) !important;
+      border: 1px solid rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.28) !important;
+      border-color: rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.28) !important;
+    }
+    body.homepage input:focus,
+    body.homepage select:focus,
+    body.homepage textarea:focus,
+    body.homepage input:focus-visible,
+    body.homepage select:focus-visible,
+    body.homepage textarea:focus-visible {
+      border-color: var(--tenant-primary, #11165a) !important;
+      outline: 2px solid rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.35) !important;
+      outline-offset: 1px !important;
+      box-shadow: 0 0 0 3px rgba(var(--tenant-primary-rgb, 17, 22, 90), 0.18) !important;
+    }
+    body.homepage .icon-box,
+    body.homepage .icon-box i,
+    body.homepage .cards .card .icon-box,
+    body.homepage .list-card .icon-box,
+    body.homepage .progress-fill,
+    body.homepage .hero-chart-bars span,
+    body.homepage .hero-panel .hero-dot,
+    body.homepage .floating-actions a,
+    body.homepage .floating-actions button,
+    body.homepage .btn-primary,
+    body.homepage .magnetic-btn,
+    body.homepage .auth-btn.is-contact,
+    body.homepage .registration-submit,
+    body.homepage .newsletter-section button,
+    body.homepage footer.site-footer,
+    body.homepage .scroll-indicator,
+    body.homepage #hero-bg-ctrl,
+    body.homepage .hero-float-icon {
+      background-image: none !important;
+    }
+    body.homepage .icon-box,
+    body.homepage .cards .card .icon-box,
+    body.homepage .list-card .icon-box,
+    body.homepage .progress-fill,
+    body.homepage .hero-chart-bars span,
+    body.homepage .floating-actions a,
+    body.homepage .floating-actions button,
+    body.homepage .scroll-indicator,
+    body.homepage #hero-bg-ctrl,
+    body.homepage .hero-float-icon {
+      background: var(--tenant-primary, #11165a) !important;
+      background-color: var(--tenant-primary, #11165a) !important;
+      color: #fff !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
+    }
+    body.homepage .icon-box i,
+    body.homepage .floating-actions a i,
+    body.homepage .floating-actions button i,
+    body.homepage .hero-float-icon i,
+    body.homepage .scroll-indicator i {
+      color: #fff !important;
+      background: transparent !important;
+    }
+    body.homepage [style*="#e50914"],
+    body.homepage [style*="#8b0000"],
+    body.homepage [style*="#d70000"],
+    body.homepage [style*="#990e1e"],
+    body.homepage [style*="#b91c1c"],
+    body.homepage [style*="#991b1b"],
+    body.homepage [style*="#ef4444"],
+    body.homepage [style*="#dc2626"],
+    body.homepage [style*="rgb(229"],
+    body.homepage [style*="rgb(255, 0"],
+    body.homepage [style*="rgb(255,0"] {
+      background: var(--tenant-primary, #11165a) !important;
+      background-color: var(--tenant-primary, #11165a) !important;
+      background-image: none !important;
+      color: #fff !important;
+      border-color: var(--tenant-primary, #11165a) !important;
+    }
+    body.homepage .text-red-500,
+    body.homepage .text-red-600,
+    body.homepage .text-red-700,
+    body.homepage .text-rose-500,
+    body.homepage .text-rose-600,
+    body.homepage .bg-red-500,
+    body.homepage .bg-red-600,
+    body.homepage .bg-red-700,
+    body.homepage .bg-rose-500,
+    body.homepage .bg-rose-600,
+    body.homepage .from-red-600,
+    body.homepage .to-red-700,
+    body.homepage .from-red-900,
+    body.homepage .via-red-800,
+    body.homepage .to-red-950 {
+      color: var(--tenant-primary, #11165a) !important;
+      background: var(--tenant-primary, #11165a) !important;
+      background-image: none !important;
     }
 
     /* Hide platform-only SaaS/create page chrome on tenant landing */
@@ -1201,7 +1379,7 @@
         heroImage: payload.settings?.heroImageUrl || '',
         activeType: payload.settings?.heroMedia?.activeType || 'image'
       });
-      const toRgbTriplet = (hexColor, fallback = '215, 0, 0') => {
+      const toRgbTriplet = (hexColor, fallback = '17, 22, 90') => {
         if (typeof hexColor !== 'string') return fallback;
         let value = hexColor.trim();
         if (!/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(value)) return fallback;
@@ -1827,15 +2005,14 @@
         const root = document.documentElement;
         const theme = settings.theme || {};
         const typography = settings.typography || {};
-        const primaryColor = '#0b1f3a';
-        const secondaryColor = '#1e3a8a';
-        const buttonColor = '#12263f';
+        // Colors come from tenant branding settings — never homepage red
+        if (typeof window.__tenantLandingPaintBrandColors === 'function') {
+          window.__tenantLandingPaintBrandColors();
+        }
+        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        const primaryColor = brand.primary_color || '#11165a';
+        const secondaryColor = brand.secondary_color || '#1e186d';
 
-        root.style.setProperty('--brand-red', primaryColor);
-        root.style.setProperty('--brand-red-rgb', toRgbTriplet(primaryColor));
-        root.style.setProperty('--brand-red-soft', secondaryColor);
-        root.style.setProperty('--brand-red-dark', buttonColor);
-        root.style.setProperty('--homepage-button-color', buttonColor);
         root.style.setProperty('--homepage-header-bg', theme.headerBgColor || '#ffffff');
         root.style.setProperty('--homepage-text-color', theme.textColor || '#171a20');
         root.style.setProperty('--homepage-heading-color', typography.headingColor || theme.textColor || '#171a20');
@@ -1847,7 +2024,7 @@
         root.style.setProperty('--hero-overlay-strength', `${clamp(settings.heroMedia?.overlayStrength, 0.5, 0.7, 0.62)}`);
         heroSliderPaused = settings.heroMedia?.autoPlaySlider === false;
         const announcementBar = settings.announcementBar || {};
-        root.style.setProperty('--announcement-bg', '#0b1224');
+        root.style.setProperty('--announcement-bg', secondaryColor);
         root.style.setProperty('--announcement-text', announcementBar.textColor || '#ffffff');
         root.style.setProperty('--announcement-speed', `${clamp(announcementBar.speed, 10, 120, 28)}s`);
         const announcementTrack = document.getElementById('announcement-track');
@@ -2035,16 +2212,10 @@
         return m ? String(m[1] || '').toLowerCase() : '';
       }
       function lockLandingIdentity() {
-        const lock = window.__TENANT_LANDING_LOCK__ || {
-          name: 'poshahub360',
-          primary: '#0b1f3a',
-          secondary: '#0b1224'
-        };
+        // Keep display name locked to poshahub360, but preserve branding colors from settings
         const patch = (identity) => {
           if (!identity || typeof identity !== 'object') return;
-          identity.site_name = lock.name;
-          identity.primary_color = lock.primary;
-          identity.secondary_color = lock.secondary;
+          identity.site_name = 'poshahub360';
         };
         patch(window.__TENANT_IDENTITY_BOOT__);
         patch(window.__TENANT_IDENTITY__);
@@ -2068,23 +2239,21 @@
         if (h1) h1.textContent = 'poshahub360';
         document.title = 'poshahub360';
       }
-      function paintDarkBlueFromPrimary() {
-        const primary = '#0b1f3a'; // كحلي داكن ثابت — منع رجوع الأحمر من إعدادات الهوم
+      function paintLandingFromBranding() {
+        if (typeof window.__tenantLandingPaintBrandColors === 'function') {
+          window.__tenantLandingPaintBrandColors();
+          return;
+        }
+        // Fallback if FOUC helper missing
+        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        const primary = brand.primary_color || '#11165a';
+        const secondary = brand.secondary_color || '#1e186d';
         document.documentElement.style.setProperty('--tenant-primary', primary);
-        document.documentElement.style.setProperty('--tenant-secondary', '#0b1224');
+        document.documentElement.style.setProperty('--tenant-secondary', secondary);
         document.documentElement.style.setProperty('--brand-red', primary);
         document.documentElement.style.setProperty('--primary-red', primary);
         document.documentElement.style.setProperty('--homepage-red', primary);
-        document.documentElement.style.setProperty('--brand-red-rgb', '11, 31, 58');
         document.documentElement.style.setProperty('--homepage-button-color', primary);
-        const hero = document.querySelector('.hero');
-        if (hero) {
-          hero.style.setProperty('background-image', 'linear-gradient(92deg, #1e3a5f 0%, #16325a 14%, #0f2744 28%, #0b1f3a 44%, #081628 62%, #050d18 78%, #020617 100%)', 'important');
-          hero.style.setProperty('background-color', '#020617', 'important');
-        }
-        document.querySelectorAll('.hero-gradient-mesh').forEach((el) => {
-          el.style.setProperty('background', 'radial-gradient(ellipse 80% 70% at 38% 44%, rgba(30,58,95,0.55), transparent 58%), radial-gradient(ellipse 60% 55% at 58% 50%, rgba(11,31,58,0.5), transparent 55%), radial-gradient(ellipse 55% 42% at 48% 100%, rgba(8,22,40,0.55), transparent 48%)', 'important');
-        });
       }
 
       const loginHref = scoped('/login-page.html?login=1');
@@ -2101,17 +2270,16 @@
       });
 
       const run = async () => {
-        // Lock BEFORE branding fetch so POSHA/red never paints first
         lockLandingIdentity();
         forceMamName();
-        paintDarkBlueFromPrimary();
+        paintLandingFromBranding();
 
         if (typeof window.applyTenantBranding === 'function') {
           try { await window.applyTenantBranding(); } catch (_) {}
         }
         lockLandingIdentity();
         forceMamName();
-        paintDarkBlueFromPrimary();
+        paintLandingFromBranding();
         const syncTourBrand = () => {
           const title = document.getElementById('tour-form-title');
           if (title) title.textContent = 'احجز جولة في poshahub360';
@@ -2120,9 +2288,8 @@
           if (tourLogo && headerLogo) tourLogo.src = headerLogo;
         };
         syncTourBrand();
-        // Homepage settings / branding may repaint later — re-assert lock
-        setTimeout(() => { lockLandingIdentity(); forceMamName(); paintDarkBlueFromPrimary(); syncTourBrand(); }, 800);
-        setTimeout(() => { lockLandingIdentity(); forceMamName(); paintDarkBlueFromPrimary(); syncTourBrand(); }, 2500);
+        setTimeout(() => { lockLandingIdentity(); forceMamName(); paintLandingFromBranding(); syncTourBrand(); }, 800);
+        setTimeout(() => { lockLandingIdentity(); forceMamName(); paintLandingFromBranding(); syncTourBrand(); }, 2500);
       };
       run();
     })();
