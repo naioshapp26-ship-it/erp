@@ -27,10 +27,38 @@
       --gradient-brand-primary: linear-gradient(135deg, #11165a, #0c1048);
     }
     body.homepage .hero,
-    body.homepage.dark-mode .hero {
+    body.homepage.dark-mode .hero,
+    body.homepage .hero.hero-bg-image,
+    body.homepage .hero.hero-has-image,
+    body.homepage .hero.hero-has-video,
+    body.homepage .hero.hero-has-solid,
+    body.homepage .hero.hero-has-bg-image,
+    body.homepage.dark-mode .hero.hero-bg-image,
+    body.homepage.dark-mode .hero.hero-has-image {
       background: #11165a !important;
-      background-color: #11165a !important;
+      background-color: var(--tenant-primary, #11165a) !important;
       background-image: none !important;
+    }
+    body.homepage .hero::before,
+    body.homepage .hero::after,
+    body.homepage .hero.hero-bg-image::before,
+    body.homepage .hero.hero-has-image::before,
+    body.homepage .hero.hero-has-video::before,
+    body.homepage .hero.hero-has-solid::before,
+    body.homepage .hero.hero-has-bg-image::before,
+    body.homepage .hero.hero-bg-image::after,
+    body.homepage .hero.hero-has-image::after,
+    body.homepage.dark-mode .hero::before,
+    body.homepage.dark-mode .hero::after {
+      content: none !important;
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      background: none !important;
+      background-image: none !important;
+      box-shadow: none !important;
+      filter: none !important;
+      animation: none !important;
     }
     body.homepage .hero-gradient-mesh,
     body.homepage.dark-mode .hero-gradient-mesh,
@@ -157,6 +185,11 @@
           el.style.setProperty('background', 'none', 'important');
           el.style.setProperty('box-shadow', 'none', 'important');
         });
+        var heroEl = document.querySelector('.hero');
+        if (heroEl) {
+          heroEl.classList.remove('hero-bg-image', 'hero-has-image', 'hero-has-bg-image', 'hero-has-video');
+          heroEl.classList.add('hero-bg-solid');
+        }
       }
       function lockNames() {
         if (document.title !== NAME) document.title = NAME;
@@ -641,9 +674,26 @@
       animation: none !important;
     }
     body.homepage .hero,
-    body.homepage.dark-mode .hero {
+    body.homepage.dark-mode .hero,
+    body.homepage .hero.hero-bg-image,
+    body.homepage .hero.hero-has-image,
+    body.homepage .hero.hero-has-video,
+    body.homepage .hero.hero-has-solid,
+    body.homepage .hero.hero-has-bg-image {
       background: var(--tenant-primary, #11165a) !important;
       background-color: var(--tenant-primary, #11165a) !important;
+      background-image: none !important;
+    }
+    body.homepage .hero::before,
+    body.homepage .hero::after,
+    body.homepage .hero.hero-has-image::before,
+    body.homepage .hero.hero-bg-image::before,
+    body.homepage .hero.hero-has-image::after,
+    body.homepage .hero.hero-bg-image::after {
+      content: none !important;
+      display: none !important;
+      opacity: 0 !important;
+      background: none !important;
       background-image: none !important;
     }
     body.homepage .hero-visual,
@@ -909,7 +959,7 @@
             <div class="hero-visual-shine" aria-hidden="true"></div>
             <div class="hero-visual-reflection" aria-hidden="true"></div>
             <div class="hero-visual-media" aria-hidden="true">
-              <img id="hero-frame-poster" src="/newhome/booking-workspace.svg" alt="" aria-hidden="true" loading="eager" decoding="async" />
+              <img id="hero-frame-poster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1280' height='900'%3E%3Crect width='100%25' height='100%25' fill='%2311165a'/%3E%3C/svg%3E" alt="" aria-hidden="true" loading="eager" decoding="async" />
             </div>
             <div class="hero-dashboard" aria-hidden="true">
               <article class="hero-panel hero-panel-main">
@@ -1562,15 +1612,64 @@
         const hero = document.querySelector('.hero');
         const heroVideo = document.getElementById('hero-bg-video');
         const heroVisualMedia = document.querySelector('.hero-visual-media');
+        const heroBgImg = document.getElementById('hero-bg-img');
+        const heroBgVideoBg = document.getElementById('hero-bg-video-bg');
+        const heroBgCtrl = document.getElementById('hero-bg-ctrl');
+        if (!hero) return;
+
+        // Tenant landing: solid navy only — never apply homepage red image/video hero skins
+        hero.classList.remove(
+          'hero-bg-image',
+          'hero-has-image',
+          'hero-has-bg-image',
+          'hero-has-video',
+          'hero-has-solid',
+          'hero-bg-solid'
+        );
+        hero.classList.add('hero-bg-solid');
+        root.style.setProperty('--hero-custom-image', 'none');
+        root.style.setProperty('--hero-bg-image', 'none');
+        root.style.setProperty('--hero-overlay-strength', '0');
+        root.style.setProperty('--homepage-hero-overlay-dark-end', 'rgba(7, 10, 48, 0)');
+        if (heroBgImg) {
+          heroBgImg.removeAttribute('src');
+          heroBgImg.style.display = 'none';
+        }
+        if (heroBgVideoBg) {
+          try { heroBgVideoBg.pause(); } catch (_) {}
+          heroBgVideoBg.removeAttribute('src');
+          heroBgVideoBg.load();
+          heroBgVideoBg.style.display = 'none';
+        }
+        if (heroVideo) {
+          try { heroVideo.pause(); } catch (_) {}
+          heroVideo.removeAttribute('src');
+          heroVideo.load();
+          heroVideo.style.display = 'none';
+        }
+        if (heroBgCtrl) heroBgCtrl.hidden = true;
+        if (typeof window.__tenantLandingPaintBrandColors === 'function') {
+          window.__tenantLandingPaintBrandColors();
+        }
+        // Keep frame poster navy-safe (no red SVG accents as full-bleed skin)
+        const poster = document.getElementById('hero-frame-poster');
+        if (poster) {
+          poster.style.background = 'var(--tenant-primary, #11165a)';
+          // Prefer solid navy over red-accent SVG artwork
+          poster.setAttribute('src', 'data:image/svg+xml,' + encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900"><rect width="100%" height="100%" fill="#11165a"/></svg>'
+          ));
+        }
+        return;
+
+        // Original homepage media setup intentionally disabled on tenant landing.
         const heroSliderToggle = document.getElementById('hero-slider-toggle');
         const heroMediaCaption = document.getElementById('hero-media-caption');
         const heroMediaDescription = document.getElementById('hero-media-description');
         const heroPrevBtn = document.getElementById('hero-prev-btn');
         const heroNextBtn = document.getElementById('hero-next-btn');
         const heroDots = document.getElementById('hero-slider-dots');
-        const heroBgImg = document.getElementById('hero-bg-img');
-        const heroBgVideoBg = document.getElementById('hero-bg-video-bg');
-        if (!hero || !heroVideo || !heroVisualMedia) return;
+        if (!heroVideo || !heroVisualMedia) return;
 
         // Clean up previous event handlers and timers
         if (heroVideoEndedHandler) { heroVideo.removeEventListener('ended', heroVideoEndedHandler); heroVideoEndedHandler = null; }
