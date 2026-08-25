@@ -290,6 +290,10 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
         }
       : req.tenantIdentity;
     payload = injectTenantBrandingHtml(payload, brandingIdentity, req.tenant);
+    if (fileName === 'tenant-landing.html') {
+      const { injectTenantLandingSystemLinks } = require('./tenant-branding-html-injector');
+      payload = injectTenantLandingSystemLinks(payload, req.tenant);
+    }
   }
   if (req?.tenant && fileName === 'dashboard.html') {
     payload = optimizeTenantDashboardHtml(payload);
@@ -3121,8 +3125,8 @@ const getTenantAuthEntryRedirect = (req) => {
   const requestPath = String(req.path || '/').split('?')[0];
   const safeNextPath = requestPath.startsWith('/') ? requestPath : `/${requestPath}`;
   const loginPath = safeNextPath && safeNextPath !== '/login-page.html'
-    ? `/login-page.html?next=${encodeURIComponent(safeNextPath)}`
-    : '/login-page.html';
+    ? `/login-page.html?login=1&next=${encodeURIComponent(safeNextPath)}`
+    : '/login-page.html?login=1';
 
   if (req?.tenant?.subdomain && isExplicitTenantContext(req)) {
     return getTenantScopedRedirect(req, loginPath);
