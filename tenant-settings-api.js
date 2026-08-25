@@ -50,8 +50,11 @@ const {
   readIdentitySettings,
   saveIdentitySettings,
   saveLogoUrl,
+  saveHeroBannerAsset,
   ensureDefaultIdentitySettings,
-  isSharedTenant
+  isSharedTenant,
+  HERO_IMAGE_API_PATH,
+  HERO_VIDEO_API_PATH
 } = require('./tenant-branding-service');
 const { syncCentralTenantUserDirectoryEntry } = require('./tenant-directory-sync');
 
@@ -646,6 +649,56 @@ const tenantLogoUpload = multer({
   }
 });
 
+const tenantHeroImageStorage = multer.diskStorage({
+  destination(req, _file, cb) {
+    const subdomain = req.tenant?.subdomain || req.tenantPathSubdomain || 'tenant';
+    const dir = path.join(uploadsRoot, 'tenant-branding', subdomain);
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename(_req, file, cb) {
+    const ext = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+    cb(null, `hero-image-${Date.now()}${ext}`);
+  }
+});
+
+const tenantHeroVideoStorage = multer.diskStorage({
+  destination(req, _file, cb) {
+    const subdomain = req.tenant?.subdomain || req.tenantPathSubdomain || 'tenant';
+    const dir = path.join(uploadsRoot, 'tenant-branding', subdomain);
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename(_req, file, cb) {
+    const ext = path.extname(file.originalname || '').toLowerCase() || '.mp4';
+    cb(null, `hero-video-${Date.now()}${ext}`);
+  }
+});
+
+const tenantHeroImageUpload = multer({
+  storage: tenantHeroImageStorage,
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter(_req, file, cb) {
+    if (/^image\/(png|jpe?g|webp|gif)$/.test(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('INVALID_IMAGE_TYPE'));
+  }
+});
+
+const tenantHeroVideoUpload = multer({
+  storage: tenantHeroVideoStorage,
+  limits: { fileSize: 80 * 1024 * 1024 },
+  fileFilter(_req, file, cb) {
+    if (/^video\/(mp4|webm|ogg|quicktime)$/.test(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('INVALID_VIDEO_TYPE'));
+  }
+});
+
 router.get('/login-account', async (req, res) => {
   try {
     const userId = req.tenantUser.user_id;
@@ -809,6 +862,74 @@ router.post('/branding/logo', (req, res) => {
     } catch (err) {
       console.error('[TenantSettings] POST branding/logo:', err.message);
       return res.status(500).json({ success: false, message: 'خطأ في حفظ الشعار.' });
+    }
+  });
+});
+
+router.post('/branding/hero-image', (req, res) => {
+  tenantHeroImageUpload.single('hero_image')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      const message = uploadErr.message === 'INVALID_IMAGE_TYPE'
+        ? 'نوع صورة البنر غير مدعوم.'
+        : (uploadErr.code === 'LIMIT_FILE_SIZE' ? 'حجم صورة البنر كبير جداً (الحد 8MB).' : 'تعذر رفع صورة البنر.');
+      return res.status(400).json({ success: false, message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'يرجى اختيار صورة البنر.' });
+    }
+    try {
+      const subdomain = req.tenant?.subdomain || req.tenantPathSubdomain || 'tenant';
+      const diskUrl = `/uploads/tenant-branding/${subdomain}/${req.file.filename}`;
+      const buffer = fs.readFileSync(req.file.path);
+      const url = await saveHeroBannerAsset(req.tenantPool, req.tenant, {
+        kind: 'image',
+        buffer,
+        mimeType: req.file.mimetype || 'image/jpeg',
+        diskUrl
+      });
+      return res.json({
+        success: true,
+        message: 'تم رفع صورة بنر الهيرو بنجاح.',
+        hero_banner_image_url: url || HERO_IMAGE_API_PATH,
+        hero_mode: 'image',
+        disk_url: diskUrl
+      });
+    } catch (err) {
+      console.error('[TenantSettings] POST branding/hero-image:', err.message);
+      return res.status(500).json({ success: false, message: 'خطأ في حفظ صورة البنر.' });
+    }
+  });
+});
+
+router.post('/branding/hero-video', (req, res) => {
+  tenantHeroVideoUpload.single('hero_video')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      const message = uploadErr.message === 'INVALID_VIDEO_TYPE'
+        ? 'نوع فيديو البنر غير مدعوم (MP4/WebM).'
+        : (uploadErr.code === 'LIMIT_FILE_SIZE' ? 'حجم فيديو البنر كبير جداً (الحد 80MB).' : 'تعذر رفع فيديو البنر.');
+      return res.status(400).json({ success: false, message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'يرجى اختيار فيديو البنر.' });
+    }
+    try {
+      const subdomain = req.tenant?.subdomain || req.tenantPathSubdomain || 'tenant';
+      const diskUrl = `/uploads/tenant-branding/${subdomain}/${req.file.filename}`;
+      const url = await saveHeroBannerAsset(req.tenantPool, req.tenant, {
+        kind: 'video',
+        mimeType: req.file.mimetype || 'video/mp4',
+        diskUrl
+      });
+      return res.json({
+        success: true,
+        message: 'تم رفع فيديو بنر الهيرو بنجاح.',
+        hero_banner_video_url: url || HERO_VIDEO_API_PATH,
+        hero_mode: 'video',
+        disk_url: diskUrl
+      });
+    } catch (err) {
+      console.error('[TenantSettings] POST branding/hero-video:', err.message);
+      return res.status(500).json({ success: false, message: 'خطأ في حفظ فيديو البنر.' });
     }
   });
 });

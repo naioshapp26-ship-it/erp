@@ -225,6 +225,9 @@
         document.querySelectorAll('.hero-visual, .premium-video-frame').forEach(function (el) {
           el.style.setProperty('background', deep, 'important');
         });
+        if (typeof window.__tenantLandingApplyHeroBanner === 'function') {
+          try { window.__tenantLandingApplyHeroBanner(); } catch (_) {}
+        }
       }
       function lockNames() {
         if (document.title !== NAME) document.title = NAME;
@@ -994,6 +997,26 @@
     }
     body.homepage #hero-frame-poster.is-hidden {
       display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+    }
+    body.homepage #hero-bg-video {
+      display: block;
+      z-index: 2;
+    }
+    body.homepage #hero-bg-video[src],
+    body.homepage #hero-bg-video[src=''] {
+      /* src may be set programmatically; keep stack above poster when active */
+    }
+    body.homepage.hero-banner-video #hero-frame-poster,
+    body.homepage .hero-visual.hero-banner-video #hero-frame-poster {
+      display: none !important;
+    }
+    body.homepage .hero-visual.hero-banner-video #hero-bg-video {
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      z-index: 2 !important;
     }
 
     /* Hide platform-only SaaS/create page chrome on tenant landing */
@@ -1759,23 +1782,31 @@
           heroVideo.style.display = 'none';
         }
         if (heroBgCtrl) heroBgCtrl.hidden = true;
+        // Ensure frame video lives inside the premium frame (not the full-bleed layer).
+        if (heroVideo && heroVisualMedia && heroVideo.parentElement !== heroVisualMedia) {
+          heroVisualMedia.prepend(heroVideo);
+        }
         if (typeof window.__tenantLandingPaintBrandColors === 'function') {
           window.__tenantLandingPaintBrandColors();
         }
-        // Keep frame poster visible with navy-safe banner artwork (no red accents)
-        const poster = document.getElementById('hero-frame-poster');
-        if (poster) {
-          poster.classList.remove('is-hidden');
-          poster.style.display = 'block';
-          poster.style.opacity = '1';
-          poster.style.visibility = 'visible';
-          poster.style.background = 'transparent';
-          poster.setAttribute('src', '/newhome/tenant-hero-banner.svg');
-          poster.setAttribute('alt', 'واجهة تشغيل poshahub360');
-        }
-        if (heroVisualMedia) {
-          heroVisualMedia.style.display = 'block';
-          heroVisualMedia.style.opacity = '1';
+        if (typeof window.__tenantLandingApplyHeroBanner === 'function') {
+          window.__tenantLandingApplyHeroBanner();
+        } else {
+          // Fallback: keep frame poster visible with navy-safe banner artwork
+          const poster = document.getElementById('hero-frame-poster');
+          if (poster) {
+            poster.classList.remove('is-hidden');
+            poster.style.display = 'block';
+            poster.style.opacity = '1';
+            poster.style.visibility = 'visible';
+            poster.style.background = 'transparent';
+            poster.setAttribute('src', '/newhome/tenant-hero-banner.svg');
+            poster.setAttribute('alt', 'واجهة تشغيل poshahub360');
+          }
+          if (heroVisualMedia) {
+            heroVisualMedia.style.display = 'block';
+            heroVisualMedia.style.opacity = '1';
+          }
         }
         return;
 
@@ -2508,19 +2539,132 @@
       function paintLandingFromBranding() {
         if (typeof window.__tenantLandingPaintBrandColors === 'function') {
           window.__tenantLandingPaintBrandColors();
+        } else {
+          // Fallback if FOUC helper missing
+          const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+          const primary = brand.primary_color || '#11165a';
+          const secondary = brand.secondary_color || '#0c1048';
+          document.documentElement.style.setProperty('--tenant-primary', primary);
+          document.documentElement.style.setProperty('--tenant-secondary', secondary);
+          document.documentElement.style.setProperty('--brand-red', primary);
+          document.documentElement.style.setProperty('--primary-red', primary);
+          document.documentElement.style.setProperty('--homepage-red', primary);
+          document.documentElement.style.setProperty('--homepage-button-color', primary);
+        }
+        if (typeof window.__tenantLandingApplyHeroBanner === 'function') {
+          window.__tenantLandingApplyHeroBanner();
+        }
+      }
+
+      function applyTenantHeroBanner() {
+        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        const mode = String(brand.hero_mode || 'gradient').toLowerCase();
+        const imageUrl = String(brand.hero_banner_image_url || '').trim();
+        const videoUrl = String(brand.hero_banner_video_url || '').trim();
+        const poster = document.getElementById('hero-frame-poster');
+        const frameVideo = document.getElementById('hero-bg-video');
+        const heroVisualMedia = document.querySelector('.hero-visual-media');
+        const heroDashboard = document.querySelector('.hero-dashboard');
+        const heroVisual = document.querySelector('.hero-visual');
+        const scoped = (url) => {
+          if (!url) return '';
+          const bare = String(url).split('?')[0];
+          const sub = (String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1]
+            || (window.__TENANT_IDENTITY_BOOT__ && window.__TENANT_IDENTITY_BOOT__.__subdomain)
+            || '';
+          // Collapse accidental double prefixes then ensure single /t/{sub}/ scope.
+          let path = bare.replace(/^(\/t\/[a-z0-9][a-z0-9-]*)+/i, (m) => {
+            const last = m.match(/\/t\/[a-z0-9][a-z0-9-]*$/i);
+            return last ? last[0] : m;
+          });
+          if (sub && path.includes('/api/tenant-public/') && !path.startsWith(`/t/${sub}/`)) {
+            path = path.replace(/^\/t\/[a-z0-9][a-z0-9-]*\//i, '/');
+            path = `/t/${sub}${path.startsWith('/') ? path : `/${path}`}`;
+          } else if (typeof window.getTenantScopedPath === 'function' && path.includes('/api/tenant-public/') && !/^\/t\//i.test(path)) {
+            path = window.getTenantScopedPath(path);
+          }
+          return `${path}?v=${Date.now()}`;
+        };
+
+        const showPoster = (src, alt = 'بنر الهيرو') => {
+          if (!poster) return;
+          poster.classList.remove('is-hidden');
+          poster.style.display = 'block';
+          poster.style.opacity = '1';
+          poster.style.visibility = 'visible';
+          poster.style.background = 'transparent';
+          poster.setAttribute('src', src);
+          poster.setAttribute('alt', alt);
+        };
+
+        const hideFrameVideo = () => {
+          if (!frameVideo) return;
+          try { frameVideo.pause(); } catch (_) {}
+          frameVideo.removeAttribute('src');
+          try { frameVideo.load(); } catch (_) {}
+          frameVideo.style.display = 'none';
+          frameVideo.style.opacity = '0';
+        };
+
+        if (heroVisualMedia) {
+          heroVisualMedia.style.display = 'block';
+          heroVisualMedia.style.opacity = '1';
+        }
+        if (heroDashboard) heroDashboard.style.display = 'none';
+        if (heroVisual) heroVisual.classList.remove('hero-banner-video', 'hero-banner-image');
+        document.body.classList.remove('hero-banner-video', 'hero-banner-image');
+
+        if (mode === 'video' && videoUrl) {
+          const src = scoped(videoUrl);
+          if (heroVisual) heroVisual.classList.add('hero-banner-video');
+          document.body.classList.add('hero-banner-video');
+          if (frameVideo) {
+            // Prefer image as native poster attribute only (behind the playing video).
+            if (imageUrl) frameVideo.setAttribute('poster', scoped(imageUrl));
+            else frameVideo.removeAttribute('poster');
+            frameVideo.style.display = 'block';
+            frameVideo.style.opacity = '1';
+            frameVideo.style.visibility = 'visible';
+            frameVideo.muted = true;
+            frameVideo.loop = true;
+            frameVideo.playsInline = true;
+            frameVideo.setAttribute('playsinline', '');
+            frameVideo.setAttribute('autoplay', '');
+            frameVideo.src = src;
+            frameVideo.load();
+            const revealVideo = () => {
+              if (poster) {
+                poster.classList.add('is-hidden');
+                poster.style.display = 'none';
+              }
+              frameVideo.style.display = 'block';
+              frameVideo.style.opacity = '1';
+            };
+            frameVideo.addEventListener('playing', revealVideo, { once: true });
+            frameVideo.addEventListener('loadeddata', revealVideo, { once: true });
+            frameVideo.play().then(revealVideo).catch(() => {});
+          }
+          // Hide the img poster so it cannot cover the video layer.
+          if (poster) {
+            poster.classList.add('is-hidden');
+            poster.style.display = 'none';
+          }
           return;
         }
-        // Fallback if FOUC helper missing
-        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
-        const primary = brand.primary_color || '#11165a';
-        const secondary = brand.secondary_color || '#0c1048';
-        document.documentElement.style.setProperty('--tenant-primary', primary);
-        document.documentElement.style.setProperty('--tenant-secondary', secondary);
-        document.documentElement.style.setProperty('--brand-red', primary);
-        document.documentElement.style.setProperty('--primary-red', primary);
-        document.documentElement.style.setProperty('--homepage-red', primary);
-        document.documentElement.style.setProperty('--homepage-button-color', primary);
+
+        hideFrameVideo();
+        if (mode === 'image' && imageUrl) {
+          if (heroVisual) heroVisual.classList.add('hero-banner-image');
+          document.body.classList.add('hero-banner-image');
+          showPoster(scoped(imageUrl), 'بنر صورة الهيرو');
+          return;
+        }
+
+        // Default gradient face + built-in artwork
+        showPoster('/newhome/tenant-hero-banner.svg', 'واجهة تشغيل poshahub360');
       }
+
+      window.__tenantLandingApplyHeroBanner = applyTenantHeroBanner;
 
       const loginHref = scoped('/login-page.html?login=1');
       ['header-login', 'mobile-login', 'hero-login-cta'].forEach((id) => {
