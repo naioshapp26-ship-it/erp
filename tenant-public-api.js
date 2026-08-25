@@ -18,15 +18,29 @@
  */
 
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const db = require('./db');
+const { resolveUploadsRootDir } = require('./uploads-config');
 const {
   readIdentitySettings,
   sanitizeCssColor,
   ensureDefaultIdentitySettings,
-  readLogoBinary
+  readLogoBinary,
+  readHeroBinary
 } = require('./tenant-branding-service');
 
 const router = express.Router();
+const uploadsRoot = resolveUploadsRootDir();
+
+function resolveSafeUploadPath(diskUrl) {
+  const raw = String(diskUrl || '').trim();
+  if (!raw.startsWith('/uploads/')) return null;
+  const relative = raw.replace(/^\/uploads\//, '');
+  const absolute = path.resolve(uploadsRoot, relative);
+  if (!absolute.startsWith(path.resolve(uploadsRoot))) return null;
+  return absolute;
+}
 
 // ================================================================
 // مساعدات
@@ -234,6 +248,44 @@ router.get('/api/tenant-public/logo', async (req, res) => {
     return res.send(buffer);
   } catch (err) {
     console.error('[TenantPublic] GET logo:', err.message);
+    return res.status(500).end();
+  }
+});
+
+async function sendHeroMedia(req, res, kind) {
+  if (!req.tenant) return res.status(404).end();
+  const payload = await readHeroBinary(req.tenantPool, req.tenant, kind);
+  if (!payload) return res.status(404).end();
+
+  if (payload.data) {
+    const raw = String(payload.data || '');
+    const match = raw.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return res.status(404).end();
+    res.setHeader('Content-Type', match[1] || payload.mime || 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=600');
+    return res.send(Buffer.from(match[2], 'base64'));
+  }
+
+  const absolute = resolveSafeUploadPath(payload.diskUrl);
+  if (!absolute || !fs.existsSync(absolute)) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=600');
+  return res.sendFile(absolute);
+}
+
+router.get('/api/tenant-public/hero-image', async (req, res) => {
+  try {
+    return await sendHeroMedia(req, res, 'image');
+  } catch (err) {
+    console.error('[TenantPublic] GET hero-image:', err.message);
+    return res.status(500).end();
+  }
+});
+
+router.get('/api/tenant-public/hero-video', async (req, res) => {
+  try {
+    return await sendHeroMedia(req, res, 'video');
+  } catch (err) {
+    console.error('[TenantPublic] GET hero-video:', err.message);
     return res.status(500).end();
   }
 });

@@ -20,6 +20,7 @@ const checks = [
   ['erp brand theme defaults', landing.includes('--tenant-primary') && landing.includes("DEFAULT_PRIMARY = '#11165a'")],
   ['hero soft→navy gradient', landing.includes('buildHeroGradient') && landing.includes('--landing-hero-gradient') && landing.includes("mixHex(primary, '#9ec5ff'")],
   ['hero uses gradient paint', landing.includes("hero.style.setProperty('background-image', heroMesh + ', ' + heroGradient") && !landing.includes('Reject magenta/purple-leaning secondary')],
+  ['hero banner media from identity', landing.includes('__tenantLandingApplyHeroBanner') && landing.includes('hero_banner_image_url')],
   ['hero banner artwork', landing.includes('/newhome/tenant-hero-banner.svg') && fs.existsSync(path.join(__dirname, 'newhome', 'tenant-hero-banner.svg'))],
   ['brand FAB frame', landing.includes('html body.homepage.tenant-branded .floating-actions a') && landing.includes('background: var(--tenant-primary')],
   ['branding-driven paint', landing.includes('__tenantLandingPaintBrandColors') && landing.includes('paintLandingFromBranding')],

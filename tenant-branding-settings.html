@@ -101,6 +101,49 @@
           </div>
         </div>
 
+        <hr class="my-6 border-slate-200">
+
+        <h3 class="text-lg font-black text-slate-900 mb-1">بنر الهيرو (الواجهة الأمامية)</h3>
+        <p class="text-sm text-slate-500 mb-4">اختَر شكل البنر: تدرج ألوان، صورة مرفوعة، أو فيديو — يظهر في الصفحة العامة للمستأجر</p>
+
+        <div class="pay-field">
+          <label for="hero_mode">نوع عرض البنر *</label>
+          <select id="hero_mode" class="color-input" style="height:auto;padding:10px 12px;">
+            <option value="gradient">تدرج ألوان (بدون ميديا)</option>
+            <option value="image">صورة بنر</option>
+            <option value="video">فيديو بنر</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+          <div class="pay-field">
+            <label>رفع صورة البنر</label>
+            <div class="flex items-center gap-3 flex-wrap">
+              <img id="hero_image_preview" src="" alt="معاينة بنر" class="w-28 h-20 rounded-xl border border-slate-200 object-cover bg-slate-100" hidden>
+              <div>
+                <input type="file" id="hero_image_file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+                <button type="button" class="pay-btn pay-btn-secondary" onclick="document.getElementById('hero_image_file').click()">
+                  <i class="fa fa-image"></i> رفع صورة
+                </button>
+                <div class="text-xs text-slate-500 mt-2">PNG / JPG / WEBP حتى 8MB</div>
+              </div>
+            </div>
+          </div>
+          <div class="pay-field">
+            <label>رفع فيديو البنر</label>
+            <div class="flex items-center gap-3 flex-wrap">
+              <video id="hero_video_preview" class="w-36 h-20 rounded-xl border border-slate-200 bg-slate-900 object-cover" muted playsinline hidden></video>
+              <div>
+                <input type="file" id="hero_video_file" accept="video/mp4,video/webm,video/quicktime" class="hidden">
+                <button type="button" class="pay-btn pay-btn-secondary" onclick="document.getElementById('hero_video_file').click()">
+                  <i class="fa fa-video"></i> رفع فيديو
+                </button>
+                <div class="text-xs text-slate-500 mt-2">MP4 / WebM حتى 80MB</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="pay-actions">
           <button class="pay-btn pay-btn-primary" id="save-btn" onclick="saveIdentity()">
             <i class="fa fa-save"></i> حفظ الهوية
@@ -133,10 +176,14 @@
       </div>
 
       <div class="preview-card">
-        <div id="preview_hero" class="preview-header" style="background: #11165a; min-height: 120px; flex-direction: column; align-items: flex-start; justify-content: center; gap: 8px;">
-          <div class="text-xs opacity-80 font-bold">معاينة الهيرو</div>
-          <div id="preview_name" class="text-xl font-black">اسم الشركة</div>
-          <div id="preview_tagline" class="text-sm opacity-90">الشعار النصي</div>
+        <div id="preview_hero" class="preview-header" style="background: #11165a; min-height: 140px; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 8px; position: relative; overflow: hidden;">
+          <img id="preview_hero_media_img" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;">
+          <video id="preview_hero_media_video" muted loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;"></video>
+          <div style="position:relative;z-index:1;">
+            <div class="text-xs opacity-80 font-bold">معاينة الهيرو / البنر</div>
+            <div id="preview_name" class="text-xl font-black">اسم الشركة</div>
+            <div id="preview_tagline" class="text-sm opacity-90">الشعار النصي</div>
+          </div>
         </div>
         <div id="preview_header" class="preview-header" style="background: linear-gradient(135deg, #0c1048, #11165a);">
           <img id="preview_logo" src="/public/naiosh-logo.png" alt="معاينة" class="preview-logo">
@@ -159,6 +206,8 @@
   <script src="/tenant-branding.js"></script>
   <script>
     let currentLogoUrl = '';
+    let currentHeroImageUrl = '';
+    let currentHeroVideoUrl = '';
 
     function scopedPath(path) {
       return typeof getTenantScopedPath === 'function' ? getTenantScopedPath(path) : path;
@@ -177,19 +226,29 @@
       throw new Error(result?.message || fallbackMessage);
     }
 
+    function publicAssetUrl(url) {
+      if (!url) return '';
+      if (String(url).includes('/api/tenant-public/')) {
+        return `${scopedPath(url.split('?')[0])}?v=${Date.now()}`;
+      }
+      return url;
+    }
+
     function updatePreview() {
       const name = document.getElementById('site_name').value.trim() || 'اسم الشركة';
       const tagline = document.getElementById('site_tagline').value.trim() || 'الشعار النصي';
       const primary = document.getElementById('primary_color').value;
       const secondary = document.getElementById('secondary_color').value;
       const logo = currentLogoUrl || document.getElementById('logo_preview').src;
+      const mode = document.getElementById('hero_mode').value || 'gradient';
 
       document.getElementById('preview_name').textContent = name;
       document.getElementById('preview_tagline').textContent = tagline;
       document.getElementById('preview_logo').src = logo;
       const heroPreview = document.getElementById('preview_hero');
+      const img = document.getElementById('preview_hero_media_img');
+      const vid = document.getElementById('preview_hero_media_video');
       if (heroPreview) {
-        // Match landing: soft light blue into brand navy
         const mix = (a, b, t) => {
           const parse = (hex) => hex.replace('#','').match(/.{2}/g).map((x) => parseInt(x, 16));
           const A = parse(a); const B = parse(b);
@@ -198,6 +257,19 @@
         const light = mix(primary, '#9ec5ff', 0.55);
         const soft = mix(primary, '#6b91e8', 0.38);
         heroPreview.style.background = `linear-gradient(135deg, ${light} 0%, ${soft} 35%, ${primary} 75%, ${secondary} 100%)`;
+      }
+      if (img && vid) {
+        img.style.display = 'none';
+        vid.style.display = 'none';
+        try { vid.pause(); } catch (_) {}
+        if (mode === 'image' && currentHeroImageUrl) {
+          img.src = publicAssetUrl(currentHeroImageUrl);
+          img.style.display = 'block';
+        } else if (mode === 'video' && currentHeroVideoUrl) {
+          vid.src = publicAssetUrl(currentHeroVideoUrl);
+          vid.style.display = 'block';
+          vid.play().catch(() => {});
+        }
       }
       document.getElementById('preview_header').style.background = `linear-gradient(135deg, ${secondary}, ${primary})`;
       document.getElementById('preview_button').style.background = primary;
@@ -281,9 +353,22 @@
       document.getElementById('site_tagline').value = data.site_tagline || '';
       document.getElementById('primary_color').value = data.primary_color || '#11165a';
       document.getElementById('secondary_color').value = data.secondary_color || '#0c1048';
+      document.getElementById('hero_mode').value = data.hero_mode || 'gradient';
       currentLogoUrl = data.logo_url || '';
+      currentHeroImageUrl = data.hero_banner_image_url || '';
+      currentHeroVideoUrl = data.hero_banner_video_url || '';
       if (currentLogoUrl) {
         document.getElementById('logo_preview').src = logoPreviewUrl(currentLogoUrl);
+      }
+      const heroImgPrev = document.getElementById('hero_image_preview');
+      if (currentHeroImageUrl) {
+        heroImgPrev.src = publicAssetUrl(currentHeroImageUrl);
+        heroImgPrev.hidden = false;
+      }
+      const heroVidPrev = document.getElementById('hero_video_preview');
+      if (currentHeroVideoUrl) {
+        heroVidPrev.src = publicAssetUrl(currentHeroVideoUrl);
+        heroVidPrev.hidden = false;
       }
       updatePreview();
     }
@@ -314,6 +399,48 @@
       PaymentUI.showAlert('alert', 'تم رفع الشعار بنجاح', 'ok');
     }
 
+    async function uploadHeroImage(file) {
+      const formData = new FormData();
+      formData.append('hero_image', file);
+      const response = await fetch(scopedPath('/api/tenant-settings/branding/hero-image'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${PaymentUI.getToken()}` },
+        body: formData
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'تعذر رفع صورة البنر');
+      }
+      currentHeroImageUrl = result.hero_banner_image_url;
+      document.getElementById('hero_mode').value = 'image';
+      const prev = document.getElementById('hero_image_preview');
+      prev.src = publicAssetUrl(currentHeroImageUrl);
+      prev.hidden = false;
+      updatePreview();
+      PaymentUI.showAlert('alert', 'تم رفع صورة البنر — احفظ الهوية لتأكيد العرض', 'ok');
+    }
+
+    async function uploadHeroVideo(file) {
+      const formData = new FormData();
+      formData.append('hero_video', file);
+      const response = await fetch(scopedPath('/api/tenant-settings/branding/hero-video'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${PaymentUI.getToken()}` },
+        body: formData
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'تعذر رفع فيديو البنر');
+      }
+      currentHeroVideoUrl = result.hero_banner_video_url;
+      document.getElementById('hero_mode').value = 'video';
+      const prev = document.getElementById('hero_video_preview');
+      prev.src = publicAssetUrl(currentHeroVideoUrl);
+      prev.hidden = false;
+      updatePreview();
+      PaymentUI.showAlert('alert', 'تم رفع فيديو البنر — احفظ الهوية لتأكيد العرض', 'ok');
+    }
+
     async function saveIdentity() {
       const saveBtn = document.getElementById('save-btn');
       saveBtn.disabled = true;
@@ -324,6 +451,7 @@
           primary_color: document.getElementById('primary_color').value,
           secondary_color: document.getElementById('secondary_color').value,
           logo_url: currentLogoUrl || null,
+          hero_mode: document.getElementById('hero_mode').value || 'gradient',
           setup_completed: true
         };
 
@@ -377,10 +505,33 @@
       }
     });
 
-    ['site_name', 'site_tagline', 'primary_color', 'secondary_color'].forEach((id) => {
+    document.getElementById('hero_image_file').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        await uploadHeroImage(file);
+      } catch (error) {
+        PaymentUI.showAlert('alert', error.message, 'error');
+      }
+    });
+
+    document.getElementById('hero_video_file').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        await uploadHeroVideo(file);
+      } catch (error) {
+        PaymentUI.showAlert('alert', error.message, 'error');
+      }
+    });
+
+    ['site_name', 'site_tagline', 'primary_color', 'secondary_color', 'hero_mode'].forEach((id) => {
       document.getElementById(id).addEventListener('input', () => {
         updatePreview();
         updateEmailSuggestion();
+      });
+      document.getElementById(id).addEventListener('change', () => {
+        updatePreview();
       });
     });
 

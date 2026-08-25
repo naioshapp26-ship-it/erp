@@ -15,6 +15,15 @@ function escapeHtml(value) {
 
 function buildBootIdentity(identity = {}, tenant = null) {
   const siteName = String(identity.site_name || tenant?.company_name || '').trim();
+  const subdomain = String(tenant?.subdomain || '').toLowerCase();
+  const scopeApi = (url) => {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    if (subdomain && raw.includes('/api/tenant-public/')) {
+      return `/t/${subdomain}${raw.startsWith('/') ? raw : `/${raw}`}`;
+    }
+    return raw;
+  };
   return {
     site_name: siteName,
     site_tagline: String(identity.site_tagline || '').trim(),
@@ -22,7 +31,10 @@ function buildBootIdentity(identity = {}, tenant = null) {
     favicon_url: String(identity.favicon_url || identity.logo_url || '').trim(),
     primary_color: sanitizeCssColor(identity.primary_color),
     secondary_color: sanitizeCssColor(identity.secondary_color, '#1a1a1a'),
-    setup_completed: identity.setup_completed !== false
+    setup_completed: identity.setup_completed !== false,
+    hero_mode: String(identity.hero_mode || 'gradient').trim().toLowerCase() || 'gradient',
+    hero_banner_image_url: scopeApi(identity.hero_banner_image_url || ''),
+    hero_banner_video_url: scopeApi(identity.hero_banner_video_url || '')
   };
 }
 

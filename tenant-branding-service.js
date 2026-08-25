@@ -6,7 +6,61 @@ const DEFAULT_PRIMARY = '#11165a';
 const DEFAULT_SECONDARY = '#0c1048';
 const SHARED_DB_MARKER = 'shared://central';
 const LOGO_API_PATH = '/api/tenant-public/logo';
+const HERO_IMAGE_API_PATH = '/api/tenant-public/hero-image';
+const HERO_VIDEO_API_PATH = '/api/tenant-public/hero-video';
 const MAX_LOGO_STORE_BYTES = 1.5 * 1024 * 1024;
+const MAX_HERO_IMAGE_STORE_BYTES = 2 * 1024 * 1024;
+const HERO_MODES = new Set(['gradient', 'image', 'video']);
+
+function sanitizeHeroMode(value, fallback = 'gradient') {
+  const mode = String(value || '').trim().toLowerCase();
+  return HERO_MODES.has(mode) ? mode : fallback;
+}
+
+function mapHeroFields(extra = {}, branding = {}) {
+  const hero = (extra && typeof extra.hero === 'object' && extra.hero)
+    || (branding && typeof branding.hero === 'object' && branding.hero)
+    || {};
+  const mode = sanitizeHeroMode(hero.mode, 'gradient');
+  const hasImage = Boolean(hero.banner_image_data || hero.banner_image_disk_url);
+  const hasVideo = Boolean(hero.banner_video_disk_url);
+  return {
+    hero_mode: mode,
+    hero_banner_image_url: hasImage ? HERO_IMAGE_API_PATH : '',
+    hero_banner_video_url: hasVideo ? HERO_VIDEO_API_PATH : '',
+    hero_banner_image_disk_url: hero.banner_image_disk_url || '',
+    hero_banner_video_disk_url: hero.banner_video_disk_url || ''
+  };
+}
+
+function mergeHeroIntoExtra(existingExtra = {}, payload = {}) {
+  const currentHero = (existingExtra && typeof existingExtra.hero === 'object' && existingExtra.hero) || {};
+  const nextHero = { ...currentHero };
+  if (payload.hero_mode != null) {
+    nextHero.mode = sanitizeHeroMode(payload.hero_mode, currentHero.mode || 'gradient');
+  }
+  if (payload.hero_banner_image_disk_url != null) {
+    nextHero.banner_image_disk_url = String(payload.hero_banner_image_disk_url || '').trim();
+  }
+  if (payload.hero_banner_video_disk_url != null) {
+    nextHero.banner_video_disk_url = String(payload.hero_banner_video_disk_url || '').trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'hero_clear_image') && payload.hero_clear_image) {
+    delete nextHero.banner_image_data;
+    delete nextHero.banner_image_mime;
+    delete nextHero.banner_image_disk_url;
+    if (nextHero.mode === 'image') nextHero.mode = 'gradient';
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'hero_clear_video') && payload.hero_clear_video) {
+    delete nextHero.banner_video_disk_url;
+    delete nextHero.banner_video_mime;
+    if (nextHero.mode === 'video') nextHero.mode = 'gradient';
+  }
+  return {
+    ...existingExtra,
+    hero: nextHero
+  };
+}
 
 function sanitizeCssColor(color, fallback = DEFAULT_PRIMARY) {
   const safe = String(color || '').trim();
@@ -62,7 +116,8 @@ function mapCentralIdentity(tenant) {
     font_family: branding.font_family || '',
     setup_completed: Boolean(branding.setup_completed),
     branding_id: hasStoredLogo || branding.primary_color ? 1 : null,
-    site_id: publicSite.site_name ? 1 : null
+    site_id: publicSite.site_name ? 1 : null,
+    ...mapHeroFields(branding, branding)
   };
 }
 
@@ -83,17 +138,20 @@ async function saveCentralIdentity(tenant, payload = {}) {
   }
 
   const settings = parseTenantSettings(tenant);
+  const nextBranding = {
+    ...(settings.branding || {}),
+    logo_url: (logoUrl || settings.branding?.logo_data) ? LOGO_API_PATH : '',
+    favicon_url: (faviconUrl || settings.branding?.logo_data) ? LOGO_API_PATH : (settings.branding?.favicon_url || ''),
+    primary_color: primaryColor,
+    secondary_color: secondaryColor,
+    font_family: fontFamily,
+    setup_completed: setupCompleted
+  };
+  const mergedExtraLike = mergeHeroIntoExtra(nextBranding, payload);
+  nextBranding.hero = mergedExtraLike.hero;
   const nextSettings = {
     ...settings,
-    branding: {
-      ...(settings.branding || {}),
-      logo_url: (logoUrl || settings.branding?.logo_data) ? LOGO_API_PATH : '',
-      favicon_url: (faviconUrl || settings.branding?.logo_data) ? LOGO_API_PATH : (settings.branding?.favicon_url || ''),
-      primary_color: primaryColor,
-      secondary_color: secondaryColor,
-      font_family: fontFamily,
-      setup_completed: setupCompleted
-    },
+    branding: nextBranding,
     publicSite: {
       ...(settings.publicSite || {}),
       site_name: siteName,
@@ -140,7 +198,8 @@ async function readIdentitySettings(tenantPool, tenant = null) {
     font_family: branding?.font_family || '',
     setup_completed: Boolean(extra.setup_completed),
     branding_id: branding?.id || null,
-    site_id: site?.id || null
+    site_id: site?.id || null,
+    ...mapHeroFields(extra, branding)
   };
 }
 
@@ -166,10 +225,10 @@ async function saveIdentitySettings(tenantPool, tenant, payload = {}) {
 
   const existingBranding = await tenantPool.query('SELECT id, extra FROM branding_settings LIMIT 1');
   const existingExtra = normalizeExtra(existingBranding.rows[0]?.extra);
-  const mergedExtra = {
+  const mergedExtra = mergeHeroIntoExtra({
     ...existingExtra,
     setup_completed: setupCompleted
-  };
+  }, payload);
 
   if (existingBranding.rows.length > 0) {
     await tenantPool.query(
@@ -322,6 +381,102 @@ async function readLogoBinary(tenantPool, tenant = null) {
   return null;
 }
 
+async function saveHeroBannerAsset(tenantPool, tenant, {
+  kind = 'image',
+  buffer = null,
+  mimeType = 'image/png',
+  diskUrl = ''
+} = {}) {
+  const isVideo = kind === 'video';
+  let imageData = null;
+  if (!isVideo && buffer && buffer.length && buffer.length <= MAX_HERO_IMAGE_STORE_BYTES) {
+    imageData = `data:${mimeType};base64,${buffer.toString('base64')}`;
+  }
+
+  if (isSharedTenant(tenant)) {
+    const settings = parseTenantSettings(tenant);
+    const branding = { ...(settings.branding || {}) };
+    const hero = { ...(branding.hero || {}) };
+    if (isVideo) {
+      hero.mode = 'video';
+      hero.banner_video_disk_url = diskUrl || hero.banner_video_disk_url || '';
+      hero.banner_video_mime = mimeType || hero.banner_video_mime || 'video/mp4';
+    } else {
+      hero.mode = 'image';
+      hero.banner_image_disk_url = diskUrl || hero.banner_image_disk_url || '';
+      hero.banner_image_mime = mimeType || hero.banner_image_mime || 'image/png';
+      if (imageData) hero.banner_image_data = imageData;
+    }
+    branding.hero = hero;
+    const nextSettings = { ...settings, branding };
+    await db.query(
+      `UPDATE tenants SET settings = $2::jsonb, updated_at = NOW() WHERE id = $1`,
+      [tenant.id, JSON.stringify(nextSettings)]
+    );
+    tenant.settings = nextSettings;
+    return isVideo ? HERO_VIDEO_API_PATH : HERO_IMAGE_API_PATH;
+  }
+
+  const existing = await tenantPool.query('SELECT id, extra FROM branding_settings LIMIT 1');
+  const existingExtra = normalizeExtra(existing.rows[0]?.extra);
+  const hero = { ...(existingExtra.hero || {}) };
+  if (isVideo) {
+    hero.mode = 'video';
+    hero.banner_video_disk_url = diskUrl || hero.banner_video_disk_url || '';
+    hero.banner_video_mime = mimeType || hero.banner_video_mime || 'video/mp4';
+  } else {
+    hero.mode = 'image';
+    hero.banner_image_disk_url = diskUrl || hero.banner_image_disk_url || '';
+    hero.banner_image_mime = mimeType || hero.banner_image_mime || 'image/png';
+    if (imageData) hero.banner_image_data = imageData;
+  }
+  const mergedExtra = { ...existingExtra, hero };
+
+  if (existing.rows.length > 0) {
+    await tenantPool.query(
+      `UPDATE branding_settings
+       SET extra = $1::jsonb, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [JSON.stringify(mergedExtra), existing.rows[0].id]
+    );
+  } else {
+    await tenantPool.query(
+      `INSERT INTO branding_settings (logo_url, primary_color, secondary_color, extra)
+       VALUES ($1, '#11165a', '#0c1048', $2::jsonb)`,
+      [null, JSON.stringify({ ...mergedExtra, setup_completed: false })]
+    );
+  }
+  return isVideo ? HERO_VIDEO_API_PATH : HERO_IMAGE_API_PATH;
+}
+
+async function readHeroBinary(tenantPool, tenant = null, kind = 'image') {
+  const isVideo = kind === 'video';
+  let hero = {};
+  if (isSharedTenant(tenant)) {
+    hero = (parseTenantSettings(tenant).branding || {}).hero || {};
+  } else if (tenantPool) {
+    const result = await tenantPool.query('SELECT extra FROM branding_settings LIMIT 1');
+    hero = normalizeExtra(result.rows[0]?.extra).hero || {};
+  } else {
+    return null;
+  }
+
+  if (!isVideo && hero.banner_image_data) {
+    return {
+      data: hero.banner_image_data,
+      mime: hero.banner_image_mime || 'image/png',
+      diskUrl: hero.banner_image_disk_url || ''
+    };
+  }
+  const diskUrl = isVideo ? hero.banner_video_disk_url : hero.banner_image_disk_url;
+  if (!diskUrl) return null;
+  return {
+    data: null,
+    mime: isVideo ? (hero.banner_video_mime || 'video/mp4') : (hero.banner_image_mime || 'image/png'),
+    diskUrl
+  };
+}
+
 async function ensureDefaultIdentitySettings(tenantPool, companyName = '', tenant = null) {
   const existing = await readIdentitySettings(tenantPool, tenant);
   if (existing.branding_id || existing.site_id || existing.site_name) {
@@ -343,12 +498,17 @@ module.exports = {
   DEFAULT_PRIMARY,
   DEFAULT_SECONDARY,
   LOGO_API_PATH,
+  HERO_IMAGE_API_PATH,
+  HERO_VIDEO_API_PATH,
   sanitizeCssColor,
+  sanitizeHeroMode,
   isSharedTenant,
   readIdentitySettings,
   saveIdentitySettings,
   saveLogoUrl,
   saveLogoAsset,
+  saveHeroBannerAsset,
   readLogoBinary,
+  readHeroBinary,
   ensureDefaultIdentitySettings
 };

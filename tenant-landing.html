@@ -225,6 +225,9 @@
         document.querySelectorAll('.hero-visual, .premium-video-frame').forEach(function (el) {
           el.style.setProperty('background', deep, 'important');
         });
+        if (typeof window.__tenantLandingApplyHeroBanner === 'function') {
+          try { window.__tenantLandingApplyHeroBanner(); } catch (_) {}
+        }
       }
       function lockNames() {
         if (document.title !== NAME) document.title = NAME;
@@ -1762,20 +1765,24 @@
         if (typeof window.__tenantLandingPaintBrandColors === 'function') {
           window.__tenantLandingPaintBrandColors();
         }
-        // Keep frame poster visible with navy-safe banner artwork (no red accents)
-        const poster = document.getElementById('hero-frame-poster');
-        if (poster) {
-          poster.classList.remove('is-hidden');
-          poster.style.display = 'block';
-          poster.style.opacity = '1';
-          poster.style.visibility = 'visible';
-          poster.style.background = 'transparent';
-          poster.setAttribute('src', '/newhome/tenant-hero-banner.svg');
-          poster.setAttribute('alt', 'واجهة تشغيل poshahub360');
-        }
-        if (heroVisualMedia) {
-          heroVisualMedia.style.display = 'block';
-          heroVisualMedia.style.opacity = '1';
+        if (typeof window.__tenantLandingApplyHeroBanner === 'function') {
+          window.__tenantLandingApplyHeroBanner();
+        } else {
+          // Fallback: keep frame poster visible with navy-safe banner artwork
+          const poster = document.getElementById('hero-frame-poster');
+          if (poster) {
+            poster.classList.remove('is-hidden');
+            poster.style.display = 'block';
+            poster.style.opacity = '1';
+            poster.style.visibility = 'visible';
+            poster.style.background = 'transparent';
+            poster.setAttribute('src', '/newhome/tenant-hero-banner.svg');
+            poster.setAttribute('alt', 'واجهة تشغيل poshahub360');
+          }
+          if (heroVisualMedia) {
+            heroVisualMedia.style.display = 'block';
+            heroVisualMedia.style.opacity = '1';
+          }
         }
         return;
 
@@ -2508,19 +2515,103 @@
       function paintLandingFromBranding() {
         if (typeof window.__tenantLandingPaintBrandColors === 'function') {
           window.__tenantLandingPaintBrandColors();
+        } else {
+          // Fallback if FOUC helper missing
+          const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+          const primary = brand.primary_color || '#11165a';
+          const secondary = brand.secondary_color || '#0c1048';
+          document.documentElement.style.setProperty('--tenant-primary', primary);
+          document.documentElement.style.setProperty('--tenant-secondary', secondary);
+          document.documentElement.style.setProperty('--brand-red', primary);
+          document.documentElement.style.setProperty('--primary-red', primary);
+          document.documentElement.style.setProperty('--homepage-red', primary);
+          document.documentElement.style.setProperty('--homepage-button-color', primary);
+        }
+        if (typeof window.__tenantLandingApplyHeroBanner === 'function') {
+          window.__tenantLandingApplyHeroBanner();
+        }
+      }
+
+      function applyTenantHeroBanner() {
+        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        const mode = String(brand.hero_mode || 'gradient').toLowerCase();
+        const imageUrl = String(brand.hero_banner_image_url || '').trim();
+        const videoUrl = String(brand.hero_banner_video_url || '').trim();
+        const poster = document.getElementById('hero-frame-poster');
+        const frameVideo = document.getElementById('hero-bg-video');
+        const heroVisualMedia = document.querySelector('.hero-visual-media');
+        const heroDashboard = document.querySelector('.hero-dashboard');
+        const scoped = (url) => {
+          if (!url) return '';
+          if (typeof window.getTenantScopedPath === 'function' && url.includes('/api/tenant-public/')) {
+            return `${window.getTenantScopedPath(url.split('?')[0])}?v=${Date.now()}`;
+          }
+          if (url.startsWith('/api/tenant-public/')) {
+            const sub = (String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1];
+            return sub ? `/t/${sub}${url}?v=${Date.now()}` : `${url}?v=${Date.now()}`;
+          }
+          return url.includes('?') ? url : `${url}?v=${Date.now()}`;
+        };
+
+        const showPoster = (src, alt = 'بنر الهيرو') => {
+          if (!poster) return;
+          poster.classList.remove('is-hidden');
+          poster.style.display = 'block';
+          poster.style.opacity = '1';
+          poster.style.visibility = 'visible';
+          poster.style.background = 'transparent';
+          poster.setAttribute('src', src);
+          poster.setAttribute('alt', alt);
+        };
+
+        const hideFrameVideo = () => {
+          if (!frameVideo) return;
+          try { frameVideo.pause(); } catch (_) {}
+          frameVideo.removeAttribute('src');
+          try { frameVideo.load(); } catch (_) {}
+          frameVideo.style.display = 'none';
+          frameVideo.style.opacity = '0';
+        };
+
+        if (heroVisualMedia) {
+          heroVisualMedia.style.display = 'block';
+          heroVisualMedia.style.opacity = '1';
+        }
+        if (heroDashboard) heroDashboard.style.display = 'none';
+
+        if (mode === 'video' && videoUrl) {
+          const src = scoped(videoUrl);
+          if (frameVideo) {
+            frameVideo.style.display = 'block';
+            frameVideo.style.opacity = '1';
+            frameVideo.muted = true;
+            frameVideo.loop = true;
+            frameVideo.playsInline = true;
+            frameVideo.setAttribute('playsinline', '');
+            frameVideo.src = src;
+            frameVideo.load();
+            frameVideo.play().catch(() => {});
+          }
+          // Keep poster as fallback until video paints
+          if (imageUrl) showPoster(scoped(imageUrl), 'بنر فيديو الهيرو');
+          else if (poster) {
+            poster.classList.add('is-hidden');
+            poster.style.display = 'none';
+          }
           return;
         }
-        // Fallback if FOUC helper missing
-        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
-        const primary = brand.primary_color || '#11165a';
-        const secondary = brand.secondary_color || '#0c1048';
-        document.documentElement.style.setProperty('--tenant-primary', primary);
-        document.documentElement.style.setProperty('--tenant-secondary', secondary);
-        document.documentElement.style.setProperty('--brand-red', primary);
-        document.documentElement.style.setProperty('--primary-red', primary);
-        document.documentElement.style.setProperty('--homepage-red', primary);
-        document.documentElement.style.setProperty('--homepage-button-color', primary);
+
+        hideFrameVideo();
+        if (mode === 'image' && imageUrl) {
+          showPoster(scoped(imageUrl), 'بنر صورة الهيرو');
+          return;
+        }
+
+        // Default gradient face + built-in artwork
+        showPoster('/newhome/tenant-hero-banner.svg', 'واجهة تشغيل poshahub360');
       }
+
+      window.__tenantLandingApplyHeroBanner = applyTenantHeroBanner;
 
       const loginHref = scoped('/login-page.html?login=1');
       ['header-login', 'mobile-login', 'hero-login-cta'].forEach((id) => {
