@@ -2543,12 +2543,17 @@
         const heroDashboard = document.querySelector('.hero-dashboard');
         const scoped = (url) => {
           if (!url) return '';
-          if (typeof window.getTenantScopedPath === 'function' && url.includes('/api/tenant-public/')) {
-            return `${window.getTenantScopedPath(url.split('?')[0])}?v=${Date.now()}`;
+          const bare = url.split('?')[0];
+          // Avoid double /t/{sub}/t/{sub}/ when boot identity is already scoped.
+          if (/^\/t\/[a-z0-9][a-z0-9-]*\//i.test(bare)) {
+            return `${bare}?v=${Date.now()}`;
           }
-          if (url.startsWith('/api/tenant-public/')) {
+          if (typeof window.getTenantScopedPath === 'function' && bare.includes('/api/tenant-public/')) {
+            return `${window.getTenantScopedPath(bare)}?v=${Date.now()}`;
+          }
+          if (bare.startsWith('/api/tenant-public/')) {
             const sub = (String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1];
-            return sub ? `/t/${sub}${url}?v=${Date.now()}` : `${url}?v=${Date.now()}`;
+            return sub ? `/t/${sub}${bare}?v=${Date.now()}` : `${bare}?v=${Date.now()}`;
           }
           return url.includes('?') ? url : `${url}?v=${Date.now()}`;
         };

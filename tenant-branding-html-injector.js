@@ -19,6 +19,9 @@ function buildBootIdentity(identity = {}, tenant = null) {
   const scopeApi = (url) => {
     const raw = String(url || '').trim();
     if (!raw) return '';
+    // Idempotent: identity may already be scoped (buildBootIdentity can run twice).
+    if (subdomain && raw.startsWith(`/t/${subdomain}/`)) return raw;
+    if (subdomain && /^\/t\/[a-z0-9][a-z0-9-]*\//i.test(raw)) return raw;
     if (subdomain && raw.includes('/api/tenant-public/')) {
       return `/t/${subdomain}${raw.startsWith('/') ? raw : `/${raw}`}`;
     }
@@ -41,6 +44,8 @@ function buildBootIdentity(identity = {}, tenant = null) {
 function resolveScopedLogoUrl(logoUrl, subdomain) {
   const raw = String(logoUrl || '').trim();
   if (!raw) return '';
+  if (subdomain && raw.startsWith(`/t/${subdomain}/`)) return raw;
+  if (subdomain && /^\/t\/[a-z0-9][a-z0-9-]*\//i.test(raw)) return raw;
   if (raw.includes('/api/tenant-public/logo') && subdomain) {
     return `/t/${subdomain}/api/tenant-public/logo`;
   }
