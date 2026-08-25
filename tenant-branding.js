@@ -2,7 +2,7 @@
   'use strict';
 
   const DEFAULT_PRIMARY = '#11165a';
-  const DEFAULT_SECONDARY = '#1e186d';
+  const DEFAULT_SECONDARY = '#0c1048';
   const CACHE_PREFIX = 'tenant_identity_v1_';
   let lockedLogoUrl = '';
   let observerStarted = false;
