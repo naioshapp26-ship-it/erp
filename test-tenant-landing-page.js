@@ -18,6 +18,8 @@ const checks = [
   ['fouc lock script', landing.includes('tenant-landing-fouc-lock')],
   ['fouc critical css', landing.includes('tenant-landing-fouc-critical')],
   ['erp navy theme', landing.includes('--tenant-primary: #11165a') || landing.includes("DEFAULT_PRIMARY = '#11165a'")],
+  ['hero banner artwork', landing.includes('/newhome/tenant-hero-banner.svg') && fs.existsSync(path.join(__dirname, 'newhome', 'tenant-hero-banner.svg'))],
+  ['navy FAB frame', landing.includes('html body.homepage.tenant-branded .floating-actions a') && landing.includes('background: #11165a !important')],
   ['branding-driven paint', landing.includes('__tenantLandingPaintBrandColors') && landing.includes('paintLandingFromBranding')],
   ['nav home', landing.includes('>الرئيسية<')],
   ['nav about', landing.includes('>من نحن<')],
