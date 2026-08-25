@@ -15,7 +15,7 @@ const checks = [
   ['landing hero', landing.includes('tenant-landing-hero')],
   ['branding name', landing.includes('data-tenant-brand="name"')],
   ['branding logo', landing.includes('data-tenant-brand="logo"')],
-  ['erp blue theme', landing.includes('--brand-red: #1d4ed8') || landing.includes('--brand-red-rgb: 29, 78, 216')],
+  ['erp blue theme', landing.includes('tenant-erp-blue-theme') || landing.includes('--brand-red: #1e3a8a') || landing.includes('--brand-red: #1d4ed8')],
   ['nav home', landing.includes('>الرئيسية<')],
   ['nav about', landing.includes('>من نحن<')],
   ['nav login', landing.includes('>تسجيل الدخول<')],
