@@ -2718,7 +2718,16 @@ ensurePaymentBootstrap().catch((err) => {
 databaseReady
   .then(async () => {
     try {
-      const { sanitizeAllActiveTenantPermissions } = require('./tenant-page-access-policy');
+      const {
+        sanitizeAllActiveTenantPermissions,
+        ensureTenantCoreSystemPages
+      } = require('./tenant-page-access-policy');
+      const coreReports = await ensureTenantCoreSystemPages(db);
+      const coreChanged = coreReports.filter((report) => report.changed && !report.error);
+      if (coreChanged.length) {
+        console.log(`[tenant-permissions] ensured core system pages for ${coreChanged.length} tenant(s):`,
+          coreChanged.map((report) => report.subdomain).join(', '));
+      }
       if (process.env.TENANT_PERMISSIONS_SANITIZE_ON_BOOT === 'true') {
         const reports = await sanitizeAllActiveTenantPermissions(db);
         const changedTenants = reports.filter((report) => report.changed && !report.error);
@@ -2831,8 +2840,10 @@ const isTenantHtmlPageNavigation = (req) => {
   if (req.method !== 'GET') return false;
   const acceptHeader = String(req.headers.accept || '').toLowerCase();
   if (!acceptHeader.includes('text/html')) return false;
-  const requestPath = String(req.path || '').split('?')[0];
-  if (requestPath === '/finance' || requestPath === '/finance/') return true;
+  const requestPath = String(req.path || '').split('?')[0].replace(/\/+$/, '') || '/';
+  if (requestPath === '/finance' || requestPath === '/finance/index.html') return true;
+  if (requestPath === '/archive' || requestPath.startsWith('/archive/')) return true;
+  if (requestPath === '/hr' || requestPath.startsWith('/hr/')) return true;
   if (!requestPath.startsWith('/finance/')) return false;
   const extension = path.extname(requestPath);
   return !extension || extension === '.html';
@@ -3107,13 +3118,19 @@ const getTenantScopedRedirect = (req, targetPath) => {
 };
 
 const getTenantAuthEntryRedirect = (req) => {
+  const requestPath = String(req.path || '/').split('?')[0];
+  const safeNextPath = requestPath.startsWith('/') ? requestPath : `/${requestPath}`;
+  const loginPath = safeNextPath && safeNextPath !== '/login-page.html'
+    ? `/login-page.html?next=${encodeURIComponent(safeNextPath)}`
+    : '/login-page.html';
+
   if (req?.tenant?.subdomain && isExplicitTenantContext(req)) {
-    return getTenantScopedRedirect(req, '/login-page.html');
+    return getTenantScopedRedirect(req, loginPath);
   }
   if (req?.tenant?.subdomain && req.tenantAccessMode === 'session') {
     return `/t/${req.tenant.subdomain}/`;
   }
-  return getTenantScopedRedirect(req, '/login-page.html');
+  return getTenantScopedRedirect(req, loginPath);
 };
 
 const shouldGuardHtml = (req) => {

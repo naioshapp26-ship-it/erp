@@ -397,6 +397,17 @@
             return { 'X-Tenant-Subdomain': authContext.tenantSubdomain };
         }
 
+        function resolvePostLoginRedirect() {
+            const params = new URLSearchParams(window.location.search);
+            const next = String(params.get('next') || params.get('return') || '').trim();
+            if (next && next.startsWith('/') && !next.startsWith('//')) {
+                return typeof getTenantScopedPath === 'function' ? getTenantScopedPath(next) : next;
+            }
+            return typeof getTenantScopedPath === 'function'
+                ? getTenantScopedPath('/dashboard.html')
+                : '/dashboard.html';
+        }
+
         function applyTenantLoginPageMode() {
             const authContext = getAuthContext();
             if (!authContext.isTenant) return;
@@ -535,7 +546,7 @@
                     console.log('👤 المستخدم:', user);
 
                     setTimeout(() => {
-                        window.location.href = getTenantScopedPath('/dashboard.html');
+                        window.location.href = resolvePostLoginRedirect();
                     }, 1000);
 
                 } else {
@@ -577,7 +588,7 @@
                     if (result.success) {
                         showAlert('لديك جلسة نشطة بالفعل. جاري تحويلك...', 'success');
                         setTimeout(() => {
-                            window.location.href = getTenantScopedPath('/dashboard.html');
+                            window.location.href = resolvePostLoginRedirect();
                         }, 1000);
                     } else {
                         localStorage.removeItem('authToken');
