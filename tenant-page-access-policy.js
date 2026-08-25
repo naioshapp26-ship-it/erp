@@ -32,12 +32,16 @@ const CENTRAL_ONLY_TENANT_PAGE_KEYS = new Set([
   'marketing'
 ]);
 
+const TENANT_CORE_SYSTEM_PAGES = ['hr', 'finance', 'records-archive-home'];
+
 const TENANT_SAFE_PAGES_BY_PLAN = {
   basic: [
     'dashboard',
     'tasks-management',
     'requests',
     'hr',
+    'finance',
+    'records-archive-home',
     'employees',
     'tenant-branding'
   ],
@@ -350,8 +354,61 @@ async function sanitizeAllActiveTenantPermissions(db, options = {}) {
   return reports;
 }
 
+async function ensureTenantCoreSystemPages(db) {
+  const { getTenantPermissionBundle, saveTenantPermissionBundle } = require('./tenant-page-permissions');
+  const result = await db.query(
+    `SELECT id, subdomain, status
+     FROM tenants
+     WHERE status = 'active'
+     ORDER BY id ASC`
+  );
+
+  const reports = [];
+  for (const tenant of result.rows) {
+    try {
+      const bundle = await getTenantPermissionBundle(db, tenant);
+      const currentPages = sanitizeTenantAllowedPages(bundle.allowed_pages || []);
+      const mergedPages = new Set(currentPages);
+      let changed = false;
+
+      TENANT_CORE_SYSTEM_PAGES.forEach((pageKey) => {
+        if (!mergedPages.has(pageKey)) {
+          mergedPages.add(pageKey);
+          changed = true;
+        }
+      });
+
+      if (!changed) {
+        reports.push({ subdomain: tenant.subdomain, changed: false });
+        continue;
+      }
+
+      const saved = await saveTenantPermissionBundle(db, tenant, {
+        pages: [...mergedPages],
+        page_restrictions: bundle.page_restrictions || bundle.pageRestrictions || {}
+      });
+
+      reports.push({
+        subdomain: tenant.subdomain,
+        changed: true,
+        added: TENANT_CORE_SYSTEM_PAGES.filter((pageKey) => !currentPages.includes(pageKey)),
+        pages: saved.pages
+      });
+    } catch (error) {
+      reports.push({
+        subdomain: tenant.subdomain,
+        changed: false,
+        error: error.message
+      });
+    }
+  }
+
+  return reports;
+}
+
 module.exports = {
   CENTRAL_ONLY_TENANT_PAGE_KEYS,
+  TENANT_CORE_SYSTEM_PAGES,
   TENANT_SAFE_PAGES_BY_PLAN,
   isCentralOnlyTenantPage,
   sanitizeTenantAllowedPages,
@@ -360,5 +417,6 @@ module.exports = {
   resolveTenantSafePagesForPlan,
   getConfiguredTenantTypePages,
   reseedTenantPageAccessForTenant,
-  sanitizeAllActiveTenantPermissions
+  sanitizeAllActiveTenantPermissions,
+  ensureTenantCoreSystemPages
 };
