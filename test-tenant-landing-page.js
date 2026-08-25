@@ -43,6 +43,7 @@ const checks = [
   ['hero sidebar archive link', landing.includes('href="/archive"') && landing.includes('>نظام الارشيف<')],
   ['no broken finance-home link', !landing.includes('finance-home.html')],
   ['poshahub360 title', landing.includes('poshahub360')],
+  ['form CTA black labels', landing.includes('.tour-form button.btn-primary') && landing.includes('color: #000000 !important') && landing.includes('.registration-form .registration-submit') && landing.includes('.newsletter-form .btn-primary')],
   ['landing CTA', landing.includes('login-page.html?login=1')],
   ['login gate', login.includes("params.get('login')")],
   ['server route', server.includes("path.join(__dirname, 'tenant-landing.html')")],
