@@ -4,7 +4,8 @@ const path = require('path');
 const {
   sanitizeHeroMode,
   HERO_IMAGE_API_PATH,
-  HERO_VIDEO_API_PATH
+  HERO_VIDEO_API_PATH,
+  NAIOSH_DEFAULT_HERO_IMAGE
 } = require('./tenant-branding-service');
 const { buildBootIdentity, injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
 
@@ -41,6 +42,10 @@ const checks = [
   ['public hero media routes', publicApi.includes('hero-image') && publicApi.includes('hero-video')],
   ['landing apply banner helper', landing.includes('__tenantLandingApplyHeroBanner') && landing.includes("mode === 'video'")],
   ['landing hero face media css', landing.includes('hero-face-media') && landing.includes('hero-bg-img')],
+  ['landing hero black overlay', landing.includes('--hero-overlay-strength') && landing.includes('rgba(0, 0, 0, 0.65)')],
+  ['naiosh default hero asset', fs.existsSync(path.join(__dirname, 'newhome/naiosh-hero-default.jpg'))],
+  ['naiosh default hero constant', NAIOSH_DEFAULT_HERO_IMAGE === '/newhome/naiosh-hero-default.jpg'],
+  ['settings use naiosh hero btn', settingsHtml.includes('use-naiosh-hero-btn') && settingsHtml.includes('استخدام صورة نايس')],
   ['landing hero face video bg', landing.includes('hero-bg-video-bg') && landing.includes('applyHeroFaceVideo')],
   ['identity saves hero_mode', /hero_mode:\s*document\.getElementById\('hero_mode'\)/.test(settingsHtml)],
   ['boot scopes hero urls once', bootOnce.hero_banner_image_url === '/t/mam/api/tenant-public/hero-image'

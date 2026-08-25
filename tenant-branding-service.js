@@ -8,6 +8,7 @@ const SHARED_DB_MARKER = 'shared://central';
 const LOGO_API_PATH = '/api/tenant-public/logo';
 const HERO_IMAGE_API_PATH = '/api/tenant-public/hero-image';
 const HERO_VIDEO_API_PATH = '/api/tenant-public/hero-video';
+const NAIOSH_DEFAULT_HERO_IMAGE = '/newhome/naiosh-hero-default.jpg';
 const MAX_LOGO_STORE_BYTES = 1.5 * 1024 * 1024;
 const MAX_HERO_IMAGE_STORE_BYTES = 2 * 1024 * 1024;
 const HERO_MODES = new Set(['gradient', 'image', 'video']);
@@ -500,6 +501,7 @@ module.exports = {
   LOGO_API_PATH,
   HERO_IMAGE_API_PATH,
   HERO_VIDEO_API_PATH,
+  NAIOSH_DEFAULT_HERO_IMAGE,
   sanitizeCssColor,
   sanitizeHeroMode,
   isSharedTenant,
