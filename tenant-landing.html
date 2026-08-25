@@ -997,6 +997,26 @@
     }
     body.homepage #hero-frame-poster.is-hidden {
       display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+    }
+    body.homepage #hero-bg-video {
+      display: block;
+      z-index: 2;
+    }
+    body.homepage #hero-bg-video[src],
+    body.homepage #hero-bg-video[src=''] {
+      /* src may be set programmatically; keep stack above poster when active */
+    }
+    body.homepage.hero-banner-video #hero-frame-poster,
+    body.homepage .hero-visual.hero-banner-video #hero-frame-poster {
+      display: none !important;
+    }
+    body.homepage .hero-visual.hero-banner-video #hero-bg-video {
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      z-index: 2 !important;
     }
 
     /* Hide platform-only SaaS/create page chrome on tenant landing */
@@ -2541,21 +2561,25 @@
         const frameVideo = document.getElementById('hero-bg-video');
         const heroVisualMedia = document.querySelector('.hero-visual-media');
         const heroDashboard = document.querySelector('.hero-dashboard');
+        const heroVisual = document.querySelector('.hero-visual');
         const scoped = (url) => {
           if (!url) return '';
-          const bare = url.split('?')[0];
-          // Avoid double /t/{sub}/t/{sub}/ when boot identity is already scoped.
-          if (/^\/t\/[a-z0-9][a-z0-9-]*\//i.test(bare)) {
-            return `${bare}?v=${Date.now()}`;
+          const bare = String(url).split('?')[0];
+          const sub = (String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1]
+            || (window.__TENANT_IDENTITY_BOOT__ && window.__TENANT_IDENTITY_BOOT__.__subdomain)
+            || '';
+          // Collapse accidental double prefixes then ensure single /t/{sub}/ scope.
+          let path = bare.replace(/^(\/t\/[a-z0-9][a-z0-9-]*)+/i, (m) => {
+            const last = m.match(/\/t\/[a-z0-9][a-z0-9-]*$/i);
+            return last ? last[0] : m;
+          });
+          if (sub && path.includes('/api/tenant-public/') && !path.startsWith(`/t/${sub}/`)) {
+            path = path.replace(/^\/t\/[a-z0-9][a-z0-9-]*\//i, '/');
+            path = `/t/${sub}${path.startsWith('/') ? path : `/${path}`}`;
+          } else if (typeof window.getTenantScopedPath === 'function' && path.includes('/api/tenant-public/') && !/^\/t\//i.test(path)) {
+            path = window.getTenantScopedPath(path);
           }
-          if (typeof window.getTenantScopedPath === 'function' && bare.includes('/api/tenant-public/')) {
-            return `${window.getTenantScopedPath(bare)}?v=${Date.now()}`;
-          }
-          if (bare.startsWith('/api/tenant-public/')) {
-            const sub = (String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1];
-            return sub ? `/t/${sub}${bare}?v=${Date.now()}` : `${bare}?v=${Date.now()}`;
-          }
-          return url.includes('?') ? url : `${url}?v=${Date.now()}`;
+          return `${path}?v=${Date.now()}`;
         };
 
         const showPoster = (src, alt = 'بنر الهيرو') => {
@@ -2583,23 +2607,41 @@
           heroVisualMedia.style.opacity = '1';
         }
         if (heroDashboard) heroDashboard.style.display = 'none';
+        if (heroVisual) heroVisual.classList.remove('hero-banner-video', 'hero-banner-image');
+        document.body.classList.remove('hero-banner-video', 'hero-banner-image');
 
         if (mode === 'video' && videoUrl) {
           const src = scoped(videoUrl);
+          if (heroVisual) heroVisual.classList.add('hero-banner-video');
+          document.body.classList.add('hero-banner-video');
           if (frameVideo) {
+            // Prefer image as native poster attribute only (behind the playing video).
+            if (imageUrl) frameVideo.setAttribute('poster', scoped(imageUrl));
+            else frameVideo.removeAttribute('poster');
             frameVideo.style.display = 'block';
             frameVideo.style.opacity = '1';
+            frameVideo.style.visibility = 'visible';
             frameVideo.muted = true;
             frameVideo.loop = true;
             frameVideo.playsInline = true;
             frameVideo.setAttribute('playsinline', '');
+            frameVideo.setAttribute('autoplay', '');
             frameVideo.src = src;
             frameVideo.load();
-            frameVideo.play().catch(() => {});
+            const revealVideo = () => {
+              if (poster) {
+                poster.classList.add('is-hidden');
+                poster.style.display = 'none';
+              }
+              frameVideo.style.display = 'block';
+              frameVideo.style.opacity = '1';
+            };
+            frameVideo.addEventListener('playing', revealVideo, { once: true });
+            frameVideo.addEventListener('loadeddata', revealVideo, { once: true });
+            frameVideo.play().then(revealVideo).catch(() => {});
           }
-          // Keep poster as fallback until video paints
-          if (imageUrl) showPoster(scoped(imageUrl), 'بنر فيديو الهيرو');
-          else if (poster) {
+          // Hide the img poster so it cannot cover the video layer.
+          if (poster) {
             poster.classList.add('is-hidden');
             poster.style.display = 'none';
           }
@@ -2608,6 +2650,8 @@
 
         hideFrameVideo();
         if (mode === 'image' && imageUrl) {
+          if (heroVisual) heroVisual.classList.add('hero-banner-image');
+          document.body.classList.add('hero-banner-image');
           showPoster(scoped(imageUrl), 'بنر صورة الهيرو');
           return;
         }
