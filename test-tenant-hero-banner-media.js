@@ -45,7 +45,7 @@ const checks = [
   ['landing hero black overlay', landing.includes('--hero-overlay-strength') && landing.includes('rgba(0, 0, 0, 0.65)')],
   ['naiosh default hero asset', fs.existsSync(path.join(__dirname, 'newhome/naiosh-hero-default.jpg'))],
   ['naiosh default hero constant', NAIOSH_DEFAULT_HERO_IMAGE === '/newhome/naiosh-hero-default.jpg'],
-  ['settings use naiosh hero btn', settingsHtml.includes('use-naiosh-hero-btn') && settingsHtml.includes('useNaioshDefaultHeroImage')],
+  ['settings use naiosh hero btn', settingsHtml.includes('use-naiosh-hero-btn') && settingsHtml.includes('استخدام صورة نايس')],
   ['landing hero face video bg', landing.includes('hero-bg-video-bg') && landing.includes('applyHeroFaceVideo')],
   ['identity saves hero_mode', /hero_mode:\s*document\.getElementById\('hero_mode'\)/.test(settingsHtml)],
   ['boot scopes hero urls once', bootOnce.hero_banner_image_url === '/t/mam/api/tenant-public/hero-image'
