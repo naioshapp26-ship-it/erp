@@ -5,7 +5,8 @@
   const MAIN_TEXT = 'انقر لاختيار ملفات أو اسحب وأفلت هنا';
   const HINT_TEXT = 'مدعوم: PDF, Word, Excel, PowerPoint, صور، فيديو، ZIP وأي نوع';
   const TITLE_TEXT = 'المرفقات';
-  const MAX_FILE_BYTES = 50 * 1024 * 1024;
+  // Large HR videos / RAR archives (2GB)
+  const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
 
   function apiHeaders() {
     return {
@@ -24,7 +25,8 @@
     const n = Number(bytes) || 0;
     if (n < 1024) return `${n} B`;
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+    if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
   function fileIcon(fileName = '') {
@@ -55,38 +57,70 @@
       </div>`;
   }
 
+  function countFields(el) {
+    return el.querySelectorAll('input:not([type="hidden"]):not([type="search"]), select, textarea').length;
+  }
+
+  function looksLikeSearchOnly(el) {
+    const id = String(el.id || '').toLowerCase();
+    const cls = String(el.className || '').toLowerCase();
+    if (id.includes('search') || id.includes('filter') || id.includes('login')) return true;
+    if (cls.includes('search') && !cls.includes('modal')) return true;
+    if (cls.includes('filter') && countFields(el) <= 2) return true;
+    return false;
+  }
+
+  function shouldSkipHost(host) {
+    if (!host || host.nodeType !== 1) return true;
+    if (host.dataset.hrAttachments === 'off') return true;
+    if (host.closest('[data-hr-attachments="off"]')) return true;
+    if (host.querySelector('[data-hr-attachments-mounted="1"]')) return true;
+    if (looksLikeSearchOnly(host)) return true;
+    return false;
+  }
+
   function shouldSkipForm(form) {
     if (!form || form.tagName !== 'FORM') return true;
-    if (form.dataset.hrAttachments === 'off') return true;
-    if (form.querySelector('[data-hr-attachments-mounted="1"]')) return true;
-    if (form.closest('[data-hr-attachments="off"]')) return true;
-    const id = String(form.id || '').toLowerCase();
-    const cls = String(form.className || '').toLowerCase();
-    if (id.includes('search') || id.includes('filter') || id.includes('login')) return true;
-    if (cls.includes('search') || cls.includes('filter')) return true;
-    // Skip tiny filter-only forms without meaningful fields
-    const controls = form.querySelectorAll('input,select,textarea').length;
+    if (shouldSkipHost(form)) return true;
+    const controls = countFields(form);
     if (controls <= 1 && !form.querySelector('button[type="submit"], input[type="submit"]')) return true;
     return false;
   }
 
-  function findInsertPoint(form) {
-    const explicit = form.querySelector('[data-hr-attachments-slot]');
+  function isFormLikeHost(el) {
+    if (shouldSkipHost(el)) return false;
+    if (el.tagName === 'FORM') return !shouldSkipForm(el);
+    if (countFields(el) < 2) return false;
+    // Prefer modal bodies / explicit hosts
+    const cls = String(el.className || '').toLowerCase();
+    const id = String(el.id || '').toLowerCase();
+    if (el.hasAttribute('data-hr-attachments-host')) return true;
+    if (cls.includes('modal-body') || id.includes('modalbody') || id.endsWith('modalbody')) return true;
+    if (cls.includes('modal') && countFields(el) >= 3) return true;
+    return false;
+  }
+
+  function findInsertPoint(host) {
+    const explicit = host.querySelector('[data-hr-attachments-slot]');
     if (explicit) return { parent: explicit, before: null, replace: true };
 
-    const submitRow = form.querySelector(
-      '.md\\:col-span-2.flex, .flex.justify-end, .flex.gap-2, .flex.gap-3, [class*="justify-end"]'
+    const submitRow = host.querySelector(
+      '.md\\:col-span-2.flex, .flex.justify-end, .flex.gap-2, .flex.gap-3, [class*="justify-end"], .modal-footer'
     );
-    if (submitRow && form.contains(submitRow) && submitRow.querySelector('button[type="submit"], input[type="submit"], .btn-primary')) {
-      return { parent: form, before: submitRow, replace: false };
+    if (submitRow && host.contains(submitRow) && submitRow.querySelector('button[type="submit"], input[type="submit"], .btn-primary, button')) {
+      // If footer is outside host (sibling), append inside host instead
+      if (submitRow.classList.contains('modal-footer') && submitRow.parentElement !== host) {
+        return { parent: host, before: null, replace: false };
+      }
+      return { parent: host, before: submitRow, replace: false };
     }
 
-    const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
-    if (submitBtn) {
+    const submitBtn = host.querySelector('button[type="submit"], input[type="submit"]');
+    if (submitBtn && host.contains(submitBtn)) {
       const row = submitBtn.closest('div') || submitBtn;
-      return { parent: form, before: row, replace: false };
+      return { parent: host, before: row, replace: false };
     }
-    return { parent: form, before: null, replace: false };
+    return { parent: host, before: null, replace: false };
   }
 
   function setStatus(section, message, type = '') {
@@ -153,14 +187,16 @@
     const uploaded = [];
     for (const file of files) {
       if (file.size > MAX_FILE_BYTES) {
-        setStatus(section, `الملف أكبر من 50MB: ${file.name}`, 'error');
+        setStatus(section, `الملف أكبر من الحد الأقصى (2GB): ${file.name}`, 'error');
         continue;
       }
       const body = new FormData();
       body.append('file', file);
       body.append('page_path', window.location.pathname || '/hr');
-      body.append('form_id', section.closest('form')?.id || '');
+      const host = section.closest('form, .modal-body, [data-hr-attachments-host]');
+      body.append('form_id', host?.id || section.closest('[id]')?.id || '');
       try {
+        setStatus(section, `جاري رفع: ${file.name} (${formatBytes(file.size)})...`);
         const res = await fetch('/api/hr/form-attachments', {
           method: 'POST',
           headers: apiHeaders(),
@@ -216,13 +252,17 @@
     });
   }
 
-  function mountOnForm(form) {
-    if (shouldSkipForm(form)) return null;
+  function mountOnHost(host) {
+    if (shouldSkipHost(host)) return null;
+    if (host.tagName === 'FORM' && shouldSkipForm(host)) return null;
+    if (host.tagName !== 'FORM' && !isFormLikeHost(host) && !host.querySelector('[data-hr-attachments-slot]')) {
+      return null;
+    }
     const uid = `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const wrapper = document.createElement('div');
     wrapper.innerHTML = createSectionMarkup(uid);
     const section = wrapper.firstElementChild;
-    const point = findInsertPoint(form);
+    const point = findInsertPoint(host);
     if (point.replace) {
       point.parent.innerHTML = '';
       point.parent.appendChild(section);
@@ -235,17 +275,34 @@
     return section;
   }
 
-  function scan(root = document) {
-    const forms = root.querySelectorAll ? root.querySelectorAll('form') : [];
-    forms.forEach((form) => mountOnForm(form));
-    root.querySelectorAll?.('[data-hr-attachments-slot]:not(:has([data-hr-attachments-mounted="1"]))').forEach((slot) => {
-      const form = slot.closest('form') || slot;
-      if (form.tagName === 'FORM') mountOnForm(form);
-      else if (!slot.querySelector('[data-hr-attachments-mounted="1"]')) {
-        const fake = document.createElement('form');
-        fake.appendChild(slot.cloneNode(false));
-      }
+  function collectHosts(root = document) {
+    const hosts = [];
+    const seen = new Set();
+    const add = (el) => {
+      if (!el || seen.has(el)) return;
+      seen.add(el);
+      hosts.push(el);
+    };
+
+    root.querySelectorAll?.('form').forEach(add);
+    root.querySelectorAll?.('.modal-body, [class*="modal-body"], [data-hr-attachments-host]').forEach(add);
+    root.querySelectorAll?.('.modal-box, .modal-overlay, .modal-backdrop, [id$="Modal"]').forEach((modal) => {
+      const body = modal.querySelector('.modal-body, [class*="modal-body"]');
+      if (body) add(body);
+      else if (countFields(modal) >= 2) add(modal);
     });
+    root.querySelectorAll?.('[data-hr-attachments-slot]').forEach((slot) => {
+      add(slot.closest('form, .modal-body, [data-hr-attachments-host]') || slot.parentElement);
+    });
+
+    if (root instanceof HTMLElement) {
+      if (root.matches?.('form, .modal-body, [data-hr-attachments-host]')) add(root);
+    }
+    return hosts;
+  }
+
+  function scan(root = document) {
+    collectHosts(root).forEach((host) => mountOnHost(host));
   }
 
   function ensureFontAwesome() {
@@ -266,16 +323,37 @@
       for (const mutation of mutations) {
         mutation.addedNodes.forEach((node) => {
           if (!(node instanceof HTMLElement)) return;
-          if (node.matches?.('form')) mountOnForm(node);
-          else if (node.querySelectorAll) scan(node);
+          scan(node);
         });
+        // Re-scan when modals open (class changes to show overlay)
+        if (mutation.type === 'attributes' && mutation.target instanceof HTMLElement) {
+          const el = mutation.target;
+          if (el.classList.contains('open') || el.classList.contains('show') || !el.classList.contains('hidden')) {
+            scan(el);
+          }
+        }
       }
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'hidden']
+    });
+
+    // Also scan periodically lightly for late-rendered modals
+    let passes = 0;
+    const timer = setInterval(() => {
+      scan(document);
+      passes += 1;
+      if (passes >= 8) clearInterval(timer);
+    }, 1500);
 
     window.HRAttachments = {
       scan,
-      mountOnForm,
+      mountOnHost,
+      mountOnForm: mountOnHost,
+      MAX_FILE_BYTES,
       getFormAttachments(form) {
         const section = form?.querySelector?.('[data-hr-attachments-mounted="1"]');
         return section ? getFiles(section) : [];
