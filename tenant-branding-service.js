@@ -12,6 +12,19 @@ const NAIOSH_DEFAULT_HERO_IMAGE = '/newhome/naiosh-hero-default.jpg';
 const MAX_LOGO_STORE_BYTES = 1.5 * 1024 * 1024;
 const MAX_HERO_IMAGE_STORE_BYTES = 2 * 1024 * 1024;
 const HERO_MODES = new Set(['gradient', 'image', 'video']);
+const DEFAULT_ANNOUNCEMENT_TEXT = '🔥 خصومات على الخدمات 🔥 | 🚀 ابدأ الآن | 📢 عروض محدودة';
+
+function clampNumber(value, min, max, fallback) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(max, Math.max(min, num));
+}
+
+function sanitizeAnnouncementText(value, fallback = DEFAULT_ANNOUNCEMENT_TEXT) {
+  const text = String(value ?? '').trim();
+  if (!text) return fallback;
+  return text.slice(0, 600);
+}
 
 function sanitizeHeroMode(value, fallback = 'gradient') {
   const mode = String(value || '').trim().toLowerCase();
@@ -60,6 +73,56 @@ function mergeHeroIntoExtra(existingExtra = {}, payload = {}) {
   return {
     ...existingExtra,
     hero: nextHero
+  };
+}
+
+function mapAnnouncementFields(extra = {}, branding = {}) {
+  const stored = (extra && typeof extra.announcementBar === 'object' && extra.announcementBar)
+    || (branding && typeof branding.announcementBar === 'object' && branding.announcementBar)
+    || null;
+  if (!stored) {
+    return {
+      announcement_enabled: true,
+      announcement_text: DEFAULT_ANNOUNCEMENT_TEXT,
+      announcement_speed: 28,
+      announcement_text_color: '#ffffff'
+    };
+  }
+  const text = typeof stored.text === 'string'
+    ? stored.text.trim().slice(0, 600)
+    : DEFAULT_ANNOUNCEMENT_TEXT;
+  return {
+    announcement_enabled: stored.enabled !== false,
+    announcement_text: text,
+    announcement_speed: clampNumber(stored.speed, 10, 120, 28),
+    announcement_text_color: sanitizeCssColor(stored.textColor, '#ffffff')
+  };
+}
+
+function mergeAnnouncementIntoExtra(existingExtra = {}, payload = {}) {
+  const current = (existingExtra && typeof existingExtra.announcementBar === 'object' && existingExtra.announcementBar) || {};
+  const next = { ...current };
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'announcement_enabled')) {
+    next.enabled = payload.announcement_enabled !== false;
+  }
+  if (payload.announcement_text != null) {
+    next.text = sanitizeAnnouncementText(payload.announcement_text, '');
+  }
+  if (payload.announcement_speed != null) {
+    next.speed = clampNumber(payload.announcement_speed, 10, 120, 28);
+  }
+  if (payload.announcement_text_color != null) {
+    next.textColor = sanitizeCssColor(payload.announcement_text_color, '#ffffff');
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'announcement_clear') && payload.announcement_clear) {
+    next.enabled = false;
+    next.text = '';
+  }
+
+  return {
+    ...existingExtra,
+    announcementBar: next
   };
 }
 
@@ -118,7 +181,8 @@ function mapCentralIdentity(tenant) {
     setup_completed: Boolean(branding.setup_completed),
     branding_id: hasStoredLogo || branding.primary_color ? 1 : null,
     site_id: publicSite.site_name ? 1 : null,
-    ...mapHeroFields(branding, branding)
+    ...mapHeroFields(branding, branding),
+    ...mapAnnouncementFields(branding, branding)
   };
 }
 
@@ -150,6 +214,8 @@ async function saveCentralIdentity(tenant, payload = {}) {
   };
   const mergedExtraLike = mergeHeroIntoExtra(nextBranding, payload);
   nextBranding.hero = mergedExtraLike.hero;
+  const mergedAnnouncement = mergeAnnouncementIntoExtra(nextBranding, payload);
+  nextBranding.announcementBar = mergedAnnouncement.announcementBar;
   const nextSettings = {
     ...settings,
     branding: nextBranding,
@@ -200,7 +266,8 @@ async function readIdentitySettings(tenantPool, tenant = null) {
     setup_completed: Boolean(extra.setup_completed),
     branding_id: branding?.id || null,
     site_id: site?.id || null,
-    ...mapHeroFields(extra, branding)
+    ...mapHeroFields(extra, branding),
+    ...mapAnnouncementFields(extra, branding)
   };
 }
 
@@ -226,10 +293,10 @@ async function saveIdentitySettings(tenantPool, tenant, payload = {}) {
 
   const existingBranding = await tenantPool.query('SELECT id, extra FROM branding_settings LIMIT 1');
   const existingExtra = normalizeExtra(existingBranding.rows[0]?.extra);
-  const mergedExtra = mergeHeroIntoExtra({
+  const mergedExtra = mergeAnnouncementIntoExtra(mergeHeroIntoExtra({
     ...existingExtra,
     setup_completed: setupCompleted
-  }, payload);
+  }, payload), payload);
 
   if (existingBranding.rows.length > 0) {
     await tenantPool.query(
@@ -502,8 +569,13 @@ module.exports = {
   HERO_IMAGE_API_PATH,
   HERO_VIDEO_API_PATH,
   NAIOSH_DEFAULT_HERO_IMAGE,
+  DEFAULT_ANNOUNCEMENT_TEXT,
   sanitizeCssColor,
   sanitizeHeroMode,
+  sanitizeAnnouncementText,
+  clampNumber,
+  mapAnnouncementFields,
+  mergeAnnouncementIntoExtra,
   isSharedTenant,
   readIdentitySettings,
   saveIdentitySettings,

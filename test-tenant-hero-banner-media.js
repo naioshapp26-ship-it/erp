@@ -37,6 +37,7 @@ const checks = [
   ['hero mode sanitizer', sanitizeHeroMode('image') === 'image' && sanitizeHeroMode('nope') === 'gradient'],
   ['hero api constants', HERO_IMAGE_API_PATH.includes('hero-image') && HERO_VIDEO_API_PATH.includes('hero-video')],
   ['settings hero UI', settingsHtml.includes('id="hero_mode"') && settingsHtml.includes('بنر الهيرو')],
+  ['settings announcement UI', settingsHtml.includes('id="announcement_text"') && settingsHtml.includes('announcement-clear-btn')],
   ['settings upload image', settingsHtml.includes('branding/hero-image') && settingsApi.includes("'/branding/hero-image'")],
   ['settings upload video', settingsHtml.includes('branding/hero-video') && settingsApi.includes("'/branding/hero-video'")],
   ['public hero media routes', publicApi.includes('hero-image') && publicApi.includes('hero-video')],

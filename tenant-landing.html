@@ -323,6 +323,9 @@
         if (typeof window.__tenantLandingApplyHeroBanner === 'function') {
           try { window.__tenantLandingApplyHeroBanner(); } catch (_) {}
         }
+        if (typeof window.__tenantLandingApplyAnnouncementBar === 'function') {
+          try { window.__tenantLandingApplyAnnouncementBar(); } catch (_) {}
+        }
       }
       function lockNames() {
         if (document.title !== NAME) document.title = NAME;
@@ -971,6 +974,15 @@
     }
     body.homepage.tenant-branded .announcement-bar:hover .announcement-track {
       animation-play-state: paused !important;
+    }
+    body.homepage.tenant-branded.announcement-hidden {
+      padding-top: 0 !important;
+      --announcement-bar-height: 0px !important;
+    }
+    body.homepage.tenant-branded.announcement-hidden .announcement-bar,
+    body.homepage.tenant-branded.announcement-hidden #announcement-bar {
+      display: none !important;
+      min-height: 0 !important;
     }
     body.homepage .hero-particles,
     body.homepage .hero-particles span,
@@ -2540,16 +2552,24 @@
         root.style.setProperty('--hero-custom-position', 'center');
         root.style.setProperty('--hero-overlay-strength', `${clamp(settings.heroMedia?.overlayStrength, 0.5, 0.7, 0.62)}`);
         heroSliderPaused = settings.heroMedia?.autoPlaySlider === false;
-        const announcementBar = settings.announcementBar || {};
+        const tenantAnnouncement = {
+          enabled: brand.announcement_enabled !== false,
+          text: typeof brand.announcement_text === 'string' ? brand.announcement_text.trim() : '',
+          speed: brand.announcement_speed,
+          textColor: brand.announcement_text_color || '#ffffff'
+        };
+        const announcementBar = tenantAnnouncement;
         root.style.setProperty('--announcement-bg', secondaryColor || primary);
         root.style.setProperty('--announcement-text', announcementBar.textColor || '#ffffff');
         root.style.setProperty('--announcement-speed', `${clamp(announcementBar.speed, 10, 120, 28)}s`);
-        root.style.setProperty('--announcement-bar-height', '50px');
+        const announcementEnabled = announcementBar.enabled !== false && Boolean(announcementBar.text);
+        root.style.setProperty('--announcement-bar-height', announcementEnabled ? '50px' : '0px');
+        document.body.classList.toggle('announcement-hidden', !announcementEnabled);
+        const announcementBarEl = document.getElementById('announcement-bar');
+        if (announcementBarEl) announcementBarEl.style.display = announcementEnabled ? '' : 'none';
         const announcementTrack = document.getElementById('announcement-track');
-        if (announcementTrack) {
-          announcementTrack.textContent = typeof announcementBar.text === 'string' && announcementBar.text.trim()
-            ? announcementBar.text.trim()
-            : '🔥 خصومات على الخدمات 🔥 | 🚀 ابدأ الآن | 📢 عروض محدودة';
+        if (announcementTrack && announcementEnabled) {
+          announcementTrack.textContent = announcementBar.text;
         }
         setupHeroMedia(settings, heroMediaList);
         applyFloatingCard(settings);
@@ -2775,6 +2795,31 @@
         if (typeof window.__tenantLandingApplyHeroBanner === 'function') {
           window.__tenantLandingApplyHeroBanner();
         }
+        if (typeof window.__tenantLandingApplyAnnouncementBar === 'function') {
+          window.__tenantLandingApplyAnnouncementBar();
+        }
+      }
+
+      function applyTenantAnnouncementBar() {
+        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        const root = document.documentElement;
+        const primaryColor = brand.primary_color || '#11165a';
+        const secondaryColor = brand.secondary_color || '#0c1048';
+        const enabled = brand.announcement_enabled !== false;
+        const text = typeof brand.announcement_text === 'string' ? brand.announcement_text.trim() : '';
+        const speedRaw = Number(brand.announcement_speed);
+        const speed = Number.isFinite(speedRaw) ? Math.min(120, Math.max(10, speedRaw)) : 28;
+        const textColor = brand.announcement_text_color || '#ffffff';
+        const showBar = enabled && Boolean(text);
+        root.style.setProperty('--announcement-bg', secondaryColor || primaryColor);
+        root.style.setProperty('--announcement-text', textColor);
+        root.style.setProperty('--announcement-speed', `${speed}s`);
+        root.style.setProperty('--announcement-bar-height', showBar ? '50px' : '0px');
+        document.body.classList.toggle('announcement-hidden', !showBar);
+        const barEl = document.getElementById('announcement-bar');
+        if (barEl) barEl.style.display = showBar ? '' : 'none';
+        const trackEl = document.getElementById('announcement-track');
+        if (trackEl && showBar) trackEl.textContent = text;
       }
 
       function applyTenantHeroBanner() {
@@ -2945,6 +2990,7 @@
       }
 
       window.__tenantLandingApplyHeroBanner = applyTenantHeroBanner;
+      window.__tenantLandingApplyAnnouncementBar = applyTenantAnnouncementBar;
 
       const loginHref = scoped('/login-page.html?login=1');
       ['header-login', 'mobile-login', 'hero-login-cta'].forEach((id) => {

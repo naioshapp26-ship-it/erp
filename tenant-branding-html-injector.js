@@ -37,7 +37,11 @@ function buildBootIdentity(identity = {}, tenant = null) {
     setup_completed: identity.setup_completed !== false,
     hero_mode: String(identity.hero_mode || 'gradient').trim().toLowerCase() || 'gradient',
     hero_banner_image_url: scopeApi(identity.hero_banner_image_url || ''),
-    hero_banner_video_url: scopeApi(identity.hero_banner_video_url || '')
+    hero_banner_video_url: scopeApi(identity.hero_banner_video_url || ''),
+    announcement_enabled: identity.announcement_enabled !== false,
+    announcement_text: String(identity.announcement_text || '').trim(),
+    announcement_speed: Number(identity.announcement_speed) || 28,
+    announcement_text_color: sanitizeCssColor(identity.announcement_text_color, '#ffffff')
   };
 }
 
