@@ -767,7 +767,20 @@
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-2">نوع المستند</label>
-                <select id="recordArchiveType" class="w-full border border-slate-200 rounded-xl px-4 py-3"></select>
+                <div class="space-y-2">
+                  <select id="recordArchiveType" class="w-full border border-slate-200 rounded-xl px-4 py-3"></select>
+                  <div id="recordArchiveTypeCustomWrap" class="hidden">
+                    <input
+                      id="recordArchiveTypeCustom"
+                      type="text"
+                      class="w-full border border-slate-200 rounded-xl px-4 py-3"
+                      placeholder="اكتب نوع المستند الجديد..."
+                      maxlength="120"
+                      autocomplete="off"
+                    >
+                    <p class="mt-1 text-[11px] text-slate-500">سيُضاف النوع الجديد لقائمة الاختيارات بعد الحفظ ويبقى متاحاً لاحقاً.</p>
+                  </div>
+                </div>
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-2">فئة المستند</label>
@@ -2276,8 +2289,181 @@
       'تقارير وإحصاءات',
       'ملفات موظفين',
       'سجلات مالية',
-      'محاضر اجتماعات'
+      'محاضر اجتماعات',
+      'شهادات ومؤهلات',
+      'تقييمات أداء',
+      'تدريب وتطوير',
+      'رواتب ومستحقات',
+      'إجازات وغيابات',
+      'حضور وانصراف',
+      'تأمينات وتأمين طبي',
+      'استقالات وإنهاء خدمة',
+      'تحقيقات إدارية',
+      'هويات ووثائق شخصية',
+      'تراخيص وتصاريح',
+      'مراسلات داخلية',
+      'أصول وعهد',
+      'سلامة وصحة مهنية',
+      'عروض أسعار ومشتريات',
+      'أخرى'
     ];
+
+    const ARCHIVE_CUSTOM_TYPE_VALUE = '__custom_archive_type__';
+    const ARCHIVE_CUSTOM_TYPES_STORAGE_KEY = 'hr_e_archive_custom_doc_types';
+
+    const normalizeArchiveTypeLabel = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+    const readStoredCustomArchiveTypes = () => {
+      try {
+        const raw = localStorage.getItem(ARCHIVE_CUSTOM_TYPES_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+          .map((item) => normalizeArchiveTypeLabel(item))
+          .filter(Boolean);
+      } catch (_) {
+        return [];
+      }
+    };
+
+    const writeStoredCustomArchiveTypes = (types) => {
+      const unique = [];
+      const seen = new Set();
+      (types || []).forEach((item) => {
+        const label = normalizeArchiveTypeLabel(item);
+        if (!label) return;
+        const key = label.toLocaleLowerCase('ar');
+        if (seen.has(key)) return;
+        seen.add(key);
+        unique.push(label);
+      });
+      try {
+        localStorage.setItem(ARCHIVE_CUSTOM_TYPES_STORAGE_KEY, JSON.stringify(unique));
+      } catch (_) {}
+      return unique;
+    };
+
+    const rememberCustomArchiveType = (value) => {
+      const label = normalizeArchiveTypeLabel(value);
+      if (!label) return;
+      const defaults = new Set(ARCHIVE_TYPES.map((item) => item.toLocaleLowerCase('ar')));
+      if (defaults.has(label.toLocaleLowerCase('ar'))) return;
+      const next = writeStoredCustomArchiveTypes([...readStoredCustomArchiveTypes(), label]);
+      return next;
+    };
+
+    const collectArchiveTypesFromRecords = () => {
+      if (!Array.isArray(activeRecords)) return [];
+      return activeRecords
+        .map((record) => normalizeArchiveTypeLabel(record?.doc_type))
+        .filter(Boolean);
+    };
+
+    const getArchiveTypeOptions = () => {
+      const merged = [];
+      const seen = new Set();
+      [...ARCHIVE_TYPES, ...readStoredCustomArchiveTypes(), ...collectArchiveTypesFromRecords()].forEach((item) => {
+        const label = normalizeArchiveTypeLabel(item);
+        if (!label) return;
+        const key = label.toLocaleLowerCase('ar');
+        if (seen.has(key)) return;
+        seen.add(key);
+        merged.push(label);
+      });
+      return merged;
+    };
+
+    const syncArchiveTypeCustomVisibility = () => {
+      const wrap = document.getElementById('recordArchiveTypeCustomWrap');
+      const customInput = document.getElementById('recordArchiveTypeCustom');
+      const select = document.getElementById('recordArchiveType');
+      if (!wrap || !select) return;
+      const isCustom = select.value === ARCHIVE_CUSTOM_TYPE_VALUE;
+      wrap.classList.toggle('hidden', !isCustom);
+      if (!isCustom && customInput && document.activeElement !== customInput) {
+        customInput.value = '';
+      }
+      if (isCustom && customInput) {
+        customInput.focus();
+      }
+    };
+
+    const refreshArchiveTypeSelects = (selectedValue = '') => {
+      const options = getArchiveTypeOptions();
+      const select = document.getElementById('recordArchiveType');
+      const filterSelect = document.getElementById('recordsType');
+      const preferred = normalizeArchiveTypeLabel(selectedValue);
+      if (preferred && !options.some((item) => item.toLocaleLowerCase('ar') === preferred.toLocaleLowerCase('ar'))) {
+        options.push(preferred);
+      }
+
+      if (select) {
+        const previous = select.value;
+        const customInput = document.getElementById('recordArchiveTypeCustom');
+        const previousCustom = customInput ? customInput.value : '';
+        select.innerHTML = [
+          `<option value="">اختر النوع</option>`,
+          ...options.map((value) => `<option value="${value.replace(/"/g, '&quot;')}">${value}</option>`),
+          `<option value="${ARCHIVE_CUSTOM_TYPE_VALUE}">➕ إضافة نوع جديد...</option>`
+        ].join('');
+        if (preferred) {
+          select.value = preferred;
+          if (customInput) customInput.value = '';
+        } else if (previous === ARCHIVE_CUSTOM_TYPE_VALUE) {
+          select.value = ARCHIVE_CUSTOM_TYPE_VALUE;
+          if (customInput) customInput.value = previousCustom;
+        } else if (previous && options.includes(previous)) {
+          select.value = previous;
+        } else {
+          select.value = '';
+        }
+        syncArchiveTypeCustomVisibility();
+      }
+
+      if (filterSelect && isEArchiveModule()) {
+        const currentFilter = filterSelect.value;
+        filterSelect.innerHTML = [
+          `<option value="">الكل</option>`,
+          ...options.map((value) => `<option value="${value.replace(/"/g, '&quot;')}">${value}</option>`)
+        ].join('');
+        if (currentFilter && options.includes(currentFilter)) {
+          filterSelect.value = currentFilter;
+        }
+      }
+    };
+
+    const getSelectedArchiveDocType = () => {
+      const select = document.getElementById('recordArchiveType');
+      const customInput = document.getElementById('recordArchiveTypeCustom');
+      if (!select) return '';
+      if (select.value === ARCHIVE_CUSTOM_TYPE_VALUE) {
+        return normalizeArchiveTypeLabel(customInput?.value);
+      }
+      return normalizeArchiveTypeLabel(select.value);
+    };
+
+    const setArchiveDocTypeValue = (value) => {
+      const select = document.getElementById('recordArchiveType');
+      const customInput = document.getElementById('recordArchiveTypeCustom');
+      if (!select) return;
+      const label = normalizeArchiveTypeLabel(value);
+      refreshArchiveTypeSelects(label);
+      if (!label) {
+        select.value = '';
+        if (customInput) customInput.value = '';
+        syncArchiveTypeCustomVisibility();
+        return;
+      }
+      const options = Array.from(select.options).map((option) => option.value);
+      if (options.includes(label)) {
+        select.value = label;
+        if (customInput) customInput.value = '';
+      } else {
+        select.value = ARCHIVE_CUSTOM_TYPE_VALUE;
+        if (customInput) customInput.value = label;
+      }
+      syncArchiveTypeCustomVisibility();
+    };
 
     const ARCHIVE_CONFIDENTIALITY = [
       'عام',
@@ -2579,7 +2765,7 @@
       }
 
       if (recordArchiveType && suggestedType && !recordArchiveType.value) {
-        recordArchiveType.value = suggestedType;
+        setArchiveDocTypeValue(suggestedType);
       }
       if (recordArchiveCategory && suggestedCategory && !recordArchiveCategory.value) {
         recordArchiveCategory.value = suggestedCategory;
@@ -2936,8 +3122,7 @@
       } else if (isArchive) {
         setSelectOptions('recordStatus', ['نشط', 'قيد المراجعة', 'مؤرشف']);
         setSelectOptions('recordsStatus', ['نشط', 'قيد المراجعة', 'مؤرشف'], 'الكل');
-        setSelectOptions('recordArchiveType', ARCHIVE_TYPES, 'اختر النوع');
-        setSelectOptions('recordsType', ARCHIVE_TYPES, 'الكل');
+        refreshArchiveTypeSelects();
         setSelectOptions('recordArchiveCategory', ARCHIVE_CATEGORIES, 'اختر الفئة');
         setSelectOptions('recordArchiveConfidentiality', ARCHIVE_CONFIDENTIALITY, 'اختر السرية');
         setSelectOptions('recordsConfidentiality', ARCHIVE_CONFIDENTIALITY, 'الكل');
@@ -3066,7 +3251,7 @@
       const mailNumberField = document.getElementById('recordMailNumber');
       if (mailNumberField) mailNumberField.value = record.doc_number || '';
       if (recordArchiveNumber) recordArchiveNumber.value = record.doc_number || '';
-      if (recordArchiveType) recordArchiveType.value = record.doc_type || '';
+      setArchiveDocTypeValue(record.doc_type || '');
       if (recordArchiveCategory) recordArchiveCategory.value = record.doc_category || '';
       if (recordArchiveDepartment) recordArchiveDepartment.value = record.department || '';
       if (recordArchiveDate) recordArchiveDate.value = record.archive_date ? formatDate(record.archive_date) : '';
@@ -3123,7 +3308,7 @@
       if (isArchive && recordId && (mode === 'view' || mode === 'preview')) {
         logArchiveClientActivity(recordId, mode === 'view' ? 'VIEW' : 'PREVIEW', 'تم فتح المستند من الواجهة');
       }
-      ['recordTitle', 'recordMailNumber', 'recordDepartment', 'recordProcedureType', 'recordStepsCount', 'recordOwner', 'recordStatus', 'recordPriority', 'recordDueDate', 'recordNotes', 'recordSource', 'recordCircularType', 'recordArchiveNumber', 'recordArchiveType', 'recordArchiveCategory', 'recordArchiveDepartment', 'recordArchiveDate', 'recordArchiveConfidentiality', 'recordArchiveKeywords', 'recordArchiveAttachments'].forEach((id) => {
+      ['recordTitle', 'recordMailNumber', 'recordDepartment', 'recordProcedureType', 'recordStepsCount', 'recordOwner', 'recordStatus', 'recordPriority', 'recordDueDate', 'recordNotes', 'recordSource', 'recordCircularType', 'recordArchiveNumber', 'recordArchiveType', 'recordArchiveTypeCustom', 'recordArchiveCategory', 'recordArchiveDepartment', 'recordArchiveDate', 'recordArchiveConfidentiality', 'recordArchiveKeywords', 'recordArchiveAttachments'].forEach((id) => {
         const field = document.getElementById(id);
         if (!field) return;
         field.disabled = isReadOnly;
@@ -3133,6 +3318,9 @@
           field.classList.remove('bg-slate-100');
         }
       });
+      if (isArchive) {
+        syncArchiveTypeCustomVisibility();
+      }
 
       saveButton.classList.toggle('hidden', isReadOnly);
       modal.classList.remove('hidden');
@@ -3163,6 +3351,7 @@
             files: Array.isArray(record.files) ? record.files : []
           }));
           updateArchiveDepartmentFilter(activeRecords);
+          refreshArchiveTypeSelects(document.getElementById('recordArchiveType')?.value || '');
           const recordIds = new Set(activeRecords.map(record => record.id));
           Array.from(selectedRecordIds).forEach(id => {
             if (!recordIds.has(id)) selectedRecordIds.delete(id);
@@ -4162,7 +4351,7 @@
       const fallbackDepartmentValue = document.getElementById('recordDepartment')?.value.trim() || '';
       const archiveDocNumber = recordArchiveNumber?.value.trim() || '';
       const mailDocNumber = document.getElementById('recordMailNumber')?.value.trim() || '';
-      const archiveDocType = recordArchiveType?.value || '';
+      const archiveDocType = isArchive ? getSelectedArchiveDocType() : '';
       const archiveCategory = recordArchiveCategory?.value || '';
       const archiveDate = recordArchiveDate?.value || '';
       const archiveConfidentiality = recordArchiveConfidentiality?.value || '';
@@ -4247,6 +4436,10 @@
         }
 
         const savedRecord = await response.json();
+        if (isArchive && payload.doc_type) {
+          rememberCustomArchiveType(payload.doc_type);
+          refreshArchiveTypeSelects(payload.doc_type);
+        }
         let uploadFailed = false;
         if (isArchive && selectedArchiveFiles.length) {
           try {
@@ -5234,6 +5427,9 @@
 
       if (recordsAddButton) recordsAddButton.addEventListener('click', () => openRecordsModal('add'));
       if (recordsRefreshButton) recordsRefreshButton.addEventListener('click', loadModuleRecords);
+      if (recordArchiveType) {
+        recordArchiveType.addEventListener('change', syncArchiveTypeCustomVisibility);
+      }
       const debouncedSearch = debounce(applyRecordsFilters, 220);
       if (recordsSearch) recordsSearch.addEventListener('input', debouncedSearch);
       if (recordsStatus) recordsStatus.addEventListener('change', applyRecordsFilters);
