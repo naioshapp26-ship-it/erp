@@ -40,6 +40,13 @@
       padding: 4px;
       background: #fff;
     }
+    @keyframes previewAnnouncementSlide {
+      0% { transform: translateX(100%); }
+      100% { transform: translateX(-100%); }
+    }
+    .preview-announcement {
+      overflow: hidden;
+    }
   </style>
 </head>
 <body class="pay-ui bg-slate-50">
@@ -144,6 +151,46 @@
           </div>
         </div>
 
+        <hr class="my-4 border-slate-200">
+
+        <h4 class="text-base font-black text-slate-900 mb-1">البنر المتحرك (أعلى الصفحة)</h4>
+        <p class="text-sm text-slate-500 mb-3">عدّل أو احذف الجملة التي تتحرك في الشريط العلوي — مثل «عروض محدودة» في النظام الرئيسي</p>
+
+        <div class="pay-field">
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="announcement_enabled" checked class="w-4 h-4 rounded border-slate-300">
+            <span>إظهار البنر المتحرك</span>
+          </label>
+        </div>
+
+        <div class="pay-field mt-3">
+          <label for="announcement_text">نص البنر المتحرك</label>
+          <input id="announcement_text" type="text" maxlength="600" dir="rtl"
+            placeholder="🔥 خصومات على الخدمات 🔥 | 🚀 ابدأ الآن | 📢 عروض محدودة"
+            class="w-full">
+          <div class="text-xs text-slate-500 mt-1">افصل بين العبارات بـ | للتكرار في الشريط</div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+          <div class="pay-field">
+            <label for="announcement_speed">سرعة الحركة (ثواني)</label>
+            <input id="announcement_speed" type="number" min="10" max="120" step="1" value="28" class="w-full">
+          </div>
+          <div class="pay-field">
+            <label for="announcement_text_color">لون النص</label>
+            <input id="announcement_text_color" type="color" value="#ffffff" class="color-input">
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button type="button" class="pay-btn pay-btn-secondary" id="announcement-reset-btn">
+            <i class="fa fa-rotate-left"></i> استعادة النص الافتراضي
+          </button>
+          <button type="button" class="pay-btn pay-btn-secondary" id="announcement-clear-btn">
+            <i class="fa fa-trash"></i> حذف البنر
+          </button>
+        </div>
+
         <div class="pay-actions">
           <button class="pay-btn pay-btn-primary" id="save-btn" onclick="saveIdentity()">
             <i class="fa fa-save"></i> حفظ الهوية
@@ -176,6 +223,9 @@
       </div>
 
       <div class="preview-card">
+        <div id="preview_announcement" class="preview-announcement" style="background:#0c1048;color:#fff;font-size:12px;font-weight:700;padding:8px 12px;overflow:hidden;white-space:nowrap;">
+          <span id="preview_announcement_text">🔥 خصومات على الخدمات 🔥 | 🚀 ابدأ الآن | 📢 عروض محدودة</span>
+        </div>
         <div id="preview_hero" class="preview-header" style="background: #11165a; min-height: 140px; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 8px; position: relative; overflow: hidden;">
           <img id="preview_hero_media_img" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;">
           <video id="preview_hero_media_video" muted loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;"></video>
@@ -209,6 +259,7 @@
     let currentLogoUrl = '';
     let currentHeroImageUrl = '';
     let currentHeroVideoUrl = '';
+    const DEFAULT_ANNOUNCEMENT_TEXT = '🔥 خصومات على الخدمات 🔥 | 🚀 ابدأ الآن | 📢 عروض محدودة';
 
     function scopedPath(path) {
       return typeof getTenantScopedPath === 'function' ? getTenantScopedPath(path) : path;
@@ -279,6 +330,27 @@
       document.getElementById('preview_header').style.background = `linear-gradient(135deg, ${secondary}, ${primary})`;
       document.getElementById('preview_button').style.background = primary;
       document.getElementById('preview_badge').style.background = primary;
+
+      const announcementEnabled = document.getElementById('announcement_enabled')?.checked !== false;
+      const announcementText = document.getElementById('announcement_text')?.value.trim() || DEFAULT_ANNOUNCEMENT_TEXT;
+      const announcementSpeed = Number(document.getElementById('announcement_speed')?.value) || 28;
+      const announcementTextColor = document.getElementById('announcement_text_color')?.value || '#ffffff';
+      const previewAnnouncement = document.getElementById('preview_announcement');
+      const previewAnnouncementText = document.getElementById('preview_announcement_text');
+      if (previewAnnouncement && previewAnnouncementText) {
+        if (announcementEnabled && announcementText) {
+          previewAnnouncement.style.display = 'block';
+          previewAnnouncement.style.background = secondary;
+          previewAnnouncement.style.color = announcementTextColor;
+          previewAnnouncementText.textContent = announcementText;
+          previewAnnouncementText.style.display = 'inline-block';
+          previewAnnouncementText.style.paddingLeft = '100%';
+          previewAnnouncementText.style.animation = `previewAnnouncementSlide ${announcementSpeed}s linear infinite`;
+        } else {
+          previewAnnouncement.style.display = 'none';
+          previewAnnouncementText.style.animation = 'none';
+        }
+      }
     }
 
     function updateEmailSuggestion() {
@@ -359,6 +431,10 @@
       document.getElementById('primary_color').value = data.primary_color || '#11165a';
       document.getElementById('secondary_color').value = data.secondary_color || '#0c1048';
       document.getElementById('hero_mode').value = data.hero_mode || 'gradient';
+      document.getElementById('announcement_enabled').checked = data.announcement_enabled !== false;
+      document.getElementById('announcement_text').value = data.announcement_text ?? DEFAULT_ANNOUNCEMENT_TEXT;
+      document.getElementById('announcement_speed').value = Number(data.announcement_speed) || 28;
+      document.getElementById('announcement_text_color').value = data.announcement_text_color || '#ffffff';
       currentLogoUrl = data.logo_url || '';
       currentHeroImageUrl = data.hero_banner_image_url || '';
       currentHeroVideoUrl = data.hero_banner_video_url || '';
@@ -457,6 +533,10 @@
           secondary_color: document.getElementById('secondary_color').value,
           logo_url: currentLogoUrl || null,
           hero_mode: document.getElementById('hero_mode').value || 'gradient',
+          announcement_enabled: document.getElementById('announcement_enabled').checked,
+          announcement_text: document.getElementById('announcement_text').value.trim(),
+          announcement_speed: Number(document.getElementById('announcement_speed').value || 28),
+          announcement_text_color: document.getElementById('announcement_text_color').value,
           setup_completed: true
         };
 
@@ -530,7 +610,7 @@
       }
     });
 
-    ['site_name', 'site_tagline', 'primary_color', 'secondary_color', 'hero_mode'].forEach((id) => {
+    ['site_name', 'site_tagline', 'primary_color', 'secondary_color', 'hero_mode', 'announcement_text', 'announcement_speed', 'announcement_text_color'].forEach((id) => {
       document.getElementById(id).addEventListener('input', () => {
         updatePreview();
         updateEmailSuggestion();
@@ -538,6 +618,22 @@
       document.getElementById(id).addEventListener('change', () => {
         updatePreview();
       });
+    });
+
+    document.getElementById('announcement_enabled').addEventListener('change', updatePreview);
+
+    document.getElementById('announcement-reset-btn').addEventListener('click', () => {
+      document.getElementById('announcement_enabled').checked = true;
+      document.getElementById('announcement_text').value = DEFAULT_ANNOUNCEMENT_TEXT;
+      document.getElementById('announcement_speed').value = 28;
+      document.getElementById('announcement_text_color').value = '#ffffff';
+      updatePreview();
+    });
+
+    document.getElementById('announcement-clear-btn').addEventListener('click', () => {
+      document.getElementById('announcement_enabled').checked = false;
+      document.getElementById('announcement_text').value = '';
+      updatePreview();
     });
 
     document.getElementById('suggest-email-btn').addEventListener('click', () => {

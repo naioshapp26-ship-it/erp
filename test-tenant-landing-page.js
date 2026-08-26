@@ -45,6 +45,7 @@ const checks = [
   ['poshahub360 title', landing.includes('poshahub360')],
   ['form CTA black labels', landing.includes('.tour-form button.btn-primary') && landing.includes('color: #000000 !important') && landing.includes('.registration-form .registration-submit') && landing.includes('.newsletter-form .btn-primary')],
   ['tenant announcement ticker', landing.includes('id="announcement-bar"') && landing.includes('Tenant announcement ticker') && !landing.includes('display: none !important;\n    }\n    body.homepage {\n      padding-top: 0 !important;')],
+  ['tenant announcement settings helper', landing.includes('__tenantLandingApplyAnnouncementBar') && fs.readFileSync(path.join(__dirname, 'tenant-branding-settings.html'), 'utf8').includes('id="announcement_text"')],
   ['landing CTA', landing.includes('login-page.html?login=1')],
   ['login gate', login.includes("params.get('login')")],
   ['server route', server.includes("path.join(__dirname, 'tenant-landing.html')")],
