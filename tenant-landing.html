@@ -26,6 +26,10 @@
       --landing-hero-gradient: linear-gradient(135deg, #5b82e0 0%, #3a56b5 32%, #1a2678 68%, #0c1048 100%);
       --landing-mesh-gradient: radial-gradient(ellipse 70% 55% at 12% 18%, rgba(126, 182, 255, 0.38), transparent 62%), radial-gradient(ellipse 55% 50% at 88% 82%, rgba(7, 10, 48, 0.55), transparent 58%);
       --gradient-brand-primary: linear-gradient(135deg, #11165a, #0c1048);
+      --announcement-bg: #0c1048;
+      --announcement-text: #ffffff;
+      --announcement-speed: 28s;
+      --announcement-bar-height: 50px;
     }
     body.homepage .hero,
     body.homepage.dark-mode .hero,
@@ -927,13 +931,46 @@
       opacity: 0 !important;
     }
 
-    /* Kill leftover red UI chrome */
-    #announcement-bar, .announcement-bar {
-      display: none !important;
+    /* Tenant announcement ticker — same as main homepage, navy palette */
+    body.homepage.tenant-branded {
+      padding-top: var(--announcement-bar-height, 50px) !important;
+      --announcement-bar-height: 50px !important;
     }
-    body.homepage {
-      padding-top: 0 !important;
-      --announcement-bar-height: 0px !important;
+    body.homepage.tenant-branded .announcement-bar,
+    body.homepage.tenant-branded #announcement-bar {
+      display: flex !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      z-index: 70 !important;
+      min-height: var(--announcement-bar-height, 50px) !important;
+      background-color: var(--announcement-bg, var(--tenant-primary, #11165a)) !important;
+      background-image: linear-gradient(
+        90deg,
+        var(--brand-red-deep, #070a30) 0%,
+        var(--tenant-primary, #11165a) 50%,
+        var(--tenant-secondary, #0c1048) 100%
+      ) !important;
+      color: var(--announcement-text, #ffffff) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+      overflow: hidden !important;
+      align-items: center !important;
+      box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08) !important;
+    }
+    body.homepage.tenant-branded .announcement-track {
+      white-space: nowrap !important;
+      display: inline-block !important;
+      font-size: 17px !important;
+      font-weight: 800 !important;
+      padding-inline: 16px !important;
+      line-height: 1.2 !important;
+      letter-spacing: 0.2px !important;
+      color: #ffffff !important;
+      animation: homepageAnnouncementSlide var(--announcement-speed, 28s) linear infinite !important;
+    }
+    body.homepage.tenant-branded .announcement-bar:hover .announcement-track {
+      animation-play-state: paused !important;
     }
     body.homepage .hero-particles,
     body.homepage .hero-particles span,
@@ -2504,9 +2541,10 @@
         root.style.setProperty('--hero-overlay-strength', `${clamp(settings.heroMedia?.overlayStrength, 0.5, 0.7, 0.62)}`);
         heroSliderPaused = settings.heroMedia?.autoPlaySlider === false;
         const announcementBar = settings.announcementBar || {};
-        root.style.setProperty('--announcement-bg', secondaryColor);
+        root.style.setProperty('--announcement-bg', secondaryColor || primary);
         root.style.setProperty('--announcement-text', announcementBar.textColor || '#ffffff');
         root.style.setProperty('--announcement-speed', `${clamp(announcementBar.speed, 10, 120, 28)}s`);
+        root.style.setProperty('--announcement-bar-height', '50px');
         const announcementTrack = document.getElementById('announcement-track');
         if (announcementTrack) {
           announcementTrack.textContent = typeof announcementBar.text === 'string' && announcementBar.text.trim()
