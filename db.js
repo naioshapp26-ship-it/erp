@@ -114,9 +114,40 @@ async function resolveWorkingConfig() {
   throw err;
 }
 
+const isConnectionError = (error) => {
+  if (!error) return false;
+  const message = String(error.message || '');
+  return (
+    /connection error/i.test(message) ||
+    /not queryable/i.test(message) ||
+    /Connection terminated/i.test(message) ||
+    /ECONNRESET/i.test(message) ||
+    /ECONNREFUSED/i.test(message) ||
+    error.code === '57P01' ||
+    error.code === '53300' ||
+    error.code === '08006' ||
+    error.code === '08003'
+  );
+};
+
+const markClientBroken = (client) => {
+  if (client) client._broken = true;
+};
+
+const disposeClient = async (client) => {
+  if (!client) return;
+  markClientBroken(client);
+  try {
+    await client.end();
+  } catch (_) {
+    /* ignore */
+  }
+};
+
 /**
  * بديل pg.Pool — يستخدم Client فقط (أثبت على cPanel؛ Pool كان يسبب core dump).
  * Probes all valid DATABASE_URL candidates at runtime and uses the first working connection.
+ * Discards stale clients after Postgres restarts or idle disconnects (Railway).
  */
 function createClientPool() {
   const maxClients = Number(process.env.PG_POOL_MAX) || 4;
@@ -126,18 +157,33 @@ function createClientPool() {
   const createConnectedClient = async () => {
     const config = await resolveWorkingConfig();
     const client = new Client(buildClientConfig(config));
+    client.on('error', (error) => {
+      console.warn('[db] pooled client connection error:', error.message);
+      markClientBroken(client);
+    });
     await client.connect();
     return client;
+  };
+
+  const validateIdleClient = async (client) => {
+    if (!client || client._broken) return false;
+    try {
+      await client.query('SELECT 1');
+      return true;
+    } catch (error) {
+      if (isConnectionError(error)) {
+        console.warn('[db] dropping stale pooled client:', error.message);
+      }
+      await disposeClient(client);
+      return false;
+    }
   };
 
   const acquire = async () => {
     while (idleClients.length > 0) {
       const client = idleClients.pop();
-      if (!client._broken) return client;
-      try {
-        await client.end();
-      } catch (_) {
-        /* ignore */
+      if (await validateIdleClient(client)) {
+        return client;
       }
     }
     if (pendingConnects >= maxClients) {
@@ -153,7 +199,10 @@ function createClientPool() {
   };
 
   const release = (client) => {
-    if (!client || client._broken) return;
+    if (!client || client._broken) {
+      disposeClient(client).catch(() => {});
+      return;
+    }
     if (idleClients.length >= maxClients) {
       client.end().catch(() => {});
       return;
@@ -161,18 +210,31 @@ function createClientPool() {
     idleClients.push(client);
   };
 
+  const wrapClient = (client) => {
+    let released = false;
+    return {
+      query: async (text, params) => {
+        try {
+          return await client.query(text, params);
+        } catch (error) {
+          if (isConnectionError(error)) {
+            await disposeClient(client);
+          }
+          throw error;
+        }
+      },
+      release: () => {
+        if (released) return;
+        released = true;
+        release(client);
+      }
+    };
+  };
+
   return {
     async connect() {
       const client = await acquire();
-      let released = false;
-      return {
-        query: (text, params) => client.query(text, params),
-        release: () => {
-          if (released) return;
-          released = true;
-          release(client);
-        }
-      };
+      return wrapClient(client);
     },
     query(text, params) {
       return this.connect().then(async (wrapper) => {
