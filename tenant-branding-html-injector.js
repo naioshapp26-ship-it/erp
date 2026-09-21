@@ -345,6 +345,15 @@ function buildCriticalBrandingBlock(identity, tenant = null) {
     </script>`;
 }
 
+function replaceOutsideScripts(html, replacer) {
+  const parts = String(html || '').split(/(<script\b[^>]*>[\s\S]*?<\/script>)/gi);
+  return parts.map((part, index) => {
+    // Odd indexes are full <script>...</script> blocks from the capturing split.
+    if (index % 2 === 1) return part;
+    return replacer(part);
+  }).join('');
+}
+
 function replacePlatformBrandingInHtml(html, identity, tenant = null) {
   const boot = buildBootIdentity(identity, tenant);
   const subdomain = String(tenant?.subdomain || '').toLowerCase();
@@ -352,22 +361,36 @@ function replacePlatformBrandingInHtml(html, identity, tenant = null) {
   let next = String(html || '');
 
   if (logoUrl) {
-    next = next.replace(/\/public\/naiosh-logo(?:-64)?\.png/gi, logoUrl);
+    next = replaceOutsideScripts(next, (chunk) => chunk.replace(/\/public\/naiosh-logo(?:-64)?\.png/gi, logoUrl));
   }
 
   if (boot.site_name) {
     const safeName = escapeHtml(boot.site_name);
-    next = next.replace(/نظام نايوش/g, safeName);
-    next = next.replace(/نايوش ERP/gi, safeName);
-    next = next.replace(/إمبراطورية نايوش/g, safeName);
-    next = next.replace(/\bNAIOSH\b/g, safeName);
-    next = next.replace(/نايوش/g, safeName);
-    next = next.replace(/poshahub360/gi, safeName);
+    next = replaceOutsideScripts(next, (chunk) => {
+      let out = chunk;
+      out = out.replace(/نظام نايوش/g, safeName);
+      out = out.replace(/نايوش ERP/gi, safeName);
+      out = out.replace(/إمبراطورية نايوش/g, safeName);
+      out = out.replace(/\bNAIOSH\b/g, safeName);
+      out = out.replace(/نايوش/g, safeName);
+      out = out.replace(/poshahub360/gi, safeName);
+      out = out.replace(/منصتي/g, safeName);
+      out = out.replace(/<title>[^<]*<\/title>/i, `<title>${safeName}</title>`);
+      out = out.replace(
+        /(data-landing-brand="name"[^>]*>)([^<]*)(<\/)/gi,
+        `$1${safeName}$3`
+      );
+      out = out.replace(
+        /(data-tenant-brand="name"[^>]*>)([^<]*)(<\/)/gi,
+        `$1${safeName}$3`
+      );
+      return out;
+    });
   }
 
   if (boot.site_tagline) {
     const safeTagline = escapeHtml(boot.site_tagline);
-    next = next.replace(/منصة متعددة المستأجرين/g, safeTagline);
+    next = replaceOutsideScripts(next, (chunk) => chunk.replace(/منصة متعددة المستأجرين/g, safeTagline));
   }
 
   return next;
