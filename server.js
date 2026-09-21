@@ -281,18 +281,21 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   }
   if (req?.tenant && req?.tenantIdentity) {
     const { injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
-    // Tenant landing face locks display name to poshahub360 — colors stay from branding settings
-    const brandingIdentity = fileName === 'tenant-landing.html'
-      ? {
-          ...req.tenantIdentity,
-          site_name: 'poshahub360'
-          // Keep primary/secondary from tenant branding settings so the client can change colors freely
-        }
-      : req.tenantIdentity;
-    payload = injectTenantBrandingHtml(payload, brandingIdentity, req.tenant);
+    // Always use THIS tenant's identity (site_name / company_name) — never hardcode another brand.
+    const allowedPages = req.tenantPermissionBundle?.allowed_pages
+      || req.tenantPermissionBundle?.allowedPages
+      || req.tenantIdentity?.allowed_pages
+      || [];
+    const brandingIdentity = {
+      ...req.tenantIdentity,
+      site_name: String(req.tenantIdentity.site_name || req.tenant.company_name || '').trim(),
+      company_name: String(req.tenantIdentity.company_name || req.tenant.company_name || '').trim(),
+      allowed_pages: allowedPages
+    };
+    payload = injectTenantBrandingHtml(payload, brandingIdentity, req.tenant, { allowedPages });
     if (fileName === 'tenant-landing.html') {
       const { injectTenantLandingSystemLinks } = require('./tenant-branding-html-injector');
-      payload = injectTenantLandingSystemLinks(payload, req.tenant);
+      payload = injectTenantLandingSystemLinks(payload, req.tenant, allowedPages);
     }
   }
   if (req?.tenant && fileName === 'dashboard.html') {
@@ -2707,6 +2710,15 @@ async function tenantIdentityPreload(req, res, next) {
   } catch (error) {
     console.warn('[tenantIdentityPreload]', error.message);
   }
+  // Preload THIS tenant's subscribed pages so landing/html injection can filter modules.
+  if (!req.tenantPermissionBundle) {
+    try {
+      const { getTenantPermissionBundle } = require('./tenant-page-permissions');
+      req.tenantPermissionBundle = await getTenantPermissionBundle(db, req.tenant);
+    } catch (permError) {
+      console.warn('[tenantIdentityPreload] permissions:', permError.message);
+    }
+  }
   return next();
 }
 app.use(tenantIdentityPreload);
@@ -2723,15 +2735,10 @@ databaseReady
   .then(async () => {
     try {
       const {
-        sanitizeAllActiveTenantPermissions,
-        ensureTenantCoreSystemPages
+        sanitizeAllActiveTenantPermissions
       } = require('./tenant-page-access-policy');
-      const coreReports = await ensureTenantCoreSystemPages(db);
-      const coreChanged = coreReports.filter((report) => report.changed && !report.error);
-      if (coreChanged.length) {
-        console.log(`[tenant-permissions] ensured core system pages for ${coreChanged.length} tenant(s):`,
-          coreChanged.map((report) => report.subdomain).join(', '));
-      }
+      // Do NOT call ensureTenantCoreSystemPages on boot — that forced HR/Finance/Archive
+      // onto every tenant and overwrote SaaS signup module selection (cross-tenant leakage).
       if (process.env.TENANT_PERMISSIONS_SANITIZE_ON_BOOT === 'true') {
         const reports = await sanitizeAllActiveTenantPermissions(db);
         const changedTenants = reports.filter((report) => report.changed && !report.error);

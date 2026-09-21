@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>poshahub360</title>
-  <!-- FOUC lock: poshahub360 name + brand CSS vars (hero follows primary_color) -->
+  <title>منصتي</title>
+  <!-- FOUC lock: tenant site_name from identity boot + brand CSS vars -->
   <style id="tenant-landing-fouc-critical">
     :root {
       /* Defaults only until هوية النظام / branding boot paints real colors */
@@ -169,11 +169,14 @@
   </style>
   <script id="tenant-landing-fouc-lock">
     (function () {
-      var NAME = 'poshahub360';
       var DEFAULT_PRIMARY = '#11165a';
       var DEFAULT_SECONDARY = '#0c1048';
-      window.__TENANT_LANDING_LOCK__ = { name: NAME, defaultPrimary: DEFAULT_PRIMARY, defaultSecondary: DEFAULT_SECONDARY };
+      window.__TENANT_LANDING_LOCK__ = { defaultPrimary: DEFAULT_PRIMARY, defaultSecondary: DEFAULT_SECONDARY };
 
+      function resolveDisplayName() {
+        var boot = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        return String(boot.site_name || boot.company_name || '').trim();
+      }
       function normalizeHex(value, fallback) {
         var raw = String(value || '').trim();
         if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
@@ -220,26 +223,25 @@
           secondary: normalizeHex(boot.secondary_color, DEFAULT_SECONDARY)
         };
       }
-      function lockIdentityName(identity) {
-        if (!identity || typeof identity !== 'object') return identity;
-        identity.site_name = NAME;
-        return identity;
-      }
-      function lockCachedIdentityName() {
-        try {
-          var sub = (String(location.pathname || '').match(/^\/t\/([a-z0-9][a-z0-9-]*)/i) || [])[1];
-          if (!sub) return;
-          sub = String(sub).toLowerCase();
-          var key = 'tenant_identity_v1_' + sub;
-          var raw = sessionStorage.getItem(key);
-          if (raw) {
-            var boot = JSON.parse(raw);
-            lockIdentityName(boot);
-            sessionStorage.setItem(key, JSON.stringify(boot));
-          }
-        } catch (_) {}
-        if (window.__TENANT_IDENTITY_BOOT__) lockIdentityName(window.__TENANT_IDENTITY_BOOT__);
-        if (window.__TENANT_IDENTITY__) lockIdentityName(window.__TENANT_IDENTITY__);
+      function applyDisplayName() {
+        var name = resolveDisplayName();
+        if (!name) return;
+        document.querySelectorAll('[data-landing-brand="name"], [data-tenant-brand="name"]').forEach(function (node) {
+          node.textContent = name;
+        });
+        document.title = name;
+        var heroLead = document.querySelector('.hero-content > p');
+        if (heroLead && /poshahub360|منصة إدارية متكاملة/i.test(heroLead.textContent || '')) {
+          heroLead.textContent = name + ' منصة إدارية متكاملة لإدارة أنظمتك التشغيلية باحترافية وأمان.';
+        }
+        var aboutLead = document.querySelector('#about p');
+        if (aboutLead && /poshahub360|نظام متكامل يجمع/i.test(aboutLead.textContent || '')) {
+          aboutLead.textContent = name + ' نظام متكامل يجمع التشغيل والإدارة والتقارير داخل واجهة واحدة متناسقة وسهلة الاستخدام.';
+        }
+        var tourTitle = document.getElementById('tour-form-title');
+        if (tourTitle) tourTitle.textContent = 'احجز جولة في ' + name;
+        var tourSection = document.getElementById('book-tour');
+        if (tourSection) tourSection.setAttribute('aria-label', 'احجز جولة في ' + name);
       }
       function hasHeroFaceMediaBoot() {
         var boot = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
@@ -328,46 +330,23 @@
         }
       }
       function lockNames() {
-        if (document.title !== NAME) document.title = NAME;
-        document.querySelectorAll('[data-landing-brand="name"], [data-tenant-brand="name"]').forEach(function (node) {
-          if (node.textContent !== NAME) node.textContent = NAME;
-        });
-        var h1 = document.querySelector('.hero-content h1');
-        if (h1 && h1.textContent !== NAME) h1.textContent = NAME;
+        applyDisplayName();
       }
 
-      lockCachedIdentityName();
+      applyDisplayName();
       paintBrandColors();
-      document.title = NAME;
-
-      var titleEl = document.querySelector('title');
-      if (titleEl) {
-        new MutationObserver(function () {
-          if (document.title !== NAME) document.title = NAME;
-        }).observe(titleEl, { childList: true, characterData: true, subtree: true });
-      }
-
-      new MutationObserver(function () {
-        lockCachedIdentityName();
-        lockNames();
-      }).observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-        characterData: true
-      });
 
       document.addEventListener('DOMContentLoaded', function () {
-        lockCachedIdentityName();
-        lockNames();
+        applyDisplayName();
         paintBrandColors();
       });
       window.addEventListener('tenant-branding:ready', function () {
-        lockCachedIdentityName();
-        lockNames();
+        applyDisplayName();
         paintBrandColors();
       });
       window.__tenantLandingPaintBrandColors = paintBrandColors;
       window.__tenantLandingLockNames = lockNames;
+      window.__tenantLandingApplyDisplayName = applyDisplayName;
     })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1269,7 +1248,7 @@
       <div class="nav-main">
         <a class="brand" href="#home" id="tenant-brand-home">
           <img id="site-logo-header" src="/public/naiosh-logo.png" alt="شعار المنصة" data-tenant-brand="logo" />
-          <span class="logo-text" data-landing-brand="name">poshahub360</span>
+          <span class="logo-text" data-landing-brand="name">منصتي</span>
         </a>
         <nav class="nav-links" aria-label="روابط المستأجر" hidden>
           <span class="nav-active-indicator" id="nav-active-indicator" aria-hidden="true"></span>
@@ -1305,8 +1284,8 @@
     </div>
     <main class="container hero-inner">
       <div class="hero-content">
-        <h1 data-landing-brand="name" class="hero-heading-white">poshahub360</h1>
-        <p>poshahub360 منصة إدارية متكاملة لإدارة أنظمتك التشغيلية باحترافية وأمان.</p>
+        <h1 data-landing-brand="name" class="hero-heading-white">منصتي</h1>
+        <p>منصة إدارية متكاملة لإدارة أنظمتك التشغيلية باحترافية وأمان.</p>
         <div class="hero-ctas">
           <a class="btn btn-primary hero-cta-pill magnetic-btn" id="hero-login-cta" href="/login-page.html?login=1">تسجيل الدخول</a>
           <a class="btn btn-primary hero-cta-pill magnetic-btn" href="#about">من نحن</a>
@@ -1325,7 +1304,7 @@
             <div class="hero-visual-shine" aria-hidden="true"></div>
             <div class="hero-visual-reflection" aria-hidden="true"></div>
             <div class="hero-visual-media" aria-hidden="true">
-              <img id="hero-frame-poster" src="/newhome/tenant-hero-banner.svg" alt="واجهة تشغيل poshahub360" loading="eager" decoding="async" />
+              <img id="hero-frame-poster" src="/newhome/tenant-hero-banner.svg" alt="واجهة تشغيل المنصة" loading="eager" decoding="async" />
             </div>
             <div class="hero-dashboard" aria-hidden="true">
               <article class="hero-panel hero-panel-main">
@@ -1435,7 +1414,7 @@
     <section class="section-head" id="about">
       <div>
         <h2>من نحن</h2>
-        <p>poshahub360 نظام متكامل يجمع التشغيل والإدارة والتقارير داخل واجهة واحدة متناسقة وسهلة الاستخدام.</p>
+        <p>نظام متكامل يجمع التشغيل والإدارة والتقارير داخل واجهة واحدة متناسقة وسهلة الاستخدام.</p>
       </div>
     </section>
 
@@ -1470,9 +1449,9 @@
       </div>
     </section>
 
-    <section class="booking-tour-section" id="book-tour" aria-label="احجز جولة في poshahub360">
+    <section class="booking-tour-section" id="book-tour" aria-label="احجز جولة في المنصة">
       <article class="tour-form-card">
-        <h3 id="tour-form-title">احجز جولة في poshahub360</h3>
+        <h3 id="tour-form-title">احجز جولة في المنصة</h3>
         <p>سجل معلوماتك وسيتواصل معك فريقنا خلال 24 ساعة</p>
         <form class="tour-form">
           <label for="tour-name">الاسم بالكامل</label>
@@ -1502,8 +1481,8 @@
 
       <article class="tour-image-card tour-logo-panel" id="tour-image-card">
         <div class="tour-logo-stage" aria-hidden="false">
-          <img id="tour-main-img" class="tour-brand-logo" src="/public/naiosh-logo.png" alt="شعار poshahub360" data-tenant-brand="logo" loading="eager" />
-          <strong class="tour-brand-name" data-landing-brand="name">poshahub360</strong>
+          <img id="tour-main-img" class="tour-brand-logo" src="/public/naiosh-logo.png" alt="شعار المنصة" data-tenant-brand="logo" loading="eager" />
+          <strong class="tour-brand-name" data-landing-brand="name">منصتي</strong>
           <p class="tour-brand-tagline">منصة تشغيلية متكاملة لإدارة أعمالك باحترافية</p>
         </div>
         <video id="tour-bg-video" muted loop playsinline preload="metadata" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></video>
@@ -1633,8 +1612,8 @@
     </div>
     <div class="site-footer-bottom">
       <div class="container site-footer-bottom-inner">
-        <span data-landing-brand="name">poshahub360</span>
-        <span>© 2026 <span data-landing-brand="name">poshahub360</span> — جميع الحقوق محفوظة.</span>
+        <span data-landing-brand="name">منصتي</span>
+        <span>© 2026 <span data-landing-brand="name">منصتي</span> — جميع الحقوق محفوظة.</span>
       </div>
     </div>
   </footer>
@@ -1915,60 +1894,52 @@
       const renderMainSections = (sections = []) => {
         const container = document.getElementById('main-sections-grid');
         if (!container) return;
-        // Tenant landing: always show the three core systems (ignore homepage CMS sections)
         const scoped = (path) => (typeof getTenantScopedPath === 'function' ? getTenantScopedPath(path) : path);
-        container.innerHTML = `
-          <a class="card" href="${scoped('/hr')}">
-            <div class="icon-box"><i class="fas fa-users-gear"></i></div>
-            <h3>نظام HR</h3>
-            <p>إدارة الموظفين والطلبات والحضور والرواتب من مكان واحد.</p>
-          </a>
-          <a class="card" href="${scoped('/finance')}">
-            <div class="icon-box"><i class="fas fa-coins"></i></div>
-            <h3>نظام المالية</h3>
-            <p>متابعة الحسابات والمدفوعات والتقارير المالية بسهولة.</p>
-          </a>
-          <a class="card" href="${scoped('/archive')}">
-            <div class="icon-box"><i class="fas fa-box-archive"></i></div>
-            <h3>نظام الارشيف</h3>
-            <p>أرشفة المستندات والمرفقات مع بحث سريع وآمن.</p>
-          </a>
-        `;
-        return;
-        // unreachable original CMS render kept below for reference safety
-        if (!container) return;
-        const safeSections = Array.isArray(sections)
-          ? sections
-            .map((section) => ({
-              title: typeof section?.title === 'string' ? section.title.trim() : '',
-              description: typeof section?.description === 'string' ? section.description.trim() : '',
-              link: toSafeMediaPath(section?.link, '#') || '#',
-              iconUrl: toSafeMediaPath(section?.icon_url, ''),
-              iconClass: typeof section?.icon_class === 'string' ? section.icon_class.trim() : '',
-              orderIndex: Number(section?.order_index) || 0
-            }))
-            .filter((section) => section.title)
-            .sort((a, b) => a.orderIndex - b.orderIndex)
-          : [];
-
-        if (!safeSections.length) {
+        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        const allowedSystems = new Set(
+          Array.isArray(window.__TENANT_ALLOWED_SYSTEMS__) && window.__TENANT_ALLOWED_SYSTEMS__.length
+            ? window.__TENANT_ALLOWED_SYSTEMS__
+            : (Array.isArray(brand.allowed_systems) ? brand.allowed_systems : [])
+        );
+        const catalog = [
+          {
+            key: 'hr',
+            href: scoped('/hr'),
+            title: 'نظام HR',
+            description: 'إدارة الموظفين والطلبات والحضور والرواتب من مكان واحد.',
+            icon: 'fas fa-users-gear'
+          },
+          {
+            key: 'finance',
+            href: scoped('/finance'),
+            title: 'نظام المالية',
+            description: 'متابعة الحسابات والمدفوعات والتقارير المالية بسهولة.',
+            icon: 'fas fa-coins'
+          },
+          {
+            key: 'archive',
+            href: scoped('/archive'),
+            title: 'نظام الارشيف',
+            description: 'أرشفة المستندات والمرفقات مع بحث سريع وآمن.',
+            icon: 'fas fa-box-archive'
+          }
+        ];
+        const visible = catalog.filter((item) => allowedSystems.has(item.key));
+        if (!visible.length) {
           container.innerHTML = `
             <article class="card" aria-live="polite">
               <div class="icon-box"><i class="fas fa-inbox"></i></div>
-              <h3>لا توجد أقسام حالياً</h3>
-              <p>يمكنك إضافة أقسام جديدة من لوحة الإعدادات.</p>
+              <h3>لا توجد أنظمة مفعّلة</h3>
+              <p>يتم عرض الأنظمة المشترك بها لهذا المستأجر فقط.</p>
             </article>
           `;
           return;
         }
-
-        container.innerHTML = safeSections.map((section) => `
-          <a class="card" href="${escapeHtml(section.link)}">
-            <div class="icon-box">${section.iconUrl
-              ? `<img src="${escapeHtml(section.iconUrl)}" alt="${escapeHtml(section.title)}" class="w-10 h-10 object-contain" />`
-              : `<i class="${escapeHtml(section.iconClass || 'fas fa-square')}"></i>`}</div>
-            <h3>${escapeHtml(section.title)}</h3>
-            <p>${escapeHtml(section.description)}</p>
+        container.innerHTML = visible.map((item) => `
+          <a class="card" href="${item.href}" data-tenant-system-link="${item.key}">
+            <div class="icon-box"><i class="${item.icon}"></i></div>
+            <h3>${item.title}</h3>
+            <p>${item.description}</p>
           </a>
         `).join('');
       };
@@ -2033,7 +2004,7 @@
             poster.style.visibility = 'visible';
             poster.style.background = 'transparent';
             poster.setAttribute('src', '/newhome/tenant-hero-banner.svg');
-            poster.setAttribute('alt', 'واجهة تشغيل poshahub360');
+            poster.setAttribute('alt', 'واجهة تشغيل المنصة');
           }
           if (heroVisualMedia) {
             heroVisualMedia.style.display = 'block';
@@ -2574,11 +2545,13 @@
         setupHeroMedia(settings, heroMediaList);
         applyFloatingCard(settings);
 
-        // Tenant landing keeps its own logo + title (poshahub360)
+        const brandName = String(
+          (window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {}).site_name || ''
+        ).trim();
         const heroHeading = document.querySelector('.hero-content h1');
         if (heroHeading) {
           heroHeading.classList.add('hero-heading-white');
-          heroHeading.textContent = 'poshahub360';
+          if (brandName) heroHeading.textContent = brandName;
         }
         applyTourMedia(settings);
       };
@@ -2588,7 +2561,10 @@
         const tourMainImg = document.getElementById('tour-main-img');
         const tourVideo = document.getElementById('tour-bg-video');
         const tourTitle = document.getElementById('tour-form-title');
-        if (tourTitle) tourTitle.textContent = 'احجز جولة في poshahub360';
+        const brandName = String(
+          (window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {}).site_name || 'المنصة'
+        ).trim();
+        if (tourTitle) tourTitle.textContent = `احجز جولة في ${brandName}`;
         if (!tourCard) return;
         // Keep brand logo panel — do not let empty CMS media blank the banner
         tourCard.classList.add('tour-logo-panel');
@@ -2749,33 +2725,52 @@
         const m = window.location.pathname.match(/^\/t\/([^/]+)/i);
         return m ? String(m[1] || '').toLowerCase() : '';
       }
-      function lockLandingIdentity() {
-        // Keep display name locked to poshahub360, but preserve branding colors from settings
-        const patch = (identity) => {
-          if (!identity || typeof identity !== 'object') return;
-          identity.site_name = 'poshahub360';
-        };
-        patch(window.__TENANT_IDENTITY_BOOT__);
-        patch(window.__TENANT_IDENTITY__);
-        try {
-          const sub = tenantSub();
-          if (!sub) return;
-          const key = `tenant_identity_v1_${sub}`;
-          const raw = sessionStorage.getItem(key);
-          if (!raw) return;
-          const boot = JSON.parse(raw);
-          patch(boot);
-          sessionStorage.setItem(key, JSON.stringify(boot));
-        } catch (_) {}
+      function filterLandingSystemsBySubscription() {
+        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        const allowed = new Set(
+          Array.isArray(window.__TENANT_ALLOWED_SYSTEMS__) && window.__TENANT_ALLOWED_SYSTEMS__.length
+            ? window.__TENANT_ALLOWED_SYSTEMS__
+            : (Array.isArray(brand.allowed_systems) ? brand.allowed_systems : [])
+        );
+        document.querySelectorAll('[data-tenant-system-link]').forEach((link) => {
+          const key = String(link.getAttribute('data-tenant-system-link') || '').toLowerCase();
+          if (key && !allowed.has(key)) {
+            link.remove();
+          }
+        });
+        document.querySelectorAll('#main-sections-grid a.card').forEach((card) => {
+          const href = String(card.getAttribute('href') || '');
+          const key = href.includes('/archive') ? 'archive'
+            : href.includes('/finance') ? 'finance'
+              : href.includes('/hr') ? 'hr'
+                : '';
+          if (key && !allowed.has(key)) {
+            card.remove();
+          }
+        });
       }
-      function forceMamName() {
-        // Always show poshahub360 on this tenant face (and keep logo from branding)
+      function applyTenantDisplayName() {
+        const brand = window.__TENANT_IDENTITY__ || window.__TENANT_IDENTITY_BOOT__ || {};
+        const name = String(brand.site_name || brand.company_name || '').trim();
+        if (!name) return;
         document.querySelectorAll('[data-landing-brand="name"], [data-tenant-brand="name"]').forEach((n) => {
-          n.textContent = 'poshahub360';
+          n.textContent = name;
         });
         const h1 = document.querySelector('.hero-content h1');
-        if (h1) h1.textContent = 'poshahub360';
-        document.title = 'poshahub360';
+        if (h1) h1.textContent = name;
+        document.title = name;
+        const heroLead = document.querySelector('.hero-content > p');
+        if (heroLead) {
+          heroLead.textContent = `${name} منصة إدارية متكاملة لإدارة أنظمتك التشغيلية باحترافية وأمان.`;
+        }
+        const aboutLead = document.querySelector('#about p');
+        if (aboutLead) {
+          aboutLead.textContent = `${name} نظام متكامل يجمع التشغيل والإدارة والتقارير داخل واجهة واحدة متناسقة وسهلة الاستخدام.`;
+        }
+        const title = document.getElementById('tour-form-title');
+        if (title) title.textContent = `احجز جولة في ${name}`;
+        const tourSection = document.getElementById('book-tour');
+        if (tourSection) tourSection.setAttribute('aria-label', `احجز جولة في ${name}`);
       }
       function paintLandingFromBranding() {
         if (typeof window.__tenantLandingPaintBrandColors === 'function') {
@@ -2798,6 +2793,8 @@
         if (typeof window.__tenantLandingApplyAnnouncementBar === 'function') {
           window.__tenantLandingApplyAnnouncementBar();
         }
+        applyTenantDisplayName();
+        filterLandingSystemsBySubscription();
       }
 
       function applyTenantAnnouncementBar() {
@@ -2986,7 +2983,7 @@
           window.__tenantLandingPaintBrandColors();
         }
         // Default gradient face + built-in artwork
-        showPoster('/newhome/tenant-hero-banner.svg', 'واجهة تشغيل poshahub360');
+        showPoster('/newhome/tenant-hero-banner.svg', 'واجهة تشغيل المنصة');
       }
 
       window.__tenantLandingApplyHeroBanner = applyTenantHeroBanner;
@@ -3017,26 +3014,21 @@
       });
 
       const run = async () => {
-        lockLandingIdentity();
-        forceMamName();
         paintLandingFromBranding();
 
         if (typeof window.applyTenantBranding === 'function') {
           try { await window.applyTenantBranding(); } catch (_) {}
         }
-        lockLandingIdentity();
-        forceMamName();
         paintLandingFromBranding();
         const syncTourBrand = () => {
-          const title = document.getElementById('tour-form-title');
-          if (title) title.textContent = 'احجز جولة في poshahub360';
+          applyTenantDisplayName();
           const headerLogo = document.querySelector('#site-logo-header')?.getAttribute('src');
           const tourLogo = document.getElementById('tour-main-img');
           if (tourLogo && headerLogo) tourLogo.src = headerLogo;
         };
         syncTourBrand();
-        setTimeout(() => { lockLandingIdentity(); forceMamName(); paintLandingFromBranding(); syncTourBrand(); }, 800);
-        setTimeout(() => { lockLandingIdentity(); forceMamName(); paintLandingFromBranding(); syncTourBrand(); }, 2500);
+        setTimeout(() => { paintLandingFromBranding(); syncTourBrand(); }, 800);
+        setTimeout(() => { paintLandingFromBranding(); syncTourBrand(); }, 2500);
       };
       run();
     })();

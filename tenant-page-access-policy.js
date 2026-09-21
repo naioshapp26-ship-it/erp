@@ -354,56 +354,25 @@ async function sanitizeAllActiveTenantPermissions(db, options = {}) {
   return reports;
 }
 
+/**
+ * Historical helper that forced HR + Finance + Archive onto every active tenant.
+ * That overwrote SaaS signup module selection and caused cross-tenant module leakage.
+ * Kept as a safe no-op for callers/tests; permissions must come from signup / admin only.
+ */
 async function ensureTenantCoreSystemPages(db) {
-  const { getTenantPermissionBundle, saveTenantPermissionBundle } = require('./tenant-page-permissions');
   const result = await db.query(
-    `SELECT id, subdomain, status
+    `SELECT subdomain
      FROM tenants
      WHERE status = 'active'
      ORDER BY id ASC`
   );
 
-  const reports = [];
-  for (const tenant of result.rows) {
-    try {
-      const bundle = await getTenantPermissionBundle(db, tenant);
-      const currentPages = sanitizeTenantAllowedPages(bundle.allowed_pages || []);
-      const mergedPages = new Set(currentPages);
-      let changed = false;
-
-      TENANT_CORE_SYSTEM_PAGES.forEach((pageKey) => {
-        if (!mergedPages.has(pageKey)) {
-          mergedPages.add(pageKey);
-          changed = true;
-        }
-      });
-
-      if (!changed) {
-        reports.push({ subdomain: tenant.subdomain, changed: false });
-        continue;
-      }
-
-      const saved = await saveTenantPermissionBundle(db, tenant, {
-        pages: [...mergedPages],
-        page_restrictions: bundle.page_restrictions || bundle.pageRestrictions || {}
-      });
-
-      reports.push({
-        subdomain: tenant.subdomain,
-        changed: true,
-        added: TENANT_CORE_SYSTEM_PAGES.filter((pageKey) => !currentPages.includes(pageKey)),
-        pages: saved.pages
-      });
-    } catch (error) {
-      reports.push({
-        subdomain: tenant.subdomain,
-        changed: false,
-        error: error.message
-      });
-    }
-  }
-
-  return reports;
+  return result.rows.map((tenant) => ({
+    subdomain: tenant.subdomain,
+    changed: false,
+    skipped: true,
+    reason: 'module selection is tenant-owned; core systems are not auto-granted'
+  }));
 }
 
 module.exports = {

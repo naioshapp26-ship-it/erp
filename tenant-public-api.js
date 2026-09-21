@@ -302,13 +302,30 @@ router.get('/api/tenant-public/identity', async (req, res) => {
         await ensureDefaultIdentitySettings(req.tenantPool, req.tenant?.company_name || '', req.tenant);
         data = await readIdentitySettings(req.tenantPool, req.tenant);
       }
+
+      let allowedPages = [];
+      let allowedSystems = [];
+      try {
+        const { getTenantPermissionBundle } = require('./tenant-page-permissions');
+        const {
+          resolveAllowedLandingSystems
+        } = require('./tenant-branding-html-injector');
+        const bundle = await getTenantPermissionBundle(db, req.tenant);
+        allowedPages = Array.isArray(bundle.allowed_pages) ? bundle.allowed_pages : [];
+        allowedSystems = resolveAllowedLandingSystems(allowedPages).map((system) => system.key);
+      } catch (permError) {
+        console.warn('[TenantPublic] identity permissions:', permError.message);
+      }
+
       return res.json({
         success: true,
         data: {
           ...data,
           company_name: req.tenant?.company_name || data.site_name || '',
           primary_color: sanitizeCssColor(data.primary_color),
-          secondary_color: sanitizeCssColor(data.secondary_color, '#1a1a1a')
+          secondary_color: sanitizeCssColor(data.secondary_color, '#1a1a1a'),
+          allowed_pages: allowedPages,
+          allowed_systems: allowedSystems
         }
       });
     }
@@ -325,7 +342,9 @@ router.get('/api/tenant-public/identity', async (req, res) => {
         primary_color: primaryColor,
         secondary_color: sanitizeCssColor(branding?.secondary_color, '#1a1a1a'),
         font_family: branding?.font_family || '',
-        setup_completed: true
+        setup_completed: true,
+        allowed_pages: [],
+        allowed_systems: []
       }
     });
   } catch (err) {

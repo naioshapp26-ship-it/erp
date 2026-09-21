@@ -4,6 +4,33 @@ const { buildFinanceHubBrandingCss } = require('./tenant-finance-hub-branding-cs
 
 const { sanitizeCssColor } = require('./tenant-branding-service');
 
+const TENANT_LANDING_SYSTEMS = [
+  {
+    key: 'hr',
+    pageKey: 'hr',
+    path: '/hr',
+    label: 'نظام HR',
+    description: 'إدارة الموظفين والطلبات والحضور والرواتب من مكان واحد.',
+    iconClass: 'fas fa-users-gear'
+  },
+  {
+    key: 'finance',
+    pageKey: 'finance',
+    path: '/finance',
+    label: 'نظام المالية',
+    description: 'متابعة الحسابات والمدفوعات والتقارير المالية بسهولة.',
+    iconClass: 'fas fa-coins'
+  },
+  {
+    key: 'archive',
+    pageKey: 'records-archive-home',
+    path: '/archive',
+    label: 'نظام الارشيف',
+    description: 'أرشفة المستندات والمرفقات مع بحث سريع وآمن.',
+    iconClass: 'fas fa-box-archive'
+  }
+];
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -13,9 +40,30 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function buildBootIdentity(identity = {}, tenant = null) {
+function normalizeAllowedPages(pages) {
+  if (!Array.isArray(pages)) return [];
+  return [...new Set(pages.map((page) => String(page || '').trim()).filter(Boolean))];
+}
+
+function resolveAllowedLandingSystems(allowedPages) {
+  const allowed = new Set(normalizeAllowedPages(allowedPages));
+  if (!allowed.size) {
+    // Fail closed for landing modules: never invent systems the tenant did not subscribe to.
+    return [];
+  }
+  return TENANT_LANDING_SYSTEMS.filter((system) => allowed.has(system.pageKey));
+}
+
+function buildBootIdentity(identity = {}, tenant = null, options = {}) {
   const siteName = String(identity.site_name || tenant?.company_name || '').trim();
   const subdomain = String(tenant?.subdomain || '').toLowerCase();
+  const allowedPages = normalizeAllowedPages(
+    options.allowedPages
+      || identity.allowed_pages
+      || identity.allowedPages
+      || []
+  );
+  const allowedSystems = resolveAllowedLandingSystems(allowedPages).map((system) => system.key);
   const scopeApi = (url) => {
     const raw = String(url || '').trim();
     if (!raw) return '';
@@ -41,7 +89,10 @@ function buildBootIdentity(identity = {}, tenant = null) {
     announcement_enabled: identity.announcement_enabled !== false,
     announcement_text: String(identity.announcement_text || '').trim(),
     announcement_speed: Number(identity.announcement_speed) || 28,
-    announcement_text_color: sanitizeCssColor(identity.announcement_text_color, '#ffffff')
+    announcement_text_color: sanitizeCssColor(identity.announcement_text_color, '#ffffff'),
+    allowed_pages: allowedPages,
+    allowed_systems: allowedSystems,
+    company_name: String(identity.company_name || tenant?.company_name || siteName || '').trim()
   };
 }
 
@@ -104,14 +155,10 @@ function buildSyncCacheBootScript() {
       });
     }
     if (boot.site_name) {
-      document.querySelectorAll('[data-tenant-brand="name"]').forEach(function (node) {
+      document.querySelectorAll('[data-tenant-brand="name"], [data-landing-brand="name"]').forEach(function (node) {
         node.textContent = boot.site_name;
       });
-      if (/نايو|NAIOSH|نظام/i.test(document.title)) {
-        document.title = document.title
-          .replace(/نايوش|NAIOSH ERP|NAIOSH/gi, boot.site_name)
-          .replace(/نظام نايو/gi, boot.site_name);
-      }
+      document.title = boot.site_name;
     }
     if (boot.site_tagline) {
       document.querySelectorAll('[data-tenant-brand="tagline"]').forEach(function (node) {
@@ -132,6 +179,8 @@ function buildSyncCacheBootScript() {
     if (document.body) document.body.classList.add('tenant-branded');
     window.__TENANT_IDENTITY_BOOT__ = boot;
     window.__TENANT_IDENTITY__ = boot;
+    window.__TENANT_ALLOWED_PAGES__ = Array.isArray(boot.allowed_pages) ? boot.allowed_pages : [];
+    window.__TENANT_ALLOWED_SYSTEMS__ = Array.isArray(boot.allowed_systems) ? boot.allowed_systems : [];
   }
   var sub = getSubdomain();
   if (!sub) return;
@@ -225,6 +274,8 @@ function buildCriticalBrandingBlock(identity, tenant = null) {
         document.documentElement.setAttribute('data-tenant-branding', 'active');
         window.__TENANT_IDENTITY_BOOT__ = boot;
         window.__TENANT_IDENTITY__ = boot;
+        window.__TENANT_ALLOWED_PAGES__ = Array.isArray(boot.allowed_pages) ? boot.allowed_pages : [];
+        window.__TENANT_ALLOWED_SYSTEMS__ = Array.isArray(boot.allowed_systems) ? boot.allowed_systems : [];
         function scopedLogo(url) {
           if (!url) return '';
           if (String(url).indexOf('/api/tenant-public/logo') !== -1 && sub) {
@@ -265,14 +316,10 @@ function buildCriticalBrandingBlock(identity, tenant = null) {
             });
           }
           if (boot.site_name) {
-            document.querySelectorAll('[data-tenant-brand="name"]').forEach(function (node) {
+            document.querySelectorAll('[data-tenant-brand="name"], [data-landing-brand="name"]').forEach(function (node) {
               node.textContent = boot.site_name;
             });
-            if (/نايو|NAIOSH|نظام/i.test(document.title)) {
-              document.title = document.title
-                .replace(/نايوش|NAIOSH ERP|NAIOSH/gi, boot.site_name)
-                .replace(/نظام نايو/gi, boot.site_name);
-            }
+            document.title = boot.site_name;
           }
           if (boot.site_tagline) {
             document.querySelectorAll('[data-tenant-brand="tagline"]').forEach(function (node) {
@@ -315,6 +362,7 @@ function replacePlatformBrandingInHtml(html, identity, tenant = null) {
     next = next.replace(/إمبراطورية نايوش/g, safeName);
     next = next.replace(/\bNAIOSH\b/g, safeName);
     next = next.replace(/نايوش/g, safeName);
+    next = next.replace(/poshahub360/gi, safeName);
   }
 
   if (boot.site_tagline) {
@@ -325,9 +373,9 @@ function replacePlatformBrandingInHtml(html, identity, tenant = null) {
   return next;
 }
 
-function injectTenantBrandingHtml(html, identity, tenant = null) {
+function injectTenantBrandingHtml(html, identity, tenant = null, options = {}) {
   if (!identity || !tenant) return html;
-  const boot = buildBootIdentity(identity, tenant);
+  const boot = buildBootIdentity(identity, tenant, options);
   if (!boot.site_name && !boot.logo_url && !boot.primary_color) return html;
 
   let next = replacePlatformBrandingInHtml(html, boot, tenant);
@@ -346,15 +394,45 @@ function injectTenantBrandingHtml(html, identity, tenant = null) {
   return next;
 }
 
-function injectTenantLandingSystemLinks(html, tenant) {
+function stripUnauthorizedLandingSystems(html, allowedSystems) {
+  const allowed = new Set(
+    (Array.isArray(allowedSystems) ? allowedSystems : [])
+      .map((key) => String(key || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  let output = String(html || '');
+  TENANT_LANDING_SYSTEMS.forEach((system) => {
+    if (allowed.has(system.key)) return;
+    const key = system.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const path = system.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    output = output.replace(
+      new RegExp(`<a\\b[^>]*data-tenant-system-link="${key}"[^>]*>[\\s\\S]*?<\\/a>`, 'gi'),
+      ''
+    );
+    output = output.replace(
+      new RegExp(`<a\\b[^>]*class="[^"]*card[^"]*"[^>]*href="(?:\\/t\\/[a-z0-9][a-z0-9-]*)${path}"[^>]*>[\\s\\S]*?<\\/a>`, 'gi'),
+      ''
+    );
+    output = output.replace(
+      new RegExp(`<a\\b[^>]*class="[^"]*card[^"]*"[^>]*href="${path}"[^>]*>[\\s\\S]*?<\\/a>`, 'gi'),
+      ''
+    );
+  });
+  return output;
+}
+
+function injectTenantLandingSystemLinks(html, tenant, allowedPages = null) {
   const subdomain = String(tenant?.subdomain || '').trim().toLowerCase();
   if (!html || !subdomain) return html;
 
+  const allowedSystems = resolveAllowedLandingSystems(allowedPages);
+  const allowedKeys = allowedSystems.map((system) => system.key);
   const scope = (targetPath) => `/t/${subdomain}${targetPath}`;
-  const systemPaths = ['/hr', '/finance', '/archive'];
-  let output = html;
+  let output = String(html);
 
-  systemPaths.forEach((targetPath) => {
+  TENANT_LANDING_SYSTEMS.forEach((system) => {
+    const targetPath = system.path;
     const scopedPath = scope(targetPath);
     output = output.replace(
       new RegExp(`(class="hero-sidebar-item"[^>]*href=")${targetPath.replace('/', '\\/')}(")`, 'g'),
@@ -370,14 +448,22 @@ function injectTenantLandingSystemLinks(html, tenant) {
     );
   });
 
+  if (allowedPages != null) {
+    output = stripUnauthorizedLandingSystems(output, allowedKeys);
+  }
+
   return output;
 }
 
 module.exports = {
+  TENANT_LANDING_SYSTEMS,
+  normalizeAllowedPages,
+  resolveAllowedLandingSystems,
   buildBootIdentity,
   buildSyncCacheBootScript,
   buildCriticalBrandingBlock,
   replacePlatformBrandingInHtml,
   injectTenantBrandingHtml,
-  injectTenantLandingSystemLinks
+  injectTenantLandingSystemLinks,
+  stripUnauthorizedLandingSystems
 };
