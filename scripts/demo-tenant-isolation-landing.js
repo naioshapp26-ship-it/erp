@@ -65,6 +65,38 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ ok: true }));
   }
+
+  // Serve local static assets so the landing CSS/JS/images load in the isolation demo.
+  const staticRoots = [
+    { prefix: '/newhome/', dir: path.join(__dirname, '..', 'newhome') },
+    { prefix: '/public/', dir: path.join(__dirname, '..', 'public') },
+    { prefix: '/tenant-', dir: path.join(__dirname, '..') }
+  ];
+  for (const root of staticRoots) {
+    if (!url.startsWith(root.prefix) && !(root.prefix === '/tenant-' && /^\/tenant-[a-z0-9.-]+\.js$/i.test(url))) {
+      continue;
+    }
+    const relative = root.prefix === '/tenant-'
+      ? url.replace(/^\//, '')
+      : url.slice(root.prefix.length);
+    const absolute = path.resolve(root.dir, relative);
+    if (!absolute.startsWith(path.resolve(root.dir)) || !fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) {
+      break;
+    }
+    const ext = path.extname(absolute).toLowerCase();
+    const types = {
+      '.css': 'text/css; charset=utf-8',
+      '.js': 'application/javascript; charset=utf-8',
+      '.svg': 'image/svg+xml',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.webp': 'image/webp'
+    };
+    res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream' });
+    return fs.createReadStream(absolute).pipe(res);
+  }
+
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('not found');
 });
