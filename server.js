@@ -2821,6 +2821,9 @@ app.use('/api/tenant-settings', tenantSettingsRoutes);
 const platformSettingsRoutes = require('./platform-settings-api');
 app.use('/api/platform', platformSettingsRoutes);
 
+const enterpriseSettingsRoutes = require('./enterprise-settings-engine-api');
+app.use('/api/enterprise-settings', enterpriseSettingsRoutes);
+
 // Payment Gateway Routes (Stripe + PayPal + Paymob — platform & tenant)
 const paymentRoutes = require('./payment/routes');
 app.use('/api/payment', paymentRoutes);
@@ -2870,6 +2873,7 @@ const isScopedBusinessRequest = (req) => {
     || requestPath.startsWith('/api/hr/')
     || requestPath.startsWith('/api/tenant-users')
     || requestPath.startsWith('/api/tenant-settings')
+    || requestPath.startsWith('/api/enterprise-settings')
     || requestPath.startsWith('/api/payment');
 };
 
@@ -4229,9 +4233,33 @@ app.get('/beta-club', (req, res) => {
   sendHtmlWithNumberFormat(res, path.join(__dirname, 'newhome', 'beta-club.html'));
 });
 
-// Identity / Homepage settings page
+// Identity / Homepage settings page (exact /settings only)
 app.get('/settings', (req, res) => {
   res.sendFile(path.join(__dirname, 'settings.html'));
+});
+
+// Enterprise Settings Center SPA routes (must NOT override exact /settings)
+app.get('/settings/admin', serveDashboardSpa);
+app.get('/settings/admin/*', serveDashboardSpa);
+[
+  '/settings/branches-sections',
+  '/settings/field-templates',
+  '/settings/numbering-systems',
+  '/settings/procedure-types',
+  '/settings/letter-types',
+  '/settings/letter-templates',
+  '/settings/transaction-statuses',
+  '/settings/request-config',
+  '/settings/task-statuses',
+  '/settings/barcode-templates',
+  '/settings/email-templates',
+  '/settings/sms-templates',
+  '/settings/print-templates',
+  '/settings/permissions',
+  '/settings/backup',
+  '/settings/general',
+].forEach((routePath) => {
+  app.get(routePath, serveDashboardSpa);
 });
 
 app.get('/create-page', (req, res) => {

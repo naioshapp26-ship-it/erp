@@ -18305,106 +18305,226 @@ const app = (() => {
         </div>`;
     };
 
-    const settingsCatalogPages = [
-        { id: 'settings-branches-sections', title: 'الفروع والاقسام', icon: 'fa-code-branch', status: '23 فرع', owner: 'الإدارة التنظيمية', kpi: '5 فروع قيد التفعيل', sla: 'SLA: 24 ساعة', highlights: ['هيكل فروع تلقائي بحسب المنطقة', 'ربط الأقسام بالهيكل الهرمي', 'تحقق من عدم تكرار الرموز'], actions: ['إضافة فرع', 'تحديث القسم', 'تصدير الهيكل'] },
-        { id: 'settings-field-templates', title: 'نماذج الحقول', icon: 'fa-table-cells-large', status: '34 نموذج', owner: 'إدارة التحول الرقمي', kpi: '7 نماذج تحتاج مراجعة', sla: 'SLA: 48 ساعة', highlights: ['مكتبة قوالب جاهزة للطلبات', 'حقول ديناميكية حسب نوع الخدمة', 'ضوابط إلزامية قبل النشر'], actions: ['إنشاء نموذج', 'إدارة الحقول', 'نسخ قالب'] },
-        { id: 'settings-numbering-systems', title: 'انظمة الترقيم', icon: 'fa-hashtag', status: '12 نظام', owner: 'إدارة الجودة', kpi: '98.6% تسلسل صحيح', sla: 'SLA: 4 ساعات', highlights: ['ترقيم منفصل لكل إدارة', 'صيغة مرنة تدعم السنة والفرع', 'كشف تلقائي للأرقام المكررة'], actions: ['تعديل صيغة', 'إعادة مزامنة', 'اختبار التوليد'] },
-        { id: 'settings-procedure-types', title: 'انواع الاجرات', icon: 'fa-list-check', status: '18 نوع', owner: 'مكتب العمليات', kpi: '3 أنواع جديدة هذا الشهر', sla: 'SLA: 24 ساعة', highlights: ['تصنيف الإجراءات حسب المخاطر', 'ربط كل إجراء بمستوى الموافقة', 'أتمتة التوجيه حسب النوع'], actions: ['إضافة نوع', 'تعديل المسار', 'تعطيل نوع'] },
-        { id: 'settings-letter-types', title: 'انواع الخطابات', icon: 'fa-envelope-open-text', status: '9 أنواع', owner: 'الشؤون الإدارية', kpi: 'متوسط اعتماد: 2.1 يوم', sla: 'SLA: يومين', highlights: ['قوالب خطابات داخلية وخارجية', 'تصنيف حسب الجهة المستفيدة', 'سياسات توقيع إلكتروني'], actions: ['إضافة نوع', 'تحديث التصنيف', 'إدارة الرموز'] },
-        { id: 'settings-letter-templates', title: 'نماذج الخطابات', icon: 'fa-file-signature', status: '21 نموذج', owner: 'مكتب الجودة', kpi: '11 نموذج معتمد حديثاً', sla: 'SLA: 72 ساعة', highlights: ['محرر نماذج بمعايير موحدة', 'محددات حقول متغيرة تلقائياً', 'تدقيق لغوي قبل الاعتماد'], actions: ['تصميم قالب', 'معاينة PDF', 'اعتماد النموذج'] },
-        { id: 'settings-transaction-statuses', title: 'حالات المعاملات', icon: 'fa-tags', status: '14 حالة', owner: 'مركز العمليات', kpi: '6 انتقالات آلية', sla: 'SLA: فوري', highlights: ['مخطط انتقالات مرن', 'منع الانتقال غير المسموح', 'توثيق سبب تغيير الحالة'], actions: ['إضافة حالة', 'ضبط الانتقالات', 'تحليل التدفق'] },
-        { id: 'settings-request-config', title: 'اعدادات الطلبات', icon: 'fa-recycle', status: '15 قاعدة', owner: 'إدارة الخدمات', kpi: '27 قاعدة تحقق نشطة', sla: 'SLA: 24 ساعة', highlights: ['متطلبات إلزامية حسب نوع الطلب', 'تحكم بمسارات الاعتماد', 'تنبيهات SLA تلقائية'], actions: ['تعديل القواعد', 'تحديد SLA', 'إدارة التوجيه'] },
-        { id: 'settings-task-statuses', title: 'حالات المهام', icon: 'fa-server', status: '11 حالة', owner: 'PMO', kpi: 'نسبة إنجاز 91%', sla: 'SLA: يومي', highlights: ['حالات مخصصة حسب فريق العمل', 'قياس زمن كل حالة', 'ربط الحالات بالتصعيد'], actions: ['إضافة حالة', 'ترتيب الأولويات', 'لوحة الأداء'] },
-        { id: 'settings-barcode-templates', title: 'قوالب الباركود', icon: 'fa-barcode', status: '8 قوالب', owner: 'إدارة الأرشفة', kpi: '34K باركود شهرياً', sla: 'SLA: فوري', highlights: ['دعم QR وCode128', 'إعدادات حجم وطباعة موحدة', 'تشفير رقم المعاملة آلياً'], actions: ['إضافة قالب', 'اختبار الطباعة', 'ربط الأرشفة'] },
-        { id: 'settings-email-templates', title: 'قوالب الايميلات', icon: 'fa-at', status: '19 قالب', owner: 'إدارة الاتصال', kpi: 'Open Rate: 63%', sla: 'SLA: 6 ساعات', highlights: ['قوالب متعددة اللغات', 'متغيرات ديناميكية للعميل', 'تتبع تسليم البريد'], actions: ['إنشاء قالب', 'اختبار الإرسال', 'إدارة التواقيع'] },
-        { id: 'settings-sms-templates', title: 'قوالب sms', icon: 'fa-comments', status: '13 قالب', owner: 'إدارة الاتصال', kpi: 'Delivery: 98.2%', sla: 'SLA: 2 ساعة', highlights: ['قوالب قصيرة عالية الوضوح', 'جدولة الرسائل حسب الحدث', 'فلترة تلقائية للمحتوى'], actions: ['إضافة رسالة', 'تحديد المزود', 'معاينة النص'] },
-        { id: 'settings-print-templates', title: 'قوالب الطباعه', icon: 'fa-print', status: '16 قالب', owner: 'إدارة النماذج', kpi: '4 مقاسات معتمدة', sla: 'SLA: يوم عمل', highlights: ['قوالب A4 وحراري وملصقات', 'إدارة الهوامش والعناوين', 'اعتماد إصدار قبل النشر'], actions: ['تحرير قالب', 'معاينة طباعة', 'أرشفة إصدار'] },
-        { id: 'settings-permissions', title: 'الصلاحيات', icon: 'fa-lock', status: '42 دور', owner: 'الأمن السيبراني', kpi: '7 سياسات وصول دقيقة', sla: 'SLA: 12 ساعة', highlights: ['أدوار وصلاحيات على مستوى الصفحة', 'سجل تدقيق لكل تعديل', 'قواعد فصل المهام الحساسة'], actions: ['إضافة دور', 'نسخ صلاحية', 'مراجعة الوصول'] },
-        { id: 'settings-backup', title: 'النسخ الاحتياطي', icon: 'fa-database', status: 'يومي', owner: 'إدارة تقنية المعلومات', kpi: 'آخر نسخة: 02:00 AM', sla: 'SLA: فوري', highlights: ['نسخ تلقائي يومي وأسبوعي', 'اختبار استعادة مجدول', 'تنبيهات فشل النسخ'], actions: ['تشغيل نسخة', 'اختبار استرجاع', 'جدولة جديدة'] },
-        { id: 'settings-general', title: 'اعدادات عامة', icon: 'fa-cogs', status: 'جاهز', owner: 'الإدارة العامة', kpi: '31 خيار نظام', sla: 'SLA: يومي', highlights: ['إعدادات الزمن واللغة والمنطقة', 'تحكم بإعدادات الإشعارات', 'سياسات الأمان العامة للنظام'], actions: ['تحديث الإعدادات', 'حفظ نسخة', 'مراجعة التغييرات'] }
-    ];
-    const settingsCatalogMap = settingsCatalogPages.reduce((acc, page) => {
-        acc[page.id] = page;
-        return acc;
-    }, {});
+    let enterpriseSettingsCatalogCache = null;
+    let enterpriseSettingsCatalogError = null;
+
+    const settingsStatusMeta = {
+        live: { label: 'مفعّل ومرتبط', className: 'bg-emerald-100 text-emerald-800' },
+        partial: { label: 'جزئي', className: 'bg-amber-100 text-amber-800' },
+        planned: { label: 'مخطط', className: 'bg-slate-100 text-slate-700' },
+        mock: { label: 'غير جاهز (كان شكلياً)', className: 'bg-rose-100 text-rose-800' }
+    };
+
+    const ensureEnterpriseSettingsCatalog = async () => {
+        if (enterpriseSettingsCatalogCache) return enterpriseSettingsCatalogCache;
+        try {
+            const res = await fetch('/api/enterprise-settings/catalog', {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok || !payload.success) {
+                throw new Error(payload.message || `HTTP ${res.status}`);
+            }
+            enterpriseSettingsCatalogCache = payload.data;
+            enterpriseSettingsCatalogError = null;
+            return enterpriseSettingsCatalogCache;
+        } catch (err) {
+            enterpriseSettingsCatalogError = err.message || 'تعذر تحميل كتالوج الإعدادات';
+            enterpriseSettingsCatalogCache = null;
+            throw err;
+        }
+    };
+
+    const openEnterpriseSettingEntry = (entryId) => {
+        const catalog = enterpriseSettingsCatalogCache;
+        const entry = catalog?.entries?.find((item) => item.id === entryId);
+        if (!entry) {
+            showToast('العنصر غير موجود في كتالوج الإعدادات', 'error');
+            return;
+        }
+        if (entry.status === 'mock' || entry.status === 'planned') {
+            showToast(`«${entry.titleAr}» غير جاهز للتشغيل بعد — لا يوجد منطق حفظ وهمي.`, 'warning');
+            return;
+        }
+        if (entry.href) {
+            window.location.href = entry.href;
+            return;
+        }
+        if (entry.spaRoute) {
+            loadRoute(entry.spaRoute);
+            return;
+        }
+        showToast('لا يوجد مسار تشغيل مرتبط بهذا الإعداد بعد.', 'warning');
+    };
+
+    const renderEnterpriseSettingsCards = (entries = []) => {
+        if (!entries.length) {
+            return `<div class="col-span-full text-sm text-slate-500 bg-white border border-dashed border-slate-200 rounded-xl p-6 text-center">لا توجد عناصر في هذا المستوى.</div>`;
+        }
+        return entries.map((entry) => {
+            const meta = settingsStatusMeta[entry.status] || settingsStatusMeta.planned;
+            const disabled = entry.status === 'mock' || entry.status === 'planned' || (!entry.href && !entry.spaRoute);
+            const actionLabel = disabled ? 'غير متاح بعد' : 'فتح الإعدادات';
+            return `
+                <article class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-3 min-h-[180px]">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                            <i class="fas ${entry.icon || 'fa-gear'}"></i>
+                        </div>
+                        <span class="text-[11px] font-bold px-2 py-1 rounded-full ${meta.className}">${meta.label}</span>
+                    </div>
+                    <div class="text-right space-y-1 flex-1">
+                        <h3 class="font-bold text-slate-800 text-base leading-snug">${entry.titleAr}</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed">${entry.descriptionAr || entry.notes || entry.groupAr || ''}</p>
+                        ${entry.groupAr ? `<p class="text-[11px] text-slate-400">${entry.groupAr}</p>` : ''}
+                    </div>
+                    <button
+                        type="button"
+                        ${disabled ? 'disabled' : ''}
+                        onclick="app.openEnterpriseSettingEntry('${entry.id}')"
+                        class="w-full rounded-xl px-3 py-2.5 text-sm font-bold transition ${disabled ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700 text-white'}">
+                        ${actionLabel}
+                    </button>
+                </article>`;
+        }).join('');
+    };
+
+    const refreshEnterpriseSettingsHub = async () => {
+        const mount = document.getElementById('enterprise-settings-hub-root');
+        if (!mount) return;
+        mount.innerHTML = `<div class="text-center text-slate-500 py-10">جاري تحميل مركز الإعدادات المؤسسي...</div>`;
+        try {
+            const catalog = await ensureEnterpriseSettingsCatalog();
+            const q = (document.getElementById('enterprise-settings-search')?.value || '').trim().toLowerCase();
+            const filterEntries = (list) => list.filter((entry) => {
+                if (!q) return true;
+                return [entry.titleAr, entry.titleEn, entry.descriptionAr, entry.groupAr, entry.moduleKey]
+                    .filter(Boolean)
+                    .some((value) => String(value).toLowerCase().includes(q));
+            });
+            const platform = filterEntries(catalog.byLevel.platform || []);
+            const company = filterEntries(catalog.byLevel.company || []);
+            const modules = filterEntries(catalog.byLevel.module || []);
+            mount.innerHTML = `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                    <div class="bg-white border rounded-xl p-3 text-center"><div class="text-xs text-slate-500">الإجمالي</div><div class="text-xl font-bold">${catalog.counts.total}</div></div>
+                    <div class="bg-white border rounded-xl p-3 text-center"><div class="text-xs text-slate-500">مرتبط</div><div class="text-xl font-bold text-emerald-700">${catalog.counts.live}</div></div>
+                    <div class="bg-white border rounded-xl p-3 text-center"><div class="text-xs text-slate-500">جزئي</div><div class="text-xl font-bold text-amber-700">${catalog.counts.partial}</div></div>
+                    <div class="bg-white border rounded-xl p-3 text-center"><div class="text-xs text-slate-500">غير جاهز</div><div class="text-xl font-bold text-rose-700">${catalog.counts.mock + catalog.counts.planned}</div></div>
+                </div>
+                ${platform.length ? `
+                <section class="space-y-3 mb-6">
+                    <h3 class="text-lg font-bold text-slate-800">1) إعدادات المنصة</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${renderEnterpriseSettingsCards(platform)}</div>
+                </section>` : ''}
+                <section class="space-y-3 mb-6">
+                    <h3 class="text-lg font-bold text-slate-800">2) إعدادات الشركة</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${renderEnterpriseSettingsCards(company)}</div>
+                </section>
+                <section class="space-y-3">
+                    <h3 class="text-lg font-bold text-slate-800">3) إعدادات الوحدات</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${renderEnterpriseSettingsCards(modules)}</div>
+                </section>
+            `;
+        } catch (err) {
+            mount.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-5 text-sm">
+                تعذر تحميل مركز الإعدادات: ${enterpriseSettingsCatalogError || err.message}
+            </div>`;
+        }
+    };
 
     const renderSettingsHub = () => {
         if (!perms.isAdmin()) return renderPlaceholder();
+        setTimeout(() => { refreshEnterpriseSettingsHub(); }, 0);
+
         return `
         <div class="animate-fade-in bg-slate-100 rounded-2xl border border-slate-200 p-4 sm:p-6 space-y-5 min-h-[70vh]">
-            <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 flex items-center justify-between">
+            <div class="bg-white border border-slate-200 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
                 <div class="text-right">
-                    <h2 class="text-3xl font-bold text-slate-700 mb-1">الإعدادات</h2>
-                    <p class="text-sm text-slate-500">الرئيسية / الإعدادات</p>
+                    <h2 class="text-3xl font-bold text-slate-800 mb-1">مركز الإعدادات المؤسسي 360</h2>
+                    <p class="text-sm text-slate-500">منصة / شركة / وحدات — بدون أزرار وهمية</p>
                 </div>
-                <div class="w-14 h-14 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center">
-                    <i class="fas fa-cog text-3xl"></i>
+                <div class="flex items-center gap-2">
+                    <input id="enterprise-settings-search" type="search" placeholder="بحث في الإعدادات..."
+                        class="h-10 w-56 max-w-full rounded-xl border border-slate-200 px-3 text-sm"
+                        oninput="app.refreshEnterpriseSettingsHub()" />
+                    <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                        <i class="fas fa-cog text-2xl"></i>
+                    </div>
                 </div>
             </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-4">
-                ${settingsCatalogPages.map(page => `
-                    <button onclick="app.loadRoute('${page.id}')" class="bg-white border border-slate-200 hover:border-slate-300 rounded-none p-5 text-center transition min-h-[130px] flex flex-col items-center justify-center gap-3">
-                        <i class="fas ${page.icon} text-4xl text-slate-500"></i>
-                        <h3 class="font-bold text-slate-700 text-2xl leading-tight">${page.title}</h3>
-                    </button>
-                `).join('')}
-            </div>
+            <div id="enterprise-settings-hub-root" class="space-y-4"></div>
         </div>`;
+    };
+
+    const legacyMockSettingsRoutes = {
+        'settings-branches-sections': 'company-org',
+        'settings-field-templates': 'module-hr-settings',
+        'settings-numbering-systems': 'module-numbering',
+        'settings-procedure-types': 'module-approvals-governance',
+        'settings-letter-types': 'module-contracts',
+        'settings-letter-templates': 'module-contracts',
+        'settings-transaction-statuses': 'module-approvals-governance',
+        'settings-request-config': 'module-approvals-governance',
+        'settings-task-statuses': 'module-task-settings',
+        'settings-barcode-templates': 'module-templates-print',
+        'settings-email-templates': 'module-templates-email',
+        'settings-sms-templates': 'module-templates-sms',
+        'settings-print-templates': 'module-templates-print',
+        'settings-permissions': 'module-permissions-tile',
+        'settings-backup': 'module-backup',
+        'settings-general': 'company-general'
     };
 
     const renderSettingsCatalogPage = (route) => {
         if (!perms.isAdmin()) return renderPlaceholder();
-        const page = settingsCatalogMap[route];
-        if (!page) return renderPlaceholder(route, 'الاعدادات');
-        return `
-        <div class="space-y-6 animate-fade-in">
-            <div class="bg-white rounded-2xl p-6 border shadow-sm">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h2 class="text-2xl font-bold text-slate-800">${page.title}</h2>
-                        <p class="text-slate-600 mt-1">الجهة المالكة: ${page.owner}</p>
-                    </div>
-                    <button onclick="app.loadRoute('settings-admin')" class="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700">
-                        <i class="fas fa-arrow-right ml-2"></i>رجوع إلى الاعدادات
-                    </button>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="bg-white rounded-xl border p-4"><div class="text-xs text-slate-500 mb-1">المؤشر الحالي</div><div class="font-bold text-slate-800">${page.kpi}</div></div>
-                <div class="bg-white rounded-xl border p-4"><div class="text-xs text-slate-500 mb-1">الحالة</div><div class="font-bold text-slate-800">${page.status}</div></div>
-                <div class="bg-white rounded-xl border p-4"><div class="text-xs text-slate-500 mb-1">مستوى الخدمة</div><div class="font-bold text-slate-800">${page.sla}</div></div>
-                <div class="bg-white rounded-xl border p-4"><div class="text-xs text-slate-500 mb-1">آخر تحديث</div><div class="font-bold text-slate-800">${new Date().toLocaleDateString('ar-SA')}</div></div>
-            </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div class="bg-white rounded-2xl border shadow-sm p-6">
-                    <h3 class="font-bold text-slate-800 mb-4">بيانات تعزيزية</h3>
-                    <ul class="space-y-3 text-slate-700 text-sm">
-                        ${page.highlights.map(item => `<li class="flex items-start gap-2"><i class="fas fa-check-circle text-emerald-500 mt-0.5"></i><span>${item}</span></li>`).join('')}
-                    </ul>
-                </div>
-                <div class="bg-white rounded-2xl border shadow-sm p-6">
-                    <h3 class="font-bold text-slate-800 mb-4">إجراءات ${page.title}</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        ${page.actions.map((actionLabel, idx) => `
-                            <button onclick="app.handleSettingsCatalogAction('${route}','${idx === 0 ? 'add' : idx === 1 ? 'edit' : 'export'}')" class="px-4 py-3 rounded-xl text-white transition ${idx === 0 ? 'bg-brand-600 hover:bg-brand-700' : idx === 1 ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}">${actionLabel}</button>
-                        `).join('')}
-                    </div>
-                    <button onclick="app.handleSettingsCatalogAction('${route}','delete')" class="mt-3 w-full bg-rose-600 text-white px-4 py-3 rounded-xl hover:bg-rose-700 transition">أرشفة عنصر</button>
-                </div>
-            </div>
-        </div>`;
+        const mappedId = legacyMockSettingsRoutes[route];
+        setTimeout(async () => {
+            try {
+                const catalog = await ensureEnterpriseSettingsCatalog();
+                const entry = catalog.entries.find((item) => item.id === mappedId) || null;
+                const mount = document.getElementById('enterprise-settings-detail-root');
+                if (!mount) return;
+                if (!entry) {
+                    mount.innerHTML = `<div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-5 text-sm">
+                        هذا المسار القديم كان شكلياً. استخدم مركز الإعدادات المؤسسي للوصول للعناصر المرتبطة فعلياً.
+                        <div class="mt-3"><button class="px-4 py-2 rounded-xl bg-brand-600 text-white" onclick="app.loadRoute('settings-admin')">العودة للمركز</button></div>
+                    </div>`;
+                    return;
+                }
+                const meta = settingsStatusMeta[entry.status] || settingsStatusMeta.planned;
+                const canOpen = entry.status === 'live' || entry.status === 'partial';
+                mount.innerHTML = `
+                    <div class="bg-white rounded-2xl border p-6 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 class="text-2xl font-bold text-slate-800">${entry.titleAr}</h2>
+                                <p class="text-sm text-slate-500 mt-1">${entry.descriptionAr || entry.notes || ''}</p>
+                            </div>
+                            <span class="text-xs font-bold px-3 py-1 rounded-full ${meta.className}">${meta.label}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-3">
+                            <button onclick="app.loadRoute('settings-admin')" class="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50">رجوع</button>
+                            ${canOpen ? `<button onclick="app.openEnterpriseSettingEntry('${entry.id}')" class="px-4 py-2 rounded-xl bg-brand-600 text-white hover:bg-brand-700">فتح الإعداد الحقيقي</button>` : `<button disabled class="px-4 py-2 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed">لا يوجد تشغيل وهمي</button>`}
+                        </div>
+                    </div>`;
+            } catch (err) {
+                const mount = document.getElementById('enterprise-settings-detail-root');
+                if (mount) {
+                    mount.innerHTML = `<div class="text-rose-700 text-sm">تعذر التحميل: ${err.message}</div>`;
+                }
+            }
+        }, 0);
+        return `<div id="enterprise-settings-detail-root" class="animate-fade-in p-2"><div class="text-slate-500 text-sm p-6">جاري التحميل...</div></div>`;
     };
 
     const handleSettingsCatalogAction = (route, action) => {
-        const page = settingsCatalogMap[route];
-        if (!page) return;
-        const labels = {
-            add: 'تم تجهيز نموذج إضافة جديد',
-            edit: 'تم فتح شاشة التعديل',
-            export: 'تم بدء تصدير البيانات',
-            delete: 'تم إرسال العنصر للأرشفة'
-        };
-        showToast(`${labels[action] || 'تم تنفيذ العملية'} - ${page.title}`, action === 'delete' ? 'warning' : 'success');
+        // Hard stop for legacy toast-success mocks
+        showToast('تم تعطيل الإجراءات الشكلية. استخدم مركز الإعدادات المؤسسي والعناصر ذات الحالة «مفعّل ومرتبط».', 'warning');
+        if (route === 'settings-permissions') {
+            window.location.href = '/super-admin-page.html';
+        }
     };
 
     const previewTheme = (key) => updateThemeVariables(key);
@@ -27101,6 +27221,8 @@ const app = (() => {
         createFacilityRequest, exportFacilityReport, handleFacilitySummary, handleFacilityAction, handleFacilityPageAction,
         editFacilitiesContract, deleteFacilitiesContract,
         handleSettingsCatalogAction,
+        openEnterpriseSettingEntry,
+        refreshEnterpriseSettingsHub,
         handleSupplyChainAction, handleQualityPolicyAction,  // Facilities, Supply Chain, Quality & Policies functions
         handleDownloadAppClick,
         startPwaInstall: async () => {
