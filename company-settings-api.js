@@ -93,11 +93,11 @@ async function requireCompanyAdmin(req, res, next) {
     }
     const user = result.rows[0];
     const role = String(user.role || '').toLowerCase();
+    // Phase 6: tighten RBAC — tenant_type HQ alone must not grant settings admin to staff
     const allowed =
-      ['admin', 'tenant_admin', 'company_admin', 'super_admin'].includes(role) ||
-      role.includes('admin') ||
-      String(user.role || '') === 'مسؤول النظام' ||
-      user.tenant_type === 'HQ';
+      ['admin', 'tenant_admin', 'company_admin', 'super_admin', 'hr_admin', 'finance_admin'].includes(role) ||
+      (role.includes('admin') && !['staff', 'employee', 'user', 'member'].includes(role)) ||
+      String(user.role || '') === 'مسؤول النظام';
     if (!allowed) {
       return res.status(403).json({
         success: false,

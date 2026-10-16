@@ -16685,6 +16685,24 @@ const ensureApiIntegrationsTable = async () => {
   `);
 };
 
+function maskHrApiIntegrationRow(row) {
+  if (!row) return row;
+  return {
+    id: row.id,
+    service_key: row.service_key,
+    endpoint: row.endpoint,
+    extra_config: row.extra_config,
+    is_connected: row.is_connected,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    has_api_key: Boolean(row.api_key),
+    has_api_secret: Boolean(row.api_secret),
+    // Phase 6: never return raw secrets to clients
+    api_key: row.api_key ? '[redacted]' : null,
+    api_secret: row.api_secret ? '[redacted]' : null
+  };
+}
+
 app.get('/api/hr/api-integrations', async (req, res) => {
   try {
     await ensureApiIntegrationsTable();
@@ -16696,7 +16714,7 @@ app.get('/api/hr/api-integrations', async (req, res) => {
        WHERE ${filter}
        ORDER BY a.service_key ASC`
     );
-    res.json(result.rows || []);
+    res.json((result.rows || []).map(maskHrApiIntegrationRow));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -16713,8 +16731,8 @@ app.put('/api/hr/api-integrations/:serviceKey', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (service_key, entity_id, entity_type)
        DO UPDATE SET
-         api_key = EXCLUDED.api_key,
-         api_secret = EXCLUDED.api_secret,
+         api_key = COALESCE(EXCLUDED.api_key, hr_api_integrations.api_key),
+         api_secret = COALESCE(EXCLUDED.api_secret, hr_api_integrations.api_secret),
          endpoint = EXCLUDED.endpoint,
          extra_config = EXCLUDED.extra_config,
          is_connected = EXCLUDED.is_connected,
@@ -16731,7 +16749,7 @@ app.put('/api/hr/api-integrations/:serviceKey', async (req, res) => {
         req.userEntity.type
       ]
     );
-    res.json(result.rows[0]);
+    res.json(maskHrApiIntegrationRow(result.rows[0]));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
