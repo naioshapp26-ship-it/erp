@@ -175,7 +175,7 @@ const sendHtmlWithNumberFormat = (res, filePath, req = null) => {
   });
 };
 
-const TENANT_PATH_CLIENT_SRC = '/tenant-path-client.js?v=20260628-tenant-scope';
+const TENANT_PATH_CLIENT_SRC = '/tenant-path-client.js?v=20261016-phase6-scope';
 
 const resolveDashboardHtmlPath = () => path.join(__dirname, 'dashboard.html');
 

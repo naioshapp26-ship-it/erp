@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>مركز إعدادات وحدات ERP | NAIOSH ERP 360</title>
+  <script src="/tenant-path-client.js?v=20261016-phase6-scope"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
@@ -64,12 +65,43 @@
       return m ? decodeURIComponent(m[1]) : (localStorage.getItem('authToken') || '');
     }
 
+    function apiUrl(path) {
+      const raw = '/api/module-settings' + path;
+      return (typeof window.getTenantScopedPath === 'function') ? window.getTenantScopedPath(raw) : raw;
+    }
+
+    function explainApiError(status, payload) {
+      const serverMsg = payload?.message || payload?.error || '';
+      if (status === 400 || /نطاق|مستأجر|tenant/i.test(serverMsg)) {
+        return (serverMsg || 'نطاق المستأجر مطلوب.') +
+          ' افتح المركز عبر نطاق الشركة (مثل company.example.com/modules/settings) أو المسار /t/{subdomain}/modules/settings.';
+      }
+      if (status === 401) {
+        return (serverMsg || 'يلزم تسجيل الدخول.') + ' سجّل دخول مسؤول الشركة ثم أعد المحاولة.';
+      }
+      if (status === 403) {
+        return (serverMsg || 'غير مصرح.') + ' يتطلب صلاحية مسؤول الشركة/الوحدة — لا يكفي حساب موظف.';
+      }
+      if (status === 404) {
+        return (serverMsg || 'المسار غير موجود.') +
+          ' تأكد أنك على خادم التطبيق (وليس ملفاً ثابتاً) وأن نطاق/مسار المستأجر صحيح.';
+      }
+      return serverMsg || ('HTTP ' + status);
+    }
+
+    function hasTenantContextHint() {
+      if (typeof window.getStoredTenantSubdomain === 'function' && window.getStoredTenantSubdomain()) return true;
+      if (/^\/t\/[a-z0-9]/i.test(location.pathname || '')) return true;
+      const host = String(location.hostname || '').toLowerCase();
+      return host.includes('.') && !['localhost', '127.0.0.1'].includes(host);
+    }
+
     async function api(path, options = {}) {
       const headers = Object.assign({ Accept: 'application/json' }, options.headers || {});
       const t = token();
       if (t) headers.Authorization = 'Bearer ' + t;
       if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-      const res = await fetch('/api/module-settings' + path, {
+      const res = await fetch(apiUrl(path), {
         ...options,
         credentials: 'include',
         headers,
@@ -77,7 +109,7 @@
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok || payload.success === false) {
-        const err = new Error(payload.message || ('HTTP ' + res.status));
+        const err = new Error(explainApiError(res.status, payload));
         err.status = res.status;
         err.payload = payload;
         throw err;
@@ -366,12 +398,18 @@
     document.getElementById('btn-refresh').onclick = () => loadBundle().catch(e => toast(e.message,'err'));
 
     (async () => {
+      const banner = document.getElementById('auth-banner');
       try {
+        if (!hasTenantContextHint()) {
+          banner.classList.remove('hidden');
+          banner.innerHTML = 'هذا المركز يعمل على <b>نطاق الشركة</b> فقط. استخدم مثلاً <code dir="ltr">/t/your-company/modules/settings</code> أو النطاق الفرعي للشركة، بعد تسجيل دخول مسؤول الشركة.';
+          document.getElementById('tenant-label').textContent = 'لا يوجد سياق مستأجر على هذا النطاق';
+          return;
+        }
         await loadBundle();
       } catch (e) {
-        const banner = document.getElementById('auth-banner');
         banner.classList.remove('hidden');
-        banner.textContent = e.message + ' — استخدم نطاق المستأجر مع صلاحية مسؤول.';
+        banner.textContent = e.message;
       }
     })();
   </script>

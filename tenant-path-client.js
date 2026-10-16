@@ -64,12 +64,40 @@
   function shouldScopeInternalHref(href) {
     if (!href || typeof href !== 'string') return false;
     if (!href.startsWith('/')) return false;
-    if (href.startsWith('//') || href.startsWith('/api/') || href.startsWith('/public/') || href.startsWith('/uploads/')) {
+    if (href.startsWith('//') || href.startsWith('/public/') || href.startsWith('/uploads/')) {
       return false;
     }
+    // Path-mode must also scope /api/* so settings centers keep tenant context.
+    // Subdomain-mode leaves paths untouched (isTenantPathMode is false).
     const subdomain = getStoredTenantSubdomain();
     if (!subdomain) return false;
     return !href.startsWith(`/t/${subdomain}`);
+  }
+
+  function scopeApiUrl(url) {
+    const raw = String(url || '');
+    if (!raw || /^https?:\/\//i.test(raw) || raw.startsWith('//')) return raw;
+    if (!raw.startsWith('/api/') && !raw.startsWith('/invite')) return raw;
+    return getTenantScopedPath(raw);
+  }
+
+  function installTenantFetchGuard() {
+    if (!isTenantPathMode() || global.__tenantFetchGuarded) return;
+    if (typeof global.fetch !== 'function') return;
+    const originalFetch = global.fetch.bind(global);
+    global.fetch = function tenantScopedFetch(input, init) {
+      if (typeof input === 'string') {
+        return originalFetch(scopeApiUrl(input), init);
+      }
+      if (input && typeof Request !== 'undefined' && input instanceof Request) {
+        const scoped = scopeApiUrl(input.url);
+        if (scoped !== input.url) {
+          return originalFetch(new Request(scoped, input), init);
+        }
+      }
+      return originalFetch(input, init);
+    };
+    global.__tenantFetchGuarded = true;
   }
 
   function rewriteTenantAnchors(root) {
@@ -95,6 +123,7 @@
   }
 
   function bootTenantPathHelpers() {
+    installTenantFetchGuard();
     rewriteTenantAnchors(document);
     installTenantNavigationGuard();
     if (typeof MutationObserver === 'function' && document.body) {
@@ -129,9 +158,14 @@
     scheduleTenantPathBoot();
   }
 
+  // Install fetch guard immediately so inline page scripts that run after this
+  // file still inherit tenant-scoped /api/* URLs in path mode.
+  installTenantFetchGuard();
+
   global.isTenantPathMode = isTenantPathMode;
   global.getStoredTenantSubdomain = getStoredTenantSubdomain;
   global.getTenantScopedPath = getTenantScopedPath;
   global.getTenantLandingPath = getTenantLandingPath;
+  global.scopeApiUrl = scopeApiUrl;
   global.rewriteTenantAnchors = rewriteTenantAnchors;
 })(window);

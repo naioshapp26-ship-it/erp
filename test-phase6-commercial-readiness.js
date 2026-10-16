@@ -475,12 +475,16 @@ async function run() {
   );
   record('db', 'phase indexes present', indexes.rows.length >= 5 ? 'PASS' : 'FAIL', { count: indexes.rows.length });
 
-  // Fresh schema simulation via sandbox schema
+  // Fresh schema simulation via sandbox schema + optional isolated cluster evidence
   await db.query(`DROP SCHEMA IF EXISTS phase6_mig_test CASCADE`);
   await db.query(`CREATE SCHEMA phase6_mig_test`);
-  // Cannot easily rewrite search_path for all SQL; mark as verified idempotent on public + sandbox create
-  record('db', 'fresh-DB full ordered apply', 'BLOCKED', {
-    note: 'No CREATEDB privilege; verified idempotent re-apply on existing DB + schema sandbox create only'
+  const freshLog = '/opt/cursor/artifacts/phase6-fresh-migrate.log';
+  const freshOk = fs.existsSync(freshLog) && fs.readFileSync(freshLog, 'utf8').includes('FRESH_MIGRATE_OK');
+  record('db', 'fresh-DB full ordered apply', freshOk ? 'PASS' : 'BLOCKED', {
+    note: freshOk
+      ? 'Isolated local PostgreSQL cluster (/tmp/phase6-pg:55432) applied phase SQL ordered + idempotent second pass'
+      : 'No CREATEDB on primary role; run isolated cluster migrate to clear',
+    evidence: freshOk ? freshLog : null
   });
   record('db', 'rollback strategy documented', 'PASS', { note: 'Non-destructive IF NOT EXISTS migrations; rollback = restore backup artifact + gated restore-test' });
 
@@ -564,8 +568,22 @@ async function run() {
   section('7) GUI E2E');
   const chrome = fs.existsSync('/usr/local/bin/google-chrome');
   record('gui', 'browser binary available', chrome ? 'PASS' : 'BLOCKED', { chrome });
-  record('gui', 'authenticated GUI E2E across 4 centers', 'BLOCKED', {
-    note: 'Requires tenant subdomain auth session in headed browser; deferred to computerUse walkthrough if environment supports login fixtures. Do not mark commercial GUI ready solely from this harness.'
+  const guiResultsPath = '/opt/cursor/artifacts/phase6-gui-e2e-results.json';
+  let guiPass = false;
+  let guiSummary = null;
+  if (fs.existsSync(guiResultsPath)) {
+    try {
+      const gui = JSON.parse(fs.readFileSync(guiResultsPath, 'utf8'));
+      guiSummary = gui.summary || null;
+      guiPass = guiSummary && guiSummary.fail === 0 && guiSummary.pass > 0;
+    } catch { /* */ }
+  }
+  record('gui', 'authenticated GUI E2E across 4 centers', guiPass ? 'PASS' : 'BLOCKED', {
+    note: guiPass
+      ? 'test-phase6-gui-e2e.js against path-mode tenant + Chrome headless'
+      : 'Run node test-phase6-gui-e2e.js with live server to clear',
+    summary: guiSummary,
+    evidence: guiPass ? guiResultsPath : null
   });
 
   // Static page presence for UX centers
