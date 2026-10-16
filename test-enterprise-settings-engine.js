@@ -93,9 +93,12 @@ async function run() {
 
   if (failed) {
     console.error(`\nFAILED: ${failed} assertion(s)`);
-    process.exit(1);
+    process.exitCode = 1;
+  } else {
+    console.log('\nAll Phase 1 catalog/engine smoke tests passed.');
   }
-  console.log('\nAll Phase 1 catalog/engine smoke tests passed.');
+  // pg pool keeps the process alive — exit explicitly after smoke.
+  setTimeout(() => process.exit(failed ? 1 : 0), 200);
 }
 
 run().catch((err) => {

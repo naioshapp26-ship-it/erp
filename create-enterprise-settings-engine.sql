@@ -47,6 +47,16 @@ CREATE INDEX IF NOT EXISTS idx_setting_values_tenant
 CREATE INDEX IF NOT EXISTS idx_setting_values_key
   ON setting_values (definition_key);
 
+-- Postgres UNIQUE treats NULLs as distinct; coalesce so platform (tenant_id NULL)
+-- and unset branch/module cannot silently duplicate rows.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_setting_values_scope_unique
+  ON setting_values (
+    definition_key,
+    COALESCE(tenant_id, 0),
+    COALESCE(branch_id, 0),
+    COALESCE(module_key, '')
+  );
+
 CREATE TABLE IF NOT EXISTS setting_versions (
   id               SERIAL PRIMARY KEY,
   setting_value_id INTEGER      NOT NULL REFERENCES setting_values (id) ON DELETE CASCADE,

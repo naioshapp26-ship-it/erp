@@ -327,9 +327,12 @@ router.put('/values/:key', async (req, res) => {
     if (existing.rows.length) {
       const prev = existing.rows[0];
       const nextVersion = Number(prev.version || 1) + 1;
+      // Archive previous snapshot. Create path may already have written this version —
+      // keep it idempotent so updates do not collide on (setting_value_id, version).
       await db.query(
         `INSERT INTO setting_versions (setting_value_id, version, value, changed_by, change_reason)
-         VALUES ($1, $2, $3::jsonb, $4, $5)`,
+         VALUES ($1, $2, $3::jsonb, $4, $5)
+         ON CONFLICT (setting_value_id, version) DO NOTHING`,
         [prev.id, prev.version, JSON.stringify(prev.value), actorId, reason || 'overwrite']
       );
       const updated = await db.query(
@@ -340,6 +343,15 @@ router.put('/values/:key', async (req, res) => {
         [JSON.stringify(newValue), nextVersion, actorId, prev.id]
       );
       saved = updated.rows[0];
+      await db.query(
+        `INSERT INTO setting_versions (setting_value_id, version, value, changed_by, change_reason)
+         VALUES ($1, $2, $3::jsonb, $4, $5)
+         ON CONFLICT (setting_value_id, version) DO UPDATE SET
+           value = EXCLUDED.value,
+           changed_by = EXCLUDED.changed_by,
+           change_reason = EXCLUDED.change_reason`,
+        [prev.id, nextVersion, JSON.stringify(newValue), actorId, reason || 'update']
+      );
       await db.query(
         `INSERT INTO setting_audit_events
            (definition_key, tenant_id, actor_id, action, old_value, new_value, meta)
