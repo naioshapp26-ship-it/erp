@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>قبول دعوة المستخدم | NAIOSH ERP</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-lg border p-6 w-full max-w-md space-y-4">
+    <div>
+      <p class="text-xs text-slate-500">NAIOSH ERP 360</p>
+      <h1 class="text-2xl font-black text-teal-800">قبول دعوة الانضمام</h1>
+      <p id="meta" class="text-sm text-slate-500 mt-1">جارٍ التحقق من الدعوة...</p>
+    </div>
+    <form id="f" class="space-y-3 hidden">
+      <input type="hidden" name="token" id="token" />
+      <label class="block text-sm">الاسم الأول<input name="firstName" class="w-full border rounded-xl p-2 mt-1" required /></label>
+      <label class="block text-sm">اسم العائلة<input name="lastName" class="w-full border rounded-xl p-2 mt-1" /></label>
+      <label class="block text-sm">اسم المستخدم<input name="username" class="w-full border rounded-xl p-2 mt-1" required /></label>
+      <label class="block text-sm">كلمة المرور<input name="password" type="password" class="w-full border rounded-xl p-2 mt-1" required minlength="8" /></label>
+      <button class="w-full bg-teal-700 text-white rounded-xl py-2 font-bold">إنشاء الحساب وقبول الدعوة</button>
+    </form>
+    <p id="msg" class="text-sm"></p>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token') || '';
+    const meta = document.getElementById('meta');
+    const form = document.getElementById('f');
+    const msg = document.getElementById('msg');
+
+    async function preview() {
+      if (!token) {
+        meta.textContent = 'رمز الدعوة مفقود في الرابط.';
+        return;
+      }
+      const res = await fetch('/api/company-settings/invites/preview?token=' + encodeURIComponent(token));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        meta.textContent = data.message || 'الدعوة غير صالحة.';
+        return;
+      }
+      meta.textContent = `${data.data.company_name || data.data.subdomain || ''} · ${data.data.email} · ${data.data.role} · ${data.data.status}`;
+      if (data.data.status !== 'pending') {
+        msg.textContent = 'هذه الدعوة لم تعد قابلة للقبول.';
+        msg.className = 'text-sm text-rose-600';
+        return;
+      }
+      document.getElementById('token').value = token;
+      form.querySelector('[name=username]').value = String(data.data.email || '').split('@')[0];
+      form.classList.remove('hidden');
+    }
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      msg.textContent = 'جارٍ القبول...';
+      const res = await fetch('/api/company-settings/invites/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(Object.fromEntries(fd.entries()))
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        msg.textContent = data.message || 'فشل قبول الدعوة';
+        msg.className = 'text-sm text-rose-600';
+        return;
+      }
+      msg.textContent = 'تم قبول الدعوة بنجاح. يمكنك تسجيل الدخول الآن.';
+      msg.className = 'text-sm text-teal-700';
+      form.classList.add('hidden');
+    };
+
+    preview().catch((e) => { meta.textContent = e.message; });
+  </script>
+</body>
+</html>

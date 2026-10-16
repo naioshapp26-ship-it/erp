@@ -32,6 +32,10 @@ const MODULE_API_PREFIXES = [
   { prefix: '/api/pos', module: 'pos' },
   { prefix: '/api/payroll', module: 'hr' },
   { prefix: '/api/attendance', module: 'hr' },
+  { prefix: '/api/leave-requests', module: 'hr' },
+  { prefix: '/api/leave-balances', module: 'hr' },
+  { prefix: '/api/tax-settings', module: 'finance' },
+  { prefix: '/api/invoices', module: 'finance' },
   { prefix: '/finance/', module: 'finance' },
   { prefix: '/hr/', module: 'hr' },
   { prefix: '/facilities/', module: 'facilities' },
@@ -47,12 +51,15 @@ const ALWAYS_ALLOW_PREFIXES = [
   '/api/health',
   '/api/tenant-settings',
   '/api/company-settings',
+  '/api/module-settings',
   '/api/enterprise-settings',
   '/api/platform-owner',
   '/api/tenant-users',
   '/api/tenant-public',
   '/api/menu',
-  '/company/settings'
+  '/company/settings',
+  '/modules/settings',
+  '/invite'
 ];
 
 function resolveModuleForPath(pathname) {

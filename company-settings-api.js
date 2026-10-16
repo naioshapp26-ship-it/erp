@@ -110,13 +110,100 @@ async function requireCompanyAdmin(req, res, next) {
   }
 }
 
-router.use(requireTenantContext, requireCompanyAdmin);
-
 function handleError(res, err, fallback) {
   const status = err.status || 500;
   if (status >= 500) console.error('[CompanySettings]', err.message);
   return res.status(status).json({ success: false, message: err.message || fallback });
 }
+
+// Phase 4 — public invite accept (tenant host, no admin session required)
+router.post('/invites/accept', requireTenantContext, async (req, res) => {
+  try {
+    // Seat check before accepting
+    try {
+      const owner = require('./platform-owner-service');
+      await owner.ensureSchema();
+      const check = await owner.checkSeatAllowance(req.tenant.id);
+      if (check.enforced && !check.allowed) {
+        return res.status(403).json({
+          success: false,
+          code: 'SEAT_LIMIT',
+          data: check,
+          message: 'لا يمكن قبول الدعوة — تم بلوغ حد مقاعد الباقة.'
+        });
+      }
+    } catch (seatErr) {
+      console.warn('[CompanySettings] accept seat check:', seatErr.message);
+    }
+
+    // Strong password policy when company.security requires it
+    try {
+      const modules = require('./module-settings-service');
+      const policy = await modules.resolveSecurityPolicy(req.tenant.id);
+      const pwd = String(req.body?.password || '');
+      if (policy.require_strong_password) {
+        const strong = /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /[0-9]/.test(pwd) && pwd.length >= 10;
+        if (!strong) {
+          return res.status(400).json({
+            success: false,
+            code: 'WEAK_PASSWORD',
+            message: 'كلمة المرور ضعيفة حسب سياسة الأمان.'
+          });
+        }
+      }
+    } catch {
+      /* continue with basic length check inside acceptInvite */
+    }
+
+    const data = await company.acceptInvite(req.tenantPool, {
+      token: req.body?.token || req.body?.invite_token,
+      password: req.body?.password,
+      firstName: req.body?.firstName || req.body?.first_name,
+      lastName: req.body?.lastName || req.body?.last_name,
+      username: req.body?.username
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    return handleError(res, err, 'تعذر قبول الدعوة.');
+  }
+});
+
+router.get('/invites/preview', requireTenantContext, async (req, res) => {
+  try {
+    await company.ensureOrgSchema(req.tenantPool);
+    const raw = String(req.query.token || '').trim();
+    if (!raw) {
+      return res.status(400).json({ success: false, message: 'token مطلوب.' });
+    }
+    const crypto = require('crypto');
+    const tokenHash = crypto.createHash('sha256').update(raw).digest('hex');
+    const result = await req.tenantPool.query(
+      `SELECT id, email, role, status, expires_at
+       FROM tenant_user_invites
+       WHERE token_hash = $1 LIMIT 1`,
+      [tokenHash]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ success: false, message: 'الدعوة غير موجودة.' });
+    }
+    const row = result.rows[0];
+    return res.json({
+      success: true,
+      data: {
+        email: row.email,
+        role: row.role,
+        status: row.status,
+        expires_at: row.expires_at,
+        company_name: req.tenant.company_name || req.tenant.companyName || null,
+        subdomain: req.tenant.subdomain
+      }
+    });
+  } catch (err) {
+    return handleError(res, err, 'تعذر معاينة الدعوة.');
+  }
+});
+
+router.use(requireTenantContext, requireCompanyAdmin);
 
 router.get('/bundle', async (req, res) => {
   try {
