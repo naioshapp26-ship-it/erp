@@ -52,10 +52,14 @@ async function main() {
 
   const script = fs.readFileSync(path.join(__dirname, 'script.js'), 'utf8');
   ok('menu-has-portal', script.includes("'incubators-platforms'") && script.includes('حاضنات و منصات اعمال'));
-  ok('menu-hides-e-offices-top', !/id:\s*'e-offices',\s*icon:\s*'fa-building'/.test(script));
-  ok('menu-hides-platforms-top', !/id:\s*'platforms',\s*icon:\s*'fa-layer-group'/.test(script));
-  ok('menu-hides-branches-top', !/id:\s*'branches-hub',\s*icon:\s*'fa-code-branch'/.test(script));
-  ok('menu-hides-incubators-top', !/id:\s*'incubators-hub',\s*icon:\s*'fa-seedling'/.test(script));
+  // Hubs must stay out of the shared global items list (module-scoped IPP_MODULE_NAV is OK)
+  ok('menu-hides-e-offices-top', !/const items = \[[\s\S]*?id:\s*'e-offices',\s*icon:\s*'fa-building'[\s\S]*?\];\s*\n\s*items\.forEach/.test(script)
+    && !/scopedIppItems \|\| \[[\s\S]*?id:\s*'e-offices',\s*icon:\s*'fa-building'/.test(script));
+  ok('menu-hides-platforms-top', !/scopedIppItems \|\| \[[\s\S]*?id:\s*'platforms',\s*icon:\s*'fa-layer-group'/.test(script));
+  ok('menu-hides-branches-top', !/scopedIppItems \|\| \[[\s\S]*?id:\s*'branches-hub',\s*icon:\s*'fa-code-branch'/.test(script));
+  ok('menu-hides-incubators-top', !/scopedIppItems \|\| \[[\s\S]*?id:\s*'incubators-hub',\s*icon:\s*'fa-seedling'/.test(script));
+  ok('menu-module-aware', script.includes('IPP_MODULE_NAV') && script.includes('getActiveIppModuleKey') && script.includes('buildIppScopedSidebarItems'));
+  ok('menu-portal-back', script.includes('العودة إلى حاضنات و منصات اعمال'));
   ok('external-route', /'incubators-platforms'\s*:\s*'\/incubators-platforms'/.test(script));
   ok('smart-mgmt-untouched', script.includes('الإدارة الذكية 360') && /'smart-management'\s*:\s*'\/smart-management'/.test(script));
 
