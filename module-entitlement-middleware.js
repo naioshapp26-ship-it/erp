@@ -52,6 +52,7 @@ const ALWAYS_ALLOW_PREFIXES = [
   '/api/tenant-settings',
   '/api/company-settings',
   '/api/module-settings',
+  '/api/shared-services',
   '/api/enterprise-settings',
   '/api/platform-owner',
   '/api/tenant-users',
@@ -59,6 +60,7 @@ const ALWAYS_ALLOW_PREFIXES = [
   '/api/menu',
   '/company/settings',
   '/modules/settings',
+  '/shared/services',
   '/invite'
 ];
 

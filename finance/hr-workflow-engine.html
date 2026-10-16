@@ -700,88 +700,101 @@
 ============================================================ -->
 <script>
 // ═══════════════════════════════════════════
-// DATA STORE
+// DATA STORE — Phase 5: Postgres-backed via /api/shared-services
 // ═══════════════════════════════════════════
-let workflows = [
-  {
-    id: 'wf-1', name: 'ترحيب موظف جديد', status: 'نشط', steps: 5,
-    lastRun: 'منذ 2 ساعة', successRate: 98,
-    nodes: [
-      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
-      { id:'n2', type:'trigger', label:'عند إضافة موظف', x:80, y:200, config:{ event:'add_employee' } },
-      { id:'n3', type:'action', label:'إرسال بريد ترحيب', x:80, y:320, config:{ action:'send_email', target:'employee' } },
-      { id:'n4', type:'delay', label:'انتظار يوم', x:80, y:440, config:{ duration:'1', unit:'day' } },
-      { id:'n5', type:'end', label:'نهاية', x:80, y:560 }
-    ],
-    connections: [['n1','n2'],['n2','n3'],['n3','n4'],['n4','n5']]
-  },
-  {
-    id: 'wf-2', name: 'تذكير بتجديد العقد', status: 'نشط', steps: 4,
-    lastRun: 'منذ 5 دقائق', successRate: 100,
-    nodes: [
-      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
-      { id:'n2', type:'trigger', label:'قبل 30 يوم من الانتهاء', x:80, y:200, config:{ event:'contract_expiry' } },
-      { id:'n3', type:'action', label:'إرسال تذكير واتساب', x:80, y:320, config:{ action:'send_whatsapp', target:'manager' } },
-      { id:'n4', type:'end', label:'نهاية', x:80, y:440 }
-    ],
-    connections: [['n1','n2'],['n2','n3'],['n3','n4']]
-  },
-  {
-    id: 'wf-3', name: 'الموافقة على الإجازة', status: 'نشط', steps: 6,
-    lastRun: 'منذ 1 ساعة', successRate: 95,
-    nodes: [
-      { id:'n1', type:'start', label:'بداية', x:80, y:60 },
-      { id:'n2', type:'trigger', label:'طلب إجازة', x:80, y:170, config:{ event:'leave_request' } },
-      { id:'n3', type:'condition', label:'هل الرصيد كافٍ؟', x:80, y:280, config:{ rule:'balance>=requested' } },
-      { id:'n4', type:'action', label:'إرسال للمدير', x:80, y:390, config:{ action:'notify', target:'manager' } },
-      { id:'n5', type:'action', label:'تحديث الرصيد', x:80, y:500, config:{ action:'update_record', field:'balance' } },
-      { id:'n6', type:'end', label:'نهاية', x:80, y:610 }
-    ],
-    connections: [['n1','n2'],['n2','n3'],['n3','n4'],['n4','n5'],['n5','n6']]
-  },
-  {
-    id: 'wf-4', name: 'تقييم الأداء الشهري', status: 'نشط', steps: 4,
-    lastRun: 'منذ 3 أيام', successRate: 90,
-    nodes: [
-      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
-      { id:'n2', type:'trigger', label:'أول الشهر', x:80, y:200, config:{ event:'monthly_cron' } },
-      { id:'n3', type:'action', label:'إرسال نموذج تقييم', x:80, y:320, config:{ action:'send_form', target:'all_employees' } },
-      { id:'n4', type:'end', label:'نهاية', x:80, y:440 }
-    ],
-    connections: [['n1','n2'],['n2','n3'],['n3','n4']]
-  },
-  {
-    id: 'wf-5', name: 'إشعار تسجيل الحضور', status: 'متوقف', steps: 3,
-    lastRun: 'منذ أسبوع', successRate: 88,
-    nodes: [
-      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
-      { id:'n2', type:'trigger', label:'غياب غير مبرر', x:80, y:200, config:{ event:'absence_detected' } },
-      { id:'n3', type:'end', label:'نهاية', x:80, y:320 }
-    ],
-    connections: [['n1','n2'],['n2','n3']]
-  },
-  {
-    id: 'wf-6', name: 'تحديث بيانات الرواتب', status: 'متوقف', steps: 5,
-    lastRun: 'منذ شهر', successRate: 75,
-    nodes: [
-      { id:'n1', type:'start', label:'بداية', x:80, y:80 },
-      { id:'n2', type:'trigger', label:'تغيير في المسمى الوظيفي', x:80, y:200, config:{ event:'job_title_change' } },
-      { id:'n3', type:'action', label:'حساب الراتب الجديد', x:80, y:320, config:{ action:'calculate', field:'salary' } },
-      { id:'n4', type:'action', label:'تحديث السجل', x:80, y:440, config:{ action:'update_record', field:'payroll' } },
-      { id:'n5', type:'end', label:'نهاية', x:80, y:560 }
-    ],
-    connections: [['n1','n2'],['n2','n3'],['n3','n4'],['n4','n5']]
-  }
-];
+let workflows = [];
+let execLogs = [];
 
-let execLogs = [
-  { type:'success', wf:'ترحيب موظف جديد', msg:'تم تنفيذ بنجاح - إرسال بريد ترحيب', time:'14:32' },
-  { type:'success', wf:'تذكير بتجديد العقد', msg:'تم إرسال 3 تذكيرات واتساب', time:'14:15' },
-  { type:'fail',    wf:'تحديث بيانات الرواتب', msg:'فشل الاتصال بقاعدة البيانات', time:'13:58' },
-  { type:'success', wf:'الموافقة على الإجازة', msg:'تمت الموافقة على طلب إجازة #412', time:'13:40' },
-  { type:'info',    wf:'تقييم الأداء الشهري', msg:'جاري إرسال نماذج التقييم...', time:'12:00' },
-  { type:'success', wf:'ترحيب موظف جديد', msg:'تم تنفيذ بنجاح - موظف: أحمد محمود', time:'11:45' },
-];
+function authToken() {
+  const m = document.cookie.match(/(?:^|; )authToken=([^;]*)/);
+  return m ? decodeURIComponent(m[1]) : (localStorage.getItem('authToken') || '');
+}
+
+async function sharedApi(path, options = {}) {
+  const headers = Object.assign({ Accept: 'application/json' }, options.headers || {});
+  const t = authToken();
+  if (t) headers.Authorization = 'Bearer ' + t;
+  if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+  const res = await fetch('/api/shared-services' + path, {
+    ...options,
+    credentials: 'include',
+    headers,
+    body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || payload.success === false) {
+    throw new Error(payload.message || ('HTTP ' + res.status));
+  }
+  return payload;
+}
+
+function mapDefToUi(def) {
+  const cond = def.conditions || {};
+  const nodes = Array.isArray(cond.nodes) && cond.nodes.length
+    ? cond.nodes
+    : (Array.isArray(def.steps) ? def.steps.map((s, i) => ({
+        id: 'n' + (i + 1),
+        type: i === 0 ? 'start' : (i === def.steps.length - 1 ? 'end' : 'action'),
+        label: s.label_ar || s.label || s.key || ('خطوة ' + (i + 1)),
+        x: 80,
+        y: 80 + i * 110,
+        config: { role: s.role || s.key }
+      })) : []);
+  const connections = Array.isArray(cond.connections) ? cond.connections : [];
+  return {
+    id: String(def.id),
+    dbId: def.id,
+    code: def.code,
+    name: def.name_ar,
+    status: def.is_active ? 'نشط' : 'متوقف',
+    steps: nodes.length || (Array.isArray(def.steps) ? def.steps.length : 0),
+    lastRun: def.updated_at ? String(def.updated_at).slice(0, 16) : '—',
+    successRate: 100,
+    nodes,
+    connections,
+    escalate_hours: def.escalate_hours,
+    version: def.version
+  };
+}
+
+async function loadWorkflowsFromApi() {
+  try {
+    const res = await sharedApi('/workflows/definitions?module=hr');
+    const rows = res.data || [];
+    if (!rows.length) {
+      await sharedApi('/workflows/definitions', {
+        method: 'POST',
+        body: {
+          code: 'hr-default',
+          name_ar: 'سير عمل الموارد البشرية الافتراضي',
+          module_key: 'hr',
+          entity_type: 'employee_request',
+          steps: [
+            { key: 'manager', label_ar: 'المدير المباشر', role: 'manager' },
+            { key: 'hr', label_ar: 'الموارد البشرية', role: 'hr' }
+          ],
+          conditions: { nodes: [], connections: [] },
+          is_active: true
+        }
+      });
+      return loadWorkflowsFromApi();
+    }
+    workflows = rows.map(mapDefToUi);
+    execLogs = [{
+      type: 'info',
+      wf: 'النظام',
+      msg: `تم تحميل ${workflows.length} سير عمل من قاعدة البيانات (Phase 5)`,
+      time: new Date().toLocaleTimeString('ar')
+    }];
+    updateStats();
+    renderTable();
+    populateTestSelect();
+    if (typeof renderExecLog === 'function') renderExecLog();
+  } catch (err) {
+    console.warn('[WF] load failed', err);
+    toast('تعذر تحميل سير العمل من الخادم: ' + err.message, 'error');
+  }
+}
 
 // ═══════════════════════════════════════════
 // BUILDER STATE
@@ -801,9 +814,11 @@ let builderState = {
 // INIT
 // ═══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  renderTable();
-  renderLogs();
-  populateTestSelect();
+  loadWorkflowsFromApi().finally(() => {
+    renderTable();
+    renderLogs();
+    populateTestSelect();
+  });
 });
 
 // ═══════════════════════════════════════════
@@ -930,15 +945,22 @@ function runNow(id) {
   toast(`✅ تم تشغيل "${wf.name}" بنجاح`, 'success');
 }
 
-function deleteWorkflow(id) {
+async function deleteWorkflow(id) {
   const wf = workflows.find(w => w.id === id);
   if (!wf) return;
-  if (!confirm(`هل تريد حذف "${wf.name}"؟`)) return;
-  workflows = workflows.filter(w => w.id !== id);
-  updateStats();
-  renderTable();
-  populateTestSelect();
-  toast(`تم حذف "${wf.name}"`, 'error');
+  if (!confirm(`هل تريد تعطيل "${wf.name}"؟`)) return;
+  try {
+    if (wf.dbId) {
+      await sharedApi('/workflows/definitions/' + wf.dbId, {
+        method: 'PUT',
+        body: { name_ar: wf.name, is_active: false, steps: wf.nodes || [], conditions: { nodes: wf.nodes || [], connections: wf.connections || [] } }
+      });
+    }
+    await loadWorkflowsFromApi();
+    toast(`تم تعطيل "${wf.name}" في قاعدة البيانات`, 'error');
+  } catch (err) {
+    toast('فشل التعطيل: ' + err.message, 'error');
+  }
 }
 
 function updateStats() {
@@ -1386,40 +1408,58 @@ function applyZoom() {
 // ═══════════════════════════════════════════
 // SAVE WORKFLOW
 // ═══════════════════════════════════════════
-function saveWorkflow() {
+async function saveWorkflow() {
   const name = document.getElementById('wf-name-input').value.trim();
   if (!name) { toast('الرجاء إدخال اسم سير العمل', 'error'); return; }
   const status = document.getElementById('wf-status-select').value;
   const s = builderState;
+  const nodes = JSON.parse(JSON.stringify(s.nodes));
+  const connections = JSON.parse(JSON.stringify(s.connections));
+  const steps = nodes.map((n, i) => ({
+    key: (n.config && n.config.role) || n.type || ('step_' + (i + 1)),
+    label_ar: n.label || ('خطوة ' + (i + 1)),
+    role: (n.config && n.config.role) || n.type || 'manager'
+  }));
 
-  if (s.editingId) {
-    const wf = workflows.find(w => w.id === s.editingId);
-    if (wf) {
-      wf.name   = name;
-      wf.status = status;
-      wf.steps  = s.nodes.length;
-      wf.nodes  = JSON.parse(JSON.stringify(s.nodes));
-      wf.connections = JSON.parse(JSON.stringify(s.connections));
-      wf.lastRun = 'الآن';
+  try {
+    if (s.editingId) {
+      const wf = workflows.find(w => w.id === s.editingId);
+      const body = {
+        name_ar: name,
+        is_active: status === 'نشط',
+        steps,
+        conditions: { nodes, connections },
+        module_key: 'hr',
+        entity_type: 'employee_request'
+      };
+      if (wf && wf.dbId) {
+        await sharedApi('/workflows/definitions/' + wf.dbId, { method: 'PUT', body });
+      } else {
+        await sharedApi('/workflows/definitions', {
+          method: 'POST',
+          body: { ...body, code: 'hr-' + Date.now() }
+        });
+      }
+    } else {
+      await sharedApi('/workflows/definitions', {
+        method: 'POST',
+        body: {
+          code: 'hr-' + Date.now(),
+          name_ar: name,
+          module_key: 'hr',
+          entity_type: 'employee_request',
+          steps,
+          conditions: { nodes, connections },
+          is_active: status === 'نشط'
+        }
+      });
     }
-  } else {
-    const newWf = {
-      id: 'wf-' + Date.now(),
-      name, status,
-      steps: s.nodes.length,
-      lastRun: 'لم يُشغَّل بعد',
-      successRate: 100,
-      nodes: JSON.parse(JSON.stringify(s.nodes)),
-      connections: JSON.parse(JSON.stringify(s.connections))
-    };
-    workflows.unshift(newWf);
+    await loadWorkflowsFromApi();
+    closeBuilder();
+    toast(`✅ تم حفظ "${name}" في قاعدة البيانات`, 'success');
+  } catch (err) {
+    toast('فشل الحفظ: ' + err.message, 'error');
   }
-
-  updateStats();
-  renderTable();
-  populateTestSelect();
-  closeBuilder();
-  toast(`✅ تم حفظ "${name}" بنجاح`, 'success');
 }
 
 // ═══════════════════════════════════════════

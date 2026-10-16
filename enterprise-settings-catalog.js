@@ -270,11 +270,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'hr',
     groupAr: 'الموارد البشرية',
     titleAr: 'محرك سير عمل HR',
-    href: '/modules/settings',
-    status: 'partial',
+    href: '/hr/workflow-engine',
+    status: 'live',
     owner: 'HR Admin',
     icon: 'fa-diagram-project',
-    notes: 'Phase 4: module.workflows.approvals persisted; legacy HTML shell still in-memory for canvas.'
+    notes: 'Phase 5: wf_definitions/wf_instances in PostgreSQL; canvas saves via /api/shared-services; bridges employee-requests.'
   }),
 
   // Finance
@@ -585,11 +585,11 @@ const MODULE_ENTRIES = [
     groupAr: 'الإشعارات والأمان والنسخ',
     titleAr: 'النسخ الاحتياطي',
     spaRoute: 'settings-backup',
-    href: '/modules/settings',
-    status: 'partial',
+    href: '/shared/services',
+    status: 'live',
     owner: 'IT',
     icon: 'fa-database',
-    notes: 'Phase 4: module.backup.policy stored/versioned; restore still via scripts (no prod one-click).'
+    notes: 'Phase 5: backup_jobs/runs + logical dump; restore-test only with CONFIRM_DESTRUCTIVE_RESTORE + TEST_RESTORE_DATABASE_URL (never production).'
   }),
   entry({
     id: 'module-audit',
@@ -635,7 +635,7 @@ function getCatalog({ includeMock = true } = {}) {
     mock: entries.filter((e) => e.status === 'mock').length
   };
   return {
-    version: 'phase4-2026-10-16',
+    version: 'phase5-2026-10-16',
     generatedAt: new Date().toISOString(),
     levels: [
       { id: 'platform', titleAr: 'إعدادات المنصة', titleEn: 'Platform Settings' },
