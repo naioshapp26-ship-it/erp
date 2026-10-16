@@ -1,8 +1,8 @@
 # NAIOSH ERP 360 — Phase 2 Plan (Platform Owner Console)
 
-**Status:** PLAN ONLY — **Do not implement until Phase 1 verification is accepted**  
-**Prerequisite:** `ENTERPRISE_SETTINGS_PHASE1_VERIFICATION.md` PASS (local)  
-**Constraint:** No merge / Production deploy without explicit approval  
+**Status:** IMPLEMENTED on `cursor/enterprise-settings-phase2-421d` — see `PHASE2_IMPLEMENTATION_REPORT.md`  
+**Prerequisite:** `ENTERPRISE_SETTINGS_PHASE1_VERIFICATION.md` PASS (local) — satisfied  
+**Constraint:** No merge / Production / Staging deploy without explicit approval  
 **Goal alignment:** Complete settings for **all existing ERP modules** over Phases 2–N; Phase 2 focuses on **Platform Owner** control plane (not HR-only, not a links hub).
 
 ---
