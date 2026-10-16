@@ -66,20 +66,27 @@ async function requireCompanyAdmin(req, res, next) {
            AND s.expires_at > NOW() AND COALESCE(u.is_active, true) = true
          LIMIT 1`;
     const params = sharedDb ? [token, req.tenant.id] : [token];
-    let result;
+    let result = { rows: [] };
     try {
       result = await req.tenantPool.query(sessionQuery, params);
     } catch {
-      // Fallback: central sessions for lite/shared local tests
-      result = await require('./db').query(
-        `SELECT us.user_id, u.role, u.is_active, u.email, u.tenant_type
-         FROM user_sessions us
-         JOIN users u ON u.id = us.user_id
-         WHERE us.session_token = $1 AND us.expires_at > NOW()
-           AND COALESCE(u.is_active, true) = true
-         LIMIT 1`,
-        [token]
-      );
+      result = { rows: [] };
+    }
+    // Fallback: central/user_sessions (shared local tests often store tokens only there)
+    if (!result.rows.length) {
+      try {
+        result = await require('./db').query(
+          `SELECT us.user_id, u.role, u.is_active, u.email, u.tenant_type
+           FROM user_sessions us
+           JOIN users u ON u.id = us.user_id
+           WHERE us.session_token = $1 AND us.expires_at > NOW()
+             AND COALESCE(u.is_active, true) = true
+           LIMIT 1`,
+          [token]
+        );
+      } catch {
+        result = { rows: [] };
+      }
     }
     if (!result.rows.length) {
       return res.status(401).json({ success: false, message: 'الجلسة منتهية أو غير صالحة.' });

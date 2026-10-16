@@ -64,19 +64,26 @@ async function requireCompanyAdmin(req, res, next) {
            AND s.expires_at > NOW() AND COALESCE(u.is_active, true) = true
          LIMIT 1`;
     const params = sharedDb ? [token, req.tenant.id] : [token];
-    let result;
+    let result = { rows: [] };
     try {
       result = await req.tenantPool.query(sessionQuery, params);
     } catch {
-      result = await require('./db').query(
-        `SELECT us.user_id, u.role, u.is_active, u.email, u.tenant_type
-         FROM user_sessions us
-         JOIN users u ON u.id = us.user_id
-         WHERE us.session_token = $1 AND us.expires_at > NOW()
-           AND COALESCE(u.is_active, true) = true
-         LIMIT 1`,
-        [token]
-      );
+      result = { rows: [] };
+    }
+    if (!result.rows.length) {
+      try {
+        result = await require('./db').query(
+          `SELECT us.user_id, u.role, u.is_active, u.email, u.tenant_type
+           FROM user_sessions us
+           JOIN users u ON u.id = us.user_id
+           WHERE us.session_token = $1 AND us.expires_at > NOW()
+             AND COALESCE(u.is_active, true) = true
+           LIMIT 1`,
+          [token]
+        );
+      } catch {
+        result = { rows: [] };
+      }
     }
     if (!result.rows.length) {
       return res.status(401).json({ success: false, message: 'الجلسة منتهية أو غير صالحة.' });
@@ -143,11 +150,19 @@ router.get('/definitions', async (req, res) => {
   }
 });
 
+function normalizeModuleKey(raw) {
+  let key = String(raw || '').trim().replace(/^\/+/, '');
+  // Accept module.hr.leave | hr.leave | hr/leave
+  key = key.replace(/\//g, '.');
+  if (!key.startsWith('module.')) key = `module.${key}`;
+  return key;
+}
+
 router.get('/values/:key(*)', async (req, res) => {
   try {
-    const key = req.params.key.startsWith('module.') ? req.params.key : `module.${req.params.key}`;
+    const key = normalizeModuleKey(req.params.key);
     if (!modules.MODULE_DEFINITIONS.some((d) => d.key === key)) {
-      return res.status(404).json({ success: false, message: 'مفتاح غير معروف.' });
+      return res.status(404).json({ success: false, message: `مفتاح غير معروف: ${key}` });
     }
     const data = await modules.getEngineValue(req.tenant.id, key);
     return res.json({ success: true, data });
@@ -164,9 +179,9 @@ router.put('/values/:key(*)', async (req, res) => {
         message: 'الحقل value (كائن) مطلوب — لا يوجد حفظ شكلي.'
       });
     }
-    const key = req.params.key.startsWith('module.') ? req.params.key : `module.${req.params.key}`;
+    const key = normalizeModuleKey(req.params.key);
     if (!modules.MODULE_DEFINITIONS.some((d) => d.key === key)) {
-      return res.status(404).json({ success: false, message: 'مفتاح غير معروف.' });
+      return res.status(404).json({ success: false, message: `مفتاح غير معروف: ${key}` });
     }
     const current = await modules.getEngineValue(req.tenant.id, key);
     const merged = { ...(current.value || {}), ...req.body.value };

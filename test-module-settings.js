@@ -86,16 +86,17 @@ async function ensureFixtures() {
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255),
-      first_name VARCHAR(255),
-      last_name VARCHAR(255),
-      username VARCHAR(255),
       email VARCHAR(255),
       role VARCHAR(100) NOT NULL,
       tenant_type VARCHAR(40),
-      password_hash TEXT,
       is_active BOOLEAN DEFAULT true
     )
   `);
+  // Non-destructive: add columns used by Phase 4 invite accept / tenant-auth on shared DBs
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(255)`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(255)`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255)`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
   await db.query(`
     CREATE TABLE IF NOT EXISTS user_sessions (
       id SERIAL PRIMARY KEY,

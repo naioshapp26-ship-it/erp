@@ -392,6 +392,35 @@ async function upsertBranch(pool, body) {
     err.status = 400;
     throw err;
   }
+  // Idempotent when code already exists (non-destructive re-save)
+  if (body.code) {
+    const byCode = await pool.query(
+      `UPDATE tenant_branches SET
+         name = $2,
+         country = COALESCE($3, country),
+         city = COALESCE($4, city),
+         address = COALESCE($5, address),
+         manager_name = COALESCE($6, manager_name),
+         phone = COALESCE($7, phone),
+         email = COALESCE($8, email),
+         is_active = COALESCE($9, is_active, true),
+         updated_at = NOW()
+       WHERE code = $1
+       RETURNING *`,
+      [
+        body.code,
+        body.name,
+        body.country || null,
+        body.city || null,
+        body.address || null,
+        body.manager_name || body.managerName || null,
+        body.phone || null,
+        body.email || null,
+        body.is_active != null ? Boolean(body.is_active) : true
+      ]
+    );
+    if (byCode.rows.length) return byCode.rows[0];
+  }
   const inserted = await pool.query(
     `INSERT INTO tenant_branches
        (name, code, country, city, address, manager_name, phone, email, is_active)
@@ -637,8 +666,17 @@ async function revokeInvite(pool, id) {
 /**
  * Phase 4 — accept invite by one-time token; creates tenant user when needed.
  */
+async function ensureUsersAuthColumns(pool) {
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`);
+}
+
 async function acceptInvite(pool, { token, password, firstName, lastName, username }) {
   await ensureOrgSchema(pool);
+  await ensureUsersAuthColumns(pool);
   const raw = String(token || '').trim();
   if (!raw || raw.length < 20) {
     const err = new Error('رمز الدعوة غير صالح.');
@@ -665,11 +703,6 @@ async function acceptInvite(pool, { token, password, firstName, lastName, userna
     throw err;
   }
 
-  // Optional strong password from company.security
-  try {
-    // tenant id may not be on pool; policy checked by caller when available
-  } catch { /* */ }
-
   const bcrypt = require('bcryptjs');
   const passwordHash = await bcrypt.hash(pwd, 12);
   const uname = String(username || invite.email.split('@')[0]).trim().toLowerCase();
@@ -684,15 +717,23 @@ async function acceptInvite(pool, { token, password, firstName, lastName, userna
   if (existing.rows.length) {
     user = existing.rows[0];
     await pool.query(
-      `UPDATE users SET password_hash = $2, role = COALESCE($3, role), is_active = true WHERE id = $1`,
-      [user.id, passwordHash, invite.role || null]
+      `UPDATE users SET
+         password_hash = $2,
+         role = COALESCE($3, role),
+         is_active = true,
+         first_name = COALESCE($4, first_name),
+         last_name = COALESCE($5, last_name),
+         username = COALESCE($6, username),
+         name = COALESCE(name, $4)
+       WHERE id = $1`,
+      [user.id, passwordHash, invite.role || null, fname, lname, uname]
     );
   } else {
     const inserted = await pool.query(
-      `INSERT INTO users (first_name, last_name, username, email, password_hash, role, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6,true)
+      `INSERT INTO users (name, first_name, last_name, username, email, password_hash, role, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,true)
        RETURNING id, email, role, username`,
-      [fname, lname, uname, invite.email, passwordHash, invite.role || 'staff']
+      [`${fname} ${lname}`.trim(), fname, lname, uname, invite.email, passwordHash, invite.role || 'staff']
     );
     user = inserted.rows[0];
   }

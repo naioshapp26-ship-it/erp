@@ -743,14 +743,18 @@ async function setPeriodStatus(pool, periodId, status, actorId) {
     err.status = 400;
     throw err;
   }
+  const closing = status === 'closed' || status === 'locked';
+  const closedBy = actorId != null && actorId !== '' && !Number.isNaN(Number(actorId))
+    ? Number(actorId)
+    : null;
   const result = await pool.query(
     `UPDATE fiscal_periods SET
        status = $2,
-       closed_at = CASE WHEN $2 IN ('closed','locked') THEN NOW() ELSE NULL END,
-       closed_by = CASE WHEN $2 IN ('closed','locked') THEN $3 ELSE NULL END,
+       closed_at = CASE WHEN $4::boolean THEN NOW() ELSE NULL END,
+       closed_by = CASE WHEN $4::boolean THEN $3::integer ELSE NULL END,
        updated_at = NOW()
      WHERE id = $1 RETURNING *`,
-    [periodId, status, actorId || null]
+    [periodId, status, closedBy, closing]
   );
   if (!result.rows.length) {
     const err = new Error('الفترة غير موجودة.');
