@@ -52,18 +52,11 @@ async function createMenuSystem() {
                 display_order: 1
             },
             {
-                title_ar: 'الموارد البشرية',
-                title_en: 'HR',
-                icon: '👥',
-                url: '/hr',
+                title_ar: 'الإدارة الذكية',
+                title_en: 'Smart Management',
+                icon: '👑',
+                url: '/smart-management',
                 display_order: 2
-            },
-            {
-                title_ar: 'الحسابات',
-                title_en: 'Finance',
-                icon: '💰',
-                url: '/finance',
-                display_order: 3
             },
             {
                 title_ar: 'المبيعات',
