@@ -173,8 +173,15 @@ async function run() {
   ok('catalog live increased', catalog.counts.live >= 40, JSON.stringify(catalog.counts));
   ok('catalog mock cleared for templates/numbering', catalog.counts.mock === 0, JSON.stringify(catalog.counts));
   ok('fiscal is live', ALL_ENTRIES.find((e) => e.id === 'module-finance-fiscal')?.status === 'live');
-  ok('backup remains partial (honest)', ALL_ENTRIES.find((e) => e.id === 'module-backup')?.status === 'partial');
-  ok('catalog version phase4', catalog.version.startsWith('phase4'));
+  // Phase 5 lifts backup to live (operational jobs + gated restore-test)
+  ok(
+    'backup live or partial (phase4→5)',
+    ['live', 'partial'].includes(ALL_ENTRIES.find((e) => e.id === 'module-backup')?.status)
+  );
+  ok(
+    'catalog version phase4+',
+    catalog.version.startsWith('phase4') || catalog.version.startsWith('phase5')
+  );
 
   section('Entitlement allowlist');
   ok('module-settings allowlisted', ALWAYS_ALLOW_PREFIXES.includes('/api/module-settings'));

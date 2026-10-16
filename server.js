@@ -2824,6 +2824,10 @@ app.use('/api/company-settings', companySettingsRoutes);
 const moduleSettingsRoutes = require('./module-settings-api');
 app.use('/api/module-settings', moduleSettingsRoutes);
 
+// Phase 5 — Enterprise Shared Services (workflows, backup, templates, notifications, integrations)
+const sharedServicesRoutes = require('./enterprise-shared-api');
+app.use('/api/shared-services', sharedServicesRoutes);
+
 // ---- Phase 4: Platform (Central/Apex) Settings Routes ----
 // إعدادات المنصة المركزية — مقيدة بالنطاق الرئيسي + دور super_admin
 const platformSettingsRoutes = require('./platform-settings-api');
@@ -4285,6 +4289,12 @@ app.get('/modules/settings/*', (req, res) => {
 });
 app.get('/invite/accept', (req, res) => {
   res.sendFile(path.join(__dirname, 'invite-accept.html'));
+});
+app.get('/shared/services', (req, res) => {
+  res.sendFile(path.join(__dirname, 'enterprise-shared-center.html'));
+});
+app.get('/shared/services/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'enterprise-shared-center.html'));
 });
 [
   '/settings/branches-sections',
@@ -7111,6 +7121,20 @@ app.post('/api/employee-requests', async (req, res) => {
       ];
 
       const tenantResult = await req.tenantPool.query(tenantInsertQuery, tenantValues);
+      // Phase 5 — durable workflow instance (survives server restart)
+      try {
+        if (req.tenant?.id) {
+          const sharedSvc = require('./enterprise-shared-service');
+          await sharedSvc.bridgeEmployeeRequest(
+            req.tenantPool,
+            req.tenant.id,
+            tenantResult.rows[0],
+            null
+          );
+        }
+      } catch (bridgeErr) {
+        console.warn('[EmployeeRequests] wf bridge skipped:', bridgeErr.message);
+      }
       return res.json({ success: true, request: hrRequestWorkflow.enrichRequest(tenantResult.rows[0]) });
     }
 
@@ -7157,6 +7181,14 @@ app.post('/api/employee-requests', async (req, res) => {
     ];
 
     const result = await db.query(query, values);
+    try {
+      if (req.tenant?.id) {
+        const sharedSvc = require('./enterprise-shared-service');
+        await sharedSvc.bridgeEmployeeRequest(req.tenantPool || db, req.tenant.id, result.rows[0], null);
+      }
+    } catch (bridgeErr) {
+      console.warn('[EmployeeRequests] wf bridge skipped:', bridgeErr.message);
+    }
     res.json({ success: true, request: hrRequestWorkflow.enrichRequest(result.rows[0]) });
   } catch (error) {
     console.error('Error creating employee request:', error);

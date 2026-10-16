@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الخدمات المشتركة المؤسسية | NAIOSH ERP 360</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    body { font-family: "Segoe UI", Tahoma, sans-serif; background: linear-gradient(160deg,#f0fdfa,#f8fafc 40%,#e2e8f0); }
+    .tab.active { background:#0f766e; color:#fff; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:1rem; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="bg-white/90 border-b sticky top-0 z-20 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap justify-between gap-3 items-center">
+      <div>
+        <p class="text-xs text-slate-500">NAIOSH ERP 360 · Phase 5</p>
+        <h1 class="text-2xl font-black text-teal-900">الخدمات المشتركة المؤسسية</h1>
+        <p id="tenant-label" class="text-sm text-slate-500">تحميل...</p>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <a href="/modules/settings" class="px-3 py-2 rounded-xl border text-sm">إعدادات الوحدات</a>
+        <a href="/hr/workflow-engine" class="px-3 py-2 rounded-xl border text-sm">محرك HR Workflow</a>
+        <a href="/company/settings" class="px-3 py-2 rounded-xl border text-sm">إعدادات الشركة</a>
+        <button id="btn-refresh" class="px-3 py-2 rounded-xl bg-teal-700 text-white text-sm font-bold">تحديث</button>
+      </div>
+    </div>
+  </header>
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-4">
+    <div id="auth-banner" class="hidden card p-4 text-rose-700 bg-rose-50 text-sm"></div>
+    <div class="flex flex-wrap gap-2" id="tabs">
+      <button class="tab active px-3 py-2 rounded-xl border text-sm font-bold" data-t="wf">سير العمل</button>
+      <button class="tab px-3 py-2 rounded-xl border text-sm font-bold" data-t="backup">النسخ والاستعادة</button>
+      <button class="tab px-3 py-2 rounded-xl border text-sm font-bold" data-t="tpl">القوالب</button>
+      <button class="tab px-3 py-2 rounded-xl border text-sm font-bold" data-t="notif">الإشعارات</button>
+      <button class="tab px-3 py-2 rounded-xl border text-sm font-bold" data-t="integ">التكاملات</button>
+    </div>
+    <section id="panel" class="card p-5 min-h-[420px]"></section>
+  </main>
+  <div id="toast" class="fixed bottom-4 left-4 hidden px-4 py-3 rounded-xl text-white text-sm z-50"></div>
+  <script>
+    const state = { tab: 'wf', bundle: null };
+    function token(){ const m=document.cookie.match(/(?:^|; )authToken=([^;]*)/); return m?decodeURIComponent(m[1]):(localStorage.getItem('authToken')||''); }
+    async function api(path, options={}) {
+      const headers = Object.assign({Accept:'application/json'}, options.headers||{});
+      const t=token(); if(t) headers.Authorization='Bearer '+t;
+      if(options.body && !headers['Content-Type']) headers['Content-Type']='application/json';
+      const res = await fetch('/api/shared-services'+path,{...options,credentials:'include',headers,body:options.body&&typeof options.body!=='string'?JSON.stringify(options.body):options.body});
+      const payload = await res.json().catch(()=>({}));
+      if(!res.ok||payload.success===false){ const e=new Error(payload.message||('HTTP '+res.status)); e.status=res.status; throw e; }
+      return payload;
+    }
+    function toast(msg,type='ok'){ const el=document.getElementById('toast'); el.textContent=msg; el.className='fixed bottom-4 left-4 px-4 py-3 rounded-xl text-white text-sm z-50 '+(type==='ok'?'bg-teal-700':'bg-rose-700'); el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'),3200); }
+
+    function render() {
+      const p=document.getElementById('panel');
+      const b=state.bundle||{};
+      if(state.tab==='wf'){
+        const defs=b.workflows?.definitions||[];
+        const inst=b.workflows?.instances||[];
+        p.innerHTML=`<div class="flex justify-between mb-3"><h2 class="text-xl font-black">تعريفات ومثيلات سير العمل</h2>
+          <button id="seed-wf" class="px-3 py-2 rounded-xl bg-teal-700 text-white text-sm">تهيئة HR افتراضي</button></div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div><h3 class="font-bold mb-2">التعريفات (${defs.length})</h3>
+              ${defs.map(d=>`<div class="border rounded-xl p-2 mb-1 text-sm"><b>${d.name_ar}</b> · ${d.code} · v${d.version} · ${d.is_active?'نشط':'متوقف'}</div>`).join('')||'<p class="text-slate-500">لا تعريفات</p>'}
+            </div>
+            <div><h3 class="font-bold mb-2">مثيلات حديثة</h3>
+              ${inst.map(i=>`<div class="border rounded-xl p-2 mb-1 text-sm">#${i.id} · ${i.title||i.entity_id} · <b>${i.status}</b></div>`).join('')||'<p class="text-slate-500">لا مثيلات</p>'}
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mt-3">المحرر البصري: <a class="underline" href="/hr/workflow-engine">/hr/workflow-engine</a> — الحفظ دائم في PostgreSQL.</p>`;
+        document.getElementById('seed-wf').onclick=async()=>{
+          try{
+            await api('/workflows/definitions',{method:'POST',body:{code:'hr-default',name_ar:'سير عمل HR الافتراضي',module_key:'hr',steps:[{key:'manager',label_ar:'المدير',role:'manager'},{key:'hr',label_ar:'HR',role:'hr'}]}});
+            toast('تم التهيئة'); await load();
+          }catch(e){toast(e.message,'err');}
+        };
+      } else if(state.tab==='backup'){
+        const jobs=b.backup?.jobs||[]; const runs=b.backup?.runs||[];
+        p.innerHTML=`<h2 class="text-xl font-black mb-3">النسخ الاحتياطي والاستعادة الآمنة</h2>
+          <div class="flex flex-wrap gap-2 mb-4">
+            <button id="mk-job" class="px-3 py-2 rounded-xl border text-sm font-bold">إنشاء مهمة</button>
+            <button id="run-bak" class="px-3 py-2 rounded-xl bg-teal-700 text-white text-sm font-bold">تشغيل نسخة الآن</button>
+            <button id="run-restore" class="px-3 py-2 rounded-xl border border-rose-300 text-rose-700 text-sm font-bold">استعادة اختبار (مقيدة)</button>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div><h3 class="font-bold mb-2">المهام</h3>${jobs.map(j=>`<div class="border rounded-xl p-2 mb-1 text-sm">${j.name} · احتفاظ ${j.retention_days}ي · ${j.schedule_cron||''}</div>`).join('')||'<p class="text-slate-500">لا مهام</p>'}</div>
+            <div><h3 class="font-bold mb-2">سجل التشغيل</h3>${runs.map(r=>`<div class="border rounded-xl p-2 mb-1 text-xs">${r.action} · <b>${r.status}</b> · ${r.message||''}</div>`).join('')||'<p class="text-slate-500">لا تشغيلات</p>'}</div>
+          </div>
+          <p class="text-xs text-amber-700 mt-3">الاستعادة تتطلب confirmToken=CONFIRM_DESTRUCTIVE_RESTORE و TEST_RESTORE_DATABASE_URL لقاعدة اختبار منفصلة — ممنوع على Production.</p>`;
+        document.getElementById('mk-job').onclick=async()=>{ try{ await api('/backup/jobs',{method:'POST',body:{name:'نسخ يومي',schedule_cron:'daily',retention_days:30}}); toast('تم'); await load(); }catch(e){toast(e.message,'err');} };
+        document.getElementById('run-bak').onclick=async()=>{ try{ const r=await api('/backup/run',{method:'POST',body:{}}); toast('نسخة: '+r.data.status); await load(); }catch(e){toast(e.message,'err');} };
+        document.getElementById('run-restore').onclick=async()=>{
+          const token=prompt('اكتب CONFIRM_DESTRUCTIVE_RESTORE للموافقة:');
+          try{ const r=await api('/backup/restore-test',{method:'POST',body:{confirmToken:token}}); toast(r.data.status+': '+(r.data.message||'')); await load(); }catch(e){toast(e.message,'err');}
+        };
+      } else if(state.tab==='tpl'){
+        p.innerHTML=`<h2 class="text-xl font-black mb-3">Studio القوالب</h2>
+          <form id="f-tpl" class="grid md:grid-cols-2 gap-2 border rounded-xl p-3 mb-3">
+            <select name="template_type" class="border rounded-xl p-2"><option value="email">email</option><option value="sms">sms</option><option value="print">print</option></select>
+            <input name="code" class="border rounded-xl p-2" placeholder="الكود" required />
+            <input name="name_ar" class="border rounded-xl p-2" placeholder="الاسم" required />
+            <input name="subject" class="border rounded-xl p-2" placeholder="الموضوع {{name}}" />
+            <textarea name="body" class="border rounded-xl p-2 md:col-span-2" rows="4" placeholder="مرحباً {{name}}"></textarea>
+            <button class="bg-teal-700 text-white rounded-xl font-bold md:col-span-2 py-2">حفظ + إصدار</button>
+          </form>
+          <p class="text-xs text-slate-500">يدعم متغيرات {{var}} مع تهريب HTML. Scripts غير موثوقة مرفوضة. الإصدارات عبر /templates/:id/versions.</p>`;
+        document.getElementById('f-tpl').onsubmit=async(e)=>{
+          e.preventDefault(); const fd=new FormData(e.target);
+          try{ const r=await api('/templates',{method:'POST',body:Object.fromEntries(fd.entries())}); toast('حفظ v'+r.data.version); }catch(err){toast(err.message,'err');}
+        };
+      } else if(state.tab==='notif'){
+        const box=b.notifications?.outbox||[];
+        p.innerHTML=`<h2 class="text-xl font-black mb-3">طابور الإشعارات</h2>
+          <div class="flex gap-2 mb-3">
+            <button id="enq" class="px-3 py-2 rounded-xl border text-sm">إضافة تجريبية</button>
+            <button id="proc" class="px-3 py-2 rounded-xl bg-teal-700 text-white text-sm">معالجة الطابور</button>
+          </div>
+          ${box.map(n=>`<div class="border rounded-xl p-2 mb-1 text-xs">${n.channel} → ${n.recipient} · <b>${n.status}</b> · attempts ${n.attempts}</div>`).join('')||'<p class="text-slate-500">الطابور فارغ</p>'}`;
+        document.getElementById('enq').onclick=async()=>{ try{ await api('/notifications/enqueue',{method:'POST',body:{channel:'in_app',recipient:'1',subject:'اختبار',body:'مرحبا من Phase 5'}}); toast('أُضيف'); await load(); }catch(e){toast(e.message,'err');} };
+        document.getElementById('proc').onclick=async()=>{ try{ const r=await api('/notifications/process',{method:'POST',body:{limit:10}}); toast('عولج: '+(r.data||[]).length); await load(); }catch(e){toast(e.message,'err');} };
+      } else if(state.tab==='integ'){
+        const list=b.integrations||[];
+        p.innerHTML=`<h2 class="text-xl font-black mb-3">سجل التكاملات الموجودة</h2>
+          ${list.map(i=>`<div class="border rounded-xl p-2 mb-2 text-sm flex flex-wrap justify-between gap-2">
+            <span><b>${i.display_name}</b> · ${i.integration_key} · ${i.is_enabled?'مفعّل':'معطّل'}
+              ${i.last_test_at?`<br/><span class="text-xs text-slate-500">آخر اختبار: ${i.last_test_ok?'OK':'FAIL'} — ${i.last_test_msg||''}</span>`:''}
+            </span>
+            <span class="flex gap-1">
+              <button class="text-xs border rounded px-2" onclick="toggleInteg('${i.integration_key}',${!i.is_enabled})">${i.is_enabled?'تعطيل':'تفعيل'}</button>
+              <button class="text-xs border rounded px-2" onclick="testInteg('${i.integration_key}')">اختبار</button>
+            </span>
+          </div>`).join('')||'<p class="text-slate-500">لا تكاملات</p>'}
+          <p class="text-xs text-slate-500 mt-2">الأسرار لا تُعرض هنا — تُدار عبر مسارات tenant-settings المشفّرة الموجودة.</p>`;
+      }
+    }
+    window.toggleInteg=async(key,en)=>{ try{ await api('/integrations/'+key+(en?'/enable':'/disable'),{method:'POST',body:{enabled:en}}); toast('تم'); await load(); }catch(e){toast(e.message,'err');} };
+    window.testInteg=async(key)=>{ try{ const r=await api('/integrations/'+key+'/test',{method:'POST',body:{}}); toast(r.data.message|| (r.success?'OK':'FAIL'), r.success?'ok':'err'); await load(); }catch(e){toast(e.message,'err');} };
+
+    document.getElementById('tabs').onclick=(e)=>{ const btn=e.target.closest('.tab'); if(!btn) return; state.tab=btn.dataset.t; [...document.querySelectorAll('.tab')].forEach(x=>x.classList.toggle('active',x===btn)); render(); };
+    async function load(){ const res=await api('/bundle'); state.bundle=res.data; document.getElementById('tenant-label').textContent='#'+res.data.tenant.id+' · '+res.data.tenant.subdomain; render(); }
+    document.getElementById('btn-refresh').onclick=()=>load().catch(e=>toast(e.message,'err'));
+    load().catch(e=>{ const b=document.getElementById('auth-banner'); b.classList.remove('hidden'); b.textContent=e.message; });
+  </script>
+</body>
+</html>
