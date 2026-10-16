@@ -744,6 +744,10 @@ function getPageKeysForPath(requestPath) {
   if (normalized === '/smart-management' || normalized.startsWith('/smart-management/')) {
     return ['hr', 'finance', 'records-archive-home'];
   }
+  // Portal hub: Branches / Nurseries / Platforms / E-Library
+  if (normalized === '/incubators-platforms' || normalized.startsWith('/incubators-platforms/')) {
+    return ['branches-hub', 'incubators-hub', 'platforms', 'e-offices'];
+  }
   if (normalized === '/archive') return ['records-archive-home'];
   if (normalized.startsWith('/archive/')) {
     return ['records-archive-home'];
