@@ -635,7 +635,7 @@ function getCatalog({ includeMock = true } = {}) {
     mock: entries.filter((e) => e.status === 'mock').length
   };
   return {
-    version: 'phase5-2026-10-16',
+    version: 'phase6-2026-10-16',
     generatedAt: new Date().toISOString(),
     levels: [
       { id: 'platform', titleAr: 'إعدادات المنصة', titleEn: 'Platform Settings' },

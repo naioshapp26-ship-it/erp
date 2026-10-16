@@ -180,7 +180,7 @@ async function run() {
   );
   ok(
     'catalog version phase4+',
-    catalog.version.startsWith('phase4') || catalog.version.startsWith('phase5')
+    /^phase[456]/.test(catalog.version)
   );
 
   section('Entitlement allowlist');

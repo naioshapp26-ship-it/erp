@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>الخدمات المشتركة المؤسسية | NAIOSH ERP 360</title>
+  <script src="/tenant-path-client.js?v=20261016-phase6-scope"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
@@ -43,13 +44,24 @@
   <script>
     const state = { tab: 'wf', bundle: null };
     function token(){ const m=document.cookie.match(/(?:^|; )authToken=([^;]*)/); return m?decodeURIComponent(m[1]):(localStorage.getItem('authToken')||''); }
+    function scopeUrl(path){ return (typeof window.getTenantScopedPath==='function')?window.getTenantScopedPath(path):path; }
+    function explainApiError(status, payload){
+      const serverMsg = payload?.message || payload?.error || '';
+      if (status===400 || /نطاق|مستأجر|tenant/i.test(serverMsg)) {
+        return (serverMsg||'نطاق المستأجر مطلوب.')+' افتح عبر نطاق الشركة أو /t/{subdomain}/shared/services.';
+      }
+      if (status===401) return (serverMsg||'يلزم تسجيل الدخول.')+' سجّل دخول مسؤول الشركة ثم أعد المحاولة.';
+      if (status===403) return (serverMsg||'غير مصرح.')+' يتطلب صلاحية مسؤول الشركة.';
+      if (status===404) return (serverMsg||'المسار غير موجود.')+' تأكد أنك على خادم التطبيق وأن نطاق/مسار المستأجر صحيح.';
+      return serverMsg || ('HTTP '+status);
+    }
     async function api(path, options={}) {
       const headers = Object.assign({Accept:'application/json'}, options.headers||{});
       const t=token(); if(t) headers.Authorization='Bearer '+t;
       if(options.body && !headers['Content-Type']) headers['Content-Type']='application/json';
-      const res = await fetch('/api/shared-services'+path,{...options,credentials:'include',headers,body:options.body&&typeof options.body!=='string'?JSON.stringify(options.body):options.body});
+      const res = await fetch(scopeUrl('/api/shared-services'+path),{...options,credentials:'include',headers,body:options.body&&typeof options.body!=='string'?JSON.stringify(options.body):options.body});
       const payload = await res.json().catch(()=>({}));
-      if(!res.ok||payload.success===false){ const e=new Error(payload.message||('HTTP '+res.status)); e.status=res.status; throw e; }
+      if(!res.ok||payload.success===false){ const e=new Error(explainApiError(res.status,payload)); e.status=res.status; throw e; }
       return payload;
     }
     function toast(msg,type='ok'){ const el=document.getElementById('toast'); el.textContent=msg; el.className='fixed bottom-4 left-4 px-4 py-3 rounded-xl text-white text-sm z-50 '+(type==='ok'?'bg-teal-700':'bg-rose-700'); el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'),3200); }

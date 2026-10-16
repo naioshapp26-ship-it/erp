@@ -127,7 +127,7 @@ async function run() {
   ok('catalog all live', catalog.counts.live === 47 && catalog.counts.partial === 0 && catalog.counts.mock === 0);
   ok('hr-workflow live', ALL_ENTRIES.find((e) => e.id === 'module-hr-workflow')?.status === 'live');
   ok('backup live', ALL_ENTRIES.find((e) => e.id === 'module-backup')?.status === 'live');
-  ok('catalog version phase5', catalog.version.startsWith('phase5'));
+  ok('catalog version phase5+', /^phase[56]/.test(catalog.version));
   ok('shared-services allowlisted', ALWAYS_ALLOW_PREFIXES.includes('/api/shared-services'));
 
   section('Fixtures');
