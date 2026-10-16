@@ -28,6 +28,18 @@ const router = express.Router();
 const VALID_STATUSES = new Set(['active', 'suspended', 'deleted', 'pending_payment']);
 const VALID_PLANS = new Set(['basic', 'pro', 'enterprise']);
 
+async function isKnownPlan(plan) {
+  if (VALID_PLANS.has(plan)) return true;
+  try {
+    const owner = require('./platform-owner-service');
+    await owner.ensureSchema();
+    const row = await owner.getPlan(plan);
+    return Boolean(row && row.is_active);
+  } catch {
+    return false;
+  }
+}
+
 const managementLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
@@ -168,7 +180,7 @@ router.post('/', async (req, res) => {
       message: 'يجب توفير البريد الإلكتروني أو رقم الجوال للأدمن.'
     });
   }
-  if (!VALID_PLANS.has(plan)) {
+  if (!(await isKnownPlan(plan))) {
     return res.status(400).json({ success: false, message: 'خطة الاشتراك غير صالحة.' });
   }
 
@@ -277,7 +289,7 @@ router.patch('/:id', async (req, res) => {
     updates.push(`status = $${params.length}`);
   }
   if (plan !== undefined) {
-    if (!VALID_PLANS.has(plan)) {
+    if (!(await isKnownPlan(plan))) {
       return res.status(400).json({ success: false, message: 'الخطة غير صالحة.' });
     }
     params.push(plan);
@@ -307,6 +319,34 @@ router.patch('/:id', async (req, res) => {
     }
     // تحرير حمام الاتصال من الذاكرة إذا تغيرت الحالة
     if (status) await releaseTenantPool(result.rows[0].subdomain).catch(() => {});
+
+    // Phase 2: keep subscriptions + licenses + module seed in sync when plan changes
+    if (plan !== undefined) {
+      try {
+        const owner = require('./platform-owner-service');
+        await owner.ensureSchema();
+        await owner.syncSubscriptionRow(
+          tenantId,
+          { plan, status: 'active', periodStart: new Date().toISOString() },
+          req.adminUser?.id
+        );
+        await owner.ensureLicenseForTenant(tenantId, plan, req.adminUser?.id);
+        if (req.body?.reseedModules !== false) {
+          const { reseedTenantPageAccessForTenant } = require('./tenant-page-access-policy');
+          const { getTenantPermissionBundle } = require('./tenant-page-permissions');
+          const full = await db.query(`SELECT * FROM tenants WHERE id = $1`, [tenantId]);
+          const existingBundle = await getTenantPermissionBundle(db, full.rows[0]).catch(() => null);
+          await reseedTenantPageAccessForTenant(db, full.rows[0], {
+            existingBundle,
+            forcePlanDefaults: true,
+            preserveExisting: false
+          });
+        }
+      } catch (syncErr) {
+        console.warn('[TenantMgmt] plan sync warning:', syncErr.message);
+      }
+    }
+
     return res.json({ success: true, tenant: result.rows[0] });
   } catch (err) {
     console.error('[TenantMgmt] update error:', err.message);

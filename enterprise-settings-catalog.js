@@ -30,11 +30,12 @@ const PLATFORM_ENTRIES = [
     level: 'platform',
     titleAr: 'إدارة الشركات والمستأجرين',
     titleEn: 'Tenants & Companies',
-    descriptionAr: 'إنشاء وتفعيل وتعليق الشركات المشتركة.',
-    href: '/tenant-admin.html',
+    descriptionAr: 'إنشاء وتفعيل وتعليق الشركات عبر مركز مالك المنصة.',
+    href: '/platform/owner',
     status: 'live',
     owner: 'Platform Owner',
-    icon: 'fa-building'
+    icon: 'fa-building',
+    notes: 'Phase 2 Owner Console + legacy /tenant-admin.html'
   }),
   entry({
     id: 'platform-super-admin',
@@ -74,12 +75,12 @@ const PLATFORM_ENTRIES = [
     level: 'platform',
     titleAr: 'كتالوج أنظمة الاشتراك',
     titleEn: 'SaaS Systems Catalog',
-    descriptionAr: 'أنظمة الاشتراك العامة عبر /api/saas.',
-    href: '/api/saas/systems-catalog',
-    status: 'partial',
+    descriptionAr: 'باقات ووحدات قابلة للتعديل في مركز مالك المنصة.',
+    href: '/platform/owner',
+    status: 'live',
     owner: 'Platform Operator',
     icon: 'fa-layer-group',
-    notes: 'API موجود؛ واجهة إدارة الباقات القابلة للتعديل Phase 2.'
+    notes: 'Phase 2: /api/platform-owner/plans + console. Public catalog remains /api/saas/systems-catalog.'
   }),
   entry({
     id: 'platform-subscriptions',
@@ -87,11 +88,11 @@ const PLATFORM_ENTRIES = [
     titleAr: 'الباقات والاشتراكات',
     titleEn: 'Plans & Subscriptions',
     descriptionAr: 'تعديل الباقات وحدود المستخدمين والتخزين والوحدات.',
-    href: null,
-    status: 'planned',
+    href: '/platform/owner',
+    status: 'live',
     owner: 'Platform Owner',
     icon: 'fa-gem',
-    notes: 'جداول subscriptions موجودة؛ محرر الباقات Phase 2.'
+    notes: 'Phase 2 Owner Console — plans/subscriptions/licenses APIs live.'
   }),
   entry({
     id: 'platform-ops-health',
@@ -99,10 +100,11 @@ const PLATFORM_ENTRIES = [
     titleAr: 'تشغيل المنصة والمراقبة',
     titleEn: 'Platform Ops & Health',
     descriptionAr: 'صحة الخدمات، Feature Flags، تنبيهات تشغيلية.',
-    href: null,
-    status: 'planned',
+    href: '/platform/owner',
+    status: 'live',
     owner: 'SRE',
-    icon: 'fa-heartbeat'
+    icon: 'fa-heartbeat',
+    notes: 'Phase 2: /api/platform-owner/ops/health + flags.'
   })
 ];
 

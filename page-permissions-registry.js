@@ -911,6 +911,7 @@ function isPathAllowed(requestPath, context = {}) {
 }
 
 module.exports = {
+  PRIMARY_TENANT_SYSTEM_KEYS,
   OFFICE_ROUTE_PARENTS,
   ROUTE_TO_PATH,
   PAGE_LABELS,
