@@ -343,7 +343,18 @@ async function getAllowedOfficePages(client, tenantType, entityId, officeId) {
 
 async function buildAuthenticatedResponse(client, user, req) {
     const sessionToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // Phase 4: honor company.security.session_ttl_hours when tenant context exists
+    let sessionTtlMs = SESSION_TTL_MS;
+    try {
+      const tenantId = req.tenant?.id || user.tenant_id || null;
+      if (tenantId) {
+        const modules = require('./module-settings-service');
+        sessionTtlMs = await modules.resolveSessionTtlMs(tenantId);
+      }
+    } catch {
+      sessionTtlMs = SESSION_TTL_MS;
+    }
+    const expiresAt = new Date(Date.now() + sessionTtlMs);
 
     try {
         await client.query(`
@@ -413,7 +424,9 @@ async function buildAuthenticatedResponse(client, user, req) {
         })),
         session: {
             token: sessionToken,
-            expires_at: expiresAt
+            expires_at: expiresAt,
+            ttl_ms: sessionTtlMs,
+            policy_source: req.tenant?.id ? 'company.security' : 'default'
         }
     };
 }

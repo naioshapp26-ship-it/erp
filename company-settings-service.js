@@ -392,6 +392,35 @@ async function upsertBranch(pool, body) {
     err.status = 400;
     throw err;
   }
+  // Idempotent when code already exists (non-destructive re-save)
+  if (body.code) {
+    const byCode = await pool.query(
+      `UPDATE tenant_branches SET
+         name = $2,
+         country = COALESCE($3, country),
+         city = COALESCE($4, city),
+         address = COALESCE($5, address),
+         manager_name = COALESCE($6, manager_name),
+         phone = COALESCE($7, phone),
+         email = COALESCE($8, email),
+         is_active = COALESCE($9, is_active, true),
+         updated_at = NOW()
+       WHERE code = $1
+       RETURNING *`,
+      [
+        body.code,
+        body.name,
+        body.country || null,
+        body.city || null,
+        body.address || null,
+        body.manager_name || body.managerName || null,
+        body.phone || null,
+        body.email || null,
+        body.is_active != null ? Boolean(body.is_active) : true
+      ]
+    );
+    if (byCode.rows.length) return byCode.rows[0];
+  }
   const inserted = await pool.query(
     `INSERT INTO tenant_branches
        (name, code, country, city, address, manager_name, phone, email, is_active)
@@ -634,6 +663,94 @@ async function revokeInvite(pool, id) {
   return result.rows[0];
 }
 
+/**
+ * Phase 4 — accept invite by one-time token; creates tenant user when needed.
+ */
+async function ensureUsersAuthColumns(pool) {
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`);
+}
+
+async function acceptInvite(pool, { token, password, firstName, lastName, username }) {
+  await ensureOrgSchema(pool);
+  await ensureUsersAuthColumns(pool);
+  const raw = String(token || '').trim();
+  if (!raw || raw.length < 20) {
+    const err = new Error('رمز الدعوة غير صالح.');
+    err.status = 400;
+    throw err;
+  }
+  const tokenHash = crypto.createHash('sha256').update(raw).digest('hex');
+  const inviteRes = await pool.query(
+    `SELECT * FROM tenant_user_invites
+     WHERE token_hash = $1 AND status = 'pending' AND expires_at > NOW()
+     LIMIT 1`,
+    [tokenHash]
+  );
+  if (!inviteRes.rows.length) {
+    const err = new Error('الدعوة منتهية أو غير موجودة أو مُستخدمة.');
+    err.status = 404;
+    throw err;
+  }
+  const invite = inviteRes.rows[0];
+  const pwd = String(password || '');
+  if (pwd.length < 8) {
+    const err = new Error('كلمة المرور يجب أن تكون 8 أحرف على الأقل.');
+    err.status = 400;
+    throw err;
+  }
+
+  const bcrypt = require('bcryptjs');
+  const passwordHash = await bcrypt.hash(pwd, 12);
+  const uname = String(username || invite.email.split('@')[0]).trim().toLowerCase();
+  const fname = String(firstName || uname).trim();
+  const lname = String(lastName || '').trim();
+
+  let user;
+  const existing = await pool.query(
+    `SELECT id, email, role FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+    [invite.email]
+  );
+  if (existing.rows.length) {
+    user = existing.rows[0];
+    await pool.query(
+      `UPDATE users SET
+         password_hash = $2,
+         role = COALESCE($3, role),
+         is_active = true,
+         first_name = COALESCE($4, first_name),
+         last_name = COALESCE($5, last_name),
+         username = COALESCE($6, username),
+         name = COALESCE(name, $4)
+       WHERE id = $1`,
+      [user.id, passwordHash, invite.role || null, fname, lname, uname]
+    );
+  } else {
+    const inserted = await pool.query(
+      `INSERT INTO users (name, first_name, last_name, username, email, password_hash, role, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,true)
+       RETURNING id, email, role, username`,
+      [`${fname} ${lname}`.trim(), fname, lname, uname, invite.email, passwordHash, invite.role || 'staff']
+    );
+    user = inserted.rows[0];
+  }
+
+  await pool.query(
+    `UPDATE tenant_user_invites
+     SET status = 'accepted', accepted_at = NOW()
+     WHERE id = $1`,
+    [invite.id]
+  );
+
+  return {
+    invite: { id: invite.id, email: invite.email, role: invite.role, status: 'accepted' },
+    user: { id: user.id, email: user.email || invite.email, role: invite.role || user.role, username: user.username || uname }
+  };
+}
+
 async function listAudit(tenantId, limit = 50) {
   await ensureEngine();
   const result = await db.query(
@@ -679,6 +796,16 @@ async function recalculateStorageMeter(tenantId, subdomain, actorId) {
   }
 
   walk(dir, 'branding_uploads');
+
+  // Phase 4 — broaden metering to tenant uploads buckets when present
+  const extraBuckets = [
+    ['uploads', path.join(uploadsRoot, String(subdomain || `tenant-${tenantId}`))],
+    ['documents', path.join(uploadsRoot, 'documents', String(subdomain || `tenant-${tenantId}`))],
+    ['hr-attachments', path.join(uploadsRoot, 'hr-attachments', String(subdomain || `tenant-${tenantId}`))]
+  ];
+  for (const [bucket, extraDir] of extraBuckets) {
+    walk(extraDir, bucket);
+  }
 
   const meter = {
     used_bytes: usedBytes,
@@ -752,6 +879,7 @@ module.exports = {
   createInvite,
   listInvites,
   revokeInvite,
+  acceptInvite,
   listAudit,
   recalculateStorageMeter,
   checkStorageAllowance,

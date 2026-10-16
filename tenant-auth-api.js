@@ -39,7 +39,65 @@ const { isPathAllowed } = require('./page-permissions-registry');
 
 const router = express.Router();
 
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 ساعة
+const DEFAULT_SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 ساعة — يُستبدل بـ company.security عند توفر المستأجر
+
+/** Phase 4: in-process lockout tracker keyed by tenantId:identifier (backed by policy from Settings Engine). */
+const loginFailureTracker = new Map();
+
+async function resolveTenantSessionTtlMs(tenantId) {
+  try {
+    const modules = require('./module-settings-service');
+    return await modules.resolveSessionTtlMs(tenantId);
+  } catch {
+    return DEFAULT_SESSION_TTL_MS;
+  }
+}
+
+async function resolveTenantSecurityPolicy(tenantId) {
+  try {
+    const modules = require('./module-settings-service');
+    return await modules.resolveSecurityPolicy(tenantId);
+  } catch {
+    return { max_failed_logins: 5, lockout_minutes: 15, require_strong_password: true, session_ttl_hours: 24 };
+  }
+}
+
+function lockoutKey(tenantId, identifier) {
+  return `${tenantId || 'x'}:${String(identifier || '').toLowerCase()}`;
+}
+
+function getLockoutState(tenantId, identifier, policy) {
+  const key = lockoutKey(tenantId, identifier);
+  const entry = loginFailureTracker.get(key);
+  if (!entry) return { locked: false, failures: 0 };
+  const lockoutMs = Math.max(1, Number(policy.lockout_minutes) || 15) * 60 * 1000;
+  if (entry.lockedUntil && Date.now() < entry.lockedUntil) {
+    return { locked: true, failures: entry.failures, lockedUntil: entry.lockedUntil };
+  }
+  if (entry.lockedUntil && Date.now() >= entry.lockedUntil) {
+    loginFailureTracker.delete(key);
+    return { locked: false, failures: 0 };
+  }
+  return { locked: false, failures: entry.failures || 0, lockoutMs };
+}
+
+function recordLoginFailure(tenantId, identifier, policy) {
+  const key = lockoutKey(tenantId, identifier);
+  const maxFails = Math.max(1, Number(policy.max_failed_logins) || 5);
+  const lockoutMs = Math.max(1, Number(policy.lockout_minutes) || 15) * 60 * 1000;
+  const prev = loginFailureTracker.get(key) || { failures: 0 };
+  const failures = (prev.failures || 0) + 1;
+  const next = { failures };
+  if (failures >= maxFails) {
+    next.lockedUntil = Date.now() + lockoutMs;
+  }
+  loginFailureTracker.set(key, next);
+  return next;
+}
+
+function clearLoginFailures(tenantId, identifier) {
+  loginFailureTracker.delete(lockoutKey(tenantId, identifier));
+}
 
 // ---- Rate Limiters ----
 const loginLimiter = rateLimit({
@@ -243,7 +301,8 @@ async function _applyTenantPermissionBundle(responseUser, tenant) {
  */
 async function _createSession(tenantPool, userId, tenantId, req, options = {}) {
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  const ttlMs = options.ttlMs || (await resolveTenantSessionTtlMs(tenantId));
+  const expiresAt = new Date(Date.now() + ttlMs);
   const ip = req.ip || (req.connection && req.connection.remoteAddress) || '';
   const ua = req.headers['user-agent'] || '';
 
@@ -369,16 +428,36 @@ router.post('/login', loginLimiter, async (req, res) => {
       passwordHash = user?.password_hash || null;
     }
 
-    if (!user || !passwordHash || !(await bcrypt.compare(password, passwordHash))) {
-      return res.status(401).json({ success: false, message: 'بيانات الدخول غير صحيحة.' });
+    const securityPolicy = await resolveTenantSecurityPolicy(req.tenant.id);
+    const lockout = getLockoutState(req.tenant.id, identifier, securityPolicy);
+    if (lockout.locked) {
+      return res.status(423).json({
+        success: false,
+        code: 'ACCOUNT_LOCKED',
+        message: 'تم قفل الحساب مؤقتاً بسبب محاولات دخول فاشلة حسب سياسة الأمان.',
+        locked_until: new Date(lockout.lockedUntil).toISOString()
+      });
     }
+
+    if (!user || !passwordHash || !(await bcrypt.compare(password, passwordHash))) {
+      const fail = recordLoginFailure(req.tenant.id, identifier, securityPolicy);
+      return res.status(401).json({
+        success: false,
+        message: 'بيانات الدخول غير صحيحة.',
+        code: fail.lockedUntil ? 'ACCOUNT_LOCKED' : 'INVALID_CREDENTIALS',
+        failures: fail.failures
+      });
+    }
+
+    clearLoginFailures(req.tenant.id, identifier);
+    const ttlMs = await resolveTenantSessionTtlMs(req.tenant.id);
 
     const { token, expiresAt } = await _createSession(
       req.tenantPool,
       user.id,
       req.tenant.id,
       req,
-      { sharedDb }
+      { sharedDb, ttlMs }
     );
     try {
       await seedTenantPageAccess(
@@ -397,7 +476,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       secure: req.secure || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https',
       sameSite: 'lax',
       path: '/',
-      maxAge: SESSION_TTL_MS
+      maxAge: ttlMs
     });
 
     return res.json({
@@ -405,7 +484,12 @@ router.post('/login', loginLimiter, async (req, res) => {
       message: 'تم تسجيل الدخول بنجاح',
       data: {
         user: responseUser,
-        session: { token, expires_at: expiresAt }
+        session: {
+          token,
+          expires_at: expiresAt,
+          ttl_hours: Math.round(ttlMs / 3600000 * 100) / 100,
+          policy_source: 'company.security'
+        }
       }
     });
   } catch (error) {
@@ -563,6 +647,19 @@ router.post('/register', registerLimiter, async (req, res) => {
   const normalizedUsername = String(username).trim().toLowerCase();
 
   try {
+    // Phase 4: enforce company.security.require_strong_password when enabled
+    const securityPolicy = await resolveTenantSecurityPolicy(tenant.id);
+    if (securityPolicy.require_strong_password) {
+      const strong = /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && password.length >= 10;
+      if (!strong) {
+        return res.status(400).json({
+          success: false,
+          code: 'WEAK_PASSWORD',
+          message: 'كلمة المرور ضعيفة حسب سياسة الأمان (10+ أحرف مع أحرف كبيرة وصغيرة ورقم).'
+        });
+      }
+    }
+
     // تحقق من التفرد داخل قاعدة بيانات المستأجر فقط
     const existingRes = await tenantPool.query(
       `SELECT id FROM users WHERE LOWER(username) = $1

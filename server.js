@@ -2820,6 +2820,10 @@ app.use('/api/tenant-settings', tenantSettingsRoutes);
 const companySettingsRoutes = require('./company-settings-api');
 app.use('/api/company-settings', companySettingsRoutes);
 
+// Phase 4 — ERP Module Settings Center (tenant host only)
+const moduleSettingsRoutes = require('./module-settings-api');
+app.use('/api/module-settings', moduleSettingsRoutes);
+
 // ---- Phase 4: Platform (Central/Apex) Settings Routes ----
 // إعدادات المنصة المركزية — مقيدة بالنطاق الرئيسي + دور super_admin
 const platformSettingsRoutes = require('./platform-settings-api');
@@ -4272,6 +4276,15 @@ app.get('/company/settings', (req, res) => {
 });
 app.get('/company/settings/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'company-settings-center.html'));
+});
+app.get('/modules/settings', (req, res) => {
+  res.sendFile(path.join(__dirname, 'module-settings-center.html'));
+});
+app.get('/modules/settings/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'module-settings-center.html'));
+});
+app.get('/invite/accept', (req, res) => {
+  res.sendFile(path.join(__dirname, 'invite-accept.html'));
 });
 [
   '/settings/branches-sections',
@@ -6594,6 +6607,32 @@ app.post('/api/invoices', async (req, res) => {
       return res.status(403).json({ error: 'ليس لديك صلاحيات لإنشاء فاتورة لهذا الكيان' });
     }
 
+    // Phase 4 — fiscal period gate + tax policy (Settings Engine)
+    let taxBreakdown = null;
+    try {
+      const moduleSettings = require('./module-settings-service');
+      const tenantIdForPolicy = req.tenant?.id || req.tenantId || null;
+      if (tenantIdForPolicy && req.tenantPool) {
+        const posting = await moduleSettings.assertFiscalPostingAllowed(
+          tenantIdForPolicy,
+          req.tenantPool,
+          date
+        );
+        if (!posting.allowed) {
+          return res.status(409).json({
+            error: 'الفترة المالية مغلقة — لا يمكن إنشاء فاتورة بهذا التاريخ.',
+            code: 'FISCAL_PERIOD_CLOSED',
+            data: posting
+          });
+        }
+      }
+      if (tenantIdForPolicy) {
+        taxBreakdown = await moduleSettings.computeInvoiceTax(tenantIdForPolicy, amount);
+      }
+    } catch (policyErr) {
+      console.warn('[Invoices] module policy check skipped:', policyErr.message);
+    }
+
     // Insert invoice
     const query = `
       INSERT INTO invoices (
@@ -6622,7 +6661,11 @@ app.post('/api/invoices', async (req, res) => {
     ];
 
     const result = await db.query(query, values);
-    res.json({ success: true, invoice: result.rows[0] });
+    res.json({
+      success: true,
+      invoice: result.rows[0],
+      tax: taxBreakdown
+    });
   } catch (error) {
     console.error('Error creating invoice:', error);
     res.status(500).json({ error: error.message });
@@ -11704,6 +11747,32 @@ app.post('/api/leave-requests', async (req, res) => {
     }
 
     const computedDays = Number(days_count) || computeLeaveDays(start_date, end_date) || 0;
+
+    // Phase 4 — enforce module.hr.leave operational policy (Settings Engine)
+    try {
+      const moduleSettings = require('./module-settings-service');
+      const tenantIdForPolicy = req.tenant?.id || req.tenantId || null;
+      if (tenantIdForPolicy) {
+        const leaveCheck = await moduleSettings.validateLeaveRequest(tenantIdForPolicy, {
+          leave_type,
+          start_date,
+          end_date,
+          days_count: computedDays,
+          reason
+        });
+        if (!leaveCheck.ok) {
+          client.release();
+          return res.status(422).json({
+            error: leaveCheck.errors.join(' '),
+            code: 'LEAVE_POLICY_VIOLATION',
+            policy: leaveCheck.policy,
+            errors: leaveCheck.errors
+          });
+        }
+      }
+    } catch (policyErr) {
+      console.warn('[LeaveRequests] policy check skipped:', policyErr.message);
+    }
     const owningEntity = req.userEntity.type === 'HQ' ? (entity_id || 'HQ001') : req.userEntity.id;
     const mapLeaveStatus = (value) => {
       const normalized = (value || 'pending').toString().toLowerCase();

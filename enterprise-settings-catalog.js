@@ -198,7 +198,7 @@ const COMPANY_ENTRIES = [
     status: 'live',
     owner: 'Company Admin',
     icon: 'fa-users-cog',
-    notes: 'Phase 3 invites + existing tenant-users; super-admin remains for central RBAC.'
+    notes: 'Phase 3 invites + Phase 4 accept at /invite/accept + /api/company-settings/invites/accept.'
   }),
   entry({
     id: 'company-general',
@@ -246,10 +246,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'hr',
     groupAr: 'الموارد البشرية',
     titleAr: 'مركز الرواتب',
-    href: '/hr/payroll-hub',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'HR Admin',
-    icon: 'fa-money-check-dollar'
+    icon: 'fa-money-check-dollar',
+    notes: 'Phase 4: module.hr.payroll + /hr/payroll-hub + HR 91 tiles.'
   }),
   entry({
     id: 'module-hr-attendance',
@@ -257,10 +258,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'hr',
     groupAr: 'الموارد البشرية',
     titleAr: 'الحضور والانصراف',
-    href: '/hr/attendance-hub',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'HR Admin',
-    icon: 'fa-clock'
+    icon: 'fa-clock',
+    notes: 'Phase 4: module.hr.attendance + leave policy enforcement on /api/leave-requests.'
   }),
   entry({
     id: 'module-hr-workflow',
@@ -268,11 +270,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'hr',
     groupAr: 'الموارد البشرية',
     titleAr: 'محرك سير عمل HR',
-    href: '/finance/hr-workflow-engine.html',
-    status: 'mock',
+    href: '/modules/settings',
+    status: 'partial',
     owner: 'HR Admin',
     icon: 'fa-diagram-project',
-    notes: 'واجهة in-memory؛ الربط بـ approval APIs لاحقاً.'
+    notes: 'Phase 4: module.workflows.approvals persisted; legacy HTML shell still in-memory for canvas.'
   }),
 
   // Finance
@@ -326,10 +328,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'finance',
     groupAr: 'المالية',
     titleAr: 'السياسات المالية',
-    href: '/finance/financial-policies-framework.html',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Finance Admin',
-    icon: 'fa-scale-balanced'
+    icon: 'fa-scale-balanced',
+    notes: 'Phase 4: module.finance.* (tax/invoicing/treasury/approvals/cost_centers/assets).'
   }),
   entry({
     id: 'module-finance-fiscal',
@@ -337,11 +340,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'finance',
     groupAr: 'المالية',
     titleAr: 'الفترات والسنوات المالية',
-    href: null,
-    status: 'planned',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Finance Admin',
     icon: 'fa-calendar-days',
-    notes: 'لا يوجد master جدول فترات؛ Phase 4/5.'
+    notes: 'Phase 4: fiscal_years/fiscal_periods + posting gate on invoices.'
   }),
 
   // Sales / CRM
@@ -352,10 +355,11 @@ const MODULE_ENTRIES = [
     groupAr: 'المبيعات والعملاء',
     titleAr: 'CRM / المبيعات',
     spaRoute: 'crm',
-    href: '/sales/crm',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Sales Admin',
-    icon: 'fa-handshake'
+    icon: 'fa-handshake',
+    notes: 'Phase 4: module.sales.crm pipeline settings in Settings Engine.'
   }),
   entry({
     id: 'module-sales-pos',
@@ -364,10 +368,11 @@ const MODULE_ENTRIES = [
     groupAr: 'المبيعات والعملاء',
     titleAr: 'نقاط البيع POS',
     spaRoute: 'pos',
-    href: '/sales/pos',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Sales Admin',
-    icon: 'fa-cash-register'
+    icon: 'fa-cash-register',
+    notes: 'Phase 4: module.sales.pos + /ops/evaluate-pos stock gate.'
   }),
   entry({
     id: 'module-finance-customers',
@@ -389,10 +394,11 @@ const MODULE_ENTRIES = [
     groupAr: 'المشتريات والمخزون',
     titleAr: 'المخزون',
     spaRoute: 'inventory',
-    href: '/supply-chain/inventory',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Ops',
-    icon: 'fa-boxes-stacked'
+    icon: 'fa-boxes-stacked',
+    notes: 'Phase 4: module.inventory.stock + low/negative stock evaluation.'
   }),
   entry({
     id: 'module-purchases',
@@ -401,10 +407,11 @@ const MODULE_ENTRIES = [
     groupAr: 'المشتريات والمخزون',
     titleAr: 'المشتريات',
     spaRoute: 'purchases',
-    href: '/supply-chain/purchases',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Ops',
-    icon: 'fa-cart-shopping'
+    icon: 'fa-cart-shopping',
+    notes: 'Phase 4: module.purchases.orders approval threshold.'
   }),
   entry({
     id: 'module-suppliers',
@@ -413,10 +420,11 @@ const MODULE_ENTRIES = [
     groupAr: 'المشتريات والمخزون',
     titleAr: 'الموردون',
     spaRoute: 'suppliers',
-    href: '/supply-chain/suppliers',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Ops',
-    icon: 'fa-truck'
+    icon: 'fa-truck',
+    notes: 'Phase 4: module.suppliers.policies.'
   }),
 
   // Tasks / Projects / Facilities
@@ -426,10 +434,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'tasks-management',
     groupAr: 'المشروعات والمهام',
     titleAr: 'إدارة المهام',
-    href: '/tasks',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'PMO',
-    icon: 'fa-list-check'
+    icon: 'fa-list-check',
+    notes: 'Phase 4: module.tasks.projects + assignee gate.'
   }),
   entry({
     id: 'module-task-settings',
@@ -438,10 +447,11 @@ const MODULE_ENTRIES = [
     groupAr: 'المشروعات والمهام',
     titleAr: 'إعدادات المهام',
     spaRoute: 'task-settings',
-    status: 'mock',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'PMO',
     icon: 'fa-sliders',
-    notes: 'كانت checkboxes محلية بدون حفظ.'
+    notes: 'Phase 4: real Settings Engine persistence (no local-only checkboxes).'
   }),
   entry({
     id: 'module-facilities',
@@ -449,10 +459,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'facilities',
     groupAr: 'المرافق والأصول',
     titleAr: 'المرافق',
-    href: '/facilities',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Facilities',
-    icon: 'fa-building-circle-check'
+    icon: 'fa-building-circle-check',
+    notes: 'Phase 4: module.facilities.assets.'
   }),
   entry({
     id: 'module-fixed-assets',
@@ -484,10 +495,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'workflows',
     groupAr: 'الموافقات والقوالب',
     titleAr: 'الحوكمة والأدوار والموافقات',
-    href: '/finance/approvals-roles-governance.html',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Auditor',
-    icon: 'fa-gavel'
+    icon: 'fa-gavel',
+    notes: 'Phase 4: module.workflows.approvals in Settings Engine.'
   }),
   entry({
     id: 'module-contracts',
@@ -507,9 +519,11 @@ const MODULE_ENTRIES = [
     groupAr: 'الموافقات والقوالب',
     titleAr: 'قوالب البريد (مركز الإعدادات القديم)',
     spaRoute: 'settings-email-templates',
-    status: 'mock',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Comms',
-    icon: 'fa-at'
+    icon: 'fa-at',
+    notes: 'Phase 4: module_templates table + /api/module-settings/templates.'
   }),
   entry({
     id: 'module-templates-sms',
@@ -518,9 +532,11 @@ const MODULE_ENTRIES = [
     groupAr: 'الموافقات والقوالب',
     titleAr: 'قوالب SMS',
     spaRoute: 'settings-sms-templates',
-    status: 'mock',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Comms',
-    icon: 'fa-comments'
+    icon: 'fa-comments',
+    notes: 'Phase 4: persisted module_templates (sms).'
   }),
   entry({
     id: 'module-templates-print',
@@ -529,9 +545,11 @@ const MODULE_ENTRIES = [
     groupAr: 'الموافقات والقوالب',
     titleAr: 'قوالب الطباعة',
     spaRoute: 'settings-print-templates',
-    status: 'mock',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Comms',
-    icon: 'fa-print'
+    icon: 'fa-print',
+    notes: 'Phase 4: persisted module_templates (print).'
   }),
   entry({
     id: 'module-numbering',
@@ -540,9 +558,11 @@ const MODULE_ENTRIES = [
     groupAr: 'الموافقات والقوالب',
     titleAr: 'أنظمة الترقيم',
     spaRoute: 'settings-numbering-systems',
-    status: 'mock',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Quality',
-    icon: 'fa-hashtag'
+    icon: 'fa-hashtag',
+    notes: 'Phase 4: module.templates.numbering + module_numbering_counters.'
   }),
 
   // Notifications / Backup / Security / AI
@@ -552,10 +572,11 @@ const MODULE_ENTRIES = [
     moduleKey: 'notifications',
     groupAr: 'الإشعارات والأمان والنسخ',
     titleAr: 'مركز إشعارات HR',
-    href: '/hr/notifications-center',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Ops',
-    icon: 'fa-bell'
+    icon: 'fa-bell',
+    notes: 'Phase 4: module.notifications.channels (+ company.notifications).'
   }),
   entry({
     id: 'module-backup',
@@ -564,10 +585,11 @@ const MODULE_ENTRIES = [
     groupAr: 'الإشعارات والأمان والنسخ',
     titleAr: 'النسخ الاحتياطي',
     spaRoute: 'settings-backup',
-    status: 'mock',
+    href: '/modules/settings',
+    status: 'partial',
     owner: 'IT',
     icon: 'fa-database',
-    notes: 'scripts/restore-* تشغيلية فقط؛ لا زر استعادة إنتاجي.'
+    notes: 'Phase 4: module.backup.policy stored/versioned; restore still via scripts (no prod one-click).'
   }),
   entry({
     id: 'module-audit',
@@ -576,10 +598,11 @@ const MODULE_ENTRIES = [
     groupAr: 'الإشعارات والأمان والنسخ',
     titleAr: 'سجل التدقيق',
     spaRoute: 'audit-logs',
-    href: '/audit-logs',
-    status: 'partial',
+    href: '/modules/settings',
+    status: 'live',
     owner: 'Auditor',
-    icon: 'fa-clipboard-list'
+    icon: 'fa-clipboard-list',
+    notes: 'Phase 4: module.audit.retention + setting_audit_events for module.* keys.'
   }),
   entry({
     id: 'module-permissions-tile',
@@ -612,7 +635,7 @@ function getCatalog({ includeMock = true } = {}) {
     mock: entries.filter((e) => e.status === 'mock').length
   };
   return {
-    version: 'phase1-2026-10-16',
+    version: 'phase4-2026-10-16',
     generatedAt: new Date().toISOString(),
     levels: [
       { id: 'platform', titleAr: 'إعدادات المنصة', titleEn: 'Platform Settings' },

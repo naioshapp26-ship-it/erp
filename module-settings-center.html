@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مركز إعدادات وحدات ERP | NAIOSH ERP 360</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    body { font-family: "Segoe UI", Tahoma, sans-serif; background: linear-gradient(165deg,#ecfeff,#f8fafc 40%,#e2e8f0); }
+    .tab-btn.active { background:#0e7490; color:#fff; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:1rem; }
+    .mod-btn.active { background:#155e75; color:#fff; }
+    textarea.json { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; direction: ltr; text-align: left; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="bg-white/90 border-b sticky top-0 z-20 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap justify-between gap-3 items-center">
+      <div>
+        <p class="text-xs text-slate-500">NAIOSH ERP 360 · Phase 4</p>
+        <h1 class="text-2xl font-black text-cyan-900">مركز إعدادات وحدات ERP</h1>
+        <p id="tenant-label" class="text-sm text-slate-500">تحميل...</p>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <a href="/company/settings" class="px-3 py-2 rounded-xl border text-sm">إعدادات الشركة</a>
+        <a href="/hr/system-settings" class="px-3 py-2 rounded-xl border text-sm">HR 91 بلاطة</a>
+        <a href="/settings/admin" class="px-3 py-2 rounded-xl border text-sm">مركز الإعدادات</a>
+        <button id="btn-refresh" class="px-3 py-2 rounded-xl bg-cyan-800 text-white text-sm font-bold">تحديث</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-4">
+    <div id="auth-banner" class="hidden card p-4 text-rose-700 bg-rose-50 border-rose-200 text-sm"></div>
+    <div class="flex flex-wrap gap-2" id="module-tabs"></div>
+    <div class="flex flex-wrap gap-2" id="section-tabs"></div>
+    <section id="panel" class="card p-5 min-h-[480px]"></section>
+  </main>
+  <div id="toast" class="fixed bottom-4 left-4 hidden px-4 py-3 rounded-xl text-white text-sm z-50"></div>
+
+  <script>
+    const MODULE_META = {
+      hr: { title: 'الموارد البشرية', icon: 'fa-user-tie' },
+      finance: { title: 'المالية', icon: 'fa-coins' },
+      sales: { title: 'المبيعات وCRM/POS', icon: 'fa-handshake' },
+      'supply-chain': { title: 'المخزون والمشتريات', icon: 'fa-boxes-stacked' },
+      'tasks-management': { title: 'المهام', icon: 'fa-list-check' },
+      facilities: { title: 'المرافق', icon: 'fa-building' },
+      workflows: { title: 'الموافقات', icon: 'fa-gavel' },
+      templates: { title: 'القوالب والترقيم', icon: 'fa-hashtag' },
+      notifications: { title: 'الإشعارات', icon: 'fa-bell' },
+      backup: { title: 'النسخ', icon: 'fa-database' },
+      security: { title: 'التدقيق', icon: 'fa-clipboard-list' },
+      _fiscal: { title: 'السنوات/الفترات', icon: 'fa-calendar-days' },
+      _templates: { title: 'قوالب محفوظة', icon: 'fa-file-lines' },
+      _audit: { title: 'سجل التغييرات', icon: 'fa-clock-rotate-left' }
+    };
+
+    const state = { module: 'hr', key: null, bundle: null };
+
+    function token() {
+      const m = document.cookie.match(/(?:^|; )authToken=([^;]*)/);
+      return m ? decodeURIComponent(m[1]) : (localStorage.getItem('authToken') || '');
+    }
+
+    async function api(path, options = {}) {
+      const headers = Object.assign({ Accept: 'application/json' }, options.headers || {});
+      const t = token();
+      if (t) headers.Authorization = 'Bearer ' + t;
+      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      const res = await fetch('/api/module-settings' + path, {
+        ...options,
+        credentials: 'include',
+        headers,
+        body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.success === false) {
+        const err = new Error(payload.message || ('HTTP ' + res.status));
+        err.status = res.status;
+        err.payload = payload;
+        throw err;
+      }
+      return payload;
+    }
+
+    function toast(msg, type='ok') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'fixed bottom-4 left-4 px-4 py-3 rounded-xl text-white text-sm z-50 ' +
+        (type==='ok'?'bg-cyan-800': type==='warn'?'bg-amber-600':'bg-rose-700');
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3200);
+    }
+
+    function fieldHtml(key, value) {
+      const t = typeof value;
+      if (t === 'boolean') {
+        return `<label class="flex items-center gap-2 border rounded-xl p-2"><input type="checkbox" name="${key}" ${value?'checked':''}/> <span class="text-sm">${key}</span></label>`;
+      }
+      if (Array.isArray(value)) {
+        return `<label class="block text-sm"><span class="font-bold">${key}</span>
+          <textarea name="${key}" class="json w-full border rounded-xl p-2 mt-1" rows="3">${JSON.stringify(value)}</textarea></label>`;
+      }
+      if (t === 'object' && value !== null) {
+        return `<label class="block text-sm"><span class="font-bold">${key}</span>
+          <textarea name="${key}" class="json w-full border rounded-xl p-2 mt-1" rows="4">${JSON.stringify(value,null,2)}</textarea></label>`;
+      }
+      return `<label class="block text-sm"><span class="font-bold">${key}</span>
+        <input name="${key}" class="w-full border rounded-xl p-2 mt-1" value="${value == null ? '' : String(value).replace(/"/g,'&quot;')}"/></label>`;
+    }
+
+    function parseForm(form, original) {
+      const fd = new FormData(form);
+      const out = {};
+      for (const [k, raw] of fd.entries()) {
+        const prev = original[k];
+        if (typeof prev === 'boolean') {
+          out[k] = true;
+          continue;
+        }
+        if (typeof prev === 'number') {
+          out[k] = Number(raw);
+          continue;
+        }
+        if (Array.isArray(prev) || (typeof prev === 'object' && prev !== null)) {
+          try { out[k] = JSON.parse(raw); } catch { out[k] = raw; }
+          continue;
+        }
+        out[k] = raw;
+      }
+      // unchecked checkboxes
+      for (const [k, prev] of Object.entries(original || {})) {
+        if (typeof prev === 'boolean' && !(k in out)) out[k] = false;
+      }
+      return out;
+    }
+
+    async function renderSettingEditor(entry) {
+      const panel = document.getElementById('panel');
+      const value = entry.value || {};
+      panel.innerHTML = `
+        <div class="flex flex-wrap justify-between gap-2 mb-4">
+          <div>
+            <h2 class="text-xl font-black text-cyan-900">${entry.label_ar || entry.key}</h2>
+            <p class="text-xs text-slate-500 font-mono" dir="ltr">${entry.key} · v${entry.version || 0} · ${entry.source || ''}</p>
+          </div>
+          <button id="btn-save" class="px-4 py-2 rounded-xl bg-cyan-800 text-white font-bold text-sm">حفظ حقيقي</button>
+        </div>
+        <form id="f-setting" class="grid md:grid-cols-2 gap-3">
+          ${Object.keys(value).map(k => fieldHtml(k, value[k])).join('') || '<p class="text-slate-500">لا حقول</p>'}
+        </form>
+        <div class="mt-6 border-t pt-4">
+          <h3 class="font-bold mb-2">اختبار تشغيلي سريع</h3>
+          <div id="ops-box" class="text-sm text-slate-600"></div>
+        </div>`;
+
+      document.getElementById('btn-save').onclick = async () => {
+        try {
+          const body = parseForm(document.getElementById('f-setting'), value);
+          const keyPath = entry.key.replace(/^module\./, '');
+          const res = await api('/values/' + keyPath, { method: 'PUT', body: { value: body, changeReason: 'ui.center' } });
+          if (!res.data?.matches) throw new Error('فشل إثبات القراءة بعد الكتابة');
+          toast('تم الحفظ والتحقق (read-after-write)');
+          await loadBundle(false);
+          const refreshed = state.bundle.settings[entry.key];
+          state.key = entry.key;
+          renderSettingEditor({ ...entry, ...refreshed, label_ar: entry.label_ar });
+        } catch (e) { toast(e.message, 'err'); }
+      };
+
+      const ops = document.getElementById('ops-box');
+      if (entry.key === 'module.hr.leave') {
+        ops.innerHTML = `<button class="border rounded-xl px-3 py-2" id="t-leave">تحقق طلب إجازة تجريبي</button>`;
+        document.getElementById('t-leave').onclick = async () => {
+          try {
+            const r = await api('/ops/validate-leave', { method:'POST', body: { leave_type:'annual', days_count: 3, reason:'اختبار', start_date: new Date().toISOString().slice(0,10) }});
+            toast(r.success ? 'السياسة تسمح بالطلب' : 'السياسة رفضت الطلب', r.success?'ok':'warn');
+          } catch(e){ toast(e.message,'err'); }
+        };
+      } else if (entry.key === 'module.finance.tax') {
+        ops.innerHTML = `<button class="border rounded-xl px-3 py-2" id="t-tax">احسب ضريبة على 1000</button>`;
+        document.getElementById('t-tax').onclick = async () => {
+          const r = await api('/ops/compute-tax', { method:'POST', body: { subtotal: 1000 }});
+          toast(`ضريبة ${r.data.tax_rate}% = ${r.data.tax_amount} · الإجمالي ${r.data.total}`);
+        };
+      } else if (entry.key === 'module.inventory.stock') {
+        ops.innerHTML = `<button class="border rounded-xl px-3 py-2" id="t-stock">قيّم كمية 5</button>`;
+        document.getElementById('t-stock').onclick = async () => {
+          try {
+            const r = await api('/ops/evaluate-stock', { method:'POST', body: { quantity: 5 }});
+            toast(r.data.is_low ? 'مخزون منخفض حسب العتبة' : 'المخزون ضمن الحد', r.data.is_low?'warn':'ok');
+          } catch(e){ toast(e.message,'err'); }
+        };
+      } else if (entry.key === 'module.sales.pos') {
+        ops.innerHTML = `<button class="border rounded-xl px-3 py-2" id="t-pos">بيع بكمية صفر</button>`;
+        document.getElementById('t-pos').onclick = async () => {
+          try {
+            await api('/ops/evaluate-pos', { method:'POST', body: { stock_qty: 0 }});
+            toast('البيع مسموح');
+          } catch(e){ toast(e.message || 'البيع مرفوض','err'); }
+        };
+      } else if (entry.key === 'module.templates.numbering') {
+        ops.innerHTML = `<button class="border rounded-xl px-3 py-2" id="t-num">توليد رقم فاتورة</button>`;
+        document.getElementById('t-num').onclick = async () => {
+          const r = await api('/ops/next-number', { method:'POST', body: { series_key: 'invoice' }});
+          toast('الرقم: ' + r.data.formatted);
+        };
+      } else {
+        ops.innerHTML = '<p class="text-slate-500">احفظ القيمة ثم استخدم مسارات /ops/* أو منطق الوحدة المرتبطة.</p>';
+      }
+    }
+
+    function renderFiscal() {
+      const panel = document.getElementById('panel');
+      const years = state.bundle.fiscal?.years || [];
+      const periods = state.bundle.fiscal?.periods || [];
+      panel.innerHTML = `
+        <h2 class="text-xl font-black text-cyan-900 mb-3">السنوات والفترات المالية</h2>
+        <form id="f-year" class="grid md:grid-cols-5 gap-2 border rounded-xl p-3 mb-4">
+          <input name="code" placeholder="الكود FY2026" class="border rounded-xl p-2" required />
+          <input name="name_ar" placeholder="الاسم" class="border rounded-xl p-2" required />
+          <input name="start_date" type="date" class="border rounded-xl p-2" required />
+          <input name="end_date" type="date" class="border rounded-xl p-2" required />
+          <button class="bg-cyan-800 text-white rounded-xl font-bold">إنشاء + فترات</button>
+        </form>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <h3 class="font-bold mb-2">السنوات</h3>
+            ${years.map(y=>`<div class="border rounded-xl p-2 mb-2 text-sm"><b>${y.code}</b> · ${y.name_ar} · ${y.status} ${y.is_current?'· حالية':''}</div>`).join('') || '<p class="text-slate-500">لا سنوات بعد</p>'}
+          </div>
+          <div>
+            <h3 class="font-bold mb-2">الفترات</h3>
+            <div class="max-h-80 overflow-auto">
+              ${periods.map(p=>`<div class="border rounded-xl p-2 mb-1 text-sm flex justify-between gap-2">
+                <span>${p.year_code} · ${p.name_ar} · ${p.start_date}→${p.end_date}</span>
+                <span>
+                  <button class="text-xs border rounded px-2" onclick="setPeriod(${p.id},'closed')">إقفال</button>
+                  <button class="text-xs border rounded px-2" onclick="setPeriod(${p.id},'open')">فتح</button>
+                </span>
+              </div>`).join('') || '<p class="text-slate-500">لا فترات</p>'}
+            </div>
+          </div>
+        </div>`;
+      document.getElementById('f-year').onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+          await api('/fiscal/years', { method:'POST', body: Object.fromEntries(fd.entries()) });
+          toast('تم إنشاء السنة والفترات');
+          await loadBundle();
+        } catch (err) { toast(err.message, 'err'); }
+      };
+    }
+
+    window.setPeriod = async (id, status) => {
+      try {
+        await api('/fiscal/periods/' + id + '/status', { method:'POST', body: { status } });
+        toast('تم تحديث حالة الفترة');
+        await loadBundle();
+      } catch (e) { toast(e.message, 'err'); }
+    };
+
+    function renderTemplates() {
+      const panel = document.getElementById('panel');
+      const rows = state.bundle.templates || [];
+      panel.innerHTML = `
+        <h2 class="text-xl font-black mb-3">قوالب البريد / SMS / الطباعة</h2>
+        <form id="f-tpl" class="grid md:grid-cols-2 gap-2 border rounded-xl p-3 mb-4">
+          <select name="template_type" class="border rounded-xl p-2"><option value="email">email</option><option value="sms">sms</option><option value="print">print</option></select>
+          <input name="code" class="border rounded-xl p-2" placeholder="الكود" required />
+          <input name="name_ar" class="border rounded-xl p-2" placeholder="الاسم" required />
+          <input name="subject" class="border rounded-xl p-2" placeholder="الموضوع" />
+          <textarea name="body" class="border rounded-xl p-2 md:col-span-2" rows="3" placeholder="المحتوى"></textarea>
+          <button class="bg-cyan-800 text-white rounded-xl font-bold md:col-span-2 py-2">حفظ قالب</button>
+        </form>
+        ${rows.map(t=>`<div class="border rounded-xl p-2 mb-1 text-sm"><b>${t.template_type}</b> · ${t.code} · ${t.name_ar}</div>`).join('') || '<p class="text-slate-500">لا قوالب</p>'}`;
+      document.getElementById('f-tpl').onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+          await api('/templates', { method:'POST', body: Object.fromEntries(fd.entries()) });
+          toast('تم حفظ القالب');
+          await loadBundle();
+        } catch (err) { toast(err.message, 'err'); }
+      };
+    }
+
+    async function renderAudit() {
+      const panel = document.getElementById('panel');
+      try {
+        const res = await api('/audit?limit=40');
+        panel.innerHTML = `<h2 class="text-xl font-black mb-3">سجل تغييرات إعدادات الوحدات</h2>
+          ${(res.data||[]).map(a=>`<div class="border rounded-xl p-2 mb-1 text-xs"><span class="font-mono">${a.definition_key}</span> · ${a.action} · ${a.created_at}</div>`).join('') || '<p class="text-slate-500">لا أحداث</p>'}`;
+      } catch (e) {
+        panel.innerHTML = `<p class="text-rose-600">${e.message}</p>`;
+      }
+    }
+
+    function renderModuleTabs() {
+      const by = state.bundle.byModule || {};
+      const keys = Object.keys(by);
+      const extras = ['_fiscal', '_templates', '_audit'];
+      const el = document.getElementById('module-tabs');
+      el.innerHTML = [...keys, ...extras].map(m => {
+        const meta = MODULE_META[m] || { title: m, icon: 'fa-gear' };
+        return `<button class="mod-btn px-3 py-2 rounded-xl border text-sm font-bold ${state.module===m?'active':''}" data-m="${m}">
+          <i class="fa-solid ${meta.icon} ml-1"></i>${meta.title}</button>`;
+      }).join('');
+      el.querySelectorAll('.mod-btn').forEach(btn => {
+        btn.onclick = () => {
+          state.module = btn.dataset.m;
+          state.key = null;
+          renderModuleTabs();
+          renderSectionTabs();
+          renderPanel();
+        };
+      });
+    }
+
+    function renderSectionTabs() {
+      const el = document.getElementById('section-tabs');
+      if (state.module.startsWith('_')) {
+        el.innerHTML = '';
+        return;
+      }
+      const list = state.bundle.byModule?.[state.module] || [];
+      if (!state.key && list[0]) state.key = list[0].key;
+      el.innerHTML = list.map(s =>
+        `<button class="tab-btn px-3 py-2 rounded-xl border text-sm font-bold ${state.key===s.key?'active':''}" data-k="${s.key}">${s.label_ar}</button>`
+      ).join('');
+      el.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.onclick = () => {
+          state.key = btn.dataset.k;
+          renderSectionTabs();
+          renderPanel();
+        };
+      });
+    }
+
+    function renderPanel() {
+      if (state.module === '_fiscal') return renderFiscal();
+      if (state.module === '_templates') return renderTemplates();
+      if (state.module === '_audit') return renderAudit();
+      const entry = (state.bundle.byModule?.[state.module] || []).find(s => s.key === state.key);
+      if (!entry) {
+        document.getElementById('panel').innerHTML = '<p class="text-slate-500">اختر قسماً</p>';
+        return;
+      }
+      renderSettingEditor(entry);
+    }
+
+    async function loadBundle(render = true) {
+      const res = await api('/bundle');
+      state.bundle = res.data;
+      document.getElementById('tenant-label').textContent =
+        (res.data.tenant?.company_name || '') + ' · #' + res.data.tenant?.id + ' · ' + (res.data.tenant?.subdomain || '');
+      if (render) {
+        renderModuleTabs();
+        renderSectionTabs();
+        renderPanel();
+      }
+    }
+
+    document.getElementById('btn-refresh').onclick = () => loadBundle().catch(e => toast(e.message,'err'));
+
+    (async () => {
+      try {
+        await loadBundle();
+      } catch (e) {
+        const banner = document.getElementById('auth-banner');
+        banner.classList.remove('hidden');
+        banner.textContent = e.message + ' — استخدم نطاق المستأجر مع صلاحية مسؤول.';
+      }
+    })();
+  </script>
+</body>
+</html>
