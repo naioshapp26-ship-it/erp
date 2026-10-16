@@ -740,6 +740,10 @@ function getPageKeysForPath(requestPath) {
   }
 
   if (normalized === '/dashboard.html' || normalized === '/home') return ['dashboard'];
+  // Portal hub: visible if the user may enter any of the three systems
+  if (normalized === '/smart-management' || normalized.startsWith('/smart-management/')) {
+    return ['hr', 'finance', 'records-archive-home'];
+  }
   if (normalized === '/archive') return ['records-archive-home'];
   if (normalized.startsWith('/archive/')) {
     return ['records-archive-home'];

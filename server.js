@@ -3048,6 +3048,7 @@ const protectedHtmlExactPaths = new Set([
   '/dashboard.html',
   '/home',
   '/archive',
+  '/smart-management',
   '/hierarchy',
   '/saas',
   '/billing',
@@ -3080,6 +3081,9 @@ const protectedHtmlExactPaths = new Set([
 const getPageKeysForPath = (requestPath) => {
   const p = (requestPath || '').split('?')[0].replace(/\/+$/, '') || '/';
   if (p === '/dashboard.html' || p === '/home') return ['dashboard'];
+  if (p === '/smart-management' || p.startsWith('/smart-management/')) {
+    return ['hr', 'finance', 'records-archive-home'];
+  }
   if (p === '/archive' || p.startsWith('/archive/')) return ['records-archive-home'];
   if (p === '/hr' || p.startsWith('/hr/')) return ['hr'];
   if (p === '/finance/events-studio-main' || p === '/finance/events-studio-main.html' || p.startsWith('/finance/events-studio-main/')) return ['events-studio-main', 'finance'];
@@ -4478,6 +4482,22 @@ const serveArchiveHome = (req, res, next) => {
 };
 
 app.get('/archive', serveArchiveHome);
+
+// Smart Management portal (entry hub only — does not alter HR/Finance/Archive systems)
+const serveSmartManagement = (req, res, next) => {
+  try {
+    const hasExt = path.extname(req.path || '') !== '';
+    if (hasExt) return next();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    sendHtmlWithNumberFormat(res, path.join(__dirname, 'smart-management.html'), req);
+  } catch (error) {
+    res.status(500).send('Smart Management page not available');
+  }
+};
+app.get('/smart-management', serveSmartManagement);
+app.get('/smart-management/', serveSmartManagement);
 
 // Operational policies pages
 const resolveOperationalPoliciesTarget = (reqPath) => {

@@ -339,6 +339,7 @@ const app = (() => {
         marketing: '/marketing-campaigns-studio.html',
         'records-archive-home': '/archive',
         'records-archive': '/archive',
+        'smart-management': '/smart-management',
         'operational-policies': '/operational-policies',
         'tenant-branding': '/tenant-branding-settings.html'
     };
@@ -928,6 +929,12 @@ const app = (() => {
     const isOfficeRouteAllowed = (route) => {
         if (route === 'download-app') {
             return true;
+        }
+        // Unified portal: visible if user can access any of HR / Finance / Archive
+        if (route === 'smart-management') {
+            return isOfficeRouteAllowed('hr')
+                || isOfficeRouteAllowed('finance')
+                || isOfficeRouteAllowed('records-archive-home');
         }
         if (getAppAuthContext().isTenant || isDedicatedTenantContext(currentUser)) {
             if (CENTRAL_REGISTRY_OFFICE_ROUTES.has(route)) {
@@ -2045,6 +2052,11 @@ const app = (() => {
             return;
         }
 
+        if (route === 'smart-management') {
+            navigateToExternalRoute(route);
+            return;
+        }
+
         if (route === 'records-archive-home' || route === 'records-archive') {
             navigateToExternalRoute(route);
             return;
@@ -2800,6 +2812,7 @@ const app = (() => {
     const getTitle = (r) => {
         const map = { 
             'dashboard': 'لوحة القيادة (Tenant Dashboard)',
+            'smart-management': 'الإدارة الذكية 360',
             'records-archive-home': 'نظام الأرشفة',
             'records-master-register': 'قسم ملفات عامة و إدارية',
             'records-students': 'شؤون الطلاب',
@@ -3658,8 +3671,8 @@ const app = (() => {
         
             const items = [
                 { id: 'dashboard', icon: 'fa-chart-pie', label: 'الرئيسية', show: isOfficeRouteAllowed('dashboard') },
-                { id: 'records-archive-home', icon: 'fa-archive', label: 'نظام الأرشفة', show: isOfficeRouteAllowed('records-archive-home') },
-                { id: 'hr', icon: 'fa-users', label: 'الموارد البشرية', show: isOfficeRouteAllowed('hr') },
+                { id: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', show: isOfficeRouteAllowed('smart-management') },
+                // HR / Finance / Archive remain reachable via /hr /finance /archive and portal cards — hidden from shared main menu only
                 {
                     id: 'e-offices',
                     icon: 'fa-building',
@@ -3790,7 +3803,6 @@ const app = (() => {
                 { id: 'hierarchy', icon: 'fa-sitemap', label: 'الهيكل الهرمي', show: isOfficeRouteAllowed('hierarchy') },
                 { id: 'saas', icon: 'fa-cubes', label: perms.isHQ() ? 'إدارة الاشتراكات' : 'اشتراكي (SaaS)', show: isOfficeRouteAllowed('saas') },
                 { id: 'incubator', icon: 'fa-graduation-cap', label: 'حاضنة السلامة', show: (isIncubator || perms.isHQ()) && isOfficeRouteAllowed('incubator') },
-                { id: 'finance', icon: 'fa-file-invoice-dollar', label: 'الفواتير والتقارير المالية', show: isOfficeRouteAllowed('finance') },
                 { id: 'events-studio-main', icon: 'fa-video', label: 'استوديو الفعاليات', show: isOfficeRouteAllowed('events-studio-main') },
                 { id: 'marketing-campaigns-studio', icon: 'fa-bullhorn', label: 'استديو الحملات التسويقية', show: isOfficeRouteAllowed('marketing-campaigns-studio') },
                 { id: 'requests', icon: 'fa-clipboard-list', label: 'الطلبات', show: isOfficeRouteAllowed('requests') },
@@ -4912,8 +4924,7 @@ const app = (() => {
 
     const renderHqQuickActions = () => {
         const links = [
-            { route: 'finance', icon: 'fa-sack-dollar', label: 'الموارد المالية', sub: 'الميزانيات والتقارير', bg: 'from-emerald-500 to-teal-600' },
-            { route: 'hr', icon: 'fa-users', label: 'الموارد البشرية', sub: 'الموظفون والسياسات', bg: 'from-red-600 to-rose-700' },
+            { route: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', sub: 'HR · المالية · الأرشيف', bg: 'from-red-700 to-rose-900' },
             { route: 'ads', icon: 'fa-bullhorn', label: 'الإعلانات', sub: 'التعاميم والحملات', bg: 'from-amber-500 to-orange-600' },
             { route: 'hierarchy', icon: 'fa-sitemap', label: 'الهيكل التنظيمي', sub: 'الفروع والكيانات', bg: 'from-violet-500 to-purple-700' },
             { route: 'settings', icon: 'fa-cog', label: 'الإعدادات', sub: 'تخصيص النظام', bg: 'from-slate-600 to-slate-800' }
@@ -5249,9 +5260,7 @@ const app = (() => {
 
     const collectTenantDashboardModules = () => {
         const catalog = [
-            { route: 'records-archive-home', icon: 'fa-box-archive', desc: 'إدارة الوثائق والسجلات والأرشفة الإلكترونية' },
-            { route: 'hr', icon: 'fa-users', desc: 'إدارة الموارد البشرية والموظفين' },
-            { route: 'finance', icon: 'fa-coins', desc: 'النظام المالي والمحاسبة والتقارير' },
+            { route: 'smart-management', icon: 'fa-crown', desc: 'بوابتك الموحدة للموارد البشرية والمالية والأرشيف' },
             { route: 'marketing-campaigns-studio', icon: 'fa-bullhorn', desc: 'استوديو الحملات التسويقية' },
             { route: 'events-studio-main', icon: 'fa-calendar-star', desc: 'استوديو الفعاليات والأنشطة' },
             { route: 'tenant-branding', icon: 'fa-palette', desc: 'تخصيص الشعار والألوان واسم الشركة', adminOnly: true }
