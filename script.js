@@ -1751,13 +1751,15 @@ const app = (() => {
             // Handle browser back/forward buttons
             window.addEventListener('popstate', (event) => {
                 const path = window.location.pathname;
-                const route = pathToRoute[path] || 'dashboard';
+                const appPath = stripTenantPathPrefix(path);
+                const route = pathToRoute[appPath] || pathToRoute[path] || 'dashboard';
                 loadRoute(route, true); // skipHistory = true to avoid pushing same state again
             });
             
-            // Load route based on current URL path
+            // Load route based on current URL path (supports /t/{sub}/… tenant path mode)
             const currentPath = window.location.pathname;
-            const initialRoute = pathToRoute[currentPath] || 'dashboard';
+            const appPath = stripTenantPathPrefix(currentPath);
+            const initialRoute = pathToRoute[appPath] || pathToRoute[currentPath] || 'dashboard';
             loadRoute(initialRoute, true);
             
             showToast(`مرحباً ${currentUser?.name || 'بك'}`, 'success');
@@ -2126,7 +2128,12 @@ const app = (() => {
 
         const view = document.getElementById('main-view');
         document.getElementById('page-title').innerText = getTitle(route);
+        const previousAppRoute = window.currentAppRoute;
         window.currentAppRoute = route;
+        // Re-render sidebar when entering/leaving IPP module scopes (Branches / Nurseries / Platforms / E-Library)
+        if (typeof window.__naioshRefreshIppSidebar === 'function') {
+            window.__naioshRefreshIppSidebar(previousAppRoute, route);
+        }
         if (activeChart) { activeChart.destroy(); activeChart = null; }
         if (analyticsChart) { analyticsChart.destroy(); analyticsChart = null; }
         
@@ -3666,6 +3673,132 @@ const app = (() => {
 
     window.NAIOSH_SEARCH_INDEX = buildGlobalSearchIndex();
 
+    // Module-aware nav for Incubators & Platforms portal systems.
+    // Shared global sidebar stays intact elsewhere; these defs are used only inside each module scope.
+    const IPP_MODULE_NAV = {
+        branches: {
+            hubRoute: 'branches-hub',
+            label: 'الفروع',
+            icon: 'fa-code-branch',
+            sections: [
+                { id: 'br-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
+                { id: 'br-sales', icon: 'fa-chart-line', label: 'المبيعات' },
+                { id: 'br-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
+                { id: 'br-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
+                { id: 'br-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
+                { id: 'br-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
+                { id: 'br-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
+                { id: 'br-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
+            ]
+        },
+        incubators: {
+            hubRoute: 'incubators-hub',
+            label: 'الحاضنات',
+            icon: 'fa-seedling',
+            sections: [
+                { id: 'ic-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
+                { id: 'ic-sales', icon: 'fa-chart-line', label: 'المبيعات' },
+                { id: 'ic-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
+                { id: 'ic-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
+                { id: 'ic-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
+                { id: 'ic-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
+                { id: 'ic-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
+                { id: 'ic-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
+            ]
+        },
+        platforms: {
+            hubRoute: 'platforms',
+            label: 'المنصات',
+            icon: 'fa-layer-group',
+            sections: [
+                { id: 'pl-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
+                { id: 'pl-sales', icon: 'fa-chart-line', label: 'المبيعات' },
+                { id: 'pl-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
+                { id: 'pl-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
+                { id: 'pl-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
+                { id: 'pl-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
+                { id: 'pl-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
+                { id: 'pl-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
+            ]
+        },
+        'e-offices': {
+            hubRoute: 'e-offices',
+            label: 'المكتبة الإلكترونية',
+            icon: 'fa-building',
+            sections: [
+                { id: 'eo-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
+                { id: 'eo-sales', icon: 'fa-chart-line', label: 'المبيعات' },
+                { id: 'eo-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
+                { id: 'eo-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
+                { id: 'eo-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
+                { id: 'eo-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
+                { id: 'eo-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
+                { id: 'eo-operational-finance', icon: 'fa-coins', label: 'الماليه التشغيلية' },
+                { id: 'eo-files', icon: 'fa-folder-open', label: 'الملفات' },
+                { id: 'eo-archive', icon: 'fa-box-archive', label: 'الارشيف' },
+                { id: 'eo-tasks', icon: 'fa-list-check', label: 'المهام' },
+                { id: 'eo-meetings', icon: 'fa-video', label: 'الاجتماعات' },
+                { id: 'eo-consultations', icon: 'fa-user-tie', label: 'الاستشارات' },
+                { id: 'eo-latest-news', icon: 'fa-newspaper', label: 'اخر الاخبار' },
+                { id: 'eo-users', icon: 'fa-user-gear', label: 'المستخدمين' }
+            ]
+        }
+    };
+
+    const stripTenantPathPrefix = (pathname) => {
+        const raw = String(pathname || '');
+        const match = raw.match(/^\/t\/[a-z0-9][a-z0-9-]*(\/.*)?$/i);
+        if (!match) return raw;
+        return match[1] || '/';
+    };
+
+    const getActiveIppModuleKey = (route) => {
+        const r = String(route || '');
+        if (r === 'branches-hub' || r.startsWith('br-')) return 'branches';
+        if (r === 'incubators-hub' || r.startsWith('ic-')) return 'incubators';
+        if (r === 'platforms' || r.startsWith('pl-')) return 'platforms';
+        if (r === 'e-offices' || r.startsWith('eo-')) return 'e-offices';
+        return null;
+    };
+
+    const resolveSidebarRoute = () => {
+        if (window.currentAppRoute) return window.currentAppRoute;
+        const appPath = stripTenantPathPrefix(window.location.pathname);
+        return pathToRoute[appPath] || pathToRoute[window.location.pathname] || 'dashboard';
+    };
+
+    const buildIppScopedSidebarItems = (moduleKey) => {
+        const mod = IPP_MODULE_NAV[moduleKey];
+        if (!mod) return null;
+        const hubAllowed = isOfficeRouteAllowed(mod.hubRoute);
+        const sections = (mod.sections || [])
+            .filter((section) => isOfficeRouteAllowed(section.id))
+            .map((section) => ({ ...section, show: true }));
+        if (!hubAllowed && sections.length === 0) return null;
+        return [
+            {
+                id: 'incubators-platforms',
+                icon: 'fa-arrow-right',
+                label: 'العودة إلى حاضنات و منصات اعمال',
+                show: true
+            },
+            {
+                id: mod.hubRoute,
+                icon: mod.icon,
+                label: mod.label,
+                show: true,
+                forceOpen: true,
+                subItems: sections
+            }
+        ];
+    };
+
+    window.__naioshRefreshIppSidebar = (previousRoute, nextRoute) => {
+        if (getActiveIppModuleKey(previousRoute) !== getActiveIppModuleKey(nextRoute)) {
+            renderSidebar();
+        }
+    };
+
     const renderSidebar = () => {
         console.log('🔄 رسم القائمة الجانبية...', { currentUser });
         const menu = document.getElementById('nav-menu');
@@ -3682,8 +3815,11 @@ const app = (() => {
         
         // التحقق من صلاحية Super Admin (HQ001 فقط)
         const isSuperAdmin = currentUser.entityId === 'HQ001' || currentUser.entityId === 1;
+
+        const activeIppModule = getActiveIppModuleKey(resolveSidebarRoute());
+        const scopedIppItems = activeIppModule ? buildIppScopedSidebarItems(activeIppModule) : null;
         
-            const items = [
+            const items = scopedIppItems || [
                 { id: 'dashboard', icon: 'fa-chart-pie', label: 'الرئيسية', show: isOfficeRouteAllowed('dashboard') },
                 { id: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', show: isOfficeRouteAllowed('smart-management') },
                 // HR / Finance / Archive remain reachable via /hr /finance /archive and portal cards — hidden from shared main menu only
@@ -3694,6 +3830,7 @@ const app = (() => {
                     show: isOfficeRouteAllowed('incubators-platforms')
                 },
                 // Branches / Nurseries / Platforms / E-Library remain via /branches /incubators-hub /platforms /e-offices — hidden from shared main menu only
+                // (shown via Module-Aware Navigation when inside those routes)
                 {
                     id: 'education-training-incubators',
                     icon: 'fa-graduation-cap',
@@ -3963,6 +4100,8 @@ const app = (() => {
             
             // Check if item has submenu
             if (item.subItems) {
+                const submenuHiddenClass = item.forceOpen ? '' : 'hidden';
+                const arrowOpenClass = item.forceOpen ? 'rotate-180' : '';
                 return `
                 <li>
                     <div class="submenu-container">
@@ -3970,9 +4109,9 @@ const app = (() => {
                            class="flex items-center gap-3 px-4 py-3.5 text-red-200 hover:text-white hover:bg-red-800/50 rounded-lg transition-all group relative overflow-hidden w-full text-right">
                            <i class="fas ${item.icon} w-6 text-center group-hover:text-red-400 transition-colors z-10"></i> 
                            <span class="z-10 relative font-medium flex-1">${item.label}</span>
-                           <i class="fas fa-chevron-down z-10 transition-transform duration-200 submenu-arrow-${item.id}"></i>
+                           <i class="fas fa-chevron-down z-10 transition-transform duration-200 submenu-arrow-${item.id} ${arrowOpenClass}"></i>
                         </button>
-                        <div id="submenu-${item.id}" class="hidden mt-2 mr-6 space-y-1">
+                        <div id="submenu-${item.id}" class="${submenuHiddenClass} mt-2 mr-6 space-y-1">
                             ${item.subItems.map(subItem => {
                                 const subExternalPath = getExternalNavigationPath(subItem.id);
                                 const subPath = subExternalPath || resolveTenantAwarePath(routeToPath[subItem.id] || '/dashboard.html');
