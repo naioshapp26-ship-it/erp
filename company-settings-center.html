@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مركز إعدادات الشركة | NAIOSH ERP 360</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    body { font-family: "Segoe UI", Tahoma, sans-serif; background: linear-gradient(165deg,#f0fdfa,#f8fafc 45%,#e2e8f0); }
+    .tab-btn.active { background:#0f766e; color:#fff; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:1rem; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="bg-white/90 border-b sticky top-0 z-20 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap justify-between gap-3 items-center">
+      <div>
+        <p class="text-xs text-slate-500">NAIOSH ERP 360 · Phase 3</p>
+        <h1 class="text-2xl font-black text-teal-800">مركز إعدادات الشركة</h1>
+        <p id="tenant-label" class="text-sm text-slate-500">تحميل...</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/settings/admin" class="px-3 py-2 rounded-xl border text-sm">مركز الإعدادات</a>
+        <a href="/tenant-branding-settings.html" class="px-3 py-2 rounded-xl border text-sm">الهوية</a>
+        <a href="/tenant-payment-settings.html" class="px-3 py-2 rounded-xl border text-sm">الدفع</a>
+        <button id="btn-refresh" class="px-3 py-2 rounded-xl bg-teal-700 text-white text-sm font-bold">تحديث</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-4">
+    <div id="auth-banner" class="hidden card p-4 text-rose-700 bg-rose-50 border-rose-200 text-sm"></div>
+    <div class="flex flex-wrap gap-2" id="tabs">
+      <button class="tab-btn active px-3 py-2 rounded-xl border text-sm font-bold" data-tab="general">عامة/قانونية</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border text-sm font-bold" data-tab="branding">هوية</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border text-sm font-bold" data-tab="org">فروع وأقسام</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border text-sm font-bold" data-tab="users">مستخدمون ودعوات</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border text-sm font-bold" data-tab="security">أمان</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border text-sm font-bold" data-tab="notifications">إشعارات</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border text-sm font-bold" data-tab="preferences">واجهة</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border text-sm font-bold" data-tab="integrations">بريد/SEO/AI</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border text-sm font-bold" data-tab="audit">سجل التغييرات</button>
+    </div>
+    <section id="panel" class="card p-5 min-h-[420px]"></section>
+  </main>
+  <div id="toast" class="fixed bottom-4 left-4 hidden px-4 py-3 rounded-xl text-white text-sm z-50"></div>
+
+  <script>
+    const state = { tab: 'general', bundle: null };
+
+    function token() {
+      const m = document.cookie.match(/(?:^|; )authToken=([^;]*)/);
+      return m ? decodeURIComponent(m[1]) : (localStorage.getItem('authToken') || '');
+    }
+
+    async function api(path, options = {}) {
+      const headers = Object.assign({ Accept: 'application/json' }, options.headers || {});
+      const t = token();
+      if (t) headers.Authorization = 'Bearer ' + t;
+      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      const res = await fetch('/api/company-settings' + path, {
+        ...options,
+        credentials: 'include',
+        headers,
+        body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.success === false) {
+        const err = new Error(payload.message || ('HTTP ' + res.status));
+        err.status = res.status;
+        throw err;
+      }
+      return payload;
+    }
+
+    async function tenantApi(path, options = {}) {
+      const headers = Object.assign({ Accept: 'application/json' }, options.headers || {});
+      const t = token();
+      if (t) headers.Authorization = 'Bearer ' + t;
+      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      const res = await fetch(path, {
+        ...options,
+        credentials: 'include',
+        headers,
+        body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.success === false) {
+        const err = new Error(payload.message || ('HTTP ' + res.status));
+        err.status = res.status;
+        throw err;
+      }
+      return payload;
+    }
+
+    function toast(msg, type='ok') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'fixed bottom-4 left-4 px-4 py-3 rounded-xl text-white text-sm z-50 ' + (type==='ok'?'bg-teal-700': type==='warn'?'bg-amber-600':'bg-rose-700');
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3200);
+    }
+
+    function showAuth(msg) {
+      const b = document.getElementById('auth-banner');
+      b.classList.remove('hidden');
+      b.textContent = msg;
+    }
+
+    async function loadBundle() {
+      const { data } = await api('/bundle');
+      state.bundle = data;
+      document.getElementById('tenant-label').textContent =
+        (data.tenant?.company_name || data.tenant?.subdomain || 'شركة') + ' · #' + data.tenant?.id;
+      return data;
+    }
+
+    function field(name, label, value='', type='text') {
+      return `<label class="block text-sm"><span class="text-slate-600">${label}</span>
+        <input name="${name}" type="${type}" value="${String(value ?? '').replace(/"/g,'&quot;')}" class="mt-1 w-full border rounded-xl px-3 py-2" /></label>`;
+    }
+
+    async function render() {
+      const panel = document.getElementById('panel');
+      try {
+        if (!state.bundle) await loadBundle();
+        const b = state.bundle;
+        const g = b.general.value || {};
+        const s = b.security.value || {};
+        const n = b.notifications.value || {};
+        const p = b.preferences.value || {};
+
+        if (state.tab === 'general') {
+          panel.innerHTML = `<form id="f-general" class="grid md:grid-cols-2 gap-3 text-sm">
+            <h3 class="md:col-span-2 font-bold text-lg">البيانات القانونية والتجارية والتواصل والتنسيق</h3>
+            ${field('legal_name','الاسم القانوني', g.legal_name)}
+            ${field('trade_name','الاسم التجاري', g.trade_name)}
+            ${field('registration_number','السجل التجاري', g.registration_number)}
+            ${field('tax_number','الرقم الضريبي', g.tax_number)}
+            ${field('country','الدولة', g.country)}
+            ${field('city','المدينة', g.city)}
+            ${field('address','العنوان', g.address)}
+            ${field('phone','الهاتف', g.phone)}
+            ${field('email','البريد', g.email, 'email')}
+            ${field('website','الموقع', g.website)}
+            ${field('language','اللغة', g.language)}
+            ${field('locale','المنطقة المحلية', g.locale)}
+            ${field('timezone','المنطقة الزمنية', g.timezone)}
+            ${field('currency','العملة', g.currency)}
+            ${field('date_format','تنسيق التاريخ', g.date_format)}
+            ${field('number_format','تنسيق الأرقام', g.number_format)}
+            <button class="md:col-span-2 bg-teal-700 text-white rounded-xl py-2.5 font-bold">حفظ الإعدادات العامة</button>
+            <p class="md:col-span-2 text-xs text-slate-500">يُحفظ عبر Settings Engine (company.general) مع نسخة مرآة في tenant_settings — بدون Toast وهمي.</p>
+          </form>`;
+          document.getElementById('f-general').onsubmit = async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const value = Object.fromEntries(fd.entries());
+            try {
+              const res = await api('/general', { method:'PUT', body: { value, changeReason: 'center-general' }});
+              if (!res.data?.matches) toast('حُفظ لكن تحقق القراءة مختلف — راجع القيم', 'warn');
+              else toast('تم الحفظ والقراءة بعد الكتابة');
+              state.bundle = null;
+              await loadBundle();
+            } catch (err) { toast(err.message, 'err'); }
+          };
+        }
+
+        if (state.tab === 'branding') {
+          panel.innerHTML = `<div class="space-y-3">
+            <h3 class="font-bold text-lg">الهوية البصرية</h3>
+            <p class="text-sm text-slate-600">واجهة الهوية الحالية متصلة بـ /api/tenant-settings/identity وتحفظ في branding_settings.</p>
+            <a class="inline-block px-4 py-2 rounded-xl bg-teal-700 text-white font-bold" href="/tenant-branding-settings.html">فتح محرر الهوية</a>
+            <a class="inline-block px-4 py-2 rounded-xl border" href="/tenant-payment-settings.html">بوابات الدفع</a>
+          </div>`;
+        }
+
+        if (state.tab === 'org') {
+          const branches = b.org.branches || [];
+          const deps = b.org.departments || [];
+          const titles = b.org.job_titles || [];
+          const locs = b.org.locations || [];
+          panel.innerHTML = `<div class="space-y-5 text-sm">
+            <div class="grid lg:grid-cols-2 gap-4">
+              <form id="f-branch" class="border rounded-xl p-3 space-y-2">
+                <h4 class="font-bold">إضافة فرع</h4>
+                <input name="name" required placeholder="اسم الفرع" class="w-full border rounded-xl px-3 py-2" />
+                <input name="code" placeholder="الرمز" class="w-full border rounded-xl px-3 py-2" />
+                <input name="city" placeholder="المدينة" class="w-full border rounded-xl px-3 py-2" />
+                <button class="w-full bg-teal-700 text-white rounded-xl py-2 font-bold">حفظ الفرع</button>
+              </form>
+              <form id="f-dept" class="border rounded-xl p-3 space-y-2">
+                <h4 class="font-bold">إضافة قسم</h4>
+                <input name="name" required placeholder="اسم القسم" class="w-full border rounded-xl px-3 py-2" />
+                <select name="branch_id" class="w-full border rounded-xl px-3 py-2">
+                  <option value="">بدون فرع</option>
+                  ${branches.map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}
+                </select>
+                <button class="w-full bg-teal-700 text-white rounded-xl py-2 font-bold">حفظ القسم</button>
+              </form>
+              <form id="f-title" class="border rounded-xl p-3 space-y-2">
+                <h4 class="font-bold">مسمى وظيفي</h4>
+                <input name="title_ar" required placeholder="المسمى بالعربية" class="w-full border rounded-xl px-3 py-2" />
+                <input name="code" placeholder="رمز" class="w-full border rounded-xl px-3 py-2" />
+                <button class="w-full bg-teal-700 text-white rounded-xl py-2 font-bold">حفظ المسمى</button>
+              </form>
+              <form id="f-loc" class="border rounded-xl p-3 space-y-2">
+                <h4 class="font-bold">موقع</h4>
+                <input name="name_ar" required placeholder="اسم الموقع" class="w-full border rounded-xl px-3 py-2" />
+                <input name="city" placeholder="المدينة" class="w-full border rounded-xl px-3 py-2" />
+                <button class="w-full bg-teal-700 text-white rounded-xl py-2 font-bold">حفظ الموقع</button>
+              </form>
+            </div>
+            <div class="grid md:grid-cols-2 gap-3">
+              <div><h4 class="font-bold mb-2">الفروع (${branches.length})</h4>${branches.map(x=>`<div class="border rounded-xl p-2 mb-1">${x.name} <span class="text-xs text-slate-400">${x.code||''} · ${x.city||''}</span></div>`).join('')||'<p class="text-slate-500">لا فروع</p>'}</div>
+              <div><h4 class="font-bold mb-2">الأقسام (${deps.length})</h4>${deps.map(x=>`<div class="border rounded-xl p-2 mb-1">${x.name}</div>`).join('')||'<p class="text-slate-500">لا أقسام</p>'}</div>
+              <div><h4 class="font-bold mb-2">المسميات (${titles.length})</h4>${titles.map(x=>`<div class="border rounded-xl p-2 mb-1">${x.title_ar}</div>`).join('')||'<p class="text-slate-500">لا مسميات</p>'}</div>
+              <div><h4 class="font-bold mb-2">المواقع (${locs.length})</h4>${locs.map(x=>`<div class="border rounded-xl p-2 mb-1">${x.name_ar}</div>`).join('')||'<p class="text-slate-500">لا مواقع</p>'}</div>
+            </div>
+          </div>`;
+          const bind = (id, path) => {
+            document.getElementById(id).onsubmit = async (e) => {
+              e.preventDefault();
+              const fd = new FormData(e.target);
+              const body = Object.fromEntries(fd.entries());
+              if (body.branch_id === '') delete body.branch_id;
+              try {
+                await api(path, { method:'POST', body });
+                toast('تم الحفظ');
+                state.bundle = null;
+                await loadBundle();
+                render();
+              } catch (err) { toast(err.message, 'err'); }
+            };
+          };
+          bind('f-branch', '/org/branches');
+          bind('f-dept', '/org/departments');
+          bind('f-title', '/org/job-titles');
+          bind('f-loc', '/org/locations');
+        }
+
+        if (state.tab === 'users') {
+          let users = [];
+          let invites = [];
+          try { users = (await tenantApi('/api/tenant-users')).users || (await tenantApi('/api/tenant-users')).data || []; } catch { users = []; }
+          try { invites = (await api('/invites')).data || []; } catch { invites = []; }
+          panel.innerHTML = `<div class="space-y-4 text-sm">
+            <form id="f-invite" class="border rounded-xl p-3 grid md:grid-cols-3 gap-2">
+              <input name="email" type="email" required placeholder="بريد الدعوة" class="border rounded-xl px-3 py-2" />
+              <select name="role" class="border rounded-xl px-3 py-2"><option value="staff">staff</option><option value="manager">manager</option><option value="admin">admin</option><option value="readonly">readonly</option></select>
+              <button class="bg-teal-700 text-white rounded-xl font-bold">إرسال دعوة</button>
+            </form>
+            <p class="text-xs text-slate-500">الدعوات تخضع لحد مقاعد الباقة. إدارة المستخدمين عبر /api/tenant-users.</p>
+            <div class="grid md:grid-cols-2 gap-3">
+              <div><h4 class="font-bold mb-2">المستخدمون</h4>${(Array.isArray(users)?users:[]).slice(0,50).map(u=>`<div class="border rounded-xl p-2 mb-1">${u.email||u.username||u.id} · ${u.role||''}</div>`).join('')||'<p class="text-slate-500">تعذر التحميل أو لا مستخدمين</p>'}</div>
+              <div><h4 class="font-bold mb-2">الدعوات</h4>${invites.map(i=>`<div class="border rounded-xl p-2 mb-1 flex justify-between"><span>${i.email} · ${i.status}</span><button class="text-xs border rounded px-2" onclick="revokeInvite(${i.id})">إلغاء</button></div>`).join('')||'<p class="text-slate-500">لا دعوات</p>'}</div>
+            </div>
+          </div>`;
+          document.getElementById('f-invite').onsubmit = async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            try {
+              const res = await api('/invites', { method:'POST', body: { email: fd.get('email'), role: fd.get('role') }});
+              toast('تم إنشاء الدعوة');
+              if (res.data?.invite_token) console.info('invite token (one-time):', res.data.invite_token);
+              render();
+            } catch (err) { toast(err.message, 'err'); }
+          };
+        }
+
+        if (state.tab === 'security') {
+          panel.innerHTML = `<form id="f-sec" class="grid md:grid-cols-2 gap-3 text-sm">
+            <h3 class="md:col-span-2 font-bold text-lg">سياسات الأمان والجلسات</h3>
+            ${field('session_ttl_hours','مدة الجلسة (ساعات)', s.session_ttl_hours, 'number')}
+            ${field('max_failed_logins','محاولات فاشلة قبل القفل', s.max_failed_logins, 'number')}
+            ${field('lockout_minutes','دقائق القفل', s.lockout_minutes, 'number')}
+            <label class="flex items-center gap-2"><input type="checkbox" name="require_strong_password" ${s.require_strong_password?'checked':''}/> كلمة مرور قوية</label>
+            <label class="flex items-center gap-2"><input type="checkbox" name="allow_concurrent_sessions" ${s.allow_concurrent_sessions?'checked':''}/> جلسات متزامنة</label>
+            <button class="md:col-span-2 bg-teal-700 text-white rounded-xl py-2 font-bold">حفظ الأمان</button>
+          </form>`;
+          document.getElementById('f-sec').onsubmit = async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const value = {
+              session_ttl_hours: Number(fd.get('session_ttl_hours')),
+              max_failed_logins: Number(fd.get('max_failed_logins')),
+              lockout_minutes: Number(fd.get('lockout_minutes')),
+              require_strong_password: !!e.target.require_strong_password.checked,
+              allow_concurrent_sessions: !!e.target.allow_concurrent_sessions.checked,
+              two_factor_optional: s.two_factor_optional !== false
+            };
+            try {
+              await api('/security', { method:'PUT', body: { value, changeReason:'center-security' }});
+              toast('تم حفظ سياسات الأمان');
+              state.bundle = null; await loadBundle();
+            } catch (err) { toast(err.message, 'err'); }
+          };
+        }
+
+        if (state.tab === 'notifications') {
+          panel.innerHTML = `<form id="f-notif" class="space-y-3 text-sm">
+            <h3 class="font-bold text-lg">إعدادات الإشعارات والتواصل</h3>
+            <label class="flex items-center gap-2"><input type="checkbox" name="email_enabled" ${n.email_enabled!==false?'checked':''}/> بريد</label>
+            <label class="flex items-center gap-2"><input type="checkbox" name="sms_enabled" ${n.sms_enabled?'checked':''}/> SMS</label>
+            <label class="flex items-center gap-2"><input type="checkbox" name="in_app_enabled" ${n.in_app_enabled!==false?'checked':''}/> داخل النظام</label>
+            <select name="digest" class="border rounded-xl px-3 py-2"><option value="off" ${n.digest==='off'?'selected':''}>بدون ملخص</option><option value="daily" ${n.digest!=='weekly'&&n.digest!=='off'?'selected':''}>يومي</option><option value="weekly" ${n.digest==='weekly'?'selected':''}>أسبوعي</option></select>
+            <button class="bg-teal-700 text-white rounded-xl px-4 py-2 font-bold">حفظ الإشعارات</button>
+          </form>`;
+          document.getElementById('f-notif').onsubmit = async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const value = {
+              email_enabled: !!e.target.email_enabled.checked,
+              sms_enabled: !!e.target.sms_enabled.checked,
+              in_app_enabled: !!e.target.in_app_enabled.checked,
+              digest: fd.get('digest'),
+              channels: n.channels || {}
+            };
+            try {
+              await api('/notifications', { method:'PUT', body: { value, changeReason:'center-notifications' }});
+              toast('تم حفظ الإشعارات');
+              state.bundle = null; await loadBundle();
+            } catch (err) { toast(err.message, 'err'); }
+          };
+        }
+
+        if (state.tab === 'preferences') {
+          panel.innerHTML = `<form id="f-pref" class="grid md:grid-cols-2 gap-3 text-sm">
+            <h3 class="md:col-span-2 font-bold text-lg">تفضيلات الواجهة</h3>
+            ${field('theme','السمة', p.theme)}
+            ${field('density','الكثافة', p.density)}
+            ${field('default_landing','الصفحة الافتراضية', p.default_landing)}
+            <label class="flex items-center gap-2"><input type="checkbox" name="rtl" ${p.rtl!==false?'checked':''}/> RTL</label>
+            <button class="md:col-span-2 bg-teal-700 text-white rounded-xl py-2 font-bold">حفظ التفضيلات</button>
+          </form>`;
+          document.getElementById('f-pref').onsubmit = async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const value = {
+              theme: fd.get('theme'),
+              density: fd.get('density'),
+              default_landing: fd.get('default_landing'),
+              rtl: !!e.target.rtl.checked,
+              sidebar_collapsed: !!p.sidebar_collapsed
+            };
+            try {
+              await api('/preferences', { method:'PUT', body: { value, changeReason:'center-preferences' }});
+              toast('تم حفظ التفضيلات');
+              state.bundle = null; await loadBundle();
+            } catch (err) { toast(err.message, 'err'); }
+          };
+        }
+
+        if (state.tab === 'integrations') {
+          panel.innerHTML = `<div class="space-y-4 text-sm">
+            <h3 class="font-bold text-lg">البريد / SEO / الذكاء الاصطناعي</h3>
+            <p class="text-slate-600">واجهات حية عبر APIs الحالية (بدون محرك إعدادات ثانٍ):</p>
+            <div class="grid md:grid-cols-3 gap-3">
+              <div class="border rounded-xl p-3"><h4 class="font-bold">SMTP</h4><p class="text-xs mb-2">/api/tenant-settings/email</p><button id="btn-email" class="text-xs border rounded px-2 py-1">اختبار قراءة</button><pre id="out-email" class="text-[11px] mt-2 overflow-auto max-h-40 bg-slate-50 p-2 rounded"></pre></div>
+              <div class="border rounded-xl p-3"><h4 class="font-bold">SEO</h4><p class="text-xs mb-2">/api/tenant-settings/seo</p><button id="btn-seo" class="text-xs border rounded px-2 py-1">اختبار قراءة</button><pre id="out-seo" class="text-[11px] mt-2 overflow-auto max-h-40 bg-slate-50 p-2 rounded"></pre></div>
+              <div class="border rounded-xl p-3"><h4 class="font-bold">AI</h4><p class="text-xs mb-2">/api/tenant-settings/ai</p><button id="btn-ai" class="text-xs border rounded px-2 py-1">اختبار قراءة</button><pre id="out-ai" class="text-[11px] mt-2 overflow-auto max-h-40 bg-slate-50 p-2 rounded"></pre></div>
+            </div>
+          </div>`;
+          const bindRead = (btn, out, path) => {
+            document.getElementById(btn).onclick = async () => {
+              try {
+                const res = await tenantApi(path);
+                document.getElementById(out).textContent = JSON.stringify(res, null, 2).slice(0, 1200);
+                toast('تمت القراءة');
+              } catch (err) {
+                document.getElementById(out).textContent = err.message;
+                toast(err.message, 'err');
+              }
+            };
+          };
+          bindRead('btn-email', 'out-email', '/api/tenant-settings/email');
+          bindRead('btn-seo', 'out-seo', '/api/tenant-settings/seo');
+          bindRead('btn-ai', 'out-ai', '/api/tenant-settings/ai');
+        }
+
+        if (state.tab === 'audit') {
+          const audit = (await api('/audit?limit=40')).data || [];
+          let storage = b.storage?.value || {};
+          panel.innerHTML = `<div class="space-y-4 text-sm">
+            <div class="flex justify-between items-center">
+              <h3 class="font-bold text-lg">سجل تغييرات إعدادات الشركة</h3>
+              <button id="btn-storage" class="border rounded-xl px-3 py-1.5 text-xs">إعادة حساب التخزين</button>
+            </div>
+            <p class="text-xs text-slate-500">التخزين المستخدم: ${storage.used_mb ?? 0} MB · آخر حساب: ${storage.last_calculated_at || '—'}</p>
+            <div class="space-y-2 max-h-[480px] overflow-auto">
+              ${audit.map(a => `<div class="border rounded-xl p-2"><div class="font-bold">${a.action} · ${a.definition_key}</div><div class="text-[11px] text-slate-500">${new Date(a.created_at).toLocaleString('ar')}</div></div>`).join('') || '<p class="text-slate-500">لا أحداث بعد. احفظ إعداداً أولاً.</p>'}
+            </div>
+          </div>`;
+          document.getElementById('btn-storage').onclick = async () => {
+            try {
+              const res = await api('/storage/recalculate', { method:'POST', body: {} });
+              toast('تم تحديث قياس التخزين');
+              state.bundle = null; await loadBundle(); render();
+            } catch (err) { toast(err.message, 'err'); }
+          };
+        }
+      } catch (err) {
+        if (err.status === 400 || err.status === 401 || err.status === 403) showAuth(err.message);
+        else toast(err.message, 'err');
+        panel.innerHTML = `<div class="text-rose-700 text-sm">${err.message}<p class="mt-2 text-slate-500">يعمل مركز الشركة على نطاق المستأجر الفرعي فقط، وليس على النطاق المركزي لمالك المنصة.</p></div>`;
+      }
+    }
+
+    window.revokeInvite = async (id) => {
+      try {
+        await api('/invites/' + id + '/revoke', { method:'POST', body: {} });
+        toast('تم إلغاء الدعوة');
+        render();
+      } catch (err) { toast(err.message, 'err'); }
+    };
+
+    document.getElementById('tabs').onclick = (e) => {
+      const btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+      state.tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      render();
+    };
+    document.getElementById('btn-refresh').onclick = async () => { state.bundle = null; await render(); };
+    render();
+  </script>
+</body>
+</html>

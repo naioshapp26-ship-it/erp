@@ -854,10 +854,30 @@ router.post('/branding/logo', (req, res) => {
     try {
       const diskUrl = `/uploads/tenant-branding/${req.tenant?.subdomain || req.tenantPathSubdomain || 'tenant'}/${req.file.filename}`;
       const buffer = fs.readFileSync(req.file.path);
+      // Phase 3: respect plan storage limits when Platform Owner licenses exist
+      try {
+        const companySvc = require('./company-settings-service');
+        const check = await companySvc.checkStorageAllowance(req.tenant.id, buffer.length);
+        if (check.enforced && !check.allowed) {
+          try { fs.unlinkSync(req.file.path); } catch { /* ignore */ }
+          return res.status(403).json({
+            success: false,
+            code: 'STORAGE_LIMIT',
+            data: check,
+            message: 'تم بلوغ حد تخزين الباقة لهذه الشركة.'
+          });
+        }
+      } catch (limitErr) {
+        console.warn('[TenantSettings] storage check skipped:', limitErr.message);
+      }
       const logoUrl = await saveLogoUrl(req.tenantPool, req.tenant, diskUrl, {
         buffer,
         mimeType: req.file.mimetype || 'image/png'
       });
+      try {
+        const companySvc = require('./company-settings-service');
+        await companySvc.recalculateStorageMeter(req.tenant.id, req.tenant.subdomain, req.tenantUser?.user_id);
+      } catch { /* non-blocking meter update */ }
       return res.json({ success: true, message: 'تم رفع الشعار بنجاح.', logo_url: logoUrl });
     } catch (err) {
       console.error('[TenantSettings] POST branding/logo:', err.message);

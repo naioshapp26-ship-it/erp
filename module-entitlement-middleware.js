@@ -2,26 +2,61 @@
 
 /**
  * Enforce plan/tenant module entitlements on tenant-scoped API traffic.
- * Central/platform hosts are not gated by tenant module keys.
+ * Phase 3: expanded prefix coverage for existing ERP module routes.
  */
 
 const owner = require('./platform-owner-service');
 
-/** Map URL prefixes → module keys (existing ERP modules only). */
+/** Map URL prefixes → module keys (existing ERP modules only). Longer prefixes first. */
 const MODULE_API_PREFIXES = [
+  { prefix: '/api/hr/', module: 'hr' },
   { prefix: '/api/hr', module: 'hr' },
+  { prefix: '/api/finance/', module: 'finance' },
   { prefix: '/api/finance', module: 'finance' },
+  { prefix: '/api/facilities/', module: 'facilities' },
   { prefix: '/api/facilities', module: 'facilities' },
+  { prefix: '/api/tasks-management', module: 'tasks-management' },
+  { prefix: '/api/tasks/', module: 'tasks-management' },
   { prefix: '/api/tasks', module: 'tasks-management' },
+  { prefix: '/api/ads/', module: 'ads' },
   { prefix: '/api/ads', module: 'ads' },
+  { prefix: '/api/audit-logs', module: 'audit-logs' },
+  { prefix: '/api/audit/', module: 'audit-logs' },
   { prefix: '/api/audit', module: 'audit-logs' },
+  { prefix: '/api/inventory', module: 'inventory' },
+  { prefix: '/api/purchases', module: 'purchases' },
+  { prefix: '/api/suppliers', module: 'suppliers' },
+  { prefix: '/api/supply-chain', module: 'inventory' },
+  { prefix: '/api/crm', module: 'crm' },
+  { prefix: '/api/sales', module: 'crm' },
+  { prefix: '/api/pos', module: 'pos' },
+  { prefix: '/api/payroll', module: 'hr' },
+  { prefix: '/api/attendance', module: 'hr' },
   { prefix: '/finance/', module: 'finance' },
   { prefix: '/hr/', module: 'hr' },
-  { prefix: '/facilities', module: 'facilities' }
+  { prefix: '/facilities/', module: 'facilities' },
+  { prefix: '/facilities', module: 'facilities' },
+  { prefix: '/sales/', module: 'crm' },
+  { prefix: '/supply-chain/', module: 'inventory' },
+  { prefix: '/tasks', module: 'tasks-management' }
+];
+
+const ALWAYS_ALLOW_PREFIXES = [
+  '/api/tenant-auth',
+  '/api/auth',
+  '/api/health',
+  '/api/tenant-settings',
+  '/api/company-settings',
+  '/api/enterprise-settings',
+  '/api/platform-owner',
+  '/api/tenant-users',
+  '/api/tenant-public',
+  '/api/menu',
+  '/company/settings'
 ];
 
 function resolveModuleForPath(pathname) {
-  const path = String(pathname || '');
+  const path = String(pathname || '').split('?')[0];
   for (const entry of MODULE_API_PREFIXES) {
     if (path === entry.prefix || path.startsWith(entry.prefix)) {
       return entry.module;
@@ -35,20 +70,12 @@ function createModuleEntitlementMiddleware() {
     try {
       if (!req.tenant || !req.tenant.id) return next();
 
-      // Always allow auth / health / tenant settings / branding
-      const p = req.path || req.originalUrl || '';
-      if (
-        p.startsWith('/api/tenant-auth') ||
-        p.startsWith('/api/auth') ||
-        p.startsWith('/api/health') ||
-        p.startsWith('/api/tenant-settings') ||
-        p.startsWith('/api/enterprise-settings') ||
-        p.startsWith('/api/platform-owner')
-      ) {
+      const p = (req.originalUrl || req.path || '').split('?')[0];
+      if (ALWAYS_ALLOW_PREFIXES.some((prefix) => p === prefix || p.startsWith(prefix))) {
         return next();
       }
 
-      const moduleKey = resolveModuleForPath(p) || resolveModuleForPath(req.originalUrl || '');
+      const moduleKey = resolveModuleForPath(p);
       if (!moduleKey) return next();
 
       await owner.ensureSchema();
@@ -56,7 +83,6 @@ function createModuleEntitlementMiddleware() {
         return next();
       }
 
-      // Suspended tenants already blocked by tenantResolver; still deny modules if disabled
       const enabled = await owner.isModuleEnabledForTenant(req.tenant.id, moduleKey);
       if (!enabled) {
         return res.status(403).json({
@@ -74,9 +100,6 @@ function createModuleEntitlementMiddleware() {
   };
 }
 
-/**
- * Seat enforcement helper for tenant user creation routes.
- */
 async function assertSeatAvailable(req, res, next) {
   try {
     if (!req.tenant?.id) return next();
@@ -100,6 +123,7 @@ async function assertSeatAvailable(req, res, next) {
 
 module.exports = {
   MODULE_API_PREFIXES,
+  ALWAYS_ALLOW_PREFIXES,
   resolveModuleForPath,
   createModuleEntitlementMiddleware,
   assertSeatAvailable

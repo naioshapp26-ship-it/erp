@@ -2816,6 +2816,10 @@ app.use('/api/tenant-users', tenantUserRoutes);
 const tenantSettingsRoutes = require('./tenant-settings-api');
 app.use('/api/tenant-settings', tenantSettingsRoutes);
 
+// Phase 3 — Company Settings Center (tenant host only)
+const companySettingsRoutes = require('./company-settings-api');
+app.use('/api/company-settings', companySettingsRoutes);
+
 // ---- Phase 4: Platform (Central/Apex) Settings Routes ----
 // إعدادات المنصة المركزية — مقيدة بالنطاق الرئيسي + دور super_admin
 const platformSettingsRoutes = require('./platform-settings-api');
@@ -4260,6 +4264,14 @@ app.get('/platform/owner/*', (req, res) => {
     return res.status(403).send('مركز مالك المنصة متاح على النطاق المركزي فقط.');
   }
   res.sendFile(path.join(__dirname, 'platform-owner-console.html'));
+});
+
+// Phase 3 — Company Settings Center (tenant host preferred; still serve file for local smoke)
+app.get('/company/settings', (req, res) => {
+  res.sendFile(path.join(__dirname, 'company-settings-center.html'));
+});
+app.get('/company/settings/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'company-settings-center.html'));
 });
 [
   '/settings/branches-sections',

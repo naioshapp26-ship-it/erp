@@ -12,7 +12,7 @@ const express = require('express');
 const { rateLimit } = require('express-rate-limit');
 const db = require('./db');
 const owner = require('./platform-owner-service');
-const { provisionTenant } = require('./tenant-provisioner');
+const { safeProvisionTenant } = require('./provision-safety');
 const { releaseTenantPool } = require('./tenant-connection-manager');
 
 const router = express.Router();
@@ -166,7 +166,7 @@ router.post('/companies', async (req, res) => {
       return res.status(400).json({ success: false, message: 'الباقة غير صالحة.' });
     }
 
-    const provisioned = await provisionTenant({
+    const provisioned = await safeProvisionTenant({
       subdomain,
       companyName,
       plan,

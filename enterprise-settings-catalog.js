@@ -139,12 +139,13 @@ const COMPANY_ENTRIES = [
     moduleKey: 'email',
     titleAr: 'بريد الشركة SMTP',
     titleEn: 'Company Email (SMTP)',
-    descriptionAr: 'API جاهز على /api/tenant-settings/email — واجهة مخصصة Phase 3.',
-    href: null,
+    descriptionAr: 'SMTP عبر /api/tenant-settings/email داخل مركز إعدادات الشركة.',
+    href: '/company/settings',
     api: '/api/tenant-settings/email',
-    status: 'partial',
+    status: 'live',
     owner: 'Company Admin',
-    icon: 'fa-envelope'
+    icon: 'fa-envelope',
+    notes: 'Phase 3 center integrations tab + existing email API.'
   }),
   entry({
     id: 'company-seo',
@@ -153,10 +154,11 @@ const COMPANY_ENTRIES = [
     titleAr: 'SEO الموقع العام للشركة',
     titleEn: 'Company Public SEO',
     api: '/api/tenant-settings/seo',
-    href: null,
-    status: 'partial',
+    href: '/company/settings',
+    status: 'live',
     owner: 'Company Admin',
-    icon: 'fa-search'
+    icon: 'fa-search',
+    notes: 'Phase 3 center + existing SEO API.'
   }),
   entry({
     id: 'company-ai',
@@ -165,10 +167,11 @@ const COMPANY_ENTRIES = [
     titleAr: 'ضوابط الذكاء الاصطناعي للشركة',
     titleEn: 'Company AI Controls',
     api: '/api/tenant-settings/ai',
-    href: null,
-    status: 'partial',
+    href: '/company/settings',
+    status: 'live',
     owner: 'Company Admin',
-    icon: 'fa-robot'
+    icon: 'fa-robot',
+    notes: 'Phase 3 center + existing AI API.'
   }),
   entry({
     id: 'company-org',
@@ -176,13 +179,13 @@ const COMPANY_ENTRIES = [
     moduleKey: 'organization',
     titleAr: 'الفروع والأقسام',
     titleEn: 'Branches & Departments',
-    descriptionAr: 'جداول tenant_branches / tenant_departments موجودة؛ واجهة الإعدادات كانت شكلية.',
-    href: null,
+    descriptionAr: 'CRUD حقيقي على tenant_branches / tenant_departments / المسميات / المواقع.',
+    href: '/company/settings',
     spaRoute: 'settings-branches-sections',
-    status: 'partial',
+    status: 'live',
     owner: 'Company Admin',
     icon: 'fa-code-branch',
-    notes: 'Phase 3: CRUD حقيقي مربوط بالجداول.'
+    notes: 'Phase 3: /api/company-settings/org/*'
   }),
   entry({
     id: 'company-users-roles',
@@ -190,11 +193,12 @@ const COMPANY_ENTRIES = [
     moduleKey: 'iam',
     titleAr: 'المستخدمون والأدوار',
     titleEn: 'Users & Roles',
-    descriptionAr: 'يربط بمركز الصلاحيات الحالي دون تكرار نظام RBAC.',
-    href: '/super-admin-page.html',
+    descriptionAr: 'مستخدمو الشركة والدعوات عبر مركز الإعدادات + /api/tenant-users.',
+    href: '/company/settings',
     status: 'live',
     owner: 'Company Admin',
-    icon: 'fa-users-cog'
+    icon: 'fa-users-cog',
+    notes: 'Phase 3 invites + existing tenant-users; super-admin remains for central RBAC.'
   }),
   entry({
     id: 'company-general',
@@ -202,12 +206,12 @@ const COMPANY_ENTRIES = [
     moduleKey: 'general',
     titleAr: 'إعدادات عامة (لغة / منطقة / عملة)',
     titleEn: 'General Company Settings',
-    href: null,
+    href: '/company/settings',
     spaRoute: 'settings-general',
-    status: 'mock',
+    status: 'live',
     owner: 'Company Admin',
     icon: 'fa-cogs',
-    notes: 'كانت toast-only — تُعلَّم كغير جاهزة حتى Phase 3.'
+    notes: 'Phase 3: Settings Engine key company.general + tenant_settings mirror.'
   })
 ];
 
