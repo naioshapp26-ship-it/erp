@@ -34,7 +34,8 @@ function get(urlPath) {
 async function main() {
   // --- Static source checks ---
   const html = fs.readFileSync(path.join(__dirname, 'smart-management.html'), 'utf8');
-  ok('html-has-title', html.includes('الإدارة الذكية'));
+  ok('html-has-title', html.includes('الإدارة الذكية 360') && /<title>\s*الإدارة الذكية 360\s*<\/title>/.test(html));
+  ok('html-has-h1', /<h1>\s*الإدارة الذكية 360\s*<\/h1>/.test(html));
   ok('html-has-subtitle', html.includes('ثلاثة أنظمة رئيسية، بوابة واحدة لإدارة أكثر ذكاءً'));
   ok('html-has-brand', html.includes('NAIOSH ERP 360'));
   ok('html-has-hr-card', html.includes('الموارد البشرية') && html.includes('data-module="hr"'));
@@ -54,7 +55,7 @@ async function main() {
   ok('logo-exists', fs.existsSync(path.join(__dirname, 'public/naiosh-logo.png')));
 
   const script = fs.readFileSync(path.join(__dirname, 'script.js'), 'utf8');
-  ok('menu-has-smart-management', script.includes("'smart-management'") && script.includes('الإدارة الذكية'));
+  ok('menu-has-smart-management', script.includes("'smart-management'") && script.includes('الإدارة الذكية 360'));
   ok('menu-hides-hr-entry', !/id:\s*'hr',\s*icon:\s*'fa-users',\s*label:\s*'الموارد البشرية'/.test(script));
   ok('menu-hides-finance-entry', !/id:\s*'finance',\s*icon:\s*'fa-file-invoice-dollar'/.test(script));
   ok('menu-hides-archive-entry', !/id:\s*'records-archive-home',\s*icon:\s*'fa-archive'/.test(script));

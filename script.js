@@ -2812,7 +2812,7 @@ const app = (() => {
     const getTitle = (r) => {
         const map = { 
             'dashboard': 'لوحة القيادة (Tenant Dashboard)',
-            'smart-management': 'الإدارة الذكية',
+            'smart-management': 'الإدارة الذكية 360',
             'records-archive-home': 'نظام الأرشفة',
             'records-master-register': 'قسم ملفات عامة و إدارية',
             'records-students': 'شؤون الطلاب',
@@ -3671,7 +3671,7 @@ const app = (() => {
         
             const items = [
                 { id: 'dashboard', icon: 'fa-chart-pie', label: 'الرئيسية', show: isOfficeRouteAllowed('dashboard') },
-                { id: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية', show: isOfficeRouteAllowed('smart-management') },
+                { id: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', show: isOfficeRouteAllowed('smart-management') },
                 // HR / Finance / Archive remain reachable via /hr /finance /archive and portal cards — hidden from shared main menu only
                 {
                     id: 'e-offices',
@@ -4924,7 +4924,7 @@ const app = (() => {
 
     const renderHqQuickActions = () => {
         const links = [
-            { route: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية', sub: 'HR · المالية · الأرشيف', bg: 'from-red-700 to-rose-900' },
+            { route: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', sub: 'HR · المالية · الأرشيف', bg: 'from-red-700 to-rose-900' },
             { route: 'ads', icon: 'fa-bullhorn', label: 'الإعلانات', sub: 'التعاميم والحملات', bg: 'from-amber-500 to-orange-600' },
             { route: 'hierarchy', icon: 'fa-sitemap', label: 'الهيكل التنظيمي', sub: 'الفروع والكيانات', bg: 'from-violet-500 to-purple-700' },
             { route: 'settings', icon: 'fa-cog', label: 'الإعدادات', sub: 'تخصيص النظام', bg: 'from-slate-600 to-slate-800' }

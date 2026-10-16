@@ -52,8 +52,8 @@ async function createMenuSystem() {
                 display_order: 1
             },
             {
-                title_ar: 'الإدارة الذكية',
-                title_en: 'Smart Management',
+                title_ar: 'الإدارة الذكية 360',
+                title_en: 'Smart Management 360',
                 icon: '👑',
                 url: '/smart-management',
                 display_order: 2
