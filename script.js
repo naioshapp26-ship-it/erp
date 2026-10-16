@@ -340,6 +340,7 @@ const app = (() => {
         'records-archive-home': '/archive',
         'records-archive': '/archive',
         'smart-management': '/smart-management',
+        'incubators-platforms': '/incubators-platforms',
         'operational-policies': '/operational-policies',
         'tenant-branding': '/tenant-branding-settings.html'
     };
@@ -935,6 +936,13 @@ const app = (() => {
             return isOfficeRouteAllowed('hr')
                 || isOfficeRouteAllowed('finance')
                 || isOfficeRouteAllowed('records-archive-home');
+        }
+        // Unified portal: Branches / Nurseries / Platforms / E-Library
+        if (route === 'incubators-platforms') {
+            return isOfficeRouteAllowed('branches-hub')
+                || isOfficeRouteAllowed('incubators-hub')
+                || isOfficeRouteAllowed('platforms')
+                || isOfficeRouteAllowed('e-offices');
         }
         if (getAppAuthContext().isTenant || isDedicatedTenantContext(currentUser)) {
             if (CENTRAL_REGISTRY_OFFICE_ROUTES.has(route)) {
@@ -2057,6 +2065,11 @@ const app = (() => {
             return;
         }
 
+        if (route === 'incubators-platforms') {
+            navigateToExternalRoute(route);
+            return;
+        }
+
         if (route === 'records-archive-home' || route === 'records-archive') {
             navigateToExternalRoute(route);
             return;
@@ -2813,6 +2826,7 @@ const app = (() => {
         const map = { 
             'dashboard': 'لوحة القيادة (Tenant Dashboard)',
             'smart-management': 'الإدارة الذكية 360',
+            'incubators-platforms': 'حاضنات و منصات اعمال',
             'records-archive-home': 'نظام الأرشفة',
             'records-master-register': 'قسم ملفات عامة و إدارية',
             'records-students': 'شؤون الطلاب',
@@ -3674,76 +3688,12 @@ const app = (() => {
                 { id: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', show: isOfficeRouteAllowed('smart-management') },
                 // HR / Finance / Archive remain reachable via /hr /finance /archive and portal cards — hidden from shared main menu only
                 {
-                    id: 'e-offices',
-                    icon: 'fa-building',
-                    label: 'المكاتب الالكترونيه',
-                    show: isOfficeRouteAllowed('e-offices'),
-                    subItems: [
-                        { id: 'eo-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
-                        { id: 'eo-sales', icon: 'fa-chart-line', label: 'المبيعات' },
-                        { id: 'eo-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
-                        { id: 'eo-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
-                        { id: 'eo-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
-                        { id: 'eo-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
-                        { id: 'eo-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
-                        { id: 'eo-operational-finance', icon: 'fa-coins', label: 'الماليه التشغيلية' },
-                        { id: 'eo-files', icon: 'fa-folder-open', label: 'الملفات' },
-                        { id: 'eo-archive', icon: 'fa-box-archive', label: 'الارشيف' },
-                        { id: 'eo-tasks', icon: 'fa-list-check', label: 'المهام' },
-                        { id: 'eo-meetings', icon: 'fa-video', label: 'الاجتماعات' },
-                        { id: 'eo-consultations', icon: 'fa-user-tie', label: 'الاستشارات' },
-                        { id: 'eo-latest-news', icon: 'fa-newspaper', label: 'اخر الاخبار' },
-                        { id: 'eo-users', icon: 'fa-user-gear', label: 'المستخدمين' }
-                    ]
+                    id: 'incubators-platforms',
+                    icon: 'fa-building-columns',
+                    label: 'حاضنات و منصات اعمال',
+                    show: isOfficeRouteAllowed('incubators-platforms')
                 },
-                {
-                    id: 'platforms',
-                    icon: 'fa-layer-group',
-                    label: 'المنصات',
-                    show: isOfficeRouteAllowed('platforms'),
-                    subItems: [
-                        { id: 'pl-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
-                        { id: 'pl-sales', icon: 'fa-chart-line', label: 'المبيعات' },
-                        { id: 'pl-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
-                        { id: 'pl-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
-                        { id: 'pl-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
-                        { id: 'pl-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
-                        { id: 'pl-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
-                        { id: 'pl-operational-finance', icon: 'fa-coins', label: 'الماليه التشغيلية' }
-                    ]
-                },
-                {
-                    id: 'branches-hub',
-                    icon: 'fa-code-branch',
-                    label: 'الفروع',
-                    show: isOfficeRouteAllowed('branches-hub'),
-                    subItems: [
-                        { id: 'br-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
-                        { id: 'br-sales', icon: 'fa-chart-line', label: 'المبيعات' },
-                        { id: 'br-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
-                        { id: 'br-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
-                        { id: 'br-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
-                        { id: 'br-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
-                        { id: 'br-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
-                        { id: 'br-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
-                    ]
-                },
-                {
-                    id: 'incubators-hub',
-                    icon: 'fa-seedling',
-                    label: 'الحاضنات',
-                    show: isOfficeRouteAllowed('incubators-hub'),
-                    subItems: [
-                        { id: 'ic-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
-                        { id: 'ic-sales', icon: 'fa-chart-line', label: 'المبيعات' },
-                        { id: 'ic-subscriptions', icon: 'fa-cubes', label: 'الاشتراكات' },
-                        { id: 'ic-training', icon: 'fa-chalkboard-teacher', label: 'التدريب' },
-                        { id: 'ic-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
-                        { id: 'ic-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
-                        { id: 'ic-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
-                        { id: 'ic-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
-                    ]
-                },
+                // Branches / Nurseries / Platforms / E-Library remain via /branches /incubators-hub /platforms /e-offices — hidden from shared main menu only
                 {
                     id: 'education-training-incubators',
                     icon: 'fa-graduation-cap',
@@ -4925,6 +4875,7 @@ const app = (() => {
     const renderHqQuickActions = () => {
         const links = [
             { route: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', sub: 'HR · المالية · الأرشيف', bg: 'from-red-700 to-rose-900' },
+            { route: 'incubators-platforms', icon: 'fa-building-columns', label: 'حاضنات و منصات اعمال', sub: 'فروع · حضانات · منصات · مكتبة', bg: 'from-red-800 to-rose-950' },
             { route: 'ads', icon: 'fa-bullhorn', label: 'الإعلانات', sub: 'التعاميم والحملات', bg: 'from-amber-500 to-orange-600' },
             { route: 'hierarchy', icon: 'fa-sitemap', label: 'الهيكل التنظيمي', sub: 'الفروع والكيانات', bg: 'from-violet-500 to-purple-700' },
             { route: 'settings', icon: 'fa-cog', label: 'الإعدادات', sub: 'تخصيص النظام', bg: 'from-slate-600 to-slate-800' }
@@ -5261,6 +5212,7 @@ const app = (() => {
     const collectTenantDashboardModules = () => {
         const catalog = [
             { route: 'smart-management', icon: 'fa-crown', desc: 'بوابتك الموحدة للموارد البشرية والمالية والأرشيف' },
+            { route: 'incubators-platforms', icon: 'fa-building-columns', desc: 'بوابتك الموحدة للفروع والحضانات والمنصات والمكتبة الإلكترونية' },
             { route: 'marketing-campaigns-studio', icon: 'fa-bullhorn', desc: 'استوديو الحملات التسويقية' },
             { route: 'events-studio-main', icon: 'fa-calendar-star', desc: 'استوديو الفعاليات والأنشطة' },
             { route: 'tenant-branding', icon: 'fa-palette', desc: 'تخصيص الشعار والألوان واسم الشركة', adminOnly: true }

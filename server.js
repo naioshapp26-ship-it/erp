@@ -3049,6 +3049,7 @@ const protectedHtmlExactPaths = new Set([
   '/home',
   '/archive',
   '/smart-management',
+  '/incubators-platforms',
   '/hierarchy',
   '/saas',
   '/billing',
@@ -3083,6 +3084,9 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/dashboard.html' || p === '/home') return ['dashboard'];
   if (p === '/smart-management' || p.startsWith('/smart-management/')) {
     return ['hr', 'finance', 'records-archive-home'];
+  }
+  if (p === '/incubators-platforms' || p.startsWith('/incubators-platforms/')) {
+    return ['branches-hub', 'incubators-hub', 'platforms', 'e-offices'];
   }
   if (p === '/archive' || p.startsWith('/archive/')) return ['records-archive-home'];
   if (p === '/hr' || p.startsWith('/hr/')) return ['hr'];
@@ -4498,6 +4502,22 @@ const serveSmartManagement = (req, res, next) => {
 };
 app.get('/smart-management', serveSmartManagement);
 app.get('/smart-management/', serveSmartManagement);
+
+// Incubators & Business Platforms portal (entry hub only — does not alter the four systems)
+const serveIncubatorsPlatforms = (req, res, next) => {
+  try {
+    const hasExt = path.extname(req.path || '') !== '';
+    if (hasExt) return next();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    sendHtmlWithNumberFormat(res, path.join(__dirname, 'incubators-platforms.html'), req);
+  } catch (error) {
+    res.status(500).send('Incubators & Platforms page not available');
+  }
+};
+app.get('/incubators-platforms', serveIncubatorsPlatforms);
+app.get('/incubators-platforms/', serveIncubatorsPlatforms);
 
 // Operational policies pages
 const resolveOperationalPoliciesTarget = (reqPath) => {

@@ -59,6 +59,13 @@ async function createMenuSystem() {
                 display_order: 2
             },
             {
+                title_ar: 'حاضنات و منصات اعمال',
+                title_en: 'Incubators & Business Platforms',
+                icon: '🏛️',
+                url: '/incubators-platforms',
+                display_order: 3
+            },
+            {
                 title_ar: 'المبيعات',
                 title_en: 'Sales',
                 icon: '🛍️',
