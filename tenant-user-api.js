@@ -187,6 +187,24 @@ router.get('/', requireTenantAuth, async (req, res) => {
 // POST /api/tenant-users  — إنشاء مستخدم (admin فقط)
 // ================================================================
 router.post('/', requireTenantAuth, requireAdmin, async (req, res) => {
+  // Phase 2: enforce license seats when Platform Owner flag is on
+  try {
+    const { assertSeatAvailable } = require('./module-entitlement-middleware');
+    const owner = require('./platform-owner-service');
+    await owner.ensureSchema();
+    const check = await owner.checkSeatAllowance(req.tenant?.id);
+    if (check.enforced && !check.allowed) {
+      return res.status(403).json({
+        success: false,
+        code: 'SEAT_LIMIT',
+        data: check,
+        message: 'تم بلوغ حد مقاعد الترخيص لهذه الشركة.'
+      });
+    }
+  } catch (seatErr) {
+    console.warn('[TenantUsers] seat check skipped:', seatErr.message);
+  }
+
   const { firstName, lastName = '', username, email, phone, password, role = 'staff' } = req.body || {};
 
   if (!firstName || !username || !password) {
@@ -246,6 +264,13 @@ router.post('/', requireTenantAuth, requireAdmin, async (req, res) => {
       await syncCentralTenantUserDirectoryEntry({ tenant: req.tenant, user: insertRes.rows[0] });
     } catch (syncError) {
       console.warn('[TenantUserAPI] central directory sync on create failed:', syncError.message);
+    }
+
+    try {
+      const owner = require('./platform-owner-service');
+      await owner.incrementSeatUsage(req.tenant.id, 1);
+    } catch (seatIncErr) {
+      console.warn('[TenantUserAPI] seat increment skipped:', seatIncErr.message);
     }
 
     return res.status(201).json({

@@ -2824,6 +2824,12 @@ app.use('/api/platform', platformSettingsRoutes);
 const enterpriseSettingsRoutes = require('./enterprise-settings-engine-api');
 app.use('/api/enterprise-settings', enterpriseSettingsRoutes);
 
+// Phase 2 — Platform Owner Console (central only)
+const platformOwnerRoutes = require('./platform-owner-api');
+app.use('/api/platform-owner', platformOwnerRoutes);
+const { createModuleEntitlementMiddleware } = require('./module-entitlement-middleware');
+app.use(createModuleEntitlementMiddleware());
+
 // Payment Gateway Routes (Stripe + PayPal + Paymob — platform & tenant)
 const paymentRoutes = require('./payment/routes');
 app.use('/api/payment', paymentRoutes);
@@ -4241,6 +4247,20 @@ app.get('/settings', (req, res) => {
 // Enterprise Settings Center SPA routes (must NOT override exact /settings)
 app.get('/settings/admin', serveDashboardSpa);
 app.get('/settings/admin/*', serveDashboardSpa);
+
+// Phase 2 — Platform Owner Console (central HTML; tenant hosts blocked in page script + API)
+app.get('/platform/owner', (req, res) => {
+  if (req.tenant) {
+    return res.status(403).send('مركز مالك المنصة متاح على النطاق المركزي فقط.');
+  }
+  res.sendFile(path.join(__dirname, 'platform-owner-console.html'));
+});
+app.get('/platform/owner/*', (req, res) => {
+  if (req.tenant) {
+    return res.status(403).send('مركز مالك المنصة متاح على النطاق المركزي فقط.');
+  }
+  res.sendFile(path.join(__dirname, 'platform-owner-console.html'));
+});
 [
   '/settings/branches-sections',
   '/settings/field-templates',

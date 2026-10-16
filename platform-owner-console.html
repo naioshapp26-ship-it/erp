@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مركز مالك المنصة | NAIOSH ERP 360</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    :root { --brand: #0f766e; --ink: #0f172a; --bg: #f1f5f9; }
+    body { font-family: "Segoe UI", Tahoma, sans-serif; background: linear-gradient(160deg,#ecfeff 0%,#f8fafc 40%,#e2e8f0 100%); color: var(--ink); }
+    .tab-btn.active { background: #0f766e; color: #fff; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 1rem; }
+    .badge-on { background: #d1fae5; color: #065f46; }
+    .badge-off { background: #fee2e2; color: #991b1b; }
+    .badge-warn { background: #fef3c7; color: #92400e; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="border-b bg-white/90 backdrop-blur sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p class="text-xs text-slate-500 mb-1">NAIOSH ERP 360 · Phase 2</p>
+        <h1 class="text-2xl font-black text-teal-800">مركز تحكم مالك المنصة</h1>
+        <p class="text-sm text-slate-500">شركات · باقات · تراخيص · وحدات · أمان · تشغيل</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="/settings/admin" class="px-3 py-2 rounded-xl border text-sm hover:bg-slate-50">مركز الإعدادات</a>
+        <a href="/tenant-admin.html" class="px-3 py-2 rounded-xl border text-sm hover:bg-slate-50">إدارة الشركات (قديم)</a>
+        <a href="/super-admin-page.html" class="px-3 py-2 rounded-xl border text-sm hover:bg-slate-50">الصلاحيات</a>
+        <button id="btn-refresh" class="px-3 py-2 rounded-xl bg-teal-700 text-white text-sm font-bold">تحديث</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-5">
+    <div id="auth-banner" class="hidden card p-4 text-rose-700 bg-rose-50 border-rose-200 text-sm"></div>
+
+    <div class="flex flex-wrap gap-2" id="tabs">
+      <button class="tab-btn active px-4 py-2 rounded-xl border text-sm font-bold" data-tab="overview">نظرة عامة</button>
+      <button class="tab-btn px-4 py-2 rounded-xl border text-sm font-bold" data-tab="companies">الشركات</button>
+      <button class="tab-btn px-4 py-2 rounded-xl border text-sm font-bold" data-tab="plans">الباقات</button>
+      <button class="tab-btn px-4 py-2 rounded-xl border text-sm font-bold" data-tab="subscriptions">الاشتراكات</button>
+      <button class="tab-btn px-4 py-2 rounded-xl border text-sm font-bold" data-tab="modules">الوحدات</button>
+      <button class="tab-btn px-4 py-2 rounded-xl border text-sm font-bold" data-tab="security">الأمان</button>
+      <button class="tab-btn px-4 py-2 rounded-xl border text-sm font-bold" data-tab="ops">التشغيل</button>
+    </div>
+
+    <section id="panel-overview" class="tab-panel space-y-4"></section>
+    <section id="panel-companies" class="tab-panel hidden space-y-4"></section>
+    <section id="panel-plans" class="tab-panel hidden space-y-4"></section>
+    <section id="panel-subscriptions" class="tab-panel hidden space-y-4"></section>
+    <section id="panel-modules" class="tab-panel hidden space-y-4"></section>
+    <section id="panel-security" class="tab-panel hidden space-y-4"></section>
+    <section id="panel-ops" class="tab-panel hidden space-y-4"></section>
+  </main>
+
+  <div id="toast" class="fixed bottom-4 left-4 hidden px-4 py-3 rounded-xl text-white text-sm shadow-lg z-50"></div>
+
+  <script>
+    const state = {
+      tab: 'overview',
+      companies: [],
+      plans: [],
+      selectedTenantId: null,
+      moduleCatalog: []
+    };
+
+    function token() {
+      const m = document.cookie.match(/(?:^|; )authToken=([^;]*)/);
+      return m ? decodeURIComponent(m[1]) : (localStorage.getItem('authToken') || '');
+    }
+
+    async function api(path, options = {}) {
+      const headers = Object.assign({ Accept: 'application/json' }, options.headers || {});
+      const t = token();
+      if (t) headers.Authorization = 'Bearer ' + t;
+      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      const res = await fetch('/api/platform-owner' + path, {
+        ...options,
+        headers,
+        credentials: 'include',
+        body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.success === false) {
+        const err = new Error(payload.message || ('HTTP ' + res.status));
+        err.status = res.status;
+        err.payload = payload;
+        throw err;
+      }
+      return payload;
+    }
+
+    function toast(msg, type = 'ok') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'fixed bottom-4 left-4 px-4 py-3 rounded-xl text-white text-sm shadow-lg z-50 ' +
+        (type === 'ok' ? 'bg-teal-700' : type === 'warn' ? 'bg-amber-600' : 'bg-rose-700');
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    function showAuthError(msg) {
+      const banner = document.getElementById('auth-banner');
+      banner.classList.remove('hidden');
+      banner.textContent = msg + ' — سجّل الدخول بحساب مالك المنصة على النطاق المركزي ثم أعد المحاولة.';
+    }
+
+    function setTab(tab) {
+      state.tab = tab;
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+      });
+      document.querySelectorAll('.tab-panel').forEach((panel) => panel.classList.add('hidden'));
+      document.getElementById('panel-' + tab).classList.remove('hidden');
+      loadTab(tab);
+    }
+
+    async function loadTab(tab) {
+      try {
+        if (tab === 'overview') await renderOverview();
+        if (tab === 'companies') await renderCompanies();
+        if (tab === 'plans') await renderPlans();
+        if (tab === 'subscriptions') await renderSubscriptions();
+        if (tab === 'modules') await renderModules();
+        if (tab === 'security') await renderSecurity();
+        if (tab === 'ops') await renderOps();
+      } catch (err) {
+        if (err.status === 401 || err.status === 403) showAuthError(err.message);
+        else toast(err.message, 'err');
+      }
+    }
+
+    async function renderOverview() {
+      const { data } = await api('/overview');
+      const u = data.ops.usage || {};
+      const services = data.ops.services || {};
+      document.getElementById('panel-overview').innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="card p-4"><div class="text-xs text-slate-500">شركات نشطة</div><div class="text-2xl font-black">${u.tenants?.active ?? 0}</div></div>
+          <div class="card p-4"><div class="text-xs text-slate-500">معلّقة</div><div class="text-2xl font-black">${u.tenants?.suspended ?? 0}</div></div>
+          <div class="card p-4"><div class="text-xs text-slate-500">اشتراكات نشطة</div><div class="text-2xl font-black">${u.subscriptions?.active ?? 0}</div></div>
+          <div class="card p-4"><div class="text-xs text-slate-500">جلسات نشطة</div><div class="text-2xl font-black">${u.active_sessions ?? 0}</div></div>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="card p-4 space-y-2">
+            <h3 class="font-bold">حالة الخدمات</h3>
+            <p>API: <span class="badge-on px-2 py-0.5 rounded-full text-xs">${services.api?.status || '-'} (${services.api?.latency_ms || 0}ms)</span></p>
+            <p>قاعدة البيانات: <span class="${services.database?.status === 'ok' ? 'badge-on' : 'badge-off'} px-2 py-0.5 rounded-full text-xs">${services.database?.status || '-'}</span></p>
+            <p class="text-xs text-slate-500">الإصدار: ${data.ops.version?.phase || ''}</p>
+          </div>
+          <div class="card p-4 space-y-2">
+            <h3 class="font-bold">الباقات المعرّفة</h3>
+            <p class="text-3xl font-black text-teal-700">${data.plans_count}</p>
+            <p class="text-sm text-slate-500">وحدات الكتالوج: ${data.module_catalog?.length || 0}</p>
+          </div>
+        </div>`;
+    }
+
+    async function renderCompanies() {
+      const { data } = await api('/companies?limit=50');
+      state.companies = data.items || [];
+      const rows = state.companies.map((c) => `
+        <tr class="border-t">
+          <td class="p-2 font-bold">${c.company_name}</td>
+          <td class="p-2 text-sm">${c.subdomain}</td>
+          <td class="p-2"><span class="text-xs px-2 py-1 rounded-full ${c.status === 'active' ? 'badge-on' : 'badge-warn'}">${c.status}</span></td>
+          <td class="p-2 text-sm">${c.subscription_plan}</td>
+          <td class="p-2 text-sm">${c.subscription_status || '-'}</td>
+          <td class="p-2 text-sm">${c.seats_used ?? 0}/${c.seats ?? '-'}</td>
+          <td class="p-2 space-x-1 space-x-reverse">
+            <button class="text-xs px-2 py-1 rounded border" onclick="editCompany(${c.id})">تعديل</button>
+            ${c.status === 'active'
+              ? `<button class="text-xs px-2 py-1 rounded border text-amber-700" onclick="suspendCompany(${c.id})">تعليق</button>`
+              : `<button class="text-xs px-2 py-1 rounded border text-teal-700" onclick="activateCompany(${c.id})">تفعيل</button>`}
+            <button class="text-xs px-2 py-1 rounded border" onclick="selectTenantModules(${c.id})">وحدات</button>
+          </td>
+        </tr>`).join('');
+
+      document.getElementById('panel-companies').innerHTML = `
+        <div class="card p-4 space-y-3">
+          <div class="flex flex-wrap items-end gap-3 justify-between">
+            <h3 class="font-bold text-lg">الشركات (${data.total})</h3>
+            <details class="card p-3 w-full md:w-auto border-teal-200">
+              <summary class="font-bold cursor-pointer text-teal-800">إنشاء شركة</summary>
+              <form id="create-company-form" class="grid md:grid-cols-2 gap-2 mt-3 text-sm">
+                <input name="company_name" required placeholder="اسم الشركة" class="border rounded-xl px-3 py-2" />
+                <input name="subdomain" required placeholder="subdomain" class="border rounded-xl px-3 py-2" />
+                <select name="plan" class="border rounded-xl px-3 py-2"></select>
+                <input name="admin_name" required placeholder="اسم المسؤول" class="border rounded-xl px-3 py-2" />
+                <input name="admin_email" type="email" required placeholder="بريد المسؤول" class="border rounded-xl px-3 py-2" />
+                <input name="admin_password" type="password" required minlength="8" placeholder="كلمة مرور المسؤول (لا تُحفظ في الواجهة)" class="border rounded-xl px-3 py-2" />
+                <button class="md:col-span-2 bg-teal-700 text-white rounded-xl py-2 font-bold">إنشاء وتجهيز</button>
+              </form>
+            </details>
+          </div>
+          <div class="overflow-auto">
+            <table class="w-full text-sm text-right">
+              <thead class="bg-slate-50"><tr>
+                <th class="p-2">الشركة</th><th class="p-2">النطاق</th><th class="p-2">الحساب</th>
+                <th class="p-2">الباقة</th><th class="p-2">الاشتراك</th><th class="p-2">المقاعد</th><th class="p-2">إجراءات</th>
+              </tr></thead>
+              <tbody>${rows || '<tr><td class="p-4 text-slate-500" colspan="7">لا توجد شركات بعد.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>`;
+
+      const plans = await api('/plans');
+      state.plans = plans.data || [];
+      const sel = document.querySelector('#create-company-form select[name="plan"]');
+      if (sel) {
+        sel.innerHTML = state.plans.map((p) => `<option value="${p.code}">${p.name_ar} (${p.code})</option>`).join('');
+      }
+      document.getElementById('create-company-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+          await api('/companies', {
+            method: 'POST',
+            body: {
+              company_name: fd.get('company_name'),
+              subdomain: fd.get('subdomain'),
+              plan: fd.get('plan'),
+              admin_name: fd.get('admin_name'),
+              admin_email: fd.get('admin_email'),
+              admin_password: fd.get('admin_password')
+            }
+          });
+          toast('تم إنشاء الشركة');
+          e.target.reset();
+          await renderCompanies();
+        } catch (err) {
+          toast(err.message, 'err');
+        }
+      });
+    }
+
+    async function suspendCompany(id) {
+      try {
+        await api('/companies/' + id + '/suspend', { method: 'POST', body: {} });
+        toast('تم التعليق دون حذف البيانات', 'warn');
+        await renderCompanies();
+      } catch (err) { toast(err.message, 'err'); }
+    }
+    async function activateCompany(id) {
+      try {
+        await api('/companies/' + id + '/activate', { method: 'POST', body: {} });
+        toast('تم التفعيل');
+        await renderCompanies();
+      } catch (err) { toast(err.message, 'err'); }
+    }
+    async function editCompany(id) {
+      const plan = prompt('رمز الباقة الجديدة (basic/pro/enterprise أو مخصصة):');
+      if (!plan) return;
+      try {
+        await api('/companies/' + id, { method: 'PATCH', body: { plan, reseed_modules: true } });
+        toast('تم تحديث الباقة وإعادة مزامنة الوحدات');
+        await renderCompanies();
+      } catch (err) { toast(err.message, 'err'); }
+    }
+    function selectTenantModules(id) {
+      state.selectedTenantId = id;
+      setTab('modules');
+    }
+
+    async function renderPlans() {
+      const { data } = await api('/plans?includeInactive=true');
+      state.plans = data || [];
+      const catalog = (await api('/modules/catalog')).data || [];
+      state.moduleCatalog = catalog;
+
+      document.getElementById('panel-plans').innerHTML = `
+        <div class="grid lg:grid-cols-2 gap-4">
+          <div class="space-y-3">
+            ${state.plans.map((p) => `
+              <article class="card p-4 space-y-2">
+                <div class="flex justify-between gap-2">
+                  <div>
+                    <h3 class="font-bold text-lg">${p.name_ar} <span class="text-xs text-slate-400">${p.code}</span></h3>
+                    <p class="text-sm text-slate-500">${p.price} ${p.currency} / ${p.billing_cycle}</p>
+                  </div>
+                  <span class="text-xs px-2 py-1 rounded-full h-fit ${p.is_active ? 'badge-on' : 'badge-off'}">${p.is_active ? 'نشطة' : 'متوقفة'}</span>
+                </div>
+                <p class="text-xs">مستخدمون: ${p.max_users} · تخزين: ${p.max_storage_mb}MB · تجربة: ${p.trial_days}ي · سماح: ${p.grace_days}ي</p>
+                <p class="text-xs text-slate-500">وحدات: ${(p.module_keys || []).join(', ') || '—'}</p>
+                <button class="text-xs px-3 py-1.5 rounded-xl border" onclick="editPlan('${p.code}')">تعديل الوحدات/الحدود</button>
+              </article>`).join('') || '<div class="card p-4">لا باقات</div>'}
+          </div>
+          <form id="plan-form" class="card p-4 space-y-3 text-sm sticky top-24">
+            <h3 class="font-bold text-lg">إنشاء / تحديث باقة</h3>
+            <input name="code" required placeholder="code (مثل custom-gold)" class="w-full border rounded-xl px-3 py-2" />
+            <input name="name_ar" required placeholder="الاسم بالعربية" class="w-full border rounded-xl px-3 py-2" />
+            <div class="grid grid-cols-2 gap-2">
+              <input name="price" type="number" step="0.01" value="49" class="border rounded-xl px-3 py-2" />
+              <input name="currency" value="USD" class="border rounded-xl px-3 py-2" />
+              <select name="billing_cycle" class="border rounded-xl px-3 py-2"><option value="monthly">شهري</option><option value="yearly">سنوي</option></select>
+              <input name="max_users" type="number" value="10" class="border rounded-xl px-3 py-2" placeholder="max users" />
+              <input name="max_storage_mb" type="number" value="2048" class="border rounded-xl px-3 py-2" />
+              <input name="trial_days" type="number" value="7" class="border rounded-xl px-3 py-2" />
+              <input name="grace_days" type="number" value="3" class="border rounded-xl px-3 py-2" />
+            </div>
+            <div class="max-h-48 overflow-auto border rounded-xl p-2 space-y-1">
+              ${catalog.map((m) => `
+                <label class="flex items-center gap-2"><input type="checkbox" name="module" value="${m.key}" ${['dashboard','hr','finance','tenant-branding'].includes(m.key) ? 'checked' : ''}/> <span>${m.labelAr || m.key}${m.independent ? ' ★' : ''}</span></label>
+              `).join('')}
+            </div>
+            <p class="text-[11px] text-slate-500">★ وحدات مستقلة (HR / Finance) تُدار دون إجبار الربط بينهما.</p>
+            <button class="w-full bg-teal-700 text-white rounded-xl py-2 font-bold">حفظ الباقة</button>
+          </form>
+        </div>`;
+
+      document.getElementById('plan-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const module_keys = [...e.target.querySelectorAll('input[name="module"]:checked')].map((x) => x.value);
+        try {
+          await api('/plans', {
+            method: 'POST',
+            body: {
+              code: fd.get('code'),
+              name_ar: fd.get('name_ar'),
+              price: Number(fd.get('price')),
+              currency: fd.get('currency'),
+              billing_cycle: fd.get('billing_cycle'),
+              max_users: Number(fd.get('max_users')),
+              max_storage_mb: Number(fd.get('max_storage_mb')),
+              trial_days: Number(fd.get('trial_days')),
+              grace_days: Number(fd.get('grace_days')),
+              module_keys
+            }
+          });
+          toast('تم حفظ الباقة');
+          await renderPlans();
+        } catch (err) { toast(err.message, 'err'); }
+      });
+    }
+
+    async function editPlan(code) {
+      const plan = state.plans.find((p) => p.code === code);
+      if (!plan) return;
+      const seats = prompt('الحد الأقصى للمستخدمين', plan.max_users);
+      if (seats == null) return;
+      try {
+        await api('/plans/' + code, {
+          method: 'PUT',
+          body: {
+            ...plan,
+            max_users: Number(seats),
+            module_keys: plan.module_keys
+          }
+        });
+        toast('تم تحديث حدود الباقة');
+        await renderPlans();
+      } catch (err) { toast(err.message, 'err'); }
+    }
+
+    async function renderSubscriptions() {
+      const { data } = await api('/subscriptions');
+      document.getElementById('panel-subscriptions').innerHTML = `
+        <div class="card overflow-auto">
+          <table class="w-full text-sm text-right">
+            <thead class="bg-slate-50"><tr>
+              <th class="p-2">الشركة</th><th class="p-2">الباقة</th><th class="p-2">الحالة</th>
+              <th class="p-2">الفترة</th><th class="p-2">إجراءات</th>
+            </tr></thead>
+            <tbody>
+              ${(data || []).map((s) => `
+                <tr class="border-t">
+                  <td class="p-2">${s.company_name}<div class="text-xs text-slate-400">${s.subdomain}</div></td>
+                  <td class="p-2">${s.plan}</td>
+                  <td class="p-2"><span class="text-xs px-2 py-1 rounded-full badge-warn">${s.status}</span></td>
+                  <td class="p-2 text-xs">${s.current_period_end ? new Date(s.current_period_end).toLocaleDateString('ar') : '—'}</td>
+                  <td class="p-2 space-x-1 space-x-reverse">
+                    <button class="text-xs border rounded px-2 py-1" onclick="setSubStatus(${s.tenant_id},'active')">تفعيل</button>
+                    <button class="text-xs border rounded px-2 py-1" onclick="setSubStatus(${s.tenant_id},'trialing')">تجربة</button>
+                    <button class="text-xs border rounded px-2 py-1" onclick="setSubStatus(${s.tenant_id},'past_due')">متأخر</button>
+                    <button class="text-xs border rounded px-2 py-1 text-rose-700" onclick="setSubStatus(${s.tenant_id},'cancelled', true)">إلغاء+تعليق</button>
+                  </td>
+                </tr>`).join('') || '<tr><td class="p-4" colspan="5">لا اشتراكات</td></tr>'}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    async function setSubStatus(tenantId, status, suspend) {
+      try {
+        await api('/subscriptions/' + tenantId, {
+          method: 'PATCH',
+          body: { status, suspend_tenant: Boolean(suspend) }
+        });
+        toast('تم تحديث الاشتراك');
+        await renderSubscriptions();
+      } catch (err) { toast(err.message, 'err'); }
+    }
+
+    async function renderModules() {
+      if (!state.companies.length) {
+        const c = await api('/companies?limit=50');
+        state.companies = c.data.items || [];
+      }
+      const tenantId = state.selectedTenantId || state.companies[0]?.id;
+      state.selectedTenantId = tenantId;
+      if (!tenantId) {
+        document.getElementById('panel-modules').innerHTML = '<div class="card p-4">أنشئ شركة أولاً.</div>';
+        return;
+      }
+      const { data } = await api('/modules/tenant/' + tenantId);
+      const company = state.companies.find((c) => c.id === tenantId);
+
+      document.getElementById('panel-modules').innerHTML = `
+        <div class="card p-4 space-y-3">
+          <div class="flex flex-wrap gap-2 items-center justify-between">
+            <h3 class="font-bold">وحدات الشركة: ${company?.company_name || tenantId}</h3>
+            <select id="module-tenant-select" class="border rounded-xl px-3 py-2 text-sm">
+              ${state.companies.map((c) => `<option value="${c.id}" ${c.id === tenantId ? 'selected' : ''}>${c.company_name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <h4 class="font-bold text-emerald-700 mb-2">مفعّلة (${data.enabled.length})</h4>
+              <div class="space-y-2">
+                ${data.enabled.map((m) => `
+                  <div class="flex justify-between items-center border rounded-xl p-2 text-sm">
+                    <span>${m.labelAr || m.key} ${m.independent ? '★' : ''} ${m.overridden ? '(تجاوز)' : ''}</span>
+                    <button class="text-xs text-rose-700 border rounded px-2 py-1" onclick="toggleModule('${m.key}', false)">تعطيل</button>
+                  </div>`).join('') || '<p class="text-slate-500 text-sm">لا شيء</p>'}
+              </div>
+            </div>
+            <div>
+              <h4 class="font-bold text-rose-700 mb-2">مقفلة (${data.locked.length})</h4>
+              <div class="space-y-2">
+                ${data.locked.map((m) => `
+                  <div class="flex justify-between items-center border rounded-xl p-2 text-sm bg-slate-50">
+                    <span>${m.labelAr || m.key}</span>
+                    <button class="text-xs text-teal-700 border rounded px-2 py-1" onclick="toggleModule('${m.key}', true)">تفعيل</button>
+                  </div>`).join('') || '<p class="text-slate-500 text-sm">لا شيء</p>'}
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+      document.getElementById('module-tenant-select').addEventListener('change', (e) => {
+        state.selectedTenantId = Number(e.target.value);
+        renderModules();
+      });
+    }
+
+    async function toggleModule(key, enabled) {
+      try {
+        await api(`/modules/tenant/${state.selectedTenantId}/${encodeURIComponent(key)}`, {
+          method: 'PUT',
+          body: { enabled, reason: 'owner-console' }
+        });
+        toast(enabled ? 'تم تفعيل الوحدة' : 'تم تعطيل الوحدة');
+        await renderModules();
+      } catch (err) { toast(err.message, 'err'); }
+    }
+
+    async function renderSecurity() {
+      const sessions = await api('/security/sessions');
+      const audit = await api('/security/audit?limit=40');
+      document.getElementById('panel-security').innerHTML = `
+        <div class="grid lg:grid-cols-2 gap-4">
+          <div class="card p-4">
+            <h3 class="font-bold mb-3">الجلسات النشطة</h3>
+            <div class="space-y-2 max-h-96 overflow-auto text-sm">
+              ${(sessions.data || []).map((s) => `
+                <div class="border rounded-xl p-2 flex justify-between gap-2">
+                  <div>
+                    <div class="font-bold">${s.email || s.user_id}</div>
+                    <div class="text-xs text-slate-500">${s.role} · ${s.tenant_type || '-'}</div>
+                    <div class="text-[11px] text-slate-400">ينتهي: ${new Date(s.expires_at).toLocaleString('ar')}</div>
+                  </div>
+                  <button class="text-xs border rounded px-2 py-1 text-rose-700 h-fit" onclick="revokeSession(${s.id})">إنهاء</button>
+                </div>`).join('') || '<p class="text-slate-500">لا جلسات أو الأعمدة غير متاحة في هذا التثبيت.</p>'}
+            </div>
+            <p class="text-xs text-slate-500 mt-3">Company Admin لا يصل لهذه الشاشة عبر API مالك المنصة.</p>
+          </div>
+          <div class="card p-4">
+            <h3 class="font-bold mb-3">سجل تعديلات مالك المنصة</h3>
+            <div class="space-y-2 max-h-96 overflow-auto text-sm">
+              ${(audit.data || []).map((a) => `
+                <div class="border rounded-xl p-2">
+                  <div class="font-bold">${a.action}</div>
+                  <div class="text-xs text-slate-500">${a.entity_type || ''} ${a.entity_id || ''} · tenant ${a.tenant_id || '-'}</div>
+                  <div class="text-[11px] text-slate-400">${new Date(a.created_at).toLocaleString('ar')}</div>
+                </div>`).join('') || '<p class="text-slate-500">لا أحداث بعد.</p>'}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function revokeSession(id) {
+      try {
+        await api('/security/sessions/' + id, { method: 'DELETE' });
+        toast('تم إنهاء الجلسة');
+        await renderSecurity();
+      } catch (err) { toast(err.message, 'err'); }
+    }
+
+    async function renderOps() {
+      const health = await api('/ops/health');
+      const flags = await api('/ops/flags');
+      const d = health.data;
+      document.getElementById('panel-ops').innerHTML = `
+        <div class="grid lg:grid-cols-2 gap-4">
+          <div class="card p-4 space-y-2">
+            <h3 class="font-bold">لوحة التشغيل</h3>
+            <p>API: ${d.services.api.status} · DB: ${d.services.database.status}</p>
+            <p class="text-xs text-slate-500">المهام الخلفية: ${d.background_jobs?.status} — ${d.background_jobs?.note || ''}</p>
+            <h4 class="font-bold pt-2">أخطاء API الأخيرة</h4>
+            <div class="space-y-1 max-h-56 overflow-auto text-xs">
+              ${(d.recent_errors || []).map((e) => `<div class="border rounded p-2">${e.status_code} ${e.method} ${e.path}<div class="text-rose-700">${e.error_message || ''}</div></div>`).join('') || '<p class="text-slate-500">لا أخطاء مسجّلة.</p>'}
+            </div>
+          </div>
+          <div class="card p-4 space-y-2">
+            <h3 class="font-bold">Feature Flags</h3>
+            <div class="space-y-2">
+              ${(flags.data || []).map((f) => `
+                <label class="flex items-center justify-between border rounded-xl p-2 text-sm">
+                  <span><strong>${f.key}</strong><div class="text-xs text-slate-500">${f.description_ar || ''}</div></span>
+                  <input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="toggleFlag('${f.key}', this.checked)" />
+                </label>`).join('')}
+            </div>
+            <div class="pt-3 text-xs text-slate-500">الإصدار: ${d.version?.phase} · Node ${d.version?.node}</div>
+          </div>
+        </div>`;
+    }
+
+    async function toggleFlag(key, enabled) {
+      try {
+        await api('/ops/flags/' + encodeURIComponent(key), { method: 'PUT', body: { enabled } });
+        toast('تم تحديث العلم');
+      } catch (err) { toast(err.message, 'err'); }
+    }
+
+    document.getElementById('tabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab-btn');
+      if (btn) setTab(btn.dataset.tab);
+    });
+    document.getElementById('btn-refresh').addEventListener('click', () => loadTab(state.tab));
+
+    // expose handlers
+    window.suspendCompany = suspendCompany;
+    window.activateCompany = activateCompany;
+    window.editCompany = editCompany;
+    window.selectTenantModules = selectTenantModules;
+    window.editPlan = editPlan;
+    window.setSubStatus = setSubStatus;
+    window.toggleModule = toggleModule;
+    window.revokeSession = revokeSession;
+    window.toggleFlag = toggleFlag;
+
+    setTab('overview');
+  </script>
+</body>
+</html>

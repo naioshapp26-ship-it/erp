@@ -131,6 +131,7 @@ async function main() {
   ok('catalog with login → 200', catalog.status === 200 && catalog.body?.success);
   ok('hub counts total 47', catalog.body?.data?.counts?.total === 47);
   ok('hub has mock badges data', catalog.body?.data?.counts?.mock === 8);
+  ok('hub live includes phase2 platform cards', catalog.body?.data?.counts?.live >= 21);
 
   const seed = await request(port, 'POST', '/api/enterprise-settings/definitions/seed', { token });
   ok('seed from hub session', seed.status === 200);
