@@ -3412,6 +3412,16 @@ app.get('/finance*', (req, res, next) => {
       const { injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
       payload = injectTenantBrandingHtml(payload, req.tenantIdentity, req.tenant);
     }
+    // Finance KEEP pages keep their native finance UI (no HR shell).
+    // Finance MOVED → GAI pages get trusted gai-finance navigation context only.
+    const { normalizeTenantAwareRequestPath } = require('./tenant-domain');
+    const { resolveNavigationContext } = require('./gai-hub-navigation');
+    const logicalFinancePath = normalizeTenantAwareRequestPath(
+      String(req?.originalUrl || req?.path || requestPath || '').split('?')[0]
+    );
+    if (resolveNavigationContext(logicalFinancePath) === 'gai-finance') {
+      payload = injectHrPortalShellAssets(payload, logicalFinancePath);
+    }
     res.type('html').send(payload);
   } catch (error) {
     console.error('[finance html] failed to serve page:', req.path, error.message);
