@@ -487,6 +487,29 @@ const HUB_SYSTEM_SOURCES = {
   }
 };
 
+/**
+ * Archive hub UI entries moved to Governed Administrative Integration
+ * (حوكمة الوثائق والإجراءات). Kept here so path→key RBAC mapping and
+ * system page catalogs stay under records-archive-home unchanged.
+ * UI cards live in script.js renderGovernedAdministrativeIntegration only.
+ */
+const ARCHIVE_DOCUMENT_GOVERNANCE_PAGES = [
+  { href: '/hr/ocr-suite', label: 'حزمة OCR للتعرف على النصوص' },
+  { href: '/hr/scanner-integration', label: 'تكامل مع الماسح الضوئي' },
+  { href: '/hr/attachment-merge', label: 'دمج المرفقات عند التحميل' },
+  { href: '/hr/smartsheet-bundle', label: 'حزمة سمارت شيت' },
+  { href: '/hr/workflow-engine', label: 'محرك سير العمل' },
+  { href: '/hr/reporting-suite', label: 'حزمة بناء التقارير' },
+  { href: '/hr/tasks-management', label: 'إدارة مهام الأرشفة' },
+  { href: '/hr/no-code-builder', label: 'بناء نماذج الأرشفة بدون برمجة' },
+  { href: '/hr/bulk-messaging', label: 'نظام الرسائل الجماعية' },
+  { href: '/hr/cybersecurity', label: 'الأمن السيبراني وحماية السجلات' },
+  { href: '/hr/api-library', label: 'مكتبة الربط API' },
+  { href: '/hr/quality-scoring', label: 'محرك تقييم جودة الوثائق' },
+  { href: '/hr/notifications-center', label: 'نظام التنبيهات والإشعارات' },
+  { href: '/hr/text-chat', label: 'نظام الدردشة الكتابية' }
+];
+
 let hubPagesCache = null;
 
 function parseHubCardsFromFile(relativeFile, containerId, hrefPrefix, systemKey) {
@@ -535,10 +558,37 @@ function hrefToHubPageKey(href, systemKey) {
   return null;
 }
 
+function mapArchiveGovernancePages() {
+  const pages = [];
+  const seen = new Set();
+  ARCHIVE_DOCUMENT_GOVERNANCE_PAGES.forEach((item) => {
+    const href = String(item.href || '').trim();
+    const label = String(item.label || '').replace(/\s+/g, ' ').trim();
+    if (!href.startsWith('/hr/') || !label) return;
+    const key = hrefToHubPageKey(href, 'records-archive-home');
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    const routePath = href.startsWith('/') ? href : `/${href}`;
+    PAGE_LABELS[key] = label;
+    ROUTE_TO_PATH[key] = routePath.replace(/\/+$/, '') || routePath;
+    pages.push({ key, label, path: routePath });
+  });
+  return pages;
+}
+
 function buildHubSystemPages(systemKey) {
   const src = HUB_SYSTEM_SOURCES[systemKey];
   if (!src) return [];
-  return parseHubCardsFromFile(src.file, src.containerId, src.hrefPrefix, systemKey);
+  const fromFile = parseHubCardsFromFile(src.file, src.containerId, src.hrefPrefix, systemKey);
+  if (systemKey !== 'records-archive-home') return fromFile;
+  const seen = new Set(fromFile.map((page) => page.key));
+  const merged = [...fromFile];
+  mapArchiveGovernancePages().forEach((page) => {
+    if (seen.has(page.key)) return;
+    seen.add(page.key);
+    merged.push(page);
+  });
+  return merged;
 }
 
 function getHubPagesBySystem() {
@@ -929,6 +979,7 @@ module.exports = {
   OFFICE_ROUTE_PARENTS,
   ROUTE_TO_PATH,
   PAGE_LABELS,
+  ARCHIVE_DOCUMENT_GOVERNANCE_PAGES,
   buildPermissionRegistry,
   getPageLabel,
   getPagesForSystem,

@@ -43,10 +43,12 @@ async function main() {
   ok('title', script.includes("'governed-administrative-integration': 'التكامل الإداري المحكوم'"));
   ok('render-fn', script.includes('renderGovernedAdministrativeIntegration'));
   const renderIdx = script.indexOf('const renderGovernedAdministrativeIntegration');
-  const renderSlice = renderIdx >= 0 ? script.slice(renderIdx, renderIdx + 500) : '';
-  ok('empty-shell', renderSlice.includes('التكامل الإداري المحكوم')
-    && !/قريبًا|لا توجد بيانات|Coming soon/i.test(renderSlice));
-  ok('no-fake-widgets', !/<table|<form|بطاقة/.test(renderSlice));
+  const renderSlice = renderIdx >= 0 ? script.slice(renderIdx, renderIdx + 4500) : '';
+  ok('gai-title', renderSlice.includes('التكامل الإداري المحكوم'));
+  ok('gai-docs-section', renderSlice.includes('حوكمة الوثائق والإجراءات'));
+  ok('gai-finance-section', renderSlice.includes('الحوكمة المالية والإجراءات'));
+  ok('gai-hr-section', renderSlice.includes('حوكمة الموارد البشرية'));
+  ok('no-fake-widgets', !/<table|<form/.test(renderSlice));
   ok('server-spa', server.includes("'/governed-administrative-integration'"));
   ok('server-protect', server.includes("'/governed-administrative-integration'"));
   ok('perm-keys', getPageKeysForPath('/governed-administrative-integration').includes('governed-administrative-integration'));
