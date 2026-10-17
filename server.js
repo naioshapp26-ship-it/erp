@@ -317,16 +317,26 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   const withGlobalBack = injectGlobalBackButtonAssets(withFormValidation);
   const withBranding = injectTenantBrandingAssets(injectDarkModeAssets(withGlobalBack));
   const requestPath = String(req?.originalUrl || req?.path || '').split('?')[0];
-  if (requestPath === '/hr' || requestPath.startsWith('/hr/')) {
-    return injectHrPortalShellAssets(withBranding);
+  const { normalizeTenantAwareRequestPath } = require('./tenant-domain');
+  const logicalPath = normalizeTenantAwareRequestPath(requestPath);
+  const { resolveNavigationContext } = require('./gai-hub-navigation');
+  const navContext = resolveNavigationContext(logicalPath);
+  const shouldInjectShell = logicalPath === '/hr'
+    || logicalPath.startsWith('/hr/')
+    || navContext === 'gai-finance'
+    || navContext === 'finance-keep';
+  if (shouldInjectShell) {
+    return injectHrPortalShellAssets(withBranding, logicalPath);
   }
   return withBranding;
 };
 
-const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-attachments-allpages-20260825c';
+const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-nav-context-20261017a';
 
-const injectHrPortalShellAssets = (html) => {
+const injectHrPortalShellAssets = (html, requestPath = '/hr') => {
   if (!html) return html;
+  const { getNavigationPayload } = require('./gai-hub-navigation');
+  const navPayload = getNavigationPayload(requestPath);
   const cssHref = `/finance/hr-portal-shell.css?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
   const jsHref = `/finance/hr-portal-shell.js?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
   const attCssHref = `/finance/hr-attachments.css?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
@@ -335,6 +345,7 @@ const injectHrPortalShellAssets = (html) => {
   const jsTag = `<script src="${jsHref}" defer></script>`;
   const attCssTag = `<link rel="stylesheet" href="${attCssHref}">`;
   const attJsTag = `<script src="${attJsHref}" defer></script>`;
+  const navBootTag = `<script>window.__NAIOSH_NAV_PAYLOAD__=${JSON.stringify(navPayload)};</script>`;
   let output = html.replace(/\/finance\/hr-portal-shell\.css(\?[^"'>\s]*)?/g, cssHref.replace(/^\//, '/'));
   output = output.replace(/\/finance\/hr-portal-shell\.js(\?[^"'>\s]*)?/g, jsHref.replace(/^\//, '/'));
   output = output.replace(/\/finance\/hr-attachments\.css(\?[^"'>\s]*)?/g, attCssHref.replace(/^\//, '/'));
@@ -348,6 +359,11 @@ const injectHrPortalShellAssets = (html) => {
     output = output.includes('</head>')
       ? output.replace('</head>', `${attCssTag}</head>`)
       : `${attCssTag}${output}`;
+  }
+  if (!output.includes('__NAIOSH_NAV_PAYLOAD__')) {
+    output = output.includes('</head>')
+      ? output.replace('</head>', `${navBootTag}</head>`)
+      : `${navBootTag}${output}`;
   }
   if (!output.includes('hr-portal-shell.js')) {
     output = output.includes('</body>')
