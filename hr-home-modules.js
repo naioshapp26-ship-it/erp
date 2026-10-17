@@ -1,6 +1,9 @@
 'use strict';
 
-const HR_HOME_MODULES = [
+const { listHrKeepAsHomeModules } = require('./gai-hub-navigation');
+
+/** Full historical catalog retained for audits/reference; home UI uses KEEP only. */
+const HR_HOME_MODULES_LEGACY = [
   { key: 'employees', href: '/hr/employees', label: 'النظام الإداري والموارد البشرية', icon: 'fa-briefcase', category: 'تشغيل', manager: true },
   { key: 'operations', href: '/hr/operations', label: 'بوابة العمليات والطلبات', icon: 'fa-diagram-project', category: 'طلبات', manager: true },
   { key: 'policies', href: '/hr/policies', label: 'السياسات والاجراءات', icon: 'fa-scale-balanced', category: 'تشغيل' },
@@ -51,20 +54,30 @@ const HR_HOME_MODULES = [
   { key: 'text-chat', href: '/hr/text-chat', label: 'نظام الدردشة الكتابية', icon: 'fa-comment-dots', category: 'أدوات' }
 ];
 
-const HR_MODULE_CATEGORIES = ['الكل', 'طلبات', 'تشغيل', 'موظفون', 'حضور', 'مالية', 'تحليلات', 'تكامل', 'أدوات'];
+const HR_HOME_MODULES = listHrKeepAsHomeModules();
+
+const HR_MODULE_CATEGORIES = ['الكل', ...new Set(HR_HOME_MODULES.map((m) => m.category))];
 
 function listHrHomeModules() {
   return HR_HOME_MODULES.map((item) => ({ ...item }));
 }
 
+function listHrHomeModulesLegacy() {
+  return HR_HOME_MODULES_LEGACY.map((item) => ({ ...item }));
+}
+
 function findHrModuleByPath(pathname) {
   const clean = String(pathname || '').replace(/\/$/, '') || '/hr';
-  return HR_HOME_MODULES.find((item) => item.href === clean) || null;
+  return HR_HOME_MODULES.find((item) => item.href === clean)
+    || HR_HOME_MODULES_LEGACY.find((item) => item.href === clean)
+    || null;
 }
 
 module.exports = {
   HR_HOME_MODULES,
+  HR_HOME_MODULES_LEGACY,
   HR_MODULE_CATEGORIES,
   listHrHomeModules,
+  listHrHomeModulesLegacy,
   findHrModuleByPath
 };

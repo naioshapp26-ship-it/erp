@@ -58,19 +58,18 @@ async function main() {
   ok('governance-pages-count', ARCHIVE_DOCUMENT_GOVERNANCE_PAGES.length === 14,
     `count=${ARCHIVE_DOCUMENT_GOVERNANCE_PAGES.length}`);
 
-  const gaiBlockStart = script.indexOf('const GAI_DOCUMENT_GOVERNANCE_CARDS');
-  const gaiBlock = gaiBlockStart >= 0 ? script.slice(gaiBlockStart, gaiBlockStart + 6500) : '';
-  ok('gai-docs-section', gaiBlock.includes('حوكمة الوثائق والإجراءات') && gaiBlock.includes('fa-folder-gear'));
-  ok('gai-finance-placeholder', gaiBlock.includes('الحوكمة المالية والإجراءات')
-    && gaiBlock.includes('سيتم تحديد صفحات هذا القسم لاحقًا'));
-  ok('gai-hr-placeholder', gaiBlock.includes('حوكمة الموارد البشرية'));
-  ok('gai-no-fake-finance-cards', !/gai-finance-governance[\s\S]{0,800}href=.*\/finance\//.test(gaiBlock));
+  ok('gai-docs-section', script.includes('حوكمة الوثائق والإجراءات') && script.includes('fa-folder-gear'));
+  ok('gai-finance-section', script.includes('الحوكمة المالية والرقابة')
+    || script.includes('الحوكمة المالية والإجراءات'));
+  ok('gai-hr-section', script.includes('حوكمة الموارد البشرية'));
   ok('gai-cards-const', script.includes('GAI_DOCUMENT_GOVERNANCE_CARDS'));
+  ok('gai-finance-cards-const', script.includes('GAI_FINANCE_GOVERNANCE_CARDS'));
+  ok('gai-hr-cards-const', script.includes('GAI_HR_GOVERNANCE_CARDS'));
 
   const parents = getRuntimeRouteParents();
   for (const page of ARCHIVE_DOCUMENT_GOVERNANCE_PAGES) {
-    ok(`gai-card-${page.href}`, script.includes(`href: '${page.href}'`) && script.includes(page.label),
-      page.label);
+    ok(`gai-card-${page.href}`, (script.includes(`"${page.href}"`) || script.includes(`'${page.href}'`))
+      && script.includes(page.label), page.label);
     const keys = getPageKeysForPath(page.href) || [];
     const archiveKey = keys.find((k) => k.startsWith('archive-'));
     ok(`rbac-key-${page.href}`, Boolean(archiveKey) && parents[archiveKey] === 'records-archive-home',

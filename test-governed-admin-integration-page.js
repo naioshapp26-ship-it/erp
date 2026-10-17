@@ -46,8 +46,9 @@ async function main() {
   const renderSlice = renderIdx >= 0 ? script.slice(renderIdx, renderIdx + 4500) : '';
   ok('gai-title', renderSlice.includes('التكامل الإداري المحكوم'));
   ok('gai-docs-section', renderSlice.includes('حوكمة الوثائق والإجراءات'));
-  ok('gai-finance-section', renderSlice.includes('الحوكمة المالية والإجراءات'));
-  ok('gai-hr-section', renderSlice.includes('حوكمة الموارد البشرية'));
+  ok('gai-finance-section', script.includes('الحوكمة المالية والرقابة')
+    || renderSlice.includes('الحوكمة المالية والإجراءات'));
+  ok('gai-hr-section', script.includes('حوكمة الموارد البشرية'));
   ok('no-fake-widgets', !/<table|<form/.test(renderSlice));
   ok('server-spa', server.includes("'/governed-administrative-integration'"));
   ok('server-protect', server.includes("'/governed-administrative-integration'"));

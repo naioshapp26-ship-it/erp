@@ -487,27 +487,31 @@ const HUB_SYSTEM_SOURCES = {
   }
 };
 
+const {
+  DOCUMENT_GOVERNANCE_CARDS,
+  FINANCE_MOVED,
+  HR_KEEP,
+  HR_MOVED
+} = require('./gai-hub-navigation');
+
 /**
- * Archive hub UI entries moved to Governed Administrative Integration
- * (حوكمة الوثائق والإجراءات). Kept here so path→key RBAC mapping and
- * system page catalogs stay under records-archive-home unchanged.
- * UI cards live in script.js renderGovernedAdministrativeIntegration only.
+ * Archive / Finance / HR hub UI entries moved to GAI sections.
+ * Retained here so path→key RBAC mapping and system catalogs stay
+ * under the original parent systems (not re-parented to GAI).
  */
-const ARCHIVE_DOCUMENT_GOVERNANCE_PAGES = [
-  { href: '/hr/ocr-suite', label: 'حزمة OCR للتعرف على النصوص' },
-  { href: '/hr/scanner-integration', label: 'تكامل مع الماسح الضوئي' },
-  { href: '/hr/attachment-merge', label: 'دمج المرفقات عند التحميل' },
-  { href: '/hr/smartsheet-bundle', label: 'حزمة سمارت شيت' },
-  { href: '/hr/workflow-engine', label: 'محرك سير العمل' },
-  { href: '/hr/reporting-suite', label: 'حزمة بناء التقارير' },
-  { href: '/hr/tasks-management', label: 'إدارة مهام الأرشفة' },
-  { href: '/hr/no-code-builder', label: 'بناء نماذج الأرشفة بدون برمجة' },
-  { href: '/hr/bulk-messaging', label: 'نظام الرسائل الجماعية' },
-  { href: '/hr/cybersecurity', label: 'الأمن السيبراني وحماية السجلات' },
-  { href: '/hr/api-library', label: 'مكتبة الربط API' },
-  { href: '/hr/quality-scoring', label: 'محرك تقييم جودة الوثائق' },
-  { href: '/hr/notifications-center', label: 'نظام التنبيهات والإشعارات' },
-  { href: '/hr/text-chat', label: 'نظام الدردشة الكتابية' }
+const ARCHIVE_DOCUMENT_GOVERNANCE_PAGES = DOCUMENT_GOVERNANCE_CARDS.map((item) => ({
+  href: item.href,
+  label: item.label
+}));
+
+const FINANCE_GOVERNANCE_PAGES = FINANCE_MOVED.map((item) => ({
+  href: item.href,
+  label: item.label
+}));
+
+const HR_GOVERNANCE_PAGES = [
+  ...HR_KEEP.map((item) => ({ href: item.href, label: item.label })),
+  ...HR_MOVED.map((item) => ({ href: item.href, label: item.label }))
 ];
 
 let hubPagesCache = null;
@@ -558,14 +562,14 @@ function hrefToHubPageKey(href, systemKey) {
   return null;
 }
 
-function mapArchiveGovernancePages() {
+function mapExtraHubPages(items, systemKey, hrefPrefix) {
   const pages = [];
   const seen = new Set();
-  ARCHIVE_DOCUMENT_GOVERNANCE_PAGES.forEach((item) => {
+  (items || []).forEach((item) => {
     const href = String(item.href || '').trim();
     const label = String(item.label || '').replace(/\s+/g, ' ').trim();
-    if (!href.startsWith('/hr/') || !label) return;
-    const key = hrefToHubPageKey(href, 'records-archive-home');
+    if (!href.startsWith(hrefPrefix) || !label) return;
+    const key = hrefToHubPageKey(href, systemKey);
     if (!key || seen.has(key)) return;
     seen.add(key);
     const routePath = href.startsWith('/') ? href : `/${href}`;
@@ -580,10 +584,17 @@ function buildHubSystemPages(systemKey) {
   const src = HUB_SYSTEM_SOURCES[systemKey];
   if (!src) return [];
   const fromFile = parseHubCardsFromFile(src.file, src.containerId, src.hrefPrefix, systemKey);
-  if (systemKey !== 'records-archive-home') return fromFile;
+  const extras = systemKey === 'records-archive-home'
+    ? mapExtraHubPages(ARCHIVE_DOCUMENT_GOVERNANCE_PAGES, 'records-archive-home', '/hr')
+    : systemKey === 'finance'
+      ? mapExtraHubPages(FINANCE_GOVERNANCE_PAGES, 'finance', '/finance')
+      : systemKey === 'hr'
+        ? mapExtraHubPages(HR_GOVERNANCE_PAGES, 'hr', '/hr')
+        : [];
+  if (!extras.length) return fromFile;
   const seen = new Set(fromFile.map((page) => page.key));
   const merged = [...fromFile];
-  mapArchiveGovernancePages().forEach((page) => {
+  extras.forEach((page) => {
     if (seen.has(page.key)) return;
     seen.add(page.key);
     merged.push(page);
@@ -980,6 +991,8 @@ module.exports = {
   ROUTE_TO_PATH,
   PAGE_LABELS,
   ARCHIVE_DOCUMENT_GOVERNANCE_PAGES,
+  FINANCE_GOVERNANCE_PAGES,
+  HR_GOVERNANCE_PAGES,
   buildPermissionRegistry,
   getPageLabel,
   getPagesForSystem,
