@@ -76,7 +76,22 @@ async function userByEmail(email) {
   return r.rows[0] || null;
 }
 
-async function injectSession(page, token, user) {
+async function injectSession(page, token, user, { pinAcl = false } = {}) {
+  if (pinAcl) {
+    await page.setRequestInterception(true).catch(() => null);
+    page.removeAllListeners('request');
+    page.on('request', (req) => {
+      const url = req.url();
+      if (url.includes('/api/auth/verify') || url.includes('/api/tenant-auth/verify')) {
+        return req.respond({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, user, data: { user } })
+        });
+      }
+      return req.continue();
+    });
+  }
   await page.goto(`${BASE}/dashboard.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.evaluate((t, u) => {
     localStorage.setItem('authToken', t);
@@ -484,10 +499,10 @@ async function main() {
     };
     record('mobile', 'no-icon-collapse', overlap.ok ? 'PASS' : 'FAIL', JSON.stringify(overlap));
 
-    // === Company Admin GUI ===
+    // === Company Admin GUI (fresh page + pinned ACL verify) ===
     if (companyToken && companyUser) {
-      await page.setViewport({ width: 1440, height: 900 });
-      // Company Admin: admin role, non-HQ001 entity, broad allowed pages (not empty = home-only trap)
+      const caPage = await browser.newPage();
+      await caPage.setViewport({ width: 1440, height: 900 });
       const caPages = [
         'dashboard', 'strategic-management', 'smart-management', 'hr', 'finance', 'records-archive-home',
         'governed-administrative-integration', 'incubators-platforms', 'branches-hub', 'incubators-hub',
@@ -496,7 +511,7 @@ async function main() {
         'saas', 'payment-menu', 'services-events-center', 'events-studio-main', 'marketing-campaigns-studio',
         'requests', 'employee-menu', 'services', 'tasks-management', 'settings'
       ];
-      await injectSession(page, companyToken, {
+      await injectSession(caPage, companyToken, {
         id: companyUser.id,
         email: companyUser.email,
         name: companyUser.name || 'Company Admin',
@@ -505,13 +520,9 @@ async function main() {
         entity_id: 'T001',
         entity_name: 'Tenant Co',
         allowed_pages: caPages
-      });
-      // Prevent auth sync from wiping injected ACL before we snapshot
-      await page.evaluate(() => {
-        try { if (window.app) { /* keep local user */ } } catch { /* */ }
-      });
-      await page.screenshot({ path: path.join(SHOTS, '06-company-admin-sidebar.png'), fullPage: false });
-      const caLabels = await sidebarLabels(page);
+      }, { pinAcl: true });
+      await caPage.screenshot({ path: path.join(SHOTS, '06-company-admin-sidebar.png'), fullPage: false });
+      const caLabels = await sidebarLabels(caPage);
       const hasSuperAdmin = caLabels.some((l) => l.includes('إدارة الأدوار'));
       record('gui-company-admin', 'sidebar-renders', caLabels.length >= 5 ? 'PASS' : 'FAIL',
         `items=${caLabels.length} ${caLabels.join(' | ')}`);
@@ -521,25 +532,27 @@ async function main() {
       record('gui-company-admin', 'has-smart-or-gai-or-ipp',
         caLabels.some((l) => /ذكية|تكامل|حاضنات|خدمات/.test(l)) ? 'PASS' : 'FAIL',
         caLabels.join(' | '));
+      await caPage.close().catch(() => null);
     }
 
     // === Staff GUI ===
     if (staff) {
+      const staffPage = await browser.newPage();
+      await staffPage.setViewport({ width: 1440, height: 900 });
       const staffTokenGui = await mintSession(staff.id);
       const staffUser = {
         id: staff.id,
         email: staff.email,
         name: staff.name,
         role: 'موظف',
-        // Non-HQ so allowed_pages gate applies (HQ bypasses office page ACL)
         tenant_type: 'TENANT',
         entity_id: staff.entity_id || 'T001',
         entity_name: staff.entity_name || 'Tenant Co',
         allowed_pages: ['dashboard', 'tasks-management', 'my-tasks', 'services']
       };
-      await injectSession(page, staffTokenGui, staffUser);
-      const staffLabels = await sidebarLabels(page);
-      await page.screenshot({ path: path.join(SHOTS, '07-staff-sidebar.png'), fullPage: false });
+      await injectSession(staffPage, staffTokenGui, staffUser, { pinAcl: true });
+      const staffLabels = await sidebarLabels(staffPage);
+      await staffPage.screenshot({ path: path.join(SHOTS, '07-staff-sidebar.png'), fullPage: false });
       const forbidden = ['إعدادات النظام', 'إدارة الأدوار والصلاحيات', 'إدارة الاشتراكات'];
       const leaked = forbidden.filter((f) => staffLabels.some((l) => l.includes(f)));
       record('gui-staff', 'no-unauthorized-admin-pages',
@@ -547,7 +560,8 @@ async function main() {
         leaked.length ? `leaked=${leaked.join(',')}` : `visible=${staffLabels.slice(0, 8).join('|')}`);
       record('gui-staff', 'sidebar-respects-allowed-pages',
         staffLabels.length > 0 && staffLabels.length < 17 ? 'PASS' : 'FAIL',
-        `count=${staffLabels.length}`);
+        `count=${staffLabels.length} visible=${staffLabels.join('|')}`);
+      await staffPage.close().catch(() => null);
     }
 
     // Final owner desktop shot at defaults
