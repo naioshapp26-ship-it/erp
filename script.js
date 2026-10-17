@@ -760,7 +760,7 @@ const app = (() => {
         'iso-standards': 'occupational-health',
         'risk-management': 'occupational-health',
         'consulting': 'occupational-health',
-        'specialized-courses': 'occupational-health',
+        'specialized-courses': 'education-training-incubators',
         'ohs-evaluation': 'occupational-health',
         'data-analysis': 'occupational-health',
         'project-management-office': 'services',
@@ -3889,12 +3889,16 @@ const app = (() => {
                         { id: 'information-center', icon: 'fa-info-circle', label: 'مركز المعلومات' },
                         { id: 'identity-settings', icon: 'fa-palette', label: 'إعدادات الهوية' },
                         { id: 'system-log', icon: 'fa-file-alt', label: 'سجل النظام' },
-                        { id: 'reports', icon: 'fa-chart-line', label: 'التقارير' },
-                        // Not on client sketch — kept reachable pending explicit placement approval
-                        { id: 'governed-administrative-integration', icon: 'fa-diagram-project', label: 'التكامل الإداري المحكوم' }
+                        { id: 'reports', icon: 'fa-chart-line', label: 'التقارير' }
                     ].filter((sub) => !strategicDedupe.has(sub.id))
                 },
                 { id: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', show: isOfficeRouteAllowed('smart-management') },
+                {
+                    id: 'governed-administrative-integration',
+                    icon: 'fa-diagram-project',
+                    label: 'التكامل الإداري المحكوم',
+                    show: isOfficeRouteAllowed('governed-administrative-integration')
+                },
                 {
                     id: 'incubators-platforms',
                     icon: 'fa-building-columns',
@@ -3912,9 +3916,9 @@ const app = (() => {
                     subItems: [
                         // Shared platforms system — link only, no duplicate implementation
                         { id: 'platforms', icon: 'fa-layer-group', label: 'منصات التعليم' },
-                        // Pending dedicated tests module: map to existing specialized-courses route
-                        { id: 'specialized-courses', icon: 'fa-file-circle-question', label: 'الاختبارات' },
-                        { id: 'evaluation', icon: 'fa-star', label: 'التقييم' },
+                        // Existing tests + evaluation pages under one approved label (no new pages/APIs)
+                        { id: 'specialized-courses', icon: 'fa-clipboard-check', label: 'الاختبارات والتقييم' },
+                        { id: 'evaluation', icon: 'fa-star', label: 'الاختبارات والتقييم' },
                         { id: 'education-training-incubators', icon: 'fa-chalkboard-user', label: 'بوابة حاضنات التعليم' },
                         { id: 'eti-project-management', icon: 'fa-project-diagram', label: 'حاضنة إدارة المشاريع' },
                         { id: 'eti-hr', icon: 'fa-users-gear', label: 'حاضنة HR الموارد البشرية' }
@@ -18729,6 +18733,7 @@ const app = (() => {
                 dashboard: 'الرئيسية',
                 'strategic-management': 'الإدارة الاستراتيجية',
                 'smart-management': 'الإدارة الذكية 360',
+                'governed-administrative-integration': 'التكامل الإداري المحكوم',
                 'incubators-platforms': 'حاضنات و منصات اعمال',
                 'education-training-incubators': 'التعليم والتدريب',
                 'naiosh-sectors': 'قطاعات نايوش',

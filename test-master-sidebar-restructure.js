@@ -22,11 +22,12 @@ const portal = fs.readFileSync(path.join(__dirname, 'services-events-center.html
 const dashboard = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8');
 const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
 
-ok('registry-order-15', SIDEBAR_DEFAULT_ORDER.length >= 15, String(SIDEBAR_DEFAULT_ORDER.length));
+ok('registry-order-17', SIDEBAR_DEFAULT_ORDER.length === 17, String(SIDEBAR_DEFAULT_ORDER.length));
 ok('order-dashboard-first', SIDEBAR_DEFAULT_ORDER[0] === 'dashboard');
 ok('order-strategic-second', SIDEBAR_DEFAULT_ORDER[1] === 'strategic-management');
 ok('order-smart-third', SIDEBAR_DEFAULT_ORDER[2] === 'smart-management');
-ok('order-ipp-fourth', SIDEBAR_DEFAULT_ORDER[3] === 'incubators-platforms');
+ok('order-gai-fourth', SIDEBAR_DEFAULT_ORDER[3] === 'governed-administrative-integration');
+ok('order-ipp-fifth', SIDEBAR_DEFAULT_ORDER[4] === 'incubators-platforms');
 ok('order-settings-last', SIDEBAR_DEFAULT_ORDER[SIDEBAR_DEFAULT_ORDER.length - 1] === 'settings-admin');
 
 ok('script-uses-registry-order', script.includes("id: 'strategic-management'")
@@ -43,8 +44,12 @@ const mainMenuSlice = script.slice(script.indexOf('Client-approved top-level IA'
 ok('menu-has-services-events', mainMenuSlice.includes("id: 'services-events-center'"));
 ok('menu-no-events-studio-top', !mainMenuSlice.includes("id: 'events-studio-main'"));
 ok('menu-no-employee-menu-top', !mainMenuSlice.includes("id: 'employee-menu'"));
-ok('menu-no-gai-top', !mainMenuSlice.includes("id: 'governed-administrative-integration',\n                    icon: 'fa-diagram-project',\n                    label: 'التكامل الإداري المحكوم',\n                    show:"));
-ok('gai-under-strategic', mainMenuSlice.includes("label: 'التكامل الإداري المحكوم'"));
+ok('gai-top-level', /id:\s*'governed-administrative-integration'[\s\S]*?show:\s*isOfficeRouteAllowed\('governed-administrative-integration'\)/.test(mainMenuSlice));
+ok('gai-not-under-strategic', !/strategic-management[\s\S]*?governed-administrative-integration[\s\S]*?smart-management/.test(mainMenuSlice)
+  || mainMenuSlice.indexOf("id: 'governed-administrative-integration'")
+    > mainMenuSlice.indexOf("id: 'smart-management'"));
+ok('education-tests-eval-label', mainMenuSlice.includes("label: 'الاختبارات والتقييم'")
+  && !mainMenuSlice.includes("label: 'الاختبارات',"));
 ok('incubators-related-in-ipp', script.includes("label: 'سلاسل التوريد'")
   && script.includes("INCUBATORS_SCOPED_ROUTES"));
 

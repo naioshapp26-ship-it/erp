@@ -11,13 +11,8 @@
   'use strict';
 
   /**
-   * Master sidebar navigation registry — client-approved IA (2026-10-17).
+   * Master sidebar navigation registry — client-approved IA (locked 2026-10-17).
    * Display/order only. Routes, APIs, permissions, and page ownership unchanged.
-   *
-   * Open questions (flagged, not guessed):
-   * - Portal name «مركز الخدمات والفعاليات» is proposed pending client lock-in.
-   * - «التكامل الإداري المحكوم» is not on the client sketch → parked under strategic-management.
-   * - «الاختبارات» mapped to existing specialized-courses until a dedicated tests module is confirmed.
    */
 
   const PROTECTED_NAV_IDS = new Set([
@@ -26,13 +21,15 @@
     'settings-admin',
     'saas',
     'operational-policies',
-    'hierarchy'
+    'hierarchy',
+    'governed-administrative-integration'
   ]);
 
   const SIDEBAR_DEFAULT_ORDER = [
     'dashboard',
     'strategic-management',
     'smart-management',
+    'governed-administrative-integration',
     'incubators-platforms',
     'education-training-incubators',
     'naiosh-sectors',
@@ -67,12 +64,7 @@
     { id: 'ads', reason: 'duplicate of strategic advertisers-center', accessVia: ['advertisers-center'] },
     { id: 'audit-logs', reason: 'duplicate of strategic system-log', accessVia: ['system-log'] },
     { id: 'my-page-analytics', reason: 'under services', accessVia: ['services'] },
-    { id: 'tenant-branding', reason: 'under identity-settings', accessVia: ['identity-settings'] },
-    {
-      id: 'governed-administrative-integration',
-      reason: 'not on client sketch — parked under strategic-management (pending review)',
-      accessVia: ['strategic-management', '/governed-administrative-integration']
-    }
+    { id: 'tenant-branding', reason: 'under identity-settings', accessVia: ['identity-settings'] }
   ];
 
   const INCUBATORS_RELATED_NAV = [
