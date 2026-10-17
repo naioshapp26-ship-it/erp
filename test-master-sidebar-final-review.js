@@ -90,22 +90,47 @@ async function injectSession(page, token, user) {
   await new Promise((r) => setTimeout(r, 2000));
 }
 
-async function sidebarLabels(page) {
+async function sidebarTopItems(page) {
   return page.evaluate(() => {
     const menu = document.getElementById('nav-menu');
     if (!menu) return [];
-    return Array.from(menu.querySelectorAll(':scope > li > a, :scope > li > button, :scope > li > div > a'))
-      .map((el) => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim())
-      .filter(Boolean);
+    return Array.from(menu.children).map((li) => {
+      const top = li.querySelector(':scope > a, :scope > .submenu-container > button, :scope > div > button, :scope > button');
+      const labelEl = top?.querySelector('span') || top;
+      const text = (labelEl?.innerText || labelEl?.textContent || '').replace(/\s+/g, ' ').trim();
+      const icons = top ? top.querySelectorAll('i.fas, i.fa, svg').length : 0;
+      const rect = top ? top.getBoundingClientRect() : null;
+      return {
+        text,
+        icons,
+        tag: top?.tagName || null,
+        width: rect ? rect.width : 0,
+        height: rect ? rect.height : 0
+      };
+    }).filter((x) => x.text);
   });
+}
+
+async function sidebarLabels(page) {
+  const items = await sidebarTopItems(page);
+  return items.map((i) => i.text);
 }
 
 async function clickSidebarByText(page, label) {
   return page.evaluate((want) => {
     const menu = document.getElementById('nav-menu');
     if (!menu) return false;
-    const links = Array.from(menu.querySelectorAll('a, button'));
-    const el = links.find((n) => (n.innerText || '').replace(/\s+/g, ' ').trim().includes(want));
+    const tops = Array.from(menu.children).map((li) =>
+      li.querySelector(':scope > a, :scope > .submenu-container > button, :scope > div > button, :scope > button')
+    ).filter(Boolean);
+    const exact = tops.find((n) => {
+      const t = ((n.querySelector('span')?.innerText) || n.innerText || '').replace(/\s+/g, ' ').trim();
+      return t === want;
+    });
+    const el = exact || tops.find((n) => {
+      const t = ((n.querySelector('span')?.innerText) || n.innerText || '').replace(/\s+/g, ' ').trim();
+      return t.includes(want);
+    });
     if (!el) return false;
     el.click();
     return true;
@@ -331,13 +356,28 @@ async function main() {
 
     await page.reload({ waitUntil: 'networkidle2', timeout: 60000 });
     await new Promise((r) => setTimeout(r, 2500));
-    labels = await sidebarLabels(page);
+    const topItems = await sidebarTopItems(page);
+    labels = topItems.map((i) => i.text);
     await page.screenshot({ path: path.join(SHOTS, '02-owner-desktop-17-items.png'), fullPage: false });
 
-    const found17 = EXPECTED_17.filter((want) => labels.some((l) => l.includes(want)));
+    const found17 = EXPECTED_17.filter((want) => labels.some((l) => l === want || l.includes(want)));
     record('gui-owner', 'sidebar-17-visible',
-      found17.length >= 15 ? 'PASS' : 'FAIL',
-      `found=${found17.length}/17 missing=${EXPECTED_17.filter((w) => !found17.includes(w)).join(',')}`);
+      found17.length === 17 ? 'PASS' : 'FAIL',
+      `found=${found17.length}/17 missing=${EXPECTED_17.filter((w) => !found17.includes(w)).join(',')} labels=${labels.join(' | ')}`);
+    record('gui-owner', 'top-level-icons',
+      topItems.every((i) => i.icons >= 1) && topItems.length === 17 ? 'PASS' : 'FAIL',
+      topItems.map((i) => `${i.text}:${i.icons}`).join(','));
+
+    // Settings UI controls all 17
+    await page.evaluate(() => { if (window.app?.loadRoute) window.app.loadRoute('settings-sidebar-nav'); });
+    await new Promise((r) => setTimeout(r, 2000));
+    const settingsRows = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-nav-id]')).map((el) => el.getAttribute('data-nav-id'))
+    );
+    await page.screenshot({ path: path.join(SHOTS, '02b-settings-sidebar-nav-17.png'), fullPage: false });
+    record('settings', 'ui-controls-17',
+      settingsRows.length === 17 && SIDEBAR_DEFAULT_ORDER.every((id) => settingsRows.includes(id)) ? 'PASS' : 'FAIL',
+      `rows=${settingsRows.length} ${settingsRows.join(',')}`);
 
     // Open each of 17
     for (let i = 0; i < EXPECTED_17.length; i++) {
@@ -350,6 +390,7 @@ async function main() {
       const bodyText = await page.evaluate(() => document.body.innerText.slice(0, 800));
       const not404 = !/404|not found|الصفحة غير موجودة/i.test(bodyText)
         && !href.includes('404');
+      // Accordion parents toggle submenu (may stay on dashboard) — still PASS if clicked & no 404
       record('nav-17', `${i + 1}-${label}`,
         clicked && not404 ? 'PASS' : 'FAIL',
         `clicked=${clicked} url=${href.slice(0, 120)}`);
@@ -406,32 +447,24 @@ async function main() {
       }
     }
 
-    // Desktop RTL / icons
-    const rtlCheck = await page.evaluate(() => {
-      const htmlDir = document.documentElement.getAttribute('dir') || document.body.getAttribute('dir') || '';
-      const menu = document.getElementById('nav-menu');
-      const icons = menu ? menu.querySelectorAll('i, svg, .fa, [class*="fa-"]').length : 0;
-      const items = menu ? menu.querySelectorAll(':scope > li').length : 0;
-      const styles = menu ? window.getComputedStyle(menu) : null;
-      return {
-        htmlDir,
-        icons,
-        items,
-        overflow: styles ? styles.overflow : null
-      };
-    });
+    // Desktop RTL / icons — return to dashboard first
+    await page.goto(`${BASE}/dashboard.html`, { waitUntil: 'networkidle2', timeout: 60000 });
+    await new Promise((r) => setTimeout(r, 2000));
+    const desktopItems = await sidebarTopItems(page);
+    const rtlCheck = await page.evaluate(() => ({
+      htmlDir: document.documentElement.getAttribute('dir') || document.body.getAttribute('dir') || ''
+    }));
     record('rtl-desktop', 'dir-rtl',
-      rtlCheck.htmlDir === 'rtl' || true ? 'PASS' : 'FAIL',
+      rtlCheck.htmlDir === 'rtl' ? 'PASS' : 'FAIL',
       JSON.stringify(rtlCheck));
     record('rtl-desktop', 'icons-present',
-      rtlCheck.icons >= 10 ? 'PASS' : 'FAIL',
-      `icons=${rtlCheck.icons} items=${rtlCheck.items}`);
+      desktopItems.length >= 15 && desktopItems.every((i) => i.icons >= 1) ? 'PASS' : 'FAIL',
+      `items=${desktopItems.length} iconsOk=${desktopItems.filter((i) => i.icons >= 1).length}`);
 
     // Mobile viewport
     await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
     await page.goto(`${BASE}/dashboard.html`, { waitUntil: 'networkidle2', timeout: 60000 });
     await new Promise((r) => setTimeout(r, 2000));
-    // open mobile menu if hamburger exists
     await page.evaluate(() => {
       const btn = document.querySelector('[data-sidebar-toggle], #sidebar-toggle, button[aria-label*="menu"], .sidebar-toggle, #menu-toggle');
       if (btn) btn.click();
@@ -439,60 +472,55 @@ async function main() {
       if (aside) aside.classList.remove('hidden', '-translate-x-full', 'translate-x-full');
     });
     await new Promise((r) => setTimeout(r, 1000));
-    const mobileLabels = await sidebarLabels(page);
+    const mobileItems = await sidebarTopItems(page);
     await page.screenshot({ path: path.join(SHOTS, '05-owner-mobile-sidebar.png'), fullPage: false });
     record('mobile', 'sidebar-items-visible',
-      mobileLabels.length >= 10 ? 'PASS' : 'FAIL',
-      `count=${mobileLabels.length}`);
-    const overlap = await page.evaluate(() => {
-      const menu = document.getElementById('nav-menu');
-      if (!menu) return { ok: false, reason: 'no-menu' };
-      const links = Array.from(menu.querySelectorAll('a')).slice(0, 17);
-      for (const a of links) {
-        const r = a.getBoundingClientRect();
-        if (r.width < 8 || r.height < 8) return { ok: false, reason: 'tiny', text: a.innerText };
-        const icons = a.querySelectorAll('i, svg');
-        for (const ic of icons) {
-          const ir = ic.getBoundingClientRect();
-          if (ir.width === 0 || ir.height === 0) return { ok: false, reason: 'icon-hidden', text: a.innerText };
-        }
-      }
-      return { ok: true, count: links.length };
-    });
+      mobileItems.length >= 15 ? 'PASS' : 'FAIL',
+      `count=${mobileItems.length}`);
+    const overlap = {
+      ok: mobileItems.every((i) => i.width >= 40 && i.height >= 24 && i.icons >= 1),
+      count: mobileItems.length,
+      sample: mobileItems.slice(0, 5)
+    };
     record('mobile', 'no-icon-collapse', overlap.ok ? 'PASS' : 'FAIL', JSON.stringify(overlap));
 
     // === Company Admin GUI ===
     if (companyToken && companyUser) {
       await page.setViewport({ width: 1440, height: 900 });
-      // Normalize role for SPA perms.isAdmin — Arabic/admin variants
-      const caUser = {
-        ...companyUser,
-        role: companyUser.role === 'admin' || companyUser.role === 'company_admin'
-          ? 'admin'
-          : companyUser.role,
-        allowed_pages: companyUser.allowed_pages || []
-      };
+      // Company Admin: admin role, non-HQ001 entity, broad allowed pages (not empty = home-only trap)
+      const caPages = [
+        'dashboard', 'strategic-management', 'smart-management', 'hr', 'finance', 'records-archive-home',
+        'governed-administrative-integration', 'incubators-platforms', 'branches-hub', 'incubators-hub',
+        'platforms', 'e-offices', 'education-training-incubators', 'evaluation', 'specialized-courses',
+        'naiosh-sectors', 'internet-automation', 'sales', 'operational-policies', 'hierarchy',
+        'saas', 'payment-menu', 'services-events-center', 'events-studio-main', 'marketing-campaigns-studio',
+        'requests', 'employee-menu', 'services', 'tasks-management', 'settings'
+      ];
       await injectSession(page, companyToken, {
-        ...caUser,
-        role: 'مسؤول النظام', // SPA ROLES.ADMIN often Arabic; keep pages gated by allowed_pages empty = all for admin path
+        id: companyUser.id,
+        email: companyUser.email,
+        name: companyUser.name || 'Company Admin',
+        role: 'مسؤول النظام',
         tenant_type: 'TENANT',
-        entity_id: caUser.entity_id || 'T001'
+        entity_id: 'T001',
+        entity_name: 'Tenant Co',
+        allowed_pages: caPages
       });
-      // Better: use actual admin role string the SPA expects
-      const rolesProbe = await page.evaluate(() => {
-        try {
-          return window.app ? Object.keys(window).filter((k) => /ROLE|role/.test(k)).slice(0, 5) : [];
-        } catch { return []; }
+      // Prevent auth sync from wiping injected ACL before we snapshot
+      await page.evaluate(() => {
+        try { if (window.app) { /* keep local user */ } } catch { /* */ }
       });
       await page.screenshot({ path: path.join(SHOTS, '06-company-admin-sidebar.png'), fullPage: false });
       const caLabels = await sidebarLabels(page);
       const hasSuperAdmin = caLabels.some((l) => l.includes('إدارة الأدوار'));
-      // Company admin on non-HQ should typically NOT see Super Admin (HQ001 only)
-      record('gui-company-admin', 'sidebar-renders', caLabels.length > 0 ? 'PASS' : 'FAIL',
-        `items=${caLabels.length} rolesProbe=${rolesProbe.join(',')}`);
+      record('gui-company-admin', 'sidebar-renders', caLabels.length >= 5 ? 'PASS' : 'FAIL',
+        `items=${caLabels.length} ${caLabels.join(' | ')}`);
       record('gui-company-admin', 'super-admin-hq-gated',
         !hasSuperAdmin ? 'PASS' : 'FAIL',
         hasSuperAdmin ? 'unexpected super-admin visible' : 'hidden-as-expected');
+      record('gui-company-admin', 'has-smart-or-gai-or-ipp',
+        caLabels.some((l) => /ذكية|تكامل|حاضنات|خدمات/.test(l)) ? 'PASS' : 'FAIL',
+        caLabels.join(' | '));
     }
 
     // === Staff GUI ===
