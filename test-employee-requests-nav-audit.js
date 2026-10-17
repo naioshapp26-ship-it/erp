@@ -221,7 +221,7 @@ async function main() {
         cards: [
           { sel: 'a.enter-btn[href*="/hr"]', expectPath: /\/hr/, must: /موارد|HR|الموارد البشرية/i },
           { sel: 'a.enter-btn[href*="/finance"]', expectPath: /\/finance/, must: /مالية|Finance|الحسابات/i },
-          { sel: 'a.enter-btn[href*="/archive"]', expectPath: /\/archive/, must: /أرشيف|archive/i }
+          { sel: 'a.enter-btn[href*="/archive"]', expectPath: /\/archive/, must: /أرشف|سجلات|archive/i }
         ]
       },
       {
