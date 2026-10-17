@@ -2233,6 +2233,7 @@ const app = (() => {
         else if (route === 'my-page-analytics') content = await renderMyPageAnalytics();
         else if (route === 'audit-logs') content = renderAuditLogs();
         else if (route === 'settings-admin') content = renderSettingsHub();
+        else if (route === 'governed-administrative-integration') content = renderGovernedAdministrativeIntegration();
         else if (route.startsWith('settings-') && route !== 'settings') content = renderSettingsCatalogPage(route);
         else if (route === 'settings') {
             window.location.href = '/settings';
@@ -2834,6 +2835,7 @@ const app = (() => {
             'dashboard': 'لوحة القيادة (Tenant Dashboard)',
             'smart-management': 'الإدارة الذكية 360',
             'incubators-platforms': 'حاضنات و منصات اعمال',
+            'governed-administrative-integration': 'التكامل الإداري المحكوم',
             'records-archive-home': 'نظام الأرشفة',
             'records-master-register': 'قسم ملفات عامة و إدارية',
             'records-students': 'شؤون الطلاب',
@@ -3245,6 +3247,7 @@ const app = (() => {
         'audit-logs': '/audit-logs',
         'settings': '/settings',
         'settings-admin': '/settings/admin',
+        'governed-administrative-integration': '/governed-administrative-integration',
         'settings-branches-sections': '/settings/branches-sections',
         'settings-field-templates': '/settings/field-templates',
         'settings-numbering-systems': '/settings/numbering-systems',
@@ -3421,6 +3424,7 @@ const app = (() => {
         '/audit-logs': 'audit-logs',
         '/settings': 'settings',
         '/settings/admin': 'settings-admin',
+        '/governed-administrative-integration': 'governed-administrative-integration',
         '/settings/branches-sections': 'settings-branches-sections',
         '/settings/field-templates': 'settings-field-templates',
         '/settings/numbering-systems': 'settings-numbering-systems',
@@ -3828,6 +3832,12 @@ const app = (() => {
                     icon: 'fa-building-columns',
                     label: 'حاضنات و منصات اعمال',
                     show: isOfficeRouteAllowed('incubators-platforms')
+                },
+                {
+                    id: 'governed-administrative-integration',
+                    icon: 'fa-diagram-project',
+                    label: 'التكامل الإداري المحكوم',
+                    show: isOfficeRouteAllowed('governed-administrative-integration')
                 },
                 // Branches / Nurseries / Platforms / E-Library remain via /branches /incubators-hub /platforms /e-offices — hidden from shared main menu only
                 // (shown via Module-Aware Navigation when inside those routes)
@@ -25258,6 +25268,11 @@ const app = (() => {
         </div>
         `;
     };
+
+    const renderGovernedAdministrativeIntegration = () => `
+        <div class="animate-fade-in min-h-[70vh]" dir="rtl">
+            <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">التكامل الإداري المحكوم</h2>
+        </div>`;
 
     const renderPlaceholder = (msg = 'لا تملك صلاحية الوصول') => `
         <div class="flex flex-col items-center justify-center h-96 text-center animate-fade-in px-4">
