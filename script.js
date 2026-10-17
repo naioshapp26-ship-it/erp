@@ -341,6 +341,7 @@ const app = (() => {
         'records-archive': '/archive',
         'smart-management': '/smart-management',
         'incubators-platforms': '/incubators-platforms',
+        'services-events-center': '/services-events-center',
         'operational-policies': '/operational-policies',
         'tenant-branding': '/tenant-branding-settings.html'
     };
@@ -759,7 +760,7 @@ const app = (() => {
         'iso-standards': 'occupational-health',
         'risk-management': 'occupational-health',
         'consulting': 'occupational-health',
-        'specialized-courses': 'occupational-health',
+        'specialized-courses': 'education-training-incubators',
         'ohs-evaluation': 'occupational-health',
         'data-analysis': 'occupational-health',
         'project-management-office': 'services',
@@ -792,6 +793,7 @@ const app = (() => {
         'task-reports': 'tasks-management',
         'task-settings': 'tasks-management',
         'settings-admin': 'settings',
+        'settings-sidebar-nav': 'settings',
         'settings-branches-sections': 'settings',
         'settings-field-templates': 'settings',
         'settings-numbering-systems': 'settings',
@@ -943,6 +945,12 @@ const app = (() => {
                 || isOfficeRouteAllowed('incubators-hub')
                 || isOfficeRouteAllowed('platforms')
                 || isOfficeRouteAllowed('e-offices');
+        }
+        if (route === 'services-events-center') {
+            return isOfficeRouteAllowed('events-studio-main')
+                || isOfficeRouteAllowed('marketing-campaigns-studio')
+                || isOfficeRouteAllowed('requests')
+                || isOfficeRouteAllowed('employee-menu');
         }
         if (getAppAuthContext().isTenant || isDedicatedTenantContext(currentUser)) {
             if (CENTRAL_REGISTRY_OFFICE_ROUTES.has(route)) {
@@ -1738,7 +1746,8 @@ const app = (() => {
             
             // User is already selected from tenant selector
             console.log('👤 المستخدم الحالي:', currentUser);
-            
+
+            await loadSidebarCustomization().catch(() => null);
             renderSidebar();
             updateHeader();
             lockSidebarNaioshColor();
@@ -2072,6 +2081,11 @@ const app = (() => {
             return;
         }
 
+        if (route === 'services-events-center') {
+            navigateToExternalRoute(route);
+            return;
+        }
+
         if (route === 'records-archive-home' || route === 'records-archive') {
             navigateToExternalRoute(route);
             return;
@@ -2233,6 +2247,7 @@ const app = (() => {
         else if (route === 'my-page-analytics') content = await renderMyPageAnalytics();
         else if (route === 'audit-logs') content = renderAuditLogs();
         else if (route === 'settings-admin') content = renderSettingsHub();
+        else if (route === 'settings-sidebar-nav') content = renderSidebarNavSettings();
         else if (route === 'governed-administrative-integration') content = renderGovernedAdministrativeIntegration();
         else if (route.startsWith('settings-') && route !== 'settings') content = renderSettingsCatalogPage(route);
         else if (route === 'settings') {
@@ -2884,7 +2899,8 @@ const app = (() => {
             'facilities-projects-crowd': 'اداره الحشود - إدارة المشاريع',
             'audit-logs': 'سجل الأحداث (Audit Logs)',
             'settings': 'إعدادات الصفحة الرئيسية',
-            'settings-admin': 'الاعدادات',
+            'settings-admin': 'إعدادات النظام',
+            'settings-sidebar-nav': 'إدارة أيقونات القائمة الجانبية',
             'settings-branches-sections': 'الفروع والاقسام',
             'settings-field-templates': 'نماذج الحقول',
             'settings-numbering-systems': 'انظمة الترقيم',
@@ -3039,7 +3055,8 @@ const app = (() => {
             'sc-skills-innovation': 'المهارات والابتكارات',
             'sc-initiatives': 'المبادرات',
             'sc-beta-club': 'نادي بيتا الرقمي',
-            'education-training-incubators': 'حاضنات التعليم والتدريب',
+            'education-training-incubators': 'التعليم والتدريب',
+            'services-events-center': 'مركز الخدمات والفعاليات',
             'eti-ohs': 'حاضنة السلامة والصحة المهنية',
             'eti-supply-chain': 'حاضنة سلاسل الإمداد',
             'eti-facilities': 'حضانة إدارة المرافق',
@@ -3247,6 +3264,8 @@ const app = (() => {
         'audit-logs': '/audit-logs',
         'settings': '/settings',
         'settings-admin': '/settings/admin',
+        'services-events-center': '/services-events-center',
+        'settings-sidebar-nav': '/settings/sidebar-nav',
         'governed-administrative-integration': '/governed-administrative-integration',
         'settings-branches-sections': '/settings/branches-sections',
         'settings-field-templates': '/settings/field-templates',
@@ -3424,6 +3443,8 @@ const app = (() => {
         '/audit-logs': 'audit-logs',
         '/settings': 'settings',
         '/settings/admin': 'settings-admin',
+        '/services-events-center': 'services-events-center',
+        '/settings/sidebar-nav': 'settings-sidebar-nav',
         '/governed-administrative-integration': 'governed-administrative-integration',
         '/settings/branches-sections': 'settings-branches-sections',
         '/settings/field-templates': 'settings-field-templates',
@@ -3707,7 +3728,16 @@ const app = (() => {
                 { id: 'ic-customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
                 { id: 'ic-operational-reports', icon: 'fa-chart-pie', label: 'التقارير التشغيلية' },
                 { id: 'ic-local-hr', icon: 'fa-users', label: 'الموارد البشرية المحلية' },
-                { id: 'ic-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' }
+                { id: 'ic-operational-finance', icon: 'fa-coins', label: 'المالية التشغيلية' },
+                // Client: supply-chain / OHS / facilities / safety incubator live under incubators org
+                { id: 'supply-chain', icon: 'fa-truck-loading', label: 'سلاسل التوريد' },
+                { id: 'occupational-health', icon: 'fa-hard-hat', label: 'السلامة والصحة المهنية' },
+                { id: 'facilities', icon: 'fa-building-gear', label: 'إدارة المرافق واللوجستيات' },
+                { id: 'incubator', icon: 'fa-graduation-cap', label: 'حاضنة السلامة' },
+                { id: 'eti-ohs', icon: 'fa-hard-hat', label: 'حاضنة السلامة والصحة المهنية' },
+                { id: 'eti-supply-chain', icon: 'fa-truck-loading', label: 'حاضنة سلاسل الإمداد' },
+                { id: 'eti-facilities', icon: 'fa-building', label: 'حضانة إدارة المرافق' },
+                { id: 'eti-logistics', icon: 'fa-shipping-fast', label: 'حاضنة اللوجستيات والنقل' }
             ]
         },
         platforms: {
@@ -3756,10 +3786,23 @@ const app = (() => {
         return match[1] || '/';
     };
 
+    const INCUBATORS_SCOPED_ROUTES = new Set([
+        'supply-chain', 'occupational-health', 'facilities', 'incubator',
+        'purchases', 'logistics', 'inventory', 'suppliers', 'orders-delivery', 'smart-procurement',
+        'manufacturing', 'product-lifecycle', 'maintenance', 'quality-control', 'safety',
+        'specs-estimates', 'customs-clearance',
+        'occupational-safety', 'international-standards', 'iso-standards', 'risk-management',
+        'consulting', 'ohs-evaluation', 'data-analysis',
+        'facilities-events', 'facilities-real-estate', 'facilities-assets', 'facilities-projects',
+        'facilities-projects-maintenance', 'facilities-projects-contracts',
+        'facilities-projects-vendors', 'facilities-projects-energy', 'facilities-projects-crowd',
+        'eti-ohs', 'eti-supply-chain', 'eti-facilities', 'eti-logistics'
+    ]);
+
     const getActiveIppModuleKey = (route) => {
         const r = String(route || '');
         if (r === 'branches-hub' || r.startsWith('br-')) return 'branches';
-        if (r === 'incubators-hub' || r.startsWith('ic-')) return 'incubators';
+        if (r === 'incubators-hub' || r.startsWith('ic-') || INCUBATORS_SCOPED_ROUTES.has(r)) return 'incubators';
         if (r === 'platforms' || r.startsWith('pl-')) return 'platforms';
         if (r === 'e-offices' || r.startsWith('eo-')) return 'e-offices';
         return null;
@@ -3822,11 +3865,40 @@ const app = (() => {
 
         const activeIppModule = getActiveIppModuleKey(resolveSidebarRoute());
         const scopedIppItems = activeIppModule ? buildIppScopedSidebarItems(activeIppModule) : null;
-        
-            const items = scopedIppItems || [
+        const navRegistry = window.SidebarNavigationRegistry || null;
+        const strategicDedupe = navRegistry?.STRATEGIC_DEDUPE_SUB_IDS
+            || new Set(['subscription-management', 'tasks-strategic', 'evaluation', 'training-development']);
+
+        // Client-approved top-level IA. Deduped modules stay reachable via portals / parents / legacy routes.
+        let items = scopedIppItems || [
                 { id: 'dashboard', icon: 'fa-chart-pie', label: 'الرئيسية', show: isOfficeRouteAllowed('dashboard') },
+                {
+                    id: 'strategic-management',
+                    icon: 'fa-chess',
+                    label: 'الإدارة الاستراتيجية',
+                    show: isOfficeRouteAllowed('strategic-management'),
+                    subItems: [
+                        { id: 'executive-management', icon: 'fa-user-tie', label: 'الإدارة التنفيذية' },
+                        { id: 'employee-management', icon: 'fa-users-cog', label: 'إدارة الموظفين' },
+                        { id: 'smart-systems', icon: 'fa-microchip', label: 'الأنظمة الذكية' },
+                        { id: 'operations-management', icon: 'fa-cogs', label: 'إدارة العمليات' },
+                        { id: 'financial-approvals', icon: 'fa-file-signature', label: 'الموافقات المالية' },
+                        { id: 'tenants', icon: 'fa-building', label: 'المستأجرين' },
+                        { id: 'advertisers-center', icon: 'fa-ad', label: 'مركز المعلنين' },
+                        { id: 'quality-audit', icon: 'fa-clipboard-check', label: 'الجودة والتدقيق' },
+                        { id: 'information-center', icon: 'fa-info-circle', label: 'مركز المعلومات' },
+                        { id: 'identity-settings', icon: 'fa-palette', label: 'إعدادات الهوية' },
+                        { id: 'system-log', icon: 'fa-file-alt', label: 'سجل النظام' },
+                        { id: 'reports', icon: 'fa-chart-line', label: 'التقارير' }
+                    ].filter((sub) => !strategicDedupe.has(sub.id))
+                },
                 { id: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', show: isOfficeRouteAllowed('smart-management') },
-                // HR / Finance / Archive remain reachable via /hr /finance /archive and portal cards — hidden from shared main menu only
+                {
+                    id: 'governed-administrative-integration',
+                    icon: 'fa-diagram-project',
+                    label: 'التكامل الإداري المحكوم',
+                    show: isOfficeRouteAllowed('governed-administrative-integration')
+                },
                 {
                     id: 'incubators-platforms',
                     icon: 'fa-building-columns',
@@ -3834,23 +3906,20 @@ const app = (() => {
                     show: isOfficeRouteAllowed('incubators-platforms')
                 },
                 {
-                    id: 'governed-administrative-integration',
-                    icon: 'fa-diagram-project',
-                    label: 'التكامل الإداري المحكوم',
-                    show: isOfficeRouteAllowed('governed-administrative-integration')
-                },
-                // Branches / Nurseries / Platforms / E-Offices remain via /branches /incubators-hub /platforms /e-offices — hidden from shared main menu only
-                // (shown via Module-Aware Navigation when inside those routes)
-                {
                     id: 'education-training-incubators',
                     icon: 'fa-graduation-cap',
-                    label: 'حاضنات التعليم والتدريب',
-                    show: isOfficeRouteAllowed('education-training-incubators'),
+                    label: 'التعليم والتدريب',
+                    show: isOfficeRouteAllowed('education-training-incubators')
+                        || isOfficeRouteAllowed('platforms')
+                        || isOfficeRouteAllowed('evaluation')
+                        || isOfficeRouteAllowed('specialized-courses'),
                     subItems: [
-                        { id: 'eti-ohs', icon: 'fa-hard-hat', label: 'حاضنة السلامة والصحة المهنية' },
-                        { id: 'eti-supply-chain', icon: 'fa-truck-loading', label: 'حاضنة سلاسل الإمداد' },
-                        { id: 'eti-facilities', icon: 'fa-building', label: 'حضانة إدارة المرافق' },
-                        { id: 'eti-logistics', icon: 'fa-shipping-fast', label: 'حاضنة اللوجستيات والنقل والتوصيل' },
+                        // Shared platforms system — link only, no duplicate implementation
+                        { id: 'platforms', icon: 'fa-layer-group', label: 'منصات التعليم' },
+                        // Existing tests + evaluation pages under one approved label (no new pages/APIs)
+                        { id: 'specialized-courses', icon: 'fa-clipboard-check', label: 'الاختبارات والتقييم' },
+                        { id: 'evaluation', icon: 'fa-star', label: 'الاختبارات والتقييم' },
+                        { id: 'education-training-incubators', icon: 'fa-chalkboard-user', label: 'بوابة حاضنات التعليم' },
                         { id: 'eti-project-management', icon: 'fa-project-diagram', label: 'حاضنة إدارة المشاريع' },
                         { id: 'eti-hr', icon: 'fa-users-gear', label: 'حاضنة HR الموارد البشرية' }
                     ]
@@ -3859,7 +3928,9 @@ const app = (() => {
                     id: 'naiosh-sectors',
                     icon: 'fa-building-columns',
                     label: 'قطاعات نايوش',
-                    show: isOfficeRouteAllowed('naiosh-sectors'),
+                    show: isOfficeRouteAllowed('naiosh-sectors')
+                        || isOfficeRouteAllowed('internet-automation')
+                        || isOfficeRouteAllowed('sales'),
                     subItems: [
                         { id: 'sc-member-management', icon: 'fa-users-gear', label: 'إدارة الأعضاء' },
                         { id: 'sc-governance', icon: 'fa-scale-balanced', label: 'الحوكمة' },
@@ -3868,41 +3939,15 @@ const app = (() => {
                         { id: 'sc-legal', icon: 'fa-gavel', label: 'القانونية والمحاماة' },
                         { id: 'sc-skills-innovation', icon: 'fa-lightbulb', label: 'المهارات والابتكارات' },
                         { id: 'sc-initiatives', icon: 'fa-flag', label: 'المبادرات' },
-                        { id: 'sc-beta-club', icon: 'fa-flask', label: 'نادي بيتا الرقمي' }
+                        { id: 'sc-beta-club', icon: 'fa-flask', label: 'نادي بيتا الرقمي' },
+                        { id: 'internet-automation', icon: 'fa-globe', label: 'الإنترنت والأتمتة' },
+                        { id: 'sales', icon: 'fa-chart-line', label: 'البيع' }
                     ]
                 },
                 { id: 'super-admin', icon: 'fa-shield-alt', label: 'إدارة الأدوار والصلاحيات', show: isSuperAdmin },
-                { id: 'operational-policies', icon: 'fa-scale-balanced', label: 'السياسات التشغيلية المعتمدة', show: isOfficeRouteAllowed('operational-policies') },
-                {
-                    id: 'strategic-management',
-                    icon: 'fa-chess',
-                    label: 'الإدارة الاستراتيجية',
-                    show: isOfficeRouteAllowed('strategic-management'),
- subItems: [
-                        { id: 'executive-management', icon: 'fa-user-tie', label: 'الإدارة التنفيذية' },
-                        { id: 'employee-management', icon: 'fa-users-cog', label: 'إدارة الموظفين' },
-                        { id: 'smart-systems', icon: 'fa-microchip', label: 'الأنظمة الذكية' },
-                        { id: 'subscription-management', icon: 'fa-tags', label: 'إدارة الاشتراكات' },
-                        { id: 'operations-management', icon: 'fa-cogs', label: 'إدارة العمليات' },
-                        { id: 'financial-approvals', icon: 'fa-file-signature', label: 'الموافقات المالية' },
-                        { id: 'tenants', icon: 'fa-building', label: 'المستأجرين' },
-                        { id: 'advertisers-center', icon: 'fa-ad', label: 'مركز المعلنين' },
-                        { id: 'training-development', icon: 'fa-chalkboard-teacher', label: 'التدريب والتطوير' },
-                        { id: 'quality-audit', icon: 'fa-clipboard-check', label: 'الجودة والتدقيق' },
-                        { id: 'evaluation', icon: 'fa-star', label: 'التقييم' },
-                        { id: 'tasks-strategic', icon: 'fa-tasks', label: 'المهام' },
-                        { id: 'information-center', icon: 'fa-info-circle', label: 'مركز المعلومات' },
-                        { id: 'identity-settings', icon: 'fa-palette', label: 'إعدادات الهوية' },
-                        { id: 'system-log', icon: 'fa-file-alt', label: 'سجل النظام' },
-                        { id: 'reports', icon: 'fa-chart-line', label: 'التقارير' }
-                    ]
-                },
-                { id: 'hierarchy', icon: 'fa-sitemap', label: 'الهيكل الهرمي', show: isOfficeRouteAllowed('hierarchy') },
+                { id: 'operational-policies', icon: 'fa-scale-balanced', label: 'السياسات التشغيلية', show: isOfficeRouteAllowed('operational-policies') },
+                { id: 'hierarchy', icon: 'fa-sitemap', label: 'الهيكل التنظيمي', show: isOfficeRouteAllowed('hierarchy') },
                 { id: 'saas', icon: 'fa-cubes', label: perms.isHQ() ? 'إدارة الاشتراكات' : 'اشتراكي (SaaS)', show: isOfficeRouteAllowed('saas') },
-                { id: 'incubator', icon: 'fa-graduation-cap', label: 'حاضنة السلامة', show: (isIncubator || perms.isHQ()) && isOfficeRouteAllowed('incubator') },
-                { id: 'events-studio-main', icon: 'fa-video', label: 'استوديو الفعاليات', show: isOfficeRouteAllowed('events-studio-main') },
-                { id: 'marketing-campaigns-studio', icon: 'fa-bullhorn', label: 'استديو الحملات التسويقية', show: isOfficeRouteAllowed('marketing-campaigns-studio') },
-                { id: 'requests', icon: 'fa-clipboard-list', label: 'الطلبات', show: isOfficeRouteAllowed('requests') },
                 {
                     id: 'payment-menu',
                     icon: 'fa-credit-card',
@@ -3910,119 +3955,29 @@ const app = (() => {
                     show: isOfficeRouteAllowed('payment-menu'),
                     subItems: [
                         { id: 'invoices-enhanced', icon: 'fa-file-invoice-dollar', label: 'الفواتير الذكية' },
-                    { id: 'payment-methods', icon: 'fa-wallet', label: 'طرق الدفع' },
-                    { id: 'installment-plans', icon: 'fa-calendar-days', label: 'خطط الأقساط' },
-                    { id: 'payment-tracking', icon: 'fa-chart-line', label: 'تتبع الدفعات' },
-                    { id: 'tax-settings', icon: 'fa-percent', label: 'إعدادات الضرائب' },
-                    { id: 'collection-rules', icon: 'fa-cog', label: 'قواعد التحصيل' },
-                    { id: 'payment-reminders', icon: 'fa-bell', label: 'التذكيرات الآلية' },
-                    { id: 'overdue-management', icon: 'fa-exclamation-circle', label: 'إدارة المتأخرات' },
-                    { id: 'payment-analytics', icon: 'fa-chart-bar', label: 'تحليلات الدفع' },
-                    { id: 'gateway-payments', icon: 'fa-plug', label: 'بوابات الدفع (Stripe/PayPal/Paymob)' },
-                    { id: 'credit-topup', icon: 'fa-coins', label: 'شحن الرصيد' },
-                    { id: 'online-store', icon: 'fa-store', label: 'المتجر والسلة' }
-                ]
-            },
-                { 
-                    id: 'employee-menu', 
-                    icon: 'fa-user-tie', 
-                    label: 'الموظف', 
-                    show: isOfficeRouteAllowed('employee-menu'),
-                    subItems: [
-                        { id: 'attendance-departure', icon: 'fa-clock', label: 'الحضور والانصراف' },
-                    { id: 'emp-requests', icon: 'fa-clipboard-list', label: 'الطلبات' },
-                    { id: 'flexible-salary', icon: 'fa-sliders-h', label: 'الراتب المرن' },
-                    { id: 'resignations', icon: 'fa-user-minus', label: 'الاستقالات' },
-                    { id: 'employee-settlement', icon: 'fa-file-signature', label: 'تسوية حساب موظف' },
-                    { id: 'emp-leaves', icon: 'fa-umbrella-beach', label: 'الإجازات' },
-                    { id: 'leave-balance', icon: 'fa-calendar-check', label: 'رصيد الإجازات' },
-                    { id: 'notifications-warnings', icon: 'fa-bell', label: 'الإشعارات/الإنذارات' },
-                    { id: 'emp-decisions', icon: 'fa-gavel', label: 'القرارات' },
-                    { id: 'company-violations', icon: 'fa-exclamation-triangle', label: 'مخالفات أنظمة الشركة' },
-                    { id: 'evaluation-forms', icon: 'fa-clipboard-check', label: 'نماذج التقييم' },
-                    { id: 'circulars', icon: 'fa-file-alt', label: 'التعاميم' },
-                    { id: 'advances-receivables', icon: 'fa-hand-holding-usd', label: 'السلف/الذمم' },
-                    { id: 'surveys', icon: 'fa-poll', label: 'الاستبيانات' },
-                    { id: 'business-activities', icon: 'fa-briefcase', label: 'أنشطة الأعمال' },
-                    { id: 'emp-letters', icon: 'fa-envelope', label: 'الخطابات' },
-                    { id: 'custodies', icon: 'fa-box', label: 'العهد' },
-                    { id: 'assets-custodies', icon: 'fa-boxes-stacked', label: 'إدارة العهد والأصول' },
-                    { id: 'salary-slips', icon: 'fa-receipt', label: 'قسائم الراتب' },
-                    { id: 'attendance-register', icon: 'fa-fingerprint', label: 'تسجيل الحضور' },
-                    { id: 'attendance-table', icon: 'fa-table', label: 'جدول الحضور' }
-                ]
-            },
+                        { id: 'payment-methods', icon: 'fa-wallet', label: 'طرق الدفع' },
+                        { id: 'installment-plans', icon: 'fa-calendar-days', label: 'خطط الأقساط' },
+                        { id: 'payment-tracking', icon: 'fa-chart-line', label: 'تتبع الدفعات' },
+                        { id: 'tax-settings', icon: 'fa-percent', label: 'إعدادات الضرائب' },
+                        { id: 'collection-rules', icon: 'fa-cog', label: 'قواعد التحصيل' },
+                        { id: 'payment-reminders', icon: 'fa-bell', label: 'التذكيرات الآلية' },
+                        { id: 'overdue-management', icon: 'fa-exclamation-circle', label: 'إدارة المتأخرات' },
+                        { id: 'payment-analytics', icon: 'fa-chart-bar', label: 'تحليلات الدفع' },
+                        { id: 'gateway-payments', icon: 'fa-plug', label: 'بوابات الدفع (Stripe/PayPal/Paymob)' },
+                        { id: 'credit-topup', icon: 'fa-coins', label: 'شحن الرصيد' },
+                        { id: 'online-store', icon: 'fa-store', label: 'المتجر والسلة' }
+                    ]
+                },
                 {
-                    id: 'supply-chain',
-                    icon: 'fa-truck-loading',
-                    label: 'سلاسل التوريد',
-                    show: isOfficeRouteAllowed('supply-chain'),
-                    subItems: [
-                        { id: 'purchases', icon: 'fa-shopping-cart', label: 'المشتريات' },
-                    { id: 'logistics', icon: 'fa-truck', label: 'اللوجستيات والنقل والتوصيل' },
-                    { id: 'inventory', icon: 'fa-boxes', label: 'المخزون' },
-                    { id: 'suppliers', icon: 'fa-handshake', label: 'التعامل مع الموردين' },
-                    { id: 'orders-delivery', icon: 'fa-clipboard-list', label: 'إدارة الطلبات والتسليم' },
-                    { id: 'smart-procurement', icon: 'fa-brain', label: 'إدارة سلاسل التوريد والإمداد الذكي' },
-                    { id: 'manufacturing', icon: 'fa-industry', label: 'التصنيع' },
-                    { id: 'product-lifecycle', icon: 'fa-recycle', label: 'حياة المنتج' },
-                    { id: 'maintenance', icon: 'fa-wrench', label: 'الصيانة' },
-                    { id: 'quality-control', icon: 'fa-check-double', label: 'مراقبة الجودة' },
-                    { id: 'safety', icon: 'fa-hard-hat', label: 'السلامة' },
-                    { id: 'specs-estimates', icon: 'fa-ruler-combined', label: 'مواصفات ومقايس' },
-                    { id: 'customs-clearance', icon: 'fa-passport', label: 'تخليص جمركي' }
-                ]
-            },
-                {
-                    id: 'sales',
-                    icon: 'fa-chart-line',
-                    label: 'البيع',
-                    show: isOfficeRouteAllowed('sales'),
-                    subItems: [
-                        { id: 'crm', icon: 'fa-users-cog', label: 'نظام إدارة علاقات العملاء CRM' },
-                    { id: 'sales-operations', icon: 'fa-handshake', label: 'إدارة عمليات البيع' },
-                    { id: 'pos', icon: 'fa-cash-register', label: 'نظام نقاط البيع التشابكي' },
-                    { id: 'quotes-contracts', icon: 'fa-file-contract', label: 'العروض والعقود' },
-                    { id: 'commissions', icon: 'fa-percentage', label: 'نظام العمولات' },
-                    { id: 'order-tracking', icon: 'fa-shipping-fast', label: 'تتبع الطلبات والشحنات' }
-                ]
-            },
-                {
-                    id: 'internet-automation',
-                    icon: 'fa-robot',
-                    label: 'الإنترنت والأتمتة',
-                    show: isOfficeRouteAllowed('internet-automation'),
-                    subItems: [
-                        { id: 'ai-integration', icon: 'fa-brain', label: 'الذكاء الإصطناعي' },
-                    { id: 'governance', icon: 'fa-gavel', label: 'الحوكمة' },
-                    { id: 'compliance', icon: 'fa-balance-scale', label: 'الموائمة' },
-                    { id: 'iot', icon: 'fa-network-wired', label: 'انترنت الأشياء' },
-                    { id: 'dispute-settlements', icon: 'fa-handshake', label: 'فض النزاعات والتسويات' },
-                    { id: 'records-archiving', icon: 'fa-archive', label: 'السجلات والأرشيف' },
-                    { id: 'elearning', icon: 'fa-graduation-cap', label: 'التعلم الإلكتروني' },
-                    { id: 'forum', icon: 'fa-comments', label: 'المنتدى' },
-                    { id: 'etiquette', icon: 'fa-user-tie', label: 'الإتيكيت وبروتوكولات التواصل' },
-                    { id: 'knowledge', icon: 'fa-lightbulb', label: 'المعرفة والتحليل' },
-                    { id: 'intellectual-property', icon: 'fa-copyright', label: 'الملكية الفكرية' },
-                    { id: 'visitor-chat', icon: 'fa-comment-dots', label: 'الدردشة مع الزوار' }
-                ]
-            },
-                {
-                    id: 'occupational-health',
-                    icon: 'fa-hard-hat',
-                    label: 'السلامة والصحة المهنية',
-                    show: isOfficeRouteAllowed('occupational-health'),
-                    subItems: [
-                        { id: 'occupational-safety', icon: 'fa-shield-alt', label: 'السلامة المهنية' },
-                    { id: 'international-standards', icon: 'fa-globe', label: 'المعايير الدولية' },
-                    { id: 'iso-standards', icon: 'fa-certificate', label: 'الايزو' },
-                    { id: 'risk-management', icon: 'fa-exclamation-triangle', label: 'إدارة المخاطر' },
-                    { id: 'consulting', icon: 'fa-user-tie', label: 'الإستشارات' },
-                    { id: 'specialized-courses', icon: 'fa-graduation-cap', label: 'الدورات التخصصية' },
-                    { id: 'ohs-evaluation', icon: 'fa-clipboard-check', label: 'التقييم - شركات، مصانع، مشاريع' },
-                    { id: 'data-analysis', icon: 'fa-chart-bar', label: 'تحليل البيانات' }
-                ]
-            },
+                    id: 'services-events-center',
+                    icon: 'fa-calendar-star',
+                    label: 'مركز الخدمات والفعاليات',
+                    show: isOfficeRouteAllowed('services-events-center')
+                        || isOfficeRouteAllowed('events-studio-main')
+                        || isOfficeRouteAllowed('marketing-campaigns-studio')
+                        || isOfficeRouteAllowed('requests')
+                        || isOfficeRouteAllowed('employee-menu')
+                },
                 {
                     id: 'services',
                     icon: 'fa-concierge-bell',
@@ -4030,20 +3985,18 @@ const app = (() => {
                     show: isOfficeRouteAllowed('services'),
                     subItems: [
                         { id: 'project-management-office', icon: 'fa-project-diagram', label: 'مكتب إدارة المشاريع' },
-                    { id: 'institutional-performance', icon: 'fa-chart-line', label: 'إدارة الأداء المؤسسي' },
-                    { id: 'operations-monitoring', icon: 'fa-eye', label: 'متابعة العمليات' },
-                    { id: 'ai-market-research', icon: 'fa-brain', label: 'دراسة السوق عبر الذكاء الاصطناعي' },
-                    { id: 'customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
-                    { id: 'client-admin-services', icon: 'fa-user-cog', label: 'الخدمات الإدارية للعميل' },
-                    { id: 'virtual-halls', icon: 'fa-video', label: 'القاعات الافتراضية' },
-                    { id: 'feasibility-studies', icon: 'fa-calculator', label: 'دراسات الجدوى' },
-                    { id: 'research', icon: 'fa-search', label: 'البحوث' },
-                    { id: 'consulting-training', icon: 'fa-chalkboard-teacher', label: 'الاستشارات والتدريب' }
-                ]
-            },
-                { id: 'entities', icon: 'fa-sitemap', label: perms.isHQ() ? 'المستأجرين' : 'فرعي/كياني', show: isOfficeRouteAllowed('entities') },
-                { id: 'employees', icon: 'fa-users', label: 'إدارة الموظفين', show: (perms.isHR() || perms.isAdmin()) && isOfficeRouteAllowed('employees') },
-                { id: 'ads', icon: 'fa-bullhorn', label: perms.canManageAds() ? 'مركز المعلنين' : 'الإعلانات', show: isOfficeRouteAllowed('ads') },
+                        { id: 'institutional-performance', icon: 'fa-chart-line', label: 'إدارة الأداء المؤسسي' },
+                        { id: 'operations-monitoring', icon: 'fa-eye', label: 'متابعة العمليات' },
+                        { id: 'ai-market-research', icon: 'fa-brain', label: 'دراسة السوق عبر الذكاء الاصطناعي' },
+                        { id: 'customer-service', icon: 'fa-headset', label: 'خدمة العملاء' },
+                        { id: 'client-admin-services', icon: 'fa-user-cog', label: 'الخدمات الإدارية للعميل' },
+                        { id: 'virtual-halls', icon: 'fa-video', label: 'القاعات الافتراضية' },
+                        { id: 'feasibility-studies', icon: 'fa-calculator', label: 'دراسات الجدوى' },
+                        { id: 'research', icon: 'fa-search', label: 'البحوث' },
+                        { id: 'consulting-training', icon: 'fa-chalkboard-teacher', label: 'الاستشارات والتدريب' },
+                        { id: 'my-page-analytics', icon: 'fa-chart-column', label: 'إحصائيات صفحتي' }
+                    ]
+                },
                 {
                     id: 'tasks-management',
                     icon: 'fa-tasks',
@@ -4051,43 +4004,22 @@ const app = (() => {
                     show: isOfficeRouteAllowed('tasks-management'),
                     subItems: [
                         { id: 'main-menu', icon: 'fa-home', label: 'القائمة الرئيسية' },
-                    { id: 'control-panel', icon: 'fa-sliders-h', label: 'لوحة التحكم' },
-                    { id: 'my-tasks', icon: 'fa-check-square', label: 'مهامي' },
-                    { id: 'procedures', icon: 'fa-file-alt', label: 'الإجراءات' },
-                    { id: 'all-procedures', icon: 'fa-list-check', label: 'جميع الإجراءات' },
-                    { id: 'general-tasks', icon: 'fa-clipboard-list', label: 'المهام العامة' },
-                    { id: 'customers', icon: 'fa-users', label: 'العملاء' },
-                    { id: 'delegations', icon: 'fa-user-friends', label: 'التفويضات' },
-                    { id: 'task-reports', icon: 'fa-chart-bar', label: 'التقارير' },
-                    { id: 'task-settings', icon: 'fa-cog', label: 'الإعدادات' }
-                ]
-            },
-                {
-                    id: 'facilities',
-                    icon: 'fa-building-gear',
-                    label: 'إدارة المرافق',
-                    show: isOfficeRouteAllowed('facilities'),
-                    subItems: [
-                        { id: 'facilities', icon: 'fa-layer-group', label: 'لوحة المرافق' },
-                        { id: 'facilities-events', icon: 'fa-calendar-star', label: 'الفعاليات والترفيه' },
-                        { id: 'facilities-real-estate', icon: 'fa-city', label: 'العقارات والمباني' },
-                        { id: 'facilities-assets', icon: 'fa-boxes-stacked', label: 'إدارة الأصول' },
-                        { id: 'facilities-projects', icon: 'fa-diagram-project', label: 'إدارة المشاريع' },
-                        { id: 'facilities-projects-maintenance', icon: 'fa-screwdriver-wrench', label: 'الصيانة' },
-                        { id: 'facilities-projects-contracts', icon: 'fa-file-contract', label: 'عقود الطرف التاني' },
-                        { id: 'facilities-projects-vendors', icon: 'fa-people-carry-box', label: 'الموردين' },
-                        { id: 'facilities-projects-energy', icon: 'fa-bolt', label: 'ادارة الطاقه' },
-                        { id: 'facilities-projects-crowd', icon: 'fa-people-group', label: 'اداره الحشود' }
+                        { id: 'control-panel', icon: 'fa-sliders-h', label: 'لوحة التحكم' },
+                        { id: 'my-tasks', icon: 'fa-check-square', label: 'مهامي' },
+                        { id: 'procedures', icon: 'fa-file-alt', label: 'الإجراءات' },
+                        { id: 'all-procedures', icon: 'fa-list-check', label: 'جميع الإجراءات' },
+                        { id: 'general-tasks', icon: 'fa-clipboard-list', label: 'المهام العامة' },
+                        { id: 'customers', icon: 'fa-users', label: 'العملاء' },
+                        { id: 'delegations', icon: 'fa-user-friends', label: 'التفويضات' },
+                        { id: 'task-reports', icon: 'fa-chart-bar', label: 'التقارير' },
+                        { id: 'task-settings', icon: 'fa-cog', label: 'الإعدادات' }
                     ]
                 },
-                { id: 'my-page-analytics', icon: 'fa-chart-column', label: 'إحصائيات صفحتي', show: isOfficeRouteAllowed('my-page-analytics') },
-                { id: 'tenant-branding', icon: 'fa-palette', label: 'هوية النظام', show: getAppAuthContext().isTenant && perms.isTenantAdmin() },
                 { id: 'settings', icon: 'fa-paint-brush', label: 'إعدادات الصفحة الرئيسية', show: perms.isAdmin() && isOfficeRouteAllowed('settings') && !isDedicatedTenantContext(currentUser) },
-                { id: 'audit-logs', icon: 'fa-history', label: 'سجل النظام', show: perms.canViewAuditLogs() && isOfficeRouteAllowed('audit-logs') },
                 {
                     id: 'settings-admin',
                     icon: 'fa-gears',
-                    label: 'الاعدادات',
+                    label: 'إعدادات النظام',
                     show: perms.isAdmin() && isOfficeRouteAllowed('settings')
                 }
             ];
@@ -4100,6 +4032,11 @@ const app = (() => {
                     }
                 }
             });
+
+            if (!scopedIppItems && navRegistry?.applySidebarCustomization) {
+                const customization = window.__NAIOSH_SIDEBAR_CUSTOMIZATION__ || null;
+                items = navRegistry.applySidebarCustomization(items, customization);
+            }
 
         menu.innerHTML = items.filter(i => i.show).map(item => {
             const externalPath = getExternalNavigationPath(item.id);
@@ -18634,7 +18571,7 @@ const app = (() => {
                 const entries = filteredBySection[enterpriseSettingsActiveSection] || [];
                 const sectionTips = {
                     appearance: 'هوية الشركة تُحفظ من مساحة الشركة. هوية الصفحة العامة للمنصة متاحة لمالك المنصة فقط.',
-                    'pages-nav': 'لا يوجد حالياً محرر سحب-وإفلات للقائمة. ظهور الصفحات يُدار عبر الصلاحيات والقوالب المرتبطة.',
+                    'pages-nav': 'إدارة ظهور وترتيب مداخل القائمة الجانبية متاحة من بطاقة «إدارة أيقونات القائمة الجانبية». الصلاحيات وRBAC تبقى الحَكَم النهائي.',
                     users: 'صلاحيات مالك المنصة منفصلة عن مدير الشركة — لن تظهر لك إعدادات أعلى من مستواك.',
                     systems: 'كل بطاقة تفتح إعداد الوحدة الحقيقي حسب الاشتراك والصلاحيات.',
                     security: 'النسخ وسجل التدقيق إعدادات حساسة — استخدمها بحذر.'
@@ -18728,7 +18665,182 @@ const app = (() => {
                     </div>
                 </div>
             </div>
+            <div class="rounded-2xl border border-red-100 bg-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+                <div class="text-right">
+                    <h3 class="text-lg font-extrabold text-slate-800">إدارة أيقونات القائمة الجانبية</h3>
+                    <p class="text-sm text-slate-500 mt-1">ترتيب وإظهار المداخل القابلة للتخصيص عبر Settings Engine — دون تجاوز RBAC أو إخفاء مداخل الإدارة الأساسية.</p>
+                </div>
+                <button type="button" onclick="app.loadRoute('settings-sidebar-nav')"
+                    class="px-5 py-2.5 rounded-xl bg-gradient-to-l from-red-700 to-rose-800 text-white font-bold text-sm">
+                    فتح الإدارة
+                </button>
+            </div>
             <div id="enterprise-settings-hub-root" class="space-y-4"></div>
+        </div>`;
+    };
+
+    const SIDEBAR_SETTINGS_KEY = (window.SidebarNavigationRegistry && window.SidebarNavigationRegistry.SETTINGS_SIDEBAR_KEY)
+        || 'company.sidebar.navigation';
+
+    const loadSidebarCustomization = async () => {
+        try {
+            const token = getSessionAuthToken();
+            const res = await fetch(`/api/enterprise-settings/values/${encodeURIComponent(SIDEBAR_SETTINGS_KEY)}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            // Settings Engine returns { data: { effective, value: row, definition } }
+            const value = data?.data?.effective
+                || (data?.data?.value && typeof data.data.value.value !== 'undefined' ? data.data.value.value : null)
+                || data?.value
+                || null;
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                window.__NAIOSH_SIDEBAR_CUSTOMIZATION__ = value;
+                return value;
+            }
+        } catch (_) { /* keep defaults */ }
+        return null;
+    };
+
+    const saveSidebarCustomization = async (payload) => {
+        const token = getSessionAuthToken();
+        const res = await fetch(`/api/enterprise-settings/values/${encodeURIComponent(SIDEBAR_SETTINGS_KEY)}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ value: payload, reason: 'sidebar-nav-customization' })
+        });
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || 'save failed');
+        }
+        window.__NAIOSH_SIDEBAR_CUSTOMIZATION__ = payload;
+        renderSidebar();
+        return true;
+    };
+
+    const renderSidebarNavSettings = () => {
+        if (!perms.isAdmin()) return renderPlaceholder();
+        const registry = window.SidebarNavigationRegistry;
+        const defaults = registry?.getDefaultSidebarOrder?.() || [];
+        const protectedIds = registry?.PROTECTED_NAV_IDS || new Set();
+        setTimeout(async () => {
+            const mount = document.getElementById('sidebar-nav-settings-root');
+            if (!mount) return;
+            const current = (await loadSidebarCustomization()) || { orderIds: defaults.slice(), hiddenIds: [] };
+            const orderIds = Array.isArray(current.orderIds) && current.orderIds.length ? current.orderIds.slice() : defaults.slice();
+            const hidden = new Set(Array.isArray(current.hiddenIds) ? current.hiddenIds : []);
+            const labels = {
+                dashboard: 'الرئيسية',
+                'strategic-management': 'الإدارة الاستراتيجية',
+                'smart-management': 'الإدارة الذكية 360',
+                'governed-administrative-integration': 'التكامل الإداري المحكوم',
+                'incubators-platforms': 'حاضنات و منصات اعمال',
+                'education-training-incubators': 'التعليم والتدريب',
+                'naiosh-sectors': 'قطاعات نايوش',
+                'super-admin': 'إدارة الأدوار والصلاحيات',
+                'operational-policies': 'السياسات التشغيلية',
+                hierarchy: 'الهيكل التنظيمي',
+                saas: 'إدارة الاشتراكات',
+                'payment-menu': 'نظام الدفع',
+                'services-events-center': 'مركز الخدمات والفعاليات',
+                services: 'الخدمات',
+                'tasks-management': 'المهام',
+                settings: 'إعدادات الصفحة الرئيسية',
+                'settings-admin': 'إعدادات النظام'
+            };
+            defaults.forEach((id) => { if (!orderIds.includes(id)) orderIds.push(id); });
+            mount.innerHTML = `
+                <div class="space-y-3">
+                    ${orderIds.map((id, idx) => {
+                        const isProtected = protectedIds.has ? protectedIds.has(id) : false;
+                        return `
+                        <div class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3" data-nav-id="${id}">
+                            <span class="text-xs font-bold text-slate-400 w-8">${idx + 1}</span>
+                            <span class="flex-1 font-bold text-slate-800">${labels[id] || id}</span>
+                            <label class="text-sm flex items-center gap-2 ${isProtected ? 'opacity-50' : ''}">
+                                <input type="checkbox" data-hide="${id}" ${hidden.has(id) ? 'checked' : ''} ${isProtected ? 'disabled' : ''}/>
+                                إخفاء
+                            </label>
+                            <button type="button" class="px-3 py-1.5 rounded-lg border text-sm" data-up="${id}">↑</button>
+                            <button type="button" class="px-3 py-1.5 rounded-lg border text-sm" data-down="${id}">↓</button>
+                        </div>`;
+                    }).join('')}
+                </div>
+                <div class="flex flex-wrap gap-3 mt-5">
+                    <button type="button" id="sidebar-nav-save" class="px-5 py-2.5 rounded-xl bg-red-700 text-white font-bold">حفظ الترتيب</button>
+                    <button type="button" id="sidebar-nav-reset" class="px-5 py-2.5 rounded-xl border font-bold">إعادة الضبط الافتراضي</button>
+                    <button type="button" onclick="app.loadRoute('settings-admin')" class="px-5 py-2.5 rounded-xl border font-bold">رجوع</button>
+                </div>
+                <p class="text-xs text-slate-500 mt-3">المداخل الأساسية محمية من الإخفاء. الحفظ يمر عبر Settings Engine مع سجل تدقيق.</p>`;
+
+            const readState = () => {
+                const ids = [...mount.querySelectorAll('[data-nav-id]')].map((el) => el.getAttribute('data-nav-id'));
+                const hiddenIds = [...mount.querySelectorAll('input[data-hide]:checked')]
+                    .map((el) => el.getAttribute('data-hide'))
+                    .filter((id) => !(protectedIds.has && protectedIds.has(id)));
+                return { orderIds: ids, hiddenIds };
+            };
+            const rerenderOrder = (ids) => {
+                const map = {};
+                mount.querySelectorAll('[data-nav-id]').forEach((el) => { map[el.getAttribute('data-nav-id')] = el; });
+                const wrap = mount.querySelector('.space-y-3');
+                ids.forEach((id, idx) => {
+                    const el = map[id];
+                    if (!el) return;
+                    el.querySelector('.text-xs').textContent = String(idx + 1);
+                    wrap.appendChild(el);
+                });
+            };
+            mount.querySelectorAll('[data-up]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const state = readState();
+                    const id = btn.getAttribute('data-up');
+                    const i = state.orderIds.indexOf(id);
+                    if (i <= 0) return;
+                    [state.orderIds[i - 1], state.orderIds[i]] = [state.orderIds[i], state.orderIds[i - 1]];
+                    rerenderOrder(state.orderIds);
+                });
+            });
+            mount.querySelectorAll('[data-down]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const state = readState();
+                    const id = btn.getAttribute('data-down');
+                    const i = state.orderIds.indexOf(id);
+                    if (i < 0 || i >= state.orderIds.length - 1) return;
+                    [state.orderIds[i + 1], state.orderIds[i]] = [state.orderIds[i], state.orderIds[i + 1]];
+                    rerenderOrder(state.orderIds);
+                });
+            });
+            mount.querySelector('#sidebar-nav-save')?.addEventListener('click', async () => {
+                try {
+                    await saveSidebarCustomization(readState());
+                    showToast('تم حفظ تخصيص القائمة الجانبية', 'success');
+                } catch (err) {
+                    showToast(`تعذر الحفظ: ${err.message}`, 'error');
+                }
+            });
+            mount.querySelector('#sidebar-nav-reset')?.addEventListener('click', async () => {
+                try {
+                    await saveSidebarCustomization({ orderIds: defaults.slice(), hiddenIds: [] });
+                    showToast('تمت إعادة الضبط الافتراضي', 'success');
+                    loadRoute('settings-sidebar-nav');
+                } catch (err) {
+                    showToast(`تعذر إعادة الضبط: ${err.message}`, 'error');
+                }
+            });
+        }, 0);
+
+        return `
+        <div class="animate-fade-in space-y-4 p-2 sm:p-4">
+            <div class="rounded-2xl border border-red-100 bg-gradient-to-l from-red-800 to-rose-900 text-white p-5">
+                <h2 class="text-2xl font-black">إدارة أيقونات القائمة الجانبية</h2>
+                <p class="text-sm text-red-50/90 mt-2">تخصيص الترتيب والإظهار للمستأجر الحالي عبر Settings Engine — دون إنشاء محرك إعدادات ثانٍ.</p>
+            </div>
+            <div id="sidebar-nav-settings-root" class="rounded-2xl border bg-slate-50 p-4">جاري التحميل...</div>
         </div>`;
     };
 
@@ -28046,6 +28158,9 @@ const app = (() => {
         setEnterpriseSettingsSection,
         setEnterpriseSettingsShowAll,
         handleEnterpriseSettingsSearchKey,
+        loadSidebarCustomization,
+        saveSidebarCustomization,
+        renderSidebarNavSettings,
         handleSupplyChainAction, handleQualityPolicyAction,  // Facilities, Supply Chain, Quality & Policies functions
         handleDownloadAppClick,
         startPwaInstall: async () => {

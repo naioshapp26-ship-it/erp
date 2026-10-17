@@ -104,6 +104,37 @@ const COMPANY_DEFINITIONS = [
     label_ar: 'قياس التخزين',
     label_en: 'Storage meter',
     is_sensitive: false
+  },
+  {
+    key: 'company.sidebar.navigation',
+    scope: 'tenant',
+    module_key: 'navigation',
+    data_type: 'json',
+    default_value: {
+      orderIds: [
+        'dashboard',
+        'strategic-management',
+        'smart-management',
+        'governed-administrative-integration',
+        'incubators-platforms',
+        'education-training-incubators',
+        'naiosh-sectors',
+        'super-admin',
+        'operational-policies',
+        'hierarchy',
+        'saas',
+        'payment-menu',
+        'services-events-center',
+        'services',
+        'tasks-management',
+        'settings',
+        'settings-admin'
+      ],
+      hiddenIds: []
+    },
+    label_ar: 'ترتيب وإظهار القائمة الجانبية',
+    label_en: 'Sidebar navigation order & visibility',
+    is_sensitive: false
   }
 ];
 
