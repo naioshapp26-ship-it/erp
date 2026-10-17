@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Module-Aware Navigation for Incubators & Platforms portal systems.
- * Ensures Branches / Nurseries / Platforms / E-Library get scoped sidebars
+ * Ensures Branches / Nurseries / Platforms / E-Offices get scoped sidebars
  * without restoring them to the shared global menu.
  */
 const fs = require('fs');

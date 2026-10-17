@@ -937,7 +937,7 @@ const app = (() => {
                 || isOfficeRouteAllowed('finance')
                 || isOfficeRouteAllowed('records-archive-home');
         }
-        // Unified portal: Branches / Nurseries / Platforms / E-Library
+        // Unified portal: Branches / Nurseries / Platforms / E-Offices
         if (route === 'incubators-platforms') {
             return isOfficeRouteAllowed('branches-hub')
                 || isOfficeRouteAllowed('incubators-hub')
@@ -2130,7 +2130,7 @@ const app = (() => {
         document.getElementById('page-title').innerText = getTitle(route);
         const previousAppRoute = window.currentAppRoute;
         window.currentAppRoute = route;
-        // Re-render sidebar when entering/leaving IPP module scopes (Branches / Nurseries / Platforms / E-Library)
+        // Re-render sidebar when entering/leaving IPP module scopes (Branches / Nurseries / Platforms / E-Offices)
         if (typeof window.__naioshRefreshIppSidebar === 'function') {
             window.__naioshRefreshIppSidebar(previousAppRoute, route);
         }
@@ -2987,7 +2987,7 @@ const app = (() => {
             'feasibility-studies': 'دراسات الجدوى',
             'research': 'البحوث',
             'consulting-training': 'الاستشارات والتدريب',
-            'e-offices': 'المكاتب الالكترونيه',
+            'e-offices': 'المكاتب الإلكترونية',
             'eo-daily-operations': 'العمليات اليومية',
             'eo-sales': 'المبيعات',
             'eo-subscriptions': 'الاشتراكات',
@@ -3727,7 +3727,7 @@ const app = (() => {
         },
         'e-offices': {
             hubRoute: 'e-offices',
-            label: 'المكتبة الإلكترونية',
+            label: 'المكاتب الإلكترونية',
             icon: 'fa-building',
             sections: [
                 { id: 'eo-daily-operations', icon: 'fa-calendar-day', label: 'العمليات اليومية' },
@@ -3839,7 +3839,7 @@ const app = (() => {
                     label: 'التكامل الإداري المحكوم',
                     show: isOfficeRouteAllowed('governed-administrative-integration')
                 },
-                // Branches / Nurseries / Platforms / E-Library remain via /branches /incubators-hub /platforms /e-offices — hidden from shared main menu only
+                // Branches / Nurseries / Platforms / E-Offices remain via /branches /incubators-hub /platforms /e-offices — hidden from shared main menu only
                 // (shown via Module-Aware Navigation when inside those routes)
                 {
                     id: 'education-training-incubators',
@@ -5361,7 +5361,7 @@ const app = (() => {
     const collectTenantDashboardModules = () => {
         const catalog = [
             { route: 'smart-management', icon: 'fa-crown', desc: 'بوابتك الموحدة للموارد البشرية والمالية والأرشيف' },
-            { route: 'incubators-platforms', icon: 'fa-building-columns', desc: 'بوابتك الموحدة للفروع والحضانات والمنصات والمكتبة الإلكترونية' },
+            { route: 'incubators-platforms', icon: 'fa-building-columns', desc: 'بوابتك الموحدة للفروع والحضانات والمنصات والمكاتب الإلكترونية' },
             { route: 'marketing-campaigns-studio', icon: 'fa-bullhorn', desc: 'استوديو الحملات التسويقية' },
             { route: 'events-studio-main', icon: 'fa-calendar-star', desc: 'استوديو الفعاليات والأنشطة' },
             { route: 'tenant-branding', icon: 'fa-palette', desc: 'تخصيص الشعار والألوان واسم الشركة', adminOnly: true }
