@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Incubators & Business Platforms portal — route, menu, permissions, regression smoke.
- * Does not mutate Branches / Nurseries / Platforms / E-Library systems.
+ * Does not mutate Branches / Nurseries / Platforms / E-Offices systems.
  */
 const fs = require('fs');
 const path = require('path');
@@ -40,8 +40,10 @@ async function main() {
   ok('html-rtl', /dir="rtl"/.test(html) && /lang="ar"/.test(html));
   ok('html-order-branches-first', /data-module="branches"[\s\S]*data-module="nurseries"[\s\S]*data-module="platforms"[\s\S]*data-module="elibrary"/.test(html));
   ok('html-links', html.includes('data-href="/branches"') && html.includes('data-href="/incubators-hub"') && html.includes('data-href="/platforms"') && html.includes('data-href="/e-offices"'));
-  ok('html-labels', html.includes('الفروع') && html.includes('الحضانات') && html.includes('المنصات') && html.includes('المكتبة الإلكترونية'));
-  ok('html-en', html.includes('Branches') && html.includes('Nurseries') && html.includes('Platforms') && html.includes('E-Library'));
+  ok('html-labels', html.includes('الفروع') && html.includes('الحضانات') && html.includes('المنصات') && html.includes('المكاتب الإلكترونية'));
+  ok('html-en', html.includes('Branches') && html.includes('Nurseries') && html.includes('Platforms') && html.includes('E-Offices'));
+  ok('html-no-elibrary-label', !html.includes('المكتبة الإلكترونية') && !html.includes('E-Library'));
+  ok('html-eoffices-href', html.includes('data-href="/e-offices"') && html.includes('href="/e-offices"'));
   ok('html-no-navy', !/#0[0-2][0-9a-f]{4}/i.test(html));
   ok('html-tenant-client', html.includes('tenant-path-client.js'));
 

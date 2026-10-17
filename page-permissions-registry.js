@@ -385,7 +385,7 @@ const PAGE_LABELS = {
   'identity-settings': 'إعدادات الهوية',
   'system-log': 'سجل النظام',
   'information-center': 'مركز المعلومات',
-  'e-offices': 'المكاتب الالكترونيه',
+  'e-offices': 'المكاتب الإلكترونية',
   platforms: 'المنصات',
   'incubators-hub': 'الحاضنات',
   'naiosh-sectors': 'قطاعات نايوش',
@@ -808,7 +808,7 @@ function getPageKeysForPath(requestPath) {
   if (normalized === '/smart-management' || normalized.startsWith('/smart-management/')) {
     return ['hr', 'finance', 'records-archive-home'];
   }
-  // Portal hub: Branches / Nurseries / Platforms / E-Library
+  // Portal hub: Branches / Nurseries / Platforms / E-Offices
   if (normalized === '/incubators-platforms' || normalized.startsWith('/incubators-platforms/')) {
     return ['branches-hub', 'incubators-hub', 'platforms', 'e-offices'];
   }
