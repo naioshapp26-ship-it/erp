@@ -28,6 +28,9 @@ ok('order-strategic-second', SIDEBAR_DEFAULT_ORDER[1] === 'strategic-management'
 ok('order-smart-third', SIDEBAR_DEFAULT_ORDER[2] === 'smart-management');
 ok('order-gai-fourth', SIDEBAR_DEFAULT_ORDER[3] === 'governed-administrative-integration');
 ok('order-ipp-fifth', SIDEBAR_DEFAULT_ORDER[4] === 'incubators-platforms');
+ok('order-services-events-before-payment',
+  SIDEBAR_DEFAULT_ORDER.indexOf('services-events-center')
+    < SIDEBAR_DEFAULT_ORDER.indexOf('payment-menu'));
 ok('order-settings-last', SIDEBAR_DEFAULT_ORDER[SIDEBAR_DEFAULT_ORDER.length - 1] === 'settings-admin');
 
 ok('script-uses-registry-order', script.includes("id: 'strategic-management'")
@@ -48,8 +51,9 @@ ok('gai-top-level', /id:\s*'governed-administrative-integration'[\s\S]*?show:\s*
 ok('gai-not-under-strategic', !/strategic-management[\s\S]*?governed-administrative-integration[\s\S]*?smart-management/.test(mainMenuSlice)
   || mainMenuSlice.indexOf("id: 'governed-administrative-integration'")
     > mainMenuSlice.indexOf("id: 'smart-management'"));
-ok('education-tests-eval-label', mainMenuSlice.includes("label: 'الاختبارات والتقييم'")
-  && !mainMenuSlice.includes("label: 'الاختبارات',"));
+ok('education-tests-eval-labels', mainMenuSlice.includes("label: 'الاختبارات'")
+  && mainMenuSlice.includes("label: 'التقييم'")
+  && !mainMenuSlice.includes("label: 'الاختبارات والتقييم'"));
 ok('incubators-related-in-ipp', script.includes("label: 'سلاسل التوريد'")
   && script.includes("INCUBATORS_SCOPED_ROUTES"));
 

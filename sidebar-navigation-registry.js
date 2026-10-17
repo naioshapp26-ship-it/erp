@@ -25,6 +25,8 @@
     'governed-administrative-integration'
   ]);
 
+  // Order matches client IA image: portals first, then SaaS, services-events portal,
+  // then payment / services / tasks / settings. GAI remains top-level after Smart Management.
   const SIDEBAR_DEFAULT_ORDER = [
     'dashboard',
     'strategic-management',
@@ -37,8 +39,8 @@
     'operational-policies',
     'hierarchy',
     'saas',
-    'payment-menu',
     'services-events-center',
+    'payment-menu',
     'services',
     'tasks-management',
     'settings',

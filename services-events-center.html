@@ -171,31 +171,31 @@
     </header>
     <p class="note">الصفحات الداخلية تُفتح كما هي دون إعادة تصميم.</p>
     <section class="cards" aria-label="مركز الخدمات والفعاليات">
-      <article class="card" data-href="/finance/events-studio-main.html">
+      <article class="card" data-module="events" data-href="/finance/events-studio-main.html">
         <div class="card-media">🎬</div>
         <div class="card-body">
           <h2>استوديو الفعاليات</h2>
           <p class="desc">إدارة الفعاليات والأنشطة والمحتوى المرئي من الصفحة الأصلية.</p>
           <span class="en">Events Studio</span>
-          <a class="enter-btn" href="/finance/events-studio-main.html">دخول النظام</a>
+          <a class="enter-btn" href="/finance/events-studio-main.html" data-target="/finance/events-studio-main.html">دخول النظام</a>
         </div>
       </article>
-      <article class="card" data-href="/marketing-campaigns-studio.html">
+      <article class="card" data-module="marketing" data-href="/marketing-campaigns-studio.html">
         <div class="card-media">📣</div>
         <div class="card-body">
           <h2>استوديو التسويق</h2>
           <p class="desc">الحملات التسويقية والمحتوى الترويجي من الصفحة الأصلية.</p>
           <span class="en">Marketing Studio</span>
-          <a class="enter-btn" href="/marketing-campaigns-studio.html">دخول النظام</a>
+          <a class="enter-btn" href="/marketing-campaigns-studio.html" data-target="/marketing-campaigns-studio.html">دخول النظام</a>
         </div>
       </article>
-      <article class="card" data-href="/dashboard.html#requests">
+      <article class="card" data-href="/requests" data-module="requests">
         <div class="card-media">📋</div>
         <div class="card-body">
           <h2>طلبات الموظف</h2>
           <p class="desc">تقديم ومتابعة الطلبات التشغيلية للموظف من المسار الأصلي.</p>
           <span class="en">Employee Requests</span>
-          <a class="enter-btn" id="requests-enter" href="/dashboard.html">دخول النظام</a>
+          <a class="enter-btn" id="requests-enter" href="/requests" data-target="/requests">دخول النظام</a>
         </div>
       </article>
     </section>
@@ -209,21 +209,55 @@
         if (m) return '/t/' + m[1].toLowerCase() + path;
         return path;
       }
+      function isDashboardFallback(href) {
+        const path = String(href || '').split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+        const bare = path.replace(/^\/t\/[^/]+/i, '') || '/';
+        return bare === '/dashboard.html' || bare === '/dashboard' || bare === '/home' || bare === '/';
+      }
+      function showLinkError(msg) {
+        let box = document.getElementById('portal-link-error');
+        if (!box) {
+          box = document.createElement('div');
+          box.id = 'portal-link-error';
+          box.setAttribute('role', 'alert');
+          box.style.cssText = 'max-width:720px;margin:12px auto 0;padding:12px 16px;border-radius:12px;background:#fef2f2;color:#9a1020;font-weight:700;text-align:center;';
+          const cards = document.querySelector('.cards');
+          if (cards && cards.parentNode) cards.parentNode.insertBefore(box, cards);
+          else document.body.prepend(box);
+        }
+        box.textContent = msg;
+      }
       document.getElementById('home-link').href = scope('/dashboard.html');
       document.getElementById('back-link').href = scope('/dashboard.html');
-      document.querySelectorAll('a.enter-btn, a.nav-btn').forEach((a) => {
-        const raw = a.getAttribute('href') || '';
-        if (raw.startsWith('/')) a.setAttribute('href', scope(raw.split('#')[0]) + (raw.includes('#') ? '#' + raw.split('#')[1] : ''));
+      // Canonical targets for portal cards (never silent-fallback to dashboard).
+      const CARD_TARGETS = {
+        events: '/finance/events-studio-main.html',
+        marketing: '/marketing-campaigns-studio.html',
+        requests: '/requests'
+      };
+      document.querySelectorAll('a.enter-btn').forEach((a) => {
+        const card = a.closest('[data-href], [data-module]');
+        const moduleKey = card && card.getAttribute('data-module');
+        const rawTarget = (a.getAttribute('data-target')
+          || (card && card.getAttribute('data-href'))
+          || a.getAttribute('href')
+          || '').trim();
+        const canonical = (moduleKey && CARD_TARGETS[moduleKey]) || rawTarget;
+        if (!canonical || !canonical.startsWith('/') || isDashboardFallback(canonical)) {
+          a.setAttribute('href', '#');
+          a.addEventListener('click', function (e) {
+            e.preventDefault();
+            showLinkError('تعذر فتح هذه البطاقة: المسار غير مُعرَّف. تواصل مع مسؤول النظام.');
+          });
+          return;
+        }
+        a.setAttribute('href', scope(canonical));
+        a.setAttribute('data-target', canonical);
       });
-      const req = document.getElementById('requests-enter');
-      if (req) {
-        req.addEventListener('click', function (e) {
-          e.preventDefault();
-          const target = scope('/dashboard.html');
-          sessionStorage.setItem('pendingRoute', 'requests');
-          window.location.href = target + (target.includes('?') ? '&' : '?') + 'route=requests';
-        });
-      }
+      document.querySelectorAll('a.nav-btn').forEach((a) => {
+        const raw = a.getAttribute('href') || '';
+        if (raw.startsWith('/')) a.setAttribute('href', scope(raw));
+      });
     })();
   </script>
 </body>

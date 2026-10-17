@@ -3916,9 +3916,9 @@ const app = (() => {
                     subItems: [
                         // Shared platforms system — link only, no duplicate implementation
                         { id: 'platforms', icon: 'fa-layer-group', label: 'منصات التعليم' },
-                        // Existing tests + evaluation pages under one approved label (no new pages/APIs)
-                        { id: 'specialized-courses', icon: 'fa-clipboard-check', label: 'الاختبارات والتقييم' },
-                        { id: 'evaluation', icon: 'fa-star', label: 'الاختبارات والتقييم' },
+                        // Client IA: الاختبارات + التقييم as distinct entries (existing routes only)
+                        { id: 'specialized-courses', icon: 'fa-clipboard-check', label: 'الاختبارات' },
+                        { id: 'evaluation', icon: 'fa-star', label: 'التقييم' },
                         { id: 'education-training-incubators', icon: 'fa-chalkboard-user', label: 'بوابة حاضنات التعليم' },
                         { id: 'eti-project-management', icon: 'fa-project-diagram', label: 'حاضنة إدارة المشاريع' },
                         { id: 'eti-hr', icon: 'fa-users-gear', label: 'حاضنة HR الموارد البشرية' }
@@ -3949,6 +3949,16 @@ const app = (() => {
                 { id: 'hierarchy', icon: 'fa-sitemap', label: 'الهيكل التنظيمي', show: isOfficeRouteAllowed('hierarchy') },
                 { id: 'saas', icon: 'fa-cubes', label: perms.isHQ() ? 'إدارة الاشتراكات' : 'اشتراكي (SaaS)', show: isOfficeRouteAllowed('saas') },
                 {
+                    id: 'services-events-center',
+                    icon: 'fa-calendar-star',
+                    label: 'مركز الخدمات والفعاليات',
+                    show: isOfficeRouteAllowed('services-events-center')
+                        || isOfficeRouteAllowed('events-studio-main')
+                        || isOfficeRouteAllowed('marketing-campaigns-studio')
+                        || isOfficeRouteAllowed('requests')
+                        || isOfficeRouteAllowed('employee-menu')
+                },
+                {
                     id: 'payment-menu',
                     icon: 'fa-credit-card',
                     label: 'نظام الدفع',
@@ -3967,16 +3977,6 @@ const app = (() => {
                         { id: 'credit-topup', icon: 'fa-coins', label: 'شحن الرصيد' },
                         { id: 'online-store', icon: 'fa-store', label: 'المتجر والسلة' }
                     ]
-                },
-                {
-                    id: 'services-events-center',
-                    icon: 'fa-calendar-star',
-                    label: 'مركز الخدمات والفعاليات',
-                    show: isOfficeRouteAllowed('services-events-center')
-                        || isOfficeRouteAllowed('events-studio-main')
-                        || isOfficeRouteAllowed('marketing-campaigns-studio')
-                        || isOfficeRouteAllowed('requests')
-                        || isOfficeRouteAllowed('employee-menu')
                 },
                 {
                     id: 'services',
