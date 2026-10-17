@@ -3066,6 +3066,7 @@ const protectedHtmlExactPaths = new Set([
   '/archive',
   '/smart-management',
   '/incubators-platforms',
+  '/services-events-center',
   '/hierarchy',
   '/saas',
   '/billing',
@@ -3104,6 +3105,9 @@ const getPageKeysForPath = (requestPath) => {
   }
   if (p === '/incubators-platforms' || p.startsWith('/incubators-platforms/')) {
     return ['branches-hub', 'incubators-hub', 'platforms', 'e-offices'];
+  }
+  if (p === '/services-events-center' || p.startsWith('/services-events-center/')) {
+    return ['events-studio-main', 'marketing-campaigns-studio', 'requests', 'employee-menu'];
   }
   if (p === '/archive' || p.startsWith('/archive/')) return ['records-archive-home'];
   if (p === '/hr' || p.startsWith('/hr/')) return ['hr'];
@@ -4549,6 +4553,22 @@ const serveIncubatorsPlatforms = (req, res, next) => {
 };
 app.get('/incubators-platforms', serveIncubatorsPlatforms);
 app.get('/incubators-platforms/', serveIncubatorsPlatforms);
+
+// Services & Events center portal (entry hub — opens original pages)
+const serveServicesEventsCenter = (req, res, next) => {
+  try {
+    const hasExt = path.extname(req.path || '') !== '';
+    if (hasExt) return next();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    sendHtmlWithNumberFormat(res, path.join(__dirname, 'services-events-center.html'), req);
+  } catch (error) {
+    res.status(500).send('Services & Events center page not available');
+  }
+};
+app.get('/services-events-center', serveServicesEventsCenter);
+app.get('/services-events-center/', serveServicesEventsCenter);
 
 // Operational policies pages
 const resolveOperationalPoliciesTarget = (reqPath) => {

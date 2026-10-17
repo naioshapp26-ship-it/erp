@@ -266,6 +266,7 @@ const ROUTE_TO_PATH = {
   marketing: '/marketing-campaigns-studio.html',
   'operational-policies': '/operational-policies',
   'governed-administrative-integration': '/governed-administrative-integration',
+  'services-events-center': '/services-events-center',
   'payment-menu': '/payment',
   'supply-chain': '/supply-chain',
   sales: '/sales',
@@ -391,7 +392,8 @@ const PAGE_LABELS = {
   'naiosh-sectors': 'قطاعات نايوش',
   'operational-policies': 'السياسات التشغيلية المعتمدة',
   'governed-administrative-integration': 'التكامل الإداري المحكوم',
-  'governed-administrative-integration': 'التكامل الإداري المحكوم',
+  'services-events-center': 'مركز الخدمات والفعاليات',
+  'settings-sidebar-nav': 'إدارة أيقونات القائمة الجانبية',
   'invoices-enhanced': 'الفواتير الذكية',
   'payment-methods': 'طرق الدفع',
   'attendance-departure': 'الحضور والانصراف',
@@ -811,6 +813,9 @@ function getPageKeysForPath(requestPath) {
   // Portal hub: Branches / Nurseries / Platforms / E-Offices
   if (normalized === '/incubators-platforms' || normalized.startsWith('/incubators-platforms/')) {
     return ['branches-hub', 'incubators-hub', 'platforms', 'e-offices'];
+  }
+  if (normalized === '/services-events-center' || normalized.startsWith('/services-events-center/')) {
+    return ['events-studio-main', 'marketing-campaigns-studio', 'requests', 'employee-menu'];
   }
   if (normalized === '/governed-administrative-integration' || normalized.startsWith('/governed-administrative-integration/')) {
     return ['governed-administrative-integration'];
