@@ -550,6 +550,170 @@ function listHrKeepAsHomeModules() {
   }));
 }
 
+function normalizeNavPath(pathname) {
+  let path = String(pathname || '').split('?')[0];
+  const tenant = path.match(/^\/t\/[a-z0-9][a-z0-9-]*(\/.*)?$/i);
+  if (tenant) path = path.replace(/^\/t\/[a-z0-9][a-z0-9-]*/i, '') || '/';
+  if (path.length > 1) path = path.replace(/\/+$/, '');
+  return path || '/';
+}
+
+function pathInList(pathname, list) {
+  const path = normalizeNavPath(pathname);
+  return (list || []).some((item) => normalizeNavPath(item.href) === path);
+}
+
+/**
+ * Server-trusted navigation context only (not a permission grant).
+ * @returns {'hr'|'archive'|'gai-docs'|'gai-hr'|'gai-finance'|'finance-keep'|'finance'|'archive-hub'|'gai-hub'|null}
+ */
+function resolveNavigationContext(pathname) {
+  const path = normalizeNavPath(pathname);
+  if (pathInList(path, ARCHIVE_KEEP)) return 'archive';
+  if (pathInList(path, DOCUMENT_GOVERNANCE_CARDS)) return 'gai-docs';
+  if (pathInList(path, HR_MOVED)) return 'gai-hr';
+  if (pathInList(path, FINANCE_MOVED)) return 'gai-finance';
+  if (pathInList(path, FINANCE_KEEP)) return 'finance-keep';
+  if (pathInList(path, HR_KEEP)) return 'hr';
+  if (path === '/hr' || path.startsWith('/hr/')) return 'hr';
+  if (path === '/finance' || path.startsWith('/finance/')) return 'finance';
+  if (path === '/archive' || path.startsWith('/archive/')) return 'archive-hub';
+  if (path === '/governed-administrative-integration'
+    || path.startsWith('/governed-administrative-integration/')) {
+    return 'gai-hub';
+  }
+  return null;
+}
+
+function buildContextNav(context) {
+  const backGai = {
+    key: 'gai-home',
+    href: '/governed-administrative-integration',
+    icon: 'fa-diagram-project',
+    label: 'التكامل الإداري المحكوم'
+  };
+  const backHome = { key: 'home-root', href: '/', icon: 'fa-house', label: 'العودة للرئيسية' };
+  const backArchive = {
+    key: 'archive-hub',
+    href: '/archive',
+    icon: 'fa-box-archive',
+    label: 'السجلات والأرشفة'
+  };
+  const backFinance = { key: 'finance-hub', href: '/finance', icon: 'fa-coins', label: 'المالية' };
+  const backHr = { key: 'hr-hub', href: '/hr', icon: 'fa-people-group', label: 'الموارد البشرية' };
+
+  if (context === 'archive' || context === 'archive-hub') {
+    return {
+      brandTitle: 'السجلات والأرشفة',
+      brandSubtitle: 'نظام الأرشفة',
+      links: [
+        backArchive,
+        ...ARCHIVE_KEEP.map((item, idx) => ({
+          key: `archive-${idx}`,
+          href: item.href,
+          icon: item.icon,
+          label: item.label
+        })),
+        backHome
+      ],
+      topbarMode: 'archive'
+    };
+  }
+  if (context === 'gai-docs') {
+    return {
+      brandTitle: 'حوكمة الوثائق',
+      brandSubtitle: 'التكامل الإداري المحكوم',
+      links: [
+        backGai,
+        ...DOCUMENT_GOVERNANCE_CARDS.map((item, idx) => ({
+          key: `docs-${idx}`,
+          href: item.href,
+          icon: item.icon,
+          label: item.label
+        })),
+        backArchive,
+        backHome
+      ],
+      topbarMode: 'gai'
+    };
+  }
+  if (context === 'gai-hr') {
+    return {
+      brandTitle: 'حوكمة الموارد البشرية',
+      brandSubtitle: 'التكامل الإداري المحكوم',
+      links: [
+        backGai,
+        ...HR_MOVED.map((item, idx) => ({
+          key: `hrg-${idx}`,
+          href: item.href,
+          icon: item.icon,
+          label: item.label
+        })),
+        backHr,
+        backHome
+      ],
+      topbarMode: 'gai'
+    };
+  }
+  if (context === 'gai-finance') {
+    return {
+      brandTitle: 'الحوكمة المالية والرقابة',
+      brandSubtitle: 'التكامل الإداري المحكوم',
+      links: [
+        backGai,
+        ...FINANCE_MOVED.map((item, idx) => ({
+          key: `fing-${idx}`,
+          href: item.href,
+          icon: item.icon,
+          label: item.label
+        })),
+        backFinance,
+        backHome
+      ],
+      topbarMode: 'gai'
+    };
+  }
+  if (context === 'finance-keep') {
+    return {
+      brandTitle: 'المالية',
+      brandSubtitle: 'القائمة الرئيسية',
+      links: [
+        backFinance,
+        ...FINANCE_KEEP.map((item, idx) => ({
+          key: `fkeep-${idx}`,
+          href: item.href,
+          icon: item.icon,
+          label: item.label
+        })),
+        backHome
+      ],
+      topbarMode: 'finance'
+    };
+  }
+  if (context === 'hr') {
+    return {
+      brandTitle: 'نايوش HCM',
+      brandSubtitle: 'نظام الموارد البشرية',
+      links: null,
+      topbarMode: 'hr'
+    };
+  }
+  return null;
+}
+
+function getNavigationPayload(pathname) {
+  const context = resolveNavigationContext(pathname);
+  const built = buildContextNav(context);
+  return {
+    context,
+    brandTitle: built?.brandTitle || 'نايوش',
+    brandSubtitle: built?.brandSubtitle || '',
+    links: built?.links || null,
+    topbarMode: built?.topbarMode || 'hr',
+    usesHrDefaultNav: context === 'hr' || !built || built.links == null
+  };
+}
+
 module.exports = {
   FINANCE_KEEP,
   FINANCE_MOVED,
@@ -558,5 +722,9 @@ module.exports = {
   ARCHIVE_KEEP,
   DOCUMENT_GOVERNANCE_CARDS,
   renderHubAnchor,
-  listHrKeepAsHomeModules
+  listHrKeepAsHomeModules,
+  normalizeNavPath,
+  resolveNavigationContext,
+  buildContextNav,
+  getNavigationPayload
 };

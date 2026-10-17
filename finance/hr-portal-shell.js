@@ -40,12 +40,35 @@
 
   function isHrRoute() {
     const path = String(window.location.pathname || '');
-    return path === '/hr' || path.startsWith('/hr/');
+    return path === '/hr' || path.startsWith('/hr/') || (path.startsWith('/t/') && /\/hr(\/|$)/.test(path));
   }
 
   function normalizePath(path) {
-    if (!path || path === '/') return '/hr';
-    return path.replace(/\/$/, '') || '/hr';
+    let clean = String(path || '');
+    const tenant = clean.match(/^\/t\/[a-z0-9][a-z0-9-]*(\/.*)?$/i);
+    if (tenant) clean = clean.replace(/^\/t\/[a-z0-9][a-z0-9-]*/i, '') || '/';
+    if (!clean || clean === '/') return '/hr';
+    return clean.replace(/\/$/, '') || '/hr';
+  }
+
+  function getNavPayload() {
+    const payload = window.__NAIOSH_NAV_PAYLOAD__;
+    if (payload && typeof payload === 'object') return payload;
+    return {
+      context: 'hr',
+      brandTitle: 'نايوش HCM',
+      brandSubtitle: 'نظام الموارد البشرية',
+      links: null,
+      topbarMode: 'hr',
+      usesHrDefaultNav: true
+    };
+  }
+
+  function shouldActivateShell() {
+    if (document.body.classList.contains('hr-shell-active')) return true;
+    const payload = getNavPayload();
+    if (payload.context && payload.context !== 'finance') return true;
+    return isHrRoute();
   }
 
   function escapeHtml(value) {
@@ -114,19 +137,14 @@
 
   function renderSidebar(badges) {
     const currentPath = normalizePath(window.location.pathname || '');
-    const links = NAV.map((item) => renderNavLink(item, badges, currentPath)).join('');
-    return `
-      <div class="hr-sidebar-brand">
-        <div class="logo-row">
-          <div class="logo-icon"><i class="fas fa-gem"></i></div>
-          <div>
-            <h2>نايوش HCM</h2>
-            <p>نظام الموارد البشرية</p>
-          </div>
-        </div>
-      </div>
-      <nav class="hr-nav-section">${links}</nav>
-      <div class="hr-sidebar-footer">
+    const payload = getNavPayload();
+    const navItems = payload.usesHrDefaultNav || !Array.isArray(payload.links) ? NAV : payload.links;
+    const links = navItems.map((item) => renderNavLink(item, badges, currentPath)).join('');
+    const brandTitle = payload.brandTitle || 'نايوش HCM';
+    const brandSubtitle = payload.brandSubtitle || 'نظام الموارد البشرية';
+    const showHrRequestFooter = payload.usesHrDefaultNav || payload.topbarMode === 'hr';
+    const footer = showHrRequestFooter
+      ? `
         <a href="/hr/my-requests" class="hr-nav-link">
           <span class="hr-nav-main">
             <span class="hr-nav-icon"><i class="fas fa-paper-plane"></i></span>
@@ -138,8 +156,32 @@
             <span class="hr-nav-icon"><i class="fas fa-arrow-right-from-bracket"></i></span>
             <span class="hr-nav-title">العودة للرئيسية</span>
           </span>
+        </a>`
+      : `
+        <a href="/governed-administrative-integration" class="hr-nav-link">
+          <span class="hr-nav-main">
+            <span class="hr-nav-icon"><i class="fas fa-diagram-project"></i></span>
+            <span class="hr-nav-title">التكامل الإداري المحكوم</span>
+          </span>
         </a>
-      </div>`;
+        <a href="/" class="hr-nav-link hr-nav-muted">
+          <span class="hr-nav-main">
+            <span class="hr-nav-icon"><i class="fas fa-arrow-right-from-bracket"></i></span>
+            <span class="hr-nav-title">العودة للرئيسية</span>
+          </span>
+        </a>`;
+    return `
+      <div class="hr-sidebar-brand" data-nav-context="${escapeHtml(payload.context || 'hr')}">
+        <div class="logo-row">
+          <div class="logo-icon"><i class="fas fa-gem"></i></div>
+          <div>
+            <h2>${escapeHtml(brandTitle)}</h2>
+            <p>${escapeHtml(brandSubtitle)}</p>
+          </div>
+        </div>
+      </div>
+      <nav class="hr-nav-section" data-nav-context="${escapeHtml(payload.context || 'hr')}">${links}</nav>
+      <div class="hr-sidebar-footer">${footer}</div>`;
   }
 
   async function loadSettingRecords(key) {
@@ -189,14 +231,20 @@
   }
 
   function ensureTopBar(badges) {
-    if (document.getElementById('hr-topbar')) return;
+    const existing = document.getElementById('hr-topbar');
+    if (existing) existing.remove();
     const current = normalizePath(window.location.pathname || '');
     if (current === '/hr') return;
+    const payload = getNavPayload();
+    const mode = payload.topbarMode || 'hr';
 
     const topbar = document.createElement('div');
     topbar.id = 'hr-topbar';
     topbar.className = 'hr-topbar';
-    topbar.innerHTML = `
+    topbar.setAttribute('data-nav-context', payload.context || 'hr');
+
+    if (mode === 'hr') {
+      topbar.innerHTML = `
       <div class="hr-topbar-inner">
         <div class="hr-topbar-start">
           <a href="/hr" class="hr-topbar-btn"><i class="fas fa-house"></i><span>الرئيسية</span></a>
@@ -212,6 +260,47 @@
           <a href="/hr/manager" class="hr-topbar-btn"><i class="fas fa-user-tie"></i><span>لوحة المدير</span></a>
         </div>
       </div>`;
+    } else if (mode === 'archive') {
+      topbar.innerHTML = `
+      <div class="hr-topbar-inner">
+        <div class="hr-topbar-start">
+          <a href="/archive" class="hr-topbar-btn"><i class="fas fa-box-archive"></i><span>الأرشفة</span></a>
+          <a href="/" class="hr-topbar-btn"><i class="fas fa-house"></i><span>الرئيسية</span></a>
+        </div>
+        <div class="hr-topbar-note"><i class="fas fa-folder-open"></i> سياق السجلات والأرشفة</div>
+        <div class="hr-topbar-actions">
+          <a href="/hr/e-archive" class="hr-topbar-btn hr-topbar-primary"><i class="fas fa-archive"></i><span>الأرشفة الإلكترونية</span></a>
+          <a href="/hr/inbound-outbound-mail" class="hr-topbar-btn"><i class="fas fa-envelope-open-text"></i><span>الصادر والوارد</span></a>
+        </div>
+      </div>`;
+    } else if (mode === 'finance') {
+      topbar.innerHTML = `
+      <div class="hr-topbar-inner">
+        <div class="hr-topbar-start">
+          <a href="/finance" class="hr-topbar-btn"><i class="fas fa-coins"></i><span>المالية</span></a>
+          <a href="/" class="hr-topbar-btn"><i class="fas fa-house"></i><span>الرئيسية</span></a>
+        </div>
+        <div class="hr-topbar-note"><i class="fas fa-scale-balanced"></i> سياق المالية</div>
+        <div class="hr-topbar-actions">
+          <a href="/governed-administrative-integration" class="hr-topbar-btn"><i class="fas fa-diagram-project"></i><span>التكامل الإداري</span></a>
+        </div>
+      </div>`;
+    } else {
+      topbar.innerHTML = `
+      <div class="hr-topbar-inner">
+        <div class="hr-topbar-start">
+          <a href="/governed-administrative-integration" class="hr-topbar-btn hr-topbar-primary"><i class="fas fa-diagram-project"></i><span>التكامل الإداري المحكوم</span></a>
+          <a href="/" class="hr-topbar-btn"><i class="fas fa-house"></i><span>الرئيسية</span></a>
+        </div>
+        <div class="hr-topbar-note"><i class="fas fa-shield-halved"></i> سياق الحوكمة والتنقل فقط — الصلاحيات كما هي</div>
+        <div class="hr-topbar-actions">
+          <a href="/archive" class="hr-topbar-btn"><i class="fas fa-box-archive"></i><span>الأرشفة</span></a>
+          <a href="/finance" class="hr-topbar-btn"><i class="fas fa-coins"></i><span>المالية</span></a>
+          <a href="/hr" class="hr-topbar-btn"><i class="fas fa-people-group"></i><span>الموارد البشرية</span></a>
+        </div>
+      </div>`;
+    }
+
     document.body.appendChild(topbar);
     document.getElementById('hr-open-search')?.addEventListener('click', openModuleSearch);
     document.body.classList.add('hr-has-topbar');
@@ -308,12 +397,16 @@
   }
 
   async function initShell() {
-    if (!isHrRoute() && !document.body.classList.contains('hr-shell-active')) return;
+    if (!shouldActivateShell()) return;
     ensureAssets();
     const sidebar = ensureLayout();
     if (!sidebar) return;
+    const payload = getNavPayload();
+    document.body.setAttribute('data-nav-context', payload.context || 'hr');
 
-    const dash = await fetchDashboard();
+    const dash = payload.usesHrDefaultNav
+      ? await fetchDashboard()
+      : { pending: { count: 0 }, new_hires_pending: 0 };
     const badges = {
       pending: dash.pending?.count || 0,
       newHires: dash.new_hires_pending || 0
@@ -322,11 +415,12 @@
     updateMobileBadge(badges);
     wrapMainContent(sidebar);
     ensureTopBar(badges);
-    ensureSearchModal();
+    if (payload.usesHrDefaultNav) ensureSearchModal();
 
     window.HRPortalShell = {
       STAGE_LABELS,
       NAV,
+      navPayload: payload,
       headers: apiHeaders,
       loadSettingRecords,
       recordLabel,
@@ -338,7 +432,9 @@
         return (homeModulesCache || []).find((item) => item.href === clean) || null;
       },
       refreshBadges: async () => {
-        const d = await fetchDashboard();
+        const d = payload.usesHrDefaultNav
+          ? await fetchDashboard()
+          : { pending: { count: 0 }, new_hires_pending: 0 };
         const next = { pending: d.pending?.count || 0, newHires: d.new_hires_pending || 0 };
         sidebar.innerHTML = renderSidebar(next);
         updateMobileBadge(next);
@@ -346,8 +442,10 @@
         return next;
       }
     };
-    await loadHomeModules();
-    setInterval(() => window.HRPortalShell.refreshBadges(), 20000);
+    if (payload.usesHrDefaultNav) await loadHomeModules();
+    if (payload.usesHrDefaultNav) {
+      setInterval(() => window.HRPortalShell.refreshBadges(), 20000);
+    }
   }
 
   if (document.readyState === 'loading') {
