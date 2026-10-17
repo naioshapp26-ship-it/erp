@@ -6,7 +6,8 @@ const http = require('http');
 const {
   ARCHIVE_DOCUMENT_GOVERNANCE_PAGES,
   getPageKeysForPath,
-  getPagesForSystem
+  getPagesForSystem,
+  getRuntimeRouteParents
 } = require('./page-permissions-registry');
 
 const BASE = process.env.GAI_BASE || 'http://127.0.0.1:3010';
@@ -57,22 +58,23 @@ async function main() {
   ok('governance-pages-count', ARCHIVE_DOCUMENT_GOVERNANCE_PAGES.length === 14,
     `count=${ARCHIVE_DOCUMENT_GOVERNANCE_PAGES.length}`);
 
-  const renderIdx = script.indexOf('const renderGovernedAdministrativeIntegration');
-  const renderSlice = renderIdx >= 0 ? script.slice(renderIdx, renderIdx + 4500) : '';
-  ok('gai-docs-section', renderSlice.includes('حوكمة الوثائق والإجراءات') && renderSlice.includes('fa-folder-gear'));
-  ok('gai-finance-placeholder', renderSlice.includes('الحوكمة المالية والإجراءات')
-    && renderSlice.includes('سيتم تحديد صفحات هذا القسم لاحقًا'));
-  ok('gai-hr-placeholder', renderSlice.includes('حوكمة الموارد البشرية'));
-  ok('gai-no-fake-finance-cards', !/gai-finance-governance[\s\S]{0,800}href=.*\/finance\//.test(renderSlice));
+  const gaiBlockStart = script.indexOf('const GAI_DOCUMENT_GOVERNANCE_CARDS');
+  const gaiBlock = gaiBlockStart >= 0 ? script.slice(gaiBlockStart, gaiBlockStart + 6500) : '';
+  ok('gai-docs-section', gaiBlock.includes('حوكمة الوثائق والإجراءات') && gaiBlock.includes('fa-folder-gear'));
+  ok('gai-finance-placeholder', gaiBlock.includes('الحوكمة المالية والإجراءات')
+    && gaiBlock.includes('سيتم تحديد صفحات هذا القسم لاحقًا'));
+  ok('gai-hr-placeholder', gaiBlock.includes('حوكمة الموارد البشرية'));
+  ok('gai-no-fake-finance-cards', !/gai-finance-governance[\s\S]{0,800}href=.*\/finance\//.test(gaiBlock));
   ok('gai-cards-const', script.includes('GAI_DOCUMENT_GOVERNANCE_CARDS'));
 
+  const parents = getRuntimeRouteParents();
   for (const page of ARCHIVE_DOCUMENT_GOVERNANCE_PAGES) {
     ok(`gai-card-${page.href}`, script.includes(`href: '${page.href}'`) && script.includes(page.label),
       page.label);
     const keys = getPageKeysForPath(page.href) || [];
-    ok(`rbac-key-${page.href}`, keys.includes('records-archive-home')
-      && keys.some((k) => k.startsWith('archive-')),
-    JSON.stringify(keys));
+    const archiveKey = keys.find((k) => k.startsWith('archive-'));
+    ok(`rbac-key-${page.href}`, Boolean(archiveKey) && parents[archiveKey] === 'records-archive-home',
+      JSON.stringify({ keys, parent: archiveKey ? parents[archiveKey] : null }));
   }
 
   const systemPages = getPagesForSystem('records-archive-home');
