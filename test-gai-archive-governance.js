@@ -58,9 +58,8 @@ async function main() {
   ok('governance-pages-count', ARCHIVE_DOCUMENT_GOVERNANCE_PAGES.length === 14,
     `count=${ARCHIVE_DOCUMENT_GOVERNANCE_PAGES.length}`);
 
-  ok('gai-docs-section', script.includes('حوكمة الوثائق والإجراءات') && script.includes('fa-folder-gear'));
-  ok('gai-finance-section', script.includes('الحوكمة المالية والرقابة')
-    || script.includes('الحوكمة المالية والإجراءات'));
+  ok('gai-docs-section', script.includes('حوكمة الأرشفة الإلكترونية') && script.includes('fa-folder-gear'));
+  ok('gai-finance-section', script.includes('حوكمة الإدارة المالية'));
   ok('gai-hr-section', script.includes('حوكمة الموارد البشرية'));
   ok('gai-cards-const', script.includes('GAI_DOCUMENT_GOVERNANCE_CARDS'));
   ok('gai-finance-cards-const', script.includes('GAI_FINANCE_GOVERNANCE_CARDS'));

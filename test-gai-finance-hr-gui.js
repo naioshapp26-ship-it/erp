@@ -125,8 +125,8 @@ async function main() {
       const fin = document.getElementById('gai-finance-governance');
       const hrSec = document.getElementById('gai-hr-governance');
       return {
-        hasDocs: !!docs && (docs.innerText || '').includes('حوكمة الوثائق'),
-        hasFin: !!fin && (fin.innerText || '').includes('الحوكمة المالية'),
+        hasDocs: !!docs && (docs.innerText || '').includes('حوكمة الأرشفة الإلكترونية'),
+        hasFin: !!fin && (fin.innerText || '').includes('حوكمة الإدارة المالية'),
         hasHr: !!hrSec && (hrSec.innerText || '').includes('حوكمة الموارد البشرية'),
         docsCount: docs ? docs.querySelectorAll('a[href]').length : 0,
         finCount: fin ? fin.querySelectorAll('a[href]').length : 0,

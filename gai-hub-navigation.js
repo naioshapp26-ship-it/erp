@@ -621,7 +621,7 @@ function buildContextNav(context) {
   }
   if (context === 'gai-docs') {
     return {
-      brandTitle: 'حوكمة الوثائق',
+      brandTitle: 'حوكمة الأرشفة الإلكترونية',
       brandSubtitle: 'التكامل الإداري المحكوم',
       links: [
         backGai,
@@ -657,7 +657,7 @@ function buildContextNav(context) {
   }
   if (context === 'gai-finance') {
     return {
-      brandTitle: 'الحوكمة المالية والرقابة',
+      brandTitle: 'حوكمة الإدارة المالية',
       brandSubtitle: 'التكامل الإداري المحكوم',
       links: [
         backGai,
