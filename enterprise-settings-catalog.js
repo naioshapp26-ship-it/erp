@@ -10,7 +10,17 @@
  *   mock      → UI shell / toast-only (must not pretend success)
  *
  * level: platform | company | module
+ *
+ * UX grouping (user-friendly hub sections) lives in enterprise-settings-ux.js
+ * and is attached by getCatalog() — catalog ids/hrefs remain the source of truth.
  */
+
+const {
+  UX_SECTIONS,
+  decorateEntry,
+  getUxBundle,
+  assertMappingCovers
+} = require('./enterprise-settings-ux');
 
 function entry(partial) {
   return {
@@ -621,12 +631,18 @@ const MODULE_ENTRIES = [
 const ALL_ENTRIES = [...PLATFORM_ENTRIES, ...COMPANY_ENTRIES, ...MODULE_ENTRIES];
 
 function getCatalog({ includeMock = true } = {}) {
-  const entries = includeMock ? ALL_ENTRIES : ALL_ENTRIES.filter((e) => e.status !== 'mock');
+  const rawEntries = includeMock ? ALL_ENTRIES : ALL_ENTRIES.filter((e) => e.status !== 'mock');
+  const mappingCheck = assertMappingCovers(rawEntries.map((e) => e.id));
+  const entries = rawEntries.map(decorateEntry);
   const byLevel = {
     platform: entries.filter((e) => e.level === 'platform'),
     company: entries.filter((e) => e.level === 'company'),
     module: entries.filter((e) => e.level === 'module')
   };
+  const byUxSection = {};
+  for (const section of UX_SECTIONS) {
+    byUxSection[section.id] = entries.filter((e) => e.uxSectionId === section.id);
+  }
   const counts = {
     total: entries.length,
     live: entries.filter((e) => e.status === 'live').length,
@@ -642,8 +658,11 @@ function getCatalog({ includeMock = true } = {}) {
       { id: 'company', titleAr: 'إعدادات الشركة', titleEn: 'Company Settings' },
       { id: 'module', titleAr: 'إعدادات الوحدات', titleEn: 'Module Settings' }
     ],
+    ux: getUxBundle(),
+    uxMappingOk: mappingCheck.ok,
     counts,
     byLevel,
+    byUxSection,
     entries
   };
 }
@@ -674,5 +693,6 @@ module.exports = {
   ALL_ENTRIES,
   PLATFORM_ENTRIES,
   COMPANY_ENTRIES,
-  MODULE_ENTRIES
+  MODULE_ENTRIES,
+  UX_SECTIONS
 };
