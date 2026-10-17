@@ -25269,9 +25269,78 @@ const app = (() => {
         `;
     };
 
+    const GAI_DOCUMENT_GOVERNANCE_CARDS = [
+        { href: '/hr/ocr-suite', label: 'حزمة OCR للتعرف على النصوص', icon: 'fa-file-lines' },
+        { href: '/hr/scanner-integration', label: 'تكامل مع الماسح الضوئي', icon: 'fa-scanner-gun' },
+        { href: '/hr/attachment-merge', label: 'دمج المرفقات عند التحميل', icon: 'fa-paperclip' },
+        { href: '/hr/smartsheet-bundle', label: 'حزمة سمارت شيت', icon: 'fa-table' },
+        { href: '/hr/workflow-engine', label: 'محرك سير العمل', icon: 'fa-diagram-project' },
+        { href: '/hr/reporting-suite', label: 'حزمة بناء التقارير', icon: 'fa-chart-bar' },
+        { href: '/hr/tasks-management', label: 'إدارة مهام الأرشفة', icon: 'fa-list-check' },
+        { href: '/hr/no-code-builder', label: 'بناء نماذج الأرشفة بدون برمجة', icon: 'fa-puzzle-piece' },
+        { href: '/hr/bulk-messaging', label: 'نظام الرسائل الجماعية', icon: 'fa-comments' },
+        { href: '/hr/cybersecurity', label: 'الأمن السيبراني وحماية السجلات', icon: 'fa-shield-halved' },
+        { href: '/hr/api-library', label: 'مكتبة الربط API', icon: 'fa-code' },
+        { href: '/hr/quality-scoring', label: 'محرك تقييم جودة الوثائق', icon: 'fa-star-half-stroke' },
+        { href: '/hr/notifications-center', label: 'نظام التنبيهات والإشعارات', icon: 'fa-bell' },
+        { href: '/hr/text-chat', label: 'نظام الدردشة الكتابية', icon: 'fa-comment-dots' }
+    ];
+
+    const renderGaiHubCard = (card) => `
+        <a href="${resolveTenantAwarePath(card.href)}" class="w-full bg-white text-gray-800 px-6 py-4 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-4 border border-gray-200 hover:border-red-500 group">
+            <i class="fas ${card.icon} text-xl w-8 text-center text-red-600 group-hover:text-red-700 transition"></i>
+            <span class="flex-1 text-right">${card.label}</span>
+            <i class="fas fa-chevron-left text-gray-300"></i>
+        </a>`;
+
+    const renderGaiSectionShell = ({ id, title, icon, description, cards = [], ready }) => `
+        <section id="${id}" class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" aria-labelledby="${id}-title">
+            <div class="px-5 py-4 border-b border-slate-100 bg-gradient-to-l from-slate-50 to-white flex items-start gap-3">
+                <div class="w-11 h-11 rounded-xl bg-red-50 text-red-700 flex items-center justify-center shrink-0">
+                    <i class="fas ${icon} text-lg"></i>
+                </div>
+                <div class="text-right flex-1 min-w-0">
+                    <h3 id="${id}-title" class="text-xl font-extrabold text-slate-800">${title}</h3>
+                    <p class="text-sm text-slate-500 mt-1 leading-relaxed">${description}</p>
+                </div>
+            </div>
+            <div class="p-5">
+                ${ready && cards.length
+                    ? `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">${cards.map(renderGaiHubCard).join('')}</div>`
+                    : `<div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-500">سيتم تحديد صفحات هذا القسم لاحقًا.</div>`}
+            </div>
+        </section>`;
+
     const renderGovernedAdministrativeIntegration = () => `
-        <div class="animate-fade-in min-h-[70vh]" dir="rtl">
-            <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">التكامل الإداري المحكوم</h2>
+        <div class="animate-fade-in min-h-[70vh] space-y-8" dir="rtl">
+            <div>
+                <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">التكامل الإداري المحكوم</h2>
+                <p class="text-slate-500 mt-2 max-w-3xl leading-relaxed">بوابة حوكمة الإجراءات والوثائق عبر مجموعات مستقلة قابلة للتوسع.</p>
+            </div>
+            ${renderGaiSectionShell({
+                id: 'gai-docs-governance',
+                title: 'حوكمة الوثائق والإجراءات',
+                icon: 'fa-folder-gear',
+                description: 'مداخل أدوات الأرشفة والحوكمة الوثائقية المنقولة من صفحة السجلات والأرشفة.',
+                cards: GAI_DOCUMENT_GOVERNANCE_CARDS,
+                ready: true
+            })}
+            ${renderGaiSectionShell({
+                id: 'gai-finance-governance',
+                title: 'الحوكمة المالية والإجراءات',
+                icon: 'fa-scale-balanced',
+                description: 'مكان تنظيمي مخصص — لم تُنقل أي صفحات مالية في هذه المرحلة.',
+                cards: [],
+                ready: false
+            })}
+            ${renderGaiSectionShell({
+                id: 'gai-hr-governance',
+                title: 'حوكمة الموارد البشرية',
+                icon: 'fa-user-shield',
+                description: 'مكان تنظيمي مخصص — لم تُنقل أي صفحات موارد بشرية في هذه المرحلة.',
+                cards: [],
+                ready: false
+            })}
         </div>`;
 
     const renderPlaceholder = (msg = 'لا تملك صلاحية الوصول') => `
