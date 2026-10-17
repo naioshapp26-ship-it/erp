@@ -503,9 +503,10 @@ async function main() {
         email: staff.email,
         name: staff.name,
         role: 'موظف',
-        tenant_type: staff.tenant_type || 'STAFF',
-        entity_id: staff.entity_id || 'HQ001',
-        entity_name: staff.entity_name || 'NAIOSH',
+        // Non-HQ so allowed_pages gate applies (HQ bypasses office page ACL)
+        tenant_type: 'TENANT',
+        entity_id: staff.entity_id || 'T001',
+        entity_name: staff.entity_name || 'Tenant Co',
         allowed_pages: ['dashboard', 'tasks-management', 'my-tasks', 'services']
       };
       await injectSession(page, staffTokenGui, staffUser);
