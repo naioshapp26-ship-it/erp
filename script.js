@@ -18690,8 +18690,12 @@ const app = (() => {
             });
             if (!res.ok) return null;
             const data = await res.json();
-            const value = data?.value || data?.data?.value || data?.data || null;
-            if (value && typeof value === 'object') {
+            // Settings Engine returns { data: { effective, value: row, definition } }
+            const value = data?.data?.effective
+                || (data?.data?.value && typeof data.data.value.value !== 'undefined' ? data.data.value.value : null)
+                || data?.value
+                || null;
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
                 window.__NAIOSH_SIDEBAR_CUSTOMIZATION__ = value;
                 return value;
             }

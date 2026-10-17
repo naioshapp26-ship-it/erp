@@ -22,6 +22,37 @@ const { getCatalog, getSeedDefinitions } = require('./enterprise-settings-catalo
 
 const router = express.Router();
 
+const SIDEBAR_NAV_DEFINITION = {
+  key: 'company.sidebar.navigation',
+  scope: 'tenant',
+  module_key: 'navigation',
+  data_type: 'json',
+  default_value: {
+    orderIds: [
+      'dashboard',
+      'strategic-management',
+      'smart-management',
+      'governed-administrative-integration',
+      'incubators-platforms',
+      'education-training-incubators',
+      'naiosh-sectors',
+      'super-admin',
+      'operational-policies',
+      'hierarchy',
+      'saas',
+      'payment-menu',
+      'services-events-center',
+      'services',
+      'tasks-management',
+      'settings',
+      'settings-admin'
+    ],
+    hiddenIds: []
+  },
+  label_ar: 'ترتيب وإظهار القائمة الجانبية',
+  label_en: 'Sidebar navigation order & visibility'
+};
+
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 180,
@@ -40,6 +71,26 @@ async function ensureSchema() {
     const sqlPath = path.join(__dirname, 'create-enterprise-settings-engine.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
     await db.query(sql);
+    // Ensure sidebar customization key exists without depending on company-settings boot path.
+    await db.query(
+      `INSERT INTO setting_definitions
+         (key, scope, module_key, data_type, default_value, label_ar, label_en, is_sensitive, is_active)
+       VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,false,true)
+       ON CONFLICT (key) DO UPDATE SET
+         default_value = EXCLUDED.default_value,
+         label_ar = EXCLUDED.label_ar,
+         label_en = EXCLUDED.label_en,
+         updated_at = NOW()`,
+      [
+        SIDEBAR_NAV_DEFINITION.key,
+        SIDEBAR_NAV_DEFINITION.scope,
+        SIDEBAR_NAV_DEFINITION.module_key,
+        SIDEBAR_NAV_DEFINITION.data_type,
+        JSON.stringify(SIDEBAR_NAV_DEFINITION.default_value),
+        SIDEBAR_NAV_DEFINITION.label_ar,
+        SIDEBAR_NAV_DEFINITION.label_en
+      ]
+    );
     schemaReady = true;
   })().catch((err) => {
     schemaPromise = null;
