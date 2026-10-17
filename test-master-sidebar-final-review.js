@@ -78,19 +78,20 @@ async function userByEmail(email) {
 
 async function injectSession(page, token, user, { pinAcl = false } = {}) {
   if (pinAcl) {
-    await page.setRequestInterception(true).catch(() => null);
-    page.removeAllListeners('request');
-    page.on('request', (req) => {
-      const url = req.url();
-      if (url.includes('/api/auth/verify') || url.includes('/api/tenant-auth/verify')) {
-        return req.respond({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ success: true, user, data: { user } })
-        });
-      }
-      return req.continue();
-    });
+    // Stub verify before any app script runs (survives reload/navigation on this page).
+    await page.evaluateOnNewDocument((u) => {
+      const origFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const url = String(input && input.url ? input.url : input);
+        if (url.includes('/api/auth/verify') || url.includes('/api/tenant-auth/verify')) {
+          return Promise.resolve(new Response(
+            JSON.stringify({ success: true, user: u, data: { user: u } }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          ));
+        }
+        return origFetch(input, init);
+      };
+    }, user);
   }
   await page.goto(`${BASE}/dashboard.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.evaluate((t, u) => {
@@ -100,9 +101,9 @@ async function injectSession(page, token, user, { pinAcl = false } = {}) {
     sessionStorage.setItem('user', JSON.stringify(u));
     document.cookie = `authToken=${encodeURIComponent(t)}; path=/`;
   }, token, user);
-  await page.reload({ waitUntil: 'networkidle2', timeout: 60000 });
+  await page.reload({ waitUntil: pinAcl ? 'domcontentloaded' : 'networkidle2', timeout: 60000 });
   await page.waitForSelector('#nav-menu', { timeout: 30000 }).catch(() => null);
-  await new Promise((r) => setTimeout(r, 2000));
+  await new Promise((r) => setTimeout(r, pinAcl ? 3500 : 2000));
 }
 
 async function sidebarTopItems(page) {
