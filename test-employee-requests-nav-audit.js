@@ -200,10 +200,9 @@ async function main() {
       path: location.pathname,
       title: document.getElementById('page-title')?.innerText || '',
       body: document.body.innerText.slice(0, 1200),
-      hasRequestTypes: /طلب تعريف بالراتب|طلب إجازة|طلب سلفة|هذه المكونات الرئيسية لطلبات/.test(document.body.innerText),
-      isDashboardHome: /لوحة التحكم الرئيسية|مرحباً بك في نظام|إحصائيات عامة/.test(document.body.innerText)
-        && !/هذه المكونات الرئيسية لطلبات/.test(document.body.innerText)
-        && location.pathname.replace(/\/+$/, '').endsWith('dashboard.html')
+      mainView: (document.getElementById('main-view')?.innerText || '').slice(0, 600),
+      hasRequestTypes: /طلب تعريف بالراتب/.test(document.getElementById('main-view')?.innerText || '')
+        && /هذه المكونات الرئيسية لطلبات/.test(document.getElementById('main-view')?.innerText || '')
     }));
     await page.screenshot({ path: path.join(SHOTS, '03-employee-requests-page.png'), fullPage: true });
     record('portal', 'requests-not-dashboard',
@@ -211,7 +210,7 @@ async function main() {
       after.href);
     record('portal', 'requests-content-loaded',
       after.hasRequestTypes ? 'PASS' : 'FAIL',
-      `title=${after.title} snippet=${after.body.slice(0, 180)}`);
+      `path=${after.path} main=${(after.mainView || '').slice(0, 200)}`);
 
     // Other portal cards — real navigation + content
     const portalCards = [
