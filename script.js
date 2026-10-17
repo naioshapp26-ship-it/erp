@@ -25270,20 +25270,492 @@ const app = (() => {
     };
 
     const GAI_DOCUMENT_GOVERNANCE_CARDS = [
-        { href: '/hr/ocr-suite', label: 'حزمة OCR للتعرف على النصوص', icon: 'fa-file-lines' },
-        { href: '/hr/scanner-integration', label: 'تكامل مع الماسح الضوئي', icon: 'fa-scanner-gun' },
-        { href: '/hr/attachment-merge', label: 'دمج المرفقات عند التحميل', icon: 'fa-paperclip' },
-        { href: '/hr/smartsheet-bundle', label: 'حزمة سمارت شيت', icon: 'fa-table' },
-        { href: '/hr/workflow-engine', label: 'محرك سير العمل', icon: 'fa-diagram-project' },
-        { href: '/hr/reporting-suite', label: 'حزمة بناء التقارير', icon: 'fa-chart-bar' },
-        { href: '/hr/tasks-management', label: 'إدارة مهام الأرشفة', icon: 'fa-list-check' },
-        { href: '/hr/no-code-builder', label: 'بناء نماذج الأرشفة بدون برمجة', icon: 'fa-puzzle-piece' },
-        { href: '/hr/bulk-messaging', label: 'نظام الرسائل الجماعية', icon: 'fa-comments' },
-        { href: '/hr/cybersecurity', label: 'الأمن السيبراني وحماية السجلات', icon: 'fa-shield-halved' },
-        { href: '/hr/api-library', label: 'مكتبة الربط API', icon: 'fa-code' },
-        { href: '/hr/quality-scoring', label: 'محرك تقييم جودة الوثائق', icon: 'fa-star-half-stroke' },
-        { href: '/hr/notifications-center', label: 'نظام التنبيهات والإشعارات', icon: 'fa-bell' },
-        { href: '/hr/text-chat', label: 'نظام الدردشة الكتابية', icon: 'fa-comment-dots' }
+            {
+                    "href": "/hr/ocr-suite",
+                    "label": "حزمة OCR للتعرف على النصوص",
+                    "icon": "fa-file-lines"
+            },
+            {
+                    "href": "/hr/scanner-integration",
+                    "label": "تكامل مع الماسح الضوئي",
+                    "icon": "fa-scanner-gun"
+            },
+            {
+                    "href": "/hr/attachment-merge",
+                    "label": "دمج المرفقات عند التحميل",
+                    "icon": "fa-paperclip"
+            },
+            {
+                    "href": "/hr/smartsheet-bundle",
+                    "label": "حزمة سمارت شيت",
+                    "icon": "fa-table"
+            },
+            {
+                    "href": "/hr/workflow-engine",
+                    "label": "محرك سير العمل",
+                    "icon": "fa-diagram-project"
+            },
+            {
+                    "href": "/hr/reporting-suite",
+                    "label": "حزمة بناء التقارير",
+                    "icon": "fa-chart-bar"
+            },
+            {
+                    "href": "/hr/tasks-management",
+                    "label": "إدارة مهام الأرشفة",
+                    "icon": "fa-list-check"
+            },
+            {
+                    "href": "/hr/no-code-builder",
+                    "label": "بناء نماذج الأرشفة بدون برمجة",
+                    "icon": "fa-puzzle-piece"
+            },
+            {
+                    "href": "/hr/bulk-messaging",
+                    "label": "نظام الرسائل الجماعية",
+                    "icon": "fa-comments"
+            },
+            {
+                    "href": "/hr/cybersecurity",
+                    "label": "الأمن السيبراني وحماية السجلات",
+                    "icon": "fa-shield-halved"
+            },
+            {
+                    "href": "/hr/api-library",
+                    "label": "مكتبة الربط API",
+                    "icon": "fa-code"
+            },
+            {
+                    "href": "/hr/quality-scoring",
+                    "label": "محرك تقييم جودة الوثائق",
+                    "icon": "fa-star-half-stroke"
+            },
+            {
+                    "href": "/hr/notifications-center",
+                    "label": "نظام التنبيهات والإشعارات",
+                    "icon": "fa-bell"
+            },
+            {
+                    "href": "/hr/text-chat",
+                    "label": "نظام الدردشة الكتابية",
+                    "icon": "fa-comment-dots"
+            }
+    ];
+
+    const GAI_FINANCE_GOVERNANCE_CARDS = [
+            {
+                    "href": "/finance/payment-terms.html",
+                    "label": "شروط الدفع",
+                    "icon": "fa-hand-holding-dollar"
+            },
+            {
+                    "href": "/finance/terms-and-conditions.html",
+                    "label": "الشروط والأحكام",
+                    "icon": "fa-gavel"
+            },
+            {
+                    "href": "/finance/quick-offers.html",
+                    "label": "العروض السريعة",
+                    "icon": "fa-bolt"
+            },
+            {
+                    "href": "/finance/multiple-taxes.html",
+                    "label": "ضرائب متعددة",
+                    "icon": "fa-percent"
+            },
+            {
+                    "href": "/finance/item-invoice-discounts.html",
+                    "label": "خصومات على العناصر والفواتير",
+                    "icon": "fa-tags"
+            },
+            {
+                    "href": "/finance/shipping-options-details.html",
+                    "label": "خيارات وتفاصيل الشحن",
+                    "icon": "fa-truck"
+            },
+            {
+                    "href": "/finance/deposits-advance-payments.html",
+                    "label": "العربون والدفعات المتقدمة",
+                    "icon": "fa-sack-dollar"
+            },
+            {
+                    "href": "/finance/sales-settlements.html",
+                    "label": "تسويات المبيعات",
+                    "icon": "fa-scale-balanced"
+            },
+            {
+                    "href": "/finance/return-policy.html",
+                    "label": "سياسة الاسترجاع",
+                    "icon": "fa-rotate-left"
+            },
+            {
+                    "href": "/finance/exchange-management.html",
+                    "label": "إدارة الاستبدال",
+                    "icon": "fa-rotate"
+            },
+            {
+                    "href": "/finance/exchange-policy.html",
+                    "label": "سياسة الاستبدال",
+                    "icon": "fa-clipboard-check"
+            },
+            {
+                    "href": "/finance/partial-full-exchange.html",
+                    "label": "استبدال جزئي / كلي",
+                    "icon": "fa-right-left"
+            },
+            {
+                    "href": "/finance/value-increase-adjustment.html",
+                    "label": "زيادة مبلغ على القيمة",
+                    "icon": "fa-arrow-up"
+            },
+            {
+                    "href": "/finance/shipping-fees.html",
+                    "label": "أجور شحن",
+                    "icon": "fa-truck-fast"
+            },
+            {
+                    "href": "/finance/balance-sheet.html",
+                    "label": "الميزانية العمومية",
+                    "icon": "fa-balance-scale"
+            },
+            {
+                    "href": "/finance/income-statement.html",
+                    "label": "قائمة الدخل",
+                    "icon": "fa-chart-line"
+            },
+            {
+                    "href": "/finance/chart-of-accounts.html",
+                    "label": "دليل الحسابات",
+                    "icon": "fa-list"
+            },
+            {
+                    "href": "/finance/payments/",
+                    "label": "نظام الدفع",
+                    "icon": "fa-coins"
+            },
+            {
+                    "href": "/finance/payroll-employees.html",
+                    "label": "موظفو الرواتب",
+                    "icon": "fa-users"
+            },
+            {
+                    "href": "/finance/payroll-components.html",
+                    "label": "مكونات الرواتب",
+                    "icon": "fa-puzzle-piece"
+            },
+            {
+                    "href": "/finance/payroll-assignments.html",
+                    "label": "ربط مكونات الرواتب",
+                    "icon": "fa-link"
+            },
+            {
+                    "href": "/finance/payroll-runs.html",
+                    "label": "دورات الرواتب",
+                    "icon": "fa-calendar-check"
+            },
+            {
+                    "href": "/finance/payroll-payslips.html",
+                    "label": "كشوف الرواتب",
+                    "icon": "fa-file-invoice"
+            },
+            {
+                    "href": "/finance/payroll-reports.html",
+                    "label": "تقارير الرواتب",
+                    "icon": "fa-chart-bar"
+            },
+            {
+                    "href": "/finance/payroll-bank-batches.html",
+                    "label": "دفعات البنوك للرواتب",
+                    "icon": "fa-university"
+            },
+            {
+                    "href": "/finance/payroll-overtime.html",
+                    "label": "ساعات العمل الإضافي",
+                    "icon": "fa-stopwatch"
+            },
+            {
+                    "href": "/finance/payroll-settlements.html",
+                    "label": "التسويات المالية للرواتب",
+                    "icon": "fa-file-invoice-dollar"
+            },
+            {
+                    "href": "/finance/customers.html",
+                    "label": "العملاء",
+                    "icon": "fa-user-friends"
+            },
+            {
+                    "href": "/finance/ai-forecasts.html",
+                    "label": "التنبؤات الذكية",
+                    "icon": "fa-robot"
+            },
+            {
+                    "href": "/finance/cashflow-summary.html",
+                    "label": "ملخص التدفقات",
+                    "icon": "fa-water"
+            },
+            {
+                    "href": "/finance/journal-lines.html",
+                    "label": "تفاصيل القيود",
+                    "icon": "fa-receipt"
+            },
+            {
+                    "href": "/finance/cashflow-transactions.html",
+                    "label": "معاملات التدفق",
+                    "icon": "fa-exchange-alt"
+            },
+            {
+                    "href": "/finance/cashflow-comprehensive.html",
+                    "label": "التقرير الشامل للتدفقات",
+                    "icon": "fa-layer-group"
+            },
+            {
+                    "href": "/finance/ai-risk-scores.html",
+                    "label": "تقييم المخاطر الذكي",
+                    "icon": "fa-shield-alt"
+            },
+            {
+                    "href": "/finance/fixed-assets.html",
+                    "label": "الأصول الثابتة والإهلاك",
+                    "icon": "fa-industry"
+            },
+            {
+                    "href": "/finance/budgets.html",
+                    "label": "الميزانيات والانحرافات",
+                    "icon": "fa-file-invoice-dollar"
+            },
+            {
+                    "href": "/finance/payment-plans.html",
+                    "label": "خطط السداد والتوزيعات",
+                    "icon": "fa-calendar-alt"
+            },
+            {
+                    "href": "/finance/ar-aging.html",
+                    "label": "أعمار الذمم المدينة",
+                    "icon": "fa-hourglass-start"
+            },
+            {
+                    "href": "/finance/receivables-collections.html",
+                    "label": "الذمم والتحصيل",
+                    "icon": "fa-hand-holding-dollar"
+            },
+            {
+                    "href": "/finance/cashflow-risk-reports.html",
+                    "label": "التدفقات والمخاطر والتقارير",
+                    "icon": "fa-water"
+            },
+            {
+                    "href": "/finance/accounting-cycle.html",
+                    "label": "الدورة المحاسبية",
+                    "icon": "fa-rotate"
+            },
+            {
+                    "href": "/finance/cashflow-budgets-engine.html",
+                    "label": "التدفقات والميزانيات",
+                    "icon": "fa-water"
+            },
+            {
+                    "href": "/finance/financial-reports-ai-journal.html",
+                    "label": "تقارير الوضع المالي",
+                    "icon": "fa-chart-line"
+            },
+            {
+                    "href": "/finance/accounting-cycle-impact.html",
+                    "label": "أثر النظام المحاسبي والدورة",
+                    "icon": "fa-sitemap"
+            },
+            {
+                    "href": "/finance/plan-installments.html",
+                    "label": "أقساط خطط السداد",
+                    "icon": "fa-calendar-check"
+            },
+            {
+                    "href": "/finance/account-balances.html",
+                    "label": "أرصدة الحسابات",
+                    "icon": "fa-book"
+            },
+            {
+                    "href": "/finance/bank-accounts.html",
+                    "label": "حسابات البنوك",
+                    "icon": "fa-university"
+            },
+            {
+                    "href": "/finance/chart-accounts-ui-design.html",
+                    "label": "تصميم شجرة الحسابات والواجهات",
+                    "icon": "fa-sitemap"
+            },
+            {
+                    "href": "/finance/system-blueprint-execution.html",
+                    "label": "المخطط التنفيذي للنظام",
+                    "icon": "fa-network-wired"
+            },
+            {
+                    "href": "/finance/financial-governance-executive.html",
+                    "label": "الحوكمة المالية والصلاحيات",
+                    "icon": "fa-shield-halved"
+            },
+            {
+                    "href": "/finance/strategic-financial-reports.html",
+                    "label": "التقارير الاستراتيجية والذكاء المالي",
+                    "icon": "fa-chart-pie"
+            },
+            {
+                    "href": "/finance/ai-risk-payment-framework.html",
+                    "label": "نماذج المخاطر وخطط الدفع والحوكمة",
+                    "icon": "fa-brain"
+            },
+            {
+                    "href": "/finance/financial-policies-framework.html",
+                    "label": "السياسات المالية الأساسية",
+                    "icon": "fa-clipboard-list"
+            },
+            {
+                    "href": "/finance/operations-sop-finance.html",
+                    "label": "إجراءات التشغيل المالي",
+                    "icon": "fa-diagram-project"
+            },
+            {
+                    "href": "/finance/approvals-roles-governance.html",
+                    "label": "الموافقات والصلاحيات والحوكمة",
+                    "icon": "fa-shield-halved"
+            },
+            {
+                    "href": "/finance/admin-erp-hr.html",
+                    "label": "النظام الإداري والموارد البشرية",
+                    "icon": "fa-sitemap"
+            },
+            {
+                    "href": "/finance/hr-portal-workflows.html",
+                    "label": "بوابة العمليات والطلبات",
+                    "icon": "fa-clipboard-check"
+            },
+            {
+                    "href": "/finance/sales-accounts-operations-mobile.html",
+                    "label": "منظومة المبيعات والحسابات",
+                    "icon": "fa-store"
+            },
+            {
+                    "href": "/finance/electronic-signature.html",
+                    "label": "التوقيع الإلكتروني",
+                    "icon": "fa-file-signature"
+            },
+            {
+                    "href": "/finance/franchise-agencies.html",
+                    "label": "وكالات فرنشايز",
+                    "icon": "fa-store"
+            },
+            {
+                    "href": "/finance/contracts.html",
+                    "label": "العقود",
+                    "icon": "fa-file-contract"
+            }
+    ];
+
+    const GAI_HR_GOVERNANCE_CARDS = [
+            {
+                    "href": "/hr/employees",
+                    "label": "النظام الإداري والموارد البشرية",
+                    "icon": "fa-briefcase"
+            },
+            {
+                    "href": "/hr/accepted-employees",
+                    "label": "الموظفون المقبولون",
+                    "icon": "fa-user-check"
+            },
+            {
+                    "href": "/hr/requests",
+                    "label": "معالجة الطلبات",
+                    "icon": "fa-inbox"
+            },
+            {
+                    "href": "/hr/my-requests",
+                    "label": "تقديم ومتابعة الطلبات",
+                    "icon": "fa-file-signature"
+            },
+            {
+                    "href": "/hr/pending-actions",
+                    "label": "عمليات بانتظار إجراء",
+                    "icon": "fa-bell"
+            },
+            {
+                    "href": "/hr/attendance-hub",
+                    "label": "مركز الحضور والنوبات الذكي",
+                    "icon": "fa-stopwatch"
+            },
+            {
+                    "href": "/hr/learning",
+                    "label": "أكاديمية التطوير والتدريب",
+                    "icon": "fa-graduation-cap"
+            },
+            {
+                    "href": "/hr/integrations-erp",
+                    "label": "تكاملات ERP",
+                    "icon": "fa-link"
+            },
+            {
+                    "href": "/hr/integrations-comms",
+                    "label": "تكاملات البريد والتنبيهات",
+                    "icon": "fa-envelope-open-text"
+            },
+            {
+                    "href": "/hr/integrations-sso",
+                    "label": "تكاملات SSO والدخول الموحد",
+                    "icon": "fa-shield-halved"
+            },
+            {
+                    "href": "/hr/strategic-analytics",
+                    "label": "لوحة التحليلات الاستراتيجية",
+                    "icon": "fa-chart-pie"
+            },
+            {
+                    "href": "/hr/succession-planning",
+                    "label": "تخطيط التعاقب الإداري",
+                    "icon": "fa-chess-king"
+            },
+            {
+                    "href": "/hr/talent-management",
+                    "label": "إدارة المواهب",
+                    "icon": "fa-star"
+            },
+            {
+                    "href": "/hr/human-risk",
+                    "label": "إدارة المخاطر البشرية",
+                    "icon": "fa-triangle-exclamation"
+            },
+            {
+                    "href": "/hr/skills-management",
+                    "label": "إدارة المهارات",
+                    "icon": "fa-layer-group"
+            },
+            {
+                    "href": "/hr/innovation-management",
+                    "label": "إدارة الابتكارات",
+                    "icon": "fa-lightbulb"
+            },
+            {
+                    "href": "/hr/experience-management",
+                    "label": "إدارة الخبرات",
+                    "icon": "fa-book-open"
+            },
+            {
+                    "href": "/hr/cost-optimization",
+                    "label": "إدارة خفض التكاليف التشغيلية",
+                    "icon": "fa-chart-line"
+            },
+            {
+                    "href": "/hr/productivity-comparison",
+                    "label": "مقارنة ساعات العمل بالإنتاجية",
+                    "icon": "fa-wave-square"
+            },
+            {
+                    "href": "/hr/process-automation",
+                    "label": "أتمتة الإجراءات إلكترونيًا",
+                    "icon": "fa-gears"
+            },
+            {
+                    "href": "/hr/admin-circulars",
+                    "label": "إدارة التعاميم الإدارية واللوائح",
+                    "icon": "fa-bullhorn"
+            }
     ];
 
     const renderGaiHubCard = (card) => `
@@ -25315,7 +25787,7 @@ const app = (() => {
         <div class="animate-fade-in min-h-[70vh] space-y-8" dir="rtl">
             <div>
                 <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">التكامل الإداري المحكوم</h2>
-                <p class="text-slate-500 mt-2 max-w-3xl leading-relaxed">بوابة حوكمة الإجراءات والوثائق عبر مجموعات مستقلة قابلة للتوسع.</p>
+                <p class="text-slate-500 mt-2 max-w-3xl leading-relaxed">بوابة تنظيم مداخل الحوكمة عبر أقسام مستقلة: الوثائق، المالية، والموارد البشرية — دون تغيير الصفحات الأصلية أو صلاحياتها.</p>
             </div>
             ${renderGaiSectionShell({
                 id: 'gai-docs-governance',
@@ -25327,19 +25799,19 @@ const app = (() => {
             })}
             ${renderGaiSectionShell({
                 id: 'gai-finance-governance',
-                title: 'الحوكمة المالية والإجراءات',
+                title: 'الحوكمة المالية والرقابة',
                 icon: 'fa-scale-balanced',
-                description: 'مكان تنظيمي مخصص — لم تُنقل أي صفحات مالية في هذه المرحلة.',
-                cards: [],
-                ready: false
+                description: 'مداخل الصفحات المالية المنقولة من القائمة الرئيسية للمالية.',
+                cards: GAI_FINANCE_GOVERNANCE_CARDS,
+                ready: true
             })}
             ${renderGaiSectionShell({
                 id: 'gai-hr-governance',
                 title: 'حوكمة الموارد البشرية',
                 icon: 'fa-user-shield',
-                description: 'مكان تنظيمي مخصص — لم تُنقل أي صفحات موارد بشرية في هذه المرحلة.',
-                cards: [],
-                ready: false
+                description: 'مداخل صفحات الموارد البشرية المنقولة من القائمة الرئيسية (دون تكرار أدوات الأرشيف المشتركة).',
+                cards: GAI_HR_GOVERNANCE_CARDS,
+                ready: true
             })}
         </div>`;
 

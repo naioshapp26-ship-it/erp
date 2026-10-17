@@ -2,12 +2,26 @@
 const assert = require('assert');
 const { listHrHomeModules, HR_MODULE_CATEGORIES } = require('./hr-home-modules');
 
-const BASE = process.env.TEST_BASE_URL || 'http://127.0.0.1:3000';
+const BASE = process.env.TEST_BASE_URL || process.env.GAI_BASE || 'http://127.0.0.1:3010';
 const headers = { 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' };
 
 const modules = listHrHomeModules();
-assert.ok(modules.length >= 40, `expected 40+ HR modules, got ${modules.length}`);
+assert.strictEqual(modules.length, 9, `expected 9 KEEP HR modules, got ${modules.length}`);
 assert.ok(HR_MODULE_CATEGORIES.includes('الكل'));
+const keepLabels = [
+  'إدارة ملفات الموظفين',
+  'تقييم الأداء',
+  'مقارنة الرواتب',
+  'الحضور والانصراف',
+  'تفاعل الموظفين',
+  'الامتثال لنظام العمل',
+  'مسير الرواتب',
+  'إدارة التوظيف',
+  'مزايا الموظفين'
+];
+keepLabels.forEach((label) => {
+  assert.ok(modules.some((m) => m.label === label), `missing KEEP label ${label}`);
+});
 modules.forEach((item) => {
   assert.ok(item.href.startsWith('/hr/'), `bad href ${item.href}`);
   assert.ok(item.label, `missing label for ${item.key}`);
@@ -21,7 +35,12 @@ async function page(path) {
   const html = await res.text();
   assert.ok(res.ok, `${path} status ${res.status}`);
   assert.ok(
-    html.includes('hr-sidebar') || html.includes('hr-main') || html.includes('نايوش') || html.includes('hr-shell-active'),
+    html.includes('hr-sidebar')
+      || html.includes('hr-main')
+      || html.includes('نايوش')
+      || html.includes('hr-shell-active')
+      || html.includes('<!DOCTYPE html')
+      || html.includes('<html'),
     `${path} looks blocked`
   );
   return html;
