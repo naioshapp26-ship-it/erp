@@ -25787,21 +25787,21 @@ const app = (() => {
         <div class="animate-fade-in min-h-[70vh] space-y-8" dir="rtl">
             <div>
                 <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">التكامل الإداري المحكوم</h2>
-                <p class="text-slate-500 mt-2 max-w-3xl leading-relaxed">بوابة تنظيم مداخل الحوكمة عبر أقسام مستقلة: الوثائق، المالية، والموارد البشرية — دون تغيير الصفحات الأصلية أو صلاحياتها.</p>
+                <p class="text-slate-500 mt-2 max-w-3xl leading-relaxed">بوابة تنظيم مداخل الحوكمة عبر أقسام مستقلة: الأرشفة الإلكترونية، الإدارة المالية، والموارد البشرية — دون تغيير الصفحات الأصلية أو صلاحياتها.</p>
             </div>
             ${renderGaiSectionShell({
                 id: 'gai-docs-governance',
-                title: 'حوكمة الوثائق والإجراءات',
+                title: 'حوكمة الأرشفة الإلكترونية',
                 icon: 'fa-folder-gear',
-                description: 'مداخل أدوات الأرشفة والحوكمة الوثائقية المنقولة من صفحة السجلات والأرشفة.',
+                description: 'مداخل أدوات الأرشفة الإلكترونية المنقولة من صفحة السجلات والأرشفة.',
                 cards: GAI_DOCUMENT_GOVERNANCE_CARDS,
                 ready: true
             })}
             ${renderGaiSectionShell({
                 id: 'gai-finance-governance',
-                title: 'الحوكمة المالية والرقابة',
+                title: 'حوكمة الإدارة المالية',
                 icon: 'fa-scale-balanced',
-                description: 'مداخل الصفحات المالية المنقولة من القائمة الرئيسية للمالية.',
+                description: 'مداخل صفحات الإدارة المالية المنقولة من القائمة الرئيسية للمالية.',
                 cards: GAI_FINANCE_GOVERNANCE_CARDS,
                 ready: true
             })}

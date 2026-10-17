@@ -84,8 +84,8 @@ async function main() {
   });
 
   const script = fs.readFileSync(path.join(__dirname, 'script.js'), 'utf8');
-  ok('gai-docs', script.includes('حوكمة الوثائق والإجراءات') && script.includes('GAI_DOCUMENT_GOVERNANCE_CARDS'));
-  ok('gai-finance', script.includes('الحوكمة المالية والرقابة') && script.includes('GAI_FINANCE_GOVERNANCE_CARDS'));
+  ok('gai-docs', script.includes('حوكمة الأرشفة الإلكترونية') && script.includes('GAI_DOCUMENT_GOVERNANCE_CARDS'));
+  ok('gai-finance', script.includes('حوكمة الإدارة المالية') && script.includes('GAI_FINANCE_GOVERNANCE_CARDS'));
   ok('gai-hr', script.includes('حوكمة الموارد البشرية') && script.includes('GAI_HR_GOVERNANCE_CARDS'));
   FINANCE_MOVED.slice(0, 3).forEach((item) => {
     ok(`gai-has-finance-${item.href}`, script.includes(`"${item.href}"`) || script.includes(`'${item.href}'`));

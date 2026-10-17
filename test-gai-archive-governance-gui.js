@@ -168,8 +168,8 @@ async function main() {
       return {
         path: location.pathname,
         hasTitle: text.includes('التكامل الإداري المحكوم'),
-        hasDocs: text.includes('حوكمة الوثائق والإجراءات'),
-        hasFinance: text.includes('الحوكمة المالية والإجراءات'),
+        hasDocs: text.includes('حوكمة الأرشفة الإلكترونية'),
+        hasFinance: text.includes('حوكمة الإدارة المالية'),
         hasHr: text.includes('حوكمة الموارد البشرية'),
         placeholderCount: (text.match(/سيتم تحديد صفحات هذا القسم لاحقًا/g) || []).length,
         docLinkCount: docLinks.length,
@@ -212,7 +212,7 @@ async function main() {
     await page.goto(`${BASE}/governed-administrative-integration`, { waitUntil: 'networkidle2', timeout: 60000 });
     await page.evaluate(() => window.app?.loadRoute?.('governed-administrative-integration'));
     await new Promise((r) => setTimeout(r, 1200));
-    const backOk = await page.evaluate(() => document.body.innerText.includes('حوكمة الوثائق والإجراءات'));
+    const backOk = await page.evaluate(() => document.body.innerText.includes('حوكمة الأرشفة الإلكترونية'));
     record('nav-back-gai', backOk);
   } catch (err) {
     record('suite-error', 'FAIL', err.message);
