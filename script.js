@@ -18407,12 +18407,14 @@ const app = (() => {
 
     let enterpriseSettingsCatalogCache = null;
     let enterpriseSettingsCatalogError = null;
+    let enterpriseSettingsActiveSection = null;
+    let enterpriseSettingsShowAll = false;
 
     const settingsStatusMeta = {
-        live: { label: 'مفعّل ومرتبط', className: 'bg-emerald-100 text-emerald-800' },
-        partial: { label: 'جزئي', className: 'bg-amber-100 text-amber-800' },
-        planned: { label: 'مخطط', className: 'bg-slate-100 text-slate-700' },
-        mock: { label: 'غير جاهز (كان شكلياً)', className: 'bg-rose-100 text-rose-800' }
+        live: { label: 'متاح للتعديل', className: 'bg-emerald-50 text-emerald-800 border border-emerald-100' },
+        partial: { label: 'متاح جزئياً', className: 'bg-amber-50 text-amber-800 border border-amber-100' },
+        planned: { label: 'قريباً', className: 'bg-slate-100 text-slate-600 border border-slate-200' },
+        mock: { label: 'غير جاهز', className: 'bg-rose-50 text-rose-700 border border-rose-100' }
     };
 
     const ensureEnterpriseSettingsCatalog = async () => {
@@ -18444,7 +18446,7 @@ const app = (() => {
             return;
         }
         if (entry.status === 'mock' || entry.status === 'planned') {
-            showToast(`«${entry.titleAr}» غير جاهز للتشغيل بعد — لا يوجد منطق حفظ وهمي.`, 'warning');
+            showToast(`«${entry.displayTitleAr || entry.titleAr}» غير جاهز بعد — لا يوجد حفظ وهمي.`, 'warning');
             return;
         }
         if (entry.href) {
@@ -18458,75 +18460,211 @@ const app = (() => {
         showToast('لا يوجد مسار تشغيل مرتبط بهذا الإعداد بعد.', 'warning');
     };
 
+    const setEnterpriseSettingsSection = (sectionId) => {
+        enterpriseSettingsActiveSection = sectionId || null;
+        enterpriseSettingsShowAll = false;
+        refreshEnterpriseSettingsHub();
+    };
+
+    const setEnterpriseSettingsShowAll = (show) => {
+        enterpriseSettingsShowAll = !!show;
+        enterpriseSettingsActiveSection = null;
+        refreshEnterpriseSettingsHub();
+    };
+
+    const resolveEnterpriseSettingsAlias = (query, catalog) => {
+        const q = String(query || '').trim().toLowerCase();
+        if (!q) return null;
+        const aliases = catalog?.ux?.searchAliases || [];
+        for (const row of aliases) {
+            const phrases = row.phrases || [];
+            if (phrases.some((alias) => {
+                const a = String(alias).toLowerCase();
+                return q.includes(a) || a.includes(q);
+            })) {
+                return row.entryId;
+            }
+        }
+        return null;
+    };
+
+    const filterEnterpriseSettingsEntries = (list, q) => {
+        if (!q) return list;
+        return list.filter((entry) => {
+            return [
+                entry.displayTitleAr,
+                entry.titleAr,
+                entry.titleEn,
+                entry.displayDescriptionAr,
+                entry.descriptionAr,
+                entry.groupAr,
+                entry.levelLabelAr
+            ].filter(Boolean).some((value) => String(value).toLowerCase().includes(q));
+        });
+    };
+
     const renderEnterpriseSettingsCards = (entries = []) => {
         if (!entries.length) {
-            return `<div class="col-span-full text-sm text-slate-500 bg-white border border-dashed border-slate-200 rounded-xl p-6 text-center">لا توجد عناصر في هذا المستوى.</div>`;
+            return `<div class="col-span-full text-sm text-slate-500 bg-white border border-dashed border-slate-200 rounded-2xl p-8 text-center">لا توجد إعدادات في هذا القسم ضمن صلاحياتك الحالية.</div>`;
         }
         return entries.map((entry) => {
             const meta = settingsStatusMeta[entry.status] || settingsStatusMeta.planned;
             const disabled = entry.status === 'mock' || entry.status === 'planned' || (!entry.href && !entry.spaRoute);
-            const actionLabel = disabled ? 'غير متاح بعد' : 'فتح الإعدادات';
+            const title = entry.displayTitleAr || entry.titleAr;
+            const desc = entry.displayDescriptionAr || entry.descriptionAr || '';
+            const actionLabel = disabled ? 'غير متاح بعد' : 'تعديل';
             return `
-                <article class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-3 min-h-[180px]">
+                <article class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col gap-3 min-h-[170px] hover:border-red-200 transition">
                     <div class="flex items-start justify-between gap-3">
-                        <div class="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-700 to-rose-900 text-amber-200 flex items-center justify-center shadow-sm">
                             <i class="fas ${entry.icon || 'fa-gear'}"></i>
                         </div>
-                        <span class="text-[11px] font-bold px-2 py-1 rounded-full ${meta.className}">${meta.label}</span>
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${meta.className}">${meta.label}</span>
+                            <span class="text-[11px] text-slate-400">${entry.levelLabelAr || ''}</span>
+                        </div>
                     </div>
-                    <div class="text-right space-y-1 flex-1">
-                        <h3 class="font-bold text-slate-800 text-base leading-snug">${entry.titleAr}</h3>
-                        <p class="text-xs text-slate-500 leading-relaxed">${entry.descriptionAr || entry.notes || entry.groupAr || ''}</p>
-                        ${entry.groupAr ? `<p class="text-[11px] text-slate-400">${entry.groupAr}</p>` : ''}
+                    <div class="text-right space-y-1.5 flex-1">
+                        <h3 class="font-extrabold text-slate-800 text-base leading-snug">${title}</h3>
+                        <p class="text-sm text-slate-500 leading-relaxed">${desc}</p>
+                        <p class="text-xs text-slate-400">سيؤثر هذا الإعداد على: ${entry.levelLabelAr || 'النظام'} فقط ضمن صلاحياتك.</p>
                     </div>
                     <button
                         type="button"
                         ${disabled ? 'disabled' : ''}
                         onclick="app.openEnterpriseSettingEntry('${entry.id}')"
-                        class="w-full rounded-xl px-3 py-2.5 text-sm font-bold transition ${disabled ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700 text-white'}">
-                        ${actionLabel}
+                        class="w-full rounded-xl px-3 py-2.5 text-sm font-bold transition ${disabled ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-gradient-to-l from-red-700 to-rose-800 hover:from-red-800 hover:to-rose-900 text-white'}">
+                        <i class="fas fa-pen-to-square ml-1"></i> ${actionLabel}
                     </button>
                 </article>`;
         }).join('');
     };
 
+    const renderEnterpriseSettingsSectionsGrid = (catalog, filteredBySection) => {
+        const sections = catalog.ux?.sections || [];
+        return `
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                ${sections.map((section) => {
+                    const count = (filteredBySection[section.id] || []).length;
+                    return `
+                    <button type="button" onclick="app.setEnterpriseSettingsSection('${section.id}')"
+                        class="text-right rounded-3xl overflow-hidden border border-red-100 shadow-sm hover:shadow-md transition bg-white group">
+                        <div class="bg-gradient-to-l ${section.accent || 'from-red-700 to-rose-900'} px-5 py-4 text-white flex items-center justify-between gap-3">
+                            <div class="w-11 h-11 rounded-2xl bg-white/15 text-amber-200 flex items-center justify-center">
+                                <i class="fas ${section.icon || 'fa-folder'} text-lg"></i>
+                            </div>
+                            <span class="text-xs font-bold bg-white/15 px-2.5 py-1 rounded-full">${count} إعداد</span>
+                        </div>
+                        <div class="px-5 py-4 space-y-2">
+                            <h3 class="font-extrabold text-slate-800 text-lg leading-snug group-hover:text-red-800">${section.titleAr}</h3>
+                            <p class="text-sm text-slate-500 leading-relaxed">${section.descriptionAr || ''}</p>
+                            <span class="inline-flex items-center gap-1 text-sm font-bold text-red-700">
+                                فتح القسم <i class="fas fa-arrow-left text-xs"></i>
+                            </span>
+                        </div>
+                    </button>`;
+                }).join('')}
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <p class="text-xs text-slate-400">جميع الإعدادات المتاحة لك مُنظَّمة في الأقسام أعلاه — دون مصطلحات تقنية.</p>
+                <button type="button" onclick="app.setEnterpriseSettingsShowAll(true)"
+                    class="text-sm font-bold text-slate-600 hover:text-red-700 underline underline-offset-4">
+                    عرض كل الإعدادات دفعة واحدة
+                </button>
+            </div>`;
+    };
+
     const refreshEnterpriseSettingsHub = async () => {
         const mount = document.getElementById('enterprise-settings-hub-root');
         if (!mount) return;
-        mount.innerHTML = `<div class="text-center text-slate-500 py-10">جاري تحميل مركز الإعدادات المؤسسي...</div>`;
+        const previousScroll = mount.scrollTop;
+        mount.innerHTML = `<div class="text-center text-slate-500 py-10">جاري تجهيز مركز الإعدادات...</div>`;
         try {
             const catalog = await ensureEnterpriseSettingsCatalog();
-            const q = (document.getElementById('enterprise-settings-search')?.value || '').trim().toLowerCase();
-            const filterEntries = (list) => list.filter((entry) => {
-                if (!q) return true;
-                return [entry.titleAr, entry.titleEn, entry.descriptionAr, entry.groupAr, entry.moduleKey]
-                    .filter(Boolean)
-                    .some((value) => String(value).toLowerCase().includes(q));
-            });
-            const platform = filterEntries(catalog.byLevel.platform || []);
-            const company = filterEntries(catalog.byLevel.company || []);
-            const modules = filterEntries(catalog.byLevel.module || []);
-            mount.innerHTML = `
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-                    <div class="bg-white border rounded-xl p-3 text-center"><div class="text-xs text-slate-500">الإجمالي</div><div class="text-xl font-bold">${catalog.counts.total}</div></div>
-                    <div class="bg-white border rounded-xl p-3 text-center"><div class="text-xs text-slate-500">مرتبط</div><div class="text-xl font-bold text-emerald-700">${catalog.counts.live}</div></div>
-                    <div class="bg-white border rounded-xl p-3 text-center"><div class="text-xs text-slate-500">جزئي</div><div class="text-xl font-bold text-amber-700">${catalog.counts.partial}</div></div>
-                    <div class="bg-white border rounded-xl p-3 text-center"><div class="text-xs text-slate-500">غير جاهز</div><div class="text-xl font-bold text-rose-700">${catalog.counts.mock + catalog.counts.planned}</div></div>
-                </div>
-                ${platform.length ? `
-                <section class="space-y-3 mb-6">
-                    <h3 class="text-lg font-bold text-slate-800">1) إعدادات المنصة</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${renderEnterpriseSettingsCards(platform)}</div>
-                </section>` : ''}
-                <section class="space-y-3 mb-6">
-                    <h3 class="text-lg font-bold text-slate-800">2) إعدادات الشركة</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${renderEnterpriseSettingsCards(company)}</div>
-                </section>
-                <section class="space-y-3">
-                    <h3 class="text-lg font-bold text-slate-800">3) إعدادات الوحدات</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${renderEnterpriseSettingsCards(modules)}</div>
-                </section>
-            `;
+            const rawQ = (document.getElementById('enterprise-settings-search')?.value || '').trim();
+            const q = rawQ.toLowerCase();
+            const aliasId = resolveEnterpriseSettingsAlias(rawQ, catalog);
+            const aliasEntry = aliasId ? catalog.entries.find((e) => e.id === aliasId) : null;
+
+            const allFiltered = filterEnterpriseSettingsEntries(catalog.entries || [], q);
+            const filteredBySection = {};
+            for (const section of (catalog.ux?.sections || [])) {
+                const base = (catalog.byUxSection && catalog.byUxSection[section.id]) || catalog.entries.filter((e) => e.uxSectionId === section.id);
+                filteredBySection[section.id] = filterEnterpriseSettingsEntries(base, q);
+            }
+
+            let bodyHtml = '';
+            if (q) {
+                bodyHtml = `
+                    <section class="space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 class="text-xl font-extrabold text-slate-800">نتائج البحث</h3>
+                                <p class="text-sm text-slate-500">عرض الإعدادات المطابقة فقط — اضغط «تعديل» للانتقال إلى الشاشة الحقيقية.</p>
+                            </div>
+                            <button type="button" onclick="document.getElementById('enterprise-settings-search').value=''; app.refreshEnterpriseSettingsHub();"
+                                class="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold hover:bg-slate-50">مسح البحث</button>
+                        </div>
+                        ${aliasEntry ? `
+                        <div class="rounded-2xl border border-amber-200 bg-gradient-to-l from-amber-50 to-white p-4 flex flex-wrap items-center justify-between gap-3">
+                            <div class="text-right">
+                                <div class="text-xs font-bold text-amber-700 mb-1">اقتراح مباشر</div>
+                                <div class="font-extrabold text-slate-800">${aliasEntry.displayTitleAr || aliasEntry.titleAr}</div>
+                                <div class="text-sm text-slate-500">${aliasEntry.displayDescriptionAr || aliasEntry.descriptionAr || ''}</div>
+                            </div>
+                            <button type="button" onclick="app.openEnterpriseSettingEntry('${aliasEntry.id}')"
+                                class="px-5 py-2.5 rounded-xl bg-gradient-to-l from-red-700 to-rose-800 text-white font-bold text-sm">
+                                الانتقال الآن
+                            </button>
+                        </div>` : ''}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${renderEnterpriseSettingsCards(allFiltered)}</div>
+                    </section>`;
+            } else if (enterpriseSettingsActiveSection) {
+                const section = (catalog.ux?.sections || []).find((s) => s.id === enterpriseSettingsActiveSection);
+                const entries = filteredBySection[enterpriseSettingsActiveSection] || [];
+                const sectionTips = {
+                    appearance: 'هوية الشركة تُحفظ من مساحة الشركة. هوية الصفحة العامة للمنصة متاحة لمالك المنصة فقط.',
+                    'pages-nav': 'لا يوجد حالياً محرر سحب-وإفلات للقائمة. ظهور الصفحات يُدار عبر الصلاحيات والقوالب المرتبطة.',
+                    users: 'صلاحيات مالك المنصة منفصلة عن مدير الشركة — لن تظهر لك إعدادات أعلى من مستواك.',
+                    systems: 'كل بطاقة تفتح إعداد الوحدة الحقيقي حسب الاشتراك والصلاحيات.',
+                    security: 'النسخ وسجل التدقيق إعدادات حساسة — استخدمها بحذر.'
+                };
+                const tip = sectionTips[enterpriseSettingsActiveSection] || '';
+                bodyHtml = `
+                    <section class="space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="text-right">
+                                <button type="button" onclick="app.setEnterpriseSettingsSection(null)" class="text-sm font-bold text-red-700 mb-2 inline-flex items-center gap-1">
+                                    <i class="fas fa-arrow-right"></i> كل الأقسام
+                                </button>
+                                <h3 class="text-2xl font-extrabold text-slate-800">${section?.titleAr || 'القسم'}</h3>
+                                <p class="text-sm text-slate-500 mt-1">${section?.descriptionAr || ''}</p>
+                            </div>
+                            <span class="text-xs font-bold px-3 py-1.5 rounded-full bg-red-50 text-red-800 border border-red-100">${entries.length} إعداد متاح</span>
+                        </div>
+                        ${tip ? `<div class="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">${tip}</div>` : ''}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${renderEnterpriseSettingsCards(entries)}</div>
+                    </section>`;
+            } else if (enterpriseSettingsShowAll) {
+                bodyHtml = `
+                    <section class="space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <button type="button" onclick="app.setEnterpriseSettingsShowAll(false)" class="text-sm font-bold text-red-700 mb-2 inline-flex items-center gap-1">
+                                    <i class="fas fa-arrow-right"></i> العودة للأقسام
+                                </button>
+                                <h3 class="text-xl font-extrabold text-slate-800">كل الإعدادات</h3>
+                                <p class="text-sm text-slate-500">عرض كامل للكتالوج مع الحفاظ على نفس الشاشات الحقيقية.</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${renderEnterpriseSettingsCards(catalog.entries || [])}</div>
+                    </section>`;
+            } else {
+                bodyHtml = renderEnterpriseSettingsSectionsGrid(catalog, filteredBySection);
+            }
+
+            mount.innerHTML = bodyHtml;
+            mount.scrollTop = previousScroll;
         } catch (err) {
             mount.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-5 text-sm">
                 تعذر تحميل مركز الإعدادات: ${enterpriseSettingsCatalogError || err.message}
@@ -18534,23 +18672,49 @@ const app = (() => {
         }
     };
 
+    const handleEnterpriseSettingsSearchKey = (event) => {
+        if (event.key !== 'Enter') return;
+        const catalog = enterpriseSettingsCatalogCache;
+        if (!catalog) return;
+        const rawQ = (document.getElementById('enterprise-settings-search')?.value || '').trim();
+        const aliasId = resolveEnterpriseSettingsAlias(rawQ, catalog);
+        if (aliasId) {
+            openEnterpriseSettingEntry(aliasId);
+            return;
+        }
+        refreshEnterpriseSettingsHub();
+    };
+
     const renderSettingsHub = () => {
         if (!perms.isAdmin()) return renderPlaceholder();
+        enterpriseSettingsActiveSection = null;
+        enterpriseSettingsShowAll = false;
         setTimeout(() => { refreshEnterpriseSettingsHub(); }, 0);
 
         return `
-        <div class="animate-fade-in bg-slate-100 rounded-2xl border border-slate-200 p-4 sm:p-6 space-y-5 min-h-[70vh]">
-            <div class="bg-white border border-slate-200 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
-                <div class="text-right">
-                    <h2 class="text-3xl font-bold text-slate-800 mb-1">مركز الإعدادات المؤسسي 360</h2>
-                    <p class="text-sm text-slate-500">منصة / شركة / وحدات — بدون أزرار وهمية</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input id="enterprise-settings-search" type="search" placeholder="بحث في الإعدادات..."
-                        class="h-10 w-56 max-w-full rounded-xl border border-slate-200 px-3 text-sm"
-                        oninput="app.refreshEnterpriseSettingsHub()" />
-                    <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-                        <i class="fas fa-cog text-2xl"></i>
+        <div class="animate-fade-in bg-gradient-to-b from-slate-50 to-white rounded-2xl border border-slate-200 p-4 sm:p-6 space-y-5 min-h-[70vh]">
+            <div class="relative overflow-hidden rounded-3xl border border-red-100 bg-white shadow-sm">
+                <div class="absolute inset-0 bg-gradient-to-l from-red-800 via-rose-800 to-red-900 opacity-95"></div>
+                <div class="absolute -left-10 top-0 w-40 h-40 rounded-full bg-amber-400/20 blur-2xl"></div>
+                <div class="relative p-5 sm:p-7 flex flex-wrap items-center justify-between gap-5 text-white">
+                    <div class="text-right max-w-2xl space-y-2">
+                        <p class="text-amber-200 text-xs font-bold tracking-wide">NAIOSH ERP 360</p>
+                        <h2 class="text-2xl sm:text-3xl font-black leading-tight">مركز الإعدادات</h2>
+                        <p class="text-sm sm:text-base text-red-50/90 leading-relaxed">
+                            غيّر شكل الموقع، الشركات، المستخدمين، والأنظمة بسهولة — دون مصطلحات تقنية.
+                        </p>
+                    </div>
+                    <div class="w-full sm:w-auto flex-1 max-w-md">
+                        <label class="block text-xs font-bold text-amber-100 mb-2">بحث ذكي في الإعدادات</label>
+                        <div class="flex items-center gap-2 bg-white/95 rounded-2xl px-3 py-2 shadow-inner">
+                            <i class="fas fa-magnifying-glass text-red-700"></i>
+                            <input id="enterprise-settings-search" type="search"
+                                placeholder="مثال: تغيير الشعار، إضافة فرع، إعدادات الرواتب..."
+                                class="flex-1 h-10 bg-transparent border-0 outline-none text-sm text-slate-800 placeholder:text-slate-400"
+                                oninput="app.refreshEnterpriseSettingsHub()"
+                                onkeydown="app.handleEnterpriseSettingsSearchKey(event)" />
+                        </div>
+                        <p class="text-[11px] text-red-100/80 mt-2">اضغط Enter للانتقال مباشرة عند وجود اقتراح مطابق.</p>
                     </div>
                 </div>
             </div>
@@ -27323,6 +27487,9 @@ const app = (() => {
         handleSettingsCatalogAction,
         openEnterpriseSettingEntry,
         refreshEnterpriseSettingsHub,
+        setEnterpriseSettingsSection,
+        setEnterpriseSettingsShowAll,
+        handleEnterpriseSettingsSearchKey,
         handleSupplyChainAction, handleQualityPolicyAction,  // Facilities, Supply Chain, Quality & Policies functions
         handleDownloadAppClick,
         startPwaInstall: async () => {
