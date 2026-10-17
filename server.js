@@ -3068,6 +3068,7 @@ const protectedHtmlExactPaths = new Set([
   '/tenant-branding-settings.html',
   '/hr',
   '/operational-policies',
+  '/governed-administrative-integration',
   '/e-offices',
   '/platforms',
   '/incubators-hub',
@@ -3109,6 +3110,9 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/tenant-branding-settings.html') return null;
   if (p === '/ads' || p.startsWith('/ads/')) return ['ads'];
   if (p === '/operational-policies' || p.startsWith('/operational-policies/')) return ['operational-policies'];
+  if (p === '/governed-administrative-integration' || p.startsWith('/governed-administrative-integration/')) {
+    return ['governed-administrative-integration'];
+  }
   if (p === '/e-offices' || p.startsWith('/e-offices/')) return ['e-offices'];
   if (p === '/platforms' || p.startsWith('/platforms/')) return ['platforms'];
   if (p === '/incubators-hub' || p.startsWith('/incubators-hub/')) return ['incubators-hub'];
@@ -4169,6 +4173,7 @@ const serveDashboardSpa = (req, res) => {
   '/education-incubators',
   '/credit-topup',
   '/gateway-payments',
+  '/governed-administrative-integration',
 ].forEach((routePath) => {
   app.get(routePath, serveDashboardSpa);
 });

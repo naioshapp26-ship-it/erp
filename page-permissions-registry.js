@@ -265,6 +265,7 @@ const ROUTE_TO_PATH = {
   'marketing-campaigns-studio': '/marketing-campaigns-studio.html',
   marketing: '/marketing-campaigns-studio.html',
   'operational-policies': '/operational-policies',
+  'governed-administrative-integration': '/governed-administrative-integration',
   'payment-menu': '/payment',
   'supply-chain': '/supply-chain',
   sales: '/sales',
@@ -389,6 +390,8 @@ const PAGE_LABELS = {
   'incubators-hub': 'الحاضنات',
   'naiosh-sectors': 'قطاعات نايوش',
   'operational-policies': 'السياسات التشغيلية المعتمدة',
+  'governed-administrative-integration': 'التكامل الإداري المحكوم',
+  'governed-administrative-integration': 'التكامل الإداري المحكوم',
   'invoices-enhanced': 'الفواتير الذكية',
   'payment-methods': 'طرق الدفع',
   'attendance-departure': 'الحضور والانصراف',
@@ -747,6 +750,9 @@ function getPageKeysForPath(requestPath) {
   // Portal hub: Branches / Nurseries / Platforms / E-Library
   if (normalized === '/incubators-platforms' || normalized.startsWith('/incubators-platforms/')) {
     return ['branches-hub', 'incubators-hub', 'platforms', 'e-offices'];
+  }
+  if (normalized === '/governed-administrative-integration' || normalized.startsWith('/governed-administrative-integration/')) {
+    return ['governed-administrative-integration'];
   }
   if (normalized === '/archive') return ['records-archive-home'];
   if (normalized.startsWith('/archive/')) {
