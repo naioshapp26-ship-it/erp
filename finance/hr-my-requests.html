@@ -597,14 +597,24 @@
       const btn = document.getElementById('submitRequestBtn');
       btn.disabled = true;
       try {
-        const name = document.getElementById('reqName').value.trim();
-        const empId = document.getElementById('reqEmpId').value.trim();
+        let name = document.getElementById('reqName').value.trim();
+        let empId = document.getElementById('reqEmpId').value.trim();
         const dept = document.getElementById('reqDept').value.trim();
         const startDate = document.getElementById('reqStart').value || null;
         const endDate = document.getElementById('reqEnd').value || null;
         const reason = document.getElementById('reqReason').value.trim();
         const priority = document.getElementById('reqPriority').value || 'NORMAL';
         const today = new Date().toISOString().slice(0, 10);
+
+        const ctx = window.HR_PORTAL_CONTEXT || {};
+        const stored = readStoredUser() || {};
+        const essMode = !!ctx.adminHidden || ctx.persona === 'employee';
+        if (essMode) {
+          const forcedId = ctx.auth?.id != null ? String(ctx.auth.id) : (stored.id != null ? String(stored.id) : empId);
+          const forcedName = stored.name || stored.full_name || name;
+          if (forcedId) empId = forcedId;
+          if (forcedName) name = forcedName;
+        }
 
         if (!name) throw new Error('اسم الموظف مطلوب');
         if (!empId) throw new Error('رقم الموظف مطلوب');

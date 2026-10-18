@@ -1768,6 +1768,48 @@ const ensureAcceptedEmployeesTable = async () => {
 
 ensureAcceptedEmployeesTable();
 
+// Central HQ employees roster (admin-erp-hr /api/employees)
+const ensureEmployeesTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS employees (
+        id SERIAL PRIMARY KEY,
+        employee_number VARCHAR(80) NOT NULL,
+        full_name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        national_id TEXT,
+        position TEXT,
+        department TEXT,
+        assigned_entity_type VARCHAR(40) DEFAULT 'HQ',
+        hq_id INTEGER,
+        branch_id INTEGER,
+        incubator_id INTEGER,
+        platform_id INTEGER,
+        office_id INTEGER,
+        hire_date DATE,
+        salary NUMERIC(14,2),
+        employment_type VARCHAR(40) DEFAULT 'FULL_TIME',
+        address TEXT,
+        emergency_contact TEXT,
+        emergency_phone TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_employees_employee_number ON employees(employee_number);
+      CREATE INDEX IF NOT EXISTS idx_employees_entity_type ON employees(assigned_entity_type);
+      CREATE INDEX IF NOT EXISTS idx_employees_email ON employees(email);
+      CREATE INDEX IF NOT EXISTS idx_employees_active ON employees(is_active);
+    `);
+    console.log('✅ employees table ready');
+  } catch (error) {
+    console.error('❌ Failed to ensure employees table:', error);
+  }
+};
+
+ensureEmployeesTable();
+
 // New hires table
 const ensureNewHiresTable = async () => {
   try {
@@ -11993,7 +12035,7 @@ app.post('/api/leave-requests', async (req, res) => {
     // Employees may only create requests for themselves
     if (hrPortalAccess.isEmployeePersona(persona) && authUser.id) {
       employee_id = String(authUser.id);
-      if (authUser.name && !employee_name) employee_name = authUser.name;
+      if (authUser.name) employee_name = authUser.name;
     }
 
     if (!employee_name || !start_date || !end_date) {
