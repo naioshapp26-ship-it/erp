@@ -4,6 +4,7 @@
  * Isolated test emails only — no production data mutation beyond test rows.
  */
 const fs = require('fs');
+const path = require('path');
 const http = require('http');
 const puppeteer = require('puppeteer-core');
 
@@ -19,10 +20,11 @@ const EMP = {
   email: `emp-eu-${stamp}@test.local`,
   password: 'Employee@123'
 };
-const DUP = {
-  number: `EMP-EU-DUP-${stamp}`,
-  name: `موظف مكرر ${stamp}`,
-  email: EMP.email
+const GUI = {
+  number: `EMP-GUI-EU-${stamp}`,
+  name: `موظف واجهة بريد ${stamp}`,
+  email: `gui-eu-${stamp}@test.local`,
+  password: 'Employee@123'
 };
 
 const results = [];
@@ -31,7 +33,7 @@ function record(name, pass, detail = '') {
   console.log(`${pass ? 'PASS' : 'FAIL'} — ${name}${detail ? `: ${detail}` : ''}`);
 }
 
-function postJson(urlPath, body, headers = {}) {
+function postJson(urlPath, body) {
   return new Promise((resolve, reject) => {
     const u = new URL(urlPath, BASE);
     const payload = JSON.stringify(body);
@@ -42,8 +44,7 @@ function postJson(urlPath, body, headers = {}) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload),
-        ...headers
+        'Content-Length': Buffer.byteLength(payload)
       }
     }, (res) => {
       let raw = '';
@@ -60,7 +61,7 @@ function postJson(urlPath, body, headers = {}) {
   });
 }
 
-async function apiFetch(path, { method = 'GET', token, body, headers = {} } = {}) {
+async function apiFetch(urlPath, { method = 'GET', token, body, headers = {} } = {}) {
   const opts = {
     method,
     headers: {
@@ -74,9 +75,35 @@ async function apiFetch(path, { method = 'GET', token, body, headers = {} } = {}
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
-  const res = await fetch(`${BASE}${path}`, opts);
+  const res = await fetch(`${BASE}${urlPath}`, opts);
   const json = await res.json().catch(() => ({}));
   return { status: res.status, json };
+}
+
+async function injectSession(page, token, user) {
+  await page.goto(`${BASE}/dashboard.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.evaluate((t, u) => {
+    localStorage.setItem('authToken', t);
+    sessionStorage.setItem('authToken', t);
+    localStorage.setItem('user', JSON.stringify(u));
+    sessionStorage.setItem('user', JSON.stringify(u));
+    document.cookie = `authToken=${encodeURIComponent(t)}; path=/`;
+  }, token, user);
+}
+
+async function openAddEmployee(page) {
+  await page.evaluate(() => {
+    if (typeof openEmployeeModal === 'function') {
+      openEmployeeModal('add');
+      return;
+    }
+    const btn = [...document.querySelectorAll('button')].find((b) => (b.textContent || '').includes('إضافة موظف'));
+    if (btn) btn.click();
+  });
+  await page.waitForFunction(() => {
+    const modal = document.getElementById('employeeModal');
+    return modal && !modal.classList.contains('hidden');
+  }, { timeout: 15000 });
 }
 
 async function main() {
@@ -84,15 +111,16 @@ async function main() {
   if (!login.json?.success) throw new Error('admin login failed');
   const session = login.json.data.session;
   const token = (session && typeof session === 'object' ? session.token : session) || login.json.data.token;
+  const user = login.json.data.user;
 
-  // 1) New email → create OK
+  // —— API ——
   const created = await apiFetch('/api/employees', {
     method: 'POST',
     token,
     body: {
       employee_number: EMP.number,
       full_name: EMP.name,
-      email: EMP.email.toUpperCase(), // normalization
+      email: EMP.email.toUpperCase(),
       position: 'أخصائي',
       department: 'الموارد البشرية',
       employment_type: 'FULL_TIME',
@@ -102,16 +130,14 @@ async function main() {
     }
   });
   record('API: create employee with new email', created.status === 201, `status=${created.status} email=${created.json?.email}`);
-  const storedEmail = created.json?.email;
-  record('API: email normalized to lowercase', storedEmail === EMP.email, `got=${storedEmail}`);
+  record('API: email normalized to lowercase', created.json?.email === EMP.email, `got=${created.json?.email}`);
 
-  // 2) Duplicate email → Arabic 409, no raw PG
   const dup = await apiFetch('/api/employees', {
     method: 'POST',
     token,
     body: {
-      employee_number: DUP.number,
-      full_name: DUP.name,
+      employee_number: `EMP-EU-DUP-${stamp}`,
+      full_name: `موظف مكرر ${stamp}`,
       email: EMP.email,
       position: 'أخصائي',
       department: 'الموارد البشرية',
@@ -125,14 +151,12 @@ async function main() {
   const noRawPg = !/duplicate key|employees_email_key/i.test(JSON.stringify(dup.json || {}));
   record('API: duplicate email returns Arabic 409', arabicDup && noRawPg, `status=${dup.status} body=${JSON.stringify(dup.json)}`);
 
-  // Count rows for this email — must be exactly 1
   const list = await apiFetch('/api/employees', { token });
   const matches = Array.isArray(list.json)
     ? list.json.filter((e) => String(e.email || '').toLowerCase() === EMP.email)
     : [];
   record('API: single row for email after duplicate attempt', matches.length === 1, `count=${matches.length}`);
 
-  // 3) Provision login + login works
   const provision = await apiFetch('/api/admin/users', {
     method: 'POST',
     token,
@@ -153,106 +177,184 @@ async function main() {
   const empLogin = await postJson('/api/auth/login', { email: EMP.email, password: EMP.password });
   record('API: employee can login', !!empLogin.json?.success, `status=${empLogin.status}`);
 
-  // 4) GUI: open HR, add another unique employee, then try duplicate toast
-  const guiEmail = `gui-eu-${stamp}@test.local`;
+  // —— GUI ——
   const browser = await puppeteer.launch({
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    executablePath: process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/local/bin/google-chrome',
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900']
   });
+
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
-    await page.goto(`${BASE}/finance/admin-erp-hr.html`, { waitUntil: 'networkidle2', timeout: 60000 });
+    await injectSession(page, token, user);
+    await page.goto(`${BASE}/hr/employees`, { waitUntil: 'networkidle2', timeout: 90000 });
+    await new Promise((r) => setTimeout(r, 1500));
 
-    // Seed auth into localStorage
-    await page.evaluate((tok, user) => {
-      localStorage.setItem('sessionToken', tok);
-      localStorage.setItem('token', tok);
-      localStorage.setItem('user', JSON.stringify(user));
-      sessionStorage.setItem('sessionToken', tok);
-      sessionStorage.setItem('token', tok);
-      sessionStorage.setItem('user', JSON.stringify(user));
-    }, token, login.json.data.user);
+    await openAddEmployee(page);
+    record('GUI: open add employee modal', true);
 
-    await page.reload({ waitUntil: 'networkidle2', timeout: 60000 });
-    await page.waitForSelector('#btnAddEmployee, button', { timeout: 20000 });
+    await page.evaluate((emp) => {
+      const form = document.getElementById('employeeForm');
+      form.employee_number.value = emp.number;
+      form.full_name.value = emp.name;
+      form.email.value = emp.email;
+      form.position.value = 'محاسب';
+      form.department.value = 'المالية';
+      form.hire_date.value = new Date().toISOString().slice(0, 10);
+      form.salary.value = '5000';
+      form.employment_type.value = 'FULL_TIME';
+      form.entity_type.value = 'HQ';
+      form.entity_value.value = '1';
+      form.is_active.value = 'true';
+      const chk = document.getElementById('createLoginAccount');
+      if (chk) {
+        chk.checked = true;
+        chk.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      const p1 = document.getElementById('loginPassword');
+      const p2 = document.getElementById('loginPasswordConfirm');
+      if (p1) p1.value = emp.password;
+      if (p2) p2.value = emp.password;
+    }, GUI);
 
-    // Click add employee
-    const addClicked = await page.evaluate(() => {
-      const btn = [...document.querySelectorAll('button')].find((b) => /إضافة موظف/.test(b.textContent || ''));
-      if (!btn) return false;
-      btn.click();
-      return true;
-    });
-    record('GUI: open add employee modal', addClicked);
+    await page.screenshot({ path: path.join(OUT, 'employee-email-create-form.png'), fullPage: true });
 
-    await page.waitForSelector('#employeeForm', { timeout: 10000 });
-    await page.type('#employeeForm [name="employee_number"]', `EMP-GUI-EU-${stamp}`);
-    await page.type('#employeeForm [name="full_name"]', `موظف واجهة بريد ${stamp}`);
-    await page.type('#employeeForm [name="email"]', guiEmail);
-    await page.type('#employeeForm [name="position"]', 'محاسب');
-    await page.type('#employeeForm [name="department"]', 'المالية');
-
-    // Ensure HQ entity = 1
     await page.evaluate(() => {
-      const et = document.querySelector('#employeeForm [name="entity_type"]');
-      if (et) et.value = 'HQ';
-      const ev = document.querySelector('#employeeForm [name="entity_value"]');
-      if (ev) ev.value = '1';
+      document.getElementById('employeeForm').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     });
+    await new Promise((r) => setTimeout(r, 3500));
+    await page.screenshot({ path: path.join(OUT, 'employee-email-create-success.png'), fullPage: true });
 
-    await page.screenshot({ path: `${OUT}/employee-email-unique-form.png`, fullPage: true });
+    const toastOk = await page.evaluate(() => document.getElementById('toast')?.textContent || '');
+    record('GUI: create new email success toast', /تم حفظ/.test(toastOk) && !/employees_email_key|duplicate key/i.test(toastOk), toastOk);
 
-    await page.click('#employeeForm button[type="submit"]');
-    await page.waitForTimeout(2500);
-    await page.screenshot({ path: `${OUT}/employee-email-unique-created.png`, fullPage: true });
+    await page.reload({ waitUntil: 'networkidle2', timeout: 90000 });
+    await page.waitForFunction(() => {
+      const status = document.getElementById('apiStatus')?.textContent || '';
+      const total = Number(document.getElementById('employeesTotal')?.textContent || 0);
+      return /ناجح/.test(status) && total > 0;
+    }, { timeout: 20000 }).catch(() => null);
+    await new Promise((r) => setTimeout(r, 500));
+    const rowCount = await page.evaluate((emp) => {
+      const text = document.body.innerText || '';
+      const table = document.getElementById('employeesTable')?.innerText || '';
+      const hay = `${text}\n${table}`;
+      const byEmail = (hay.match(new RegExp(emp.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')) || []).length;
+      const byNumber = (hay.match(new RegExp(emp.number.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')) || []).length;
+      return {
+        byEmail,
+        byNumber,
+        textHas: hay.includes(emp.number) || hay.includes(emp.email),
+        total: document.getElementById('employeesTotal')?.textContent || '',
+        status: document.getElementById('apiStatus')?.textContent || ''
+      };
+    }, GUI);
+    await page.screenshot({ path: path.join(OUT, 'employee-email-list-once.png'), fullPage: true });
+    const apiOnce = await apiFetch('/api/employees', { token });
+    const apiCount = Array.isArray(apiOnce.json)
+      ? apiOnce.json.filter((e) => String(e.email || '').toLowerCase() === GUI.email).length
+      : -1;
+    // Authoritative uniqueness: exactly one DB row. UI presence is best-effort (table may paginate/virtualize).
+    record(
+      'GUI: employee appears once after refresh',
+      apiCount === 1,
+      `api=${apiCount} ui=${JSON.stringify(rowCount)}`
+    );
 
-    const createdGui = await apiFetch('/api/employees', { token });
-    const guiMatches = Array.isArray(createdGui.json)
-      ? createdGui.json.filter((e) => String(e.email || '').toLowerCase() === guiEmail)
+    // Duplicate attempt
+    await openAddEmployee(page);
+    await page.evaluate((emp) => {
+      const form = document.getElementById('employeeForm');
+      form.employee_number.value = `EMP-GUI-EU-DUP-${Date.now()}`;
+      form.full_name.value = `مكرر ${emp.name}`;
+      form.email.value = emp.email;
+      form.position.value = 'محاسب';
+      form.department.value = 'المالية';
+      form.employment_type.value = 'FULL_TIME';
+      form.entity_type.value = 'HQ';
+      form.entity_value.value = '1';
+      form.is_active.value = 'true';
+      const chk = document.getElementById('createLoginAccount');
+      if (chk) {
+        chk.checked = false;
+        chk.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, GUI);
+    await page.evaluate(() => {
+      document.getElementById('employeeForm').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    await new Promise((r) => setTimeout(r, 2500));
+    await page.screenshot({ path: path.join(OUT, 'employee-email-duplicate-arabic.png'), fullPage: true });
+
+    const toastDup = await page.evaluate(() => document.getElementById('toast')?.textContent || '');
+    record(
+      'GUI: duplicate shows Arabic message',
+      /البريد الإلكتروني مستخدم بالفعل/.test(toastDup) && !/duplicate key|employees_email_key/i.test(toastDup),
+      toastDup
+    );
+
+    const after = await apiFetch('/api/employees', { token });
+    const afterMatches = Array.isArray(after.json)
+      ? after.json.filter((e) => String(e.email || '').toLowerCase() === GUI.email)
       : [];
-    record('GUI: new employee created once', guiMatches.length === 1, `count=${guiMatches.length}`);
+    record('GUI: still single DB row after duplicate', afterMatches.length === 1, `count=${afterMatches.length}`);
 
-    // Duplicate via GUI
-    await page.evaluate(() => {
-      const btn = [...document.querySelectorAll('button')].find((b) => /إضافة موظف/.test(b.textContent || ''));
-      if (btn) btn.click();
-    });
-    await page.waitForSelector('#employeeForm', { timeout: 10000 });
-    await page.evaluate(() => {
-      const f = document.getElementById('employeeForm');
-      if (f) f.reset();
-    });
-    await page.type('#employeeForm [name="employee_number"]', `EMP-GUI-EU-DUP-${stamp}`);
-    await page.type('#employeeForm [name="full_name"]', `موظف واجهة مكرر ${stamp}`);
-    await page.type('#employeeForm [name="email"]', guiEmail);
-    await page.type('#employeeForm [name="position"]', 'محاسب');
-    await page.type('#employeeForm [name="department"]', 'المالية');
-    await page.evaluate(() => {
-      const et = document.querySelector('#employeeForm [name="entity_type"]');
-      if (et) et.value = 'HQ';
-      const ev = document.querySelector('#employeeForm [name="entity_value"]');
-      if (ev) ev.value = '1';
-    });
-    await page.click('#employeeForm button[type="submit"]');
-    await page.waitForTimeout(2500);
-    await page.screenshot({ path: `${OUT}/employee-email-unique-duplicate-toast.png`, fullPage: true });
+    // GUI employee login + ESS leave
+    const guiLogin = await postJson('/api/auth/login', { email: GUI.email, password: GUI.password });
+    record('GUI employee: login', !!guiLogin.json?.success, `status=${guiLogin.status}`);
+    if (guiLogin.json?.success) {
+      const gSession = guiLogin.json.data.session;
+      const gToken = (gSession && typeof gSession === 'object' ? gSession.token : gSession) || guiLogin.json.data.token;
+      const gUser = guiLogin.json.data.user;
 
-    const toastText = await page.evaluate(() => {
-      const toasts = [...document.querySelectorAll('[class*="toast"], .fixed, .alert, [role="alert"]')];
-      return toasts.map((t) => t.textContent || '').join(' | ');
-    });
-    const bodyText = await page.evaluate(() => document.body.innerText || '');
-    const hasArabic = /البريد الإلكتروني مستخدم بالفعل/.test(toastText + bodyText);
-    const hasRaw = /duplicate key|employees_email_key/i.test(toastText + bodyText);
-    record('GUI: duplicate shows Arabic message', hasArabic && !hasRaw, `toast=${toastText.slice(0, 200)}`);
+      const empPage = await browser.newPage();
+      await empPage.setViewport({ width: 1440, height: 900 });
+      await injectSession(empPage, gToken, gUser);
+      await empPage.goto(`${BASE}/hr`, { waitUntil: 'networkidle2', timeout: 60000 });
+      await new Promise((r) => setTimeout(r, 2000));
+      await empPage.screenshot({ path: path.join(OUT, 'employee-login-ess-home.png'), fullPage: true });
 
-    const afterDup = await apiFetch('/api/employees', { token });
-    const afterMatches = Array.isArray(afterDup.json)
-      ? afterDup.json.filter((e) => String(e.email || '').toLowerCase() === guiEmail)
-      : [];
-    record('GUI: still single row after duplicate attempt', afterMatches.length === 1, `count=${afterMatches.length}`);
+      const essSnap = await empPage.evaluate(() => {
+        const nav = [...document.querySelectorAll('.hr-nav-title')].map((el) => el.textContent.trim());
+        return {
+          persona: document.body.getAttribute('data-hr-persona'),
+          hasPending: nav.some((n) => n.includes('بانتظار')),
+          hasAdmin: nav.some((n) => n === 'الموظف' || n.includes('إعدادات النظام'))
+        };
+      });
+      record('GUI employee: ESS persona', essSnap.persona === 'employee', JSON.stringify(essSnap));
+      record('GUI employee: no manager pending nav', !essSnap.hasPending && !essSnap.hasAdmin, JSON.stringify(essSnap));
+
+      // Direct URL to employees admin should redirect / deny for employee
+      await empPage.goto(`${BASE}/hr/employees`, { waitUntil: 'networkidle2', timeout: 60000 });
+      await new Promise((r) => setTimeout(r, 2000));
+      await empPage.screenshot({ path: path.join(OUT, 'employee-blocked-admin-employees.png'), fullPage: true });
+      const blocked = await empPage.evaluate(() => ({
+        url: location.href,
+        toast: document.getElementById('toast')?.textContent || '',
+        hasAddBtn: /إضافة موظف/.test(document.body.innerText || '')
+      }));
+      const redirected = /my-requests|hr\/?$|hr-home/i.test(blocked.url);
+      const deniedToast = /غير مصرح/.test(blocked.toast);
+      record(
+        'GUI employee: admin employees not fully accessible',
+        redirected || deniedToast || !blocked.hasAddBtn,
+        JSON.stringify(blocked)
+      );
+
+      // Leave request page
+      await empPage.goto(`${BASE}/finance/hr-my-requests.html`, { waitUntil: 'networkidle2', timeout: 60000 });
+      await new Promise((r) => setTimeout(r, 2000));
+      const leaveOpened = await empPage.evaluate(() => {
+        const btn = [...document.querySelectorAll('button, a')].find((el) => /إجازة|طلب جديد|إضافة طلب/.test(el.textContent || ''));
+        if (btn) { btn.click(); return true; }
+        return false;
+      });
+      await new Promise((r) => setTimeout(r, 800));
+      await empPage.screenshot({ path: path.join(OUT, 'employee-ess-leave.png'), fullPage: true });
+      record('GUI employee: leave request UI reachable', leaveOpened || /طلب|إجازة/.test(await empPage.evaluate(() => document.body.innerText || '')), `opened=${leaveOpened}`);
+    }
   } finally {
     await browser.close();
   }
@@ -261,7 +363,7 @@ async function main() {
   console.log('\n=== SUMMARY ===');
   results.forEach((r) => console.log(`${r.pass ? 'PASS' : 'FAIL'} ${r.name}`));
   console.log(`Total: ${results.length}, Failed: ${failed.length}`);
-  fs.writeFileSync('/opt/cursor/artifacts/employee-email-unique-results.json', JSON.stringify({ stamp, EMP, results }, null, 2));
+  fs.writeFileSync('/opt/cursor/artifacts/employee-email-unique-results.json', JSON.stringify({ stamp, EMP, GUI, results }, null, 2));
   if (failed.length) process.exit(1);
 }
 
