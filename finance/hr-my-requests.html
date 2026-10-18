@@ -147,7 +147,7 @@
               <p class="hr-page-subtitle">اختر نوع الطلب ثم عبّئ النموذج الموحّد — كل الطلبات تمر عبر المدير المباشر</p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <a href="/hr/manager" class="nav-pill"><i class="fas fa-chart-line"></i> لوحة المدير</a>
+              <a href="/hr/manager" class="nav-pill" id="managerDashLink" data-admin-only="1"><i class="fas fa-chart-line"></i> لوحة المدير</a>
               <button type="button" class="btn btn-primary" id="openSendHintBtn">
                 <i class="fas fa-paper-plane"></i> إرسال طلب
               </button>
@@ -349,14 +349,71 @@
       return d.toLocaleDateString('ar-SA');
     };
 
+    const readStoredUser = () => {
+      try {
+        return JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const authHeaders = () => {
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+      const headers = { 'Content-Type': 'application/json', 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      return headers;
+    };
+
     const api = async (url, options = {}) => {
-      const res = await fetch(url, {
-        headers: { 'Content-Type': 'application/json', 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' },
-        ...options
-      });
+      const headers = { ...authHeaders(), ...(options.headers || {}) };
+      const res = await fetch(url, { ...options, headers });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || data.message || 'تعذر تنفيذ العملية');
       return data;
+    };
+
+    const applyPersonaUi = async () => {
+      try {
+        const ctx = await api('/api/hr/portal-context');
+        window.HR_PORTAL_CONTEXT = ctx;
+        const ess = !!ctx.adminHidden || ctx.persona === 'employee';
+        document.body.setAttribute('data-hr-persona', ctx.persona || '');
+        document.querySelectorAll('[data-admin-only]').forEach((el) => {
+          el.style.display = ess ? 'none' : '';
+        });
+        if (ess) {
+          const title = document.querySelector('.hr-page-title');
+          const subtitle = document.querySelector('.hr-page-subtitle');
+          if (title) title.textContent = 'طلباتي والخدمة الذاتية';
+          if (subtitle) subtitle.textContent = 'قدّم طلباتك الشخصية وتابع حالتها — دون أدوات الإدارة';
+        }
+        const user = readStoredUser() || {};
+        const empId = ctx.auth?.id != null ? String(ctx.auth.id) : (user.id != null ? String(user.id) : '');
+        const empName = user.name || user.full_name || '';
+        if (empId) {
+          const empInput = document.getElementById('reqEmpId');
+          if (empInput && !empInput.value) {
+            empInput.value = empId;
+            if (ess) {
+              empInput.readOnly = true;
+              empInput.classList.add('bg-slate-50');
+            }
+          }
+        }
+        if (empName) {
+          const nameInput = document.getElementById('reqName');
+          if (nameInput && !nameInput.value) {
+            nameInput.value = empName;
+            if (ess) {
+              nameInput.readOnly = true;
+              nameInput.classList.add('bg-slate-50');
+            }
+          }
+        }
+        return ctx;
+      } catch (_) {
+        return null;
+      }
     };
 
     const isLeaveType = (type) => type?.kind === 'leave' || /إجازة|اجازة|^leave$/i.test(type?.id || '') || /إجازة|اجازة/i.test(type?.label || '');
@@ -415,6 +472,20 @@
       const next = new Date(today); next.setDate(today.getDate() + 3);
       document.getElementById('reqStart').value = iso;
       document.getElementById('reqEnd').value = next.toISOString().slice(0, 10);
+
+      const ctx = window.HR_PORTAL_CONTEXT || {};
+      const user = readStoredUser() || {};
+      const ess = !!ctx.adminHidden || ctx.persona === 'employee';
+      const empId = ctx.auth?.id != null ? String(ctx.auth.id) : (user.id != null ? String(user.id) : '');
+      const empName = user.name || user.full_name || '';
+      if (empId) {
+        document.getElementById('reqEmpId').value = empId;
+        document.getElementById('reqEmpId').readOnly = ess;
+      }
+      if (empName) {
+        document.getElementById('reqName').value = empName;
+        document.getElementById('reqName').readOnly = ess;
+      }
 
       const modal = document.getElementById('requestModal');
       modal.classList.add('open');
@@ -496,6 +567,9 @@
 
     const loadPendingBadge = async () => {
       try {
+        if (window.HR_PORTAL_CONTEXT?.adminHidden || window.HR_PORTAL_CONTEXT?.persona === 'employee') {
+          return 0;
+        }
         if (window.HRPortalShell?.refreshBadges) await window.HRPortalShell.refreshBadges();
         const data = await api('/api/hr/pending-actions?count_only=1');
         return data.count || 0;
@@ -523,14 +597,24 @@
       const btn = document.getElementById('submitRequestBtn');
       btn.disabled = true;
       try {
-        const name = document.getElementById('reqName').value.trim();
-        const empId = document.getElementById('reqEmpId').value.trim();
+        let name = document.getElementById('reqName').value.trim();
+        let empId = document.getElementById('reqEmpId').value.trim();
         const dept = document.getElementById('reqDept').value.trim();
         const startDate = document.getElementById('reqStart').value || null;
         const endDate = document.getElementById('reqEnd').value || null;
         const reason = document.getElementById('reqReason').value.trim();
         const priority = document.getElementById('reqPriority').value || 'NORMAL';
         const today = new Date().toISOString().slice(0, 10);
+
+        const ctx = window.HR_PORTAL_CONTEXT || {};
+        const stored = readStoredUser() || {};
+        const essMode = !!ctx.adminHidden || ctx.persona === 'employee';
+        if (essMode) {
+          const forcedId = ctx.auth?.id != null ? String(ctx.auth.id) : (stored.id != null ? String(stored.id) : empId);
+          const forcedName = stored.name || stored.full_name || name;
+          if (forcedId) empId = forcedId;
+          if (forcedName) name = forcedName;
+        }
 
         if (!name) throw new Error('اسم الموظف مطلوب');
         if (!empId) throw new Error('رقم الموظف مطلوب');
@@ -636,7 +720,7 @@
 
     document.getElementById('refreshBtn').addEventListener('click', loadRequests);
 
-    // Deep-link: /hr/leaves or ?type=leave|advance
+    // Deep-link: /hr/leaves or ?type=leave|advance|salary-certificate
     const openFromQuery = () => {
       const params = new URLSearchParams(location.search);
       const q = (params.get('type') || '').toLowerCase();
@@ -646,16 +730,21 @@
       } else if (q === 'leave' || location.pathname.includes('/leaves')) {
         const type = REQUEST_TYPES.find((t) => t.kind === 'leave');
         if (type) openRequestModal(type);
+      } else if (q) {
+        const type = REQUEST_TYPES.find((t) => t.id === q);
+        if (type) openRequestModal(type);
       }
     };
 
     renderTypeCards();
     fillLeaveTypes();
-    loadRequests();
+    applyPersonaUi().then(() => {
+      loadRequests();
+      setTimeout(openFromQuery, 250);
+    });
     setInterval(loadPendingBadge, 15000);
-    setTimeout(openFromQuery, 250);
   </script>
-  <script src="/finance/hr-portal-shell.js?v=hcm-requests-cards-20260825"></script>
+  <script src="/finance/hr-portal-shell.js?v=hcm-ess-rbac-20261018"></script>
   <script src="/tenant-path-client.js"></script>
 </body>
 </html>

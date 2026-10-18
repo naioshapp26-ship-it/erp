@@ -623,6 +623,26 @@
                         <option value="false">غير نشط</option>
                     </select>
                 </div>
+                <div class="md:col-span-2 rounded-xl border border-rose-100 bg-rose-50/70 p-4 space-y-3" id="employeeLoginBox">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" id="createLoginAccount" class="mt-1 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                        <span>
+                            <span class="block text-sm font-bold text-slate-800">إنشاء حساب دخول للموظف (صلاحية Employee)</span>
+                            <span class="block text-xs text-slate-500 mt-1">ملف الموظف وحده لا يفتح تسجيل الدخول. فعّل هذا الخيار لإنشاء مستخدم بكلمة مرور مرتبطة بنفس البريد.</span>
+                        </span>
+                    </label>
+                    <div id="employeeLoginFields" class="grid grid-cols-1 md:grid-cols-2 gap-3 hidden">
+                        <div>
+                            <label class="text-sm text-slate-600">كلمة مرور الدخول *</label>
+                            <input type="password" id="loginPassword" name="login_password" autocomplete="new-password" minlength="8" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none" placeholder="8 أحرف على الأقل" />
+                        </div>
+                        <div>
+                            <label class="text-sm text-slate-600">تأكيد كلمة المرور *</label>
+                            <input type="password" id="loginPasswordConfirm" name="login_password_confirm" autocomplete="new-password" minlength="8" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none" />
+                        </div>
+                        <p class="md:col-span-2 text-xs text-slate-500">يُنشأ الحساب بدور <strong>EMPLOYEE</strong> على الكيان HQ001. يتطلب صلاحية Super Admin عبر واجهة الإدارة.</p>
+                    </div>
+                </div>
                 <div class="md:col-span-2" data-hr-attachments-slot></div>
                 <div class="md:col-span-2 flex justify-end gap-3 mt-2">
                     <button type="button" onclick="closeEmployeeModal()" class="px-4 py-2 rounded-full border border-slate-200 text-slate-600">إلغاء</button>
@@ -1670,8 +1690,19 @@
             form.salary.value = data.salary || '';
             form.employment_type.value = data.employment_type || 'FULL_TIME';
             form.is_active.value = data.is_active ? 'true' : 'false';
-            form.entity_type.value = data.assigned_entity_type || 'BRANCH';
-            form.entity_value.value = data.branch_id || data.hq_id || data.office_id || data.incubator_id || data.platform_id || '';
+            form.entity_type.value = data.assigned_entity_type || 'HQ';
+            form.entity_value.value = data.branch_id || data.hq_id || data.office_id || data.incubator_id || data.platform_id || (mode === 'add' ? '1' : '');
+
+            const loginChk = document.getElementById('createLoginAccount');
+            const loginBox = document.getElementById('employeeLoginBox');
+            if (loginChk) {
+                loginChk.checked = false;
+                loginChk.disabled = mode !== 'add';
+            }
+            if (document.getElementById('loginPassword')) document.getElementById('loginPassword').value = '';
+            if (document.getElementById('loginPasswordConfirm')) document.getElementById('loginPasswordConfirm').value = '';
+            if (loginBox) loginBox.classList.toggle('hidden', mode !== 'add');
+            syncEmployeeLoginFields();
 
             const disabled = mode === 'view';
             Array.from(form.elements).forEach(el => el.disabled = disabled && el.type !== 'button' && el.type !== 'submit');
@@ -1684,9 +1715,54 @@
             document.getElementById('employeeModal').classList.add('hidden');
         }
 
+        function getAuthHeaders(extra = {}) {
+            const headers = { 'Content-Type': 'application/json', ...extra };
+            const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            if (token) headers.Authorization = `Bearer ${token}`;
+            try {
+                const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+                if (user?.id) headers['x-user-id'] = String(user.id);
+            } catch (_) { /* ignore */ }
+            return headers;
+        }
+
+        function syncEmployeeLoginFields() {
+            const enabled = document.getElementById('createLoginAccount')?.checked;
+            const box = document.getElementById('employeeLoginFields');
+            if (box) box.classList.toggle('hidden', !enabled);
+        }
+
+        document.getElementById('createLoginAccount')?.addEventListener('change', syncEmployeeLoginFields);
+
+        async function provisionEmployeeLogin({ name, email, password }) {
+            const res = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    name,
+                    email,
+                    password,
+                    tenant_type: 'HQ',
+                    entity_id: 'HQ001',
+                    entity_name: 'NAIOSH HQ',
+                    job_title: 'موظف',
+                    requested_role_code: 'EMPLOYEE',
+                    is_active: true
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || data.error || 'تعذر إنشاء حساب الدخول. تأكد أنك مسجّل كـ Super Admin.');
+            }
+            return data.user;
+        }
+
         async function saveEmployee(event) {
             event.preventDefault();
             const form = event.target;
+            const createLogin = !!document.getElementById('createLoginAccount')?.checked;
+            const loginPassword = document.getElementById('loginPassword')?.value || '';
+            const loginPasswordConfirm = document.getElementById('loginPasswordConfirm')?.value || '';
             const payload = {
                 employee_number: form.employee_number.value.trim(),
                 full_name: form.full_name.value.trim(),
@@ -1699,6 +1775,21 @@
                 assigned_entity_type: form.entity_type.value,
                 is_active: form.is_active.value === 'true'
             };
+
+            if (createLogin) {
+                if (!payload.email) {
+                    showToast('البريد مطلوب لإنشاء حساب الدخول', true);
+                    return;
+                }
+                if (loginPassword.length < 8) {
+                    showToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', true);
+                    return;
+                }
+                if (loginPassword !== loginPasswordConfirm) {
+                    showToast('كلمتا المرور غير متطابقتين', true);
+                    return;
+                }
+            }
 
             const entityValue = form.entity_value.value;
             payload.hq_id = null;
@@ -1718,14 +1809,25 @@
                 const method = employeeMode === 'edit' ? 'PUT' : 'POST';
                 const res = await fetch(url, {
                     method,
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify(payload)
                 });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.error || 'تعذر حفظ الموظف');
                 }
-                showToast('تم حفظ بيانات الموظف بنجاح');
+
+                let loginMsg = '';
+                if (createLogin && employeeMode === 'add') {
+                    await provisionEmployeeLogin({
+                        name: payload.full_name,
+                        email: payload.email,
+                        password: loginPassword
+                    });
+                    loginMsg = ' وتم إنشاء حساب الدخول بدور EMPLOYEE.';
+                }
+
+                showToast('تم حفظ بيانات الموظف بنجاح' + loginMsg);
                 closeEmployeeModal();
                 await loadData();
             } catch (err) {

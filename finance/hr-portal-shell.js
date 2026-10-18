@@ -24,6 +24,13 @@
     { key: 'system-settings', href: '/hr/system-settings', icon: 'fa-gear', label: 'إعدادات النظام' }
   ];
 
+  let portalContext = {
+    persona: 'manager',
+    adminHidden: false,
+    nav: null,
+    canApprove: true
+  };
+
   const STAGE_LABELS = {
     manager: 'المدير المباشر',
     hr: 'الموارد البشرية',
@@ -32,11 +39,42 @@
     finance: 'المالية'
   };
 
-  const apiHeaders = () => ({
-    'Content-Type': 'application/json',
-    'x-entity-type': 'HQ',
-    'x-entity-id': 'HQ001'
-  });
+  const apiHeaders = () => {
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-entity-type': 'HQ',
+      'x-entity-id': 'HQ001'
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  };
+
+  async function loadPortalContext() {
+    try {
+      const res = await fetch('/api/hr/portal-context', { headers: apiHeaders() });
+      const data = await res.json();
+      if (data && data.success) {
+        portalContext = {
+          persona: data.persona || 'manager',
+          adminHidden: !!data.adminHidden,
+          nav: Array.isArray(data.nav) ? data.nav : null,
+          canApprove: data.canApprove !== false,
+          title: data.title,
+          subtitle: data.subtitle,
+          auth: data.auth || null
+        };
+        window.HR_PORTAL_CONTEXT = portalContext;
+        document.body.setAttribute('data-hr-persona', portalContext.persona);
+        if (portalContext.adminHidden) {
+          document.body.classList.add('hr-ess-mode');
+        }
+      }
+    } catch (_) {
+      /* keep defaults */
+    }
+    return portalContext;
+  }
 
   function isHrRoute() {
     const path = String(window.location.pathname || '');
@@ -138,12 +176,37 @@
   function renderSidebar(badges) {
     const currentPath = normalizePath(window.location.pathname || '');
     const payload = getNavPayload();
-    const navItems = payload.usesHrDefaultNav || !Array.isArray(payload.links) ? NAV : payload.links;
+    let navItems;
+    if (portalContext.adminHidden && Array.isArray(portalContext.nav) && portalContext.nav.length) {
+      navItems = portalContext.nav;
+    } else if (payload.usesHrDefaultNav || !Array.isArray(payload.links)) {
+      navItems = NAV;
+    } else {
+      navItems = payload.links;
+    }
     const links = navItems.map((item) => renderNavLink(item, badges, currentPath)).join('');
-    const brandTitle = payload.brandTitle || 'نايوش HCM';
-    const brandSubtitle = payload.brandSubtitle || 'نظام الموارد البشرية';
+    const brandTitle = portalContext.adminHidden
+      ? 'الخدمة الذاتية'
+      : (payload.brandTitle || 'نايوش HCM');
+    const brandSubtitle = portalContext.adminHidden
+      ? 'بوابة الموظف'
+      : (payload.brandSubtitle || 'نظام الموارد البشرية');
     const showHrRequestFooter = payload.usesHrDefaultNav || payload.topbarMode === 'hr';
-    const footer = showHrRequestFooter
+    const footer = portalContext.adminHidden
+      ? `
+        <a href="/hr/my-requests" class="hr-nav-link">
+          <span class="hr-nav-main">
+            <span class="hr-nav-icon"><i class="fas fa-inbox"></i></span>
+            <span class="hr-nav-title">طلباتي</span>
+          </span>
+        </a>
+        <a href="/" class="hr-nav-link hr-nav-muted">
+          <span class="hr-nav-main">
+            <span class="hr-nav-icon"><i class="fas fa-arrow-right-from-bracket"></i></span>
+            <span class="hr-nav-title">العودة للرئيسية</span>
+          </span>
+        </a>`
+      : (showHrRequestFooter
       ? `
         <a href="/hr/my-requests" class="hr-nav-link">
           <span class="hr-nav-main">
@@ -169,9 +232,9 @@
             <span class="hr-nav-icon"><i class="fas fa-arrow-right-from-bracket"></i></span>
             <span class="hr-nav-title">العودة للرئيسية</span>
           </span>
-        </a>`;
+        </a>`);
     return `
-      <div class="hr-sidebar-brand" data-nav-context="${escapeHtml(payload.context || 'hr')}">
+      <div class="hr-sidebar-brand" data-nav-context="${escapeHtml(payload.context || 'hr')}" data-hr-persona="${escapeHtml(portalContext.persona || '')}">
         <div class="logo-row">
           <div class="logo-icon"><i class="fas fa-gem"></i></div>
           <div>
@@ -180,7 +243,7 @@
           </div>
         </div>
       </div>
-      <nav class="hr-nav-section" data-nav-context="${escapeHtml(payload.context || 'hr')}">${links}</nav>
+      <nav class="hr-nav-section" data-nav-context="${escapeHtml(payload.context || 'hr')}" data-hr-persona="${escapeHtml(portalContext.persona || '')}">${links}</nav>
       <div class="hr-sidebar-footer">${footer}</div>`;
   }
 
@@ -243,7 +306,19 @@
     topbar.className = 'hr-topbar';
     topbar.setAttribute('data-nav-context', payload.context || 'hr');
 
-    if (mode === 'hr') {
+    if (mode === 'hr' && portalContext.adminHidden) {
+      topbar.innerHTML = `
+      <div class="hr-topbar-inner">
+        <div class="hr-topbar-start">
+          <a href="/hr" class="hr-topbar-btn"><i class="fas fa-house"></i><span>الخدمة الذاتية</span></a>
+        </div>
+        <div class="hr-topbar-note"><i class="fas fa-user"></i> بوابة الموظف — طلباتك الشخصية فقط</div>
+        <div class="hr-topbar-actions">
+          <a href="/hr/leaves" class="hr-topbar-btn hr-topbar-primary"><i class="fas fa-plane-departure"></i><span>طلب إجازة</span></a>
+          <a href="/hr/my-requests" class="hr-topbar-btn"><i class="fas fa-inbox"></i><span>طلباتي</span></a>
+        </div>
+      </div>`;
+    } else if (mode === 'hr') {
       topbar.innerHTML = `
       <div class="hr-topbar-inner">
         <div class="hr-topbar-start">
@@ -399,32 +474,35 @@
   async function initShell() {
     if (!shouldActivateShell()) return;
     ensureAssets();
+    await loadPortalContext();
     const sidebar = ensureLayout();
     if (!sidebar) return;
     const payload = getNavPayload();
     document.body.setAttribute('data-nav-context', payload.context || 'hr');
 
-    const dash = payload.usesHrDefaultNav
+    const dash = (payload.usesHrDefaultNav && !portalContext.adminHidden)
       ? await fetchDashboard()
       : { pending: { count: 0 }, new_hires_pending: 0 };
     const badges = {
-      pending: dash.pending?.count || 0,
-      newHires: dash.new_hires_pending || 0
+      pending: portalContext.adminHidden ? 0 : (dash.pending?.count || 0),
+      newHires: portalContext.adminHidden ? 0 : (dash.new_hires_pending || 0)
     };
     sidebar.innerHTML = renderSidebar(badges);
     updateMobileBadge(badges);
     wrapMainContent(sidebar);
     ensureTopBar(badges);
-    if (payload.usesHrDefaultNav) ensureSearchModal();
+    if (payload.usesHrDefaultNav && !portalContext.adminHidden) ensureSearchModal();
 
     window.HRPortalShell = {
       STAGE_LABELS,
       NAV,
       navPayload: payload,
+      portalContext,
       headers: apiHeaders,
       loadSettingRecords,
       recordLabel,
       loadHomeModules,
+      loadPortalContext,
       openModuleSearch,
       closeModuleSearch,
       findModuleByPath: (path) => {
@@ -432,6 +510,13 @@
         return (homeModulesCache || []).find((item) => item.href === clean) || null;
       },
       refreshBadges: async () => {
+        if (portalContext.adminHidden) {
+          const next = { pending: 0, newHires: 0 };
+          sidebar.innerHTML = renderSidebar(next);
+          updateMobileBadge(next);
+          ensureTopBar(next);
+          return next;
+        }
         const d = payload.usesHrDefaultNav
           ? await fetchDashboard()
           : { pending: { count: 0 }, new_hires_pending: 0 };
@@ -443,7 +528,7 @@
       }
     };
     if (payload.usesHrDefaultNav) await loadHomeModules();
-    if (payload.usesHrDefaultNav) {
+    if (payload.usesHrDefaultNav && !portalContext.adminHidden) {
       setInterval(() => window.HRPortalShell.refreshBadges(), 20000);
     }
   }
