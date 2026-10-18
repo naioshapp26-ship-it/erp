@@ -332,22 +332,25 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   return withBranding;
 };
 
-const HR_PORTAL_SHELL_ASSET_VERSION = 'hcm-nav-context-20261017a';
+const HR_PORTAL_SHELL_ASSET_VERSION = 'hr-cards-finance-20261018';
 
 const injectHrPortalShellAssets = (html, requestPath = '/hr') => {
   if (!html) return html;
   const { getNavigationPayload } = require('./gai-hub-navigation');
   const navPayload = getNavigationPayload(requestPath);
   const cssHref = `/finance/hr-portal-shell.css?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
+  const moduleCardsCssHref = `/finance/erp-module-nav-cards.css?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
   const jsHref = `/finance/hr-portal-shell.js?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
   const attCssHref = `/finance/hr-attachments.css?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
   const attJsHref = `/finance/hr-attachments.js?v=${HR_PORTAL_SHELL_ASSET_VERSION}`;
   const cssTag = `<link rel="stylesheet" href="${cssHref}">`;
+  const moduleCardsCssTag = `<link rel="stylesheet" href="${moduleCardsCssHref}">`;
   const jsTag = `<script src="${jsHref}" defer></script>`;
   const attCssTag = `<link rel="stylesheet" href="${attCssHref}">`;
   const attJsTag = `<script src="${attJsHref}" defer></script>`;
   const navBootTag = `<script>window.__NAIOSH_NAV_PAYLOAD__=${JSON.stringify(navPayload)};</script>`;
   let output = html.replace(/\/finance\/hr-portal-shell\.css(\?[^"'>\s]*)?/g, cssHref.replace(/^\//, '/'));
+  output = output.replace(/\/finance\/erp-module-nav-cards\.css(\?[^"'>\s]*)?/g, moduleCardsCssHref.replace(/^\//, '/'));
   output = output.replace(/\/finance\/hr-portal-shell\.js(\?[^"'>\s]*)?/g, jsHref.replace(/^\//, '/'));
   output = output.replace(/\/finance\/hr-attachments\.css(\?[^"'>\s]*)?/g, attCssHref.replace(/^\//, '/'));
   output = output.replace(/\/finance\/hr-attachments\.js(\?[^"'>\s]*)?/g, attJsHref.replace(/^\//, '/'));
@@ -355,6 +358,11 @@ const injectHrPortalShellAssets = (html, requestPath = '/hr') => {
     output = output.includes('</head>')
       ? output.replace('</head>', `${cssTag}</head>`)
       : `${cssTag}${output}`;
+  }
+  if (!output.includes('erp-module-nav-cards.css')) {
+    output = output.includes('</head>')
+      ? output.replace('</head>', `${moduleCardsCssTag}</head>`)
+      : `${moduleCardsCssTag}${output}`;
   }
   if (!output.includes('hr-attachments.css')) {
     output = output.includes('</head>')
