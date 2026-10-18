@@ -263,34 +263,150 @@
     return data.name || record?.name || data.code || record?.code || `#${record?.id || ''}`;
   }
 
+  function isMobileNavViewport() {
+    return window.matchMedia('(max-width: 960px)').matches;
+  }
+
+  function setSidebarOpen(open) {
+    const sidebar = document.getElementById('hr-sidebar');
+    const toggle = document.querySelector('.hr-mobile-toggle');
+    if (!sidebar) return;
+    const shouldOpen = !!open && isMobileNavViewport();
+    sidebar.classList.toggle('open', shouldOpen);
+    sidebar.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+    document.body.classList.toggle('hr-sidebar-open', shouldOpen);
+    document.documentElement.classList.toggle('hr-sidebar-open', shouldOpen);
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+      toggle.setAttribute('aria-label', shouldOpen ? 'إغلاق القائمة' : 'فتح القائمة');
+    }
+  }
+
+  function closeSidebar() {
+    setSidebarOpen(false);
+  }
+
+  function openSidebar() {
+    setSidebarOpen(true);
+  }
+
+  function toggleSidebar() {
+    const sidebar = document.getElementById('hr-sidebar');
+    if (!sidebar) return;
+    setSidebarOpen(!sidebar.classList.contains('open'));
+  }
+
+  function ensureOverlay() {
+    let overlay = document.getElementById('hr-sidebar-overlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'hr-sidebar-overlay';
+    overlay.className = 'hr-sidebar-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.addEventListener('click', closeSidebar);
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  function ensureCloseButton(sidebar) {
+    let closeBtn = sidebar.querySelector(':scope > .hr-sidebar-close');
+    if (closeBtn) return closeBtn;
+    closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'hr-sidebar-close';
+    closeBtn.setAttribute('aria-label', 'إغلاق القائمة');
+    closeBtn.innerHTML = '<i class="fas fa-xmark" aria-hidden="true"></i>';
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeSidebar();
+    });
+    sidebar.insertBefore(closeBtn, sidebar.firstChild);
+    return closeBtn;
+  }
+
+  function setSidebarContent(sidebar, html) {
+    let body = sidebar.querySelector(':scope > .hr-sidebar-body');
+    if (!body) {
+      body = document.createElement('div');
+      body.className = 'hr-sidebar-body';
+      sidebar.appendChild(body);
+    }
+    body.innerHTML = html;
+    ensureCloseButton(sidebar);
+    bindSidebarNavClose(sidebar);
+  }
+
+  function bindSidebarNavClose(sidebar) {
+    if (sidebar.dataset.navCloseBound === '1') return;
+    sidebar.dataset.navCloseBound = '1';
+    sidebar.addEventListener('click', (e) => {
+      const link = e.target.closest('a[href]');
+      if (!link || !sidebar.contains(link)) return;
+      // Close drawer after choosing a destination (mobile only).
+      if (isMobileNavViewport()) closeSidebar();
+    });
+  }
+
   function ensureLayout() {
+    document.documentElement.classList.add('hr-shell-active');
     document.body.classList.add('hr-shell-active');
+    ensureOverlay();
+
     const existing = document.getElementById('hr-sidebar');
-    if (existing) return existing;
+    if (existing) {
+      ensureCloseButton(existing);
+      bindSidebarNavClose(existing);
+      existing.classList.remove('open');
+      existing.setAttribute('aria-hidden', isMobileNavViewport() ? 'true' : 'false');
+      return existing;
+    }
 
     const sidebar = document.createElement('aside');
     sidebar.className = 'hr-sidebar';
     sidebar.id = 'hr-sidebar';
     sidebar.setAttribute('aria-label', 'القائمة الجانبية');
+    sidebar.setAttribute('aria-hidden', isMobileNavViewport() ? 'true' : 'false');
     document.body.appendChild(sidebar);
     document.body.classList.add('hr-has-injected-sidebar');
+    ensureCloseButton(sidebar);
+    bindSidebarNavClose(sidebar);
     return sidebar;
   }
 
   function wrapMainContent(sidebar) {
-    if (document.querySelector('.hr-mobile-toggle')) return;
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'hr-mobile-toggle';
-    toggle.setAttribute('aria-label', 'فتح القائمة');
-    toggle.innerHTML = '<i class="fas fa-bars"></i><span class="hr-mobile-badge" id="hr-mobile-nav-badge" hidden>0</span>';
-    toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
-    document.body.appendChild(toggle);
-    document.addEventListener('click', (e) => {
-      if (!sidebar.classList.contains('open')) return;
-      if (sidebar.contains(e.target) || toggle.contains(e.target)) return;
-      sidebar.classList.remove('open');
-    });
+    ensureOverlay();
+    ensureCloseButton(sidebar);
+    bindSidebarNavClose(sidebar);
+
+    let toggle = document.querySelector('.hr-mobile-toggle');
+    if (!toggle) {
+      toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'hr-mobile-toggle';
+      toggle.setAttribute('aria-label', 'فتح القائمة');
+      toggle.setAttribute('aria-controls', 'hr-sidebar');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.innerHTML = '<i class="fas fa-bars" aria-hidden="true"></i><span class="hr-mobile-badge" id="hr-mobile-nav-badge" hidden>0</span>';
+      toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleSidebar();
+      });
+      document.body.appendChild(toggle);
+    }
+
+    if (!document.body.dataset.hrSidebarGlobalBound) {
+      document.body.dataset.hrSidebarGlobalBound = '1';
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeSidebar();
+      });
+      window.addEventListener('resize', () => {
+        if (!isMobileNavViewport()) closeSidebar();
+      });
+      // Start closed on mobile; never leave a peeking strip.
+      closeSidebar();
+    }
   }
 
   function ensureTopBar(badges) {
@@ -487,7 +603,7 @@
       pending: portalContext.adminHidden ? 0 : (dash.pending?.count || 0),
       newHires: portalContext.adminHidden ? 0 : (dash.new_hires_pending || 0)
     };
-    sidebar.innerHTML = renderSidebar(badges);
+    setSidebarContent(sidebar, renderSidebar(badges));
     updateMobileBadge(badges);
     wrapMainContent(sidebar);
     ensureTopBar(badges);
@@ -505,6 +621,9 @@
       loadPortalContext,
       openModuleSearch,
       closeModuleSearch,
+      openSidebar,
+      closeSidebar,
+      toggleSidebar,
       findModuleByPath: (path) => {
         const clean = normalizePath(path || window.location.pathname);
         return (homeModulesCache || []).find((item) => item.href === clean) || null;
@@ -512,7 +631,7 @@
       refreshBadges: async () => {
         if (portalContext.adminHidden) {
           const next = { pending: 0, newHires: 0 };
-          sidebar.innerHTML = renderSidebar(next);
+          setSidebarContent(sidebar, renderSidebar(next));
           updateMobileBadge(next);
           ensureTopBar(next);
           return next;
@@ -521,7 +640,7 @@
           ? await fetchDashboard()
           : { pending: { count: 0 }, new_hires_pending: 0 };
         const next = { pending: d.pending?.count || 0, newHires: d.new_hires_pending || 0 };
-        sidebar.innerHTML = renderSidebar(next);
+        setSidebarContent(sidebar, renderSidebar(next));
         updateMobileBadge(next);
         ensureTopBar(next);
         return next;
