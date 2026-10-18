@@ -2915,7 +2915,7 @@ const resolveCentralSessionEntityContext = async (token) => {
   if (!token) return null;
 
   const sessionResult = await db.query(
-    `SELECT us.user_id, u.tenant_type, u.entity_id, u.office_id, u.role
+    `SELECT us.user_id, u.tenant_type, u.entity_id, u.office_id, u.role, u.name
      FROM user_sessions us
      JOIN users u ON us.user_id = u.id
      WHERE us.session_token = $1
@@ -2933,6 +2933,7 @@ const resolveCentralSessionEntityContext = async (token) => {
   return {
     userId: sessionUser.user_id,
     role: sessionUser.role,
+    name: sessionUser.name || null,
     officeId: sessionUser.office_id || null,
     type: String(sessionUser.tenant_type || DEFAULT_ENTITY_CONTEXT.type).trim().toUpperCase(),
     id: String(sessionUser.entity_id || DEFAULT_ENTITY_CONTEXT.id).trim()
@@ -3000,6 +3001,12 @@ const applyResolvedEntityContext = (req, resolvedContext) => {
 
   req.userEntity = context;
   req.authenticatedEntityContext = context;
+  req.authUser = {
+    id: resolvedContext.userId || null,
+    role: resolvedContext.role || null,
+    employeeId: resolvedContext.employeeId || resolvedContext.employee_id || null,
+    name: resolvedContext.name || null
+  };
   req.headers['x-entity-id'] = context.id;
   req.headers['x-entity-type'] = context.type;
 
@@ -4039,11 +4046,48 @@ const {
   findHrModuleByPath
 } = require('./hr-home-modules');
 
-app.get('/api/hr/home-modules', (_req, res) => {
+const hrPortalAccess = require('./hr-portal-access');
+
+app.get('/api/hr/home-modules', (req, res) => {
+  const authUser = hrPortalAccess.resolveAuthUser(req);
+  const portal = hrPortalAccess.buildPortalPayload(authUser.role);
   res.json({
     success: true,
-    modules: listHrHomeModules(),
-    categories: HR_MODULE_CATEGORIES
+    persona: portal.persona,
+    title: portal.title,
+    subtitle: portal.subtitle,
+    modules: portal.modules,
+    sections: portal.sections,
+    nav: portal.nav,
+    categories: portal.categories,
+    adminHidden: portal.adminHidden,
+    canApprove: portal.canApprove,
+    canManageEmployees: portal.canManageEmployees,
+    canAccessSettings: portal.canAccessSettings,
+    keepModules: listHrHomeModules(),
+    keepCategories: HR_MODULE_CATEGORIES,
+    inventoryCount: hrPortalAccess.buildInventoryRows().length
+  });
+});
+
+app.get('/api/hr/portal-context', (req, res) => {
+  const authUser = hrPortalAccess.resolveAuthUser(req);
+  const portal = hrPortalAccess.buildPortalPayload(authUser.role);
+  res.json({
+    success: true,
+    persona: portal.persona,
+    title: portal.title,
+    subtitle: portal.subtitle,
+    nav: portal.nav,
+    adminHidden: portal.adminHidden,
+    canApprove: portal.canApprove,
+    canManageEmployees: portal.canManageEmployees,
+    canAccessSettings: portal.canAccessSettings,
+    auth: {
+      id: authUser.id || null,
+      role: authUser.role || null,
+      employeeId: authUser.employeeId || null
+    }
   });
 });
 
@@ -6886,6 +6930,9 @@ const syncLeaveMirrorFromEmployeeRequest = async (clientOrDb, requestRow) => {
 app.get('/api/employee-requests', async (req, res) => {
   try {
     await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+    const scope = hrPortalAccess.employeeRequestScopeFilter(authUser, persona);
 
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
@@ -6897,6 +6944,17 @@ app.get('/api/employee-requests', async (req, res) => {
       const params = [];
       let paramIndex = 1;
 
+      if (scope.scoped) {
+        if (!scope.employeeId) {
+          return res.json([]);
+        }
+        query += ` AND employee_id = $${paramIndex++}`;
+        params.push(String(scope.employeeId));
+      } else if (employee_id) {
+        query += ` AND employee_id = $${paramIndex++}`;
+        params.push(employee_id);
+      }
+
       if (status) {
         query += ` AND status = $${paramIndex++}`;
         params.push(status);
@@ -6907,17 +6965,15 @@ app.get('/api/employee-requests', async (req, res) => {
         params.push(request_type);
       }
 
-      if (employee_id) {
-        query += ` AND employee_id = $${paramIndex++}`;
-        params.push(employee_id);
-      }
-
       if (current_stage) {
         query += ` AND current_stage = $${paramIndex++}`;
         params.push(current_stage);
       }
 
       if (String(pending_only || '') === '1' || String(pending_only || '').toLowerCase() === 'true') {
+        if (hrPortalAccess.isEmployeePersona(persona)) {
+          return res.status(403).json({ error: 'غير مصرح بعرض صندوق موافقات الإدارة' });
+        }
         query += ` AND status IN ('PENDING', 'IN_PROGRESS') AND current_stage IS NOT NULL AND current_stage NOT IN ('completed', 'rejected')`;
       }
 
@@ -6937,6 +6993,19 @@ app.get('/api/employee-requests', async (req, res) => {
       params.push(req.userEntity.id);
       paramIndex++;
     }
+
+    if (scope.scoped) {
+      if (!scope.employeeId) {
+        return res.json([]);
+      }
+      query += ` AND employee_id = $${paramIndex}`;
+      params.push(String(scope.employeeId));
+      paramIndex++;
+    } else if (employee_id) {
+      query += ` AND employee_id = $${paramIndex}`;
+      params.push(employee_id);
+      paramIndex++;
+    }
     
     // Additional filters
     if (status) {
@@ -6950,12 +7019,6 @@ app.get('/api/employee-requests', async (req, res) => {
       params.push(request_type);
       paramIndex++;
     }
-    
-    if (employee_id) {
-      query += ` AND employee_id = $${paramIndex}`;
-      params.push(employee_id);
-      paramIndex++;
-    }
 
     if (current_stage) {
       query += ` AND current_stage = $${paramIndex}`;
@@ -6964,6 +7027,9 @@ app.get('/api/employee-requests', async (req, res) => {
     }
 
     if (String(pending_only || '') === '1' || String(pending_only || '').toLowerCase() === 'true') {
+      if (hrPortalAccess.isEmployeePersona(persona)) {
+        return res.status(403).json({ error: 'غير مصرح بعرض صندوق موافقات الإدارة' });
+      }
       query += ` AND status IN ('PENDING', 'IN_PROGRESS') AND current_stage IS NOT NULL AND current_stage NOT IN ('completed', 'rejected')`;
     }
     
@@ -6980,6 +7046,24 @@ app.get('/api/employee-requests', async (req, res) => {
 app.get('/api/hr/pending-actions', async (req, res) => {
   try {
     await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+    if (hrPortalAccess.isEmployeePersona(persona)) {
+      return res.status(403).json({
+        success: false,
+        error: 'غير مصرح للموظف بعرض عمليات الإدارة بانتظار الإجراء',
+        count: 0,
+        requests: []
+      });
+    }
+    if (!hrPortalAccess.canApproveRequests(persona) && authUser.role) {
+      return res.status(403).json({
+        success: false,
+        error: 'غير مصرح بعرض صندوق الموافقات',
+        count: 0,
+        requests: []
+      });
+    }
     const countOnly = String(req.query.count_only || '') === '1' || String(req.query.count_only || '').toLowerCase() === 'true';
     const pool = isTenantHostRequest(req) ? req.tenantPool : db;
 
@@ -7036,6 +7120,17 @@ app.get('/api/hr/pending-actions', async (req, res) => {
 // Manager dashboard aggregate (pending counts, new hires, recent activity)
 app.get('/api/hr/manager-dashboard', async (req, res) => {
   try {
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+    if (hrPortalAccess.isEmployeePersona(persona)) {
+      return res.status(403).json({
+        success: false,
+        error: 'غير مصرح للموظف بعرض لوحة المدير',
+        pending: { count: 0, by_stage: {}, by_type: {} },
+        new_hires_pending: 0
+      });
+    }
+
     await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
     const pool = isTenantHostRequest(req) ? req.tenantPool : db;
 
@@ -7131,8 +7226,10 @@ app.get('/api/hr/manager-dashboard', async (req, res) => {
 app.post('/api/employee-requests', async (req, res) => {
   try {
     await ensureHRWorkflowReady(isTenantHostRequest(req) ? req.tenantPool : null);
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
 
-    const {
+    let {
       id,
       entityId,
       employeeId,
@@ -7150,6 +7247,12 @@ app.post('/api/employee-requests', async (req, res) => {
       notes,
       createdBy
     } = req.body;
+
+    if (hrPortalAccess.isEmployeePersona(persona) && authUser.id) {
+      employeeId = String(authUser.id);
+      if (authUser.name && !employeeName) employeeName = authUser.name;
+      createdBy = createdBy || authUser.name || String(authUser.id);
+    }
 
     const workflow = hrRequestWorkflow.buildInitialWorkflow(requestType);
     const initialStatus = status || 'PENDING';
@@ -7300,6 +7403,13 @@ app.post('/api/employee-requests/:id/decide', async (req, res) => {
       approvalNotes,
       notes
     } = req.body || {};
+
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+    if (hrPortalAccess.isEmployeePersona(persona) || (authUser.role && !hrPortalAccess.canApproveRequests(persona))) {
+      if (client) client.release();
+      return res.status(403).json({ error: 'غير مصرح للموظف باعتماد أو رفض الطلبات' });
+    }
 
     const normalizedDecision = String(decision || action || '').toLowerCase();
     const isReject = ['reject', 'rejected', 'رفض', 'مرفوض'].includes(normalizedDecision);
@@ -10346,6 +10456,12 @@ app.post('/api/hierarchy/restore-catalog', async (req, res) => {
 // Get all employees with data isolation
 app.get('/api/employees', async (req, res) => {
   try {
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+    if (hrPortalAccess.isEmployeePersona(persona)) {
+      return res.status(403).json({ error: 'غير مصرح للموظف بعرض قائمة موظفي الشركة' });
+    }
+
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
       if (!tenantSessionUser) return;
@@ -11772,6 +11888,9 @@ app.delete('/api/leave-balances/:id', async (req, res) => {
 app.get('/api/leave-requests', async (req, res) => {
   try {
     const { status, search, upcoming, history, pending, from_date, to_date, entity_id } = req.query;
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+    const scope = hrPortalAccess.employeeRequestScopeFilter(authUser, persona);
     const params = [];
     let idx = 1;
     let query = `
@@ -11789,6 +11908,15 @@ app.get('/api/leave-requests', async (req, res) => {
     } else if (entity_id) {
       query += ` AND entity_id = $${idx}`;
       params.push(entity_id);
+      idx++;
+    }
+
+    if (scope.scoped) {
+      if (!scope.employeeId) {
+        return res.json([]);
+      }
+      query += ` AND employee_id = $${idx}`;
+      params.push(String(scope.employeeId));
       idx++;
     }
 
@@ -11847,7 +11975,9 @@ app.get('/api/leave-requests', async (req, res) => {
 app.post('/api/leave-requests', async (req, res) => {
   const client = await db.pool.connect();
   try {
-    const {
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+    let {
       employee_id,
       employee_name,
       department,
@@ -11859,6 +11989,12 @@ app.post('/api/leave-requests', async (req, res) => {
       status,
       entity_id
     } = req.body;
+
+    // Employees may only create requests for themselves
+    if (hrPortalAccess.isEmployeePersona(persona) && authUser.id) {
+      employee_id = String(authUser.id);
+      if (authUser.name && !employee_name) employee_name = authUser.name;
+    }
 
     if (!employee_name || !start_date || !end_date) {
       client.release();

@@ -49,7 +49,12 @@ async function page(path) {
 async function main() {
   const api = await fetch(`${BASE}/api/hr/home-modules`, { headers }).then((r) => r.json());
   assert.strictEqual(api.success, true);
-  assert.strictEqual(api.modules.length, modules.length);
+  // Anonymous/HQ default is manager portal: KEEP + admin ops + shortcuts.
+  // KEEP catalog remains available via keepModules for IA audits.
+  const keepFromApi = api.keepModules || modules;
+  assert.strictEqual(keepFromApi.length, modules.length, 'KEEP module count drifted');
+  assert.ok(Array.isArray(api.sections) && api.sections.length >= 1, 'sections missing');
+  assert.ok(api.modules.length >= modules.length, 'manager portal should expose at least KEEP modules');
 
   const bad = [];
   for (const item of modules) {

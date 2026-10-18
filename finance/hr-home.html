@@ -405,28 +405,38 @@
         </section>
 
         <div class="mb-4 text-slate-900">
-            <h1 class="text-3xl font-black mb-2">📊 لوحة المدير العام</h1>
-            <p class="text-lg opacity-90">استخدم القائمة الجانبية للتنقل — الطلبات، التعيينات، والموافقات كلها من هناك</p>
+            <h1 id="hrHomeTitle" class="text-3xl font-black mb-2">📊 لوحة المدير العام</h1>
+            <p id="hrHomeSubtitle" class="text-lg opacity-90">الوصول إلى الوظائف المصرح بها من الواجهة الرئيسية دون الاعتماد فقط على القائمة الجانبية</p>
         </div>
 
         <div class="mb-8">
-            <h3 class="text-slate-800 text-xl font-bold mb-4 opacity-90"><i class="fas fa-bars ml-2"></i>القائمة الرئيسية</h3>
+            <h3 id="hrHomeSectionLabel" class="text-slate-800 text-xl font-bold mb-4 opacity-90"><i class="fas fa-bars ml-2"></i>القائمة الرئيسية</h3>
             <div class="hr-home-toolbar">
                 <input id="hrHomeSearch" class="hr-home-search" type="search" placeholder="ابحث عن نظام... (Ctrl+K)" aria-label="بحث في أنظمة الموارد البشرية">
                 <div class="hr-home-filters" id="hrHomeFilters" aria-label="تصفية حسب القسم"></div>
             </div>
             <div class="hr-home-stats" id="hrHomeStats"></div>
-            <div id="hr-cards" class="finance-links" aria-live="polite"></div>
+            <div id="hr-sections" aria-live="polite"></div>
+            <div id="hr-cards" class="finance-links" aria-live="polite" hidden></div>
         </div>
     </div>
     </main>
 </div>
 
-    <script src="/finance/hr-portal-shell.js?v=hcm-nav-hub-20260824"></script>
+    <script src="/finance/hr-portal-shell.js?v=hcm-ess-rbac-20261018"></script>
     <script>
         const API_BASE = window.location.origin;
         let homeModules = [];
+        let homeSections = [];
+        let portalMeta = { persona: 'manager', adminHidden: false };
         let activeCategory = 'الكل';
+
+        function authHeaders() {
+            const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+            const headers = { 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            return headers;
+        }
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, (c) => ({
@@ -434,27 +444,56 @@
             }[c]));
         }
 
-        function renderHomeCards() {
-            const grid = document.getElementById('hr-cards');
+        function cardHtml(item) {
+            return `
+                <a href="${escapeHtml(item.href)}" class="w-full bg-white text-gray-800 px-6 py-4 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-4 border border-gray-200 hover:border-red-500 group" data-category="${escapeHtml(item.category || '')}" ${item.manager ? 'data-manager="1"' : ''} data-module-key="${escapeHtml(item.key || '')}">
+                    <i class="fas ${escapeHtml(item.icon)} text-xl w-8 text-center text-red-600 group-hover:text-red-700 transition"></i>
+                    <span class="flex-1 text-right">
+                        <span class="block">${escapeHtml(item.label)}</span>
+                        ${item.description ? `<span class="block text-xs font-medium text-slate-500 mt-1">${escapeHtml(item.description)}</span>` : ''}
+                    </span>
+                    <i class="fas fa-chevron-left text-gray-300"></i>
+                </a>`;
+        }
+
+        function filterItem(item) {
             const query = String(document.getElementById('hrHomeSearch')?.value || '').trim().toLowerCase();
-            const list = homeModules.filter((item) => {
-                const categoryOk = activeCategory === 'الكل' || item.category === activeCategory;
-                const searchOk = !query
-                    || item.label.toLowerCase().includes(query)
-                    || item.category.toLowerCase().includes(query);
-                return categoryOk && searchOk;
-            });
-            if (!list.length) {
-                grid.innerHTML = '<div class="hr-home-empty">لا توجد أنظمة مطابقة للبحث الحالي</div>';
+            const categoryOk = activeCategory === 'الكل' || item.category === activeCategory;
+            const searchOk = !query
+                || String(item.label || '').toLowerCase().includes(query)
+                || String(item.category || '').toLowerCase().includes(query)
+                || String(item.description || '').toLowerCase().includes(query);
+            return categoryOk && searchOk;
+        }
+
+        function renderHomeCards() {
+            const sectionsWrap = document.getElementById('hr-sections');
+            const legacyGrid = document.getElementById('hr-cards');
+            if (!sectionsWrap) return;
+
+            const sections = (homeSections.length ? homeSections : [{ id: 'all', title: 'الوظائف', cards: homeModules }])
+                .map((section) => ({
+                    ...section,
+                    cards: (section.cards || []).filter(filterItem)
+                }))
+                .filter((section) => section.cards.length);
+
+            if (!sections.length) {
+                sectionsWrap.innerHTML = '<div class="hr-home-empty">لا توجد أنظمة مطابقة للبحث الحالي</div>';
+                if (legacyGrid) legacyGrid.innerHTML = '';
                 return;
             }
-            grid.innerHTML = list.map((item) => `
-                <a href="${escapeHtml(item.href)}" class="w-full bg-white text-gray-800 px-6 py-4 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-4 border border-gray-200 hover:border-red-500 group" data-category="${escapeHtml(item.category)}" ${item.manager ? 'data-manager="1"' : ''}>
-                    <i class="fas ${escapeHtml(item.icon)} text-xl w-8 text-center text-red-600 group-hover:text-red-700 transition"></i>
-                    <span class="flex-1 text-right">${escapeHtml(item.label)}</span>
-                    <i class="fas fa-chevron-left text-gray-300"></i>
-                </a>
+
+            sectionsWrap.innerHTML = sections.map((section) => `
+                <section class="mb-8" data-section-id="${escapeHtml(section.id)}">
+                    <h3 class="text-slate-800 text-lg font-bold mb-3 opacity-90">${escapeHtml(section.title)}</h3>
+                    <div class="finance-links">${section.cards.map(cardHtml).join('')}</div>
+                </section>
             `).join('');
+            if (legacyGrid) {
+                legacyGrid.hidden = true;
+                legacyGrid.innerHTML = '';
+            }
         }
 
         function renderHomeFilters(categories) {
@@ -473,9 +512,15 @@
 
         async function renderHomeStats() {
             const wrap = document.getElementById('hrHomeStats');
+            if (portalMeta.adminHidden) {
+                wrap.innerHTML = `
+                    <div class="hr-home-stat"><strong>${homeModules.length}</strong><span>خدمة ذاتية متاحة</span></div>
+                    <div class="hr-home-stat"><strong>طلباتي</strong><span>متابعة الموافقة والرفض</span></div>`;
+                return;
+            }
             try {
                 const dash = await fetch(`${API_BASE}/api/hr/manager-dashboard`, {
-                    headers: { 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' }
+                    headers: authHeaders()
                 }).then((r) => r.json());
                 const pending = dash.pending?.count || 0;
                 const managerQueue = dash.pending?.by_stage?.manager || 0;
@@ -491,17 +536,43 @@
 
         async function loadHomeModules() {
             const res = await fetch(`${API_BASE}/api/hr/home-modules`, {
-                headers: { 'x-entity-type': 'HQ', 'x-entity-id': 'HQ001' }
+                headers: authHeaders()
             });
             const data = await res.json();
             if (!data.success) throw new Error('تعذر تحميل الأنظمة');
+            portalMeta = {
+                persona: data.persona || 'manager',
+                adminHidden: !!data.adminHidden,
+                title: data.title,
+                subtitle: data.subtitle
+            };
             homeModules = data.modules || [];
+            homeSections = Array.isArray(data.sections) ? data.sections : [];
+            window.HR_HOME_MODULES = homeModules;
+            window.HR_PORTAL_META = portalMeta;
+
+            const titleEl = document.getElementById('hrHomeTitle');
+            const subtitleEl = document.getElementById('hrHomeSubtitle');
+            const sectionLabel = document.getElementById('hrHomeSectionLabel');
+            if (titleEl && data.title) {
+                titleEl.textContent = portalMeta.adminHidden ? data.title : `📊 ${data.title}`;
+            }
+            if (subtitleEl && data.subtitle) subtitleEl.textContent = data.subtitle;
+            if (sectionLabel) {
+                sectionLabel.innerHTML = portalMeta.adminHidden
+                    ? '<i class="fas fa-user ml-2"></i>خدمات الموظف'
+                    : '<i class="fas fa-bars ml-2"></i>القائمة الرئيسية';
+            }
+            document.title = (data.title || 'الموارد البشرية') + ' - نظام نايوش';
+            document.body.setAttribute('data-hr-persona', portalMeta.persona);
+
             renderHomeFilters(data.categories || ['الكل']);
             renderHomeStats();
             renderHomeCards();
         }
 
         async function loadPendingBadge() {
+            if (portalMeta.adminHidden) return;
             if (window.HRPortalShell?.refreshBadges) {
                 await window.HRPortalShell.refreshBadges();
             }
@@ -512,12 +583,13 @@
                 await loadHomeModules();
                 const response = await fetch(`${API_BASE}/api/health`);
                 const data = await response.json();
-                if (data && data.success) {
-                    console.log('✅ HR home initialized');
+                if (data && data.status) {
+                    console.log('✅ HR home initialized', portalMeta.persona);
                 }
             } catch (error) {
                 console.error('❌ HR initialization issue:', error);
-                document.getElementById('hr-cards').innerHTML = '<div class="hr-home-empty">تعذر تحميل الأنظمة. حدّث الصفحة وحاول مرة أخرى.</div>';
+                const wrap = document.getElementById('hr-sections');
+                if (wrap) wrap.innerHTML = '<div class="hr-home-empty">تعذر تحميل الأنظمة. حدّث الصفحة وحاول مرة أخرى.</div>';
             }
             await loadPendingBadge();
         }
