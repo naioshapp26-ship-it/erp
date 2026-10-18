@@ -89,7 +89,10 @@ async function probe(page, href) {
   try {
     const admin = await login('admin@naiosh.com', 'Admin@123');
     const manager = await login('hr-manager@test.local', 'Manager@123');
-    const employee = await login('pract-emp-1792342254297@test.local', 'Employee@123');
+    const employee = await login(
+      process.env.HR_ESS_EMPLOYEE_EMAIL || 'hr-employee@test.local',
+      process.env.HR_ESS_EMPLOYEE_PASSWORD || 'Employee@123'
+    );
     pass('logins');
 
     // Static source checks
