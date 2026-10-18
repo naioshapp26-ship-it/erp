@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Archive home banner identity: «الذاكرة المؤسسية 360»
+ * Archive home banner identity: «الأرشيف الذكي 360»
  */
 const fs = require('fs');
 const path = require('path');
@@ -46,12 +46,13 @@ function postJson(urlPath, body) {
 
 (async () => {
   const src = fs.readFileSync(path.join(__dirname, 'finance/archive-home.html'), 'utf8');
-  /الذاكرة المؤسسية 360/.test(src) ? pass('src-title') : fail('src-title');
+  /الأرشيف الذكي 360/.test(src) ? pass('src-title') : fail('src-title');
   /NAIOSH ARCHIVE 360/.test(src) ? pass('src-eyebrow') : fail('src-eyebrow');
-  /منظومة ذكية لحفظ الوثائق والسجلات وأرشفتها إلكترونيًا، مع تنظيم الوصول إليها وحماية المعرفة المؤسسية\./.test(src)
+  /منظومة ذكية لإدارة الوثائق والسجلات والأرشفة الإلكترونية، مع حفظ المعلومات وتنظيم الوصول إليها بأمان\./.test(src)
     ? pass('src-lead')
     : fail('src-lead');
   !/إدارة السجلات والأرشفة بأسلوب أكثر وضوحًا وأناقة/.test(src) ? pass('src-old-title-removed') : fail('src-old-title-removed');
+  !/الذاكرة المؤسسية 360/.test(src) ? pass('src-prior-title-removed') : fail('src-prior-title-removed');
   /<h1[^>]*>\s*🗂️ السجلات والأرشفة\s*<\/h1>/.test(src) ? pass('src-section-heading-kept') : fail('src-section-heading-kept');
   /id="archive-cards"/.test(src) ? pass('src-archive-cards-kept') : fail('src-archive-cards-kept');
   /href="#archive-cards"/.test(src) ? pass('src-explore-cta') : fail('src-explore-cta');
@@ -127,9 +128,9 @@ function postJson(urlPath, body) {
         };
       });
 
-      state.titleText === 'الذاكرة المؤسسية 360' ? pass(`${label}-title`) : fail(`${label}-title`, state.titleText);
+      state.titleText === 'الأرشيف الذكي 360' ? pass(`${label}-title`) : fail(`${label}-title`, state.titleText);
       state.eyebrowOk ? pass(`${label}-eyebrow`) : fail(`${label}-eyebrow`, state.eyebrowText);
-      /منظومة ذكية لحفظ الوثائق والسجلات/.test(state.leadText) ? pass(`${label}-lead`) : fail(`${label}-lead`, state.leadText.slice(0, 80));
+      /منظومة ذكية لإدارة الوثائق والسجلات والأرشفة الإلكترونية/.test(state.leadText) ? pass(`${label}-lead`) : fail(`${label}-lead`, state.leadText.slice(0, 80));
       /السجلات والأرشفة/.test(state.sectionHeading) ? pass(`${label}-section-heading`) : fail(`${label}-section-heading`, state.sectionHeading);
       state.whiteTitle ? pass(`${label}-title-white`) : fail(`${label}-title-white`, String(state.whiteTitle));
       state.titleVisible && !state.titleClipped && !state.titleOutsideHero
