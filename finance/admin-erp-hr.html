@@ -895,14 +895,41 @@
             pending: 'تحت المراجعة'
         };
 
-        async function loadData() {
+        function isEmployeeRoleUser() {
             try {
+                const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+                const role = String(user?.role || user?.requested_role_code || '').toUpperCase();
+                return role === 'EMPLOYEE' || role.includes('EMPLOYEE') || role.includes('موظف');
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function enforceEmployeeAdminGate() {
+            if (!isEmployeeRoleUser()) return false;
+            showToast('غير مصرح للموظف بالوصول إلى إدارة الموظفين', true);
+            setTimeout(() => {
+                window.location.replace('/hr/my-requests');
+            }, 600);
+            return true;
+        }
+
+        async function loadData() {
+            if (enforceEmployeeAdminGate()) return;
+            try {
+                const headers = getAuthHeaders();
                 const [employeesRes, requestsRes, typesRes, statsRes] = await Promise.all([
-                    fetch(`${API_BASE}/api/employees`),
-                    fetch(`${API_BASE}/api/employee-requests`),
-                    fetch(`${API_BASE}/api/request-types`),
-                    fetch(`${API_BASE}/api/hierarchy/stats`)
+                    fetch(`${API_BASE}/api/employees`, { headers }),
+                    fetch(`${API_BASE}/api/employee-requests`, { headers }),
+                    fetch(`${API_BASE}/api/request-types`, { headers }),
+                    fetch(`${API_BASE}/api/hierarchy/stats`, { headers })
                 ]);
+
+                if (employeesRes.status === 403) {
+                    showToast('غير مصرح بعرض قائمة الموظفين', true);
+                    window.location.replace('/hr/my-requests');
+                    return;
+                }
 
                 const [employeesData, requestsData, typesData, statsData] = await Promise.all([
                     employeesRes.json(),
