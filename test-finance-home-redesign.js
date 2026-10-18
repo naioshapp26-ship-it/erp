@@ -7,11 +7,11 @@ const html = fs.readFileSync(filePath, 'utf8');
 const requiredSnippets = [
   'class="hero-section',
   'href="#finance-cards"',
-  'href="/finance/events-studio.html"',
   'class="floating-actions"',
   'aria-label="أزرار جانبية عائمة"',
   'id="scroll-top-button"',
   'id="finance-cards" class="finance-links"',
+  'سيتم إضافة أنظمة وخدمات المالية 360 قريبًا.',
   'prefers-reduced-motion: reduce',
   'window.scrollTo({ top: 0, behavior: prefersReducedMotion ? \'auto\' : \'smooth\' })'
 ];

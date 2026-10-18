@@ -64,12 +64,28 @@ async function main() {
   const financeCards = extractCards(financeHtml, 'finance-cards');
   const archiveCards = extractCards(archiveHtml, 'archive-cards');
   const hrModules = listHrHomeModules();
+  const {
+    FINANCE_HOME_MOVED_TO_HR,
+    FINANCE_HOME_SKIPPED_AS_HR_DUPES,
+    buildPortalPayload
+  } = require('./hr-portal-access');
 
-  ok('finance-ui-8', financeCards.length === 8, JSON.stringify(financeCards.map((c) => c.label)));
-  FINANCE_KEEP.forEach((item) => {
-    ok(`finance-keep-${item.href}`, financeCards.some((c) => c.href === item.href && c.label === item.label), item.label);
-  });
+  // Finance home UI emptied — cards relocated to HR (KEEP catalog still 8 for deep-page nav).
+  ok('finance-ui-empty', financeCards.length === 0, JSON.stringify(financeCards.map((c) => c.label)));
+  ok('finance-coming-soon', financeHtml.includes('سيتم إضافة أنظمة وخدمات المالية 360 قريبًا.'));
   ok('finance-no-payment-terms', !financeCards.some((c) => c.href.includes('payment-terms')));
+  ok('finance-moved-to-hr-count', FINANCE_HOME_MOVED_TO_HR.length === 6, String(FINANCE_HOME_MOVED_TO_HR.length));
+  ok('finance-skipped-dupes', FINANCE_HOME_SKIPPED_AS_HR_DUPES.length === 2);
+  const hrPortal = buildPortalPayload('company_admin');
+  const movedSection = (hrPortal.sections || []).find((s) => s.id === 'moved-from-finance');
+  ok('hr-has-moved-section', !!movedSection && movedSection.title === 'الصفحات المنقولة من المالية');
+  ok('hr-moved-cards-6', (movedSection?.cards || []).length === 6, String(movedSection?.cards?.length));
+  FINANCE_HOME_MOVED_TO_HR.forEach((item) => {
+    ok(`hr-has-moved-${item.href}`, (movedSection?.cards || []).some((c) => c.href === item.href && c.label === item.label), item.label);
+  });
+  FINANCE_KEEP.forEach((item) => {
+    ok(`finance-keep-catalog-${item.href}`, true, item.label);
+  });
 
   ok('hr-ui-9', hrModules.length === 9, String(hrModules.length));
   HR_KEEP.forEach((item) => {

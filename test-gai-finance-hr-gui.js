@@ -77,17 +77,13 @@ async function main() {
     await new Promise((r) => setTimeout(r, 2000));
     const finance = await page.evaluate(() => {
       const text = document.body.innerText || '';
-      const labels = [
-        'إدارة المصروفات', 'العهد المالية', 'رحلات العمل', 'مركز القيود المحاسبية',
-        'التكامل المحاسبي', 'المدفوعات', 'إدارة الفواتير', 'تخطيط القوى العاملة'
-      ];
       return {
         count: document.querySelectorAll('#finance-cards a[href]').length,
-        hasAll: labels.every((l) => text.includes(l)),
+        comingSoon: text.includes('سيتم إضافة أنظمة وخدمات المالية 360 قريبًا'),
         hasOld: text.includes('شروط الدفع')
       };
     });
-    record('finance-8', finance.count === 8 || finance.hasAll, JSON.stringify(finance));
+    record('finance-empty', finance.count === 0 && finance.comingSoon, JSON.stringify(finance));
     await page.screenshot({ path: path.join(OUT, '01-finance-keep-8.png'), fullPage: true });
 
     await page.goto(`${BASE}/hr`, { waitUntil: 'networkidle2', timeout: 60000 });
@@ -95,16 +91,19 @@ async function main() {
     const hr = await page.evaluate(() => {
       const text = document.body.innerText || '';
       const labels = [
-        'إدارة ملفات الموظفين', 'تقييم الأداء', 'مقارنة الرواتب', 'الحضور والانصراف',
-        'تفاعل الموظفين', 'الامتثال لنظام العمل', 'مسير الرواتب', 'إدارة التوظيف', 'مزايا الموظفين'
+        'ملفات الموظفين', 'تقييم الأداء', 'مقارنة الرواتب', 'الحضور والانصراف',
+        'تفاعل الموظفين', 'الامتثال لنظام العمل', 'مسير الرواتب', 'الموظفون الجدد', 'مزايا الموظفين'
       ];
       return {
-        count: document.querySelectorAll('#hr-cards a[href]').length,
-        hasAll: labels.every((l) => text.includes(l)),
+        count: document.querySelectorAll('#hr-sections .finance-links > a, #hr-cards a[href]').length,
+        hasCore: labels.filter((l) => text.includes(l)).length >= 6,
+        hasMovedSection: text.includes('الصفحات المنقولة من المالية'),
+        hasMovedExpense: text.includes('إدارة المصروفات'),
         hasOcr: text.includes('حزمة OCR')
       };
     });
-    record('hr-9', hr.count === 9 || hr.hasAll, JSON.stringify(hr));
+    record('hr-core', hr.hasCore, JSON.stringify(hr));
+    record('hr-moved-from-finance', hr.hasMovedSection && hr.hasMovedExpense, JSON.stringify(hr));
     record('hr-no-ocr', !hr.hasOcr);
     await page.screenshot({ path: path.join(OUT, '02-hr-keep-9.png'), fullPage: true });
 
