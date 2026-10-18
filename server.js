@@ -11,7 +11,8 @@ const path = require('path');
 const db = require('./db');
 const { ensureDatabaseReady } = require('./database-bootstrap');
 const { buildCentralTenantEntityId } = require('./tenant-directory-sync');
-const { resolveUploadsRootDir } = require('./uploads-config');
+const { resolveUploadsRootDir, isEphemeralUploadStorage } = require('./uploads-config');
+const hrEmployeePhotoStorage = require('./hr-employee-photo-storage');
 const { getTenantPermissionBundle } = require('./tenant-page-permissions');
 const { isPathAllowed } = require('./page-permissions-registry');
 const { filterHubHtml } = require('./hub-html-filter');
@@ -718,7 +719,8 @@ const ensureHrEmployeeProfileTables = async () => {
       );
     }
 
-    console.log('✅ hr_employee_profiles tables ready');
+    await hrEmployeePhotoStorage.ensureHrEmployeePhotoAssetsTable(db);
+    console.log('✅ hr_employee_profiles tables ready (+ persistent photo assets)');
   } catch (error) {
     console.error('❌ Failed to ensure hr_employee_profiles tables:', error);
   }
@@ -14491,17 +14493,26 @@ const getHrEmployee360Roster = async (req, res) => {
       if (!selfId) {
         return res.status(403).json({ error: 'غير مصرح بعرض قائمة الموظفين', employees: [] });
       }
+      const selfEntityId = getRequestEntityContext(req).id;
       const self = await db.query(
         `SELECT emp.id, emp.employee_number, emp.full_name, emp.email, emp.phone,
                 emp.position, emp.department, emp.hire_date, emp.is_active, emp.employment_type,
-                prof.photo_url
+               CASE
+                  WHEN photo_assets.id IS NOT NULL
+                    THEN '/api/hr/employee-profile/' || emp.employee_number || '/photo'
+                  ELSE prof.photo_url
+                END AS photo_url,
+                CASE WHEN photo_assets.id IS NOT NULL THEN 'database' ELSE NULL END AS photo_storage
          FROM employees emp
          LEFT JOIN hr_employee_profiles prof
            ON prof.employee_id = emp.employee_number
           AND prof.entity_id = $2
+         LEFT JOIN hr_employee_photo_assets photo_assets
+           ON photo_assets.employee_id = emp.employee_number
+          AND photo_assets.entity_id = $2
          WHERE emp.employee_number = $1
          LIMIT 1`,
-        [selfId, getRequestEntityContext(req).id]
+        [selfId, selfEntityId]
       );
       return res.json({
         success: true,
@@ -14519,7 +14530,8 @@ const getHrEmployee360Roster = async (req, res) => {
           employment_type: e.employment_type,
           is_active: e.is_active !== false,
           status_label: e.is_active === false ? 'غير نشط' : 'نشط',
-          photo_url: e.photo_url || null
+          photo_url: e.photo_url || null,
+          photo_storage: e.photo_storage || null
         }))
       });
     }
@@ -14541,11 +14553,19 @@ const getHrEmployee360Roster = async (req, res) => {
         emp.is_active,
         emp.assigned_entity_type,
         emp.employment_type,
-        prof.photo_url
+        CASE
+          WHEN photo_assets.id IS NOT NULL
+            THEN '/api/hr/employee-profile/' || emp.employee_number || '/photo'
+          ELSE prof.photo_url
+        END AS photo_url,
+        CASE WHEN photo_assets.id IS NOT NULL THEN 'database' ELSE NULL END AS photo_storage
       FROM employees emp
       LEFT JOIN hr_employee_profiles prof
         ON prof.employee_id = emp.employee_number
        AND prof.entity_id = $1
+      LEFT JOIN hr_employee_photo_assets photo_assets
+        ON photo_assets.employee_id = emp.employee_number
+       AND photo_assets.entity_id = $1
       WHERE 1=1
     `;
 
@@ -14601,7 +14621,8 @@ const getHrEmployee360Roster = async (req, res) => {
         employment_type: e.employment_type,
         is_active: e.is_active !== false,
         status_label: e.is_active === false ? 'غير نشط' : 'نشط',
-        photo_url: e.photo_url || null
+        photo_url: e.photo_url || null,
+        photo_storage: e.photo_storage || null
       }))
     });
   } catch (error) {
@@ -14645,6 +14666,25 @@ const getHrEmployeeProfile = async (req, res) => {
     if (!profile) {
       return res.status(404).json({ error: 'ملف الموظف غير موجود' });
     }
+
+    // Prefer durable DB-backed photo URL when an asset exists.
+    const entityId = getRequestEntityContext(req).id;
+    const asset = await hrEmployeePhotoStorage.getEmployeePhotoAsset(db, {
+      entityId,
+      employeeId: access.employeeId,
+      allowHqCrossEntity: isHqEntityContext(req)
+    });
+    if (asset) {
+      profile.photo_url = hrEmployeePhotoStorage.buildPersistentPhotoUrl(access.employeeId);
+      profile.photo_storage = 'database';
+    } else if (profile.photo_url) {
+      profile.photo_storage = hrEmployeePhotoStorage.isLegacyDiskPhotoUrl(profile.photo_url)
+        ? 'disk-legacy'
+        : 'unknown';
+    } else {
+      profile.photo_storage = null;
+    }
+
     res.json(profile);
   } catch (error) {
     console.error('Error fetching HR employee profile:', error);
@@ -14817,7 +14857,26 @@ const uploadHrEmployeeMedia = async (req, res) => {
           await ensureHrEmployeeProfileFromRoster(req, employeeId);
         }
 
-        const relativeUrl = `/uploads/hr-employee-360/${entityId}/${employeeId}/${req.file.filename}`;
+        let relativeUrl = `/uploads/hr-employee-360/${entityId}/${employeeId}/${req.file.filename}`;
+        let storageBackend = 'disk';
+
+        // Photos: always persist in PostgreSQL (survives restart/redeploy). Disk is cache only when durable.
+        if (resolvedMediaType === 'photo') {
+          const fileData = await fs.promises.readFile(absolutePath);
+          const mime = String(req.file.mimetype || detectImageMimeFromBuffer(fileData) || 'image/png');
+          await hrEmployeePhotoStorage.upsertEmployeePhotoAsset(db, {
+            entityId,
+            employeeId,
+            mimeType: mime,
+            fileData
+          });
+          relativeUrl = hrEmployeePhotoStorage.buildPersistentPhotoUrl(employeeId);
+          storageBackend = 'database';
+          if (isEphemeralUploadStorage(UPLOADS_ROOT_DIR)) {
+            await fs.promises.unlink(absolutePath).catch(() => {});
+          }
+        }
+
         const profileColumnMap = {
           photo: 'photo_url',
           intro_video: 'intro_video_url',
@@ -14878,7 +14937,7 @@ const uploadHrEmployeeMedia = async (req, res) => {
             action: 'employee_photo_upload',
             resourceId: employeeId,
             newValue: relativeUrl,
-            reason: 'رفع/تحديث الصورة الشخصية'
+            reason: `رفع/تحديث الصورة الشخصية (تخزين: ${storageBackend})`
           });
         }
 
@@ -14886,6 +14945,7 @@ const uploadHrEmployeeMedia = async (req, res) => {
           success: true,
           url: relativeUrl,
           mediaType: resolvedMediaType,
+          storage: storageBackend,
           profile: profileResult.rows[0] || null
         });
       } catch (innerError) {
@@ -14897,6 +14957,70 @@ const uploadHrEmployeeMedia = async (req, res) => {
   } catch (error) {
     console.error('Error uploading HR employee media:', error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+const serveHrEmployeePhoto = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const access = await assertEmployee360Access(req, employeeId);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    const entityId = getRequestEntityContext(req).id;
+    const allowHq = isHqEntityContext(req);
+    let asset = await hrEmployeePhotoStorage.getEmployeePhotoAsset(db, {
+      entityId,
+      employeeId: access.employeeId,
+      allowHqCrossEntity: allowHq
+    });
+
+    // Lazy migrate legacy disk photos into durable DB storage.
+    if (!asset) {
+      const profile = await db.query(
+        `SELECT photo_url FROM hr_employee_profiles
+         WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
+         LIMIT 1`,
+        [access.employeeId, entityId]
+      );
+      const legacyUrl = profile.rows[0]?.photo_url;
+      const diskPath = hrEmployeePhotoStorage.resolveLegacyDiskPath(UPLOADS_ROOT_DIR, legacyUrl);
+      if (diskPath && fs.existsSync(diskPath)) {
+        await hrEmployeePhotoStorage.migrateDiskPhotoToDb(db, {
+          entityId,
+          employeeId: access.employeeId,
+          absolutePath: diskPath,
+          mimeType: path.extname(diskPath).toLowerCase() === '.png' ? 'image/png'
+            : path.extname(diskPath).toLowerCase() === '.webp' ? 'image/webp'
+              : 'image/jpeg'
+        });
+        const persistentUrl = hrEmployeePhotoStorage.buildPersistentPhotoUrl(access.employeeId);
+        await db.query(
+          `UPDATE hr_employee_profiles
+           SET photo_url = $1, updated_at = NOW()
+           WHERE employee_id = $2 AND ${getStrictRequestEntityCondition(req, 'entity_id', 3)}`,
+          [persistentUrl, access.employeeId, entityId]
+        );
+        asset = await hrEmployeePhotoStorage.getEmployeePhotoAsset(db, {
+          entityId,
+          employeeId: access.employeeId,
+          allowHqCrossEntity: allowHq
+        });
+      }
+    }
+
+    if (!asset?.file_data) {
+      return res.status(404).json({ error: 'لا توجد صورة شخصية لهذا الموظف' });
+    }
+
+    res.set('Content-Type', asset.mime_type || 'image/png');
+    res.set('Cache-Control', 'private, max-age=300');
+    res.set('X-Photo-Storage', 'database');
+    return res.send(asset.file_data);
+  } catch (error) {
+    console.error('Error serving HR employee photo:', error);
+    return res.status(500).json({ error: error.message });
   }
 };
 
@@ -14924,6 +15048,7 @@ const deleteHrEmployeePhoto = async (req, res) => {
       const abs = path.join(UPLOADS_ROOT_DIR, String(oldUrl).replace(/^\/uploads\//, ''));
       fs.unlink(abs, () => {});
     }
+    await hrEmployeePhotoStorage.deleteEmployeePhotoAsset(db, { entityId, employeeId });
 
     const updated = await db.query(
       `UPDATE hr_employee_profiles
@@ -14937,7 +15062,7 @@ const deleteHrEmployeePhoto = async (req, res) => {
       action: 'employee_photo_delete',
       resourceId: employeeId,
       oldValue: oldUrl,
-      reason: 'حذف الصورة الشخصية'
+      reason: 'حذف الصورة الشخصية (قاعدة البيانات + القرص)'
     });
 
     res.json({ success: true, profile: updated.rows[0] || null });
@@ -14949,6 +15074,8 @@ const deleteHrEmployeePhoto = async (req, res) => {
 
 app.post('/api/hr/employee-profile/:employeeId/media', uploadHrEmployeeMedia);
 app.post('/api/hr-employee-profile/:employeeId/media', uploadHrEmployeeMedia);
+app.get('/api/hr/employee-profile/:employeeId/photo', serveHrEmployeePhoto);
+app.get('/api/hr-employee-profile/:employeeId/photo', serveHrEmployeePhoto);
 app.delete('/api/hr/employee-profile/:employeeId/photo', deleteHrEmployeePhoto);
 app.delete('/api/hr-employee-profile/:employeeId/photo', deleteHrEmployeePhoto);
 

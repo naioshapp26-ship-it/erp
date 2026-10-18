@@ -13,7 +13,12 @@ function resolveUploadsRootDir(fallbackDir = path.join(__dirname, 'uploads')) {
 
 function isEphemeralUploadStorage(uploadsRootDir = '') {
     if (process.env.UPLOADS_PERSISTENT === 'true') return false;
-    if (String(uploadsRootDir).includes('/data')) return false;
+    const root = String(uploadsRootDir || '');
+    if (root.includes('/data')) return false;
+    // Explicit durable mounts / named volumes
+    if (process.env.UPLOADS_VOLUME_MOUNTED === 'true') return false;
+    // Common ephemeral locations (container local disk, tmp)
+    if (root.startsWith('/tmp') || root.includes('/tmp/')) return true;
     return Boolean(process.env.RAILWAY_ENVIRONMENT);
 }
 
