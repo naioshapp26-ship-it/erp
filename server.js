@@ -3996,6 +3996,64 @@ const mapEmployeeUniqueViolation = (error) => {
   return { status: 409, error: 'البيانات المدخلة مكررة' };
 };
 
+/** Soft-fail audit write for employee create/update/photo (table may be absent on some envs). */
+const writeHrEmployeeAudit = async (req, {
+  action,
+  resourceId,
+  oldValue = null,
+  newValue = null,
+  reason = null
+} = {}) => {
+  try {
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const entityId = getRequestEntityContext(req)?.id || null;
+    await db.query(
+      `INSERT INTO audit_logs
+       (user_id, user_name, entity_id, action, resource_type, resource_id, old_value, new_value, ip_address, user_agent, reason, status)
+       VALUES ($1, $2, $3, $4, 'employee', $5, $6, $7, $8, $9, $10, 'SUCCESS')`,
+      [
+        authUser.id || null,
+        authUser.name || authUser.email || null,
+        entityId,
+        String(action || 'employee_action').slice(0, 50),
+        String(resourceId || '').slice(0, 100) || null,
+        oldValue != null ? String(oldValue).slice(0, 4000) : null,
+        newValue != null ? String(newValue).slice(0, 4000) : null,
+        (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString().slice(0, 45) || null,
+        String(req.headers['user-agent'] || '').slice(0, 500) || null,
+        reason
+      ]
+    );
+  } catch (auditError) {
+    console.warn('Employee audit log skipped:', auditError.message);
+  }
+};
+
+const assertCanManageEmployees = (req) => {
+  const authUser = hrPortalAccess.resolveAuthUser(req);
+  const persona = hrPortalAccess.classifyPersona(authUser.role);
+  if (!hrPortalAccess.canManageEmployees(persona)) {
+    return { ok: false, status: 403, error: 'غير مصرح بإضافة أو تعديل الموظفين', authUser, persona };
+  }
+  return { ok: true, authUser, persona };
+};
+
+const PHOTO_MIME_ALLOW = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+
+const detectImageMimeFromBuffer = (buf) => {
+  if (!buf || buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'image/png';
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
+    && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+  return null;
+};
+
 const splitFullName = (fullName) => {
   const normalized = String(fullName || '').trim().replace(/\s+/g, ' ');
   if (!normalized) {
@@ -10699,6 +10757,11 @@ app.get('/api/employees/:id', async (req, res) => {
 // Create employee
 app.post('/api/employees', async (req, res) => {
   try {
+    const manageGate = assertCanManageEmployees(req);
+    if (!manageGate.ok) {
+      return res.status(manageGate.status).json({ error: manageGate.error });
+    }
+
     const { 
       employee_number, full_name, phone, national_id, 
       position, department, assigned_entity_type,
@@ -10859,7 +10922,20 @@ app.post('/api/employees', async (req, res) => {
         emergency_contact, emergency_phone, activeFlag
       ]
     );
-    res.status(201).json(result.rows[0]);
+    const created = result.rows[0];
+    await writeHrEmployeeAudit(req, {
+      action: 'employee_create',
+      resourceId: created.employee_number || String(created.id),
+      newValue: JSON.stringify({
+        employee_number: created.employee_number,
+        full_name: created.full_name,
+        email: created.email,
+        department: created.department,
+        position: created.position
+      }),
+      reason: 'إضافة موظف من واجهة الموارد البشرية'
+    });
+    res.status(201).json(created);
   } catch (error) {
     console.error('Employee creation error:', error.message, error.stack);
     if (error.code === '23505') {
@@ -10873,11 +10949,16 @@ app.post('/api/employees', async (req, res) => {
 // Update employee
 app.put('/api/employees/:id', async (req, res) => {
   try {
+    const manageGate = assertCanManageEmployees(req);
+    if (!manageGate.ok) {
+      return res.status(manageGate.status).json({ error: manageGate.error });
+    }
+
     const { id } = req.params;
     const { 
       full_name, phone, position, department,
       salary, employment_type, is_active, address,
-      emergency_contact, emergency_phone
+      emergency_contact, emergency_phone, hire_date
     } = req.body;
     const email = Object.prototype.hasOwnProperty.call(req.body || {}, 'email')
       ? normalizeEmployeeEmail(req.body.email)
@@ -10990,15 +11071,63 @@ app.put('/api/employees/:id', async (req, res) => {
         address = COALESCE($9, address),
         emergency_contact = COALESCE($10, emergency_contact),
         emergency_phone = COALESCE($11, emergency_phone),
+        hire_date = COALESCE($12, hire_date),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $12 RETURNING *`,
-      [full_name, email === undefined ? null : email, phone, position, department, salary, employment_type, is_active, address, emergency_contact, emergency_phone, id]
+      WHERE id = $13 RETURNING *`,
+      [
+        full_name,
+        email === undefined ? null : email,
+        phone,
+        position,
+        department,
+        salary,
+        employment_type,
+        is_active,
+        address,
+        emergency_contact,
+        emergency_phone,
+        hire_date || null,
+        id
+      ]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'الموظف غير موجود' });
     }
-    res.json(result.rows[0]);
+    const updated = result.rows[0];
+    // Keep 360 profile in sync with the shared employees row (no duplicate employee).
+    await db.query(
+      `UPDATE hr_employee_profiles
+       SET name = COALESCE($1, name),
+           title = COALESCE($2, title),
+           department = COALESCE($3, department),
+           status = COALESCE($4, status),
+           hire_date = COALESCE($5, hire_date),
+           updated_at = NOW()
+       WHERE employee_id = $6 AND ${getStrictRequestEntityCondition(req, 'entity_id', 7)}`,
+      [
+        updated.full_name,
+        updated.position,
+        updated.department,
+        updated.is_active === false ? 'غير نشط' : 'نشط',
+        updated.hire_date || null,
+        updated.employee_number,
+        getRequestEntityContext(req).id
+      ]
+    ).catch(() => null);
+    await writeHrEmployeeAudit(req, {
+      action: 'employee_update',
+      resourceId: updated.employee_number || String(updated.id),
+      newValue: JSON.stringify({
+        full_name: updated.full_name,
+        email: updated.email,
+        department: updated.department,
+        position: updated.position,
+        is_active: updated.is_active
+      }),
+      reason: 'تعديل بيانات موظف'
+    });
+    res.json(updated);
   } catch (error) {
     if (error.code === '23505') {
       const mapped = mapEmployeeUniqueViolation(error);
@@ -11011,6 +11140,10 @@ app.put('/api/employees/:id', async (req, res) => {
 // Delete employee
 app.delete('/api/employees/:id', async (req, res) => {
   try {
+    const manageGate = assertCanManageEmployees(req);
+    if (!manageGate.ok) {
+      return res.status(manageGate.status).json({ error: manageGate.error });
+    }
     const { id } = req.params;
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
@@ -14359,41 +14492,60 @@ const getHrEmployee360Roster = async (req, res) => {
         return res.status(403).json({ error: 'غير مصرح بعرض قائمة الموظفين', employees: [] });
       }
       const self = await db.query(
-        `SELECT id, employee_number, full_name, email, position, department, hire_date, is_active
-         FROM employees WHERE employee_number = $1 LIMIT 1`,
-        [selfId]
+        `SELECT emp.id, emp.employee_number, emp.full_name, emp.email, emp.phone,
+                emp.position, emp.department, emp.hire_date, emp.is_active, emp.employment_type,
+                prof.photo_url
+         FROM employees emp
+         LEFT JOIN hr_employee_profiles prof
+           ON prof.employee_id = emp.employee_number
+          AND prof.entity_id = $2
+         WHERE emp.employee_number = $1
+         LIMIT 1`,
+        [selfId, getRequestEntityContext(req).id]
       );
       return res.json({
         success: true,
         mode: 'self',
+        can_manage: false,
         employees: self.rows.map((e) => ({
           id: e.id,
           employee_number: e.employee_number,
           full_name: e.full_name,
           email: e.email,
+          phone: e.phone,
           position: e.position,
           department: e.department,
           hire_date: e.hire_date,
+          employment_type: e.employment_type,
           is_active: e.is_active !== false,
-          status_label: e.is_active === false ? 'غير نشط' : 'نشط'
+          status_label: e.is_active === false ? 'غير نشط' : 'نشط',
+          photo_url: e.photo_url || null
         }))
       });
     }
 
     // Managers / HR — reuse entity scoping similar to /api/employees
     const params = [];
+    const profileEntityId = getRequestEntityContext(req).id;
+    params.push(profileEntityId);
     let query = `
       SELECT
         emp.id,
         emp.employee_number,
         emp.full_name,
         emp.email,
+        emp.phone,
         emp.position,
         emp.department,
         emp.hire_date,
         emp.is_active,
-        emp.assigned_entity_type
+        emp.assigned_entity_type,
+        emp.employment_type,
+        prof.photo_url
       FROM employees emp
+      LEFT JOIN hr_employee_profiles prof
+        ON prof.employee_id = emp.employee_number
+       AND prof.entity_id = $1
       WHERE 1=1
     `;
 
@@ -14436,16 +14588,20 @@ const getHrEmployee360Roster = async (req, res) => {
     res.json({
       success: true,
       mode: 'roster',
+      can_manage: hrPortalAccess.canManageEmployees(persona),
       employees: result.rows.map((e) => ({
         id: e.id,
         employee_number: e.employee_number,
         full_name: e.full_name,
         email: e.email,
+        phone: e.phone,
         position: e.position,
         department: e.department,
         hire_date: e.hire_date,
+        employment_type: e.employment_type,
         is_active: e.is_active !== false,
-        status_label: e.is_active === false ? 'غير نشط' : 'نشط'
+        status_label: e.is_active === false ? 'غير نشط' : 'نشط',
+        photo_url: e.photo_url || null
       }))
     });
   } catch (error) {
@@ -14596,9 +14752,9 @@ const employee360Upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const mediaType = req.query.mediaType || req.body?.mediaType || 'attachment';
-    const mime = file.mimetype || '';
-    if (mediaType === 'photo' && !mime.startsWith('image/')) {
-      return cb(new Error('يجب رفع صورة للملف الشخصي'));
+    const mime = String(file.mimetype || '').toLowerCase();
+    if (mediaType === 'photo' && !PHOTO_MIME_ALLOW.has(mime)) {
+      return cb(new Error('صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP فقط'));
     }
     if (mediaType === 'intro_video' && !mime.startsWith('video/')) {
       return cb(new Error('يجب رفع فيديو تعريفي'));
@@ -14615,6 +14771,15 @@ const uploadHrEmployeeMedia = async (req, res) => {
     const { employeeId } = req.params;
     const mediaType = req.query.mediaType || req.body?.mediaType || 'attachment';
 
+    const access = await assertEmployee360Access(req, employeeId);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+    const manageGate = assertCanManageEmployees(req);
+    if (!manageGate.ok) {
+      return res.status(manageGate.status).json({ error: manageGate.error });
+    }
+
     employee360Upload.single('file')(req, res, async (err) => {
       if (err) {
         return res.status(400).json({ error: err.message || 'تعذر رفع الملف' });
@@ -14624,76 +14789,110 @@ const uploadHrEmployeeMedia = async (req, res) => {
       }
 
       const resolvedMediaType = req.query.mediaType || req.body?.mediaType || mediaType || 'attachment';
-
       const entityId = getRequestEntityContext(req).id;
-      const relativeUrl = `/uploads/hr-employee-360/${entityId}/${employeeId}/${req.file.filename}`;
-      const profileColumnMap = {
-        photo: 'photo_url',
-        intro_video: 'intro_video_url',
-        cv: 'cv_url'
-      };
-      const profileColumn = profileColumnMap[resolvedMediaType];
+      const absolutePath = req.file.path;
 
-      if (profileColumn) {
-        await db.query(
-          `UPDATE hr_employee_profiles
-           SET ${profileColumn} = $1, updated_at = NOW()
-           WHERE employee_id = $2 AND ${getStrictRequestEntityCondition(req, 'entity_id', 3)}`,
-          [relativeUrl, employeeId, entityId]
-        );
-      }
+      try {
+        if (resolvedMediaType === 'photo') {
+          if (!PHOTO_MIME_ALLOW.has(String(req.file.mimetype || '').toLowerCase())) {
+            fs.unlink(absolutePath, () => {});
+            return res.status(400).json({ error: 'صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP فقط' });
+          }
+          if (req.file.size > PHOTO_MAX_BYTES) {
+            fs.unlink(absolutePath, () => {});
+            return res.status(400).json({ error: 'حجم الصورة يجب ألا يتجاوز 5 ميجابايت' });
+          }
+          const head = Buffer.alloc(16);
+          const fd = fs.openSync(absolutePath, 'r');
+          try {
+            fs.readSync(fd, head, 0, 16, 0);
+          } finally {
+            fs.closeSync(fd);
+          }
+          const magicMime = detectImageMimeFromBuffer(head);
+          if (!magicMime || !PHOTO_MIME_ALLOW.has(magicMime)) {
+            fs.unlink(absolutePath, () => {});
+            return res.status(400).json({ error: 'محتوى الملف ليس صورة صالحة' });
+          }
+          await ensureHrEmployeeProfileFromRoster(req, employeeId);
+        }
 
-      if (resolvedMediaType === 'attachment' || !profileColumn) {
-        const typeLabels = {
-          image: 'صورة',
-          video: 'فيديو',
-          pdf: 'PDF',
-          document: 'مستند'
+        const relativeUrl = `/uploads/hr-employee-360/${entityId}/${employeeId}/${req.file.filename}`;
+        const profileColumnMap = {
+          photo: 'photo_url',
+          intro_video: 'intro_video_url',
+          cv: 'cv_url'
         };
-        let attachmentType = 'مستند';
-        if ((req.file.mimetype || '').startsWith('image/')) attachmentType = 'صورة';
-        else if ((req.file.mimetype || '').startsWith('video/')) attachmentType = 'فيديو';
-        else if ((req.file.mimetype || '').includes('pdf')) attachmentType = 'PDF';
+        const profileColumn = profileColumnMap[resolvedMediaType];
 
-        const sizeMb = (req.file.size / (1024 * 1024)).toFixed(2);
-        const record = {
-          name: req.file.originalname || req.file.filename,
-          type: attachmentType,
-          date: new Date().toISOString().slice(0, 10),
-          size: `${sizeMb} MB`,
-          status: 'موثق',
-          file_url: relativeUrl,
-          media_type: resolvedMediaType === 'attachment' ? attachmentType : resolvedMediaType
-        };
+        if (profileColumn) {
+          await db.query(
+            `UPDATE hr_employee_profiles
+             SET ${profileColumn} = $1, updated_at = NOW()
+             WHERE employee_id = $2 AND ${getStrictRequestEntityCondition(req, 'entity_id', 3)}`,
+            [relativeUrl, employeeId, entityId]
+          );
+        }
 
-        await db.query(
-          `INSERT INTO hr_employee_records
-           (employee_id, section, status, period, record, entity_id, entity_type)
-           VALUES ($1, 'attachments', $2, $3, $4, $5, $6)`,
-          [
-            employeeId,
-            'موثق',
-            record.date,
-            JSON.stringify(record),
-            entityId,
-            getRequestEntityContext(req).type
-          ]
+        if (resolvedMediaType === 'attachment' || !profileColumn) {
+          let attachmentType = 'مستند';
+          if ((req.file.mimetype || '').startsWith('image/')) attachmentType = 'صورة';
+          else if ((req.file.mimetype || '').startsWith('video/')) attachmentType = 'فيديو';
+          else if ((req.file.mimetype || '').includes('pdf')) attachmentType = 'PDF';
+
+          const sizeMb = (req.file.size / (1024 * 1024)).toFixed(2);
+          const record = {
+            name: req.file.originalname || req.file.filename,
+            type: attachmentType,
+            date: new Date().toISOString().slice(0, 10),
+            size: `${sizeMb} MB`,
+            status: 'موثق',
+            file_url: relativeUrl,
+            media_type: resolvedMediaType === 'attachment' ? attachmentType : resolvedMediaType
+          };
+
+          await db.query(
+            `INSERT INTO hr_employee_records
+             (employee_id, section, status, period, record, entity_id, entity_type)
+             VALUES ($1, 'attachments', $2, $3, $4, $5, $6)`,
+            [
+              employeeId,
+              'موثق',
+              record.date,
+              JSON.stringify(record),
+              entityId,
+              getRequestEntityContext(req).type
+            ]
+          );
+        }
+
+        const profileResult = await db.query(
+          `SELECT * FROM hr_employee_profiles
+           WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
+           LIMIT 1`,
+          [employeeId, entityId]
         );
+
+        if (resolvedMediaType === 'photo') {
+          await writeHrEmployeeAudit(req, {
+            action: 'employee_photo_upload',
+            resourceId: employeeId,
+            newValue: relativeUrl,
+            reason: 'رفع/تحديث الصورة الشخصية'
+          });
+        }
+
+        res.json({
+          success: true,
+          url: relativeUrl,
+          mediaType: resolvedMediaType,
+          profile: profileResult.rows[0] || null
+        });
+      } catch (innerError) {
+        fs.unlink(absolutePath, () => {});
+        console.error('Error processing HR employee media:', innerError);
+        res.status(500).json({ error: innerError.message });
       }
-
-      const profileResult = await db.query(
-        `SELECT * FROM hr_employee_profiles
-         WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
-         LIMIT 1`,
-        [employeeId, entityId]
-      );
-
-      res.json({
-        success: true,
-        url: relativeUrl,
-        mediaType: resolvedMediaType,
-        profile: profileResult.rows[0] || null
-      });
     });
   } catch (error) {
     console.error('Error uploading HR employee media:', error);
@@ -14701,8 +14900,57 @@ const uploadHrEmployeeMedia = async (req, res) => {
   }
 };
 
+const deleteHrEmployeePhoto = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const access = await assertEmployee360Access(req, employeeId);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+    const manageGate = assertCanManageEmployees(req);
+    if (!manageGate.ok) {
+      return res.status(manageGate.status).json({ error: manageGate.error });
+    }
+
+    const entityId = getRequestEntityContext(req).id;
+    const existing = await db.query(
+      `SELECT photo_url FROM hr_employee_profiles
+       WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
+       LIMIT 1`,
+      [employeeId, entityId]
+    );
+    const oldUrl = existing.rows[0]?.photo_url || null;
+    if (oldUrl && String(oldUrl).startsWith('/uploads/hr-employee-360/')) {
+      const abs = path.join(UPLOADS_ROOT_DIR, String(oldUrl).replace(/^\/uploads\//, ''));
+      fs.unlink(abs, () => {});
+    }
+
+    const updated = await db.query(
+      `UPDATE hr_employee_profiles
+       SET photo_url = NULL, updated_at = NOW()
+       WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
+       RETURNING *`,
+      [employeeId, entityId]
+    );
+
+    await writeHrEmployeeAudit(req, {
+      action: 'employee_photo_delete',
+      resourceId: employeeId,
+      oldValue: oldUrl,
+      reason: 'حذف الصورة الشخصية'
+    });
+
+    res.json({ success: true, profile: updated.rows[0] || null });
+  } catch (error) {
+    console.error('Error deleting HR employee photo:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 app.post('/api/hr/employee-profile/:employeeId/media', uploadHrEmployeeMedia);
 app.post('/api/hr-employee-profile/:employeeId/media', uploadHrEmployeeMedia);
+app.delete('/api/hr/employee-profile/:employeeId/photo', deleteHrEmployeePhoto);
+app.delete('/api/hr-employee-profile/:employeeId/photo', deleteHrEmployeePhoto);
 
 // HR Employee 360 Records
 const getHrEmployeeRecords = async (req, res) => {
@@ -16986,7 +17234,41 @@ app.use((err, req, res, next) => {
 
 // Serve static files after API routes but before SPA catch-all
 app.use('/public', express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(UPLOADS_ROOT_DIR));
+
+// Employee 360 photos require auth + roster access (cookie/Bearer) — not world-readable.
+app.use('/uploads/hr-employee-360', async (req, res, next) => {
+  try {
+    const parts = String(req.path || '').split('/').filter(Boolean);
+    // /:entityId/:employeeId/:filename
+    const employeeId = parts[1];
+    if (!employeeId) {
+      return res.status(404).json({ error: 'الملف غير موجود' });
+    }
+    if (!getAuthToken(req)) {
+      return res.status(401).json({ error: 'يجب تسجيل الدخول لعرض صورة الموظف' });
+    }
+    const access = await assertEmployee360Access(req, employeeId);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+    const folderEntity = parts[0];
+    const ctxId = getRequestEntityContext(req)?.id;
+    if (folderEntity && ctxId && folderEntity !== ctxId && !isHqEntityContext(req)) {
+      return res.status(403).json({ error: 'غير مصرح بالوصول إلى ملفات كيان آخر' });
+    }
+    return next();
+  } catch (error) {
+    console.error('HR photo access guard failed:', error.message);
+    return res.status(500).json({ error: 'تعذر التحقق من صلاحية الصورة' });
+  }
+}, express.static(path.join(UPLOADS_ROOT_DIR, 'hr-employee-360')));
+
+app.use('/uploads', (req, res, next) => {
+  if (String(req.path || '').startsWith('/hr-employee-360/') || String(req.path || '') === '/hr-employee-360') {
+    return res.status(403).json({ error: 'الوصول المباشر غير مسموح' });
+  }
+  return next();
+}, express.static(UPLOADS_ROOT_DIR));
 
 app.get('/*.html', (req, res, next) => {
   const safePath = req.path.replace(/^\/+/, '');

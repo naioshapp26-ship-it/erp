@@ -45,6 +45,55 @@
       border-color: rgba(185, 28, 28, 0.35);
       box-shadow: 0 14px 28px rgba(15, 23, 42, 0.1);
     }
+    .roster-photo {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #dc2626, #991b1b);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      border: 2px solid #fee2e2;
+    }
+    .roster-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .roster-card-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+    .photo-preview-wrap {
+      width: 112px;
+      height: 112px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid #fecaca;
+      background: #fff1f2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+    }
+    .photo-preview-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .emp-form-modal .modal-card {
+      max-width: 720px;
+      width: min(720px, 96vw);
+      max-height: 92vh;
+      overflow: auto;
+    }
     .roster-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -375,6 +424,10 @@
         <p class="text-slate-600" id="pageSubtitle">اختر موظفًا لعرض ملفه الشامل: البيانات، الحضور، الرواتب، والأداء.</p>
       </div>
       <div class="flex flex-wrap gap-2">
+        <button type="button" id="addEmployeeBtn" class="btn bg-emerald-600 text-white hidden">
+          <i class="fas fa-user-plus"></i>
+          + إضافة موظف جديد
+        </button>
         <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
           <i class="fas fa-arrow-right"></i>
           العودة للموارد البشرية
@@ -411,6 +464,10 @@
           <button type="button" id="rosterRefresh" class="btn bg-rose-700 text-white">
             <i class="fas fa-rotate"></i>
             تحديث
+          </button>
+          <button type="button" id="addEmployeeBtnInline" class="btn bg-emerald-600 text-white hidden">
+            <i class="fas fa-plus"></i>
+            + إضافة موظف جديد
           </button>
         </div>
         <div class="mt-3 text-sm text-slate-500" id="rosterCount">جاري التحميل...</div>
@@ -460,6 +517,19 @@
         <div class="glass p-4 text-sm">
           <div class="font-bold text-slate-700">أوامر سريعة</div>
           <div class="mt-3 flex flex-wrap gap-2">
+            <button type="button" id="editEmployeeBtn" class="btn bg-emerald-600 text-white w-full hidden">
+              <i class="fas fa-pen"></i>
+              تعديل بيانات الموظف
+            </button>
+            <button type="button" id="changePhotoBtn" class="btn bg-sky-700 text-white w-full hidden">
+              <i class="fas fa-camera"></i>
+              رفع صورة الموظف
+            </button>
+            <button type="button" id="removePhotoBtn" class="btn bg-white text-rose-700 border border-rose-200 w-full hidden">
+              <i class="fas fa-trash"></i>
+              حذف الصورة
+            </button>
+            <input type="file" id="detailPhotoInput" accept="image/jpeg,image/png,image/webp" class="hidden">
             <button id="printProfile" class="btn bg-white text-slate-700 border border-slate-200 w-full">
               <i class="fas fa-print"></i>
               طباعة الملف الكامل
@@ -622,6 +692,100 @@
     </div>
   </div>
 
+  <div id="employeeFormModal" class="modal emp-form-modal">
+    <div class="modal-card">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-xs text-slate-500" id="employeeFormEyebrow">موظف 360</div>
+          <h3 id="employeeFormTitle" class="text-xl font-extrabold mt-1">إضافة موظف جديد</h3>
+        </div>
+        <button type="button" id="closeEmployeeForm" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
+      </div>
+      <form id="employee360Form" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div class="md:col-span-2 flex flex-col items-center gap-3 p-4 rounded-2xl border border-rose-100 bg-rose-50/40">
+          <div class="photo-preview-wrap" id="employeePhotoPreview">
+            <i class="fas fa-user text-3xl text-rose-300"></i>
+          </div>
+          <div class="flex flex-wrap gap-2 justify-center">
+            <label class="btn bg-sky-700 text-white cursor-pointer">
+              <i class="fas fa-camera"></i>
+              رفع صورة الموظف
+              <input type="file" id="employeePhotoInput" accept="image/jpeg,image/png,image/webp" class="hidden">
+            </label>
+            <button type="button" id="clearEmployeePhoto" class="btn bg-white text-slate-700 border border-slate-200">إزالة المعاينة</button>
+          </div>
+          <p class="text-xs text-slate-500 text-center">JPG / PNG / WebP — بحد أقصى 5 ميجابايت. تظهر الصورة في القائمة والملف الشامل.</p>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">الاسم الكامل *</label>
+          <input name="full_name" required class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">الرقم الوظيفي *</label>
+          <input name="employee_number" required class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">البريد الإلكتروني</label>
+          <input name="email" type="email" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">رقم الهاتف</label>
+          <input name="phone" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">المسمى الوظيفي</label>
+          <input name="position" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">القسم</label>
+          <input name="department" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">الفرع / نوع الكيان</label>
+          <select name="assigned_entity_type" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200">
+            <option value="HQ">المركز الرئيسي</option>
+            <option value="BRANCH">فرع</option>
+            <option value="OFFICE">مكتب</option>
+            <option value="PLATFORM">منصة</option>
+            <option value="INCUBATOR">حاضنة</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">معرف الكيان (فرع)</label>
+          <input name="entity_value" type="number" min="1" value="1" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">تاريخ التعيين</label>
+          <input name="hire_date" type="date" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">الحالة الوظيفية</label>
+          <select name="is_active" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200">
+            <option value="true">نشط</option>
+            <option value="false">غير نشط</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-500">نوع التوظيف</label>
+          <select name="employment_type" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200">
+            <option value="FULL_TIME">دوام كامل</option>
+            <option value="PART_TIME">دوام جزئي</option>
+            <option value="CONTRACT">عقد</option>
+            <option value="INTERN">تدريب</option>
+          </select>
+        </div>
+        <div class="md:col-span-2 flex flex-wrap gap-2 justify-end mt-2">
+          <button type="button" id="cancelEmployeeForm" class="btn bg-white text-slate-700 border border-slate-200">إلغاء</button>
+          <button type="submit" id="saveEmployeeForm" class="btn bg-rose-700 text-white">
+            <i class="fas fa-save"></i>
+            حفظ الموظف
+          </button>
+        </div>
+        <div id="employeeFormError" class="md:col-span-2 text-rose-600 font-bold text-sm hidden"></div>
+      </form>
+    </div>
+  </div>
+
   <script>
     const formatter = new Intl.NumberFormat('en-US');
     const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -656,6 +820,14 @@
     let currentProfile = null;
     let rosterEmployees = [];
     let rosterMode = 'roster';
+    let canManageEmployees = false;
+    let employeeFormMode = 'add';
+    let editingEmployeeDbId = null;
+    let pendingPhotoFile = null;
+    let pendingPhotoObjectUrl = null;
+    const DEFAULT_AVATAR = 'data:image/svg+xml,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" rx="64" fill="#fff1f2"/><circle cx="64" cy="48" r="24" fill="#fecaca"/><path d="M24 112c8-28 28-40 40-40s32 12 40 40" fill="#fecaca"/></svg>'
+    );
 
     const rosterEls = {
       root: document.getElementById('employee360Roster'),
@@ -670,7 +842,24 @@
       back: document.getElementById('backToRoster'),
       pageTitle: document.getElementById('pageTitle'),
       pageSubtitle: document.getElementById('pageSubtitle'),
-      pageChip: document.getElementById('pageChip')
+      pageChip: document.getElementById('pageChip'),
+      addBtn: document.getElementById('addEmployeeBtn'),
+      addBtnInline: document.getElementById('addEmployeeBtnInline')
+    };
+
+    const setManageUiVisible = (visible) => {
+      canManageEmployees = !!visible;
+      [rosterEls.addBtn, rosterEls.addBtnInline].forEach((btn) => {
+        if (btn) btn.classList.toggle('hidden', !canManageEmployees);
+      });
+      const editBtn = document.getElementById('editEmployeeBtn');
+      const changePhotoBtn = document.getElementById('changePhotoBtn');
+      const removePhotoBtn = document.getElementById('removePhotoBtn');
+      if (editBtn) editBtn.classList.toggle('hidden', !canManageEmployees);
+      if (changePhotoBtn) changePhotoBtn.classList.toggle('hidden', !canManageEmployees);
+      if (removePhotoBtn) {
+        removePhotoBtn.classList.toggle('hidden', !canManageEmployees || !currentProfile?.photo_url);
+      }
     };
 
     const showRosterView = () => {
@@ -762,10 +951,19 @@
         rosterEls.grid.innerHTML = filtered.map((e) => {
           const initials = String(e.full_name || 'م').trim().split(/\s+/).slice(0, 2).map((p) => p[0] || '').join('') || 'م';
           const statusClass = e.is_active === false ? 'text-rose-600' : 'text-emerald-600';
+          const photoHtml = e.photo_url
+            ? `<img src="${escapeHtml(e.photo_url)}" alt="${escapeHtml(e.full_name || '')}" loading="lazy">`
+            : `<img src="${DEFAULT_AVATAR}" alt="" aria-hidden="true"><span class="sr-only">${escapeHtml(initials)}</span>`;
+          const editBtn = canManageEmployees
+            ? `<button type="button" class="btn bg-white text-slate-700 border border-slate-200 edit-emp-btn" data-id="${escapeHtml(String(e.id || ''))}" data-number="${escapeHtml(e.employee_number || '')}" title="تعديل">
+                <i class="fas fa-pen"></i>
+                تعديل
+              </button>`
+            : '';
           return `
-            <article class="roster-card" data-employee-number="${escapeHtml(e.employee_number)}">
+            <article class="roster-card" data-employee-number="${escapeHtml(e.employee_number)}" data-db-id="${escapeHtml(String(e.id || ''))}">
               <div class="flex items-center gap-3 mb-3">
-                <div class="avatar" style="width:52px;height:52px;font-size:16px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;">${escapeHtml(initials)}</div>
+                <div class="roster-photo">${photoHtml}</div>
                 <div>
                   <div class="font-extrabold text-slate-900">${escapeHtml(e.full_name || '—')}</div>
                   <div class="text-xs text-slate-500">${escapeHtml(e.employee_number || '')}</div>
@@ -774,14 +972,24 @@
               <div class="text-sm text-slate-600 mb-1"><i class="fas fa-briefcase ml-1 text-rose-600"></i>${escapeHtml(e.position || '—')}</div>
               <div class="text-sm text-slate-600 mb-1"><i class="fas fa-building ml-1 text-rose-600"></i>${escapeHtml(e.department || '—')}</div>
               <div class="text-sm font-bold ${statusClass} mb-3">${escapeHtml(e.status_label || (e.is_active === false ? 'غير نشط' : 'نشط'))}</div>
-              <button type="button" class="btn bg-rose-700 text-white w-full open-360-btn" data-id="${escapeHtml(e.employee_number)}">
-                <i class="fas fa-id-card"></i>
-                عرض ملف 360
-              </button>
+              <div class="roster-card-actions">
+                <button type="button" class="btn bg-rose-700 text-white open-360-btn" data-id="${escapeHtml(e.employee_number)}">
+                  <i class="fas fa-id-card"></i>
+                  عرض ملف 360
+                </button>
+                ${editBtn}
+              </div>
             </article>`;
         }).join('');
         rosterEls.grid.querySelectorAll('.open-360-btn').forEach((btn) => {
           btn.addEventListener('click', () => openEmployeeDetail(btn.getAttribute('data-id')));
+        });
+        rosterEls.grid.querySelectorAll('.edit-emp-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const number = btn.getAttribute('data-number');
+            const emp = rosterEmployees.find((row) => String(row.employee_number) === String(number));
+            openEmployeeForm('edit', emp || null);
+          });
         });
       }
     };
@@ -811,12 +1019,250 @@
         return;
       }
       rosterMode = data.mode || 'roster';
+      setManageUiVisible(data.can_manage === true);
       const list = data.employees || [];
       if (rosterMode === 'self' && list.length === 1 && !employeeId) {
         openEmployeeDetail(list[0].employee_number);
         return;
       }
       renderRoster(list);
+    };
+
+    const showEmployeeFormError = (msg) => {
+      const el = document.getElementById('employeeFormError');
+      if (!el) return;
+      if (!msg) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+      }
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    };
+
+    const resetPhotoPreview = () => {
+      pendingPhotoFile = null;
+      if (pendingPhotoObjectUrl) {
+        URL.revokeObjectURL(pendingPhotoObjectUrl);
+        pendingPhotoObjectUrl = null;
+      }
+      const wrap = document.getElementById('employeePhotoPreview');
+      if (wrap) {
+        wrap.innerHTML = '<i class="fas fa-user text-3xl text-rose-300"></i>';
+      }
+      const input = document.getElementById('employeePhotoInput');
+      if (input) input.value = '';
+    };
+
+    const setPhotoPreviewFromFile = (file) => {
+      if (!file) return;
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        showEmployeeFormError('صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showEmployeeFormError('حجم الصورة يجب ألا يتجاوز 5 ميجابايت');
+        return;
+      }
+      showEmployeeFormError('');
+      pendingPhotoFile = file;
+      if (pendingPhotoObjectUrl) URL.revokeObjectURL(pendingPhotoObjectUrl);
+      pendingPhotoObjectUrl = URL.createObjectURL(file);
+      const wrap = document.getElementById('employeePhotoPreview');
+      if (wrap) wrap.innerHTML = `<img src="${pendingPhotoObjectUrl}" alt="معاينة الصورة">`;
+    };
+
+    const closeEmployeeForm = () => {
+      const modal = document.getElementById('employeeFormModal');
+      if (modal) modal.classList.remove('open');
+      resetPhotoPreview();
+      showEmployeeFormError('');
+      employeeFormMode = 'add';
+      editingEmployeeDbId = null;
+    };
+
+    const openEmployeeForm = (mode = 'add', emp = null) => {
+      if (!canManageEmployees) {
+        alert('غير مصرح بإضافة أو تعديل الموظفين');
+        return;
+      }
+      employeeFormMode = mode === 'edit' ? 'edit' : 'add';
+      editingEmployeeDbId = emp?.id || null;
+      const modal = document.getElementById('employeeFormModal');
+      const form = document.getElementById('employee360Form');
+      const title = document.getElementById('employeeFormTitle');
+      if (!modal || !form) return;
+      form.reset();
+      resetPhotoPreview();
+      showEmployeeFormError('');
+      if (title) {
+        title.textContent = employeeFormMode === 'edit' ? 'تعديل بيانات الموظف' : 'إضافة موظف جديد';
+      }
+      const numberInput = form.elements.employee_number;
+      if (numberInput) numberInput.readOnly = employeeFormMode === 'edit';
+
+      if (emp) {
+        if (form.elements.full_name) form.elements.full_name.value = emp.full_name || '';
+        if (form.elements.employee_number) form.elements.employee_number.value = emp.employee_number || '';
+        if (form.elements.email) form.elements.email.value = emp.email || '';
+        if (form.elements.phone) form.elements.phone.value = emp.phone || '';
+        if (form.elements.position) form.elements.position.value = emp.position || '';
+        if (form.elements.department) form.elements.department.value = emp.department || '';
+        if (form.elements.hire_date && emp.hire_date) {
+          form.elements.hire_date.value = String(emp.hire_date).slice(0, 10);
+        }
+        if (form.elements.is_active) {
+          form.elements.is_active.value = emp.is_active === false ? 'false' : 'true';
+        }
+        if (form.elements.employment_type && emp.employment_type) {
+          form.elements.employment_type.value = emp.employment_type;
+        }
+        if (emp.photo_url) {
+          const wrap = document.getElementById('employeePhotoPreview');
+          if (wrap) wrap.innerHTML = `<img src="${escapeHtml(emp.photo_url)}" alt="الصورة الحالية">`;
+        }
+      } else {
+        if (form.elements.assigned_entity_type) form.elements.assigned_entity_type.value = 'HQ';
+        if (form.elements.entity_value) form.elements.entity_value.value = '1';
+      }
+      modal.classList.add('open');
+    };
+
+    const uploadPhotoForEmployee = async (empNumber, file) => {
+      if (!file || !empNumber) return null;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('mediaType', 'photo');
+      const response = await fetch(`${profileApi}/${encodeURIComponent(empNumber)}/media?mediaType=photo`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: authHeaders(),
+        body: formData
+      });
+      const data = await parseJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(data.error || 'تعذر رفع الصورة الشخصية');
+      }
+      return data;
+    };
+
+    const buildEmployeePayload = (form) => {
+      const payload = {
+        full_name: String(form.elements.full_name?.value || '').trim(),
+        employee_number: String(form.elements.employee_number?.value || '').trim(),
+        email: String(form.elements.email?.value || '').trim() || null,
+        phone: String(form.elements.phone?.value || '').trim() || null,
+        position: String(form.elements.position?.value || '').trim() || null,
+        department: String(form.elements.department?.value || '').trim() || null,
+        hire_date: form.elements.hire_date?.value || null,
+        employment_type: form.elements.employment_type?.value || 'FULL_TIME',
+        is_active: form.elements.is_active?.value !== 'false',
+        assigned_entity_type: form.elements.assigned_entity_type?.value || 'HQ',
+        hq_id: null,
+        branch_id: null,
+        office_id: null,
+        platform_id: null,
+        incubator_id: null
+      };
+      const entityType = payload.assigned_entity_type;
+      let entityValue = Number(form.elements.entity_value?.value || 1);
+      if (entityType === 'HQ') entityValue = 1;
+      if (!Number.isFinite(entityValue) || entityValue <= 0) {
+        throw new Error('معرف الكيان (الفرع) غير صالح');
+      }
+      if (entityType === 'HQ') payload.hq_id = entityValue;
+      if (entityType === 'BRANCH') payload.branch_id = entityValue;
+      if (entityType === 'OFFICE') payload.office_id = entityValue;
+      if (entityType === 'PLATFORM') payload.platform_id = entityValue;
+      if (entityType === 'INCUBATOR') payload.incubator_id = entityValue;
+      return payload;
+    };
+
+    const saveEmployeeForm = async (event) => {
+      event.preventDefault();
+      if (!canManageEmployees) {
+        showEmployeeFormError('غير مصرح بإضافة أو تعديل الموظفين');
+        return;
+      }
+      const form = document.getElementById('employee360Form');
+      const saveBtn = document.getElementById('saveEmployeeForm');
+      showEmployeeFormError('');
+      let payload;
+      try {
+        payload = buildEmployeePayload(form);
+      } catch (err) {
+        showEmployeeFormError(err.message);
+        return;
+      }
+      if (!payload.full_name || !payload.employee_number) {
+        showEmployeeFormError('رقم الموظف والاسم الكامل مطلوبان');
+        return;
+      }
+      if (employeeFormMode === 'edit' && !editingEmployeeDbId) {
+        showEmployeeFormError('تعذر تحديد الموظف للتعديل');
+        return;
+      }
+
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.dataset.prev = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+      }
+
+      try {
+        const url = employeeFormMode === 'edit'
+          ? `${apiBase}/employees/${editingEmployeeDbId}`
+          : `${apiBase}/employees`;
+        const method = employeeFormMode === 'edit' ? 'PUT' : 'POST';
+        const body = { ...payload };
+        if (employeeFormMode === 'edit') {
+          delete body.employee_number;
+          delete body.hq_id;
+          delete body.branch_id;
+          delete body.office_id;
+          delete body.platform_id;
+          delete body.incubator_id;
+          delete body.assigned_entity_type;
+        }
+        const response = await fetch(url, {
+          method,
+          credentials: 'include',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await parseJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(data.error || data.message || 'تعذر حفظ الموظف');
+        }
+
+        const empNumber = data.employee_number || payload.employee_number;
+        // Ensure 360 profile exists then attach photo (shared employees table — no duplicate).
+        await fetch(`${profileApi}?employeeId=${encodeURIComponent(empNumber)}`, {
+          credentials: 'include',
+          headers: authHeaders()
+        });
+        if (pendingPhotoFile) {
+          await uploadPhotoForEmployee(empNumber, pendingPhotoFile);
+        }
+
+        closeEmployeeForm();
+        if (employeeId && String(employeeId) === String(empNumber)) {
+          await Promise.all([loadProfile(), loadRecords()]);
+          updateSummary();
+          refreshSummaryTags();
+          renderAttachmentsPanel();
+          renderTable();
+        } else {
+          await loadRoster();
+        }
+      } catch (err) {
+        showEmployeeFormError(err.message || 'تعذر حفظ الموظف');
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          if (saveBtn.dataset.prev) saveBtn.innerHTML = saveBtn.dataset.prev;
+        }
+      }
     };
 
     const formatDisplayDate = (value) => {
@@ -1455,14 +1901,14 @@
       if (elements.employeeManager) elements.employeeManager.textContent = profile.manager || '--';
 
       if (elements.employeeAvatar) {
+        elements.employeeAvatar.classList.add('has-photo');
         if (profile.photo_url) {
-          elements.employeeAvatar.classList.add('has-photo');
           elements.employeeAvatar.innerHTML = `<img src="${profile.photo_url}" alt="${profile.name || ''}">`;
         } else {
-          elements.employeeAvatar.classList.remove('has-photo');
-          elements.employeeAvatar.textContent = profile.avatar_initials || '';
+          elements.employeeAvatar.innerHTML = `<img src="${DEFAULT_AVATAR}" alt="${profile.avatar_initials || profile.name || 'موظف'}">`;
         }
       }
+      setManageUiVisible(canManageEmployees);
       renderAttachmentsPanel();
     };
 
@@ -1573,6 +2019,93 @@
       rosterEls.search?.addEventListener('input', () => renderRoster(rosterEmployees));
       rosterEls.department?.addEventListener('change', () => renderRoster(rosterEmployees));
       rosterEls.status?.addEventListener('change', () => renderRoster(rosterEmployees));
+      rosterEls.addBtn?.addEventListener('click', () => openEmployeeForm('add'));
+      rosterEls.addBtnInline?.addEventListener('click', () => openEmployeeForm('add'));
+      document.getElementById('closeEmployeeForm')?.addEventListener('click', closeEmployeeForm);
+      document.getElementById('cancelEmployeeForm')?.addEventListener('click', closeEmployeeForm);
+      document.getElementById('employee360Form')?.addEventListener('submit', saveEmployeeForm);
+      document.getElementById('employeePhotoInput')?.addEventListener('change', (ev) => {
+        const file = ev.target.files && ev.target.files[0];
+        if (file) setPhotoPreviewFromFile(file);
+      });
+      document.getElementById('clearEmployeePhoto')?.addEventListener('click', resetPhotoPreview);
+      document.getElementById('editEmployeeBtn')?.addEventListener('click', async () => {
+        if (!canManageEmployees || !employeeId) return;
+        const fromRoster = rosterEmployees.find((e) => String(e.employee_number) === String(employeeId));
+        if (fromRoster) {
+          openEmployeeForm('edit', fromRoster);
+          return;
+        }
+        try {
+          const res = await fetch(`${apiBase}/employees`, { credentials: 'include', headers: authHeaders() });
+          const rows = await parseJsonResponse(res);
+          const list = Array.isArray(rows) ? rows : (rows.employees || []);
+          const match = list.find((e) => String(e.employee_number) === String(employeeId));
+          openEmployeeForm('edit', match || {
+            employee_number: employeeId,
+            full_name: currentProfile?.name,
+            email: null,
+            phone: null,
+            position: currentProfile?.title,
+            department: currentProfile?.department,
+            hire_date: currentProfile?.hire_date,
+            is_active: currentProfile?.status !== 'غير نشط',
+            photo_url: currentProfile?.photo_url,
+            id: null
+          });
+        } catch (_) {
+          openEmployeeForm('edit', {
+            employee_number: employeeId,
+            full_name: currentProfile?.name,
+            position: currentProfile?.title,
+            department: currentProfile?.department,
+            hire_date: currentProfile?.hire_date,
+            photo_url: currentProfile?.photo_url
+          });
+        }
+      });
+      document.getElementById('changePhotoBtn')?.addEventListener('click', () => {
+        document.getElementById('detailPhotoInput')?.click();
+      });
+      document.getElementById('detailPhotoInput')?.addEventListener('change', async (ev) => {
+        const file = ev.target.files && ev.target.files[0];
+        if (!file || !employeeId) return;
+        try {
+          await uploadPhotoForEmployee(employeeId, file);
+          await loadProfile();
+          alert('تم تحديث الصورة الشخصية');
+        } catch (err) {
+          alert(err.message || 'تعذر رفع الصورة');
+        } finally {
+          ev.target.value = '';
+        }
+      });
+      document.getElementById('removePhotoBtn')?.addEventListener('click', async () => {
+        if (!employeeId || !canManageEmployees) return;
+        if (!confirm('هل تريد حذف الصورة الشخصية؟')) return;
+        try {
+          const response = await fetch(`${profileApi}/${encodeURIComponent(employeeId)}/photo`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: authHeaders()
+          });
+          const data = await parseJsonResponse(response);
+          if (!response.ok) throw new Error(data.error || 'تعذر حذف الصورة');
+          if (data.profile) applyProfileToUi(data.profile);
+          else await loadProfile();
+        } catch (err) {
+          alert(err.message || 'تعذر حذف الصورة');
+        }
+      });
+
+      // Resolve manage capability early (also refreshed by roster).
+      try {
+        const portal = await fetch(`${apiBase}/hr/portal-context`, {
+          credentials: 'include',
+          headers: authHeaders()
+        }).then((r) => r.json()).catch(() => ({}));
+        setManageUiVisible(portal.canManageEmployees === true);
+      } catch (_) { /* ignore */ }
 
       if (!employeeId) {
         await loadRoster();
