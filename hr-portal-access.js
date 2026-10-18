@@ -8,7 +8,103 @@
  * Manager home is organized into clear Arabic groups without deleting routes.
  */
 
-const { HR_KEEP, listHrKeepAsHomeModules } = require('./gai-hub-navigation');
+const { HR_KEEP, FINANCE_KEEP, listHrKeepAsHomeModules } = require('./gai-hub-navigation');
+
+/**
+ * Finance home cards relocated into HR UI (navigation only — routes unchanged).
+ * Duplicates that already exist in HR with the same href are skipped below.
+ */
+const FINANCE_HOME_MOVED_TO_HR = [
+  {
+    key: 'fin-moved-expenses',
+    catalogKey: 'fin-expenses',
+    href: '/finance/expenses.html',
+    label: 'إدارة المصروفات',
+    icon: 'fa-receipt',
+    category: 'الصفحات المنقولة من المالية',
+    manager: true,
+    description: 'منقول من المالية — المصروفات والموردون'
+  },
+  {
+    key: 'fin-moved-journal',
+    catalogKey: 'fin-journal',
+    href: '/finance/journal.html',
+    label: 'مركز القيود المحاسبية',
+    icon: 'fa-book',
+    category: 'الصفحات المنقولة من المالية',
+    manager: true,
+    description: 'منقول من المالية — دفتر اليومية والأستاذ'
+  },
+  {
+    key: 'fin-moved-accounting',
+    catalogKey: 'fin-accounting',
+    href: '/finance/unified-accounting-overview.html',
+    label: 'التكامل المحاسبي',
+    icon: 'fa-network-wired',
+    category: 'الصفحات المنقولة من المالية',
+    manager: true,
+    description: 'منقول من المالية — النظام المحاسبي الشمولي'
+  },
+  {
+    key: 'fin-moved-payments',
+    catalogKey: 'fin-payments',
+    href: '/finance/payments.html',
+    label: 'المدفوعات',
+    icon: 'fa-money-check-dollar',
+    category: 'الصفحات المنقولة من المالية',
+    manager: true,
+    description: 'منقول من المالية — المدفوعات'
+  },
+  {
+    key: 'fin-moved-invoices',
+    catalogKey: 'fin-invoices',
+    href: '/finance/invoices-budgets-master.html',
+    label: 'إدارة الفواتير',
+    icon: 'fa-file-invoice-dollar',
+    category: 'الصفحات المنقولة من المالية',
+    manager: true,
+    description: 'منقول من المالية — الفواتير والتحصيل والميزانيات'
+  },
+  {
+    key: 'fin-moved-workforce',
+    catalogKey: 'fin-workforce',
+    href: '/hr/workforce-planning',
+    label: 'تخطيط القوى العاملة',
+    icon: 'fa-people-group',
+    category: 'الصفحات المنقولة من المالية',
+    manager: false,
+    description: 'منقول من المالية — تخطيط القوى العاملة'
+  }
+];
+
+/**
+ * Same-route cards already present in HR — not rendered again in «المنقولة من المالية».
+ * Identity is by href + served HTML + APIs (not by Arabic label similarity).
+ * Pre-move Finance home already linked to these exact paths (see FINANCE_KEEP).
+ */
+const FINANCE_HOME_SKIPPED_AS_HR_DUPES = [
+  {
+    href: '/hr/assets-custodies',
+    financeLabel: 'العهد المالية',
+    existingHrKey: 'custody',
+    existingHrLabel: 'العهد',
+    servedFile: 'finance/hr-assets-custodies.html',
+    apis: ['/api/hr/assets/registry', '/api/hr/assets/classifications', '/api/hr/assets/overview'],
+    reason:
+      'تطابق وظيفي كامل: بطاقة المالية كانت تفتح /hr/assets-custodies — نفس صفحة HR «العهد» (إدارة العهد والأصول) ونفس واجهات /api/hr/assets/*'
+  },
+  {
+    href: '/hr/operations',
+    financeLabel: 'رحلات العمل',
+    existingHrKey: 'operations',
+    existingHrLabel: 'بوابة العمليات',
+    servedFile: 'finance/hr-portal-workflows.html',
+    apis: ['/api/employee-requests', '/api/request-types', '/api/employees'],
+    covers: ['طلب تذاكر سفر', 'طلب انتداب'],
+    reason:
+      'تطابق وظيفي كامل: بطاقة المالية كانت تفتح /hr/operations — نفس بوابة العمليات؛ رحلات العمل ليست صفحة مستقلة بل أنواع طلب (تذاكر سفر / انتداب) داخل هذه البوابة'
+  }
+];
 
 const EMPLOYEE_ROLE_TOKENS = new Set([
   'employee',
@@ -271,7 +367,7 @@ const MANAGER_CARD_CATALOG = {
     icon: 'fa-diagram-project',
     category: 'الطلبات والموافقات',
     manager: true,
-    description: 'عمليات وطلبات الموارد البشرية'
+    description: 'طلبات الموارد البشرية بما فيها تذاكر السفر والانتداب (رحلات العمل)'
   },
   reports: {
     key: 'admin-reports',
@@ -334,7 +430,7 @@ const MANAGER_CARD_CATALOG = {
     icon: 'fa-box-open',
     category: 'خدمات تشغيلية',
     manager: true,
-    description: 'العهد والأصول'
+    description: 'إدارة العهد والأصول — نفس صفحة العهد المالية'
   },
   gov: {
     key: 'sc-gov',
@@ -362,7 +458,13 @@ const MANAGER_CARD_CATALOG = {
     category: 'خدمات تشغيلية',
     manager: false,
     description: 'التعاميم وإشعارات الموارد البشرية'
-  }
+  },
+  'fin-expenses': { ...FINANCE_HOME_MOVED_TO_HR[0] },
+  'fin-journal': { ...FINANCE_HOME_MOVED_TO_HR[1] },
+  'fin-accounting': { ...FINANCE_HOME_MOVED_TO_HR[2] },
+  'fin-payments': { ...FINANCE_HOME_MOVED_TO_HR[3] },
+  'fin-invoices': { ...FINANCE_HOME_MOVED_TO_HR[4] },
+  'fin-workforce': { ...FINANCE_HOME_MOVED_TO_HR[5] }
 };
 
 /** Legacy export shape used by older tests — maps to roster + approvals + reports + settings. */
@@ -447,6 +549,11 @@ const MANAGER_SECTION_PLAN = [
     id: 'ops-services',
     title: 'خدمات تشغيلية إضافية',
     keys: ['tasks', 'decisions', 'letters', 'custody', 'gov', 'third', 'circulars']
+  },
+  {
+    id: 'moved-from-finance',
+    title: 'الصفحات المنقولة من المالية',
+    keys: ['fin-expenses', 'fin-journal', 'fin-accounting', 'fin-payments', 'fin-invoices', 'fin-workforce']
   }
 ];
 
@@ -636,6 +743,9 @@ module.exports = {
   MANAGER_SECTION_PLAN,
   ESS_NAV,
   ADMIN_BLOCKED_FROM_EMPLOYEE,
+  FINANCE_HOME_MOVED_TO_HR,
+  FINANCE_HOME_SKIPPED_AS_HR_DUPES,
+  FINANCE_KEEP,
   classifyPersona,
   isEmployeePersona,
   isAdminPersona,
