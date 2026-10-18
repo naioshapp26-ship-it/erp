@@ -10737,21 +10737,22 @@ app.post('/api/employees', async (req, res) => {
       if (entityContext.type === 'OFFICE') scopedOfficeId = resolvedEntityRecordId;
     }
 
+    const activeFlag = req.body?.is_active === false || req.body?.is_active === 'false' ? false : true;
     const result = await db.query(
       `INSERT INTO employees (
         employee_number, full_name, email, phone, national_id,
         position, department, assigned_entity_type,
         hq_id, branch_id, incubator_id, platform_id, office_id,
         hire_date, salary, employment_type, address,
-        emergency_contact, emergency_phone
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) 
+        emergency_contact, emergency_phone, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) 
       RETURNING *`,
       [
         employee_number, full_name, email, phone, national_id,
         position, department, scopedAssignedEntityType,
         scopedHqId, scopedBranchId, scopedIncubatorId, scopedPlatformId, scopedOfficeId,
         hire_date, salary, employment_type, address,
-        emergency_contact, emergency_phone
+        emergency_contact, emergency_phone, activeFlag
       ]
     );
     res.status(201).json(result.rows[0]);

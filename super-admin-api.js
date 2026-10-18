@@ -1528,10 +1528,46 @@ async function resolveSuperAdminRole(userId) {
     return null;
 }
 
+const parseCookies = (cookieHeader = '') => cookieHeader.split(';').reduce((acc, part) => {
+    const [key, ...rest] = part.trim().split('=');
+    if (!key) return acc;
+    acc[key] = decodeURIComponent(rest.join('=') || '');
+    return acc;
+}, {});
+
+const getRequestAuthToken = (req) => {
+    const authHeader = String(req.headers.authorization || '');
+    if (authHeader.toLowerCase().startsWith('bearer ')) {
+        return authHeader.slice(7).trim();
+    }
+    const cookies = parseCookies(req.headers.cookie || '');
+    return cookies.authToken || '';
+};
+
+const resolveUserIdFromSessionToken = async (token) => {
+    if (!token) return null;
+    const sessionResult = await pool.query(
+        `SELECT us.user_id
+         FROM user_sessions us
+         JOIN users u ON us.user_id = u.id
+         WHERE us.session_token = $1
+           AND us.expires_at > NOW()
+           AND COALESCE(u.is_active, true) = true
+         LIMIT 1`,
+        [token]
+    );
+    return sessionResult.rows[0]?.user_id || null;
+};
+
 // ========== Middleware للتحقق من Super Admin ==========
 const verifySuperAdmin = async (req, res, next) => {
     try {
-        const userId = req.userId || req.headers['x-user-id'];
+        let userId = req.userId || req.headers['x-user-id'] || req.authUser?.id || null;
+
+        // HR portal and some SPA pages send Bearer/cookie but omit x-user-id.
+        if (!userId) {
+            userId = await resolveUserIdFromSessionToken(getRequestAuthToken(req));
+        }
 
         if (!userId) {
             return res.status(401).json({ success: false, message: 'غير مصرح - مطلوب تسجيل دخول' });

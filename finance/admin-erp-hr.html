@@ -603,7 +603,7 @@
                 </div>
                 <div>
                     <label class="text-sm text-slate-600">نوع الكيان</label>
-                    <select name="entity_type" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none" required>
+                    <select name="entity_type" id="employeeEntityType" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none" required>
                         <option value="HQ">مركز رئيسي</option>
                         <option value="BRANCH">فرع</option>
                         <option value="OFFICE">مكتب</option>
@@ -613,8 +613,8 @@
                 </div>
                 <div>
                     <label class="text-sm text-slate-600">معرف الكيان (رقم)</label>
-                    <input name="entity_value" type="number" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none" required />
-                    <p class="text-xs text-slate-400 mt-1">مثال: HQ=1، فرع 1، مكتب 39</p>
+                    <input name="entity_value" id="employeeEntityValue" type="number" class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none" required />
+                    <p class="text-xs text-slate-400 mt-1" id="employeeEntityHint">للمركز الرئيسي استخدم <strong>1</strong> فقط (HQ001)</p>
                 </div>
                 <div>
                     <label class="text-sm text-slate-600">حالة الموظف</label>
@@ -1692,6 +1692,7 @@
             form.is_active.value = data.is_active ? 'true' : 'false';
             form.entity_type.value = data.assigned_entity_type || 'HQ';
             form.entity_value.value = data.branch_id || data.hq_id || data.office_id || data.incubator_id || data.platform_id || (mode === 'add' ? '1' : '');
+            if (mode === 'add' && form.entity_type.value === 'HQ') form.entity_value.value = '1';
 
             const loginChk = document.getElementById('createLoginAccount');
             const loginBox = document.getElementById('employeeLoginBox');
@@ -1703,6 +1704,7 @@
             if (document.getElementById('loginPasswordConfirm')) document.getElementById('loginPasswordConfirm').value = '';
             if (loginBox) loginBox.classList.toggle('hidden', mode !== 'add');
             syncEmployeeLoginFields();
+            syncEmployeeEntityDefaults();
 
             const disabled = mode === 'view';
             Array.from(form.elements).forEach(el => el.disabled = disabled && el.type !== 'button' && el.type !== 'submit');
@@ -1730,14 +1732,55 @@
             const enabled = document.getElementById('createLoginAccount')?.checked;
             const box = document.getElementById('employeeLoginFields');
             if (box) box.classList.toggle('hidden', !enabled);
+            const p1 = document.getElementById('loginPassword');
+            const p2 = document.getElementById('loginPasswordConfirm');
+            if (p1) p1.required = !!enabled;
+            if (p2) p2.required = !!enabled;
+        }
+
+        function syncEmployeeEntityDefaults() {
+            const typeEl = document.getElementById('employeeEntityType') || document.querySelector('#employeeForm [name="entity_type"]');
+            const valueEl = document.getElementById('employeeEntityValue') || document.querySelector('#employeeForm [name="entity_value"]');
+            const hintEl = document.getElementById('employeeEntityHint');
+            if (!typeEl || !valueEl) return;
+            const type = typeEl.value;
+            if (type === 'HQ') {
+                valueEl.value = '1';
+                if (hintEl) hintEl.innerHTML = 'للمركز الرئيسي يُستخدم الرقم <strong>1</strong> تلقائيًا (HQ001)';
+            } else if (hintEl) {
+                hintEl.textContent = 'مثال: فرع=1، مكتب=39، منصة/حاضنة حسب رقم السجل في النظام';
+            }
         }
 
         document.getElementById('createLoginAccount')?.addEventListener('change', syncEmployeeLoginFields);
+        document.getElementById('employeeEntityType')?.addEventListener('change', syncEmployeeEntityDefaults);
 
         async function provisionEmployeeLogin({ name, email, password }) {
+            const headers = getAuthHeaders();
+            // Ensure session user id is present; recover from /api/auth/verify if localStorage is incomplete.
+            if (!headers['x-user-id']) {
+                try {
+                    const verify = await fetch('/api/auth/verify', { headers: { Authorization: headers.Authorization || '' } });
+                    const verified = await verify.json().catch(() => ({}));
+                    const uid = verified?.data?.user?.id || verified?.user?.id;
+                    if (uid) {
+                        headers['x-user-id'] = String(uid);
+                        const raw = localStorage.getItem('user') || sessionStorage.getItem('user');
+                        if (raw) {
+                            try {
+                                const u = JSON.parse(raw);
+                                u.id = uid;
+                                localStorage.setItem('user', JSON.stringify(u));
+                                sessionStorage.setItem('user', JSON.stringify(u));
+                            } catch (_) { /* ignore */ }
+                        }
+                    }
+                } catch (_) { /* ignore */ }
+            }
+
             const res = await fetch('/api/admin/users', {
                 method: 'POST',
-                headers: getAuthHeaders(),
+                headers,
                 body: JSON.stringify({
                     name,
                     email,
@@ -1752,7 +1795,13 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.success) {
-                throw new Error(data.message || data.error || 'تعذر إنشاء حساب الدخول. تأكد أنك مسجّل كـ Super Admin.');
+                if (res.status === 401 || res.status === 403) {
+                    throw new Error(data.message || 'تعذر إنشاء حساب الدخول: يلزم تسجيل الدخول كـ Super Admin.');
+                }
+                if (res.status === 409) {
+                    throw new Error(data.message || 'البريد الإلكتروني مستخدم بالفعل لحساب دخول آخر.');
+                }
+                throw new Error(data.message || data.error || 'تعذر إنشاء حساب الدخول.');
             }
             return data.user;
         }
@@ -1791,18 +1840,31 @@
                 }
             }
 
-            const entityValue = form.entity_value.value;
+            if (payload.assigned_entity_type === 'HQ') {
+                form.entity_value.value = '1';
+            }
+
+            const entityValue = Number(form.entity_value.value);
+            if (!Number.isFinite(entityValue) || entityValue <= 0) {
+                showToast('معرف الكيان غير صالح. للمركز الرئيسي استخدم 1', true);
+                return;
+            }
+            if (payload.assigned_entity_type === 'HQ' && entityValue !== 1) {
+                showToast('للمركز الرئيسي يجب أن يكون معرف الكيان = 1', true);
+                return;
+            }
+
             payload.hq_id = null;
             payload.branch_id = null;
             payload.office_id = null;
             payload.platform_id = null;
             payload.incubator_id = null;
 
-            if (payload.assigned_entity_type === 'HQ') payload.hq_id = Number(entityValue);
-            if (payload.assigned_entity_type === 'BRANCH') payload.branch_id = Number(entityValue);
-            if (payload.assigned_entity_type === 'OFFICE') payload.office_id = Number(entityValue);
-            if (payload.assigned_entity_type === 'PLATFORM') payload.platform_id = Number(entityValue);
-            if (payload.assigned_entity_type === 'INCUBATOR') payload.incubator_id = Number(entityValue);
+            if (payload.assigned_entity_type === 'HQ') payload.hq_id = entityValue;
+            if (payload.assigned_entity_type === 'BRANCH') payload.branch_id = entityValue;
+            if (payload.assigned_entity_type === 'OFFICE') payload.office_id = entityValue;
+            if (payload.assigned_entity_type === 'PLATFORM') payload.platform_id = entityValue;
+            if (payload.assigned_entity_type === 'INCUBATOR') payload.incubator_id = entityValue;
 
             try {
                 const url = employeeMode === 'edit' ? `${API_BASE}/api/employees/${editingIds.employee}` : `${API_BASE}/api/employees`;
