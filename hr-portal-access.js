@@ -4,6 +4,8 @@
  * HR portal personas, ESS / admin card maps, and RBAC helpers.
  * KEEP/MOVE organization stays in gai-hub-navigation.js — this module only
  * surfaces existing routes in role-appropriate UIs (no duplicate pages).
+ *
+ * Manager home is organized into clear Arabic groups without deleting routes.
  */
 
 const { HR_KEEP, listHrKeepAsHomeModules } = require('./gai-hub-navigation');
@@ -95,68 +97,299 @@ const ESS_CARDS = [
   }
 ];
 
-/** Manager / admin ops — original routes (some also listed under GAI). */
-const ADMIN_OPS_CARDS = [
-  {
-    key: 'admin-emp-requests',
-    href: '/hr/requests',
-    label: 'طلبات الموظفين',
-    icon: 'fa-inbox',
-    category: 'إدارة',
-    manager: true,
-    description: 'معالجة طلبات الموظفين'
-  },
-  {
-    key: 'admin-approvals',
-    href: '/hr/pending-actions',
-    label: 'الموافقة والرفض',
-    icon: 'fa-hourglass-half',
-    category: 'إدارة',
-    manager: true,
-    description: 'عمليات بانتظار إجراء ضمن نطاقك'
-  },
-  {
+/**
+ * Canonical manager cards (existing routes only).
+ * Labels distinguish roster admin vs 360 profile hub to avoid near-duplicate titles.
+ */
+const MANAGER_CARD_CATALOG = {
+  'employee-files': {
     key: 'admin-employee-files',
     href: '/hr/employees',
     label: 'ملفات الموظفين',
     icon: 'fa-briefcase',
-    category: 'إدارة',
+    category: 'إدارة الموظفين',
     manager: true,
-    description: 'النظام الإداري وملفات الموظفين'
+    description: 'إضافة وتعديل موظفي الشركة والطلبات الإدارية'
   },
-  {
+  'employee-360': {
+    key: 'employee-360',
+    href: '/hr/employee-360',
+    label: 'ملف الموظف 360°',
+    icon: 'fa-id-card',
+    category: 'إدارة الموظفين',
+    manager: false,
+    description: 'عرض شامل لملف الموظف ورحلته الوظيفية'
+  },
+  'new-hires': {
+    key: 'new-hires',
+    href: '/hr/new-hires',
+    label: 'الموظفون الجدد',
+    icon: 'fa-user-plus',
+    category: 'إدارة الموظفين',
+    manager: true,
+    description: 'متابعة تعيين الموظفين الجدد'
+  },
+  recruitment: {
+    key: 'sc-recruitment',
+    href: '/hr/recruitment',
+    label: 'التوظيف والاستقطاب',
+    icon: 'fa- Magnifying-glass',
+    category: 'إدارة الموظفين',
+    manager: true,
+    description: 'إدارة عمليات التوظيف والاستقطاب'
+  },
+  'accepted-employees': {
+    key: 'accepted-employees',
+    href: '/hr/accepted-employees',
+    label: 'الموظفون المقبولون',
+    icon: 'fa-user-check',
+    category: 'إدارة الموظفين',
+    manager: true,
+    description: 'قائمة الموظفين المقبولين قبل الإكمال'
+  },
+  'hr-ops': {
+    key: 'sc-hr-ops',
+    href: '/hr/human-resources',
+    label: 'تشغيل الموارد البشرية',
+    icon: 'fa-people-group',
+    category: 'إدارة الموظفين',
+    manager: true,
+    description: 'لوحة تشغيل الموارد البشرية'
+  },
+  attendance: {
+    key: 'attendance-departure',
+    href: '/hr/attendance-departure',
+    label: 'الحضور والانصراف',
+    icon: 'fa-clock',
+    category: 'الحضور والرواتب',
+    manager: false,
+    description: 'سجلات الحضور والانصراف'
+  },
+  'attendance-hub': {
+    key: 'attendance-hub',
+    href: '/hr/attendance-hub',
+    label: 'مركز الحضور والنوبات',
+    icon: 'fa-calendar-check',
+    category: 'الحضور والرواتب',
+    manager: false,
+    description: 'الحضور والنوبات الذكية'
+  },
+  payroll: {
+    key: 'payroll',
+    href: '/hr/payroll',
+    label: 'مسير الرواتب',
+    icon: 'fa-sack-dollar',
+    category: 'الحضور والرواتب',
+    manager: true,
+    description: 'إدارة مسير الرواتب'
+  },
+  'payroll-hub': {
+    key: 'payroll-hub',
+    href: '/hr/payroll-hub',
+    label: 'مقارنة الرواتب',
+    icon: 'fa-wallet',
+    category: 'الحضور والرواتب',
+    manager: false,
+    description: 'مركز الرواتب والتعويضات والمقارنات'
+  },
+  performance: {
+    key: 'performance',
+    href: '/hr/performance',
+    label: 'تقييم الأداء',
+    icon: 'fa-chart-line',
+    category: 'الأداء والتطوير',
+    manager: false,
+    description: 'تقييم أداء الموظفين'
+  },
+  satisfaction: {
+    key: 'satisfaction-analytics',
+    href: '/hr/satisfaction-analytics',
+    label: 'تفاعل الموظفين',
+    icon: 'fa-face-smile',
+    category: 'الأداء والتطوير',
+    manager: false,
+    description: 'تحليل رضا وتفاعل الموظفين'
+  },
+  benefits: {
+    key: 'offers-benefits',
+    href: '/hr/offers-benefits',
+    label: 'مزايا الموظفين',
+    icon: 'fa-gift',
+    category: 'الأداء والتطوير',
+    manager: false,
+    description: 'العروض والمزايا'
+  },
+  learning: {
+    key: 'learning',
+    href: '/hr/learning',
+    label: 'التدريب والتطوير',
+    icon: 'fa-graduation-cap',
+    category: 'الأداء والتطوير',
+    manager: false,
+    description: 'أكاديمية التدريب والتطوير'
+  },
+  surveys: {
+    key: 'sc-surveys',
+    href: '/hr/surveys',
+    label: 'الاستبيانات',
+    icon: 'fa-square-poll-vertical',
+    category: 'الأداء والتطوير',
+    manager: false,
+    description: 'استبيانات الموارد البشرية'
+  },
+  requests: {
+    key: 'admin-emp-requests',
+    href: '/hr/requests',
+    label: 'طلبات الموظفين',
+    icon: 'fa-inbox',
+    category: 'الطلبات والموافقات',
+    manager: true,
+    description: 'معالجة طلبات الموظفين'
+  },
+  approvals: {
+    key: 'admin-approvals',
+    href: '/hr/pending-actions',
+    label: 'الموافقات والرفض',
+    icon: 'fa-hourglass-half',
+    category: 'الطلبات والموافقات',
+    manager: true,
+    description: 'عمليات بانتظار إجراء ضمن نطاقك'
+  },
+  'manager-board': {
+    key: 'sc-manager',
+    href: '/hr/manager',
+    label: 'متابعة الطلبات',
+    icon: 'fa-user-tie',
+    category: 'الطلبات والموافقات',
+    manager: true,
+    description: 'لوحة متابعة المدير للطلبات'
+  },
+  operations: {
+    key: 'hr-operations',
+    href: '/hr/operations',
+    label: 'بوابة العمليات',
+    icon: 'fa-diagram-project',
+    category: 'الطلبات والموافقات',
+    manager: true,
+    description: 'عمليات وطلبات الموارد البشرية'
+  },
+  reports: {
     key: 'admin-reports',
     href: '/hr/reports',
-    label: 'التقارير والإحصائيات',
+    label: 'تقارير الموارد البشرية',
     icon: 'fa-chart-column',
-    category: 'إدارة',
+    category: 'التقارير والإعدادات',
     manager: true,
-    description: 'تقارير الموارد البشرية'
+    description: 'التقارير والإحصائيات'
   },
-  {
+  settings: {
     key: 'admin-hr-settings',
     href: '/hr/system-settings',
     label: 'إعدادات الموارد البشرية',
     icon: 'fa-gear',
-    category: 'إدارة',
+    category: 'التقارير والإعدادات',
     manager: true,
     description: 'إعدادات نظام الموارد البشرية'
+  },
+  policies: {
+    key: 'policies',
+    href: '/hr/policies',
+    label: 'الامتثال لنظام العمل',
+    icon: 'fa-scale-balanced',
+    category: 'التقارير والإعدادات',
+    manager: false,
+    description: 'السياسات والإجراءات'
+  },
+  tasks: {
+    key: 'sc-tasks',
+    href: '/hr/tasks-management',
+    label: 'المهام',
+    icon: 'fa-list-check',
+    category: 'خدمات تشغيلية',
+    manager: true,
+    description: 'إدارة المهام'
+  },
+  decisions: {
+    key: 'sc-decisions',
+    href: '/hr/decisions',
+    label: 'القرارات',
+    icon: 'fa-gavel',
+    category: 'خدمات تشغيلية',
+    manager: true,
+    description: 'القرارات الإدارية'
+  },
+  letters: {
+    key: 'sc-letters',
+    href: '/hr/letters',
+    label: 'الخطابات',
+    icon: 'fa-envelope-open-text',
+    category: 'خدمات تشغيلية',
+    manager: true,
+    description: 'الخطابات الرسمية'
+  },
+  custody: {
+    key: 'sc-custody',
+    href: '/hr/assets-custodies',
+    label: 'العهد',
+    icon: 'fa-box-open',
+    category: 'خدمات تشغيلية',
+    manager: true,
+    description: 'العهد والأصول'
+  },
+  gov: {
+    key: 'sc-gov',
+    href: '/hr/government-services',
+    label: 'الخدمات الحكومية',
+    icon: 'fa-landmark',
+    category: 'خدمات تشغيلية',
+    manager: false,
+    description: 'خدمات حكومية مرتبطة بالموظفين'
+  },
+  third: {
+    key: 'sc-third',
+    href: '/hr/third-party-services',
+    label: 'خدمات الطرف الثالث',
+    icon: 'fa-handshake',
+    category: 'خدمات تشغيلية',
+    manager: false,
+    description: 'خدمات الأطراف الثالثة'
+  },
+  circulars: {
+    key: 'sc-circulars',
+    href: '/hr/circulars',
+    label: 'التعاميم والإشعارات',
+    icon: 'fa-bullhorn',
+    category: 'خدمات تشغيلية',
+    manager: false,
+    description: 'التعاميم وإشعارات الموارد البشرية'
   }
+};
+
+// Fix accidental space in icon class
+MANAGER_CARD_CATALOG.recruitment.icon = 'fa-magnifying-glass';
+
+/** Legacy export shape used by older tests — maps to roster + approvals + reports + settings. */
+const ADMIN_OPS_CARDS = [
+  MANAGER_CARD_CATALOG.requests,
+  MANAGER_CARD_CATALOG.approvals,
+  MANAGER_CARD_CATALOG['employee-files'],
+  MANAGER_CARD_CATALOG.reports,
+  MANAGER_CARD_CATALOG.settings
 ];
 
-/** Extra operational shortcuts from HCM sidebar that are not KEEP and not in ADMIN_OPS. */
+/** Extra operational shortcuts (kept for inventory / sidebar parity). */
 const ADMIN_SHORTCUT_CARDS = [
-  { key: 'sc-manager', href: '/hr/manager', label: 'لوحة متابعة المدير', icon: 'fa-user-tie', category: 'تشغيل', manager: true },
-  { key: 'sc-hr-ops', href: '/hr/human-resources', label: 'الموارد البشرية (تشغيل)', icon: 'fa-people-group', category: 'تشغيل', manager: true },
-  { key: 'sc-tasks', href: '/hr/tasks-management', label: 'المهام', icon: 'fa-list-check', category: 'تشغيل', manager: true },
-  { key: 'sc-decisions', href: '/hr/decisions', label: 'القرارات', icon: 'fa-gavel', category: 'تشغيل', manager: true },
-  { key: 'sc-letters', href: '/hr/letters', label: 'الخطابات', icon: 'fa-envelope-open-text', category: 'تشغيل', manager: true },
-  { key: 'sc-recruitment', href: '/hr/recruitment', label: 'التوظيف', icon: 'fa-user-plus', category: 'تشغيل', manager: true },
-  { key: 'sc-custody', href: '/hr/assets-custodies', label: 'العهد', icon: 'fa-box-open', category: 'تشغيل', manager: true },
-  { key: 'sc-surveys', href: '/hr/surveys', label: 'الاستبيانات', icon: 'fa-square-poll-vertical', category: 'تشغيل', manager: false },
-  { key: 'sc-gov', href: '/hr/government-services', label: 'الخدمات الحكومية', icon: 'fa-landmark', category: 'تشغيل', manager: false },
-  { key: 'sc-third', href: '/hr/third-party-services', label: 'خدمات الطرف الثالث', icon: 'fa-handshake', category: 'تشغيل', manager: false },
-  { key: 'sc-circulars', href: '/hr/circulars', label: 'التعاميم والإشعارات', icon: 'fa-bullhorn', category: 'تشغيل', manager: false }
+  MANAGER_CARD_CATALOG['manager-board'],
+  MANAGER_CARD_CATALOG['hr-ops'],
+  MANAGER_CARD_CATALOG.tasks,
+  MANAGER_CARD_CATALOG.decisions,
+  MANAGER_CARD_CATALOG.letters,
+  MANAGER_CARD_CATALOG.recruitment,
+  MANAGER_CARD_CATALOG.custody,
+  MANAGER_CARD_CATALOG.surveys,
+  MANAGER_CARD_CATALOG.gov,
+  MANAGER_CARD_CATALOG.third,
+  MANAGER_CARD_CATALOG.circulars
 ];
 
 const ESS_NAV = [
@@ -182,7 +415,43 @@ const ADMIN_BLOCKED_FROM_EMPLOYEE = [
   '/hr/decisions',
   '/hr/payroll',
   '/hr/recruitment',
-  '/hr/workflow-engine'
+  '/hr/workflow-engine',
+  '/hr/employee-360',
+  '/hr/attendance-hub'
+];
+
+const MANAGER_SECTION_PLAN = [
+  {
+    id: 'employees-mgmt',
+    title: 'إدارة الموظفين',
+    keys: ['employee-files', 'employee-360', 'new-hires', 'recruitment', 'accepted-employees', 'hr-ops']
+  },
+  {
+    id: 'attendance-payroll',
+    title: 'الحضور والرواتب',
+    keys: ['attendance', 'attendance-hub', 'payroll', 'payroll-hub']
+  },
+  {
+    id: 'performance-dev',
+    title: 'الأداء والتطوير',
+    keys: ['performance', 'satisfaction', 'benefits', 'learning', 'surveys']
+  },
+  {
+    id: 'requests-approvals',
+    title: 'الطلبات والموافقات',
+    keys: ['requests', 'approvals', 'manager-board', 'operations']
+  },
+  {
+    id: 'reports-settings',
+    title: 'التقارير والإعدادات',
+    keys: ['reports', 'settings', 'policies'],
+    settingsOnlyKeys: ['settings']
+  },
+  {
+    id: 'ops-services',
+    title: 'خدمات تشغيلية إضافية',
+    keys: ['tasks', 'decisions', 'letters', 'custody', 'gov', 'third', 'circulars']
+  }
 ];
 
 function normalizeRole(role) {
@@ -234,9 +503,31 @@ function cloneCards(list) {
   return (list || []).map((item) => ({ ...item }));
 }
 
+function cardByKey(key) {
+  const card = MANAGER_CARD_CATALOG[key];
+  return card ? { ...card } : null;
+}
+
+function buildManagerSections(persona) {
+  const allowSettings = canAccessHrSettings(persona);
+  return MANAGER_SECTION_PLAN.map((section) => {
+    const cards = section.keys
+      .filter((key) => {
+        if ((section.settingsOnlyKeys || []).includes(key) && !allowSettings) return false;
+        return true;
+      })
+      .map((key) => cardByKey(key))
+      .filter(Boolean);
+    return {
+      id: section.id,
+      title: section.title,
+      cards
+    };
+  }).filter((section) => section.cards.length > 0);
+}
+
 function buildPortalPayload(role) {
   const persona = classifyPersona(role);
-  const keep = listHrKeepAsHomeModules();
 
   if (isEmployeePersona(persona)) {
     const modules = cloneCards(ESS_CARDS);
@@ -261,36 +552,16 @@ function buildPortalPayload(role) {
     };
   }
 
-  const adminOps = cloneCards(ADMIN_OPS_CARDS).filter((card) => {
-    if (card.key === 'admin-hr-settings') return canAccessHrSettings(persona);
-    return true;
-  });
-  const shortcuts = cloneCards(ADMIN_SHORTCUT_CARDS);
-  const modules = [...adminOps, ...keep, ...shortcuts];
+  const sections = buildManagerSections(persona);
+  const modules = sections.flatMap((section) => section.cards);
   const categories = ['الكل', ...new Set(modules.map((m) => m.category).filter(Boolean))];
 
   return {
     persona,
-    title: 'لوحة المدير العام',
-    subtitle: 'الوصول إلى وظائف الإدارة والأنظمة المتاحة دون الاعتماد فقط على القائمة الجانبية',
+    title: 'لوحة الموارد البشرية',
+    subtitle: 'وظائف منظمة في مجموعات واضحة — الأحمر والأبيض مع لمسات ذهبية',
     modules,
-    sections: [
-      {
-        id: 'admin',
-        title: 'المدير / الأدمن — لوحة الإدارة والصلاحيات',
-        cards: adminOps
-      },
-      {
-        id: 'keep',
-        title: 'الأنظمة المتاحة',
-        cards: keep
-      },
-      {
-        id: 'shortcuts',
-        title: 'اختصارات تشغيلية',
-        cards: shortcuts
-      }
-    ],
+    sections,
     nav: null, // use default HCM sidebar
     categories,
     adminHidden: false,
@@ -318,9 +589,11 @@ function buildInventoryRows() {
   };
 
   ESS_CARDS.forEach((c) => push(c, 'ESS + /hr employee home', 'employee', true));
-  ADMIN_OPS_CARDS.forEach((c) => push(c, 'GM admin section + HCM sidebar + GAI (if moved)', 'manager, hr_admin, company_admin', true));
-  HR_KEEP.forEach((c) => push(c, 'HR KEEP home + HCM sidebar', 'manager+', true));
-  ADMIN_SHORTCUT_CARDS.forEach((c) => push(c, 'GM shortcuts + HCM sidebar', 'manager+', true));
+  Object.values(MANAGER_CARD_CATALOG).forEach((c) => {
+    push(c, 'GM grouped home + HCM sidebar / KEEP', 'manager+', true);
+  });
+  // KEEP originals still reachable via GAI / listHrKeepAsHomeModules
+  HR_KEEP.forEach((c) => push(c, 'HR KEEP catalog (GAI/home modules helper)', 'manager+', true));
 
   return rows;
 }
@@ -356,6 +629,8 @@ module.exports = {
   ESS_CARDS,
   ADMIN_OPS_CARDS,
   ADMIN_SHORTCUT_CARDS,
+  MANAGER_CARD_CATALOG,
+  MANAGER_SECTION_PLAN,
   ESS_NAV,
   ADMIN_BLOCKED_FROM_EMPLOYEE,
   classifyPersona,
@@ -368,5 +643,7 @@ module.exports = {
   buildInventoryRows,
   resolveAuthUser,
   employeeRequestScopeFilter,
-  isAdminPathBlockedForEmployee
+  isAdminPathBlockedForEmployee,
+  // re-export for tests that still pull KEEP through portal helpers
+  listHrKeepAsHomeModules
 };

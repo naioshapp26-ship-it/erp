@@ -17,7 +17,7 @@ const FINANCE_KEEP = [
 ];
 
 const HR_KEEP = [
-  { key: 'employee-360', href: '/hr/employee-360', label: 'إدارة ملفات الموظفين', icon: 'fa-id-card', category: 'موظفون', previousLabel: 'ملف الموظف 360°' },
+  { key: 'employee-360', href: '/hr/employee-360', label: 'ملف الموظف 360°', icon: 'fa-id-card', category: 'موظفون', previousLabel: 'إدارة ملفات الموظفين' },
   { key: 'performance', href: '/hr/performance', label: 'تقييم الأداء', icon: 'fa-chart-line', category: 'تحليلات', previousLabel: 'مختبر الأداء والتقييم' },
   { key: 'payroll-hub', href: '/hr/payroll-hub', label: 'مقارنة الرواتب', icon: 'fa-wallet', category: 'مالية', previousLabel: 'مركز الرواتب والتعويضات' },
   { key: 'attendance-departure', href: '/hr/attendance-departure', label: 'الحضور والانصراف', icon: 'fa-clock', category: 'حضور', previousLabel: 'سجلات الحضور والانصراف' },
