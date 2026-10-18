@@ -1802,6 +1802,31 @@ const ensureEmployeesTable = async () => {
       CREATE INDEX IF NOT EXISTS idx_employees_email ON employees(email);
       CREATE INDEX IF NOT EXISTS idx_employees_active ON employees(is_active);
     `);
+    // Align with production schema (NaioshERP.sql): UNIQUE(email) as employees_email_key.
+    // Safe: skip when duplicates already exist; never drop data.
+    try {
+      const constraintCheck = await db.query(`
+        SELECT 1 FROM pg_constraint WHERE conname = 'employees_email_key'
+      `);
+      if (constraintCheck.rows.length === 0) {
+        const dupCheck = await db.query(`
+          SELECT 1 FROM employees
+          WHERE email IS NOT NULL AND btrim(email) <> ''
+          GROUP BY lower(btrim(email))
+          HAVING COUNT(*) > 1
+          LIMIT 1
+        `);
+        if (dupCheck.rows.length === 0) {
+          await db.query(`
+            ALTER TABLE employees ADD CONSTRAINT employees_email_key UNIQUE (email)
+          `);
+        } else {
+          console.warn('⚠️ employees_email_key skipped: duplicate emails already present');
+        }
+      }
+    } catch (constraintError) {
+      console.warn('⚠️ employees_email_key ensure skipped:', constraintError.message);
+    }
     console.log('✅ employees table ready');
   } catch (error) {
     console.error('❌ Failed to ensure employees table:', error);
@@ -3940,6 +3965,33 @@ const mapUiEmploymentTypeToTenant = (value) => {
   if (normalized === 'CONTRACT') return 'contract';
   if (normalized === 'INTERN') return 'intern';
   return 'full_time';
+};
+
+/** Normalize employee email for uniqueness checks (trim + lowercase). Empty → null. */
+const normalizeEmployeeEmail = (email) => {
+  if (email === undefined || email === null) return null;
+  const normalized = String(email).trim().toLowerCase();
+  return normalized || null;
+};
+
+/** Map PostgreSQL unique violations on employees to Arabic API errors. */
+const mapEmployeeUniqueViolation = (error) => {
+  const constraint = String(error?.constraint || '');
+  const detail = String(error?.detail || error?.message || '');
+  if (
+    constraint === 'employees_email_key' ||
+    /employees_email_key/i.test(detail) ||
+    /\(email\)=/i.test(detail)
+  ) {
+    return { status: 409, error: 'البريد الإلكتروني مستخدم بالفعل' };
+  }
+  if (
+    constraint === 'uq_employees_employee_number' ||
+    /uq_employees_employee_number|employee_number/i.test(detail)
+  ) {
+    return { status: 409, error: 'رقم الموظف مستخدم بالفعل' };
+  }
+  return { status: 409, error: 'البيانات المدخلة مكررة' };
 };
 
 const splitFullName = (fullName) => {
@@ -10646,64 +10698,114 @@ app.get('/api/employees/:id', async (req, res) => {
 app.post('/api/employees', async (req, res) => {
   try {
     const { 
-      employee_number, full_name, email, phone, national_id, 
+      employee_number, full_name, phone, national_id, 
       position, department, assigned_entity_type,
       hq_id, branch_id, incubator_id, platform_id, office_id,
       hire_date, salary, employment_type, address, 
       emergency_contact, emergency_phone 
     } = req.body;
+    const email = normalizeEmployeeEmail(req.body?.email);
+    const normalizedEmployeeNumber = String(employee_number || '').trim();
 
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
       if (!tenantSessionUser) return;
       const { firstName, lastName } = splitFullName(full_name);
-      if (!employee_number || !firstName || !position || !department || !employment_type) {
+      if (!normalizedEmployeeNumber || !firstName || !position || !department || !employment_type) {
         return res.status(400).json({ error: 'الحقول الأساسية مطلوبة' });
       }
 
-      const tenantInsert = await req.tenantPool.query(
-        `INSERT INTO employees (
-          employee_number, first_name, last_name, email, phone, national_id,
-          job_title, hire_date, basic_salary, employment_type, address, metadata, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, jsonb_build_object('department', $12), 'active')
-        RETURNING id, employee_number`,
-        [
-          employee_number,
-          firstName,
-          lastName,
+      if (normalizedEmployeeNumber) {
+        const existingNumber = await req.tenantPool.query(
+          `SELECT id FROM employees WHERE employee_number = $1 LIMIT 1`,
+          [normalizedEmployeeNumber]
+        );
+        if (existingNumber.rows.length > 0) {
+          return res.status(409).json({ error: 'رقم الموظف مستخدم بالفعل' });
+        }
+      }
+      if (email) {
+        const existingEmail = await req.tenantPool.query(
+          `SELECT id FROM employees WHERE lower(btrim(email)) = $1 LIMIT 1`,
+          [email]
+        );
+        if (existingEmail.rows.length > 0) {
+          return res.status(409).json({ error: 'البريد الإلكتروني مستخدم بالفعل' });
+        }
+      }
+
+      try {
+        const tenantInsert = await req.tenantPool.query(
+          `INSERT INTO employees (
+            employee_number, first_name, last_name, email, phone, national_id,
+            job_title, hire_date, basic_salary, employment_type, address, metadata, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, jsonb_build_object('department', $12), 'active')
+          RETURNING id, employee_number`,
+          [
+            normalizedEmployeeNumber,
+            firstName,
+            lastName,
+            email,
+            phone,
+            national_id,
+            position,
+            hire_date,
+            salary,
+            mapUiEmploymentTypeToTenant(employment_type),
+            address,
+            department
+          ]
+        );
+
+        return res.status(201).json({
+          id: tenantInsert.rows[0].id,
+          employee_number: tenantInsert.rows[0].employee_number,
+          full_name,
           email,
           phone,
-          national_id,
           position,
-          hire_date,
+          department,
+          entity_id: getTenantHostEntityId(req),
+          entity_name: req.tenant.company_name,
           salary,
-          mapUiEmploymentTypeToTenant(employment_type),
-          address,
-          department
-        ]
-      );
-
-      return res.status(201).json({
-        id: tenantInsert.rows[0].id,
-        employee_number: tenantInsert.rows[0].employee_number,
-        full_name,
-        email,
-        phone,
-        position,
-        department,
-        entity_id: getTenantHostEntityId(req),
-        entity_name: req.tenant.company_name,
-        salary,
-        employment_type,
-        is_active: true,
-        address
-      });
+          employment_type,
+          is_active: true,
+          address
+        });
+      } catch (tenantInsertError) {
+        if (tenantInsertError.code === '23505') {
+          const mapped = mapEmployeeUniqueViolation(tenantInsertError);
+          return res.status(mapped.status).json({ error: mapped.error });
+        }
+        throw tenantInsertError;
+      }
     }
 
     console.log('Creating employee with data:', {
-      employee_number, full_name, position, department, assigned_entity_type,
+      employee_number: normalizedEmployeeNumber, full_name, position, department, assigned_entity_type,
       hire_date, employment_type
     });
+
+    if (!normalizedEmployeeNumber || !String(full_name || '').trim()) {
+      return res.status(400).json({ error: 'رقم الموظف والاسم الكامل مطلوبان' });
+    }
+
+    const existingNumber = await db.query(
+      `SELECT id FROM employees WHERE employee_number = $1 LIMIT 1`,
+      [normalizedEmployeeNumber]
+    );
+    if (existingNumber.rows.length > 0) {
+      return res.status(409).json({ error: 'رقم الموظف مستخدم بالفعل' });
+    }
+    if (email) {
+      const existingEmail = await db.query(
+        `SELECT id FROM employees WHERE lower(btrim(email)) = $1 LIMIT 1`,
+        [email]
+      );
+      if (existingEmail.rows.length > 0) {
+        return res.status(409).json({ error: 'البريد الإلكتروني مستخدم بالفعل' });
+      }
+    }
 
     let scopedAssignedEntityType = assigned_entity_type;
     let scopedHqId = hq_id || null;
@@ -10748,7 +10850,7 @@ app.post('/api/employees', async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) 
       RETURNING *`,
       [
-        employee_number, full_name, email, phone, national_id,
+        normalizedEmployeeNumber, full_name, email, phone, national_id,
         position, department, scopedAssignedEntityType,
         scopedHqId, scopedBranchId, scopedIncubatorId, scopedPlatformId, scopedOfficeId,
         hire_date, salary, employment_type, address,
@@ -10758,6 +10860,10 @@ app.post('/api/employees', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Employee creation error:', error.message, error.stack);
+    if (error.code === '23505') {
+      const mapped = mapEmployeeUniqueViolation(error);
+      return res.status(mapped.status).json({ error: mapped.error });
+    }
     res.status(500).json({ error: error.message, details: error.detail });
   }
 });
@@ -10767,57 +10873,77 @@ app.put('/api/employees/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { 
-      full_name, email, phone, position, department,
+      full_name, phone, position, department,
       salary, employment_type, is_active, address,
       emergency_contact, emergency_phone
     } = req.body;
+    const email = Object.prototype.hasOwnProperty.call(req.body || {}, 'email')
+      ? normalizeEmployeeEmail(req.body.email)
+      : undefined;
 
     if (isTenantHostRequest(req)) {
       const tenantSessionUser = await requireTenantSessionUser(req, res);
       if (!tenantSessionUser) return;
-      const { firstName, lastName } = splitFullName(full_name);
-      const tenantResult = await req.tenantPool.query(
-        `UPDATE employees SET
-          first_name = COALESCE($1, first_name),
-          last_name = COALESCE($2, last_name),
-          email = COALESCE($3, email),
-          phone = COALESCE($4, phone),
-          job_title = COALESCE($5, job_title),
-          basic_salary = COALESCE($6, basic_salary),
-          employment_type = COALESCE($7, employment_type),
-          status = CASE
-            WHEN $8 IS NULL THEN status
-            WHEN $8 = true THEN 'active'
-            ELSE 'suspended'
-          END,
-          address = COALESCE($9, address),
-          metadata = CASE
-            WHEN $10 IS NULL THEN metadata
-            ELSE jsonb_set(COALESCE(metadata, '{}'::jsonb), '{department}', to_jsonb($10::text), true)
-          END,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = $11
-        RETURNING id`,
-        [
-          firstName || null,
-          (firstName ? lastName : null),
-          email,
-          phone,
-          position,
-          salary,
-          employment_type ? mapUiEmploymentTypeToTenant(employment_type) : null,
-          typeof is_active === 'boolean' ? is_active : null,
-          address,
-          department || null,
-          id
-        ]
-      );
-
-      if (tenantResult.rows.length === 0) {
-        return res.status(404).json({ error: 'الموظف غير موجود' });
+      if (email) {
+        const existingEmail = await req.tenantPool.query(
+          `SELECT id FROM employees WHERE lower(btrim(email)) = $1 AND id::text <> $2::text LIMIT 1`,
+          [email, String(id)]
+        );
+        if (existingEmail.rows.length > 0) {
+          return res.status(409).json({ error: 'البريد الإلكتروني مستخدم بالفعل' });
+        }
       }
+      const { firstName, lastName } = splitFullName(full_name);
+      try {
+        const tenantResult = await req.tenantPool.query(
+          `UPDATE employees SET
+            first_name = COALESCE($1, first_name),
+            last_name = COALESCE($2, last_name),
+            email = COALESCE($3, email),
+            phone = COALESCE($4, phone),
+            job_title = COALESCE($5, job_title),
+            basic_salary = COALESCE($6, basic_salary),
+            employment_type = COALESCE($7, employment_type),
+            status = CASE
+              WHEN $8 IS NULL THEN status
+              WHEN $8 = true THEN 'active'
+              ELSE 'suspended'
+            END,
+            address = COALESCE($9, address),
+            metadata = CASE
+              WHEN $10 IS NULL THEN metadata
+              ELSE jsonb_set(COALESCE(metadata, '{}'::jsonb), '{department}', to_jsonb($10::text), true)
+            END,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $11
+          RETURNING id`,
+          [
+            firstName || null,
+            (firstName ? lastName : null),
+            email === undefined ? null : email,
+            phone,
+            position,
+            salary,
+            employment_type ? mapUiEmploymentTypeToTenant(employment_type) : null,
+            typeof is_active === 'boolean' ? is_active : null,
+            address,
+            department || null,
+            id
+          ]
+        );
 
-      return res.json({ success: true, id: tenantResult.rows[0].id });
+        if (tenantResult.rows.length === 0) {
+          return res.status(404).json({ error: 'الموظف غير موجود' });
+        }
+
+        return res.json({ success: true, id: tenantResult.rows[0].id });
+      } catch (tenantUpdateError) {
+        if (tenantUpdateError.code === '23505') {
+          const mapped = mapEmployeeUniqueViolation(tenantUpdateError);
+          return res.status(mapped.status).json({ error: mapped.error });
+        }
+        throw tenantUpdateError;
+      }
     }
 
     if (!isHqEntityContext(req)) {
@@ -10839,6 +10965,16 @@ app.put('/api/employees/:id', async (req, res) => {
       }
     }
 
+    if (email) {
+      const existingEmail = await db.query(
+        `SELECT id FROM employees WHERE lower(btrim(email)) = $1 AND id <> $2::int LIMIT 1`,
+        [email, id]
+      );
+      if (existingEmail.rows.length > 0) {
+        return res.status(409).json({ error: 'البريد الإلكتروني مستخدم بالفعل' });
+      }
+    }
+
     const result = await db.query(
       `UPDATE employees SET
         full_name = COALESCE($1, full_name),
@@ -10854,7 +10990,7 @@ app.put('/api/employees/:id', async (req, res) => {
         emergency_phone = COALESCE($11, emergency_phone),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $12 RETURNING *`,
-      [full_name, email, phone, position, department, salary, employment_type, is_active, address, emergency_contact, emergency_phone, id]
+      [full_name, email === undefined ? null : email, phone, position, department, salary, employment_type, is_active, address, emergency_contact, emergency_phone, id]
     );
 
     if (result.rows.length === 0) {
@@ -10862,6 +10998,10 @@ app.put('/api/employees/:id', async (req, res) => {
     }
     res.json(result.rows[0]);
   } catch (error) {
+    if (error.code === '23505') {
+      const mapped = mapEmployeeUniqueViolation(error);
+      return res.status(mapped.status).json({ error: mapped.error });
+    }
     res.status(500).json({ error: error.message });
   }
 });

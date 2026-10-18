@@ -1806,16 +1806,21 @@
             return data.user;
         }
 
+        let employeeSaveInFlight = false;
+
         async function saveEmployee(event) {
             event.preventDefault();
+            if (employeeSaveInFlight) return;
             const form = event.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
             const createLogin = !!document.getElementById('createLoginAccount')?.checked;
             const loginPassword = document.getElementById('loginPassword')?.value || '';
             const loginPasswordConfirm = document.getElementById('loginPasswordConfirm')?.value || '';
+            const normalizedEmail = (form.email.value || '').trim().toLowerCase() || null;
             const payload = {
                 employee_number: form.employee_number.value.trim(),
                 full_name: form.full_name.value.trim(),
-                email: form.email.value.trim() || null,
+                email: normalizedEmail,
                 position: form.position.value.trim() || null,
                 department: form.department.value.trim() || null,
                 hire_date: form.hire_date.value || null,
@@ -1866,6 +1871,14 @@
             if (payload.assigned_entity_type === 'PLATFORM') payload.platform_id = entityValue;
             if (payload.assigned_entity_type === 'INCUBATOR') payload.incubator_id = entityValue;
 
+            employeeSaveInFlight = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.dataset.prevLabel = submitBtn.textContent || '';
+                submitBtn.textContent = 'جاري الحفظ...';
+            }
+
+            let employeeSaved = false;
             try {
                 const url = employeeMode === 'edit' ? `${API_BASE}/api/employees/${editingIds.employee}` : `${API_BASE}/api/employees`;
                 const method = employeeMode === 'edit' ? 'PUT' : 'POST';
@@ -1876,17 +1889,33 @@
                 });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
-                    throw new Error(err.error || 'تعذر حفظ الموظف');
+                    const msg = err.error || err.message || 'تعذر حفظ الموظف';
+                    if (/duplicate key|employees_email_key/i.test(msg)) {
+                        throw new Error('البريد الإلكتروني مستخدم بالفعل');
+                    }
+                    throw new Error(msg);
                 }
+                employeeSaved = true;
 
                 let loginMsg = '';
                 if (createLogin && employeeMode === 'add') {
-                    await provisionEmployeeLogin({
-                        name: payload.full_name,
-                        email: payload.email,
-                        password: loginPassword
-                    });
-                    loginMsg = ' وتم إنشاء حساب الدخول بدور EMPLOYEE.';
+                    try {
+                        await provisionEmployeeLogin({
+                            name: payload.full_name,
+                            email: payload.email,
+                            password: loginPassword
+                        });
+                        loginMsg = ' وتم إنشاء حساب الدخول بدور EMPLOYEE.';
+                    } catch (loginErr) {
+                        // Employee row already committed — do not present as full failure (avoids retry → duplicate email).
+                        showToast(
+                            'تم حفظ الموظف، لكن تعذر إنشاء حساب الدخول: ' + (loginErr.message || 'خطأ غير معروف'),
+                            true
+                        );
+                        closeEmployeeModal();
+                        await loadData();
+                        return;
+                    }
                 }
 
                 showToast('تم حفظ بيانات الموظف بنجاح' + loginMsg);
@@ -1894,7 +1923,21 @@
                 await loadData();
             } catch (err) {
                 console.error(err);
-                showToast(err.message || 'خطأ في حفظ الموظف', true);
+                if (employeeSaved) {
+                    showToast('تم حفظ الموظف، لكن حدث خطأ لاحق: ' + (err.message || ''), true);
+                    closeEmployeeModal();
+                    await loadData();
+                } else {
+                    showToast(err.message || 'خطأ في حفظ الموظف', true);
+                }
+            } finally {
+                employeeSaveInFlight = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    if (submitBtn.dataset.prevLabel) {
+                        submitBtn.textContent = submitBtn.dataset.prevLabel;
+                    }
+                }
             }
         }
 
