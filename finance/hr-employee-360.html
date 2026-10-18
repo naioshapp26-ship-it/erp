@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🧑‍💼 ملف الموظف 360° - نظام نايوش</title>
+  <title>موظف 360 - نظام نايوش</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -26,10 +26,35 @@
       font-family: 'Cairo', sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at 14% 18%, rgba(14, 165, 233, 0.18), transparent 42%),
-        radial-gradient(circle at 86% 8%, rgba(16, 185, 129, 0.16), transparent 40%),
-        linear-gradient(180deg, #ecfeff 0%, #f8fafc 55%, #eef2f7 100%);
+        radial-gradient(circle at 12% 0%, rgba(220, 38, 38, 0.1), transparent 42%),
+        radial-gradient(circle at 88% 12%, rgba(196, 163, 90, 0.14), transparent 38%),
+        linear-gradient(180deg, #fffefe 0%, #f8fafc 55%, #f1f5f9 100%);
       min-height: 100vh;
+    }
+
+    .roster-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .roster-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(185, 28, 28, 0.35);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.1);
+    }
+    .roster-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 1100px) {
+      .roster-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .roster-grid { grid-template-columns: 1fr; }
     }
 
     .glass {
@@ -345,49 +370,91 @@
   <div class="container mx-auto px-4 py-8">
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <span class="chip bg-white text-slate-700 border border-slate-200">ملف الموظف 360°</span>
-        <h1 class="text-3xl md:text-4xl font-extrabold mt-3">🧑‍💼 ملف الموظف 360°</h1>
-        <p class="text-slate-600">ملف رقمي شامل يغطي البيانات، الأداء، الرواتب، والتطوير.</p>
+        <span class="chip bg-white text-slate-700 border border-slate-200" id="pageChip">موظف 360</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3" id="pageTitle">موظف 360</h1>
+        <p class="text-slate-600" id="pageSubtitle">اختر موظفًا لعرض ملفه الشامل: البيانات، الحضور، الرواتب، والأداء.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <a href="/hr" class="btn bg-white text-slate-700 border border-slate-200">
           <i class="fas fa-arrow-right"></i>
           العودة للموارد البشرية
         </a>
-        <a href="/hr/employees" class="btn bg-slate-900 text-white">
+        <a href="/hr/employees" class="btn bg-rose-700 text-white">
           <i class="fas fa-briefcase"></i>
-          النظام الإداري
+          ملفات الموظفين
         </a>
       </div>
+    </div>
+
+    <!-- Roster: all allowed employees -->
+    <section id="employee360Roster" class="mb-8">
+      <div class="glass p-5 mb-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <div class="flex-1 min-w-[200px]">
+            <label class="text-xs font-bold text-slate-500">بحث بالاسم أو الرقم الوظيفي</label>
+            <input id="rosterSearch" type="search" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200" placeholder="مثال: أحمد أو EMP-..." />
+          </div>
+          <div class="min-w-[160px]">
+            <label class="text-xs font-bold text-slate-500">القسم</label>
+            <select id="rosterDepartment" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200">
+              <option value="">الكل</option>
+            </select>
+          </div>
+          <div class="min-w-[140px]">
+            <label class="text-xs font-bold text-slate-500">الحالة</label>
+            <select id="rosterStatus" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200">
+              <option value="">الكل</option>
+              <option value="active">نشط</option>
+              <option value="inactive">غير نشط</option>
+            </select>
+          </div>
+          <button type="button" id="rosterRefresh" class="btn bg-rose-700 text-white">
+            <i class="fas fa-rotate"></i>
+            تحديث
+          </button>
+        </div>
+        <div class="mt-3 text-sm text-slate-500" id="rosterCount">جاري التحميل...</div>
+      </div>
+      <div id="rosterGrid" class="roster-grid"></div>
+      <div id="rosterEmpty" class="hidden glass p-8 text-center text-slate-500 font-bold">لا يوجد موظفون مطابقون</div>
+    </section>
+
+    <!-- Detail: selected employee 360 file -->
+    <section id="employee360Detail" class="hidden">
+    <div class="mb-4">
+      <button type="button" id="backToRoster" class="btn bg-white text-slate-700 border border-slate-200">
+        <i class="fas fa-arrow-right"></i>
+        العودة إلى جميع الموظفين
+      </button>
     </div>
 
     <div class="hero-card mb-6 fade-up">
       <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
         <div class="flex items-center gap-4">
-          <div class="avatar" id="employeeAvatar">را</div>
+          <div class="avatar" id="employeeAvatar">—</div>
           <div>
-            <div class="text-sm text-slate-200">بطاقة الموظف <span id="employeeCardId" class="employee-id-badge">رقم EMP001</span></div>
-            <h2 id="employeeName" class="text-2xl font-extrabold mt-1">رانيا السبيعي</h2>
-            <p id="employeeTitle" class="text-sm text-slate-300">مدير شؤون الموظفين</p>
-            <div id="employeeIdBadge" class="employee-id-badge">رقم الموظف: EMP001</div>
+            <div class="text-sm text-slate-200">الملف الشامل للموظف <span id="employeeCardId" class="employee-id-badge">—</span></div>
+            <h2 id="employeeName" class="text-2xl font-extrabold mt-1">—</h2>
+            <p id="employeeTitle" class="text-sm text-slate-300">—</p>
+            <div id="employeeIdBadge" class="employee-id-badge">رقم الموظف: —</div>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div class="stat-card">
             <div class="text-xs stat-label">القسم</div>
-            <div id="employeeDepartment" class="text-lg font-extrabold stat-value mt-2">الموارد البشرية</div>
+            <div id="employeeDepartment" class="text-lg font-extrabold stat-value mt-2">—</div>
           </div>
           <div class="stat-card">
             <div class="text-xs stat-label">الحالة الوظيفية</div>
-            <div id="employeeStatus" class="text-lg font-extrabold text-emerald-600 stat-value mt-2">نشط</div>
+            <div id="employeeStatus" class="text-lg font-extrabold text-emerald-600 stat-value mt-2">—</div>
           </div>
           <div class="stat-card">
             <div class="text-xs stat-label">تاريخ التعيين</div>
-            <div id="employeeHireDate" class="text-lg font-extrabold stat-value mt-2">2019-04-12</div>
+            <div id="employeeHireDate" class="text-lg font-extrabold stat-value mt-2">—</div>
           </div>
           <div class="stat-card">
             <div class="text-xs stat-label">المدير المباشر</div>
-            <div id="employeeManager" class="text-lg font-extrabold stat-value mt-2">مها الفقيه</div>
+            <div id="employeeManager" class="text-lg font-extrabold stat-value mt-2">—</div>
           </div>
         </div>
         <div class="glass p-4 text-sm">
@@ -521,15 +588,13 @@
         </div>
         <span class="chip bg-amber-100 text-amber-700">محدّث الآن</span>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-        <div class="tag">جاهزية الملف: 98%</div>
-        <div class="tag">مستوى الالتزام: مرتفع</div>
-        <div class="tag">خطط تطوير نشطة: 3</div>
-        <div class="tag">تنبيهات مفتوحة: 1</div>
-        <div class="tag">مراجعات المدير: 4</div>
-        <div class="tag">مرفقات موثقة: 12</div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm" id="profileSummaryTags">
+        <div class="tag">جاهزية الملف: —</div>
+        <div class="tag">السجلات المحمّلة: —</div>
+        <div class="tag">المرفقات: —</div>
       </div>
     </div>
+    </section><!-- /employee360Detail -->
   </div>
 
   <div id="backdrop" class="backdrop"></div>
@@ -565,17 +630,194 @@
       maximumFractionDigits: 2
     });
 
-    const employeeId = new URLSearchParams(window.location.search).get('employeeId') || 'EMP001';
+    const urlParams = new URLSearchParams(window.location.search);
+    let employeeId = (urlParams.get('employeeId') || '').trim();
     const apiBase = `${window.location.origin}/api`;
     const profileApi = `${apiBase}/hr/employee-profile`;
     const recordsApi = `${apiBase}/hr/employee-records`;
-    const entityHeaders = {
-      'x-entity-type': 'HQ',
-      'x-entity-id': 'HQ001',
-      'Accept': 'application/json'
+    const rosterApi = `${apiBase}/hr/employee-360/roster`;
+
+    const authHeaders = () => {
+      const headers = {
+        'x-entity-type': 'HQ',
+        'x-entity-id': 'HQ001',
+        Accept: 'application/json'
+      };
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+      if (token) headers.Authorization = `Bearer ${token}`;
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || 'null');
+        if (user?.id) headers['x-user-id'] = String(user.id);
+      } catch (_) { /* ignore */ }
+      return headers;
     };
+    const entityHeaders = authHeaders();
 
     let currentProfile = null;
+    let rosterEmployees = [];
+    let rosterMode = 'roster';
+
+    const rosterEls = {
+      root: document.getElementById('employee360Roster'),
+      detail: document.getElementById('employee360Detail'),
+      grid: document.getElementById('rosterGrid'),
+      empty: document.getElementById('rosterEmpty'),
+      count: document.getElementById('rosterCount'),
+      search: document.getElementById('rosterSearch'),
+      department: document.getElementById('rosterDepartment'),
+      status: document.getElementById('rosterStatus'),
+      refresh: document.getElementById('rosterRefresh'),
+      back: document.getElementById('backToRoster'),
+      pageTitle: document.getElementById('pageTitle'),
+      pageSubtitle: document.getElementById('pageSubtitle'),
+      pageChip: document.getElementById('pageChip')
+    };
+
+    const showRosterView = () => {
+      if (rosterEls.root) rosterEls.root.classList.remove('hidden');
+      if (rosterEls.detail) rosterEls.detail.classList.add('hidden');
+      if (rosterEls.pageChip) rosterEls.pageChip.textContent = 'موظف 360';
+      if (rosterEls.pageTitle) rosterEls.pageTitle.textContent = 'موظف 360';
+      if (rosterEls.pageSubtitle) {
+        rosterEls.pageSubtitle.textContent = 'اختر موظفًا لعرض ملفه الشامل: البيانات، الحضور، الرواتب، والأداء.';
+      }
+      document.title = 'موظف 360 - نظام نايوش';
+    };
+
+    const showDetailView = () => {
+      if (rosterEls.root) rosterEls.root.classList.add('hidden');
+      if (rosterEls.detail) rosterEls.detail.classList.remove('hidden');
+      if (rosterEls.pageChip) rosterEls.pageChip.textContent = 'الملف الشامل للموظف';
+      if (rosterEls.pageTitle) rosterEls.pageTitle.textContent = 'الملف الشامل للموظف';
+      if (rosterEls.pageSubtitle) {
+        rosterEls.pageSubtitle.textContent = 'بيانات الموظف المختار فقط — الحضور، الرواتب، الأداء، والتطوير.';
+      }
+      document.title = 'الملف الشامل للموظف - نظام نايوش';
+    };
+
+    const openEmployeeDetail = (id) => {
+      const next = String(id || '').trim();
+      if (!next) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('employeeId', next);
+      window.location.href = url.pathname + '?' + url.searchParams.toString();
+    };
+
+    const clearDetailState = () => {
+      state.records = {
+        attendance: [],
+        payroll: [],
+        evaluations: [],
+        trainings: [],
+        warnings: [],
+        attachments: []
+      };
+      currentProfile = null;
+      ['employeeName', 'employeeTitle', 'employeeDepartment', 'employeeStatus', 'employeeHireDate', 'employeeManager']
+        .forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = '—';
+        });
+      const avatar = document.getElementById('employeeAvatar');
+      if (avatar) {
+        avatar.classList.remove('has-photo');
+        avatar.textContent = '—';
+      }
+    };
+
+    const renderRoster = (employees) => {
+      rosterEmployees = Array.isArray(employees) ? employees : [];
+      const departments = [...new Set(rosterEmployees.map((e) => e.department).filter(Boolean))].sort();
+      if (rosterEls.department && rosterEls.department.options.length <= 1) {
+        departments.forEach((dep) => {
+          const opt = document.createElement('option');
+          opt.value = dep;
+          opt.textContent = dep;
+          rosterEls.department.appendChild(opt);
+        });
+      }
+
+      const q = String(rosterEls.search?.value || '').trim().toLowerCase();
+      const dep = String(rosterEls.department?.value || '').trim();
+      const st = String(rosterEls.status?.value || '').trim();
+      const filtered = rosterEmployees.filter((e) => {
+        const hay = `${e.full_name || ''} ${e.employee_number || ''} ${e.email || ''}`.toLowerCase();
+        if (q && !hay.includes(q)) return false;
+        if (dep && e.department !== dep) return false;
+        if (st === 'active' && e.is_active === false) return false;
+        if (st === 'inactive' && e.is_active !== false) return false;
+        return true;
+      });
+
+      if (rosterEls.count) {
+        rosterEls.count.textContent = `عدد الموظفين: ${filtered.length}${rosterMode === 'self' ? ' (ملفك فقط)' : ''}`;
+      }
+      if (!filtered.length) {
+        if (rosterEls.grid) rosterEls.grid.innerHTML = '';
+        if (rosterEls.empty) rosterEls.empty.classList.remove('hidden');
+        return;
+      }
+      if (rosterEls.empty) rosterEls.empty.classList.add('hidden');
+      if (rosterEls.grid) {
+        rosterEls.grid.innerHTML = filtered.map((e) => {
+          const initials = String(e.full_name || 'م').trim().split(/\s+/).slice(0, 2).map((p) => p[0] || '').join('') || 'م';
+          const statusClass = e.is_active === false ? 'text-rose-600' : 'text-emerald-600';
+          return `
+            <article class="roster-card" data-employee-number="${escapeHtml(e.employee_number)}">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="avatar" style="width:52px;height:52px;font-size:16px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;">${escapeHtml(initials)}</div>
+                <div>
+                  <div class="font-extrabold text-slate-900">${escapeHtml(e.full_name || '—')}</div>
+                  <div class="text-xs text-slate-500">${escapeHtml(e.employee_number || '')}</div>
+                </div>
+              </div>
+              <div class="text-sm text-slate-600 mb-1"><i class="fas fa-briefcase ml-1 text-rose-600"></i>${escapeHtml(e.position || '—')}</div>
+              <div class="text-sm text-slate-600 mb-1"><i class="fas fa-building ml-1 text-rose-600"></i>${escapeHtml(e.department || '—')}</div>
+              <div class="text-sm font-bold ${statusClass} mb-3">${escapeHtml(e.status_label || (e.is_active === false ? 'غير نشط' : 'نشط'))}</div>
+              <button type="button" class="btn bg-rose-700 text-white w-full open-360-btn" data-id="${escapeHtml(e.employee_number)}">
+                <i class="fas fa-id-card"></i>
+                عرض ملف 360
+              </button>
+            </article>`;
+        }).join('');
+        rosterEls.grid.querySelectorAll('.open-360-btn').forEach((btn) => {
+          btn.addEventListener('click', () => openEmployeeDetail(btn.getAttribute('data-id')));
+        });
+      }
+    };
+
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+
+    const loadRoster = async () => {
+      showRosterView();
+      const q = new URLSearchParams();
+      const search = String(rosterEls.search?.value || '').trim();
+      const dep = String(rosterEls.department?.value || '').trim();
+      const st = String(rosterEls.status?.value || '').trim();
+      if (search) q.set('q', search);
+      if (dep) q.set('department', dep);
+      if (st) q.set('status', st);
+      const response = await fetch(`${rosterApi}?${q.toString()}`, {
+        credentials: 'include',
+        headers: authHeaders()
+      });
+      const data = await parseJsonResponse(response);
+      if (!response.ok) {
+        if (rosterEls.count) rosterEls.count.textContent = data.error || 'تعذر تحميل الموظفين';
+        if (rosterEls.grid) rosterEls.grid.innerHTML = '';
+        if (rosterEls.empty) rosterEls.empty.classList.remove('hidden');
+        return;
+      }
+      rosterMode = data.mode || 'roster';
+      const list = data.employees || [];
+      if (rosterMode === 'self' && list.length === 1 && !employeeId) {
+        openEmployeeDetail(list[0].employee_number);
+        return;
+      }
+      renderRoster(list);
+    };
 
     const formatDisplayDate = (value) => {
       if (!value) return '--';
@@ -1086,7 +1328,7 @@
     const exportProfile = () => {
       const profile = currentProfile || {};
       const rows = [
-        ['ملف الموظف 360'],
+        ['الملف الشامل للموظف'],
         ['رقم الموظف', profile.employee_id || employeeId],
         ['الاسم', profile.name || ''],
         ['المسمى الوظيفي', profile.title || ''],
@@ -1233,7 +1475,7 @@
       const response = await fetch(`${profileApi}/${encodeURIComponent(employeeId)}/media?mediaType=${encodeURIComponent(mediaType)}`, {
         method: 'POST',
         credentials: 'include',
-        headers: entityHeaders,
+        headers: authHeaders(),
         body: formData
       });
 
@@ -1255,18 +1497,24 @@
     const loadProfile = async () => {
       const response = await fetch(`${profileApi}?employeeId=${encodeURIComponent(employeeId)}`, {
         credentials: 'include',
-        headers: entityHeaders
+        headers: authHeaders()
       });
       const profile = await parseJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(profile.error || 'تعذر تحميل ملف الموظف');
+      }
       applyProfileToUi(profile);
     };
 
     const loadRecords = async () => {
       const response = await fetch(`${recordsApi}?employeeId=${encodeURIComponent(employeeId)}`, {
         credentials: 'include',
-        headers: entityHeaders
+        headers: authHeaders()
       });
       const records = await parseJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(records.error || 'تعذر تحميل سجلات الموظف');
+      }
       const grouped = {
         attendance: [],
         payroll: [],
@@ -1276,7 +1524,7 @@
         attachments: []
       };
 
-      records.forEach(row => {
+      (Array.isArray(records) ? records : []).forEach(row => {
         if (!grouped[row.section]) return;
         grouped[row.section].push(mapRowToItem(row));
       });
@@ -1284,12 +1532,23 @@
       state.records = grouped;
     };
 
+    const refreshSummaryTags = () => {
+      const wrap = document.getElementById('profileSummaryTags');
+      if (!wrap) return;
+      const total = Object.values(state.records || {}).reduce((n, arr) => n + (arr?.length || 0), 0);
+      const attachments = state.records?.attachments?.length || 0;
+      wrap.innerHTML = `
+        <div class="tag">الموظف: ${escapeHtml(currentProfile?.name || employeeId || '—')}</div>
+        <div class="tag">السجلات المحمّلة: ${total}</div>
+        <div class="tag">المرفقات: ${attachments}</div>`;
+    };
+
     const deleteRecord = async (id) => {
       try {
         const response = await fetch(`${recordsApi}/${id}`, {
           method: 'DELETE',
           credentials: 'include',
-          headers: entityHeaders
+          headers: authHeaders()
         });
         if (!response.ok) {
           const error = await parseJsonResponse(response);
@@ -1305,12 +1564,33 @@
     };
 
     const initializePage = async () => {
+      rosterEls.back?.addEventListener('click', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('employeeId');
+        window.location.href = url.pathname;
+      });
+      rosterEls.refresh?.addEventListener('click', () => loadRoster());
+      rosterEls.search?.addEventListener('input', () => renderRoster(rosterEmployees));
+      rosterEls.department?.addEventListener('change', () => renderRoster(rosterEmployees));
+      rosterEls.status?.addEventListener('change', () => renderRoster(rosterEmployees));
+
+      if (!employeeId) {
+        await loadRoster();
+        return;
+      }
+
+      showDetailView();
+      clearDetailState();
       try {
         await Promise.all([loadProfile(), loadRecords()]);
       } catch (error) {
         console.error('Error loading employee 360 data:', error);
+        alert(error.message || 'تعذر فتح ملف الموظف');
+        await loadRoster();
+        return;
       }
       updateSummary();
+      refreshSummaryTags();
       renderTabs();
       renderFilters();
       renderAttachmentsPanel();

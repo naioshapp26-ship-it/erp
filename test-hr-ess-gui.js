@@ -156,7 +156,7 @@ async function main() {
         hasFiles: cards.some((c) => c.includes('ملفات الموظفين')),
         hasReports: cards.some((c) => c.includes('تقارير')),
         hasSettings: cards.some((c) => c.includes('إعدادات')),
-        hasKeep: cards.some((c) => c.includes('تقييم الأداء') || c.includes('ملف الموظف 360')),
+        hasKeep: cards.some((c) => c.includes('تقييم الأداء') || c.includes('موظف 360')),
         hasGroups: ['employees-mgmt', 'attendance-payroll', 'performance-dev', 'requests-approvals'].every((id) => sections.includes(id)),
         cardCount: cards.length
       };

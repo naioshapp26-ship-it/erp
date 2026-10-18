@@ -114,11 +114,11 @@ const MANAGER_CARD_CATALOG = {
   'employee-360': {
     key: 'employee-360',
     href: '/hr/employee-360',
-    label: 'ملف الموظف 360°',
+    label: 'موظف 360',
     icon: 'fa-id-card',
     category: 'إدارة الموظفين',
     manager: false,
-    description: 'عرض شامل لملف الموظف ورحلته الوظيفية'
+    description: 'قائمة الموظفين وملف 360 الشامل لكل موظف'
   },
   'new-hires': {
     key: 'new-hires',
@@ -416,7 +416,6 @@ const ADMIN_BLOCKED_FROM_EMPLOYEE = [
   '/hr/payroll',
   '/hr/recruitment',
   '/hr/workflow-engine',
-  '/hr/employee-360',
   '/hr/attendance-hub'
 ];
 
@@ -599,13 +598,20 @@ function buildInventoryRows() {
 }
 
 function resolveAuthUser(req) {
-  if (req?.authUser && (req.authUser.role || req.authUser.id)) {
-    return req.authUser;
+  if (req?.authUser && (req.authUser.role || req.authUser.id || req.authUser.email)) {
+    return {
+      id: req.authUser.id || null,
+      role: req.authUser.role || null,
+      email: req.authUser.email || null,
+      employeeId: req.authUser.employeeId || req.authUser.employee_id || null,
+      name: req.authUser.name || null
+    };
   }
   const entity = req?.authenticatedEntityContext || req?.userEntity || {};
   return {
     id: entity.userId || entity.user_id || null,
     role: entity.role || null,
+    email: entity.email || null,
     employeeId: entity.employeeId || entity.employee_id || null,
     name: entity.name || null
   };

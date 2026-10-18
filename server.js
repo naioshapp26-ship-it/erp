@@ -2982,7 +2982,7 @@ const resolveCentralSessionEntityContext = async (token) => {
   if (!token) return null;
 
   const sessionResult = await db.query(
-    `SELECT us.user_id, u.tenant_type, u.entity_id, u.office_id, u.role, u.name
+    `SELECT us.user_id, u.tenant_type, u.entity_id, u.office_id, u.role, u.name, u.email
      FROM user_sessions us
      JOIN users u ON us.user_id = u.id
      WHERE us.session_token = $1
@@ -3001,6 +3001,7 @@ const resolveCentralSessionEntityContext = async (token) => {
     userId: sessionUser.user_id,
     role: sessionUser.role,
     name: sessionUser.name || null,
+    email: sessionUser.email || null,
     officeId: sessionUser.office_id || null,
     type: String(sessionUser.tenant_type || DEFAULT_ENTITY_CONTEXT.type).trim().toUpperCase(),
     id: String(sessionUser.entity_id || DEFAULT_ENTITY_CONTEXT.id).trim()
@@ -3071,6 +3072,7 @@ const applyResolvedEntityContext = (req, resolvedContext) => {
   req.authUser = {
     id: resolvedContext.userId || null,
     role: resolvedContext.role || null,
+    email: resolvedContext.email || null,
     employeeId: resolvedContext.employeeId || resolvedContext.employee_id || null,
     name: resolvedContext.name || null
   };
@@ -14246,17 +14248,248 @@ app.post('/api/hr/satisfaction-analytics', createHrSatisfactionAnalytics);
 app.put('/api/hr/satisfaction-analytics/:id', updateHrSatisfactionAnalytics);
 app.delete('/api/hr/satisfaction-analytics/:id', deleteHrSatisfactionAnalytics);
 
+// HR Employee 360 — access helpers (roster + profile/records RBAC)
+const resolveEmployee360SelfId = async (authUser) => {
+  if (!authUser) return null;
+  if (authUser.employeeId) return String(authUser.employeeId);
+  if (!authUser.id && !authUser.email) return null;
+  const params = [];
+  let sql = `SELECT employee_number FROM employees WHERE `;
+  if (authUser.email) {
+    params.push(String(authUser.email).trim().toLowerCase());
+    sql += `lower(btrim(email)) = $${params.length}`;
+  } else {
+    return null;
+  }
+  sql += ' ORDER BY id DESC LIMIT 1';
+  const result = await db.query(sql, params);
+  return result.rows[0]?.employee_number || null;
+};
+
+const assertEmployee360Access = async (req, requestedEmployeeId) => {
+  const authUser = hrPortalAccess.resolveAuthUser(req);
+  const persona = hrPortalAccess.classifyPersona(authUser.role);
+  const employeeId = String(requestedEmployeeId || '').trim();
+
+  if (!employeeId) {
+    return { ok: false, status: 400, error: 'معرّف الموظف مطلوب' };
+  }
+
+  if (hrPortalAccess.isEmployeePersona(persona)) {
+    const selfId = await resolveEmployee360SelfId(authUser);
+    if (!selfId || selfId !== employeeId) {
+      return { ok: false, status: 403, error: 'غير مصرح بعرض ملف موظف آخر' };
+    }
+  }
+
+  return { ok: true, employeeId, authUser, persona };
+};
+
+const ensureHrEmployeeProfileFromRoster = async (req, employeeId) => {
+  const entityId = getRequestEntityContext(req).id;
+  const entityType = getRequestEntityContext(req).type || 'HQ';
+  const existing = await db.query(
+    `SELECT * FROM hr_employee_profiles
+     WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
+     LIMIT 1`,
+    [employeeId, entityId]
+  );
+  if (existing.rows[0]) return existing.rows[0];
+
+  const roster = await db.query(
+    `SELECT employee_number, full_name, position, department, hire_date, is_active, email
+     FROM employees
+     WHERE employee_number = $1
+     LIMIT 1`,
+    [employeeId]
+  );
+  const emp = roster.rows[0];
+  if (!emp) return null;
+
+  const initials = String(emp.full_name || '')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0] || '')
+    .join('') || 'م';
+
+  const inserted = await db.query(
+    `INSERT INTO hr_employee_profiles
+     (employee_id, name, title, department, status, hire_date, manager, avatar_initials, entity_id, entity_type)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     ON CONFLICT (entity_id, employee_id) DO UPDATE SET
+       name = EXCLUDED.name,
+       title = COALESCE(EXCLUDED.title, hr_employee_profiles.title),
+       department = COALESCE(EXCLUDED.department, hr_employee_profiles.department),
+       status = COALESCE(EXCLUDED.status, hr_employee_profiles.status),
+       updated_at = NOW()
+     RETURNING *`,
+    [
+      employeeId,
+      emp.full_name,
+      emp.position || null,
+      emp.department || null,
+      emp.is_active === false ? 'غير نشط' : 'نشط',
+      emp.hire_date || null,
+      null,
+      initials,
+      entityId,
+      entityType
+    ]
+  );
+  if (inserted.rows[0]) return inserted.rows[0];
+
+  const again = await db.query(
+    `SELECT * FROM hr_employee_profiles
+     WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
+     LIMIT 1`,
+    [employeeId, entityId]
+  );
+  return again.rows[0] || null;
+};
+
+const getHrEmployee360Roster = async (req, res) => {
+  try {
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+
+    if (hrPortalAccess.isEmployeePersona(persona)) {
+      const selfId = await resolveEmployee360SelfId(authUser);
+      if (!selfId) {
+        return res.status(403).json({ error: 'غير مصرح بعرض قائمة الموظفين', employees: [] });
+      }
+      const self = await db.query(
+        `SELECT id, employee_number, full_name, email, position, department, hire_date, is_active
+         FROM employees WHERE employee_number = $1 LIMIT 1`,
+        [selfId]
+      );
+      return res.json({
+        success: true,
+        mode: 'self',
+        employees: self.rows.map((e) => ({
+          id: e.id,
+          employee_number: e.employee_number,
+          full_name: e.full_name,
+          email: e.email,
+          position: e.position,
+          department: e.department,
+          hire_date: e.hire_date,
+          is_active: e.is_active !== false,
+          status_label: e.is_active === false ? 'غير نشط' : 'نشط'
+        }))
+      });
+    }
+
+    // Managers / HR — reuse entity scoping similar to /api/employees
+    const params = [];
+    let query = `
+      SELECT
+        emp.id,
+        emp.employee_number,
+        emp.full_name,
+        emp.email,
+        emp.position,
+        emp.department,
+        emp.hire_date,
+        emp.is_active,
+        emp.assigned_entity_type
+      FROM employees emp
+      WHERE 1=1
+    `;
+
+    if (!isHqEntityContext(req)) {
+      const entityContext = getRequestEntityContext(req);
+      params.push(entityContext.id);
+      query += ` AND COALESCE(
+        (SELECT hq.entity_id FROM headquarters hq WHERE hq.id = emp.hq_id),
+        (SELECT b.entity_id FROM branches b WHERE b.id = emp.branch_id),
+        (SELECT i.entity_id FROM incubators i WHERE i.id = emp.incubator_id),
+        (SELECT p.entity_id FROM platforms p WHERE p.id = emp.platform_id),
+        (SELECT o.entity_id FROM offices o WHERE o.id = emp.office_id),
+        'HQ001'
+      ) = $${params.length}`;
+    }
+
+    const q = String(req.query.q || '').trim();
+    if (q) {
+      params.push(`%${q}%`);
+      query += ` AND (
+        emp.full_name ILIKE $${params.length}
+        OR emp.employee_number ILIKE $${params.length}
+        OR COALESCE(emp.email,'') ILIKE $${params.length}
+      )`;
+    }
+    const department = String(req.query.department || '').trim();
+    if (department) {
+      params.push(department);
+      query += ` AND emp.department = $${params.length}`;
+    }
+    const status = String(req.query.status || '').trim().toLowerCase();
+    if (status === 'active' || status === 'نشط') {
+      query += ` AND emp.is_active IS DISTINCT FROM FALSE`;
+    } else if (status === 'inactive' || status === 'غير نشط') {
+      query += ` AND emp.is_active = FALSE`;
+    }
+
+    query += ' ORDER BY emp.full_name ASC, emp.id ASC LIMIT 500';
+    const result = await db.query(query, params);
+    res.json({
+      success: true,
+      mode: 'roster',
+      employees: result.rows.map((e) => ({
+        id: e.id,
+        employee_number: e.employee_number,
+        full_name: e.full_name,
+        email: e.email,
+        position: e.position,
+        department: e.department,
+        hire_date: e.hire_date,
+        is_active: e.is_active !== false,
+        status_label: e.is_active === false ? 'غير نشط' : 'نشط'
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching employee 360 roster:', error);
+    res.status(500).json({ error: error.message, employees: [] });
+  }
+};
+
+app.get('/api/hr/employee-360/roster', getHrEmployee360Roster);
+app.get('/api/hr-employee-360-roster', getHrEmployee360Roster);
+
 // HR Employee 360 Profile
 const getHrEmployeeProfile = async (req, res) => {
   try {
-    const employeeId = req.query.employeeId || 'EMP001';
-    const result = await db.query(
-      `SELECT * FROM hr_employee_profiles
-       WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
-       LIMIT 1`,
-      [employeeId, getRequestEntityContext(req).id]
-    );
-    res.json(result.rows[0] || null);
+    let employeeId = String(req.query.employeeId || req.params?.employeeId || '').trim();
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+
+    if (!employeeId && hrPortalAccess.isEmployeePersona(persona)) {
+      employeeId = await resolveEmployee360SelfId(authUser);
+    }
+    if (!employeeId) {
+      return res.status(400).json({ error: 'معرّف الموظف مطلوب' });
+    }
+
+    const access = await assertEmployee360Access(req, employeeId);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    let profile = await ensureHrEmployeeProfileFromRoster(req, employeeId);
+    if (!profile) {
+      const result = await db.query(
+        `SELECT * FROM hr_employee_profiles
+         WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}
+         LIMIT 1`,
+        [employeeId, getRequestEntityContext(req).id]
+      );
+      profile = result.rows[0] || null;
+    }
+    if (!profile) {
+      return res.status(404).json({ error: 'ملف الموظف غير موجود' });
+    }
+    res.json(profile);
   } catch (error) {
     console.error('Error fetching HR employee profile:', error);
     res.status(500).json({ error: error.message });
@@ -14266,6 +14499,13 @@ const getHrEmployeeProfile = async (req, res) => {
 const updateHrEmployeeProfile = async (req, res) => {
   try {
     const { employeeId } = req.params;
+    const access = await assertEmployee360Access(req, employeeId);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+    if (hrPortalAccess.isEmployeePersona(access.persona)) {
+      return res.status(403).json({ error: 'غير مصرح بتعديل ملف 360 من حساب الموظف' });
+    }
     const {
       name,
       title,
@@ -14467,9 +14707,19 @@ app.post('/api/hr-employee-profile/:employeeId/media', uploadHrEmployeeMedia);
 // HR Employee 360 Records
 const getHrEmployeeRecords = async (req, res) => {
   try {
-    const employeeId = req.query.employeeId || 'EMP001';
+    let employeeId = String(req.query.employeeId || '').trim();
+    const authUser = hrPortalAccess.resolveAuthUser(req);
+    const persona = hrPortalAccess.classifyPersona(authUser.role);
+    if (!employeeId && hrPortalAccess.isEmployeePersona(persona)) {
+      employeeId = await resolveEmployee360SelfId(authUser);
+    }
+    const access = await assertEmployee360Access(req, employeeId);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
     const section = req.query.section;
-    const params = [employeeId, getRequestEntityContext(req).id];
+    const params = [access.employeeId, getRequestEntityContext(req).id];
     let sql = `SELECT * FROM hr_employee_records
                WHERE employee_id = $1 AND ${getStrictRequestEntityCondition(req, 'entity_id', 2)}`;
     if (section) {
@@ -14498,6 +14748,14 @@ const createHrEmployeeRecord = async (req, res) => {
 
     if (!employee_id || !section || !record) {
       return res.status(400).json({ error: 'employee_id, section, and record are required' });
+    }
+
+    const access = await assertEmployee360Access(req, employee_id);
+    if (!access.ok) {
+      return res.status(access.status).json({ error: access.error });
+    }
+    if (hrPortalAccess.isEmployeePersona(access.persona)) {
+      return res.status(403).json({ error: 'غير مصرح بإضافة سجلات 360 من حساب الموظف' });
     }
 
     const result = await db.query(

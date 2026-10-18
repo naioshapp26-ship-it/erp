@@ -122,7 +122,7 @@
           mod('الحضور والانصراف', '/hr/attendance-departure'),
           mod('مركز الحضور والنوبات الذكي', '/hr/attendance-hub'),
           mod('إدارة الرواتب', '/hr/payroll'),
-          mod('ملف الموظف 360°', '/hr/employee-360'),
+          mod('موظف 360', '/hr/employee-360'),
           mod('مركز الرواتب', '/hr/payroll-hub'),
           mod('إدارة الأداء', '/hr/performance'),
           mod('أكاديمية التعلم', '/hr/learning'),

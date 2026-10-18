@@ -16,7 +16,7 @@ const HR_HOME_MODULES_LEGACY = [
   { key: 'attendance-departure', href: '/hr/attendance-departure', label: 'سجلات الحضور والانصراف', icon: 'fa-clock', category: 'حضور' },
   { key: 'attendance-hub', href: '/hr/attendance-hub', label: 'مركز الحضور والنوبات الذكي', icon: 'fa-stopwatch', category: 'حضور' },
   { key: 'payroll', href: '/hr/payroll', label: 'تبسيط ادارة الرواتب', icon: 'fa-sack-dollar', category: 'مالية', manager: true },
-  { key: 'employee-360', href: '/hr/employee-360', label: 'ملف الموظف 360°', icon: 'fa-id-card', category: 'موظفون' },
+  { key: 'employee-360', href: '/hr/employee-360', label: 'موظف 360', icon: 'fa-id-card', category: 'موظفون' },
   { key: 'payroll-hub', href: '/hr/payroll-hub', label: 'مركز الرواتب والتعويضات', icon: 'fa-wallet', category: 'مالية' },
   { key: 'performance', href: '/hr/performance', label: 'مختبر الأداء والتقييم', icon: 'fa-chart-line', category: 'تحليلات' },
   { key: 'learning', href: '/hr/learning', label: 'أكاديمية التطوير والتدريب', icon: 'fa-graduation-cap', category: 'موظفون', manager: true },
