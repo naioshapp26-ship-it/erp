@@ -332,7 +332,7 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   return withBranding;
 };
 
-const HR_PORTAL_SHELL_ASSET_VERSION = 'hr-card-icon-white-20261018';
+const HR_PORTAL_SHELL_ASSET_VERSION = 'hr-mobile-drawer-20261018b';
 
 const injectHrPortalShellAssets = (html, requestPath = '/hr') => {
   if (!html) return html;
