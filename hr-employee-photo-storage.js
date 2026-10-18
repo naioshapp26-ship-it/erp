@@ -6,6 +6,8 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
+const os = require('os');
 
 const PHOTO_API_PREFIX = '/api/hr/employee-profile/';
 const PHOTO_API_SUFFIX = '/photo';
@@ -49,6 +51,61 @@ function isLegacyDiskPhotoUrl(url) {
   return String(url || '').startsWith('/uploads/hr-employee-360/');
 }
 
+/**
+ * Soft-optimize photos when larger than ~400KB: max edge 1600px, JPEG q=85 / PNG optimize.
+ * Keeps original when optimization fails or would not help. Hard upload cap remains 5MB.
+ */
+function optimizeEmployeePhotoBuffer(fileData, mimeType = 'image/png') {
+  const input = Buffer.isBuffer(fileData) ? fileData : Buffer.from(fileData || []);
+  if (!input.length) return { buffer: input, mimeType, optimized: false };
+  if (input.length < 400 * 1024) {
+    return { buffer: input, mimeType: mimeType || 'image/png', optimized: false };
+  }
+  const tmpIn = path.join(os.tmpdir(), `e360-in-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const tmpOut = path.join(os.tmpdir(), `e360-out-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  try {
+    fs.writeFileSync(tmpIn, input);
+    const isPng = String(mimeType || '').includes('png');
+    const script = `
+from PIL import Image
+import sys
+src, dst, is_png = sys.argv[1], sys.argv[2], sys.argv[3] == '1'
+im = Image.open(src)
+im = im.convert('RGBA' if is_png else 'RGB')
+max_edge = 1600
+w, h = im.size
+scale = min(1.0, max_edge / float(max(w, h)))
+if scale < 1.0:
+    im = im.resize((max(1, int(w*scale)), max(1, int(h*scale))), Image.Resampling.LANCZOS)
+if is_png:
+    im.save(dst, 'PNG', optimize=True)
+else:
+    im.save(dst, 'JPEG', quality=85, optimize=True)
+`;
+    const py = spawnSync('python3', ['-c', script, tmpIn, tmpOut, isPng ? '1' : '0'], {
+      encoding: 'utf8',
+      timeout: 20000
+    });
+    if (py.status !== 0 || !fs.existsSync(tmpOut)) {
+      return { buffer: input, mimeType: mimeType || 'image/png', optimized: false };
+    }
+    const out = fs.readFileSync(tmpOut);
+    if (!out.length || out.length >= input.length) {
+      return { buffer: input, mimeType: mimeType || 'image/png', optimized: false };
+    }
+    return {
+      buffer: out,
+      mimeType: isPng ? 'image/png' : 'image/jpeg',
+      optimized: true
+    };
+  } catch (_err) {
+    return { buffer: input, mimeType: mimeType || 'image/png', optimized: false };
+  } finally {
+    fs.unlink(tmpIn, () => {});
+    fs.unlink(tmpOut, () => {});
+  }
+}
+
 async function upsertEmployeePhotoAsset(db, {
   entityId,
   employeeId,
@@ -61,6 +118,10 @@ async function upsertEmployeePhotoAsset(db, {
   if (!entity || !emp) throw new Error('entity_id و employee_id مطلوبان لحفظ الصورة');
   if (!fileData || !fileData.length) throw new Error('بيانات الصورة فارغة');
 
+  const optimized = optimizeEmployeePhotoBuffer(fileData, mimeType);
+  const payload = optimized.buffer;
+  const storedMime = optimized.mimeType || mimeType || 'image/png';
+
   const result = await db.query(
     `INSERT INTO hr_employee_photo_assets
        (entity_id, employee_id, mime_type, file_data, byte_size, updated_at)
@@ -71,9 +132,11 @@ async function upsertEmployeePhotoAsset(db, {
        byte_size = EXCLUDED.byte_size,
        updated_at = NOW()
      RETURNING id, byte_size, mime_type`,
-    [entity, emp, mimeType || 'image/png', fileData, fileData.length]
+    [entity, emp, storedMime, payload, payload.length]
   );
-  return result.rows[0];
+  const row = result.rows[0] || {};
+  row.optimized = optimized.optimized;
+  return row;
 }
 
 async function getEmployeePhotoAsset(db, { entityId, employeeId, allowHqCrossEntity = false }) {
@@ -143,6 +206,7 @@ module.exports = {
   buildPersistentPhotoUrl,
   isPersistentPhotoUrl,
   isLegacyDiskPhotoUrl,
+  optimizeEmployeePhotoBuffer,
   upsertEmployeePhotoAsset,
   getEmployeePhotoAsset,
   deleteEmployeePhotoAsset,
