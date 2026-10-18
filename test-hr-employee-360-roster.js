@@ -60,7 +60,8 @@ async function api(token, urlPath) {
 }
 
 async function inject(page, token, user) {
-  await page.goto(`${BASE}/dashboard.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  // Use login page so HTML auth guard does not bounce before we can set storage.
+  await page.goto(`${BASE}/login-page.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.evaluate((t, u) => {
     localStorage.setItem('authToken', t);
     sessionStorage.setItem('authToken', t);
@@ -186,21 +187,26 @@ async function main() {
     // Employee blocked from other detail URL
     const empPage = await browser.newPage();
     await empPage.setViewport({ width: 1440, height: 900 });
+    empPage.on('dialog', async (d) => { try { await d.accept(); } catch (_) { /* */ } });
     await inject(empPage, emp.token, emp.user);
     await empPage.goto(`${BASE}/hr/employee-360?employeeId=${encodeURIComponent(people[0].employee_number)}`, {
-      waitUntil: 'networkidle2',
-      timeout: 90000
+      waitUntil: 'domcontentloaded',
+      timeout: 60000
     });
-    await new Promise((r) => setTimeout(r, 2500));
+    await new Promise((r) => setTimeout(r, 3500));
     await shot(empPage, 'e360-employee-denied-other.png');
     const deniedUi = await empPage.evaluate(() => ({
-      text: document.body.innerText || '',
+      text: (document.body.innerText || '').slice(0, 400),
       name: document.getElementById('employeeName')?.textContent || '',
-      rosterVisible: !document.getElementById('employee360Roster')?.classList.contains('hidden')
+      idBadge: document.getElementById('employeeIdBadge')?.textContent || '',
+      rosterVisible: !document.getElementById('employee360Roster')?.classList.contains('hidden'),
+      detailVisible: !document.getElementById('employee360Detail')?.classList.contains('hidden')
     }));
-    // Should alert and fall back to roster, or show empty — not the other employee's data
-    const leaked = deniedUi.name && deniedUi.name === people[0].full_name;
-    record('GUI employee cannot view other detail', !leaked, JSON.stringify(deniedUi).slice(0, 200));
+    // Must not show the other employee's profile data
+    const leaked =
+      (deniedUi.name && deniedUi.name === people[0].full_name) ||
+      (deniedUi.idBadge && deniedUi.idBadge.includes(people[0].employee_number));
+    record('GUI employee cannot view other detail', !leaked, JSON.stringify(deniedUi).slice(0, 280));
   } finally {
     await browser.close();
   }
