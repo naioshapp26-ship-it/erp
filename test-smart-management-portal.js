@@ -38,9 +38,15 @@ async function main() {
   ok('html-has-h1', /<h1>\s*الإدارة الذكية 360\s*<\/h1>/.test(html));
   ok('html-has-subtitle', html.includes('ثلاثة أنظمة رئيسية، بوابة واحدة لإدارة أكثر ذكاءً'));
   ok('html-has-brand', html.includes('NAIOSH ERP 360'));
-  ok('html-has-hr-card', html.includes('الموارد البشرية') && html.includes('data-module="hr"'));
-  ok('html-has-finance-card', html.includes('المالية') && html.includes('data-module="finance"'));
-  ok('html-has-archive-card', html.includes('الأرشيف') && html.includes('data-module="archive"'));
+  ok('html-has-hr-card', /<h2>\s*الموارد البشرية 360\s*<\/h2>/.test(html) && html.includes('data-module="hr"'));
+  ok('html-has-finance-card', /<h2>\s*المالية 360\s*<\/h2>/.test(html) && html.includes('data-module="finance"'));
+  ok('html-has-archive-card', /<h2>\s*الأرشيف 360\s*<\/h2>/.test(html) && html.includes('data-module="archive"'));
+  ok('html-card-order-rtl', (() => {
+    const hr = html.indexOf('<h2>الموارد البشرية 360</h2>');
+    const fin = html.indexOf('<h2>المالية 360</h2>');
+    const arch = html.indexOf('<h2>الأرشيف 360</h2>');
+    return hr > -1 && fin > hr && arch > fin;
+  })());
   ok('html-links-hr', /data-href="\/hr"/.test(html) && /href="\/hr"/.test(html));
   ok('html-links-finance', /data-href="\/finance"/.test(html));
   ok('html-links-archive', /data-href="\/archive"/.test(html));
