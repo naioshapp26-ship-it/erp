@@ -151,17 +151,18 @@ async function main() {
         persona: document.body.getAttribute('data-hr-persona'),
         title: document.getElementById('hrHomeTitle')?.textContent || '',
         sections,
-        hasApprovals: cards.some((c) => c.includes('الموافقة والرفض')),
+        hasApprovals: cards.some((c) => c.includes('الموافقات والرفض') || c.includes('الموافقة والرفض')),
         hasEmpRequests: cards.some((c) => c.includes('طلبات الموظفين')),
         hasFiles: cards.some((c) => c.includes('ملفات الموظفين')),
-        hasReports: cards.some((c) => c.includes('التقارير')),
+        hasReports: cards.some((c) => c.includes('تقارير')),
         hasSettings: cards.some((c) => c.includes('إعدادات')),
-        hasKeep: cards.some((c) => c.includes('تقييم الأداء') || c.includes('إدارة ملفات الموظفين')),
+        hasKeep: cards.some((c) => c.includes('تقييم الأداء') || c.includes('ملف الموظف 360')),
+        hasGroups: ['employees-mgmt', 'attendance-payroll', 'performance-dev', 'requests-approvals'].every((id) => sections.includes(id)),
         cardCount: cards.length
       };
     });
     record('manager-persona', mgrSnap.persona === 'manager', mgrSnap.persona);
-    record('manager-admin-section', mgrSnap.sections.includes('admin'), JSON.stringify(mgrSnap.sections));
+    record('manager-grouped-sections', mgrSnap.hasGroups, JSON.stringify(mgrSnap.sections));
     record('manager-approvals-card', mgrSnap.hasApprovals);
     record('manager-requests-card', mgrSnap.hasEmpRequests);
     record('manager-files-card', mgrSnap.hasFiles);
