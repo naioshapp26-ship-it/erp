@@ -133,7 +133,7 @@ const MANAGER_CARD_CATALOG = {
     key: 'sc-recruitment',
     href: '/hr/recruitment',
     label: 'التوظيف والاستقطاب',
-    icon: 'fa- Magnifying-glass',
+    icon: 'fa-magnifying-glass',
     category: 'إدارة الموظفين',
     manager: true,
     description: 'إدارة عمليات التوظيف والاستقطاب'
@@ -364,9 +364,6 @@ const MANAGER_CARD_CATALOG = {
     description: 'التعاميم وإشعارات الموارد البشرية'
   }
 };
-
-// Fix accidental space in icon class
-MANAGER_CARD_CATALOG.recruitment.icon = 'fa-magnifying-glass';
 
 /** Legacy export shape used by older tests — maps to roster + approvals + reports + settings. */
 const ADMIN_OPS_CARDS = [
