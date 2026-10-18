@@ -77,21 +77,32 @@ const FINANCE_HOME_MOVED_TO_HR = [
   }
 ];
 
-/** Same-href cards already present in HR — listed for audit, not rendered again. */
+/**
+ * Same-route cards already present in HR — not rendered again in «المنقولة من المالية».
+ * Identity is by href + served HTML + APIs (not by Arabic label similarity).
+ * Pre-move Finance home already linked to these exact paths (see FINANCE_KEEP).
+ */
 const FINANCE_HOME_SKIPPED_AS_HR_DUPES = [
   {
     href: '/hr/assets-custodies',
     financeLabel: 'العهد المالية',
     existingHrKey: 'custody',
     existingHrLabel: 'العهد',
-    reason: 'نفس المسار موجود في مجموعة الخدمات التشغيلية'
+    servedFile: 'finance/hr-assets-custodies.html',
+    apis: ['/api/hr/assets/registry', '/api/hr/assets/classifications', '/api/hr/assets/overview'],
+    reason:
+      'تطابق وظيفي كامل: بطاقة المالية كانت تفتح /hr/assets-custodies — نفس صفحة HR «العهد» (إدارة العهد والأصول) ونفس واجهات /api/hr/assets/*'
   },
   {
     href: '/hr/operations',
     financeLabel: 'رحلات العمل',
     existingHrKey: 'operations',
     existingHrLabel: 'بوابة العمليات',
-    reason: 'نفس المسار موجود في مجموعة الطلبات والموافقات'
+    servedFile: 'finance/hr-portal-workflows.html',
+    apis: ['/api/employee-requests', '/api/request-types', '/api/employees'],
+    covers: ['طلب تذاكر سفر', 'طلب انتداب'],
+    reason:
+      'تطابق وظيفي كامل: بطاقة المالية كانت تفتح /hr/operations — نفس بوابة العمليات؛ رحلات العمل ليست صفحة مستقلة بل أنواع طلب (تذاكر سفر / انتداب) داخل هذه البوابة'
   }
 ];
 
@@ -356,7 +367,7 @@ const MANAGER_CARD_CATALOG = {
     icon: 'fa-diagram-project',
     category: 'الطلبات والموافقات',
     manager: true,
-    description: 'عمليات وطلبات الموارد البشرية'
+    description: 'طلبات الموارد البشرية بما فيها تذاكر السفر والانتداب (رحلات العمل)'
   },
   reports: {
     key: 'admin-reports',
@@ -419,7 +430,7 @@ const MANAGER_CARD_CATALOG = {
     icon: 'fa-box-open',
     category: 'خدمات تشغيلية',
     manager: true,
-    description: 'العهد والأصول'
+    description: 'إدارة العهد والأصول — نفس صفحة العهد المالية'
   },
   gov: {
     key: 'sc-gov',
