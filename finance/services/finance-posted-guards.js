@@ -10,8 +10,12 @@ const {
   REVERSAL_REF_TYPE,
   resolveActor,
   assertEntityOwns,
-  PostingError
+  PostingError,
+  roundMoney
 } = require('./finance-posting-service');
+
+/** Advisory lock namespace for payment-allocation CRUD (distinct from payment post 11012). */
+const ALLOC_CRUD_LOCK_NS = 11013;
 
 class GuardError extends Error {
   constructor(status, code, message, extra = {}) {
@@ -263,6 +267,353 @@ function sendGuardError(res, err) {
   return null;
 }
 
+function mapOwnershipError(err) {
+  if (err instanceof PostingError) {
+    throw new GuardError(err.status, err.code, err.message, err.extra || {});
+  }
+  throw err;
+}
+
+function assertActorAuthenticated(actor) {
+  if (!actor || !actor.authenticated) {
+    throw new GuardError(401, 'AUTH_REQUIRED', 'يجب تسجيل الدخول قبل إدارة تخصيصات المدفوعات');
+  }
+}
+
+/**
+ * B1.d.3.b — Payment allocation CRUD guards (create/update/delete).
+ * Does NOT update invoice paid/remaining balances (preserves prior CRUD semantics).
+ * Does NOT ban unallocated payments (ADVANCE/deposit remain documenting-only in this slice).
+ *
+ * Caller must run inside an open transaction on `client`.
+ *
+ * @param {object} client - pg client in a transaction
+ * @param {object} opts
+ * @param {'create'|'update'|'delete'} opts.mode
+ * @param {object} opts.actor - from resolveActor({ req }) or trusted test actor
+ * @param {number|string} [opts.allocationId]
+ * @param {number|string} [opts.paymentId]
+ * @param {number|string} [opts.invoiceId]
+ * @param {number|string} [opts.allocatedAmount]
+ * @param {object} [opts.address] - optional address columns
+ */
+async function mutatePaymentAllocationInTx(client, opts = {}) {
+  const mode = opts.mode;
+  const actor = opts.actor;
+  assertActorAuthenticated(actor);
+
+  if (!['create', 'update', 'delete'].includes(mode)) {
+    throw new GuardError(400, 'INVALID_MODE', 'وضع تخصيص غير معروف');
+  }
+
+  let allocationId = opts.allocationId != null ? Number(opts.allocationId) : null;
+  let paymentId = opts.paymentId != null ? Number(opts.paymentId) : null;
+  let invoiceId = opts.invoiceId != null ? Number(opts.invoiceId) : null;
+  let allocatedAmount =
+    opts.allocatedAmount != null && opts.allocatedAmount !== ''
+      ? roundMoney(opts.allocatedAmount)
+      : null;
+
+  let existing = null;
+  if (mode === 'update' || mode === 'delete') {
+    if (!allocationId || Number.isNaN(allocationId)) {
+      throw new GuardError(400, 'ALLOCATION_ID_REQUIRED', 'allocation_id مطلوب');
+    }
+    const allocRes = await client.query(
+      `SELECT * FROM finance_payment_allocations WHERE allocation_id = $1 FOR UPDATE`,
+      [allocationId]
+    );
+    existing = allocRes.rows[0] || null;
+    if (!existing) {
+      throw new GuardError(404, 'NOT_FOUND', 'التخصيص غير موجود');
+    }
+    paymentId = paymentId || Number(existing.payment_id);
+    if (mode === 'delete') {
+      invoiceId = Number(existing.invoice_id);
+    } else {
+      invoiceId = invoiceId != null ? invoiceId : Number(existing.invoice_id);
+      if (allocatedAmount == null) {
+        allocatedAmount = roundMoney(existing.allocated_amount);
+      }
+    }
+  }
+
+  if (mode === 'create') {
+    if (!paymentId || Number.isNaN(paymentId) || !invoiceId || Number.isNaN(invoiceId)) {
+      throw new GuardError(400, 'FIELDS_REQUIRED', 'payment_id و invoice_id و allocated_amount مطلوبة');
+    }
+    if (allocatedAmount == null || !(allocatedAmount > 0)) {
+      throw new GuardError(400, 'INVALID_AMOUNT', 'allocated_amount يجب أن يكون أكبر من صفر');
+    }
+  }
+
+  if (mode === 'update') {
+    if (!paymentId || !invoiceId || allocatedAmount == null) {
+      throw new GuardError(400, 'FIELDS_REQUIRED', 'payment_id و invoice_id و allocated_amount مطلوبة');
+    }
+    if (!(allocatedAmount > 0)) {
+      throw new GuardError(400, 'INVALID_AMOUNT', 'allocated_amount يجب أن يكون أكبر من صفر');
+    }
+  }
+
+  // Serialize mutations on the payment (and lock payment row).
+  await client.query('SELECT pg_advisory_xact_lock($1, $2)', [ALLOC_CRUD_LOCK_NS, Number(paymentId)]);
+
+  const payRes = await client.query(
+    `SELECT payment_id, payment_number, payment_amount, entity_id, journal_entry_id, status
+     FROM finance_payments WHERE payment_id = $1 FOR UPDATE`,
+    [paymentId]
+  );
+  const payment = payRes.rows[0];
+  if (!payment) {
+    throw new GuardError(404, 'PAYMENT_NOT_FOUND', 'الدفعة غير موجودة');
+  }
+
+  try {
+    assertEntityOwns(payment.entity_id, actor, 'الدفعة');
+  } catch (err) {
+    mapOwnershipError(err);
+  }
+
+  const { links } = await findPostedJournalForPayment(client, paymentId);
+  if (links.length) {
+    throw new GuardError(
+      409,
+      'POSTED_DOCUMENT_LOCKED',
+      mode === 'delete'
+        ? 'لا يمكن حذف تخصيص تابع لدفعة مرحّلة.'
+        : mode === 'create'
+          ? 'لا يمكن إضافة تخصيص إلى دفعة مرحّلة خارج عملية محاسبية مصرح بها.'
+          : 'لا يمكن تعديل تخصيص تابع لدفعة مرحّلة.',
+      {
+        payment_id: payment.payment_id,
+        linked_entries: links.map((l) => ({
+          via: l.via,
+          entry_id: l.entry.entry_id,
+          entry_number: l.entry.entry_number
+        }))
+      }
+    );
+  }
+
+  if (mode === 'delete') {
+    const del = await client.query(
+      `DELETE FROM finance_payment_allocations WHERE allocation_id = $1 RETURNING allocation_id`,
+      [allocationId]
+    );
+    return { deleted: del.rows[0].allocation_id, payment_id: paymentId };
+  }
+
+  const invRes = await client.query(
+    `SELECT invoice_id, invoice_number, entity_id, total_amount, paid_amount, remaining_amount,
+            status, payment_status, journal_entry_id
+     FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE`,
+    [invoiceId]
+  );
+  const invoice = invRes.rows[0];
+  if (!invoice) {
+    throw new GuardError(404, 'INVOICE_NOT_FOUND', 'فاتورة التخصيص غير موجودة');
+  }
+
+  try {
+    assertEntityOwns(invoice.entity_id, actor, 'الفاتورة');
+  } catch (err) {
+    mapOwnershipError(err);
+  }
+
+  if (String(invoice.entity_id) !== String(payment.entity_id)) {
+    throw new GuardError(
+      403,
+      'ALLOCATION_ENTITY_MISMATCH',
+      'تخصيص دفعة لفاتورة من كيان مختلف مرفوض',
+      {
+        payment_entity_id: String(payment.entity_id),
+        invoice_entity_id: String(invoice.entity_id)
+      }
+    );
+  }
+
+  // Duplicate (payment_id, invoice_id) — application-level (no migration UNIQUE yet).
+  const dup = await client.query(
+    `SELECT allocation_id FROM finance_payment_allocations
+     WHERE payment_id = $1 AND invoice_id = $2
+       AND ($3::int IS NULL OR allocation_id <> $3)
+     FOR UPDATE`,
+    [paymentId, invoiceId, mode === 'update' ? allocationId : null]
+  );
+  if (dup.rows.length) {
+    throw new GuardError(
+      409,
+      'DUPLICATE_ALLOCATION',
+      'تخصيص مكرر لنفس الدفعة والفاتورة مرفوض',
+      { existing_allocation_id: dup.rows[0].allocation_id }
+    );
+  }
+
+  // Payment capacity: sum of allocations (excluding self on update) + new amount <= payment_amount.
+  // Intentional: sum may be LESS than payment_amount (unallocated remainder / ADVANCE) — not banned.
+  const sumRes = await client.query(
+    `SELECT COALESCE(SUM(allocated_amount), 0)::float AS s
+     FROM finance_payment_allocations
+     WHERE payment_id = $1
+       AND ($2::int IS NULL OR allocation_id <> $2)`,
+    [paymentId, mode === 'update' ? allocationId : null]
+  );
+  const otherSum = roundMoney(sumRes.rows[0].s);
+  const paymentAmount = roundMoney(payment.payment_amount);
+  const newTotal = roundMoney(otherSum + allocatedAmount);
+  if (newTotal > paymentAmount + 0.01) {
+    throw new GuardError(
+      409,
+      'OVER_ALLOCATION_PAYMENT',
+      'مجموع التخصيصات يتجاوز مبلغ الدفعة',
+      {
+        payment_amount: paymentAmount,
+        other_allocations: otherSum,
+        requested: allocatedAmount,
+        would_be: newTotal
+      }
+    );
+  }
+
+  const remaining = roundMoney(
+    invoice.remaining_amount != null
+      ? invoice.remaining_amount
+      : Number(invoice.total_amount) - Number(invoice.paid_amount || 0)
+  );
+  if (allocatedAmount > remaining + 0.01) {
+    throw new GuardError(
+      409,
+      'OVER_ALLOCATION_INVOICE',
+      'التخصيص يتجاوز المبلغ المتبقي للفاتورة',
+      {
+        invoice_id: invoice.invoice_id,
+        remaining,
+        requested: allocatedAmount
+      }
+    );
+  }
+
+  const address = opts.address || {};
+  const addressVals = [
+    address.street_name ?? null,
+    address.postal_code ?? null,
+    address.building_number ?? null,
+    address.city ?? null,
+    address.district ?? null,
+    address.national_address_number ?? null,
+    address.short_address ?? null
+  ];
+  const wantsAddress = addressVals.some((v) => v != null && String(v).trim() !== '');
+  let hasAddressCols = false;
+  if (wantsAddress) {
+    const colCheck = await client.query(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = ANY (current_schemas(false))
+           AND table_name = 'finance_payment_allocations'
+           AND column_name = 'street_name'
+       ) AS ok`
+    );
+    hasAddressCols = colCheck.rows[0]?.ok === true;
+  }
+
+  if (mode === 'create') {
+    let ins;
+    if (hasAddressCols) {
+      ins = await client.query(
+        `INSERT INTO finance_payment_allocations
+           (payment_id, invoice_id, allocated_amount,
+            street_name, postal_code, building_number, city, district,
+            national_address_number, short_address)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         RETURNING *`,
+        [paymentId, invoiceId, allocatedAmount, ...addressVals]
+      );
+    } else {
+      ins = await client.query(
+        `INSERT INTO finance_payment_allocations (payment_id, invoice_id, allocated_amount)
+         VALUES ($1,$2,$3)
+         RETURNING *`,
+        [paymentId, invoiceId, allocatedAmount]
+      );
+    }
+    return {
+      allocation: ins.rows[0],
+      balances_touched: false,
+      note: 'CRUD لا يحدّث paid/remaining — الترحيل المحاسبي عبر مسار التحصيل المصرح'
+    };
+  }
+
+  // update
+  let upd;
+  if (hasAddressCols) {
+    upd = await client.query(
+      `UPDATE finance_payment_allocations
+       SET payment_id = $1,
+           invoice_id = $2,
+           allocated_amount = $3,
+           street_name = $4,
+           postal_code = $5,
+           building_number = $6,
+           city = $7,
+           district = $8,
+           national_address_number = $9,
+           short_address = $10
+       WHERE allocation_id = $11
+       RETURNING *`,
+      [paymentId, invoiceId, allocatedAmount, ...addressVals, allocationId]
+    );
+  } else {
+    upd = await client.query(
+      `UPDATE finance_payment_allocations
+       SET payment_id = $1,
+           invoice_id = $2,
+           allocated_amount = $3
+       WHERE allocation_id = $4
+       RETURNING *`,
+      [paymentId, invoiceId, allocatedAmount, allocationId]
+    );
+  }
+  return {
+    allocation: upd.rows[0],
+    balances_touched: false,
+    note: 'CRUD لا يحدّث paid/remaining — الترحيل المحاسبي عبر مسار التحصيل المصرح'
+  };
+}
+
+function isPgPool(db) {
+  if (!db || typeof db.connect !== 'function') return false;
+  if (typeof db.release === 'function') return false;
+  return db.totalCount !== undefined || db.constructor?.name === 'Pool';
+}
+
+/**
+ * Convenience: BEGIN → mutate → COMMIT/ROLLBACK on a pool or client.
+ */
+async function mutatePaymentAllocation(poolOrClient, opts = {}) {
+  const fromPool = isPgPool(poolOrClient);
+  const client = fromPool ? await poolOrClient.connect() : poolOrClient;
+  const manageTx = opts.manageTransaction !== false;
+  try {
+    if (manageTx) await client.query('BEGIN');
+    const result = await mutatePaymentAllocationInTx(client, opts);
+    if (manageTx) await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    if (manageTx) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* */
+      }
+    }
+    throw err;
+  } finally {
+    if (fromPool) client.release();
+  }
+}
+
 module.exports = {
   GuardError,
   isPostedEntry,
@@ -273,5 +624,8 @@ module.exports = {
   assertPaymentMutable,
   findPostedJournalForInvoice,
   findPostedJournalForPayment,
-  sendGuardError
+  mutatePaymentAllocationInTx,
+  mutatePaymentAllocation,
+  sendGuardError,
+  ALLOC_CRUD_LOCK_NS
 };
