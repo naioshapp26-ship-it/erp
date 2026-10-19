@@ -15,6 +15,7 @@ const {
   assertInvoiceDeletable,
   assertInvoiceMutable,
   assertPaymentMutable,
+  assertPaymentDeletable,
   GuardError,
   sendGuardError
 } = require('../services/finance-posted-guards');
@@ -1427,11 +1428,54 @@ router.post('/payments', async (req, res) => {
   }
 });
 
-// Update payment
+// Update payment — B1.d.3.e: posted lock + trusted entity ownership (no header/body role trust)
 router.put('/payments/:id', async (req, res) => {
+  const client = await db.pool.connect();
   try {
+    await client.query('BEGIN');
     const { id } = req.params;
-    await assertPaymentMutable(db.pool, id, { forDelete: false });
+    const actor = resolveActor({ req });
+    const payment = await assertPaymentMutable(client, id, {
+      forDelete: false,
+      ctx: { req },
+      forUpdate: true
+    });
+
+    const body = req.body || {};
+    // Reject bypass attempts: clearing JE link, moving entity, or mutating posting fields
+    const forbidden = [
+      'journal_entry_id',
+      'entity_id',
+      'entity_type',
+      'payment_id',
+      'created_by'
+    ];
+    for (const f of forbidden) {
+      if (Object.prototype.hasOwnProperty.call(body, f)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          success: false,
+          error: `لا يمكن تعديل الحقل المحمي: ${f}`,
+          code: 'PROTECTED_FIELD'
+        });
+      }
+    }
+    if (body.status != null) {
+      const st = String(body.status).toUpperCase();
+      if (st === 'DRAFT' || st === 'CANCELLED' || st === 'VOID') {
+        // Draft payments may set status freely among non-posting bypass values only if still unposted
+        // Re-check links already passed; still block DRAFT/VOID labels that confuse posted lifecycle
+        if (payment.journal_entry_id) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            success: false,
+            error: 'لا يمكن تغيير حالة دفعة مرتبطة بقيد إلى DRAFT/إلغاء من هذا المسار',
+            code: 'POSTED_STATUS_LOCKED'
+          });
+        }
+      }
+    }
+
     const {
       payment_date,
       payment_amount,
@@ -1445,9 +1489,9 @@ router.put('/payments/:id', async (req, res) => {
       district,
       national_address_number,
       short_address
-    } = req.body;
+    } = body;
 
-    const result = await db.query(
+    const result = await client.query(
       `UPDATE finance_payments
        SET payment_date = COALESCE($1, payment_date),
            payment_amount = COALESCE($2, payment_amount),
@@ -1463,6 +1507,7 @@ router.put('/payments/:id', async (req, res) => {
            short_address = COALESCE($12, short_address),
            updated_at = NOW()
        WHERE payment_id = $13
+         AND entity_id IS NOT DISTINCT FROM $14
        RETURNING *`,
       [
         payment_date || null,
@@ -1477,39 +1522,76 @@ router.put('/payments/:id', async (req, res) => {
         district || null,
         national_address_number || null,
         short_address || null,
-        id
+        id,
+        payment.entity_id
       ]
     );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Payment not found' });
     }
 
-    res.json({ success: true, payment: result.rows[0] });
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      payment: result.rows[0],
+      meta: { entity_gate: 'assertPaymentMutable', actor_entity_id: actor.entityId }
+    });
   } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* */
+    }
     if (sendGuardError(res, error)) return;
     console.error('Error updating payment:', error);
     res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
   }
 });
 
-// Delete payment
+// Delete payment — B1.d.3.e: posted lock + trusted entity ownership
 router.delete('/payments/:id', async (req, res) => {
+  const client = await db.pool.connect();
   try {
+    await client.query('BEGIN');
     const { id } = req.params;
-    await assertPaymentMutable(db.pool, id, { forDelete: true });
-    await db.query('DELETE FROM finance_payment_allocations WHERE payment_id = $1', [id]);
-    const result = await db.query('DELETE FROM finance_payments WHERE payment_id = $1 RETURNING *', [id]);
+    const actor = resolveActor({ req });
+    const payment = await assertPaymentDeletable(client, id, { req });
+
+    // Draft-only delete: remove unposted allocations then payment (no invoice balance side-effects here)
+    await client.query('DELETE FROM finance_payment_allocations WHERE payment_id = $1', [id]);
+    const result = await client.query(
+      `DELETE FROM finance_payments
+       WHERE payment_id = $1 AND entity_id IS NOT DISTINCT FROM $2
+       RETURNING *`,
+      [id, payment.entity_id]
+    );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Payment not found' });
     }
 
-    res.json({ success: true, payment: result.rows[0] });
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      payment: result.rows[0],
+      meta: { entity_gate: 'assertPaymentDeletable', actor_entity_id: actor.entityId }
+    });
   } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* */
+    }
     if (sendGuardError(res, error)) return;
     console.error('Error deleting payment:', error);
     res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
   }
 });
 
