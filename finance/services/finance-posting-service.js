@@ -1,11 +1,20 @@
 'use strict';
 
 /**
- * FinancePostingService — B1.b + B1.c auth + B1.d.1 (service-only invoice/payment posting helpers).
- * B1.d.1 does NOT wire POST /finance/invoices or /payments — helpers are for future d.2+.
+ * FinancePostingService — B1.b + B1.c auth + B1.d.1 helpers + B1.d.2 readiness (D1/D2).
+ * Still does NOT wire POST /finance/invoices or /payments.
+ * D1: journal amounts from stored invoice after roundMoney (2dp) — no invoice↔JE drift.
+ * D2: invoice JE metadata matches legacy POST /finance/invoices (prefix JE-, descriptions, reference_number).
  * Entity ownership is mandatory (including HQ): cross-entity requires explicit session grant.
  * No schema migrations: duplicate prevention is application-level (locks + lookups) until UNIQUE approved.
  */
+
+const {
+  roundMoney,
+  journalAmountsFromStoredInvoice,
+  buildLegacyInvoiceJournalLines,
+  legacyInvoiceJournalDescription
+} = require('./finance-invoice-amounts');
 
 const REVERSAL_REF_TYPE = 'JOURNAL_REVERSAL';
 const ENTRY_TYPE_REVERSAL = 'REVERSAL';
@@ -23,7 +32,7 @@ class PostingError extends Error {
 }
 
 function round2(n) {
-  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+  return roundMoney(n);
 }
 
 function parsePermissions(raw) {
@@ -243,9 +252,13 @@ async function advisoryLock(client, namespace, id) {
 }
 
 async function generateEntryNumber(client, prefix = 'JE') {
+  // Match legacy generateNextNumber('JE'): JE-0001 style; ignore other prefixes like JE-INV-
   const result = await client.query(
-    `SELECT entry_number FROM finance_journal_entries WHERE entry_number LIKE $1 ORDER BY entry_number DESC LIMIT 1`,
-    [`${prefix}%`]
+    `SELECT entry_number FROM finance_journal_entries
+     WHERE entry_number ~ ('^' || $1 || '-[0-9]+$')
+     ORDER BY entry_number DESC
+     LIMIT 1`,
+    [prefix]
   );
   const lastNumber = result.rows[0]?.entry_number || '';
   const numericMatches = String(lastNumber).match(/\d+/g) || [];
@@ -648,64 +661,73 @@ async function postInvoiceIssue(poolOrClient, invoiceId, ctx = {}) {
       });
     }
 
-    const subtotal = round2(invoice.subtotal || 0);
-    const discount = round2(invoice.discount_amount || 0);
-    const tax = round2(invoice.tax_amount || 0);
-    const total = round2(invoice.total_amount || subtotal - discount + tax);
-    if (total <= 0) {
+    // D1: stored invoice amounts (2dp) are the only JE source — no unrounded JS drift
+    const amounts = journalAmountsFromStoredInvoice(invoice);
+    if (amounts.total_amount <= 0) {
       throw new PostingError(422, 'ZERO_AMOUNT', 'مبلغ الفاتورة غير صالح للترحيل');
     }
-    const net = round2(Math.max(subtotal - discount, 0));
-    // Rebuild expected total check (tolerance)
-    if (Math.abs(round2(net + tax) - total) > 0.05) {
-      // still allow if invoice.total_amount is source of truth for AR
+    const rebuilt = roundMoney(amounts.net + amounts.tax_amount);
+    if (Math.abs(rebuilt - amounts.total_amount) > 0.01) {
+      throw new PostingError(
+        422,
+        'INVOICE_AMOUNT_INCONSISTENT',
+        'مجموع صافي الفاتورة والضريبة لا يطابق الإجمالي المخزّن',
+        { ...amounts, rebuilt }
+      );
     }
 
     const a1130 = await resolveAccountByCode(client, '1130');
     const a4100 = await resolveAccountByCode(client, '4100');
-    const a2140 = tax > 0 ? await resolveAccountByCode(client, '2140') : null;
+    const a2140 = amounts.tax_amount > 0 ? await resolveAccountByCode(client, '2140') : null;
 
-    const lines = [
-      { account_id: a1130.account_id, account_code: '1130', debit_amount: total, credit_amount: 0, description: `ذمم - ${invoice.invoice_number}` },
-      { account_id: a4100.account_id, account_code: '4100', debit_amount: 0, credit_amount: net, description: 'إيرادات' }
-    ];
-    if (tax > 0 && a2140) {
-      lines.push({
-        account_id: a2140.account_id,
-        account_code: '2140',
-        debit_amount: 0,
-        credit_amount: tax,
-        description: 'ضريبة'
-      });
-    }
+    // D2: legacy metadata/descriptions expected by current reports & integrations
+    const lineSpecs = buildLegacyInvoiceJournalLines(invoice, amounts);
+    const lines = lineSpecs.map((spec) => {
+      let account_id = a1130.account_id;
+      if (spec.account_code === '4100') account_id = a4100.account_id;
+      if (spec.account_code === '2140') account_id = a2140.account_id;
+      return { ...spec, account_id };
+    });
     const totals = assertBalanced(lines);
 
-    const entryNumber = await generateEntryNumber(client, 'JE-INV');
+    // Assert JE amounts === invoice stored (no residual drift)
+    if (
+      Math.abs(totals.totalDebit - amounts.total_amount) > 0.001 ||
+      Math.abs(roundMoney(amounts.net + amounts.tax_amount) - amounts.total_amount) > 0.001
+    ) {
+      throw new PostingError(500, 'JE_INVOICE_DRIFT', 'تعارض داخلي بين مبالغ الفاتورة والقيد');
+    }
+
+    const entryNumber = await generateEntryNumber(client, 'JE');
     const ins = await client.query(
       `INSERT INTO finance_journal_entries
-       (entry_number, entry_date, entry_type, description, reference_type, reference_id,
-        entity_type, entity_id, status, is_posted, posted_at, posted_by, created_by)
-       VALUES ($1, COALESCE($2::date, CURRENT_DATE), 'AUTO', $3, $4, $5,
-               $6, $7, 'POSTED', true, NOW(), $8, $8)
+       (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
+        entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
+       VALUES ($1, COALESCE($2::date, CURRENT_DATE), 'AUTO', $3, $4, $5, $6,
+               $7, $8, $9, $10, 'POSTED', true, $11)
        RETURNING *`,
       [
         entryNumber,
         invoice.invoice_date,
-        `إصدار فاتورة ${invoice.invoice_number}`,
+        legacyInvoiceJournalDescription(invoice.invoice_number),
+        invoice.invoice_number,
         REF_INVOICE,
         invoice.invoice_id,
         invoice.entity_type || actor.entityType || null,
         invoice.entity_id,
+        invoice.branch_id || null,
+        invoice.incubator_id || null,
         String(actor.userId)
       ]
     );
     const entry = ins.rows[0];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      // D2: legacy journal_lines insert has no entity_id column usage (entry carries entity)
       await client.query(
         `INSERT INTO finance_journal_lines
-         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description, entity_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [
           entry.entry_id,
           i + 1,
@@ -713,8 +735,7 @@ async function postInvoiceIssue(poolOrClient, invoiceId, ctx = {}) {
           line.account_code,
           line.debit_amount,
           line.credit_amount,
-          line.description,
-          invoice.entity_id
+          line.description
         ]
       );
     }
@@ -756,6 +777,8 @@ async function postInvoiceIssue(poolOrClient, invoiceId, ctx = {}) {
         permission_mode: perm.mode,
         entity_gate: entityGate.mode,
         totals,
+        amounts,
+        metadata_profile: 'legacy_invoice_auto_post',
         duplicate_protection: 'application_lookup_and_lock_until_unique_index'
       }
     };
@@ -997,5 +1020,9 @@ module.exports = {
   findActiveReversal,
   findActivePostedByReference,
   assertBalanced,
-  writeAudit
+  writeAudit,
+  roundMoney,
+  journalAmountsFromStoredInvoice,
+  buildLegacyInvoiceJournalLines,
+  legacyInvoiceJournalDescription
 };

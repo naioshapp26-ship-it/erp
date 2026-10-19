@@ -2,10 +2,16 @@
 
 /**
  * B1.c — Backend guards for posted journals / invoices / payments.
+ * B1.d.2 readiness (D3/G3): invoice DELETE requires trusted entity ownership.
  * No migrations. Arabic error messages for protected mutations.
  */
 
-const { REVERSAL_REF_TYPE } = require('./finance-posting-service');
+const {
+  REVERSAL_REF_TYPE,
+  resolveActor,
+  assertEntityOwns,
+  PostingError
+} = require('./finance-posting-service');
 
 class GuardError extends Error {
   constructor(status, code, message, extra = {}) {
@@ -85,7 +91,7 @@ async function assertJournalLineParentMutable(client, entryId) {
  */
 async function findPostedJournalForInvoice(client, invoiceId) {
   const inv = await client.query(
-    `SELECT invoice_id, invoice_number, journal_entry_id, status
+    `SELECT invoice_id, invoice_number, journal_entry_id, status, entity_id
      FROM finance_invoices WHERE invoice_id = $1`,
     [invoiceId]
   );
@@ -118,11 +124,28 @@ async function findPostedJournalForInvoice(client, invoiceId) {
   return { invoice, links };
 }
 
-async function assertInvoiceDeletable(client, invoiceId) {
+/**
+ * Invoice may be deleted only when:
+ * 1) trusted actor owns the invoice entity (D3 / G3 — Admin/HQ do not bypass), and
+ * 2) no posted journal linkage exists.
+ * ctx: { req } or { trustedTestActor, actor } — same contract as posting service.
+ */
+async function assertInvoiceDeletable(client, invoiceId, ctx = {}) {
   const { invoice, links } = await findPostedJournalForInvoice(client, invoiceId);
   if (!invoice) {
     throw new GuardError(404, 'NOT_FOUND', 'الفاتورة غير موجودة');
   }
+
+  const actor = resolveActor(ctx);
+  try {
+    assertEntityOwns(invoice.entity_id, actor, 'الفاتورة');
+  } catch (err) {
+    if (err instanceof PostingError) {
+      throw new GuardError(err.status, err.code, err.message, err.extra || {});
+    }
+    throw err;
+  }
+
   if (links.length) {
     throw new GuardError(
       409,
