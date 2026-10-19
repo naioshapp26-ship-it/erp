@@ -195,10 +195,10 @@ async function assertInvoiceMutable(client, invoiceId) {
   return invoice;
 }
 
-async function findPostedJournalForPayment(client, paymentId) {
+async function findPostedJournalForPayment(client, paymentId, { forUpdate = false } = {}) {
+  // SELECT * keeps slim isolated schemas (may omit entity_type) working
   const pay = await client.query(
-    `SELECT payment_id, payment_number, journal_entry_id, status
-     FROM finance_payments WHERE payment_id = $1`,
+    `SELECT * FROM finance_payments WHERE payment_id = $1${forUpdate ? ' FOR UPDATE' : ''}`,
     [paymentId]
   );
   if (!pay.rows.length) return { payment: null, links: [] };
@@ -230,11 +230,35 @@ async function findPostedJournalForPayment(client, paymentId) {
   return { payment, links };
 }
 
-async function assertPaymentMutable(client, paymentId, { forDelete = false } = {}) {
-  const { payment, links } = await findPostedJournalForPayment(client, paymentId);
+/**
+ * B1.d.3.e — Payment may be updated/deleted only when:
+ * 1) trusted actor owns the payment entity (Admin/HQ do not bypass), and
+ * 2) no posted journal linkage exists (journal_entry_id or reference_type=PAYMENT).
+ * ctx: { req } or { trustedTestActor, actor } — same contract as posting service.
+ * forUpdate: lock payment row (caller should be inside a transaction).
+ */
+async function assertPaymentMutable(client, paymentId, { forDelete = false, ctx = null, forUpdate = false } = {}) {
+  if (forUpdate) {
+    await client.query('SELECT pg_advisory_xact_lock($1, $2)', [ALLOC_CRUD_LOCK_NS + 1, Number(paymentId)]);
+  }
+
+  const { payment, links } = await findPostedJournalForPayment(client, paymentId, { forUpdate });
   if (!payment) {
     throw new GuardError(404, 'NOT_FOUND', 'الدفعة غير موجودة');
   }
+
+  if (ctx != null) {
+    const actor = resolveActor(ctx);
+    if (!actor.authenticated) {
+      throw new GuardError(401, 'AUTH_REQUIRED', 'يجب تسجيل الدخول قبل تعديل أو حذف الدفعة');
+    }
+    try {
+      assertEntityOwns(payment.entity_id, actor, 'الدفعة');
+    } catch (err) {
+      mapOwnershipError(err);
+    }
+  }
+
   if (links.length) {
     throw new GuardError(
       409,
@@ -253,6 +277,13 @@ async function assertPaymentMutable(client, paymentId, { forDelete = false } = {
     );
   }
   return payment;
+}
+
+/**
+ * B1.d.3.e — delete gate (entity + posted). Alias for clarity at call sites.
+ */
+async function assertPaymentDeletable(client, paymentId, ctx = {}) {
+  return assertPaymentMutable(client, paymentId, { forDelete: true, ctx, forUpdate: true });
 }
 
 function sendGuardError(res, err) {
@@ -622,6 +653,7 @@ module.exports = {
   assertInvoiceDeletable,
   assertInvoiceMutable,
   assertPaymentMutable,
+  assertPaymentDeletable,
   findPostedJournalForInvoice,
   findPostedJournalForPayment,
   mutatePaymentAllocationInTx,
