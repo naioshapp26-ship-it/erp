@@ -229,36 +229,50 @@ async function writeAudit(client, {
   reason,
   status = 'SUCCESS'
 }) {
-  // SAVEPOINT: a failed INSERT aborts the whole PG transaction (25P02). Soft-fail
-  // without rollback-to-savepoint previously made COMMIT become a silent ROLLBACK
-  // while callers still received success — critical under finance_test_writer / missing audit_logs.
+  // Soft-fail audit must never abort the caller's posting transaction (PG 25P02).
+  // Use SAVEPOINT when already inside a txn; plain INSERT when autocommit (no txn).
+  const params = [
+    Number.isFinite(Number(actor.userId)) ? Number(actor.userId) : null,
+    actor.userName
+      ? String(actor.userName).slice(0, 100)
+      : String(actor.userId || '').slice(0, 100) || null,
+    actor.entityId ? String(actor.entityId).slice(0, 20) : null,
+    String(action).slice(0, 50),
+    String(resourceType || 'journal_entry').slice(0, 50),
+    String(resourceId || '').slice(0, 100) || null,
+    oldValue != null
+      ? String(typeof oldValue === 'string' ? oldValue : JSON.stringify(oldValue)).slice(0, 4000)
+      : null,
+    newValue != null
+      ? String(typeof newValue === 'string' ? newValue : JSON.stringify(newValue)).slice(0, 4000)
+      : null,
+    actor.ip ? String(actor.ip).slice(0, 45) : null,
+    actor.userAgent ? String(actor.userAgent).slice(0, 500) : null,
+    reason || null,
+    status
+  ];
+  const insertSql = `INSERT INTO audit_logs
+       (user_id, user_name, entity_id, action, resource_type, resource_id, old_value, new_value, ip_address, user_agent, reason, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
+
+  let spOpen = false;
   try {
     await client.query('SAVEPOINT finance_audit_write');
-    await client.query(
-      `INSERT INTO audit_logs
-       (user_id, user_name, entity_id, action, resource_type, resource_id, old_value, new_value, ip_address, user_agent, reason, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-      [
-        Number.isFinite(Number(actor.userId)) ? Number(actor.userId) : null,
-        actor.userName ? String(actor.userName).slice(0, 100) : String(actor.userId || '').slice(0, 100) || null,
-        actor.entityId ? String(actor.entityId).slice(0, 20) : null,
-        String(action).slice(0, 50),
-        String(resourceType || 'journal_entry').slice(0, 50),
-        String(resourceId || '').slice(0, 100) || null,
-        oldValue != null ? String(typeof oldValue === 'string' ? oldValue : JSON.stringify(oldValue)).slice(0, 4000) : null,
-        newValue != null ? String(typeof newValue === 'string' ? newValue : JSON.stringify(newValue)).slice(0, 4000) : null,
-        actor.ip ? String(actor.ip).slice(0, 45) : null,
-        actor.userAgent ? String(actor.userAgent).slice(0, 500) : null,
-        reason || null,
-        status
-      ]
-    );
-    await client.query('RELEASE SAVEPOINT finance_audit_write');
+    spOpen = true;
+  } catch {
+    /* not in a transaction block — insert in autocommit below */
+  }
+
+  try {
+    await client.query(insertSql, params);
+    if (spOpen) await client.query('RELEASE SAVEPOINT finance_audit_write');
   } catch (err) {
-    try {
-      await client.query('ROLLBACK TO SAVEPOINT finance_audit_write');
-    } catch {
-      /* no open savepoint / not in txn */
+    if (spOpen) {
+      try {
+        await client.query('ROLLBACK TO SAVEPOINT finance_audit_write');
+      } catch {
+        /* */
+      }
     }
     console.warn('finance audit_logs write skipped:', err.message);
   }
@@ -872,7 +886,12 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
       [paymentId]
     );
     if (!allocs.rows.length) {
-      throw new PostingError(422, 'ALLOCATIONS_REQUIRED', 'الترحيل يتطلب تخصيصات دفعات');
+      throw new PostingError(
+        422,
+        'ALLOCATIONS_REQUIRED',
+        'الترحيل يتطلب تخصيصات دفعات. الدفعات غير المخصصة / ADVANCE غير مسموحة (سياسة ADVANCE-B).',
+        { policy: 'ADVANCE_B' }
+      );
     }
 
     // Stable lock order by invoice_id to reduce deadlocks under concurrent collections

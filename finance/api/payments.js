@@ -188,10 +188,19 @@ async function createPayment(req, res) {
         const resolvedCustomerId = resolved?.customer_id || customer_id;
         const resolvedCustomerName = resolved?.customer_name || customer_name || null;
 
-        // B1.d.5a.3 — defense-in-depth (shadowed by finance-routes mount order).
-        // If this path is ever invoked with allocations, enforce issue-JE gate inside a txn.
+        // B1.d.5a.3 + ADVANCE-B — defense-in-depth (shadowed by finance-routes mount order).
         const allocList = Array.isArray(req.body?.allocations) ? req.body.allocations : [];
-        if (allocList.length) {
+        // ADVANCE-B: reject unallocated / ADVANCE-style creates (no Cr 1130 without invoice link).
+        if (!allocList.length) {
+            return res.status(422).json({
+                success: false,
+                error:
+                    'الدفعات غير المخصصة / العربون (ADVANCE) غير مسموحة في الإصدار الأول. يلزم تخصيص على فاتورة.',
+                code: 'ALLOCATIONS_REQUIRED',
+                policy: 'ADVANCE_B'
+            });
+        }
+        {
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');
