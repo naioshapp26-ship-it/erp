@@ -153,7 +153,7 @@ async function main() {
 
     await postManualEntry(client, draft.entry_id, {
       trustedTestActor: true,
-      actor: { userId: 1, role: 'Admin', permissions: [], authenticated: true }
+      actor: { userId: 1, role: 'Admin', permissions: [], authenticated: true , entityId: 'HQ001' }
     });
 
     try {
@@ -235,7 +235,7 @@ async function main() {
     // Legitimate reverse still works
     await reverseEntry(client, draft.entry_id, {
       trustedTestActor: true,
-      actor: { userId: 1, role: 'Admin', permissions: [], authenticated: true },
+      actor: { userId: 1, role: 'Admin', permissions: [], authenticated: true , entityId: 'HQ001' },
       reason: 'B1.c reverse ok'
     });
     pass('legitimate-reverse-still-works');
