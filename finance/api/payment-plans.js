@@ -7,6 +7,11 @@ const { getRequestEntityContext, buildEntityScopeCondition } = require('../../en
 
 const db = require('../../db');
 const pool = db.pool;
+const { resolveActor } = require('../services/finance-posting-service');
+const {
+  mutatePaymentAllocation,
+  sendGuardError
+} = require('../services/finance-posted-guards');
 
 // Ensure address columns exist to avoid runtime errors when newer fields are selected
 async function ensurePaymentPlanAddressColumns() {
@@ -375,46 +380,39 @@ async function deletePaymentPlan(req, res) {
     }
 }
 
+/**
+ * B1.d.3.b — guarded allocation CRUD.
+ * Trusts req.authUser + authenticatedEntityContext only (via resolveActor).
+ * Body/header entity_id and role are ignored for ownership.
+ * Does not mutate invoice paid/remaining (unchanged semantics).
+ */
 async function createPaymentAllocation(req, res) {
     try {
-        const {
-            payment_id,
-            invoice_id,
-            allocated_amount,
-            street_name,
-            postal_code,
-            building_number,
-            city,
-            district,
-            national_address_number,
-            short_address
-        } = req.body || {};
-
-        if (!payment_id || !invoice_id || !allocated_amount) {
-            return res.status(400).json({ success: false, error: 'payment_id, invoice_id, and allocated_amount are required' });
-        }
-
-        const insertQuery = `
-            INSERT INTO finance_payment_allocations
-                (payment_id, invoice_id, allocated_amount, street_name, postal_code, building_number, city, district, national_address_number, short_address)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-            RETURNING *;
-        `;
-
-        const result = await pool.query(insertQuery, [
-            payment_id,
-            invoice_id,
-            allocated_amount,
-            street_name || null,
-            postal_code || null,
-            building_number || null,
-            city || null,
-            district || null,
-            national_address_number || null,
-            short_address || null
-        ]);
-        res.status(201).json({ success: true, allocation: result.rows[0] });
+        const body = req.body || {};
+        const actor = resolveActor({ req });
+        const result = await mutatePaymentAllocation(pool, {
+            mode: 'create',
+            actor,
+            paymentId: body.payment_id,
+            invoiceId: body.invoice_id,
+            allocatedAmount: body.allocated_amount,
+            address: {
+                street_name: body.street_name,
+                postal_code: body.postal_code,
+                building_number: body.building_number,
+                city: body.city,
+                district: body.district,
+                national_address_number: body.national_address_number,
+                short_address: body.short_address
+            }
+        });
+        res.status(201).json({
+            success: true,
+            allocation: result.allocation,
+            balances_touched: false
+        });
     } catch (error) {
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error creating payment allocation:', error);
         res.status(500).json({ success: false, error: error.message });
     }
@@ -423,56 +421,35 @@ async function createPaymentAllocation(req, res) {
 async function updatePaymentAllocation(req, res) {
     try {
         const { allocation_id } = req.params;
-        if (!allocation_id) return res.status(400).json({ success: false, error: 'allocation_id is required' });
-
-        const {
-            payment_id,
-            invoice_id,
-            allocated_amount,
-            street_name,
-            postal_code,
-            building_number,
-            city,
-            district,
-            national_address_number,
-            short_address
-        } = req.body || {};
-        if (!payment_id || !invoice_id || !allocated_amount) {
-            return res.status(400).json({ success: false, error: 'payment_id, invoice_id, and allocated_amount are required' });
+        if (!allocation_id) {
+            return res.status(400).json({ success: false, error: 'allocation_id is required', code: 'ALLOCATION_ID_REQUIRED' });
         }
-
-        const updateQuery = `
-            UPDATE finance_payment_allocations
-            SET payment_id = $1,
-                invoice_id = $2,
-                allocated_amount = $3,
-                street_name = $4,
-                postal_code = $5,
-                building_number = $6,
-                city = $7,
-                district = $8,
-                national_address_number = $9,
-                short_address = $10
-            WHERE allocation_id = $11
-            RETURNING *;
-        `;
-
-        const result = await pool.query(updateQuery, [
-            payment_id,
-            invoice_id,
-            allocated_amount,
-            street_name || null,
-            postal_code || null,
-            building_number || null,
-            city || null,
-            district || null,
-            national_address_number || null,
-            short_address || null,
-            allocation_id
-        ]);
-        if (!result.rows.length) return res.status(404).json({ success: false, error: 'Allocation not found' });
-        res.json({ success: true, allocation: result.rows[0] });
+        const body = req.body || {};
+        const actor = resolveActor({ req });
+        const result = await mutatePaymentAllocation(pool, {
+            mode: 'update',
+            actor,
+            allocationId: allocation_id,
+            paymentId: body.payment_id,
+            invoiceId: body.invoice_id,
+            allocatedAmount: body.allocated_amount,
+            address: {
+                street_name: body.street_name,
+                postal_code: body.postal_code,
+                building_number: body.building_number,
+                city: body.city,
+                district: body.district,
+                national_address_number: body.national_address_number,
+                short_address: body.short_address
+            }
+        });
+        res.json({
+            success: true,
+            allocation: result.allocation,
+            balances_touched: false
+        });
     } catch (error) {
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error updating payment allocation:', error);
         res.status(500).json({ success: false, error: error.message });
     }
@@ -481,13 +458,18 @@ async function updatePaymentAllocation(req, res) {
 async function deletePaymentAllocation(req, res) {
     try {
         const { allocation_id } = req.params;
-        if (!allocation_id) return res.status(400).json({ success: false, error: 'allocation_id is required' });
-
-        const result = await pool.query('DELETE FROM finance_payment_allocations WHERE allocation_id = $1 RETURNING allocation_id', [allocation_id]);
-        if (!result.rows.length) return res.status(404).json({ success: false, error: 'Allocation not found' });
-
-        res.json({ success: true, deleted: result.rows[0].allocation_id });
+        if (!allocation_id) {
+            return res.status(400).json({ success: false, error: 'allocation_id is required', code: 'ALLOCATION_ID_REQUIRED' });
+        }
+        const actor = resolveActor({ req });
+        const result = await mutatePaymentAllocation(pool, {
+            mode: 'delete',
+            actor,
+            allocationId: allocation_id
+        });
+        res.json({ success: true, deleted: result.deleted, balances_touched: false });
     } catch (error) {
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error deleting payment allocation:', error);
         res.status(500).json({ success: false, error: error.message });
     }
