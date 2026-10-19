@@ -1140,17 +1140,20 @@ router.post('/payments', async (req, res) => {
       if (!resolvedBranchId && actor.entityType === 'BRANCH') {
         resolvedBranchId = resolvedEntityId;
       }
+    }
 
-      // No ADVANCE / unallocated AR posting on service path (unsupported without separate liability account)
-      if (!allocList.length) {
-        await client.query('ROLLBACK');
-        return res.status(422).json({
-          success: false,
-          error:
-            'ترحيل الدفعة عبر الخدمة يتطلب تخصيصات على فواتير. الدفعات غير المخصصة / ADVANCE غير مدعومة محاسبيًا في هذه المرحلة.',
-          code: 'ALLOCATIONS_REQUIRED'
-        });
-      }
+    // ADVANCE-B (RC): block unallocated payments on BOTH legacy and service paths.
+    // No customer-advance liability CoA in v1 — empty allocations must not Cr 1130.
+    if (!allocList.length) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({
+        success: false,
+        error:
+          'الدفعات غير المخصصة / العربون (ADVANCE) غير مسموحة في الإصدار الأول. يلزم تخصيص على فاتورة واحدة نظام عربون محاسبي متكامل لاحقًا.',
+        code: 'ALLOCATIONS_REQUIRED',
+        policy: 'ADVANCE_B',
+        payment_type
+      });
     }
 
     // Validate allocation total when allocations present (both paths)
@@ -1340,7 +1343,7 @@ router.post('/payments', async (req, res) => {
       );
       paymentRow = refreshed.rows[0] || paymentRow;
     } else {
-      // Exclusive legacy path (unchanged semantics incl. empty allocations + inline JE)
+      // Exclusive legacy path — allocations guaranteed non-empty by ADVANCE-B guard above
       for (const allocation of allocList) {
         await client.query(
           `INSERT INTO finance_payment_allocations (payment_id, invoice_id, allocated_amount)
