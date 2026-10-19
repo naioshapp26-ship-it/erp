@@ -229,7 +229,11 @@ async function writeAudit(client, {
   reason,
   status = 'SUCCESS'
 }) {
+  // SAVEPOINT: a failed INSERT aborts the whole PG transaction (25P02). Soft-fail
+  // without rollback-to-savepoint previously made COMMIT become a silent ROLLBACK
+  // while callers still received success — critical under finance_test_writer / missing audit_logs.
   try {
+    await client.query('SAVEPOINT finance_audit_write');
     await client.query(
       `INSERT INTO audit_logs
        (user_id, user_name, entity_id, action, resource_type, resource_id, old_value, new_value, ip_address, user_agent, reason, status)
@@ -249,8 +253,13 @@ async function writeAudit(client, {
         status
       ]
     );
+    await client.query('RELEASE SAVEPOINT finance_audit_write');
   } catch (err) {
-    // Soft-fail: audit must not abort posting if audit_logs unavailable in a schema
+    try {
+      await client.query('ROLLBACK TO SAVEPOINT finance_audit_write');
+    } catch {
+      /* no open savepoint / not in txn */
+    }
     console.warn('finance audit_logs write skipped:', err.message);
   }
 }
