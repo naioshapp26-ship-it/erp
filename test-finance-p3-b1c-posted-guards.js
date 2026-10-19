@@ -200,7 +200,10 @@ async function main() {
     );
     // intentionally leave finance_invoices.journal_entry_id NULL
     try {
-      await assertInvoiceDeletable(client, invoiceId);
+      await assertInvoiceDeletable(client, invoiceId, {
+        trustedTestActor: true,
+        actor: { userId: 1, role: 'Admin', permissions: [], authenticated: true, entityId: 'HQ001' }
+      });
       fail('invoice-delete-via-reference-blocked');
     } catch (e) {
       e.code === 'POSTED_DOCUMENT_LOCKED'
@@ -249,7 +252,10 @@ async function main() {
        RETURNING invoice_id`,
       [`B1C-DRAFT-${Date.now()}`, cust.customer_id]
     );
-    await assertInvoiceDeletable(client, draftInv.rows[0].invoice_id);
+    await assertInvoiceDeletable(client, draftInv.rows[0].invoice_id, {
+      trustedTestActor: true,
+      actor: { userId: 1, role: 'Admin', permissions: [], authenticated: true, entityId: 'HQ001' }
+    });
     pass('draft-invoice-deletable');
 
     report.protected = [
