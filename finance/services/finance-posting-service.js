@@ -21,6 +21,9 @@ const {
   legacyPaymentJournalDescription,
   buildLegacyPaymentJournalLines
 } = require('./finance-payment-journal-meta');
+const {
+  assertInvoiceIssueReadyForCollection
+} = require('./finance-collection-gate');
 
 const REVERSAL_REF_TYPE = 'JOURNAL_REVERSAL';
 const ENTRY_TYPE_REVERSAL = 'REVERSAL';
@@ -878,15 +881,10 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
     }
 
     for (const alloc of allocRows) {
-      const invRes = await client.query(
-        `SELECT invoice_id, entity_id, total_amount, paid_amount, remaining_amount, status, payment_status
-         FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE`,
-        [alloc.invoice_id]
-      );
-      const inv = invRes.rows[0];
-      if (!inv) {
-        throw new PostingError(404, 'INVOICE_NOT_FOUND', `فاتورة التخصيص غير موجودة: ${alloc.invoice_id}`);
-      }
+      // B1.d.5a.3 — collection safety gate (issue JE) before remaining/balance checks
+      await advisoryLock(client, 11011, Number(alloc.invoice_id));
+      const issueGate = await assertInvoiceIssueReadyForCollection(client, alloc.invoice_id);
+      const inv = issueGate.invoice;
       assertEntityOwns(inv.entity_id, actor, `فاتورة ${alloc.invoice_id}`);
       if (String(inv.entity_id) !== String(payment.entity_id)) {
         throw new PostingError(
@@ -1053,5 +1051,6 @@ module.exports = {
   buildLegacyInvoiceJournalLines,
   legacyInvoiceJournalDescription,
   legacyPaymentJournalDescription,
-  buildLegacyPaymentJournalLines
+  buildLegacyPaymentJournalLines,
+  assertInvoiceIssueReadyForCollection
 };
