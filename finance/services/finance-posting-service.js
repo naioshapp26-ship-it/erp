@@ -1,10 +1,12 @@
 'use strict';
 
 /**
- * FinancePostingService — B1.b + B1.c auth + B1.d.1 helpers + B1.d.2 readiness (D1/D2).
- * Still does NOT wire POST /finance/invoices or /payments.
+ * FinancePostingService — B1.b + B1.c auth + B1.d.1 helpers + B1.d.2 readiness (D1/D2) + B1.d.3.c payment JE meta.
+ * Still does NOT wire POST /finance/payments (or invoice flag enablement outside isolated tests).
  * D1: journal amounts from stored invoice after roundMoney (2dp) — no invoice↔JE drift.
  * D2: invoice JE metadata matches legacy POST /finance/invoices (prefix JE-, descriptions, reference_number).
+ * B1.d.3.c: payment JE metadata matches legacy POST /finance/payments (JE-, وصف قيد آلي، reference_number،
+ *   أوصاف الأسطر، بلا posted_at/posted_by كالمسار الحالي). Amounts/accounts unchanged.
  * Entity ownership is mandatory (including HQ): cross-entity requires explicit session grant.
  * No schema migrations: duplicate prevention is application-level (locks + lookups) until UNIQUE approved.
  */
@@ -15,6 +17,10 @@ const {
   buildLegacyInvoiceJournalLines,
   legacyInvoiceJournalDescription
 } = require('./finance-invoice-amounts');
+const {
+  legacyPaymentJournalDescription,
+  buildLegacyPaymentJournalLines
+} = require('./finance-payment-journal-meta');
 
 const REVERSAL_REF_TYPE = 'JOURNAL_REVERSAL';
 const ENTRY_TYPE_REVERSAL = 'REVERSAL';
@@ -793,7 +799,26 @@ async function postInvoiceIssue(poolOrClient, invoiceId, ctx = {}) {
 }
 
 /**
+ * Resolve customer display name for legacy payment JE line descriptions.
+ * Prefers payment.customer_name when present; falls back to finance_customers.
+ */
+async function resolvePaymentCustomerName(client, payment) {
+  if (payment.customer_name && String(payment.customer_name).trim()) {
+    return String(payment.customer_name).trim();
+  }
+  if (payment.customer_id == null) return 'عميل';
+  const r = await client.query(
+    `SELECT * FROM finance_customers WHERE customer_id = $1`,
+    [payment.customer_id]
+  );
+  const row = r.rows[0];
+  if (!row) return 'عميل';
+  return row.customer_name_ar || row.customer_name || row.customer_name_en || 'عميل';
+}
+
+/**
  * B1.d.1 helper — post payment receipt JE with allocations in one transaction (NOT wired to HTTP).
+ * B1.d.3.c — JE metadata aligned to live POST /finance/payments (amounts/accounts unchanged).
  */
 async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
   const actor = resolveActor(ctx);
@@ -876,55 +901,51 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
       }
     }
 
-    const method = String(payment.payment_method || 'CASH').toUpperCase();
-    const cashCode = method === 'CASH' ? '1110' : '1120';
-    const cashAcc = await resolveAccountByCode(client, cashCode);
-    const arAcc = await resolveAccountByCode(client, '1130');
-
-    const lines = [
-      {
-        account_id: cashAcc.account_id,
-        account_code: cashCode,
-        debit_amount: paymentAmount,
-        credit_amount: 0,
-        description: `قبض ${payment.payment_number}`
-      },
-      {
-        account_id: arAcc.account_id,
-        account_code: '1130',
-        debit_amount: 0,
-        credit_amount: paymentAmount,
-        description: 'ذمم مدينة'
-      }
-    ];
+    const customerName = await resolvePaymentCustomerName(client, payment);
+    const lineSpecs = buildLegacyPaymentJournalLines({
+      paymentAmount,
+      paymentMethod: payment.payment_method,
+      customerName
+    });
+    const lines = [];
+    for (const spec of lineSpecs) {
+      const acc = await resolveAccountByCode(client, spec.account_code);
+      lines.push({ ...spec, account_id: acc.account_id });
+    }
     const totals = assertBalanced(lines);
 
-    const entryNumber = await generateEntryNumber(client, 'JE-PAY');
+    // B1.d.3.c: match live generateNextNumber('JE') → JE-#### (not JE-PAY-)
+    const entryNumber = await generateEntryNumber(client, 'JE');
+    // Legacy live INSERT: no posted_at/posted_by; audit retained via writeAudit + created_by from trusted actor
     const ins = await client.query(
       `INSERT INTO finance_journal_entries
-       (entry_number, entry_date, entry_type, description, reference_type, reference_id,
-        entity_type, entity_id, status, is_posted, posted_at, posted_by, created_by)
-       VALUES ($1, COALESCE($2::date, CURRENT_DATE), 'AUTO', $3, $4, $5,
-               $6, $7, 'POSTED', true, NOW(), $8, $8)
+       (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
+        entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
+       VALUES ($1, COALESCE($2::date, CURRENT_DATE), 'AUTO', $3, $4, $5, $6,
+               $7, $8, $9, $10, 'POSTED', true, $11)
        RETURNING *`,
       [
         entryNumber,
         payment.payment_date,
-        `تحصيل ${payment.payment_number}`,
+        legacyPaymentJournalDescription(payment.payment_number),
+        payment.payment_number,
         REF_PAYMENT,
         payment.payment_id,
         payment.entity_type || actor.entityType || null,
         payment.entity_id,
+        payment.branch_id != null ? payment.branch_id : null,
+        payment.incubator_id != null ? payment.incubator_id : null,
         String(actor.userId)
       ]
     );
     const entry = ins.rows[0];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      // Match live route: journal_lines without entity_id (header carries entity)
       await client.query(
         `INSERT INTO finance_journal_lines
-         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description, entity_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [
           entry.entry_id,
           i + 1,
@@ -932,8 +953,7 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
           line.account_code,
           line.debit_amount,
           line.credit_amount,
-          line.description,
-          payment.entity_id
+          line.description
         ]
       );
     }
@@ -976,6 +996,7 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
         allocations: allocs.rows.length,
         permission_mode: perm.mode,
         entity_gate: entityGate.mode,
+        metadata_profile: 'legacy_payment_auto_post',
         duplicate_protection: 'application_only'
       },
       status: 'SUCCESS'
@@ -991,6 +1012,7 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
         permission_mode: perm.mode,
         entity_gate: entityGate.mode,
         totals,
+        metadata_profile: 'legacy_payment_auto_post',
         duplicate_protection: 'application_lookup_and_lock_until_unique_index'
       }
     };
@@ -1024,5 +1046,7 @@ module.exports = {
   roundMoney,
   journalAmountsFromStoredInvoice,
   buildLegacyInvoiceJournalLines,
-  legacyInvoiceJournalDescription
+  legacyInvoiceJournalDescription,
+  legacyPaymentJournalDescription,
+  buildLegacyPaymentJournalLines
 };
