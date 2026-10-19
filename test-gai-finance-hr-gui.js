@@ -78,12 +78,14 @@ async function main() {
     const finance = await page.evaluate(() => {
       const text = document.body.innerText || '';
       return {
-        count: document.querySelectorAll('#finance-cards a[href]').length,
-        comingSoon: text.includes('سيتم إضافة أنظمة وخدمات المالية 360 قريبًا'),
+        nav: document.querySelectorAll('#fl360-nav .fl360-nav-btn').length,
+        sections: document.querySelectorAll('#finance-cards .fl360-section-card').length,
+        quick: document.querySelectorAll('#fl360-quick a[href]').length,
+        hasLeadership: text.includes('القيادة المالية 360'),
         hasOld: text.includes('شروط الدفع')
       };
     });
-    record('finance-empty', finance.count === 0 && finance.comingSoon, JSON.stringify(finance));
+    record('finance-leadership-p1', finance.nav === 16 && finance.sections === 16 && finance.quick === 5, JSON.stringify(finance));
     await page.screenshot({ path: path.join(OUT, '01-finance-keep-8.png'), fullPage: true });
 
     await page.goto(`${BASE}/hr`, { waitUntil: 'networkidle2', timeout: 60000 });

@@ -5,6 +5,9 @@
     '#archive-cards a[href]',
     '#hr-cards a[href]',
     '#finance-cards a[href]',
+    '#fl360-quick a[href]',
+    '#fl360-pages a[href]',
+    '#page-settings-list a[href]',
     'a.hero-cta-secondary[href]',
     'nav.floating-actions a[href]'
   ];
