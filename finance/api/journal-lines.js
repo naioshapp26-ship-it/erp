@@ -7,6 +7,10 @@ const { getRequestEntityContext, buildEntityScopeCondition } = require('../../en
 
 const db = require('../../db');
 const pool = db.pool;
+const {
+  assertJournalLineParentMutable,
+  sendGuardError
+} = require('../services/finance-posted-guards');
 
 async function getJournalLines(req, res) {
     const { entity_id } = req.query;
@@ -107,6 +111,7 @@ async function createJournalLine(req, res) {
         if (entryResult.rows[0].entity_id && entryResult.rows[0].entity_id !== entity_id) {
             return res.status(403).json({ success: false, error: 'لا يمكن إضافة سطر لقيد كيان آخر' });
         }
+        await assertJournalLineParentMutable(pool, entry_id);
 
         const accountResult = await pool.query(
             'SELECT account_id, account_code FROM finance_accounts WHERE account_code = $1',
@@ -142,6 +147,7 @@ async function createJournalLine(req, res) {
 
         res.json({ success: true, line: result.rows[0] });
     } catch (error) {
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error creating journal line:', error);
         res.status(500).json({ success: false, error: error.message });
     }
@@ -175,7 +181,7 @@ async function updateJournalLine(req, res) {
 
     try {
         const existing = await pool.query(
-            `SELECT jl.line_id, je.entity_id
+            `SELECT jl.line_id, jl.entry_id, je.entity_id
              FROM finance_journal_lines jl
              JOIN finance_journal_entries je ON jl.entry_id = je.entry_id
              WHERE jl.line_id = $1`,
@@ -187,6 +193,7 @@ async function updateJournalLine(req, res) {
         if (existing.rows[0].entity_id && existing.rows[0].entity_id !== entity_id) {
             return res.status(403).json({ success: false, error: 'لا يمكن تعديل سطر كيان آخر' });
         }
+        await assertJournalLineParentMutable(pool, existing.rows[0].entry_id);
 
         const accountResult = await pool.query(
             'SELECT account_id, account_code FROM finance_accounts WHERE account_code = $1',
@@ -217,6 +224,7 @@ async function updateJournalLine(req, res) {
 
         res.json({ success: true, line: result.rows[0] });
     } catch (error) {
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error updating journal line:', error);
         res.status(500).json({ success: false, error: error.message });
     }
@@ -232,7 +240,7 @@ async function deleteJournalLine(req, res) {
 
     try {
         const existing = await pool.query(
-            `SELECT jl.line_id, je.entity_id
+            `SELECT jl.line_id, jl.entry_id, je.entity_id
              FROM finance_journal_lines jl
              JOIN finance_journal_entries je ON jl.entry_id = je.entry_id
              WHERE jl.line_id = $1`,
@@ -244,10 +252,12 @@ async function deleteJournalLine(req, res) {
         if (existing.rows[0].entity_id && existing.rows[0].entity_id !== entity_id) {
             return res.status(403).json({ success: false, error: 'لا يمكن حذف سطر كيان آخر' });
         }
+        await assertJournalLineParentMutable(pool, existing.rows[0].entry_id);
 
         await pool.query('DELETE FROM finance_journal_lines WHERE line_id = $1', [line_id]);
         res.json({ success: true, message: 'تم حذف السطر' });
     } catch (error) {
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error deleting journal line:', error);
         res.status(500).json({ success: false, error: error.message });
     }
