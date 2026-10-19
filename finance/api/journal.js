@@ -9,6 +9,10 @@ const { getRequestEntityContext, buildEntityScopeCondition } = require('../../en
 // Database connection
 const db = require('../../db');
 const pool = db.pool;
+const {
+  assertJournalEntryMutable,
+  sendGuardError
+} = require('../services/finance-posted-guards');
 
 function normalizeAmount(value) {
     if (value === null || value === undefined) return 0;
@@ -526,6 +530,14 @@ async function deleteJournalEntry(req, res) {
     try {
         await client.query('BEGIN');
 
+        try {
+            await assertJournalEntryMutable(client, entry_id, { forDelete: true });
+        } catch (guardErr) {
+            await client.query('ROLLBACK');
+            if (sendGuardError(res, guardErr)) return;
+            throw guardErr;
+        }
+
         const entryResult = await client.query(
             `SELECT entry_id, entry_number, status
              FROM finance_journal_entries
@@ -618,6 +630,14 @@ async function updateJournalEntry(req, res) {
 
     try {
         await client.query('BEGIN');
+
+        try {
+            await assertJournalEntryMutable(client, entry_id, { forDelete: false });
+        } catch (guardErr) {
+            await client.query('ROLLBACK');
+            if (sendGuardError(res, guardErr)) return;
+            throw guardErr;
+        }
 
         const existingResult = await client.query(
             `SELECT entry_id, entry_number, entry_type

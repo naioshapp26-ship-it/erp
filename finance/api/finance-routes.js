@@ -1,6 +1,48 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../db');
+const {
+  postManualEntry,
+  reverseEntry,
+  postInvoiceIssue,
+  postPaymentReceipt,
+  resolveActor,
+  assertEntityOwns,
+  PostingError,
+  roundMoney
+} = require('../services/finance-posting-service');
+const {
+  assertInvoiceIssueReadyForCollection
+} = require('../services/finance-collection-gate');
+const {
+  assertInvoiceDeletable,
+  assertInvoiceMutable,
+  assertPaymentMutable,
+  assertPaymentDeletable,
+  GuardError,
+  sendGuardError
+} = require('../services/finance-posted-guards');
+const { computeInvoiceTotalsFromLines } = require('../services/finance-invoice-amounts');
+
+/**
+ * B1.d.2 — invoice create via FinancePostingService.
+ * Default FALSE. Must remain false in Staging/Production until explicit approval.
+ * Tests may set FINANCE_POST_INVOICE_VIA_SERVICE=true in an isolated process only.
+ */
+function isFinancePostInvoiceViaService() {
+  const v = String(process.env.FINANCE_POST_INVOICE_VIA_SERVICE || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
+
+/**
+ * B1.d.3.d — payment create via FinancePostingService (postPaymentReceipt).
+ * Default FALSE. Must remain false in Staging/Production until explicit approval.
+ * Tests may set FINANCE_POST_PAYMENT_VIA_SERVICE=true in an isolated process only.
+ */
+function isFinancePostPaymentViaService() {
+  const v = String(process.env.FINANCE_POST_PAYMENT_VIA_SERVICE || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
 
 // ========================================
 // Helper Functions
@@ -27,12 +69,16 @@ const getEntityFilter = (userEntity, tableAlias = '') => {
 
 // Generate Next Number Helper (tolerant to mixed formats like JE-<timestamp>-xyz)
 const generateNextNumber = async (prefix, table, column) => {
+  // Match PREFIX-0001 only (ignore seeds like INV-FIN-001 / JE-INV-…)
   const result = await db.query(
-    `SELECT ${column} FROM ${table} WHERE ${column} LIKE $1 ORDER BY ${column} DESC LIMIT 1`,
-    [`${prefix}%`]
+    `SELECT ${column} AS num FROM ${table}
+     WHERE ${column} ~ ('^' || $1 || '-[0-9]+$')
+     ORDER BY ${column} DESC
+     LIMIT 1`,
+    [prefix]
   );
 
-  const lastNumber = result.rows[0]?.[column] || '';
+  const lastNumber = result.rows[0]?.num || '';
   const numericMatches = String(lastNumber).match(/\d+/g) || [];
   const lastNumeric = numericMatches.length ? parseInt(numericMatches[numericMatches.length - 1], 10) || 0 : 0;
   const nextNum = lastNumeric + 1;
@@ -399,33 +445,51 @@ router.post('/journal-entries', async (req, res) => {
   }
 });
 
-// Post journal entry (make it permanent)
+// Post journal entry (make it permanent) — B1.b via FinancePostingService
 router.post('/journal-entries/:id/post', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const result = await db.query(
-      `UPDATE finance_journal_entries 
-       SET status = 'POSTED', is_posted = true, posted_at = NOW(), posted_by = $1
-       WHERE entry_id = $2 AND status = 'DRAFT'
-       RETURNING *`,
-      [req.headers['x-user-id'] || 'system', id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Journal entry not found or already posted' 
-      });
-    }
-    
+    const out = await postManualEntry(db.pool, id, { req, reason: req.body?.reason });
     res.json({
       success: true,
-      entry: result.rows[0],
-      message: 'Journal entry posted successfully'
+      entry: out.entry,
+      message: out.message || 'Journal entry posted successfully'
     });
   } catch (error) {
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
     console.error('Error posting journal entry:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Reverse a posted journal entry — B1.b (new linked REVERSAL; does not mutate original row amounts/status)
+router.post('/journal-entries/:id/reverse', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const out = await reverseEntry(db.pool, id, { req, reason: req.body?.reason });
+    res.status(201).json({
+      success: true,
+      entry: out.entry,
+      original_entry_id: out.original_entry_id,
+      message: out.message || 'Journal entry reversed successfully'
+    });
+  } catch (error) {
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
+    console.error('Error reversing journal entry:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -548,6 +612,7 @@ router.get('/invoices/:id', async (req, res) => {
 router.put('/invoices/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    await assertInvoiceMutable(db.pool, id);
     const allowedFields = [
       'invoice_number', 'invoice_date', 'due_date', 'customer_id', 'customer_name',
       'subtotal', 'tax_amount', 'discount_amount', 'total_amount', 'paid_amount', 'remaining_amount',
@@ -590,39 +655,56 @@ router.put('/invoices/:id', async (req, res) => {
 
     res.json({ success: true, invoice: result.rows[0] });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error updating invoice:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Delete invoice
+// Delete invoice — B1.d.2 D3/G3: posted lock + trusted entity ownership (no cross-entity)
 router.delete('/invoices/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const invoice = await assertInvoiceDeletable(db.pool, id, { req });
+    const actor = resolveActor({ req });
 
     await db.query('DELETE FROM finance_payment_allocations WHERE invoice_id = $1', [id]);
     await db.query('DELETE FROM finance_payment_plans WHERE invoice_id = $1', [id]);
     await db.query('DELETE FROM finance_invoice_lines WHERE invoice_id = $1', [id]);
-    const result = await db.query('DELETE FROM finance_invoices WHERE invoice_id = $1 RETURNING *', [id]);
+    // Defense in depth: require entity_id match after ownership gate
+    const result = await db.query(
+      `DELETE FROM finance_invoices
+       WHERE invoice_id = $1 AND entity_id IS NOT DISTINCT FROM $2
+       RETURNING *`,
+      [id, invoice.entity_id]
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Invoice not found' });
     }
 
-    res.json({ success: true, invoice: result.rows[0] });
+    res.json({
+      success: true,
+      invoice: result.rows[0],
+      meta: { entity_gate: 'assertInvoiceDeletable', actor_entity_id: actor.entityId }
+    });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error deleting invoice:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Create new invoice
+// B1.d.2: when FINANCE_POST_INVOICE_VIA_SERVICE=true → service posting (exclusive).
+// Default false → legacy inline JE (unchanged). Never run both paths.
 router.post('/invoices', async (req, res) => {
   const client = await db.pool.connect();
-  
+  const useService = isFinancePostInvoiceViaService();
+
   try {
     await client.query('BEGIN');
-    
+
     const {
       customer_id,
       invoice_date,
@@ -646,42 +728,100 @@ router.post('/invoices', async (req, res) => {
       notes,
       lines = []
     } = req.body;
-    
-    // Get customer info
+
     const customerResult = await client.query(
       'SELECT * FROM finance_customers WHERE customer_id = $1',
       [customer_id]
     );
-    
+
     if (customerResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Customer not found' });
     }
-    
+
     const customer = customerResult.rows[0];
-    
-    // Calculate totals
-    let subtotal = 0;
-    let tax_amount = 0;
-    let discount_amount = 0;
-    
-    for (const line of lines) {
-      const lineSubtotal = line.quantity * line.unit_price;
-      const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
-      const lineTaxable = lineSubtotal - lineDiscount;
-      const lineTax = lineTaxable * (line.tax_percentage || 15) / 100;
-      
-      subtotal += lineSubtotal;
-      discount_amount += lineDiscount;
-      tax_amount += lineTax;
+
+    let subtotal;
+    let tax_amount;
+    let discount_amount;
+    let total_amount;
+    let lineRows = lines;
+    let resolvedEntityType = entity_type;
+    let resolvedEntityId = entity_id;
+    let resolvedBranchId = branch_id;
+    let resolvedIncubatorId = incubator_id;
+    let createdBy = req.headers['x-user-id'] || 'system';
+    let actor = null;
+
+    if (useService) {
+      // Trusted session required for service path (entity ownership + posting permission)
+      actor = resolveActor({ req });
+      if (!actor.authenticated) {
+        await client.query('ROLLBACK');
+        return res.status(401).json({
+          success: false,
+          error: 'يجب تسجيل الدخول بصلاحية خادمية موثوقة قبل إنشاء فاتورة عبر خدمة الترحيل',
+          code: 'AUTH_REQUIRED'
+        });
+      }
+      if (!actor.entityId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          success: false,
+          error: 'جلسة المستخدم بلا كيان موثوق — مرفوض',
+          code: 'ENTITY_SCOPE_REQUIRED'
+        });
+      }
+
+      // Target entity: body value if present, else session. Ownership enforced server-side.
+      resolvedEntityId = entity_id != null && String(entity_id).trim() !== ''
+        ? String(entity_id).trim()
+        : String(actor.entityId);
+      resolvedEntityType = entity_type || actor.entityType || null;
+      try {
+        assertEntityOwns(resolvedEntityId, actor, 'الفاتورة');
+      } catch (ownErr) {
+        await client.query('ROLLBACK');
+        if (ownErr instanceof PostingError) {
+          return res.status(ownErr.status).json({
+            success: false,
+            error: ownErr.message,
+            code: ownErr.code,
+            ...(ownErr.extra || {})
+          });
+        }
+        throw ownErr;
+      }
+
+      const computed = computeInvoiceTotalsFromLines(lines || []);
+      subtotal = computed.subtotal;
+      tax_amount = computed.tax_amount;
+      discount_amount = computed.discount_amount;
+      total_amount = computed.total_amount;
+      lineRows = computed.lines;
+      createdBy = String(actor.userId || createdBy);
+      if (!resolvedBranchId && actor.entityType === 'BRANCH') {
+        resolvedBranchId = resolvedEntityId;
+      }
+    } else {
+      // Legacy calculation (unchanged) — exclusive when flag is false
+      subtotal = 0;
+      tax_amount = 0;
+      discount_amount = 0;
+      for (const line of lines) {
+        const lineSubtotal = line.quantity * line.unit_price;
+        const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
+        const lineTaxable = lineSubtotal - lineDiscount;
+        const lineTax = lineTaxable * (line.tax_percentage || 15) / 100;
+        subtotal += lineSubtotal;
+        discount_amount += lineDiscount;
+        tax_amount += lineTax;
+      }
+      total_amount = subtotal - discount_amount + tax_amount;
     }
-    
-    const total_amount = subtotal - discount_amount + tax_amount;
-    
-    // Generate invoice number
+
     const invoice_number = await generateNextNumber('INV', 'finance_invoices', 'invoice_number');
-    
-    // Create invoice
+
     const invoiceResult = await client.query(
       `INSERT INTO finance_invoices 
        (invoice_number, invoice_date, due_date, customer_id, customer_name,
@@ -693,9 +833,9 @@ router.post('/invoices', async (req, res) => {
        RETURNING *`,
       [invoice_number, invoice_date, due_date, customer_id, customer.customer_name_ar,
        subtotal, tax_amount, discount_amount, total_amount, total_amount,
-       program_id, service_id, entity_type, entity_id, branch_id, incubator_id, platform_id,
+       program_id, service_id, resolvedEntityType, resolvedEntityId, resolvedBranchId, resolvedIncubatorId, platform_id,
        allow_partial_payment, allow_installments, notes,
-       req.headers['x-user-id'] || 'system',
+       createdBy,
        street_name || null,
        postal_code || null,
        building_number || null,
@@ -704,86 +844,126 @@ router.post('/invoices', async (req, res) => {
        national_address_number || null,
        short_address || null]
     );
-    
+
     const invoice_id = invoiceResult.rows[0].invoice_id;
-    
-    // Create invoice lines
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineSubtotal = line.quantity * line.unit_price;
-      const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
-      const lineTaxable = lineSubtotal - lineDiscount;
-      const lineTax = lineTaxable * (line.tax_percentage || 15) / 100;
-      const lineTotal = lineTaxable + lineTax;
-      
-      await client.query(
-        `INSERT INTO finance_invoice_lines 
-         (invoice_id, line_number, item_code, item_name, description, quantity, unit_price,
-          discount_percentage, discount_amount, tax_percentage, tax_amount, line_total, revenue_account_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        [invoice_id, i + 1, line.item_code, line.item_name, line.description,
-         line.quantity, line.unit_price, line.discount_percentage || 0, lineDiscount,
-         line.tax_percentage || 15, lineTax, lineTotal, line.revenue_account_id]
-      );
+    let invoiceRow = invoiceResult.rows[0];
+
+    for (let i = 0; i < lineRows.length; i++) {
+      const line = lineRows[i];
+      if (useService) {
+        await client.query(
+          `INSERT INTO finance_invoice_lines 
+           (invoice_id, line_number, item_code, item_name, description, quantity, unit_price,
+            discount_percentage, discount_amount, tax_percentage, tax_amount, line_total, revenue_account_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [invoice_id, i + 1, line.item_code || null, line.item_name, line.description || null,
+           line.quantity, line.unit_price, line.discount_percentage || 0, line.discount_amount,
+           line.tax_percentage, line.tax_amount, line.line_total, line.revenue_account_id || null]
+        );
+      } else {
+        const lineSubtotal = line.quantity * line.unit_price;
+        const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
+        const lineTaxable = lineSubtotal - lineDiscount;
+        const lineTax = lineTaxable * (line.tax_percentage || 15) / 100;
+        const lineTotal = lineTaxable + lineTax;
+        await client.query(
+          `INSERT INTO finance_invoice_lines 
+           (invoice_id, line_number, item_code, item_name, description, quantity, unit_price,
+            discount_percentage, discount_amount, tax_percentage, tax_amount, line_total, revenue_account_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [invoice_id, i + 1, line.item_code, line.item_name, line.description,
+           line.quantity, line.unit_price, line.discount_percentage || 0, lineDiscount,
+           line.tax_percentage || 15, lineTax, lineTotal, line.revenue_account_id]
+        );
+      }
     }
-    
-    // Create automatic journal entry
-    const entry_number = await generateNextNumber('JE', 'finance_journal_entries', 'entry_number');
-    
-    const journalResult = await client.query(
-      `INSERT INTO finance_journal_entries 
-       (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
-        entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
-       VALUES ($1, $2, 'AUTO', $3, $4, 'INVOICE', $5, $6, $7, $8, $9, 'POSTED', true, $10)
-       RETURNING *`,
-      [entry_number, invoice_date, `قيد آلي - فاتورة رقم ${invoice_number}`, invoice_number, invoice_id,
-       entity_type, entity_id, branch_id, incubator_id, req.headers['x-user-id'] || 'system']
-    );
-    
-    const journal_entry_id = journalResult.rows[0].entry_id;
-    
-    // Debit: Accounts Receivable
-    await client.query(
-      `INSERT INTO finance_journal_lines 
-       (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-       VALUES ($1, 1, (SELECT account_id FROM finance_accounts WHERE account_code = '1130'), '1130', $2, 0, $3)`,
-      [journal_entry_id, total_amount, `ذمم مدينة - ${customer.customer_name_ar}`]
-    );
-    
-    // Credit: Revenue (from lines)
-    await client.query(
-      `INSERT INTO finance_journal_lines 
-       (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-       VALUES ($1, 2, (SELECT account_id FROM finance_accounts WHERE account_code = '4100'), '4100', 0, $2, $3)`,
-      [journal_entry_id, subtotal - discount_amount, `إيرادات`]
-    );
-    
-    // Credit: Tax Payable (if applicable)
-    if (tax_amount > 0) {
+
+    let journal_entry_id;
+
+    if (useService) {
+      // Exclusive service path — same client, no nested COMMIT
+      const posted = await postInvoiceIssue(client, invoice_id, {
+        req,
+        manageTransaction: false
+      });
+      journal_entry_id = posted.entry.entry_id;
+      const refreshed = await client.query(
+        `SELECT * FROM finance_invoices WHERE invoice_id = $1`,
+        [invoice_id]
+      );
+      invoiceRow = refreshed.rows[0] || invoiceRow;
+    } else {
+      // Exclusive legacy path
+      const entry_number = await generateNextNumber('JE', 'finance_journal_entries', 'entry_number');
+
+      const journalResult = await client.query(
+        `INSERT INTO finance_journal_entries 
+         (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
+          entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
+         VALUES ($1, $2, 'AUTO', $3, $4, 'INVOICE', $5, $6, $7, $8, $9, 'POSTED', true, $10)
+         RETURNING *`,
+        [entry_number, invoice_date, `قيد آلي - فاتورة رقم ${invoice_number}`, invoice_number, invoice_id,
+         resolvedEntityType, resolvedEntityId, resolvedBranchId, resolvedIncubatorId, createdBy]
+      );
+
+      journal_entry_id = journalResult.rows[0].entry_id;
+
       await client.query(
         `INSERT INTO finance_journal_lines 
          (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-         VALUES ($1, 3, (SELECT account_id FROM finance_accounts WHERE account_code = '2140'), '2140', 0, $2, $3)`,
-        [journal_entry_id, tax_amount, `ضريبة القيمة المضافة`]
+         VALUES ($1, 1, (SELECT account_id FROM finance_accounts WHERE account_code = '1130'), '1130', $2, 0, $3)`,
+        [journal_entry_id, total_amount, `ذمم مدينة - ${customer.customer_name_ar}`]
       );
+
+      await client.query(
+        `INSERT INTO finance_journal_lines 
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+         VALUES ($1, 2, (SELECT account_id FROM finance_accounts WHERE account_code = '4100'), '4100', 0, $2, $3)`,
+        [journal_entry_id, subtotal - discount_amount, `إيرادات`]
+      );
+
+      if (tax_amount > 0) {
+        await client.query(
+          `INSERT INTO finance_journal_lines 
+           (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+           VALUES ($1, 3, (SELECT account_id FROM finance_accounts WHERE account_code = '2140'), '2140', 0, $2, $3)`,
+          [journal_entry_id, tax_amount, `ضريبة القيمة المضافة`]
+        );
+      }
+
+      await client.query(
+        'UPDATE finance_invoices SET journal_entry_id = $1 WHERE invoice_id = $2',
+        [journal_entry_id, invoice_id]
+      );
+      invoiceRow = { ...invoiceRow, journal_entry_id };
     }
-    
-    // Update invoice with journal entry ID
-    await client.query(
-      'UPDATE finance_invoices SET journal_entry_id = $1 WHERE invoice_id = $2',
-      [journal_entry_id, invoice_id]
-    );
-    
+
     await client.query('COMMIT');
-    
+
     res.status(201).json({
       success: true,
-      invoice: invoiceResult.rows[0],
-      journal_entry_id: journal_entry_id,
-      message: 'Invoice created successfully'
+      invoice: invoiceRow,
+      journal_entry_id,
+      message: 'Invoice created successfully',
+      meta: {
+        posting_via_service: useService,
+        finance_post_invoice_via_service: useService
+      }
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* */
+    }
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
     console.error('Error creating invoice:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
@@ -857,15 +1037,17 @@ router.get('/payments', async (req, res) => {
 });
 
 // Create payment
+// B1.d.3.d: when FINANCE_POST_PAYMENT_VIA_SERVICE=true → postPaymentReceipt (exclusive).
+// Default false → legacy inline JE + balance updates (unchanged). Never run both paths.
 router.post('/payments', async (req, res) => {
   const client = await db.pool.connect();
-  
+  const useService = isFinancePostPaymentViaService();
+
   try {
     await client.query('BEGIN');
-    
+
     const {
       customer_id,
-      customer_name,
       payment_date,
       payment_amount,
       payment_method,
@@ -887,9 +1069,15 @@ router.post('/payments', async (req, res) => {
       notes,
       allocations = [] // [{ invoice_id, allocated_amount }]
     } = req.body;
-    const resolvedEntityId = entity_id || (req.userEntity ? req.userEntity.id : 'HQ001');
-    const resolvedEntityType = entity_type || (req.userEntity ? req.userEntity.type : 'HQ');
-    
+
+    let resolvedEntityId = entity_id || (req.userEntity ? req.userEntity.id : 'HQ001');
+    let resolvedEntityType = entity_type || (req.userEntity ? req.userEntity.type : 'HQ');
+    let resolvedBranchId = branch_id;
+    let resolvedIncubatorId = incubator_id;
+    let createdBy = req.headers['x-user-id'] || 'system';
+    let actor = null;
+    const allocList = Array.isArray(allocations) ? allocations : [];
+
     // Get customer info
     let customer = null;
     if (customer_id) {
@@ -907,11 +1095,74 @@ router.post('/payments', async (req, res) => {
         error: 'Customer not found. Create the customer first with the required fields.'
       });
     }
-    
-    // Validate allocation total
-    if (allocations.length) {
-      const totalAllocated = allocations.reduce((sum, a) => sum + parseFloat(a.allocated_amount), 0);
-      if (Math.abs(totalAllocated - payment_amount) > 0.01) {
+
+    if (useService) {
+      // Trusted session — ignore spoofed role/entity from headers/body for ownership
+      actor = resolveActor({ req });
+      if (!actor.authenticated) {
+        await client.query('ROLLBACK');
+        return res.status(401).json({
+          success: false,
+          error: 'يجب تسجيل الدخول بصلاحية خادمية موثوقة قبل إنشاء دفعة عبر خدمة الترحيل',
+          code: 'AUTH_REQUIRED'
+        });
+      }
+      if (!actor.entityId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          success: false,
+          error: 'جلسة المستخدم بلا كيان موثوق — مرفوض',
+          code: 'ENTITY_SCOPE_REQUIRED'
+        });
+      }
+
+      resolvedEntityId =
+        entity_id != null && String(entity_id).trim() !== ''
+          ? String(entity_id).trim()
+          : String(actor.entityId);
+      resolvedEntityType = entity_type || actor.entityType || null;
+      try {
+        assertEntityOwns(resolvedEntityId, actor, 'الدفعة');
+      } catch (ownErr) {
+        await client.query('ROLLBACK');
+        if (ownErr instanceof PostingError) {
+          return res.status(ownErr.status).json({
+            success: false,
+            error: ownErr.message,
+            code: ownErr.code,
+            ...(ownErr.extra || {})
+          });
+        }
+        throw ownErr;
+      }
+
+      createdBy = String(actor.userId || createdBy);
+      if (!resolvedBranchId && actor.entityType === 'BRANCH') {
+        resolvedBranchId = resolvedEntityId;
+      }
+    }
+
+    // ADVANCE-B (RC): block unallocated payments on BOTH legacy and service paths.
+    // No customer-advance liability CoA in v1 — empty allocations must not Cr 1130.
+    if (!allocList.length) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({
+        success: false,
+        error:
+          'الدفعات غير المخصصة / العربون (ADVANCE) غير مسموحة في الإصدار الأول. يلزم تخصيص على فاتورة واحدة نظام عربون محاسبي متكامل لاحقًا.',
+        code: 'ALLOCATIONS_REQUIRED',
+        policy: 'ADVANCE_B',
+        payment_type
+      });
+    }
+
+    // Validate allocation total when allocations present (both paths)
+    if (allocList.length) {
+      const totalAllocated = allocList.reduce(
+        (sum, a) => sum + parseFloat(a.allocated_amount),
+        0
+      );
+      if (Math.abs(totalAllocated - Number(payment_amount)) > 0.01) {
         await client.query('ROLLBACK');
         return res.status(400).json({
           success: false,
@@ -921,104 +1172,286 @@ router.post('/payments', async (req, res) => {
         });
       }
     }
-    
+
+    const storedPaymentAmount = useService ? roundMoney(payment_amount) : payment_amount;
+
+    // B1.d.5a.3 — collection safety gate for BOTH legacy and service HTTP paths
+    // (must not be nested under useService-only prechecks).
+    let sortedAllocs = allocList;
+    if (allocList.length) {
+      sortedAllocs = [...allocList].sort(
+        (a, b) => Number(a.invoice_id) - Number(b.invoice_id)
+      );
+      const seenGate = new Set();
+      for (const allocation of sortedAllocs) {
+        const invId = Number(allocation.invoice_id);
+        if (seenGate.has(invId)) continue;
+        seenGate.add(invId);
+        try {
+          await assertInvoiceIssueReadyForCollection(client, invId);
+        } catch (gateErr) {
+          await client.query('ROLLBACK');
+          if (gateErr instanceof PostingError) {
+            return res.status(gateErr.status).json({
+              success: false,
+              error: gateErr.message,
+              code: gateErr.code,
+              ...(gateErr.extra || {})
+            });
+          }
+          throw gateErr;
+        }
+      }
+    }
+
+    // Service path: lock invoices in stable order, re-check remaining + entity before insert
+    if (useService) {
+      const seenInv = new Set();
+      for (const allocation of sortedAllocs) {
+        const invId = Number(allocation.invoice_id);
+        if (seenInv.has(invId)) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            success: false,
+            error: 'تخصيص مكرر لنفس الفاتورة في طلب واحد مرفوض',
+            code: 'DUPLICATE_ALLOCATION'
+          });
+        }
+        seenInv.add(invId);
+
+        const invRes = await client.query(
+          `SELECT invoice_id, entity_id, total_amount, paid_amount, remaining_amount
+           FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE`,
+          [invId]
+        );
+        const inv = invRes.rows[0];
+        if (!inv) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({
+            success: false,
+            error: `فاتورة التخصيص غير موجودة: ${invId}`,
+            code: 'INVOICE_NOT_FOUND'
+          });
+        }
+        try {
+          assertEntityOwns(inv.entity_id, actor, `فاتورة ${invId}`);
+        } catch (ownErr) {
+          await client.query('ROLLBACK');
+          if (ownErr instanceof PostingError) {
+            return res.status(ownErr.status).json({
+              success: false,
+              error: ownErr.message,
+              code: ownErr.code,
+              ...(ownErr.extra || {})
+            });
+          }
+          throw ownErr;
+        }
+        if (String(inv.entity_id) !== String(resolvedEntityId)) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            success: false,
+            error: 'تخصيص دفعة لفاتورة من كيان مختلف مرفوض',
+            code: 'ALLOCATION_ENTITY_MISMATCH',
+            payment_entity_id: String(resolvedEntityId),
+            invoice_entity_id: String(inv.entity_id)
+          });
+        }
+        const remaining = roundMoney(
+          inv.remaining_amount != null
+            ? inv.remaining_amount
+            : Number(inv.total_amount) - Number(inv.paid_amount || 0)
+        );
+        const allocated = roundMoney(allocation.allocated_amount);
+        if (allocated > remaining + 0.01) {
+          await client.query('ROLLBACK');
+          return res.status(422).json({
+            success: false,
+            error: 'التخصيص يتجاوز المبلغ المتبقي للفاتورة',
+            code: 'OVER_ALLOCATION',
+            invoice_id: inv.invoice_id,
+            remaining,
+            allocated
+          });
+        }
+      }
+    }
+
     // Generate payment number
     const payment_number = await generateNextNumber('PAY', 'finance_payments', 'payment_number');
-    
-    // Create payment
+
+    // Create payment (service: PENDING until postPaymentReceipt; legacy: APPROVED as before)
+    const paymentStatus = useService ? 'PENDING' : 'APPROVED';
     const paymentResult = await client.query(
       `INSERT INTO finance_payments 
        (payment_number, payment_date, customer_id, customer_name, payment_amount, payment_method,
         payment_type, bank_name, check_number, transaction_reference,
         street_name, postal_code, building_number, city, district, national_address_number, short_address,
         entity_type, entity_id, branch_id, incubator_id, notes, status, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 'APPROVED', $22)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
        RETURNING *`,
-      [payment_number, payment_date, customer.customer_id, customer.customer_name_ar, payment_amount, payment_method,
-             payment_type, bank_name, check_number, transaction_reference,
-             street_name || null, postal_code || null, building_number || null, city || null, district || null,
-             national_address_number || null, short_address || null,
-             resolvedEntityType, resolvedEntityId, branch_id, incubator_id, notes, req.headers['x-user-id'] || 'system']
+      [
+        payment_number,
+        payment_date,
+        customer.customer_id,
+        customer.customer_name_ar,
+        storedPaymentAmount,
+        payment_method,
+        payment_type,
+        bank_name,
+        check_number,
+        transaction_reference,
+        street_name || null,
+        postal_code || null,
+        building_number || null,
+        city || null,
+        district || null,
+        national_address_number || null,
+        short_address || null,
+        resolvedEntityType,
+        resolvedEntityId,
+        resolvedBranchId,
+        resolvedIncubatorId,
+        notes,
+        paymentStatus,
+        createdBy
+      ]
     );
-    
+
     const payment_id = paymentResult.rows[0].payment_id;
-    
-    // Create allocations and update invoices
-    for (const allocation of allocations) {
-      await client.query(
-        `INSERT INTO finance_payment_allocations (payment_id, invoice_id, allocated_amount)
-         VALUES ($1, $2, $3)`,
-        [payment_id, allocation.invoice_id, allocation.allocated_amount]
+    let paymentRow = paymentResult.rows[0];
+    let journal_entry_id;
+
+    if (useService) {
+      // Insert allocations only — balances + JE exclusively via postPaymentReceipt
+      for (const allocation of sortedAllocs) {
+        await client.query(
+          `INSERT INTO finance_payment_allocations (payment_id, invoice_id, allocated_amount)
+           VALUES ($1, $2, $3)`,
+          [payment_id, allocation.invoice_id, roundMoney(allocation.allocated_amount)]
+        );
+      }
+
+      const posted = await postPaymentReceipt(client, payment_id, {
+        req,
+        manageTransaction: false
+      });
+      journal_entry_id = posted.entry.entry_id;
+      const refreshed = await client.query(
+        `SELECT * FROM finance_payments WHERE payment_id = $1`,
+        [payment_id]
       );
-      
-      // Update invoice
+      paymentRow = refreshed.rows[0] || paymentRow;
+    } else {
+      // Exclusive legacy path — allocations guaranteed non-empty by ADVANCE-B guard above
+      for (const allocation of allocList) {
+        await client.query(
+          `INSERT INTO finance_payment_allocations (payment_id, invoice_id, allocated_amount)
+           VALUES ($1, $2, $3)`,
+          [payment_id, allocation.invoice_id, allocation.allocated_amount]
+        );
+
+        await client.query(
+          `UPDATE finance_invoices 
+           SET paid_amount = paid_amount + $1,
+               remaining_amount = remaining_amount - $2,
+               payment_status = CASE 
+                 WHEN remaining_amount - $3 <= 0 THEN 'PAID'
+                 ELSE 'PARTIAL'
+               END,
+               status = CASE 
+                 WHEN remaining_amount - $4 <= 0 THEN 'PAID'
+                 ELSE status
+               END,
+               updated_at = NOW()
+           WHERE invoice_id = $5`,
+          [
+            allocation.allocated_amount,
+            allocation.allocated_amount,
+            allocation.allocated_amount,
+            allocation.allocated_amount,
+            allocation.invoice_id
+          ]
+        );
+      }
+
+      const entry_number = await generateNextNumber('JE', 'finance_journal_entries', 'entry_number');
+
+      const journalResult = await client.query(
+        `INSERT INTO finance_journal_entries 
+         (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
+          entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
+         VALUES ($1, $2, 'AUTO', $3, $4, 'PAYMENT', $5, $6, $7, $8, $9, 'POSTED', true, $10)
+         RETURNING *`,
+        [
+          entry_number,
+          payment_date,
+          `قيد آلي - دفعة رقم ${payment_number}`,
+          payment_number,
+          payment_id,
+          entity_type,
+          entity_id,
+          branch_id,
+          incubator_id,
+          createdBy
+        ]
+      );
+
+      journal_entry_id = journalResult.rows[0].entry_id;
+
+      const cashAccount = payment_method === 'CASH' ? '1110' : '1120';
       await client.query(
-        `UPDATE finance_invoices 
-         SET paid_amount = paid_amount + $1,
-             remaining_amount = remaining_amount - $2,
-             payment_status = CASE 
-               WHEN remaining_amount - $3 <= 0 THEN 'PAID'
-               ELSE 'PARTIAL'
-             END,
-             status = CASE 
-               WHEN remaining_amount - $4 <= 0 THEN 'PAID'
-               ELSE status
-             END,
-             updated_at = NOW()
-         WHERE invoice_id = $5`,
-        [allocation.allocated_amount, allocation.allocated_amount, 
-         allocation.allocated_amount, allocation.allocated_amount, allocation.invoice_id]
+        `INSERT INTO finance_journal_lines 
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+         VALUES ($1, 1, (SELECT account_id FROM finance_accounts WHERE account_code = $2), $3, $4, 0, $5)`,
+        [
+          journal_entry_id,
+          cashAccount,
+          cashAccount,
+          payment_amount,
+          `دفعة من ${customer.customer_name_ar}`
+        ]
+      );
+
+      await client.query(
+        `INSERT INTO finance_journal_lines 
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+         VALUES ($1, 2, (SELECT account_id FROM finance_accounts WHERE account_code = '1130'), '1130', 0, $2, $3)`,
+        [journal_entry_id, payment_amount, `ذمم مدينة - ${customer.customer_name_ar}`]
+      );
+
+      await client.query(
+        'UPDATE finance_payments SET journal_entry_id = $1 WHERE payment_id = $2',
+        [journal_entry_id, payment_id]
       );
     }
-    
-    // Create automatic journal entry
-    const entry_number = await generateNextNumber('JE', 'finance_journal_entries', 'entry_number');
-    
-    const journalResult = await client.query(
-      `INSERT INTO finance_journal_entries 
-       (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
-        entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
-       VALUES ($1, $2, 'AUTO', $3, $4, 'PAYMENT', $5, $6, $7, $8, $9, 'POSTED', true, $10)
-       RETURNING *`,
-      [entry_number, payment_date, `قيد آلي - دفعة رقم ${payment_number}`, payment_number, payment_id,
-       entity_type, entity_id, branch_id, incubator_id, req.headers['x-user-id'] || 'system']
-    );
-    
-    const journal_entry_id = journalResult.rows[0].entry_id;
-    
-    // Debit: Cash/Bank
-    const cashAccount = payment_method === 'CASH' ? '1110' : '1120';
-    await client.query(
-      `INSERT INTO finance_journal_lines 
-       (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-       VALUES ($1, 1, (SELECT account_id FROM finance_accounts WHERE account_code = $2), $3, $4, 0, $5)`,
-      [journal_entry_id, cashAccount, cashAccount, payment_amount, `دفعة من ${customer.customer_name_ar}`]
-    );
-    
-    // Credit: Accounts Receivable
-    await client.query(
-      `INSERT INTO finance_journal_lines 
-       (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-       VALUES ($1, 2, (SELECT account_id FROM finance_accounts WHERE account_code = '1130'), '1130', 0, $2, $3)`,
-      [journal_entry_id, payment_amount, `ذمم مدينة - ${customer.customer_name_ar}`]
-    );
-    
-    // Update payment with journal entry ID
-    await client.query(
-      'UPDATE finance_payments SET journal_entry_id = $1 WHERE payment_id = $2',
-      [journal_entry_id, payment_id]
-    );
-    
+
     await client.query('COMMIT');
-    
+
     res.status(201).json({
       success: true,
-      payment: paymentResult.rows[0],
-      journal_entry_id: journal_entry_id,
-      message: 'Payment created successfully'
+      payment: paymentRow,
+      journal_entry_id,
+      message: 'Payment created successfully',
+      meta: useService
+        ? { posting_path: 'service', flag: 'FINANCE_POST_PAYMENT_VIA_SERVICE' }
+        : { posting_path: 'legacy' }
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* */
+    }
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
+    if (sendGuardError(res, error)) return;
     console.error('Error creating payment:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
@@ -1026,10 +1459,54 @@ router.post('/payments', async (req, res) => {
   }
 });
 
-// Update payment
+// Update payment — B1.d.3.e: posted lock + trusted entity ownership (no header/body role trust)
 router.put('/payments/:id', async (req, res) => {
+  const client = await db.pool.connect();
   try {
+    await client.query('BEGIN');
     const { id } = req.params;
+    const actor = resolveActor({ req });
+    const payment = await assertPaymentMutable(client, id, {
+      forDelete: false,
+      ctx: { req },
+      forUpdate: true
+    });
+
+    const body = req.body || {};
+    // Reject bypass attempts: clearing JE link, moving entity, or mutating posting fields
+    const forbidden = [
+      'journal_entry_id',
+      'entity_id',
+      'entity_type',
+      'payment_id',
+      'created_by'
+    ];
+    for (const f of forbidden) {
+      if (Object.prototype.hasOwnProperty.call(body, f)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          success: false,
+          error: `لا يمكن تعديل الحقل المحمي: ${f}`,
+          code: 'PROTECTED_FIELD'
+        });
+      }
+    }
+    if (body.status != null) {
+      const st = String(body.status).toUpperCase();
+      if (st === 'DRAFT' || st === 'CANCELLED' || st === 'VOID') {
+        // Draft payments may set status freely among non-posting bypass values only if still unposted
+        // Re-check links already passed; still block DRAFT/VOID labels that confuse posted lifecycle
+        if (payment.journal_entry_id) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            success: false,
+            error: 'لا يمكن تغيير حالة دفعة مرتبطة بقيد إلى DRAFT/إلغاء من هذا المسار',
+            code: 'POSTED_STATUS_LOCKED'
+          });
+        }
+      }
+    }
+
     const {
       payment_date,
       payment_amount,
@@ -1043,9 +1520,9 @@ router.put('/payments/:id', async (req, res) => {
       district,
       national_address_number,
       short_address
-    } = req.body;
+    } = body;
 
-    const result = await db.query(
+    const result = await client.query(
       `UPDATE finance_payments
        SET payment_date = COALESCE($1, payment_date),
            payment_amount = COALESCE($2, payment_amount),
@@ -1061,6 +1538,7 @@ router.put('/payments/:id', async (req, res) => {
            short_address = COALESCE($12, short_address),
            updated_at = NOW()
        WHERE payment_id = $13
+         AND entity_id IS NOT DISTINCT FROM $14
        RETURNING *`,
       [
         payment_date || null,
@@ -1075,36 +1553,76 @@ router.put('/payments/:id', async (req, res) => {
         district || null,
         national_address_number || null,
         short_address || null,
-        id
+        id,
+        payment.entity_id
       ]
     );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Payment not found' });
     }
 
-    res.json({ success: true, payment: result.rows[0] });
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      payment: result.rows[0],
+      meta: { entity_gate: 'assertPaymentMutable', actor_entity_id: actor.entityId }
+    });
   } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* */
+    }
+    if (sendGuardError(res, error)) return;
     console.error('Error updating payment:', error);
     res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
   }
 });
 
-// Delete payment
+// Delete payment — B1.d.3.e: posted lock + trusted entity ownership
 router.delete('/payments/:id', async (req, res) => {
+  const client = await db.pool.connect();
   try {
+    await client.query('BEGIN');
     const { id } = req.params;
-    await db.query('DELETE FROM finance_payment_allocations WHERE payment_id = $1', [id]);
-    const result = await db.query('DELETE FROM finance_payments WHERE payment_id = $1 RETURNING *', [id]);
+    const actor = resolveActor({ req });
+    const payment = await assertPaymentDeletable(client, id, { req });
+
+    // Draft-only delete: remove unposted allocations then payment (no invoice balance side-effects here)
+    await client.query('DELETE FROM finance_payment_allocations WHERE payment_id = $1', [id]);
+    const result = await client.query(
+      `DELETE FROM finance_payments
+       WHERE payment_id = $1 AND entity_id IS NOT DISTINCT FROM $2
+       RETURNING *`,
+      [id, payment.entity_id]
+    );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Payment not found' });
     }
 
-    res.json({ success: true, payment: result.rows[0] });
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      payment: result.rows[0],
+      meta: { entity_gate: 'assertPaymentDeletable', actor_entity_id: actor.entityId }
+    });
   } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* */
+    }
+    if (sendGuardError(res, error)) return;
     console.error('Error deleting payment:', error);
     res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -1864,4 +2382,8 @@ router.delete('/sales-settlements/:id', async (req, res) => {
   }
 });
 
+router.isFinancePostInvoiceViaService = isFinancePostInvoiceViaService;
+router.isFinancePostPaymentViaService = isFinancePostPaymentViaService;
 module.exports = router;
+module.exports.isFinancePostInvoiceViaService = isFinancePostInvoiceViaService;
+module.exports.isFinancePostPaymentViaService = isFinancePostPaymentViaService;

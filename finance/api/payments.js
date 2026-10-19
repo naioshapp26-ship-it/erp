@@ -7,6 +7,15 @@ const { getRequestEntityContext, buildEntityScopeCondition } = require('../../en
 
 const db = require('../../db');
 const pool = db.pool;
+const { resolveActor, PostingError } = require('../services/finance-posting-service');
+const {
+  assertPaymentMutable,
+  assertPaymentDeletable,
+  sendGuardError
+} = require('../services/finance-posted-guards');
+const {
+  assertInvoiceIssueReadyForCollection
+} = require('../services/finance-collection-gate');
 
 async function resolveCustomerId({ customer_id, customer_name, entity_id }) {
     if (customer_id) {
@@ -179,6 +188,49 @@ async function createPayment(req, res) {
         const resolvedCustomerId = resolved?.customer_id || customer_id;
         const resolvedCustomerName = resolved?.customer_name || customer_name || null;
 
+        // B1.d.5a.3 + ADVANCE-B — defense-in-depth (shadowed by finance-routes mount order).
+        const allocList = Array.isArray(req.body?.allocations) ? req.body.allocations : [];
+        // ADVANCE-B: reject unallocated / ADVANCE-style creates (no Cr 1130 without invoice link).
+        if (!allocList.length) {
+            return res.status(422).json({
+                success: false,
+                error:
+                    'الدفعات غير المخصصة / العربون (ADVANCE) غير مسموحة في الإصدار الأول. يلزم تخصيص على فاتورة.',
+                code: 'ALLOCATIONS_REQUIRED',
+                policy: 'ADVANCE_B'
+            });
+        }
+        {
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                const sorted = [...allocList].sort(
+                    (a, b) => Number(a.invoice_id) - Number(b.invoice_id)
+                );
+                for (const a of sorted) {
+                    await assertInvoiceIssueReadyForCollection(client, a.invoice_id);
+                }
+                await client.query('COMMIT');
+            } catch (gateErr) {
+                try {
+                    await client.query('ROLLBACK');
+                } catch {
+                    /* */
+                }
+                if (gateErr instanceof PostingError) {
+                    return res.status(gateErr.status).json({
+                        success: false,
+                        error: gateErr.message,
+                        code: gateErr.code,
+                        ...(gateErr.extra || {})
+                    });
+                }
+                throw gateErr;
+            } finally {
+                client.release();
+            }
+        }
+
         const generatedNumber = payment_number || `PAY-${Date.now()}`;
         const result = await pool.query(
             `
@@ -218,12 +270,21 @@ async function createPayment(req, res) {
         res.json({ success: true, payment: result.rows[0] });
     } catch (error) {
         console.error('❌ Error creating payment:', error);
+        if (error instanceof PostingError) {
+            return res.status(error.status).json({
+                success: false,
+                error: error.message,
+                code: error.code,
+                ...(error.extra || {})
+            });
+        }
         res.status(500).json({ success: false, error: error.message });
     }
 }
 
 /**
- * Update payment
+ * Update payment — B1.d.3.e defense-in-depth (shadowed by finance-routes mount order).
+ * Session entity ownership + posted JE lock; ignores header/body entity claims.
  */
 async function updatePayment(req, res) {
     const { payment_id } = req.params;
@@ -233,22 +294,31 @@ async function updatePayment(req, res) {
         return res.status(400).json({ success: false, error: 'payment_id is required' });
     }
 
+    const client = await pool.connect();
     try {
-        const existing = await pool.query('SELECT * FROM finance_payments WHERE payment_id = $1', [payment_id]);
-        if (!existing.rows.length) {
-            return res.status(404).json({ success: false, error: 'Payment not found' });
-        }
+        await client.query('BEGIN');
+        const payment = await assertPaymentMutable(client, payment_id, {
+            forDelete: false,
+            ctx: { req },
+            forUpdate: true
+        });
 
-        const current = existing.rows[0];
-        const entityId = payload.entity_id || req.query.entity_id || req.headers['x-entity-id'] || current.entity_id;
-        if (current.entity_id && entityId && current.entity_id !== entityId) {
-            return res.status(403).json({ success: false, error: 'لا يمكن تعديل مدفوعة كيان آخر' });
+        const forbidden = ['journal_entry_id', 'entity_id', 'entity_type', 'payment_id', 'created_by'];
+        for (const f of forbidden) {
+            if (Object.prototype.hasOwnProperty.call(payload, f)) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({
+                    success: false,
+                    error: `لا يمكن تعديل الحقل المحمي: ${f}`,
+                    code: 'PROTECTED_FIELD'
+                });
+            }
         }
 
         const fields = [
-            'payment_number','payment_date','customer_id','customer_name','payment_amount','payment_method','payment_type',
-            'bank_name','check_number','transaction_reference','status','notes','entity_id','entity_type','branch_id','incubator_id','platform_id',
-            'street_name','postal_code','building_number','city','district','national_address_number','short_address'
+            'payment_number', 'payment_date', 'customer_id', 'customer_name', 'payment_amount', 'payment_method', 'payment_type',
+            'bank_name', 'check_number', 'transaction_reference', 'status', 'notes', 'branch_id', 'incubator_id', 'platform_id',
+            'street_name', 'postal_code', 'building_number', 'city', 'district', 'national_address_number', 'short_address'
         ];
 
         const setClauses = [];
@@ -263,51 +333,81 @@ async function updatePayment(req, res) {
         }
 
         if (!setClauses.length) {
+            await client.query('ROLLBACK');
             return res.status(400).json({ success: false, error: 'No fields provided to update' });
         }
 
         setClauses.push('updated_at = NOW()');
         values.push(payment_id);
+        values.push(payment.entity_id);
+        const idIdx = idx;
+        const entIdx = idx + 1;
 
-        const result = await pool.query(
-            `UPDATE finance_payments SET ${setClauses.join(', ')} WHERE payment_id = $${idx} RETURNING *`,
+        const result = await client.query(
+            `UPDATE finance_payments SET ${setClauses.join(', ')}
+             WHERE payment_id = $${idIdx} AND entity_id IS NOT DISTINCT FROM $${entIdx}
+             RETURNING *`,
             values
         );
 
-        res.json({ success: true, payment: result.rows[0] });
+        await client.query('COMMIT');
+        const actor = resolveActor({ req });
+        res.json({
+            success: true,
+            payment: result.rows[0],
+            meta: { entity_gate: 'assertPaymentMutable', actor_entity_id: actor.entityId }
+        });
     } catch (error) {
+        try {
+            await client.query('ROLLBACK');
+        } catch {
+            /* */
+        }
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error updating payment:', error);
         res.status(500).json({ success: false, error: error.message });
+    } finally {
+        client.release();
     }
 }
 
 /**
- * Delete payment
+ * Delete payment — B1.d.3.e defense-in-depth (shadowed by finance-routes).
  */
 async function deletePayment(req, res) {
     const { payment_id } = req.params;
-    const entity_id = req.query.entity_id || req.headers['x-entity-id'] || req.body?.entity_id;
 
     if (!payment_id) {
         return res.status(400).json({ success: false, error: 'payment_id is required' });
     }
 
+    const client = await pool.connect();
     try {
-        const existing = await pool.query('SELECT payment_id, entity_id FROM finance_payments WHERE payment_id = $1', [payment_id]);
-        if (!existing.rows.length) {
-            return res.status(404).json({ success: false, error: 'Payment not found' });
-        }
-
-        if (existing.rows[0].entity_id && entity_id && existing.rows[0].entity_id !== entity_id) {
-            return res.status(403).json({ success: false, error: 'لا يمكن حذف مدفوعة كيان آخر' });
-        }
-
-        await pool.query('DELETE FROM finance_payment_allocations WHERE payment_id = $1', [payment_id]);
-        await pool.query('DELETE FROM finance_payments WHERE payment_id = $1', [payment_id]);
-        res.json({ success: true, message: 'تم حذف المدفوعة' });
+        await client.query('BEGIN');
+        const payment = await assertPaymentDeletable(client, payment_id, { req });
+        await client.query('DELETE FROM finance_payment_allocations WHERE payment_id = $1', [payment_id]);
+        await client.query(
+            `DELETE FROM finance_payments WHERE payment_id = $1 AND entity_id IS NOT DISTINCT FROM $2`,
+            [payment_id, payment.entity_id]
+        );
+        await client.query('COMMIT');
+        const actor = resolveActor({ req });
+        res.json({
+            success: true,
+            message: 'تم حذف المدفوعة',
+            meta: { entity_gate: 'assertPaymentDeletable', actor_entity_id: actor.entityId }
+        });
     } catch (error) {
+        try {
+            await client.query('ROLLBACK');
+        } catch {
+            /* */
+        }
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error deleting payment:', error);
         res.status(500).json({ success: false, error: error.message });
+    } finally {
+        client.release();
     }
 }
 
