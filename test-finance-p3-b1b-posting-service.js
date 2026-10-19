@@ -129,7 +129,7 @@ async function main() {
     try {
       await postManualEntry(client, d1.entry_id, {
         trustedTestActor: true,
-        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] , entityId: 'HQ001' }
       });
       fail('post-already-posted-404');
     } catch (e) {
@@ -143,7 +143,7 @@ async function main() {
     try {
       await postManualEntry(client, dBad.entry_id, {
         trustedTestActor: true,
-        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] , entityId: 'HQ001' }
       });
       fail('post-unbalanced-422');
     } catch (e) {
@@ -158,7 +158,7 @@ async function main() {
     try {
       await reverseEntry(client, d1.entry_id, {
         trustedTestActor: true,
-        actor: { authenticated: true, userId: 'x', role: 'viewer', permissions: [] },
+        actor: { authenticated: true, userId: 'x', role: 'viewer', permissions: [] , entityId: 'HQ001' },
         reason: 'test'
       });
       fail('reverse-perm-403');
@@ -169,7 +169,7 @@ async function main() {
     // Reverse success — original unchanged status POSTED
     const rev = await reverseEntry(client, d1.entry_id, {
       trustedTestActor: true,
-      actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] },
+      actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] , entityId: 'HQ001' },
       reason: 'اختبار عكس B1.b'
     });
     rev.entry.reference_type === REVERSAL_REF_TYPE && Number(rev.entry.reference_id) === Number(d1.entry_id)
@@ -190,7 +190,7 @@ async function main() {
     try {
       await reverseEntry(client, d1.entry_id, {
         trustedTestActor: true,
-        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] },
+        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] , entityId: 'HQ001' },
         reason: 'مرة ثانية'
       });
       fail('reverse-second-409');
@@ -209,7 +209,7 @@ async function main() {
         await c.query('SET search_path TO b1a_test, public');
         return await postManualEntry(c, dConc.entry_id, {
           trustedTestActor: true,
-          actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+          actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] , entityId: 'HQ001' }
         });
       } finally {
         c.release();
@@ -226,7 +226,7 @@ async function main() {
     const dRev = await seedDraft(client, { label: 'crev' });
     await postManualEntry(client, dRev.entry_id, {
       trustedTestActor: true,
-      actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+      actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] , entityId: 'HQ001' }
     });
     const runRev = async () => {
       const c = await pool.connect();
@@ -234,7 +234,7 @@ async function main() {
         await c.query('SET search_path TO b1a_test, public');
         return await reverseEntry(c, dRev.entry_id, {
           trustedTestActor: true,
-          actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] },
+          actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] , entityId: 'HQ001' },
           reason: 'سباق عكس'
         });
       } finally {
@@ -259,7 +259,7 @@ async function main() {
     try {
       await postManualEntry(client, dAcc.entry_id, {
         trustedTestActor: true,
-        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] , entityId: 'HQ001' }
       });
       fail('post-bad-account-422');
     } catch (e) {

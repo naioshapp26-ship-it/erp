@@ -1,15 +1,16 @@
 'use strict';
 
 /**
- * FinancePostingService — B1.b
- * Unified post/reverse for MANUAL journal entries only.
- * Does NOT touch invoice/payment auto-posting paths.
- * No schema migrations: reverse linkage via reference_type/reference_id on the NEW entry;
- * concurrency via pg_advisory_xact_lock + row FOR UPDATE.
+ * FinancePostingService — B1.b + B1.c auth + B1.d.1 (service-only invoice/payment posting helpers).
+ * B1.d.1 does NOT wire POST /finance/invoices or /payments — helpers are for future d.2+.
+ * Entity ownership is mandatory (including HQ): cross-entity requires explicit session grant.
+ * No schema migrations: duplicate prevention is application-level (locks + lookups) until UNIQUE approved.
  */
 
 const REVERSAL_REF_TYPE = 'JOURNAL_REVERSAL';
 const ENTRY_TYPE_REVERSAL = 'REVERSAL';
+const REF_INVOICE = 'INVOICE';
+const REF_PAYMENT = 'PAYMENT';
 
 class PostingError extends Error {
   constructor(status, code, message, extra = {}) {
@@ -34,32 +35,53 @@ function parsePermissions(raw) {
     .filter(Boolean);
 }
 
+function normalizeEntityIdList(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean);
+  return String(raw)
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /**
  * Trusted actor from server session only (req.authUser set by auth middleware).
- * Client headers x-user-role / x-finance-permissions are IGNORED (spoofable).
- * Tests may pass ctx.actor explicitly with ctx.trustedTestActor=true.
+ * Client headers x-user-role / x-finance-permissions / x-entity-id are IGNORED for authz.
+ * Cross-entity: only authUser.allow_cross_entity + allowed_entity_ids from session (never request body).
+ * Tests may pass ctx.actor with ctx.trustedTestActor=true.
  */
 function resolveActor(reqOrCtx = {}) {
   if (reqOrCtx.actor && reqOrCtx.trustedTestActor === true) {
+    const a = reqOrCtx.actor;
     return {
-      ...reqOrCtx.actor,
+      ...a,
       authenticated: true,
-      trustSource: 'test'
+      trustSource: 'test',
+      entityId: a.entityId != null ? String(a.entityId) : null,
+      entityType: a.entityType || null,
+      allowCrossEntity: a.allowCrossEntity === true,
+      allowedEntityIds: normalizeEntityIdList(a.allowedEntityIds)
     };
   }
   const req = reqOrCtx.req || reqOrCtx;
   const headers = req.headers || {};
   const authUser = req.authUser || null;
+  const entityCtx = req.authenticatedEntityContext || req.userEntity || null;
   if (authUser && (authUser.id || authUser.role || authUser.email)) {
     return {
       userId: authUser.id || null,
       userName: authUser.name || authUser.email || null,
       role: authUser.role || null,
-      // permissions only from server-attached authUser, never request headers
       permissions: parsePermissions(authUser.permissions || authUser.financePermissions),
       ip: headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
       userAgent: headers['user-agent'] || null,
-      entityId: req.userEntity?.id || req.authenticatedEntityContext?.id || null,
+      // Entity scope from server-resolved context only (not spoofable x-entity-id alone without session)
+      entityId: entityCtx?.id != null ? String(entityCtx.id) : null,
+      entityType: entityCtx?.type || null,
+      allowCrossEntity: authUser.allow_cross_entity === true || authUser.allowCrossEntity === true,
+      allowedEntityIds: normalizeEntityIdList(
+        authUser.allowed_entity_ids || authUser.allowedEntityIds || entityCtx?.allowedEntityIds
+      ),
       authenticated: true,
       trustSource: 'session'
     };
@@ -71,15 +93,25 @@ function resolveActor(reqOrCtx = {}) {
     permissions: [],
     ip: headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
     userAgent: headers['user-agent'] || null,
-    entityId: req.userEntity?.id || null,
+    entityId: null,
+    entityType: null,
+    allowCrossEntity: false,
+    allowedEntityIds: [],
     authenticated: false,
     trustSource: 'none'
   };
 }
 
+function permissionNameForAction(action) {
+  if (action === 'reverse') return 'journals.reverse';
+  if (action === 'invoice_post') return 'invoices.post';
+  if (action === 'payment_post') return 'payments.post';
+  return 'journals.post';
+}
+
 /**
  * Backend permission gate — default deny.
- * Trusted role/permissions from session authUser only (B1.c closes legacy_unscoped).
+ * Admin role grants post/reverse/invoice_post/payment_post but NEVER bypasses entity ownership.
  */
 function assertPermission(actor, action) {
   if (!actor || !actor.authenticated) {
@@ -91,13 +123,19 @@ function assertPermission(actor, action) {
       message: 'يجب تسجيل الدخول بصلاحية خادمية موثوقة قبل الترحيل أو العكس'
     };
   }
-  const perm = action === 'reverse' ? 'journals.reverse' : 'journals.post';
+  const perm = permissionNameForAction(action);
   if (actor.permissions.includes('*') || actor.permissions.includes(perm)) {
+    return { ok: true, mode: 'explicit_permission' };
+  }
+  // invoices.post / payments.post also accept journals.post as broader finance posting right
+  if (
+    (action === 'invoice_post' || action === 'payment_post') &&
+    actor.permissions.includes('journals.post')
+  ) {
     return { ok: true, mode: 'explicit_permission' };
   }
   const role = String(actor.role || '').trim();
   const roleNorm = role.toLowerCase();
-  // Trusted admin-equivalent roles from session (Arabic + English product roles)
   const isAdminRole =
     /^(admin|administrator|super_admin|company_admin|system_admin)$/i.test(roleNorm) ||
     role === 'مسؤول النظام' ||
@@ -105,7 +143,8 @@ function assertPermission(actor, action) {
   if (isAdminRole) {
     return { ok: true, mode: 'role_admin' };
   }
-  if (action === 'post' && /^(manager|hr_manager)$/i.test(roleNorm)) {
+  if ((action === 'post' || action === 'invoice_post' || action === 'payment_post') &&
+      /^(manager|hr_manager)$/i.test(roleNorm)) {
     return { ok: true, mode: 'role_manager' };
   }
   return {
@@ -115,6 +154,51 @@ function assertPermission(actor, action) {
     code: 'PERMISSION_DENIED',
     message: `مطلوب صلاحية ${perm} من جلسة مصادقة موثوقة`
   };
+}
+
+/**
+ * Strict entity ownership. HQ/admin roles do not bypass.
+ * Cross-entity only when session carries allowCrossEntity + allowedEntityIds (server-set).
+ */
+function assertEntityOwns(resourceEntityId, actor, resourceLabel = 'المستند') {
+  if (!actor || !actor.authenticated) {
+    throw new PostingError(401, 'AUTH_REQUIRED', 'يجب تسجيل الدخول قبل الوصول للمستند');
+  }
+  if (!actor.entityId) {
+    throw new PostingError(
+      403,
+      'ENTITY_SCOPE_REQUIRED',
+      'جلسة المستخدم بلا كيان موثوق — مرفوض'
+    );
+  }
+  const resEnt =
+    resourceEntityId === undefined || resourceEntityId === null || String(resourceEntityId).trim() === ''
+      ? null
+      : String(resourceEntityId).trim();
+  if (!resEnt) {
+    throw new PostingError(
+      403,
+      'ENTITY_MISSING_ON_RESOURCE',
+      `${resourceLabel} بلا entity_id — لا يمكن ترحيله بأمان`
+    );
+  }
+  if (resEnt === String(actor.entityId)) {
+    return { mode: 'same_entity', entityId: resEnt };
+  }
+  if (actor.allowCrossEntity === true && (actor.allowedEntityIds || []).map(String).includes(resEnt)) {
+    return { mode: 'explicit_cross_entity_grant', entityId: resEnt };
+  }
+  throw new PostingError(
+    403,
+    'CROSS_ENTITY_DENIED',
+    `رفض الوصول العابر للكيانات: ${resourceLabel} يتبع كيانًا آخر`,
+    {
+      actor_entity_id: String(actor.entityId),
+      resource_entity_id: resEnt,
+      allow_cross_entity: actor.allowCrossEntity === true,
+      note: 'دور admin/HQ لا يكفي — يلزم تفويض خادمي صريح allowed_entity_ids'
+    }
+  );
 }
 
 async function writeAudit(client, {
@@ -286,6 +370,7 @@ async function postManualEntry(poolOrClient, entryId, ctx = {}) {
     if (!entry) {
       throw new PostingError(404, 'NOT_FOUND', 'Journal entry not found or already posted');
     }
+    const entityGate = assertEntityOwns(entry.entity_id, actor, 'القيد المحاسبي');
     if (entry.is_posted === true || entry.status === 'POSTED') {
       // Preserve prior contract: 404 when already posted
       throw new PostingError(404, 'ALREADY_POSTED', 'Journal entry not found or already posted');
@@ -314,7 +399,12 @@ async function postManualEntry(poolOrClient, entryId, ctx = {}) {
       action: 'JOURNAL_POST',
       resourceId: String(entryId),
       oldValue: { status: entry.status, is_posted: entry.is_posted },
-      newValue: { status: 'POSTED', totals, permission_mode: perm.mode },
+      newValue: {
+        status: 'POSTED',
+        totals,
+        permission_mode: perm.mode,
+        entity_gate: entityGate.mode
+      },
       reason: ctx.reason || null,
       status: 'SUCCESS'
     });
@@ -324,7 +414,7 @@ async function postManualEntry(poolOrClient, entryId, ctx = {}) {
       success: true,
       entry: result.rows[0],
       message: 'Journal entry posted successfully',
-      meta: { permission_mode: perm.mode, totals }
+      meta: { permission_mode: perm.mode, totals, entity_gate: entityGate.mode }
     };
   } catch (err) {
     if (manageTx) {
@@ -365,6 +455,7 @@ async function reverseEntry(poolOrClient, entryId, ctx = {}) {
     if (!original) {
       throw new PostingError(404, 'NOT_FOUND', 'القيد الأصلي غير موجود');
     }
+    const entityGate = assertEntityOwns(original.entity_id, actor, 'القيد المحاسبي');
     if (!(original.is_posted === true || original.status === 'POSTED')) {
       throw new PostingError(409, 'NOT_POSTED', 'لا يمكن عكس قيد غير مرحّل');
     }
@@ -462,7 +553,8 @@ async function reverseEntry(poolOrClient, entryId, ctx = {}) {
         reversal_entry_id: reversal.entry_id,
         reversal_entry_number: reversal.entry_number,
         link: { reference_type: REVERSAL_REF_TYPE, reference_id: original.entry_id },
-        permission_mode: perm.mode
+        permission_mode: perm.mode,
+        entity_gate: entityGate.mode
       },
       reason,
       status: 'SUCCESS'
@@ -474,7 +566,410 @@ async function reverseEntry(poolOrClient, entryId, ctx = {}) {
       entry: reversal,
       original_entry_id: original.entry_id,
       message: 'Journal entry reversed successfully',
-      meta: { permission_mode: perm.mode }
+      meta: { permission_mode: perm.mode, entity_gate: entityGate.mode }
+    };
+  } catch (err) {
+    if (manageTx) {
+      try { await client.query('ROLLBACK'); } catch { /* */ }
+    }
+    throw err;
+  } finally {
+    if (fromPool) client.release();
+  }
+}
+
+async function findActivePostedByReference(client, referenceType, referenceId) {
+  const result = await client.query(
+    `SELECT entry_id, entry_number, status, is_posted, entry_type, reference_type, reference_id
+     FROM finance_journal_entries
+     WHERE reference_type = $1
+       AND reference_id = $2
+       AND is_posted = true
+       AND status = 'POSTED'
+       AND COALESCE(entry_type, '') <> $3
+     ORDER BY entry_id ASC`,
+    [referenceType, referenceId, ENTRY_TYPE_REVERSAL]
+  );
+  return result.rows;
+}
+
+async function resolveAccountByCode(client, code) {
+  const r = await client.query(
+    `SELECT account_id, account_code FROM finance_accounts
+     WHERE account_code = $1 AND COALESCE(is_active, true) = true AND COALESCE(is_header, false) = false
+     LIMIT 1`,
+    [code]
+  );
+  if (!r.rows.length) {
+    throw new PostingError(422, 'ACCOUNT_NOT_FOUND', `حساب غير موجود أو غير قابل للترحيل: ${code}`);
+  }
+  return r.rows[0];
+}
+
+/**
+ * B1.d.1 helper — post invoice issue JE (NOT wired to HTTP routes yet).
+ * Application-level duplicate guard; DB UNIQUE still requires separate approval.
+ */
+async function postInvoiceIssue(poolOrClient, invoiceId, ctx = {}) {
+  const actor = resolveActor(ctx);
+  const perm = assertPermission(actor, 'invoice_post');
+  if (!perm.ok) throw new PostingError(perm.status, perm.code, perm.message);
+
+  const fromPool = isPool(poolOrClient);
+  const client = fromPool ? await poolOrClient.connect() : poolOrClient;
+  const manageTx = ctx.manageTransaction !== false;
+
+  try {
+    if (manageTx) await client.query('BEGIN');
+    await advisoryLock(client, 11011, invoiceId);
+
+    const invRes = await client.query(
+      `SELECT * FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE`,
+      [invoiceId]
+    );
+    const invoice = invRes.rows[0];
+    if (!invoice) throw new PostingError(404, 'NOT_FOUND', 'الفاتورة غير موجودة');
+
+    const entityGate = assertEntityOwns(invoice.entity_id, actor, 'الفاتورة');
+
+    if (invoice.journal_entry_id) {
+      const existing = await loadEntryForUpdate(client, invoice.journal_entry_id);
+      if (existing && (existing.is_posted === true || existing.status === 'POSTED')) {
+        throw new PostingError(409, 'ALREADY_POSTED', 'الفاتورة مرحّلة مسبقًا', {
+          journal_entry_id: existing.entry_id
+        });
+      }
+    }
+    const byRef = await findActivePostedByReference(client, REF_INVOICE, invoiceId);
+    if (byRef.length) {
+      throw new PostingError(409, 'ALREADY_POSTED', 'يوجد قيد مرحّل لنفس الفاتورة (مرجع)', {
+        journal_entry_id: byRef[0].entry_id,
+        protection: 'application_lookup_only_until_unique_index'
+      });
+    }
+
+    const subtotal = round2(invoice.subtotal || 0);
+    const discount = round2(invoice.discount_amount || 0);
+    const tax = round2(invoice.tax_amount || 0);
+    const total = round2(invoice.total_amount || subtotal - discount + tax);
+    if (total <= 0) {
+      throw new PostingError(422, 'ZERO_AMOUNT', 'مبلغ الفاتورة غير صالح للترحيل');
+    }
+    const net = round2(Math.max(subtotal - discount, 0));
+    // Rebuild expected total check (tolerance)
+    if (Math.abs(round2(net + tax) - total) > 0.05) {
+      // still allow if invoice.total_amount is source of truth for AR
+    }
+
+    const a1130 = await resolveAccountByCode(client, '1130');
+    const a4100 = await resolveAccountByCode(client, '4100');
+    const a2140 = tax > 0 ? await resolveAccountByCode(client, '2140') : null;
+
+    const lines = [
+      { account_id: a1130.account_id, account_code: '1130', debit_amount: total, credit_amount: 0, description: `ذمم - ${invoice.invoice_number}` },
+      { account_id: a4100.account_id, account_code: '4100', debit_amount: 0, credit_amount: net, description: 'إيرادات' }
+    ];
+    if (tax > 0 && a2140) {
+      lines.push({
+        account_id: a2140.account_id,
+        account_code: '2140',
+        debit_amount: 0,
+        credit_amount: tax,
+        description: 'ضريبة'
+      });
+    }
+    const totals = assertBalanced(lines);
+
+    const entryNumber = await generateEntryNumber(client, 'JE-INV');
+    const ins = await client.query(
+      `INSERT INTO finance_journal_entries
+       (entry_number, entry_date, entry_type, description, reference_type, reference_id,
+        entity_type, entity_id, status, is_posted, posted_at, posted_by, created_by)
+       VALUES ($1, COALESCE($2::date, CURRENT_DATE), 'AUTO', $3, $4, $5,
+               $6, $7, 'POSTED', true, NOW(), $8, $8)
+       RETURNING *`,
+      [
+        entryNumber,
+        invoice.invoice_date,
+        `إصدار فاتورة ${invoice.invoice_number}`,
+        REF_INVOICE,
+        invoice.invoice_id,
+        invoice.entity_type || actor.entityType || null,
+        invoice.entity_id,
+        String(actor.userId)
+      ]
+    );
+    const entry = ins.rows[0];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      await client.query(
+        `INSERT INTO finance_journal_lines
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description, entity_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          entry.entry_id,
+          i + 1,
+          line.account_id,
+          line.account_code,
+          line.debit_amount,
+          line.credit_amount,
+          line.description,
+          invoice.entity_id
+        ]
+      );
+    }
+
+    // Avoid depending on optional updated_at (slim isolated schemas may omit it)
+    await client.query(
+      `UPDATE finance_invoices SET journal_entry_id = $1 WHERE invoice_id = $2`,
+      [entry.entry_id, invoiceId]
+    );
+
+    // Belt: re-read duplicates
+    const again = await findActivePostedByReference(client, REF_INVOICE, invoiceId);
+    if (again.length !== 1 || Number(again[0].entry_id) !== Number(entry.entry_id)) {
+      throw new PostingError(409, 'POST_RACE', 'تعارض ترحيل فاتورة متزامن');
+    }
+
+    await writeAudit(client, {
+      actor,
+      action: 'INVOICE_POST',
+      resourceType: 'invoice',
+      resourceId: String(invoiceId),
+      newValue: {
+        journal_entry_id: entry.entry_id,
+        totals,
+        permission_mode: perm.mode,
+        entity_gate: entityGate.mode,
+        duplicate_protection: 'application_only'
+      },
+      status: 'SUCCESS'
+    });
+
+    if (manageTx) await client.query('COMMIT');
+    return {
+      success: true,
+      entry,
+      invoice_id: invoiceId,
+      message: 'Invoice posted successfully',
+      meta: {
+        permission_mode: perm.mode,
+        entity_gate: entityGate.mode,
+        totals,
+        duplicate_protection: 'application_lookup_and_lock_until_unique_index'
+      }
+    };
+  } catch (err) {
+    if (manageTx) {
+      try { await client.query('ROLLBACK'); } catch { /* */ }
+    }
+    throw err;
+  } finally {
+    if (fromPool) client.release();
+  }
+}
+
+/**
+ * B1.d.1 helper — post payment receipt JE with allocations in one transaction (NOT wired to HTTP).
+ */
+async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
+  const actor = resolveActor(ctx);
+  const perm = assertPermission(actor, 'payment_post');
+  if (!perm.ok) throw new PostingError(perm.status, perm.code, perm.message);
+
+  const fromPool = isPool(poolOrClient);
+  const client = fromPool ? await poolOrClient.connect() : poolOrClient;
+  const manageTx = ctx.manageTransaction !== false;
+
+  try {
+    if (manageTx) await client.query('BEGIN');
+    await advisoryLock(client, 11012, paymentId);
+
+    const payRes = await client.query(
+      `SELECT * FROM finance_payments WHERE payment_id = $1 FOR UPDATE`,
+      [paymentId]
+    );
+    const payment = payRes.rows[0];
+    if (!payment) throw new PostingError(404, 'NOT_FOUND', 'الدفعة غير موجودة');
+
+    const entityGate = assertEntityOwns(payment.entity_id, actor, 'الدفعة');
+
+    if (payment.journal_entry_id) {
+      throw new PostingError(409, 'ALREADY_POSTED', 'الدفعة مرحّلة مسبقًا', {
+        journal_entry_id: payment.journal_entry_id
+      });
+    }
+    const byRef = await findActivePostedByReference(client, REF_PAYMENT, paymentId);
+    if (byRef.length) {
+      throw new PostingError(409, 'ALREADY_POSTED', 'يوجد قيد مرحّل لنفس الدفعة', {
+        journal_entry_id: byRef[0].entry_id,
+        protection: 'application_lookup_only_until_unique_index'
+      });
+    }
+
+    const allocs = await client.query(
+      `SELECT * FROM finance_payment_allocations WHERE payment_id = $1 FOR UPDATE`,
+      [paymentId]
+    );
+    if (!allocs.rows.length) {
+      throw new PostingError(422, 'ALLOCATIONS_REQUIRED', 'الترحيل يتطلب تخصيصات دفعات');
+    }
+
+    const paymentAmount = round2(payment.payment_amount);
+    const allocSum = round2(allocs.rows.reduce((s, a) => s + Number(a.allocated_amount || 0), 0));
+    if (Math.abs(allocSum - paymentAmount) > 0.01) {
+      throw new PostingError(422, 'ALLOCATION_MISMATCH', 'مجموع التخصيصات لا يساوي مبلغ الدفعة', {
+        payment_amount: paymentAmount,
+        allocations_sum: allocSum
+      });
+    }
+
+    for (const alloc of allocs.rows) {
+      const invRes = await client.query(
+        `SELECT invoice_id, entity_id, total_amount, paid_amount, remaining_amount, status, payment_status
+         FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE`,
+        [alloc.invoice_id]
+      );
+      const inv = invRes.rows[0];
+      if (!inv) {
+        throw new PostingError(404, 'INVOICE_NOT_FOUND', `فاتورة التخصيص غير موجودة: ${alloc.invoice_id}`);
+      }
+      assertEntityOwns(inv.entity_id, actor, `فاتورة ${alloc.invoice_id}`);
+      if (String(inv.entity_id) !== String(payment.entity_id)) {
+        throw new PostingError(
+          403,
+          'ALLOCATION_ENTITY_MISMATCH',
+          'تخصيص بين كيانات مختلفة مرفوض'
+        );
+      }
+      const remaining = round2(inv.remaining_amount != null ? inv.remaining_amount : Number(inv.total_amount) - Number(inv.paid_amount || 0));
+      const allocated = round2(alloc.allocated_amount);
+      if (allocated > remaining + 0.01) {
+        throw new PostingError(422, 'OVER_ALLOCATION', 'التخصيص يتجاوز متبقي الفاتورة', {
+          invoice_id: inv.invoice_id,
+          remaining,
+          allocated
+        });
+      }
+    }
+
+    const method = String(payment.payment_method || 'CASH').toUpperCase();
+    const cashCode = method === 'CASH' ? '1110' : '1120';
+    const cashAcc = await resolveAccountByCode(client, cashCode);
+    const arAcc = await resolveAccountByCode(client, '1130');
+
+    const lines = [
+      {
+        account_id: cashAcc.account_id,
+        account_code: cashCode,
+        debit_amount: paymentAmount,
+        credit_amount: 0,
+        description: `قبض ${payment.payment_number}`
+      },
+      {
+        account_id: arAcc.account_id,
+        account_code: '1130',
+        debit_amount: 0,
+        credit_amount: paymentAmount,
+        description: 'ذمم مدينة'
+      }
+    ];
+    const totals = assertBalanced(lines);
+
+    const entryNumber = await generateEntryNumber(client, 'JE-PAY');
+    const ins = await client.query(
+      `INSERT INTO finance_journal_entries
+       (entry_number, entry_date, entry_type, description, reference_type, reference_id,
+        entity_type, entity_id, status, is_posted, posted_at, posted_by, created_by)
+       VALUES ($1, COALESCE($2::date, CURRENT_DATE), 'AUTO', $3, $4, $5,
+               $6, $7, 'POSTED', true, NOW(), $8, $8)
+       RETURNING *`,
+      [
+        entryNumber,
+        payment.payment_date,
+        `تحصيل ${payment.payment_number}`,
+        REF_PAYMENT,
+        payment.payment_id,
+        payment.entity_type || actor.entityType || null,
+        payment.entity_id,
+        String(actor.userId)
+      ]
+    );
+    const entry = ins.rows[0];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      await client.query(
+        `INSERT INTO finance_journal_lines
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description, entity_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          entry.entry_id,
+          i + 1,
+          line.account_id,
+          line.account_code,
+          line.debit_amount,
+          line.credit_amount,
+          line.description,
+          payment.entity_id
+        ]
+      );
+    }
+
+    await client.query(
+      `UPDATE finance_payments
+       SET journal_entry_id = $1,
+           status = CASE WHEN status IS NULL OR status = 'PENDING' THEN 'APPROVED' ELSE status END
+       WHERE payment_id = $2`,
+      [entry.entry_id, paymentId]
+    );
+
+    for (const alloc of allocs.rows) {
+      const allocated = round2(alloc.allocated_amount);
+      await client.query(
+        `UPDATE finance_invoices
+         SET paid_amount = COALESCE(paid_amount, 0) + $1,
+             remaining_amount = GREATEST(COALESCE(total_amount, 0) - (COALESCE(paid_amount, 0) + $1), 0),
+             payment_status = CASE
+               WHEN GREATEST(COALESCE(total_amount, 0) - (COALESCE(paid_amount, 0) + $1), 0) <= 0.01 THEN 'PAID'
+               ELSE 'PARTIAL'
+             END,
+             status = CASE
+               WHEN GREATEST(COALESCE(total_amount, 0) - (COALESCE(paid_amount, 0) + $1), 0) <= 0.01 THEN 'PAID'
+               ELSE 'PARTIAL'
+             END
+         WHERE invoice_id = $2`,
+        [allocated, alloc.invoice_id]
+      );
+    }
+
+    await writeAudit(client, {
+      actor,
+      action: 'PAYMENT_POST',
+      resourceType: 'payment',
+      resourceId: String(paymentId),
+      newValue: {
+        journal_entry_id: entry.entry_id,
+        totals,
+        allocations: allocs.rows.length,
+        permission_mode: perm.mode,
+        entity_gate: entityGate.mode,
+        duplicate_protection: 'application_only'
+      },
+      status: 'SUCCESS'
+    });
+
+    if (manageTx) await client.query('COMMIT');
+    return {
+      success: true,
+      entry,
+      payment_id: paymentId,
+      message: 'Payment posted successfully',
+      meta: {
+        permission_mode: perm.mode,
+        entity_gate: entityGate.mode,
+        totals,
+        duplicate_protection: 'application_lookup_and_lock_until_unique_index'
+      }
     };
   } catch (err) {
     if (manageTx) {
@@ -490,11 +985,17 @@ module.exports = {
   PostingError,
   REVERSAL_REF_TYPE,
   ENTRY_TYPE_REVERSAL,
+  REF_INVOICE,
+  REF_PAYMENT,
   resolveActor,
   assertPermission,
+  assertEntityOwns,
   postManualEntry,
   reverseEntry,
+  postInvoiceIssue,
+  postPaymentReceipt,
   findActiveReversal,
+  findActivePostedByReference,
   assertBalanced,
   writeAudit
 };
