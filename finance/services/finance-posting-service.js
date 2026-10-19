@@ -863,8 +863,13 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
       throw new PostingError(422, 'ALLOCATIONS_REQUIRED', 'الترحيل يتطلب تخصيصات دفعات');
     }
 
+    // Stable lock order by invoice_id to reduce deadlocks under concurrent collections
+    const allocRows = [...allocs.rows].sort(
+      (a, b) => Number(a.invoice_id) - Number(b.invoice_id)
+    );
+
     const paymentAmount = round2(payment.payment_amount);
-    const allocSum = round2(allocs.rows.reduce((s, a) => s + Number(a.allocated_amount || 0), 0));
+    const allocSum = round2(allocRows.reduce((s, a) => s + Number(a.allocated_amount || 0), 0));
     if (Math.abs(allocSum - paymentAmount) > 0.01) {
       throw new PostingError(422, 'ALLOCATION_MISMATCH', 'مجموع التخصيصات لا يساوي مبلغ الدفعة', {
         payment_amount: paymentAmount,
@@ -872,7 +877,7 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
       });
     }
 
-    for (const alloc of allocs.rows) {
+    for (const alloc of allocRows) {
       const invRes = await client.query(
         `SELECT invoice_id, entity_id, total_amount, paid_amount, remaining_amount, status, payment_status
          FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE`,
@@ -966,7 +971,7 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
       [entry.entry_id, paymentId]
     );
 
-    for (const alloc of allocs.rows) {
+    for (const alloc of allocRows) {
       const allocated = round2(alloc.allocated_amount);
       await client.query(
         `UPDATE finance_invoices
@@ -993,7 +998,7 @@ async function postPaymentReceipt(poolOrClient, paymentId, ctx = {}) {
       newValue: {
         journal_entry_id: entry.entry_id,
         totals,
-        allocations: allocs.rows.length,
+        allocations: allocRows.length,
         permission_mode: perm.mode,
         entity_gate: entityGate.mode,
         metadata_profile: 'legacy_payment_auto_post',

@@ -201,7 +201,12 @@ async function main() {
   )
     ? pass('source-exclusive-if-else-paths')
     : fail('source-exclusive-if-else-paths');
-  !/postPaymentReceipt/.test(routesSrc) ? pass('payments-not-wired') : fail('payments-not-wired');
+  // B1.d.3.d may wire payments behind FINANCE_POST_PAYMENT_VIA_SERVICE (default false).
+  /isFinancePostPaymentViaService/.test(routesSrc) && /postPaymentReceipt/.test(routesSrc)
+    ? pass('payments-flagged-wire-present-default-false')
+    : /postPaymentReceipt/.test(routesSrc)
+      ? fail('payments-flagged-wire-present-default-false', 'postPaymentReceipt without flag helper')
+      : pass('payments-flagged-wire-present-default-false', 'not-yet-wired');
 
   // --- Isolated tx semantics ---
   const client = new Client({ connectionString: DB_URL, ssl: false });
