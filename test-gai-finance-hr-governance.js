@@ -70,10 +70,10 @@ async function main() {
     buildPortalPayload
   } = require('./hr-portal-access');
 
-  // Finance home UI emptied — cards relocated to HR (KEEP catalog still 8 for deep-page nav).
-  ok('finance-ui-empty', financeCards.length === 0, JSON.stringify(financeCards.map((c) => c.label)));
-  ok('finance-coming-soon', financeHtml.includes('سيتم إضافة أنظمة وخدمات المالية 360 قريبًا.'));
-  ok('finance-no-payment-terms', !financeCards.some((c) => c.href.includes('payment-terms')));
+  // P1: Finance Leadership 360 shell — section cards are buttons (not <a>), quick-access is outside #finance-cards.
+  ok('finance-leadership-shell', financeHtml.includes('finance-leadership-360-catalog.js') && financeHtml.includes('fl360-sidebar'));
+  ok('finance-cards-not-payment-terms-links', !financeCards.some((c) => c.href.includes('payment-terms')));
+  ok('finance-page-settings-link', financeHtml.includes('leadership-page-settings.html'));
   ok('finance-moved-to-hr-count', FINANCE_HOME_MOVED_TO_HR.length === 6, String(FINANCE_HOME_MOVED_TO_HR.length));
   ok('finance-skipped-dupes', FINANCE_HOME_SKIPPED_AS_HR_DUPES.length === 2);
   const hrPortal = buildPortalPayload('company_admin');

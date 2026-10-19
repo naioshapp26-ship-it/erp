@@ -116,18 +116,19 @@ function hrefForLabel(html, label) {
     }, token, user);
 
     await page.goto(`${BASE}/finance`, { waitUntil: 'networkidle2', timeout: 60000 });
-    await page.waitForSelector('#finance-cards', { timeout: 20000 });
-    await page.$eval('#finance-cards', (el) => el.scrollIntoView({ block: 'center' }));
+    await page.waitForSelector('#fl360-nav', { timeout: 20000 });
+    await page.$eval('#finance-command', (el) => el.scrollIntoView({ block: 'center' }));
     await new Promise((r) => setTimeout(r, 250));
     await page.screenshot({ path: path.join(ART, 'review-finance-empty.png'), fullPage: false });
     const fin = await page.evaluate(() => ({
-      links: [...document.querySelectorAll('#finance-cards a[href]')].length,
-      text: (document.querySelector('[data-finance-empty]')?.innerText || '').trim()
+      nav: document.querySelectorAll('#fl360-nav .fl360-nav-btn').length,
+      quick: document.querySelectorAll('#fl360-quick a[href]').length,
+      hasLeadership: Boolean(document.querySelector('#finance-command'))
     }));
-    fin.links === 0 ? pass('finance-home-no-cards') : fail('finance-home-no-cards', String(fin.links));
-    /سيتم إضافة أنظمة وخدمات المالية 360 قريبًا/.test(fin.text)
-      ? pass('finance-coming-soon')
-      : fail('finance-coming-soon', fin.text.slice(0, 80));
+    fin.hasLeadership && fin.nav === 16
+      ? pass('finance-home-leadership-shell')
+      : fail('finance-home-leadership-shell', JSON.stringify(fin));
+    fin.quick === 5 ? pass('finance-quick-access') : fail('finance-quick-access', String(fin.quick));
 
     await page.goto(`${BASE}/hr/assets-custodies`, { waitUntil: 'networkidle2', timeout: 60000 });
     await new Promise((r) => setTimeout(r, 500));
