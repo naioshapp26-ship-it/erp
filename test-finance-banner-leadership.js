@@ -52,8 +52,8 @@ function postJson(urlPath, body) {
     ? pass('src-lead')
     : fail('src-lead');
   !/واجهة مالية أكثر وضوحًا وأناقة/.test(src) ? pass('src-old-title-removed') : fail('src-old-title-removed');
-  /سيتم إضافة أنظمة وخدمات المالية 360 قريبًا/.test(src) ? pass('src-coming-soon-kept') : fail('src-coming-soon-kept');
-  !/href="\/finance\/expenses\.html"/.test(src) ? pass('src-no-expense-card') : fail('src-no-expense-card');
+  /finance-leadership-360-catalog\.js/.test(src) ? pass('src-leadership-catalog') : fail('src-leadership-catalog');
+  /fl360-sidebar/.test(src) ? pass('src-leadership-sidebar') : fail('src-leadership-sidebar');
 
   const browser = await puppeteer.launch({
     executablePath: process.env.CHROME_PATH || '/usr/local/bin/google-chrome',
@@ -93,9 +93,7 @@ function postJson(urlPath, body) {
         const lead = document.querySelector('.hero-lead');
         const logo = document.querySelector('.hero-image-wrap img');
         const cta = document.querySelector('.hero-cta-primary');
-        const empty = document.querySelector('[data-finance-empty]');
         const tr = title?.getBoundingClientRect();
-        const er = eyebrow?.getBoundingClientRect();
         const lr = lead?.getBoundingClientRect();
         const logr = logo?.getBoundingClientRect();
         const tcs = title ? getComputedStyle(title) : null;
@@ -114,8 +112,8 @@ function postJson(urlPath, body) {
           leadColor: lcs?.color || null,
           overlapLogo,
           ctaVisible: !!(cta && cta.getBoundingClientRect().width > 40),
-          comingSoon: /سيتم إضافة أنظمة وخدمات المالية 360 قريبًا/.test(empty?.textContent || ''),
-          cardLinks: document.querySelectorAll('#finance-cards a[href]').length,
+          leadershipNav: document.querySelectorAll('#fl360-nav .fl360-nav-btn').length,
+          quickLinks: document.querySelectorAll('#fl360-quick a[href]').length,
           hOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
           scrollWidth: document.documentElement.scrollWidth,
           clientWidth: document.documentElement.clientWidth
@@ -131,9 +129,9 @@ function postJson(urlPath, body) {
       !state.overlapLogo ? pass(`${label}-no-logo-overlap`) : fail(`${label}-no-logo-overlap`);
       state.ctaVisible ? pass(`${label}-cta`) : fail(`${label}-cta`);
       !state.hOverflow ? pass(`${label}-no-hscroll`) : fail(`${label}-no-hscroll`, `${state.scrollWidth}>${state.clientWidth}`);
-      state.comingSoon && state.cardLinks === 0
-        ? pass(`${label}-empty-cards-kept`)
-        : fail(`${label}-empty-cards-kept`, JSON.stringify({ comingSoon: state.comingSoon, cardLinks: state.cardLinks }));
+      state.leadershipNav === 16 && state.quickLinks === 5
+        ? pass(`${label}-leadership-shell`)
+        : fail(`${label}-leadership-shell`, JSON.stringify({ nav: state.leadershipNav, quick: state.quickLinks }));
     }
 
     await audit('desktop', 1440, 900, 'finance-banner-desktop.png');
