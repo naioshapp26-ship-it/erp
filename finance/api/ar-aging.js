@@ -7,6 +7,11 @@ const { getRequestEntityContext, buildEntityScopeCondition } = require('../../en
 
 const db = require('../../db');
 const pool = db.pool;
+const {
+  assertInvoiceDeletable,
+  assertInvoiceMutable,
+  sendGuardError
+} = require('../services/finance-posted-guards');
 
 const STATUS_MAP = {
     'مصدرة': 'ISSUED',
@@ -365,6 +370,7 @@ async function createARAgingInvoice(req, res) {
 async function updateARAgingInvoice(req, res) {
     const { id } = req.params;
     try {
+        await assertInvoiceMutable(pool, id);
         const {
             invoice_date,
             due_date,
@@ -451,6 +457,7 @@ async function updateARAgingInvoice(req, res) {
 
         res.json({ success: true, invoice: result.rows[0] });
     } catch (error) {
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error updating AR aging invoice:', error);
         res.status(500).json({ success: false, error: 'تعذر تحديث الفاتورة' });
     }
@@ -459,6 +466,7 @@ async function updateARAgingInvoice(req, res) {
 async function deleteARAgingInvoice(req, res) {
     const { id } = req.params;
     try {
+        await assertInvoiceDeletable(pool, id);
         const allocations = await pool.query(
             'SELECT COUNT(*)::int AS count FROM finance_payment_allocations WHERE invoice_id = $1',
             [id]
@@ -490,6 +498,7 @@ async function deleteARAgingInvoice(req, res) {
 
         res.json({ success: true, invoice: result.rows[0] });
     } catch (error) {
+        if (sendGuardError(res, error)) return;
         console.error('❌ Error deleting AR aging invoice:', error);
         res.status(500).json({ success: false, error: 'تعذر حذف الفاتورة' });
     }

@@ -1,6 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../db');
+const {
+  postManualEntry,
+  reverseEntry,
+  PostingError
+} = require('../services/finance-posting-service');
+const {
+  assertInvoiceDeletable,
+  assertInvoiceMutable,
+  assertPaymentMutable,
+  GuardError,
+  sendGuardError
+} = require('../services/finance-posted-guards');
 
 // ========================================
 // Helper Functions
@@ -399,33 +411,51 @@ router.post('/journal-entries', async (req, res) => {
   }
 });
 
-// Post journal entry (make it permanent)
+// Post journal entry (make it permanent) — B1.b via FinancePostingService
 router.post('/journal-entries/:id/post', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const result = await db.query(
-      `UPDATE finance_journal_entries 
-       SET status = 'POSTED', is_posted = true, posted_at = NOW(), posted_by = $1
-       WHERE entry_id = $2 AND status = 'DRAFT'
-       RETURNING *`,
-      [req.headers['x-user-id'] || 'system', id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Journal entry not found or already posted' 
-      });
-    }
-    
+    const out = await postManualEntry(db.pool, id, { req, reason: req.body?.reason });
     res.json({
       success: true,
-      entry: result.rows[0],
-      message: 'Journal entry posted successfully'
+      entry: out.entry,
+      message: out.message || 'Journal entry posted successfully'
     });
   } catch (error) {
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
     console.error('Error posting journal entry:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Reverse a posted journal entry — B1.b (new linked REVERSAL; does not mutate original row amounts/status)
+router.post('/journal-entries/:id/reverse', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const out = await reverseEntry(db.pool, id, { req, reason: req.body?.reason });
+    res.status(201).json({
+      success: true,
+      entry: out.entry,
+      original_entry_id: out.original_entry_id,
+      message: out.message || 'Journal entry reversed successfully'
+    });
+  } catch (error) {
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
+    console.error('Error reversing journal entry:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -548,6 +578,7 @@ router.get('/invoices/:id', async (req, res) => {
 router.put('/invoices/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    await assertInvoiceMutable(db.pool, id);
     const allowedFields = [
       'invoice_number', 'invoice_date', 'due_date', 'customer_id', 'customer_name',
       'subtotal', 'tax_amount', 'discount_amount', 'total_amount', 'paid_amount', 'remaining_amount',
@@ -590,6 +621,7 @@ router.put('/invoices/:id', async (req, res) => {
 
     res.json({ success: true, invoice: result.rows[0] });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error updating invoice:', error);
     res.status(500).json({ success: false, error: error.message });
   }
@@ -599,6 +631,7 @@ router.put('/invoices/:id', async (req, res) => {
 router.delete('/invoices/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    await assertInvoiceDeletable(db.pool, id);
 
     await db.query('DELETE FROM finance_payment_allocations WHERE invoice_id = $1', [id]);
     await db.query('DELETE FROM finance_payment_plans WHERE invoice_id = $1', [id]);
@@ -611,6 +644,7 @@ router.delete('/invoices/:id', async (req, res) => {
 
     res.json({ success: true, invoice: result.rows[0] });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error deleting invoice:', error);
     res.status(500).json({ success: false, error: error.message });
   }
@@ -1030,6 +1064,7 @@ router.post('/payments', async (req, res) => {
 router.put('/payments/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    await assertPaymentMutable(db.pool, id, { forDelete: false });
     const {
       payment_date,
       payment_amount,
@@ -1085,6 +1120,7 @@ router.put('/payments/:id', async (req, res) => {
 
     res.json({ success: true, payment: result.rows[0] });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error updating payment:', error);
     res.status(500).json({ success: false, error: error.message });
   }
@@ -1094,6 +1130,7 @@ router.put('/payments/:id', async (req, res) => {
 router.delete('/payments/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    await assertPaymentMutable(db.pool, id, { forDelete: true });
     await db.query('DELETE FROM finance_payment_allocations WHERE payment_id = $1', [id]);
     const result = await db.query('DELETE FROM finance_payments WHERE payment_id = $1 RETURNING *', [id]);
 
@@ -1103,6 +1140,7 @@ router.delete('/payments/:id', async (req, res) => {
 
     res.json({ success: true, payment: result.rows[0] });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error deleting payment:', error);
     res.status(500).json({ success: false, error: error.message });
   }
