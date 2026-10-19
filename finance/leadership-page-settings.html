@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إعدادات الصفحات — القيادة المالية 360</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="contrast-overrides.css">
+  <style>
+    body {
+      font-family: 'Tajawal', 'Cairo', sans-serif;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(220, 38, 38, 0.1), transparent 45%),
+        linear-gradient(160deg, #fffefe 0%, #f7f7f7 55%, #f2f2f2 100%);
+      min-height: 100vh;
+    }
+    .settings-panel {
+      max-width: 28rem;
+      margin: 0 auto;
+    }
+    .settings-title {
+      text-align: center;
+      color: #b91c1c;
+      font-weight: 900;
+      font-size: 1.25rem;
+      border: 1px solid #93c5fd;
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: #fff;
+      margin-bottom: 1rem;
+    }
+    .settings-list a,
+    .settings-list .settings-item {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #fff;
+      border: 1px solid #60a5fa;
+      border-radius: 0.45rem;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.65rem;
+      font-weight: 800;
+      color: #0f172a !important;
+      text-decoration: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .settings-list a:hover {
+      border-color: #b91c1c;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+    .settings-item.is-soon {
+      opacity: 0.92;
+      border-style: dashed;
+      color: #64748b !important;
+      cursor: default;
+    }
+    .status-pill {
+      display: inline-block;
+      margin-top: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #991b1b;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+  <div class="mb-6 flex flex-wrap gap-2 justify-center">
+    <a href="/finance" class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm">
+      <i class="fas fa-compass"></i>
+      القيادة المالية 360
+    </a>
+    <a href="/" class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm">
+      <i class="fas fa-house"></i>
+      الرئيسية
+    </a>
+  </div>
+
+  <div class="settings-panel">
+    <h1 class="settings-title" id="page-settings-title">إعدادات الصفحات</h1>
+    <p class="text-center text-sm text-slate-600 mb-4 font-bold">
+      البنود الجاهزة تفتح إعدادات حقيقية. البنود غير المنفذة تظهر «قيد التطوير» دون نماذج وهمية.
+    </p>
+    <div class="settings-list" id="page-settings-list" aria-label="قائمة إعدادات الصفحات"></div>
+  </div>
+
+  <script src="/finance/finance-leadership-360-catalog.js"></script>
+  <script src="/tenant-path-client.js?v=20260628-tenant-scope"></script>
+  <script>
+    (function () {
+      const cat = window.FINANCE_LEADERSHIP_360;
+      const list = document.getElementById('page-settings-list');
+      const scope = (href) => (typeof window.getTenantScopedPath === 'function' ? window.getTenantScopedPath(href) : href);
+
+      cat.PAGE_SETTINGS.forEach((item) => {
+        const noteHtml = item.note
+          ? `<div class="text-xs font-bold text-slate-500 mt-1">${item.note}</div>`
+          : '';
+        if (item.status === 'operational' && item.href) {
+          const a = document.createElement('a');
+          a.href = scope(item.href);
+          a.setAttribute('data-status', 'operational');
+          a.innerHTML = `${item.label}<span class="status-pill" style="color:#166534">تشغيلية</span>${noteHtml}`;
+          list.appendChild(a);
+        } else {
+          const div = document.createElement('div');
+          div.className = 'settings-item is-soon';
+          div.setAttribute('data-status', 'coming_soon');
+          div.innerHTML = `${item.label}<span class="status-pill">قيد التطوير</span>${noteHtml || '<div class="text-xs font-bold text-slate-500 mt-1">إعدادات المستند غير منفذة بعد — بلا نماذج وهمية</div>'}`;
+          list.appendChild(div);
+        }
+      });
+
+      document.querySelectorAll('a[href^="/"]').forEach((a) => {
+        a.setAttribute('href', scope(a.getAttribute('href')));
+      });
+    })();
+  </script>
+</body>
+</html>
