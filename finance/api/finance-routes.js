@@ -4,6 +4,7 @@ const db = require('../../db');
 const {
   postManualEntry,
   reverseEntry,
+  resolveActor,
   PostingError
 } = require('../services/finance-posting-service');
 const {
@@ -627,22 +628,33 @@ router.put('/invoices/:id', async (req, res) => {
   }
 });
 
-// Delete invoice
+// Delete invoice — B1.d.2 D3/G3: posted lock + trusted entity ownership (no cross-entity)
 router.delete('/invoices/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await assertInvoiceDeletable(db.pool, id);
+    const invoice = await assertInvoiceDeletable(db.pool, id, { req });
+    const actor = resolveActor({ req });
 
     await db.query('DELETE FROM finance_payment_allocations WHERE invoice_id = $1', [id]);
     await db.query('DELETE FROM finance_payment_plans WHERE invoice_id = $1', [id]);
     await db.query('DELETE FROM finance_invoice_lines WHERE invoice_id = $1', [id]);
-    const result = await db.query('DELETE FROM finance_invoices WHERE invoice_id = $1 RETURNING *', [id]);
+    // Defense in depth: require entity_id match after ownership gate
+    const result = await db.query(
+      `DELETE FROM finance_invoices
+       WHERE invoice_id = $1 AND entity_id IS NOT DISTINCT FROM $2
+       RETURNING *`,
+      [id, invoice.entity_id]
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Invoice not found' });
     }
 
-    res.json({ success: true, invoice: result.rows[0] });
+    res.json({
+      success: true,
+      invoice: result.rows[0],
+      meta: { entity_gate: 'assertInvoiceDeletable', actor_entity_id: actor.entityId }
+    });
   } catch (error) {
     if (sendGuardError(res, error)) return;
     console.error('Error deleting invoice:', error);
