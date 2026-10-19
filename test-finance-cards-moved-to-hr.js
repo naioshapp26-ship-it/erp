@@ -95,14 +95,14 @@ async function probe(page, href) {
     );
     pass('logins');
 
-    // Static source checks
+    // Static source checks — P1 resurfaces finance functions on /finance; HR moved section remains.
     const financeHtml = fs.readFileSync(path.join(__dirname, 'finance/index.html'), 'utf8');
-    /سيتم إضافة أنظمة وخدمات المالية 360 قريبًا\./.test(financeHtml)
-      ? pass('finance-html-coming-soon')
-      : fail('finance-html-coming-soon');
-    !/href="\/finance\/expenses\.html"/.test(financeHtml)
-      ? pass('finance-html-no-expense-card')
-      : fail('finance-html-no-expense-card');
+    /finance-leadership-360-catalog\.js/.test(financeHtml)
+      ? pass('finance-html-leadership-p1')
+      : fail('finance-html-leadership-p1');
+    /fl360-quick/.test(financeHtml)
+      ? pass('finance-html-quick-access')
+      : fail('finance-html-quick-access');
     FINANCE_KEEP.length === 8 ? pass('finance-keep-catalog-8') : fail('finance-keep-catalog-8', String(FINANCE_KEEP.length));
     FINANCE_HOME_MOVED_TO_HR.length === 6 ? pass('moved-list-6') : fail('moved-list-6');
     FINANCE_HOME_SKIPPED_AS_HR_DUPES.length === 2 ? pass('skipped-dupes-2') : fail('skipped-dupes-2');
@@ -127,23 +127,23 @@ async function probe(page, href) {
     const dupInHr = (movedAdmin?.cards || []).filter((c) => otherHrefs.has(c.href));
     dupInHr.length === 0 ? pass('no-hr-href-duplicates') : fail('no-hr-href-duplicates', dupInHr.map((c) => c.href).join(','));
 
-    // Finance UI empty
+    // Finance P1 leadership shell + quick access (HR moved cards remain separately)
     await inject(page, admin.token, admin.user);
     await page.goto(`${BASE}/finance`, { waitUntil: 'networkidle2', timeout: 60000 });
-    await page.waitForSelector('#finance-cards', { timeout: 20000 });
-    await page.$eval('#finance-cards', (el) => el.scrollIntoView({ block: 'center' }));
+    await page.waitForSelector('#fl360-nav', { timeout: 20000 });
+    await page.$eval('#finance-command', (el) => el.scrollIntoView({ block: 'center' }));
     await new Promise((r) => setTimeout(r, 300));
     await page.screenshot({ path: path.join(ART, 'finance-home-after-empty.png'), fullPage: false });
     const finState = await page.evaluate(() => ({
-      links: [...document.querySelectorAll('#finance-cards a[href]')].map((a) => a.getAttribute('href')),
-      emptyText: (document.querySelector('[data-finance-empty], #finance-cards')?.innerText || '').trim(),
+      nav: document.querySelectorAll('#fl360-nav .fl360-nav-btn').length,
+      sections: document.querySelectorAll('#finance-cards .fl360-section-card').length,
+      quick: [...document.querySelectorAll('#fl360-quick a[href]')].map((a) => a.getAttribute('href')),
       title: document.querySelector('h1')?.innerText || ''
     }));
-    finState.links.length === 0 ? pass('finance-dom-no-cards') : fail('finance-dom-no-cards', finState.links.join(','));
-    /سيتم إضافة أنظمة وخدمات المالية 360 قريبًا/.test(finState.emptyText)
-      ? pass('finance-dom-coming-soon')
-      : fail('finance-dom-coming-soon', finState.emptyText.slice(0, 80));
-    /المالية/.test(finState.title) ? pass('finance-page-title-kept') : fail('finance-page-title-kept', finState.title);
+    finState.nav === 16 ? pass('finance-dom-nav-16') : fail('finance-dom-nav-16', String(finState.nav));
+    finState.sections === 16 ? pass('finance-dom-sections-16') : fail('finance-dom-sections-16', String(finState.sections));
+    finState.quick.length === 5 ? pass('finance-dom-quick-5') : fail('finance-dom-quick-5', finState.quick.join(','));
+    /القيادة المالية|المالية/.test(finState.title) ? pass('finance-page-title-kept') : fail('finance-page-title-kept', finState.title);
 
     // HR UI has moved section
     await page.goto(`${BASE}/hr`, { waitUntil: 'networkidle2', timeout: 60000 });
