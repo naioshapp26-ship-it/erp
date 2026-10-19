@@ -4,7 +4,9 @@ const db = require('../../db');
 const {
   postManualEntry,
   reverseEntry,
+  postInvoiceIssue,
   resolveActor,
+  assertEntityOwns,
   PostingError
 } = require('../services/finance-posting-service');
 const {
@@ -14,6 +16,17 @@ const {
   GuardError,
   sendGuardError
 } = require('../services/finance-posted-guards');
+const { computeInvoiceTotalsFromLines } = require('../services/finance-invoice-amounts');
+
+/**
+ * B1.d.2 — invoice create via FinancePostingService.
+ * Default FALSE. Must remain false in Staging/Production until explicit approval.
+ * Tests may set FINANCE_POST_INVOICE_VIA_SERVICE=true in an isolated process only.
+ */
+function isFinancePostInvoiceViaService() {
+  const v = String(process.env.FINANCE_POST_INVOICE_VIA_SERVICE || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
 
 // ========================================
 // Helper Functions
@@ -40,12 +53,16 @@ const getEntityFilter = (userEntity, tableAlias = '') => {
 
 // Generate Next Number Helper (tolerant to mixed formats like JE-<timestamp>-xyz)
 const generateNextNumber = async (prefix, table, column) => {
+  // Match PREFIX-0001 only (ignore seeds like INV-FIN-001 / JE-INV-…)
   const result = await db.query(
-    `SELECT ${column} FROM ${table} WHERE ${column} LIKE $1 ORDER BY ${column} DESC LIMIT 1`,
-    [`${prefix}%`]
+    `SELECT ${column} AS num FROM ${table}
+     WHERE ${column} ~ ('^' || $1 || '-[0-9]+$')
+     ORDER BY ${column} DESC
+     LIMIT 1`,
+    [prefix]
   );
 
-  const lastNumber = result.rows[0]?.[column] || '';
+  const lastNumber = result.rows[0]?.num || '';
   const numericMatches = String(lastNumber).match(/\d+/g) || [];
   const lastNumeric = numericMatches.length ? parseInt(numericMatches[numericMatches.length - 1], 10) || 0 : 0;
   const nextNum = lastNumeric + 1;
@@ -663,12 +680,15 @@ router.delete('/invoices/:id', async (req, res) => {
 });
 
 // Create new invoice
+// B1.d.2: when FINANCE_POST_INVOICE_VIA_SERVICE=true → service posting (exclusive).
+// Default false → legacy inline JE (unchanged). Never run both paths.
 router.post('/invoices', async (req, res) => {
   const client = await db.pool.connect();
-  
+  const useService = isFinancePostInvoiceViaService();
+
   try {
     await client.query('BEGIN');
-    
+
     const {
       customer_id,
       invoice_date,
@@ -692,42 +712,100 @@ router.post('/invoices', async (req, res) => {
       notes,
       lines = []
     } = req.body;
-    
-    // Get customer info
+
     const customerResult = await client.query(
       'SELECT * FROM finance_customers WHERE customer_id = $1',
       [customer_id]
     );
-    
+
     if (customerResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Customer not found' });
     }
-    
+
     const customer = customerResult.rows[0];
-    
-    // Calculate totals
-    let subtotal = 0;
-    let tax_amount = 0;
-    let discount_amount = 0;
-    
-    for (const line of lines) {
-      const lineSubtotal = line.quantity * line.unit_price;
-      const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
-      const lineTaxable = lineSubtotal - lineDiscount;
-      const lineTax = lineTaxable * (line.tax_percentage || 15) / 100;
-      
-      subtotal += lineSubtotal;
-      discount_amount += lineDiscount;
-      tax_amount += lineTax;
+
+    let subtotal;
+    let tax_amount;
+    let discount_amount;
+    let total_amount;
+    let lineRows = lines;
+    let resolvedEntityType = entity_type;
+    let resolvedEntityId = entity_id;
+    let resolvedBranchId = branch_id;
+    let resolvedIncubatorId = incubator_id;
+    let createdBy = req.headers['x-user-id'] || 'system';
+    let actor = null;
+
+    if (useService) {
+      // Trusted session required for service path (entity ownership + posting permission)
+      actor = resolveActor({ req });
+      if (!actor.authenticated) {
+        await client.query('ROLLBACK');
+        return res.status(401).json({
+          success: false,
+          error: 'يجب تسجيل الدخول بصلاحية خادمية موثوقة قبل إنشاء فاتورة عبر خدمة الترحيل',
+          code: 'AUTH_REQUIRED'
+        });
+      }
+      if (!actor.entityId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          success: false,
+          error: 'جلسة المستخدم بلا كيان موثوق — مرفوض',
+          code: 'ENTITY_SCOPE_REQUIRED'
+        });
+      }
+
+      // Target entity: body value if present, else session. Ownership enforced server-side.
+      resolvedEntityId = entity_id != null && String(entity_id).trim() !== ''
+        ? String(entity_id).trim()
+        : String(actor.entityId);
+      resolvedEntityType = entity_type || actor.entityType || null;
+      try {
+        assertEntityOwns(resolvedEntityId, actor, 'الفاتورة');
+      } catch (ownErr) {
+        await client.query('ROLLBACK');
+        if (ownErr instanceof PostingError) {
+          return res.status(ownErr.status).json({
+            success: false,
+            error: ownErr.message,
+            code: ownErr.code,
+            ...(ownErr.extra || {})
+          });
+        }
+        throw ownErr;
+      }
+
+      const computed = computeInvoiceTotalsFromLines(lines || []);
+      subtotal = computed.subtotal;
+      tax_amount = computed.tax_amount;
+      discount_amount = computed.discount_amount;
+      total_amount = computed.total_amount;
+      lineRows = computed.lines;
+      createdBy = String(actor.userId || createdBy);
+      if (!resolvedBranchId && actor.entityType === 'BRANCH') {
+        resolvedBranchId = resolvedEntityId;
+      }
+    } else {
+      // Legacy calculation (unchanged) — exclusive when flag is false
+      subtotal = 0;
+      tax_amount = 0;
+      discount_amount = 0;
+      for (const line of lines) {
+        const lineSubtotal = line.quantity * line.unit_price;
+        const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
+        const lineTaxable = lineSubtotal - lineDiscount;
+        const lineTax = lineTaxable * (line.tax_percentage || 15) / 100;
+        subtotal += lineSubtotal;
+        discount_amount += lineDiscount;
+        tax_amount += lineTax;
+      }
+      total_amount = subtotal - discount_amount + tax_amount;
     }
-    
-    const total_amount = subtotal - discount_amount + tax_amount;
-    
-    // Generate invoice number
+
     const invoice_number = await generateNextNumber('INV', 'finance_invoices', 'invoice_number');
-    
-    // Create invoice
+
     const invoiceResult = await client.query(
       `INSERT INTO finance_invoices 
        (invoice_number, invoice_date, due_date, customer_id, customer_name,
@@ -739,9 +817,9 @@ router.post('/invoices', async (req, res) => {
        RETURNING *`,
       [invoice_number, invoice_date, due_date, customer_id, customer.customer_name_ar,
        subtotal, tax_amount, discount_amount, total_amount, total_amount,
-       program_id, service_id, entity_type, entity_id, branch_id, incubator_id, platform_id,
+       program_id, service_id, resolvedEntityType, resolvedEntityId, resolvedBranchId, resolvedIncubatorId, platform_id,
        allow_partial_payment, allow_installments, notes,
-       req.headers['x-user-id'] || 'system',
+       createdBy,
        street_name || null,
        postal_code || null,
        building_number || null,
@@ -750,86 +828,126 @@ router.post('/invoices', async (req, res) => {
        national_address_number || null,
        short_address || null]
     );
-    
+
     const invoice_id = invoiceResult.rows[0].invoice_id;
-    
-    // Create invoice lines
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineSubtotal = line.quantity * line.unit_price;
-      const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
-      const lineTaxable = lineSubtotal - lineDiscount;
-      const lineTax = lineTaxable * (line.tax_percentage || 15) / 100;
-      const lineTotal = lineTaxable + lineTax;
-      
-      await client.query(
-        `INSERT INTO finance_invoice_lines 
-         (invoice_id, line_number, item_code, item_name, description, quantity, unit_price,
-          discount_percentage, discount_amount, tax_percentage, tax_amount, line_total, revenue_account_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        [invoice_id, i + 1, line.item_code, line.item_name, line.description,
-         line.quantity, line.unit_price, line.discount_percentage || 0, lineDiscount,
-         line.tax_percentage || 15, lineTax, lineTotal, line.revenue_account_id]
-      );
+    let invoiceRow = invoiceResult.rows[0];
+
+    for (let i = 0; i < lineRows.length; i++) {
+      const line = lineRows[i];
+      if (useService) {
+        await client.query(
+          `INSERT INTO finance_invoice_lines 
+           (invoice_id, line_number, item_code, item_name, description, quantity, unit_price,
+            discount_percentage, discount_amount, tax_percentage, tax_amount, line_total, revenue_account_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [invoice_id, i + 1, line.item_code || null, line.item_name, line.description || null,
+           line.quantity, line.unit_price, line.discount_percentage || 0, line.discount_amount,
+           line.tax_percentage, line.tax_amount, line.line_total, line.revenue_account_id || null]
+        );
+      } else {
+        const lineSubtotal = line.quantity * line.unit_price;
+        const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
+        const lineTaxable = lineSubtotal - lineDiscount;
+        const lineTax = lineTaxable * (line.tax_percentage || 15) / 100;
+        const lineTotal = lineTaxable + lineTax;
+        await client.query(
+          `INSERT INTO finance_invoice_lines 
+           (invoice_id, line_number, item_code, item_name, description, quantity, unit_price,
+            discount_percentage, discount_amount, tax_percentage, tax_amount, line_total, revenue_account_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [invoice_id, i + 1, line.item_code, line.item_name, line.description,
+           line.quantity, line.unit_price, line.discount_percentage || 0, lineDiscount,
+           line.tax_percentage || 15, lineTax, lineTotal, line.revenue_account_id]
+        );
+      }
     }
-    
-    // Create automatic journal entry
-    const entry_number = await generateNextNumber('JE', 'finance_journal_entries', 'entry_number');
-    
-    const journalResult = await client.query(
-      `INSERT INTO finance_journal_entries 
-       (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
-        entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
-       VALUES ($1, $2, 'AUTO', $3, $4, 'INVOICE', $5, $6, $7, $8, $9, 'POSTED', true, $10)
-       RETURNING *`,
-      [entry_number, invoice_date, `قيد آلي - فاتورة رقم ${invoice_number}`, invoice_number, invoice_id,
-       entity_type, entity_id, branch_id, incubator_id, req.headers['x-user-id'] || 'system']
-    );
-    
-    const journal_entry_id = journalResult.rows[0].entry_id;
-    
-    // Debit: Accounts Receivable
-    await client.query(
-      `INSERT INTO finance_journal_lines 
-       (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-       VALUES ($1, 1, (SELECT account_id FROM finance_accounts WHERE account_code = '1130'), '1130', $2, 0, $3)`,
-      [journal_entry_id, total_amount, `ذمم مدينة - ${customer.customer_name_ar}`]
-    );
-    
-    // Credit: Revenue (from lines)
-    await client.query(
-      `INSERT INTO finance_journal_lines 
-       (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-       VALUES ($1, 2, (SELECT account_id FROM finance_accounts WHERE account_code = '4100'), '4100', 0, $2, $3)`,
-      [journal_entry_id, subtotal - discount_amount, `إيرادات`]
-    );
-    
-    // Credit: Tax Payable (if applicable)
-    if (tax_amount > 0) {
+
+    let journal_entry_id;
+
+    if (useService) {
+      // Exclusive service path — same client, no nested COMMIT
+      const posted = await postInvoiceIssue(client, invoice_id, {
+        req,
+        manageTransaction: false
+      });
+      journal_entry_id = posted.entry.entry_id;
+      const refreshed = await client.query(
+        `SELECT * FROM finance_invoices WHERE invoice_id = $1`,
+        [invoice_id]
+      );
+      invoiceRow = refreshed.rows[0] || invoiceRow;
+    } else {
+      // Exclusive legacy path
+      const entry_number = await generateNextNumber('JE', 'finance_journal_entries', 'entry_number');
+
+      const journalResult = await client.query(
+        `INSERT INTO finance_journal_entries 
+         (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
+          entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
+         VALUES ($1, $2, 'AUTO', $3, $4, 'INVOICE', $5, $6, $7, $8, $9, 'POSTED', true, $10)
+         RETURNING *`,
+        [entry_number, invoice_date, `قيد آلي - فاتورة رقم ${invoice_number}`, invoice_number, invoice_id,
+         resolvedEntityType, resolvedEntityId, resolvedBranchId, resolvedIncubatorId, createdBy]
+      );
+
+      journal_entry_id = journalResult.rows[0].entry_id;
+
       await client.query(
         `INSERT INTO finance_journal_lines 
          (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-         VALUES ($1, 3, (SELECT account_id FROM finance_accounts WHERE account_code = '2140'), '2140', 0, $2, $3)`,
-        [journal_entry_id, tax_amount, `ضريبة القيمة المضافة`]
+         VALUES ($1, 1, (SELECT account_id FROM finance_accounts WHERE account_code = '1130'), '1130', $2, 0, $3)`,
+        [journal_entry_id, total_amount, `ذمم مدينة - ${customer.customer_name_ar}`]
       );
+
+      await client.query(
+        `INSERT INTO finance_journal_lines 
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+         VALUES ($1, 2, (SELECT account_id FROM finance_accounts WHERE account_code = '4100'), '4100', 0, $2, $3)`,
+        [journal_entry_id, subtotal - discount_amount, `إيرادات`]
+      );
+
+      if (tax_amount > 0) {
+        await client.query(
+          `INSERT INTO finance_journal_lines 
+           (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+           VALUES ($1, 3, (SELECT account_id FROM finance_accounts WHERE account_code = '2140'), '2140', 0, $2, $3)`,
+          [journal_entry_id, tax_amount, `ضريبة القيمة المضافة`]
+        );
+      }
+
+      await client.query(
+        'UPDATE finance_invoices SET journal_entry_id = $1 WHERE invoice_id = $2',
+        [journal_entry_id, invoice_id]
+      );
+      invoiceRow = { ...invoiceRow, journal_entry_id };
     }
-    
-    // Update invoice with journal entry ID
-    await client.query(
-      'UPDATE finance_invoices SET journal_entry_id = $1 WHERE invoice_id = $2',
-      [journal_entry_id, invoice_id]
-    );
-    
+
     await client.query('COMMIT');
-    
+
     res.status(201).json({
       success: true,
-      invoice: invoiceResult.rows[0],
-      journal_entry_id: journal_entry_id,
-      message: 'Invoice created successfully'
+      invoice: invoiceRow,
+      journal_entry_id,
+      message: 'Invoice created successfully',
+      meta: {
+        posting_via_service: useService,
+        finance_post_invoice_via_service: useService
+      }
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* */
+    }
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
     console.error('Error creating invoice:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
@@ -1914,4 +2032,6 @@ router.delete('/sales-settlements/:id', async (req, res) => {
   }
 });
 
+router.isFinancePostInvoiceViaService = isFinancePostInvoiceViaService;
 module.exports = router;
+module.exports.isFinancePostInvoiceViaService = isFinancePostInvoiceViaService;
