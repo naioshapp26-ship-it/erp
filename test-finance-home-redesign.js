@@ -6,14 +6,15 @@ const html = fs.readFileSync(filePath, 'utf8');
 
 const requiredSnippets = [
   'class="hero-section',
-  'href="#finance-cards"',
+  'href="#finance-command"',
   'class="floating-actions"',
   'aria-label="أزرار جانبية عائمة"',
   'id="scroll-top-button"',
-  'id="finance-cards" class="finance-links"',
-  'سيتم إضافة أنظمة وخدمات المالية 360 قريبًا.',
+  'id="finance-cards"',
+  'finance-leadership-360-catalog.js',
+  'fl360-sidebar',
   'prefers-reduced-motion: reduce',
-  'window.scrollTo({ top: 0, behavior: prefersReducedMotion ? \'auto\' : \'smooth\' })'
+  "window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' })"
 ];
 
 const missing = requiredSnippets.filter((snippet) => !html.includes(snippet));

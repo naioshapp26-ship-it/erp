@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../db');
+const {
+  postManualEntry,
+  reverseEntry,
+  PostingError
+} = require('../services/finance-posting-service');
 
 // ========================================
 // Helper Functions
@@ -399,33 +404,51 @@ router.post('/journal-entries', async (req, res) => {
   }
 });
 
-// Post journal entry (make it permanent)
+// Post journal entry (make it permanent) — B1.b via FinancePostingService
 router.post('/journal-entries/:id/post', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const result = await db.query(
-      `UPDATE finance_journal_entries 
-       SET status = 'POSTED', is_posted = true, posted_at = NOW(), posted_by = $1
-       WHERE entry_id = $2 AND status = 'DRAFT'
-       RETURNING *`,
-      [req.headers['x-user-id'] || 'system', id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Journal entry not found or already posted' 
-      });
-    }
-    
+    const out = await postManualEntry(db.pool, id, { req, reason: req.body?.reason });
     res.json({
       success: true,
-      entry: result.rows[0],
-      message: 'Journal entry posted successfully'
+      entry: out.entry,
+      message: out.message || 'Journal entry posted successfully'
     });
   } catch (error) {
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
     console.error('Error posting journal entry:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Reverse a posted journal entry — B1.b (new linked REVERSAL; does not mutate original row amounts/status)
+router.post('/journal-entries/:id/reverse', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const out = await reverseEntry(db.pool, id, { req, reason: req.body?.reason });
+    res.status(201).json({
+      success: true,
+      entry: out.entry,
+      original_entry_id: out.original_entry_id,
+      message: out.message || 'Journal entry reversed successfully'
+    });
+  } catch (error) {
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
+    console.error('Error reversing journal entry:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
