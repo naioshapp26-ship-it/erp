@@ -98,14 +98,14 @@ async function main() {
   };
 
   // Permission unit checks
-  assertPermission({ role: 'Admin', permissions: [] }, 'post').ok
+  assertPermission({ authenticated: true, role: 'Admin', permissions: [] }, 'post').ok
     ? pass('perm-admin-post') : fail('perm-admin-post');
-  assertPermission({ role: 'viewer', permissions: [] }, 'reverse').ok
+  assertPermission({ authenticated: true, role: 'viewer', permissions: [] }, 'reverse').ok
     ? fail('perm-viewer-reverse-denied') : pass('perm-viewer-reverse-denied');
-  assertPermission({ role: null, permissions: [] }, 'post').mode === 'legacy_unscoped'
-    ? pass('perm-legacy-post-allowed') : fail('perm-legacy-post-allowed');
-  !assertPermission({ role: null, permissions: [] }, 'reverse').ok
-    ? pass('perm-legacy-reverse-denied') : fail('perm-legacy-reverse-denied');
+  assertPermission({ authenticated: false, role: null, permissions: [] }, 'post').status === 401
+    ? pass('perm-unauth-post-401') : fail('perm-unauth-post-401');
+  assertPermission({ authenticated: true, role: null, permissions: [] }, 'post').ok
+    ? fail('perm-no-legacy-unscoped') : pass('perm-no-legacy-unscoped');
 
   const client = new Client({ connectionString: DB_URL, ssl: false });
   await client.connect();
@@ -118,7 +118,8 @@ async function main() {
     // Balanced post
     const d1 = await seedDraft(client, { label: 'bal' });
     const posted = await postManualEntry(client, d1.entry_id, {
-      actor: { userId: 'b1b', role: 'Admin', permissions: ['journals.post'], entityId: 'HQ001' }
+      trustedTestActor: true,
+      actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'], entityId: 'HQ001' }
     });
     posted.entry.status === 'POSTED' && posted.entry.is_posted === true
       ? pass('post-balanced-success', posted.entry.entry_number)
@@ -127,7 +128,8 @@ async function main() {
     // Already posted → 404 contract
     try {
       await postManualEntry(client, d1.entry_id, {
-        actor: { userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+        trustedTestActor: true,
+        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
       });
       fail('post-already-posted-404');
     } catch (e) {
@@ -140,7 +142,8 @@ async function main() {
     const dBad = await seedDraft(client, { unbalanced: true, label: 'unbal' });
     try {
       await postManualEntry(client, dBad.entry_id, {
-        actor: { userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+        trustedTestActor: true,
+        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
       });
       fail('post-unbalanced-422');
     } catch (e) {
@@ -154,7 +157,8 @@ async function main() {
     // Permission deny reverse
     try {
       await reverseEntry(client, d1.entry_id, {
-        actor: { userId: 'x', role: 'viewer', permissions: [] },
+        trustedTestActor: true,
+        actor: { authenticated: true, userId: 'x', role: 'viewer', permissions: [] },
         reason: 'test'
       });
       fail('reverse-perm-403');
@@ -164,7 +168,8 @@ async function main() {
 
     // Reverse success — original unchanged status POSTED
     const rev = await reverseEntry(client, d1.entry_id, {
-      actor: { userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] },
+      trustedTestActor: true,
+      actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] },
       reason: 'اختبار عكس B1.b'
     });
     rev.entry.reference_type === REVERSAL_REF_TYPE && Number(rev.entry.reference_id) === Number(d1.entry_id)
@@ -184,7 +189,8 @@ async function main() {
     // Double reverse
     try {
       await reverseEntry(client, d1.entry_id, {
-        actor: { userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] },
+        trustedTestActor: true,
+        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] },
         reason: 'مرة ثانية'
       });
       fail('reverse-second-409');
@@ -202,7 +208,8 @@ async function main() {
       try {
         await c.query('SET search_path TO b1a_test, public');
         return await postManualEntry(c, dConc.entry_id, {
-          actor: { userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+          trustedTestActor: true,
+          actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
         });
       } finally {
         c.release();
@@ -218,14 +225,16 @@ async function main() {
     // Concurrent reverse
     const dRev = await seedDraft(client, { label: 'crev' });
     await postManualEntry(client, dRev.entry_id, {
-      actor: { userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+      trustedTestActor: true,
+      actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
     });
     const runRev = async () => {
       const c = await pool.connect();
       try {
         await c.query('SET search_path TO b1a_test, public');
         return await reverseEntry(c, dRev.entry_id, {
-          actor: { userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] },
+          trustedTestActor: true,
+          actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.reverse'] },
           reason: 'سباق عكس'
         });
       } finally {
@@ -249,7 +258,8 @@ async function main() {
     await client.query(`UPDATE finance_journal_lines SET account_id = NULL, account_code = 'NOPE' WHERE entry_id=$1`, [dAcc.entry_id]);
     try {
       await postManualEntry(client, dAcc.entry_id, {
-        actor: { userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
+        trustedTestActor: true,
+        actor: { authenticated: true, userId: 'b1b', role: 'Admin', permissions: ['journals.post'] }
       });
       fail('post-bad-account-422');
     } catch (e) {
@@ -339,62 +349,40 @@ async function main() {
     const session = login.json.data.session;
     const token = (session && typeof session === 'object' ? session.token : session) || login.json.data.token;
 
-    // Need account ids from public
     const pg = new Client({ connectionString: DB_URL, ssl: false });
     await pg.connect();
     const acc = await pg.query(`SELECT account_id, account_code FROM finance_accounts WHERE account_code IN ('1130','4100')`);
     const map = Object.fromEntries(acc.rows.map((r) => [r.account_code, r.account_id]));
+    const num = `B1B-HTTP-${Date.now()}`;
+    const seeded = await pg.query(
+      `INSERT INTO finance_journal_entries
+       (entry_number, entry_date, entry_type, description, status, is_posted, entity_id, entity_type, created_by)
+       VALUES ($1, CURRENT_DATE, 'MANUAL', 'B1B HTTP draft', 'DRAFT', false, 'HQ001', 'HQ', 'b1b-http')
+       RETURNING entry_id`,
+      [num]
+    );
+    await pg.query(
+      `INSERT INTO finance_journal_lines (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, entity_id)
+       VALUES ($1,1,$2,'1130',50,0,'HQ001'),($1,2,$3,'4100',0,50,'HQ001')`,
+      [seeded.rows[0].entry_id, map['1130'], map['4100']]
+    );
     await pg.end();
 
-    const create = await httpJson('POST', '/finance/journal-entries', {
-      entry_date: new Date().toISOString().slice(0, 10),
-      description: 'B1B HTTP draft',
-      entity_id: 'HQ001',
-      entity_type: 'HQ',
-      lines: [
-        { account_id: map['1130'], account_code: '1130', debit_amount: 50, credit_amount: 0, description: 'd' },
-        { account_id: map['4100'], account_code: '4100', debit_amount: 0, credit_amount: 50, description: 'c' }
-      ]
-    }, {
-      Authorization: `Bearer ${token}`,
-      'x-user-id': '1',
-      'x-user-role': 'Admin',
-      'x-finance-permissions': 'journals.post,journals.reverse'
-    });
+    const id = seeded.rows[0].entry_id;
+    pass('http-create-draft', String(id));
+    const auth = { Authorization: `Bearer ${token}` };
+    const post = await httpJson('POST', `/finance/journal-entries/${id}/post`, {}, auth);
+    post.status === 200 && post.json?.entry?.status === 'POSTED'
+      ? pass('http-post-contract', String(post.status))
+      : fail('http-post-contract', `${post.status} ${post.raw}`);
 
-    if (!(create.status === 201 || create.json?.success)) {
-      fail('http-create-draft', `${create.status} ${create.raw}`);
-    } else {
-      pass('http-create-draft', String(create.json.entry.entry_id));
-      const id = create.json.entry.entry_id;
-      const post = await httpJson('POST', `/finance/journal-entries/${id}/post`, {}, {
-        Authorization: `Bearer ${token}`,
-        'x-user-id': '1',
-        'x-user-role': 'Admin',
-        'x-finance-permissions': 'journals.post,journals.reverse'
-      });
-      post.status === 200 && post.json?.entry?.status === 'POSTED'
-        ? pass('http-post-contract', String(post.status))
-        : fail('http-post-contract', `${post.status} ${post.raw}`);
+    const rev = await httpJson('POST', `/finance/journal-entries/${id}/reverse`, { reason: 'HTTP B1.b reverse' }, auth);
+    rev.status === 201 && rev.json?.entry?.reference_type === REVERSAL_REF_TYPE
+      ? pass('http-reverse-contract', String(rev.json.entry.entry_id))
+      : fail('http-reverse-contract', `${rev.status} ${rev.raw}`);
 
-      const rev = await httpJson('POST', `/finance/journal-entries/${id}/reverse`, { reason: 'HTTP B1.b reverse' }, {
-        Authorization: `Bearer ${token}`,
-        'x-user-id': '1',
-        'x-user-role': 'Admin',
-        'x-finance-permissions': 'journals.post,journals.reverse'
-      });
-      rev.status === 201 && rev.json?.entry?.reference_type === REVERSAL_REF_TYPE
-        ? pass('http-reverse-contract', String(rev.json.entry.entry_id))
-        : fail('http-reverse-contract', `${rev.status} ${rev.raw}`);
-
-      const rev2 = await httpJson('POST', `/finance/journal-entries/${id}/reverse`, { reason: 'again' }, {
-        Authorization: `Bearer ${token}`,
-        'x-user-id': '1',
-        'x-user-role': 'Admin',
-        'x-finance-permissions': 'journals.reverse'
-      });
-      rev2.status === 409 ? pass('http-reverse-repeat-409') : fail('http-reverse-repeat-409', String(rev2.status));
-    }
+    const rev2 = await httpJson('POST', `/finance/journal-entries/${id}/reverse`, { reason: 'again' }, auth);
+    rev2.status === 409 ? pass('http-reverse-repeat-409') : fail('http-reverse-repeat-409', String(rev2.status));
   } catch (e) {
     fail('http-suite', e.message);
   }

@@ -6,6 +6,13 @@ const {
   reverseEntry,
   PostingError
 } = require('../services/finance-posting-service');
+const {
+  assertInvoiceDeletable,
+  assertInvoiceMutable,
+  assertPaymentMutable,
+  GuardError,
+  sendGuardError
+} = require('../services/finance-posted-guards');
 
 // ========================================
 // Helper Functions
@@ -571,6 +578,7 @@ router.get('/invoices/:id', async (req, res) => {
 router.put('/invoices/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    await assertInvoiceMutable(db.pool, id);
     const allowedFields = [
       'invoice_number', 'invoice_date', 'due_date', 'customer_id', 'customer_name',
       'subtotal', 'tax_amount', 'discount_amount', 'total_amount', 'paid_amount', 'remaining_amount',
@@ -613,6 +621,7 @@ router.put('/invoices/:id', async (req, res) => {
 
     res.json({ success: true, invoice: result.rows[0] });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error updating invoice:', error);
     res.status(500).json({ success: false, error: error.message });
   }
@@ -622,6 +631,7 @@ router.put('/invoices/:id', async (req, res) => {
 router.delete('/invoices/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    await assertInvoiceDeletable(db.pool, id);
 
     await db.query('DELETE FROM finance_payment_allocations WHERE invoice_id = $1', [id]);
     await db.query('DELETE FROM finance_payment_plans WHERE invoice_id = $1', [id]);
@@ -634,6 +644,7 @@ router.delete('/invoices/:id', async (req, res) => {
 
     res.json({ success: true, invoice: result.rows[0] });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error deleting invoice:', error);
     res.status(500).json({ success: false, error: error.message });
   }
@@ -1053,6 +1064,7 @@ router.post('/payments', async (req, res) => {
 router.put('/payments/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    await assertPaymentMutable(db.pool, id, { forDelete: false });
     const {
       payment_date,
       payment_amount,
@@ -1108,6 +1120,7 @@ router.put('/payments/:id', async (req, res) => {
 
     res.json({ success: true, payment: result.rows[0] });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error updating payment:', error);
     res.status(500).json({ success: false, error: error.message });
   }
@@ -1117,6 +1130,7 @@ router.put('/payments/:id', async (req, res) => {
 router.delete('/payments/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    await assertPaymentMutable(db.pool, id, { forDelete: true });
     await db.query('DELETE FROM finance_payment_allocations WHERE payment_id = $1', [id]);
     const result = await db.query('DELETE FROM finance_payments WHERE payment_id = $1 RETURNING *', [id]);
 
@@ -1126,6 +1140,7 @@ router.delete('/payments/:id', async (req, res) => {
 
     res.json({ success: true, payment: result.rows[0] });
   } catch (error) {
+    if (sendGuardError(res, error)) return;
     console.error('Error deleting payment:', error);
     res.status(500).json({ success: false, error: error.message });
   }

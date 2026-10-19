@@ -34,53 +34,86 @@ function parsePermissions(raw) {
     .filter(Boolean);
 }
 
+/**
+ * Trusted actor from server session only (req.authUser set by auth middleware).
+ * Client headers x-user-role / x-finance-permissions are IGNORED (spoofable).
+ * Tests may pass ctx.actor explicitly with ctx.trustedTestActor=true.
+ */
 function resolveActor(reqOrCtx = {}) {
-  if (reqOrCtx.actor) return reqOrCtx.actor;
+  if (reqOrCtx.actor && reqOrCtx.trustedTestActor === true) {
+    return {
+      ...reqOrCtx.actor,
+      authenticated: true,
+      trustSource: 'test'
+    };
+  }
   const req = reqOrCtx.req || reqOrCtx;
   const headers = req.headers || {};
-  const user = req.user || {};
+  const authUser = req.authUser || null;
+  if (authUser && (authUser.id || authUser.role || authUser.email)) {
+    return {
+      userId: authUser.id || null,
+      userName: authUser.name || authUser.email || null,
+      role: authUser.role || null,
+      // permissions only from server-attached authUser, never request headers
+      permissions: parsePermissions(authUser.permissions || authUser.financePermissions),
+      ip: headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
+      userAgent: headers['user-agent'] || null,
+      entityId: req.userEntity?.id || req.authenticatedEntityContext?.id || null,
+      authenticated: true,
+      trustSource: 'session'
+    };
+  }
   return {
-    userId: headers['x-user-id'] || user.id || user.user_id || 'system',
-    userName: headers['x-user-name'] || user.name || user.email || null,
-    role: headers['x-user-role'] || user.role || null,
-    permissions: parsePermissions(
-      headers['x-finance-permissions'] || user.permissions || user.financePermissions
-    ),
+    userId: null,
+    userName: null,
+    role: null,
+    permissions: [],
     ip: headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
     userAgent: headers['user-agent'] || null,
-    entityId: headers['x-entity-id'] || req.userEntity?.id || null
+    entityId: req.userEntity?.id || null,
+    authenticated: false,
+    trustSource: 'none'
   };
 }
 
 /**
- * Backend permission gate.
- * - journals.post / journals.reverse via explicit permission list
- * - Admin-like roles: full access
- * - Manager: post only
- * - reverse: never legacy-open; requires admin or journals.reverse
- * - post with no role (legacy UI): allowed but flagged legacy_unscoped in audit
+ * Backend permission gate — default deny.
+ * Trusted role/permissions from session authUser only (B1.c closes legacy_unscoped).
  */
 function assertPermission(actor, action) {
+  if (!actor || !actor.authenticated) {
+    return {
+      ok: false,
+      mode: 'unauthenticated',
+      status: 401,
+      code: 'AUTH_REQUIRED',
+      message: 'يجب تسجيل الدخول بصلاحية خادمية موثوقة قبل الترحيل أو العكس'
+    };
+  }
   const perm = action === 'reverse' ? 'journals.reverse' : 'journals.post';
   if (actor.permissions.includes('*') || actor.permissions.includes(perm)) {
     return { ok: true, mode: 'explicit_permission' };
   }
-  const role = String(actor.role || '');
-  if (/^admin$/i.test(role) || /^administrator$/i.test(role)) {
+  const role = String(actor.role || '').trim();
+  const roleNorm = role.toLowerCase();
+  // Trusted admin-equivalent roles from session (Arabic + English product roles)
+  const isAdminRole =
+    /^(admin|administrator|super_admin|company_admin|system_admin)$/i.test(roleNorm) ||
+    role === 'مسؤول النظام' ||
+    /مسؤول/.test(role);
+  if (isAdminRole) {
     return { ok: true, mode: 'role_admin' };
   }
-  if (action === 'post' && /^manager$/i.test(role)) {
+  if (action === 'post' && /^(manager|hr_manager)$/i.test(roleNorm)) {
     return { ok: true, mode: 'role_manager' };
-  }
-  if (action === 'post' && !actor.role && !actor.permissions.length) {
-    return { ok: true, mode: 'legacy_unscoped' };
   }
   return {
     ok: false,
     mode: 'denied',
     status: 403,
     code: 'PERMISSION_DENIED',
-    message: `مطلوب صلاحية ${perm}`
+    message: `مطلوب صلاحية ${perm} من جلسة مصادقة موثوقة`
   };
 }
 
