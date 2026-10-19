@@ -12,6 +12,9 @@ const {
   roundMoney
 } = require('../services/finance-posting-service');
 const {
+  assertInvoiceIssueReadyForCollection
+} = require('../services/finance-collection-gate');
+const {
   assertInvoiceDeletable,
   assertInvoiceMutable,
   assertPaymentMutable,
@@ -1169,12 +1172,37 @@ router.post('/payments', async (req, res) => {
 
     const storedPaymentAmount = useService ? roundMoney(payment_amount) : payment_amount;
 
-    // Service path: lock invoices in stable order, re-check remaining + entity before insert
+    // B1.d.5a.3 — collection safety gate for BOTH legacy and service HTTP paths
+    // (must not be nested under useService-only prechecks).
     let sortedAllocs = allocList;
-    if (useService) {
+    if (allocList.length) {
       sortedAllocs = [...allocList].sort(
         (a, b) => Number(a.invoice_id) - Number(b.invoice_id)
       );
+      const seenGate = new Set();
+      for (const allocation of sortedAllocs) {
+        const invId = Number(allocation.invoice_id);
+        if (seenGate.has(invId)) continue;
+        seenGate.add(invId);
+        try {
+          await assertInvoiceIssueReadyForCollection(client, invId);
+        } catch (gateErr) {
+          await client.query('ROLLBACK');
+          if (gateErr instanceof PostingError) {
+            return res.status(gateErr.status).json({
+              success: false,
+              error: gateErr.message,
+              code: gateErr.code,
+              ...(gateErr.extra || {})
+            });
+          }
+          throw gateErr;
+        }
+      }
+    }
+
+    // Service path: lock invoices in stable order, re-check remaining + entity before insert
+    if (useService) {
       const seenInv = new Set();
       for (const allocation of sortedAllocs) {
         const invId = Number(allocation.invoice_id);

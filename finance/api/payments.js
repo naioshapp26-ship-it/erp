@@ -7,12 +7,15 @@ const { getRequestEntityContext, buildEntityScopeCondition } = require('../../en
 
 const db = require('../../db');
 const pool = db.pool;
-const { resolveActor } = require('../services/finance-posting-service');
+const { resolveActor, PostingError } = require('../services/finance-posting-service');
 const {
   assertPaymentMutable,
   assertPaymentDeletable,
   sendGuardError
 } = require('../services/finance-posted-guards');
+const {
+  assertInvoiceIssueReadyForCollection
+} = require('../services/finance-collection-gate');
 
 async function resolveCustomerId({ customer_id, customer_name, entity_id }) {
     if (customer_id) {
@@ -185,6 +188,40 @@ async function createPayment(req, res) {
         const resolvedCustomerId = resolved?.customer_id || customer_id;
         const resolvedCustomerName = resolved?.customer_name || customer_name || null;
 
+        // B1.d.5a.3 — defense-in-depth (shadowed by finance-routes mount order).
+        // If this path is ever invoked with allocations, enforce issue-JE gate inside a txn.
+        const allocList = Array.isArray(req.body?.allocations) ? req.body.allocations : [];
+        if (allocList.length) {
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                const sorted = [...allocList].sort(
+                    (a, b) => Number(a.invoice_id) - Number(b.invoice_id)
+                );
+                for (const a of sorted) {
+                    await assertInvoiceIssueReadyForCollection(client, a.invoice_id);
+                }
+                await client.query('COMMIT');
+            } catch (gateErr) {
+                try {
+                    await client.query('ROLLBACK');
+                } catch {
+                    /* */
+                }
+                if (gateErr instanceof PostingError) {
+                    return res.status(gateErr.status).json({
+                        success: false,
+                        error: gateErr.message,
+                        code: gateErr.code,
+                        ...(gateErr.extra || {})
+                    });
+                }
+                throw gateErr;
+            } finally {
+                client.release();
+            }
+        }
+
         const generatedNumber = payment_number || `PAY-${Date.now()}`;
         const result = await pool.query(
             `
@@ -224,6 +261,14 @@ async function createPayment(req, res) {
         res.json({ success: true, payment: result.rows[0] });
     } catch (error) {
         console.error('❌ Error creating payment:', error);
+        if (error instanceof PostingError) {
+            return res.status(error.status).json({
+                success: false,
+                error: error.message,
+                code: error.code,
+                ...(error.extra || {})
+            });
+        }
         res.status(500).json({ success: false, error: error.message });
     }
 }
