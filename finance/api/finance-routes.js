@@ -5,9 +5,11 @@ const {
   postManualEntry,
   reverseEntry,
   postInvoiceIssue,
+  postPaymentReceipt,
   resolveActor,
   assertEntityOwns,
-  PostingError
+  PostingError,
+  roundMoney
 } = require('../services/finance-posting-service');
 const {
   assertInvoiceDeletable,
@@ -25,6 +27,16 @@ const { computeInvoiceTotalsFromLines } = require('../services/finance-invoice-a
  */
 function isFinancePostInvoiceViaService() {
   const v = String(process.env.FINANCE_POST_INVOICE_VIA_SERVICE || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
+
+/**
+ * B1.d.3.d — payment create via FinancePostingService (postPaymentReceipt).
+ * Default FALSE. Must remain false in Staging/Production until explicit approval.
+ * Tests may set FINANCE_POST_PAYMENT_VIA_SERVICE=true in an isolated process only.
+ */
+function isFinancePostPaymentViaService() {
+  const v = String(process.env.FINANCE_POST_PAYMENT_VIA_SERVICE || '').trim().toLowerCase();
   return v === '1' || v === 'true' || v === 'yes' || v === 'on';
 }
 
@@ -1021,15 +1033,17 @@ router.get('/payments', async (req, res) => {
 });
 
 // Create payment
+// B1.d.3.d: when FINANCE_POST_PAYMENT_VIA_SERVICE=true → postPaymentReceipt (exclusive).
+// Default false → legacy inline JE + balance updates (unchanged). Never run both paths.
 router.post('/payments', async (req, res) => {
   const client = await db.pool.connect();
-  
+  const useService = isFinancePostPaymentViaService();
+
   try {
     await client.query('BEGIN');
-    
+
     const {
       customer_id,
-      customer_name,
       payment_date,
       payment_amount,
       payment_method,
@@ -1051,9 +1065,15 @@ router.post('/payments', async (req, res) => {
       notes,
       allocations = [] // [{ invoice_id, allocated_amount }]
     } = req.body;
-    const resolvedEntityId = entity_id || (req.userEntity ? req.userEntity.id : 'HQ001');
-    const resolvedEntityType = entity_type || (req.userEntity ? req.userEntity.type : 'HQ');
-    
+
+    let resolvedEntityId = entity_id || (req.userEntity ? req.userEntity.id : 'HQ001');
+    let resolvedEntityType = entity_type || (req.userEntity ? req.userEntity.type : 'HQ');
+    let resolvedBranchId = branch_id;
+    let resolvedIncubatorId = incubator_id;
+    let createdBy = req.headers['x-user-id'] || 'system';
+    let actor = null;
+    const allocList = Array.isArray(allocations) ? allocations : [];
+
     // Get customer info
     let customer = null;
     if (customer_id) {
@@ -1071,11 +1091,71 @@ router.post('/payments', async (req, res) => {
         error: 'Customer not found. Create the customer first with the required fields.'
       });
     }
-    
-    // Validate allocation total
-    if (allocations.length) {
-      const totalAllocated = allocations.reduce((sum, a) => sum + parseFloat(a.allocated_amount), 0);
-      if (Math.abs(totalAllocated - payment_amount) > 0.01) {
+
+    if (useService) {
+      // Trusted session — ignore spoofed role/entity from headers/body for ownership
+      actor = resolveActor({ req });
+      if (!actor.authenticated) {
+        await client.query('ROLLBACK');
+        return res.status(401).json({
+          success: false,
+          error: 'يجب تسجيل الدخول بصلاحية خادمية موثوقة قبل إنشاء دفعة عبر خدمة الترحيل',
+          code: 'AUTH_REQUIRED'
+        });
+      }
+      if (!actor.entityId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          success: false,
+          error: 'جلسة المستخدم بلا كيان موثوق — مرفوض',
+          code: 'ENTITY_SCOPE_REQUIRED'
+        });
+      }
+
+      resolvedEntityId =
+        entity_id != null && String(entity_id).trim() !== ''
+          ? String(entity_id).trim()
+          : String(actor.entityId);
+      resolvedEntityType = entity_type || actor.entityType || null;
+      try {
+        assertEntityOwns(resolvedEntityId, actor, 'الدفعة');
+      } catch (ownErr) {
+        await client.query('ROLLBACK');
+        if (ownErr instanceof PostingError) {
+          return res.status(ownErr.status).json({
+            success: false,
+            error: ownErr.message,
+            code: ownErr.code,
+            ...(ownErr.extra || {})
+          });
+        }
+        throw ownErr;
+      }
+
+      createdBy = String(actor.userId || createdBy);
+      if (!resolvedBranchId && actor.entityType === 'BRANCH') {
+        resolvedBranchId = resolvedEntityId;
+      }
+
+      // No ADVANCE / unallocated AR posting on service path (unsupported without separate liability account)
+      if (!allocList.length) {
+        await client.query('ROLLBACK');
+        return res.status(422).json({
+          success: false,
+          error:
+            'ترحيل الدفعة عبر الخدمة يتطلب تخصيصات على فواتير. الدفعات غير المخصصة / ADVANCE غير مدعومة محاسبيًا في هذه المرحلة.',
+          code: 'ALLOCATIONS_REQUIRED'
+        });
+      }
+    }
+
+    // Validate allocation total when allocations present (both paths)
+    if (allocList.length) {
+      const totalAllocated = allocList.reduce(
+        (sum, a) => sum + parseFloat(a.allocated_amount),
+        0
+      );
+      if (Math.abs(totalAllocated - Number(payment_amount)) > 0.01) {
         await client.query('ROLLBACK');
         return res.status(400).json({
           success: false,
@@ -1085,104 +1165,261 @@ router.post('/payments', async (req, res) => {
         });
       }
     }
-    
+
+    const storedPaymentAmount = useService ? roundMoney(payment_amount) : payment_amount;
+
+    // Service path: lock invoices in stable order, re-check remaining + entity before insert
+    let sortedAllocs = allocList;
+    if (useService) {
+      sortedAllocs = [...allocList].sort(
+        (a, b) => Number(a.invoice_id) - Number(b.invoice_id)
+      );
+      const seenInv = new Set();
+      for (const allocation of sortedAllocs) {
+        const invId = Number(allocation.invoice_id);
+        if (seenInv.has(invId)) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            success: false,
+            error: 'تخصيص مكرر لنفس الفاتورة في طلب واحد مرفوض',
+            code: 'DUPLICATE_ALLOCATION'
+          });
+        }
+        seenInv.add(invId);
+
+        const invRes = await client.query(
+          `SELECT invoice_id, entity_id, total_amount, paid_amount, remaining_amount
+           FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE`,
+          [invId]
+        );
+        const inv = invRes.rows[0];
+        if (!inv) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({
+            success: false,
+            error: `فاتورة التخصيص غير موجودة: ${invId}`,
+            code: 'INVOICE_NOT_FOUND'
+          });
+        }
+        try {
+          assertEntityOwns(inv.entity_id, actor, `فاتورة ${invId}`);
+        } catch (ownErr) {
+          await client.query('ROLLBACK');
+          if (ownErr instanceof PostingError) {
+            return res.status(ownErr.status).json({
+              success: false,
+              error: ownErr.message,
+              code: ownErr.code,
+              ...(ownErr.extra || {})
+            });
+          }
+          throw ownErr;
+        }
+        if (String(inv.entity_id) !== String(resolvedEntityId)) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({
+            success: false,
+            error: 'تخصيص دفعة لفاتورة من كيان مختلف مرفوض',
+            code: 'ALLOCATION_ENTITY_MISMATCH',
+            payment_entity_id: String(resolvedEntityId),
+            invoice_entity_id: String(inv.entity_id)
+          });
+        }
+        const remaining = roundMoney(
+          inv.remaining_amount != null
+            ? inv.remaining_amount
+            : Number(inv.total_amount) - Number(inv.paid_amount || 0)
+        );
+        const allocated = roundMoney(allocation.allocated_amount);
+        if (allocated > remaining + 0.01) {
+          await client.query('ROLLBACK');
+          return res.status(422).json({
+            success: false,
+            error: 'التخصيص يتجاوز المبلغ المتبقي للفاتورة',
+            code: 'OVER_ALLOCATION',
+            invoice_id: inv.invoice_id,
+            remaining,
+            allocated
+          });
+        }
+      }
+    }
+
     // Generate payment number
     const payment_number = await generateNextNumber('PAY', 'finance_payments', 'payment_number');
-    
-    // Create payment
+
+    // Create payment (service: PENDING until postPaymentReceipt; legacy: APPROVED as before)
+    const paymentStatus = useService ? 'PENDING' : 'APPROVED';
     const paymentResult = await client.query(
       `INSERT INTO finance_payments 
        (payment_number, payment_date, customer_id, customer_name, payment_amount, payment_method,
         payment_type, bank_name, check_number, transaction_reference,
         street_name, postal_code, building_number, city, district, national_address_number, short_address,
         entity_type, entity_id, branch_id, incubator_id, notes, status, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 'APPROVED', $22)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
        RETURNING *`,
-      [payment_number, payment_date, customer.customer_id, customer.customer_name_ar, payment_amount, payment_method,
-             payment_type, bank_name, check_number, transaction_reference,
-             street_name || null, postal_code || null, building_number || null, city || null, district || null,
-             national_address_number || null, short_address || null,
-             resolvedEntityType, resolvedEntityId, branch_id, incubator_id, notes, req.headers['x-user-id'] || 'system']
+      [
+        payment_number,
+        payment_date,
+        customer.customer_id,
+        customer.customer_name_ar,
+        storedPaymentAmount,
+        payment_method,
+        payment_type,
+        bank_name,
+        check_number,
+        transaction_reference,
+        street_name || null,
+        postal_code || null,
+        building_number || null,
+        city || null,
+        district || null,
+        national_address_number || null,
+        short_address || null,
+        resolvedEntityType,
+        resolvedEntityId,
+        resolvedBranchId,
+        resolvedIncubatorId,
+        notes,
+        paymentStatus,
+        createdBy
+      ]
     );
-    
+
     const payment_id = paymentResult.rows[0].payment_id;
-    
-    // Create allocations and update invoices
-    for (const allocation of allocations) {
-      await client.query(
-        `INSERT INTO finance_payment_allocations (payment_id, invoice_id, allocated_amount)
-         VALUES ($1, $2, $3)`,
-        [payment_id, allocation.invoice_id, allocation.allocated_amount]
+    let paymentRow = paymentResult.rows[0];
+    let journal_entry_id;
+
+    if (useService) {
+      // Insert allocations only — balances + JE exclusively via postPaymentReceipt
+      for (const allocation of sortedAllocs) {
+        await client.query(
+          `INSERT INTO finance_payment_allocations (payment_id, invoice_id, allocated_amount)
+           VALUES ($1, $2, $3)`,
+          [payment_id, allocation.invoice_id, roundMoney(allocation.allocated_amount)]
+        );
+      }
+
+      const posted = await postPaymentReceipt(client, payment_id, {
+        req,
+        manageTransaction: false
+      });
+      journal_entry_id = posted.entry.entry_id;
+      const refreshed = await client.query(
+        `SELECT * FROM finance_payments WHERE payment_id = $1`,
+        [payment_id]
       );
-      
-      // Update invoice
+      paymentRow = refreshed.rows[0] || paymentRow;
+    } else {
+      // Exclusive legacy path (unchanged semantics incl. empty allocations + inline JE)
+      for (const allocation of allocList) {
+        await client.query(
+          `INSERT INTO finance_payment_allocations (payment_id, invoice_id, allocated_amount)
+           VALUES ($1, $2, $3)`,
+          [payment_id, allocation.invoice_id, allocation.allocated_amount]
+        );
+
+        await client.query(
+          `UPDATE finance_invoices 
+           SET paid_amount = paid_amount + $1,
+               remaining_amount = remaining_amount - $2,
+               payment_status = CASE 
+                 WHEN remaining_amount - $3 <= 0 THEN 'PAID'
+                 ELSE 'PARTIAL'
+               END,
+               status = CASE 
+                 WHEN remaining_amount - $4 <= 0 THEN 'PAID'
+                 ELSE status
+               END,
+               updated_at = NOW()
+           WHERE invoice_id = $5`,
+          [
+            allocation.allocated_amount,
+            allocation.allocated_amount,
+            allocation.allocated_amount,
+            allocation.allocated_amount,
+            allocation.invoice_id
+          ]
+        );
+      }
+
+      const entry_number = await generateNextNumber('JE', 'finance_journal_entries', 'entry_number');
+
+      const journalResult = await client.query(
+        `INSERT INTO finance_journal_entries 
+         (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
+          entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
+         VALUES ($1, $2, 'AUTO', $3, $4, 'PAYMENT', $5, $6, $7, $8, $9, 'POSTED', true, $10)
+         RETURNING *`,
+        [
+          entry_number,
+          payment_date,
+          `قيد آلي - دفعة رقم ${payment_number}`,
+          payment_number,
+          payment_id,
+          entity_type,
+          entity_id,
+          branch_id,
+          incubator_id,
+          createdBy
+        ]
+      );
+
+      journal_entry_id = journalResult.rows[0].entry_id;
+
+      const cashAccount = payment_method === 'CASH' ? '1110' : '1120';
       await client.query(
-        `UPDATE finance_invoices 
-         SET paid_amount = paid_amount + $1,
-             remaining_amount = remaining_amount - $2,
-             payment_status = CASE 
-               WHEN remaining_amount - $3 <= 0 THEN 'PAID'
-               ELSE 'PARTIAL'
-             END,
-             status = CASE 
-               WHEN remaining_amount - $4 <= 0 THEN 'PAID'
-               ELSE status
-             END,
-             updated_at = NOW()
-         WHERE invoice_id = $5`,
-        [allocation.allocated_amount, allocation.allocated_amount, 
-         allocation.allocated_amount, allocation.allocated_amount, allocation.invoice_id]
+        `INSERT INTO finance_journal_lines 
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+         VALUES ($1, 1, (SELECT account_id FROM finance_accounts WHERE account_code = $2), $3, $4, 0, $5)`,
+        [
+          journal_entry_id,
+          cashAccount,
+          cashAccount,
+          payment_amount,
+          `دفعة من ${customer.customer_name_ar}`
+        ]
+      );
+
+      await client.query(
+        `INSERT INTO finance_journal_lines 
+         (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+         VALUES ($1, 2, (SELECT account_id FROM finance_accounts WHERE account_code = '1130'), '1130', 0, $2, $3)`,
+        [journal_entry_id, payment_amount, `ذمم مدينة - ${customer.customer_name_ar}`]
+      );
+
+      await client.query(
+        'UPDATE finance_payments SET journal_entry_id = $1 WHERE payment_id = $2',
+        [journal_entry_id, payment_id]
       );
     }
-    
-    // Create automatic journal entry
-    const entry_number = await generateNextNumber('JE', 'finance_journal_entries', 'entry_number');
-    
-    const journalResult = await client.query(
-      `INSERT INTO finance_journal_entries 
-       (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
-        entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
-       VALUES ($1, $2, 'AUTO', $3, $4, 'PAYMENT', $5, $6, $7, $8, $9, 'POSTED', true, $10)
-       RETURNING *`,
-      [entry_number, payment_date, `قيد آلي - دفعة رقم ${payment_number}`, payment_number, payment_id,
-       entity_type, entity_id, branch_id, incubator_id, req.headers['x-user-id'] || 'system']
-    );
-    
-    const journal_entry_id = journalResult.rows[0].entry_id;
-    
-    // Debit: Cash/Bank
-    const cashAccount = payment_method === 'CASH' ? '1110' : '1120';
-    await client.query(
-      `INSERT INTO finance_journal_lines 
-       (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-       VALUES ($1, 1, (SELECT account_id FROM finance_accounts WHERE account_code = $2), $3, $4, 0, $5)`,
-      [journal_entry_id, cashAccount, cashAccount, payment_amount, `دفعة من ${customer.customer_name_ar}`]
-    );
-    
-    // Credit: Accounts Receivable
-    await client.query(
-      `INSERT INTO finance_journal_lines 
-       (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
-       VALUES ($1, 2, (SELECT account_id FROM finance_accounts WHERE account_code = '1130'), '1130', 0, $2, $3)`,
-      [journal_entry_id, payment_amount, `ذمم مدينة - ${customer.customer_name_ar}`]
-    );
-    
-    // Update payment with journal entry ID
-    await client.query(
-      'UPDATE finance_payments SET journal_entry_id = $1 WHERE payment_id = $2',
-      [journal_entry_id, payment_id]
-    );
-    
+
     await client.query('COMMIT');
-    
+
     res.status(201).json({
       success: true,
-      payment: paymentResult.rows[0],
-      journal_entry_id: journal_entry_id,
-      message: 'Payment created successfully'
+      payment: paymentRow,
+      journal_entry_id,
+      message: 'Payment created successfully',
+      meta: useService
+        ? { posting_path: 'service', flag: 'FINANCE_POST_PAYMENT_VIA_SERVICE' }
+        : { posting_path: 'legacy' }
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* */
+    }
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
+    if (sendGuardError(res, error)) return;
     console.error('Error creating payment:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
@@ -2033,5 +2270,7 @@ router.delete('/sales-settlements/:id', async (req, res) => {
 });
 
 router.isFinancePostInvoiceViaService = isFinancePostInvoiceViaService;
+router.isFinancePostPaymentViaService = isFinancePostPaymentViaService;
 module.exports = router;
 module.exports.isFinancePostInvoiceViaService = isFinancePostInvoiceViaService;
+module.exports.isFinancePostPaymentViaService = isFinancePostPaymentViaService;

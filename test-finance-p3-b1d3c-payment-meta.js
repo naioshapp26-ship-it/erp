@@ -255,13 +255,12 @@ async function main() {
   );
   const frSrc = fs.readFileSync(path.join(__dirname, 'finance/api/finance-routes.js'), 'utf8');
 
-  // Static: payments route still not calling postPaymentReceipt
-  /postPaymentReceipt/.test(frSrc)
-    ? fail('payments-route-not-wired')
-    : pass('payments-route-not-wired');
-  /FINANCE_POST_PAYMENT_VIA_SERVICE/.test(frSrc)
-    ? fail('no-payment-flag-yet')
-    : pass('no-payment-flag-yet');
+  // After B1.d.3.d: payments may be wired behind FINANCE_POST_PAYMENT_VIA_SERVICE (default false).
+  /FINANCE_POST_PAYMENT_VIA_SERVICE/.test(frSrc) && /postPaymentReceipt/.test(frSrc)
+    ? pass('payments-route-flagged-wire')
+    : /postPaymentReceipt/.test(frSrc)
+      ? fail('payments-route-flagged-wire', 'wired without flag')
+      : pass('payments-route-flagged-wire', 'pre-d3d-unwired-ok');
   /legacy_payment_auto_post|legacyPaymentJournalDescription/.test(svcSrc) &&
   /generateEntryNumber\(client, 'JE'\)/.test(svcSrc) &&
   !/generateEntryNumber\(client, 'JE-PAY'\)/.test(svcSrc)

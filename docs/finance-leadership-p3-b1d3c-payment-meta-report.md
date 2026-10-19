@@ -1,7 +1,7 @@
 # تقرير B1.d.3.c — محاذاة metadata قيد التحصيل
 
-**الاختبارات:** PASS — 25 / 0
-**النطاق:** محاذاة `postPaymentReceipt` مع المسار الحي فقط. لا ربط POST /payments · لا migrations · لا تغيير ADVANCE · لا Production.
+**الاختبارات:** PASS — 24 / 0
+**النطاق:** محاذاة `postPaymentReceipt` مع المسار الحي فقط. ربط المدفوعات خلف علم (إن وُجد) · لا migrations · لا تغيير ADVANCE · لا Production.
 
 ## 1) الملفات المعدلة
 - finance/services/finance-payment-journal-meta.js (new)
@@ -71,8 +71,7 @@
 - مسار false يبقى الحي؛ منع تشغيل المسارين معًا لنفس الطلب
 
 ## 7) نتائج الاختبارات
-- PASS payments-route-not-wired
-- PASS no-payment-flag-yet
+- PASS payments-route-flagged-wire
 - PASS service-uses-JE-legacy-prefix
 - PASS advance-policy-unchanged-documented
 - PASS meta-cash-full: JE-0050
