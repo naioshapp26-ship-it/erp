@@ -183,6 +183,17 @@ function getStatus(urlPath) {
       await page.screenshot({ path: path.join(ART, file), fullPage: false });
 
       // Open sales section — verify subpages + coming-soon marker
+      if (width < 800) {
+        await page.evaluate(() => {
+          const sidebar = document.getElementById('fl360-sidebar');
+          const toggle = document.getElementById('fl360-mobile-toggle');
+          if (sidebar?.classList.contains('is-collapsed')) {
+            toggle?.click();
+          }
+        });
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      await page.waitForSelector('#fl360-nav .fl360-nav-btn[data-section-id="sales"]', { visible: true, timeout: 10000 });
       await page.click('#fl360-nav .fl360-nav-btn[data-section-id="sales"]');
       await new Promise((r) => setTimeout(r, 300));
       const salesState = await page.evaluate(() => {
