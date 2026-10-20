@@ -679,6 +679,11 @@
 
         function openPaymentForm(existing) {
             const isEdit = !!existing;
+            const openInvs = (invoices || []).filter(inv => {
+                const rem = parseFloat(inv.remaining_amount || 0);
+                const status = String(inv.status || '').toUpperCase();
+                return rem > 0.009 && status !== 'CANCELLED' && status !== 'PAID';
+            });
             document.getElementById('modalTitle').textContent = isEdit ? 'تعديل مدفوعة' : 'إضافة مدفوعة جديدة';
             document.getElementById('modalBody').innerHTML = `
                 <form id="paymentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4" onsubmit="submitPaymentForm(event, ${existing ? existing.payment_id || existing.id : null})">
@@ -703,6 +708,14 @@
                             ${['CASH','BANK_TRANSFER','CARD','ONLINE','CHECK'].map(m => `<option value="${m}" ${existing?.payment_method === m ? 'selected' : ''}>${translatePaymentMethod(m)}</option>`).join('')}
                         </select>
                     </div>
+                    ${!isEdit ? `
+                    <div class="md:col-span-2">
+                        <label class="block text-sm text-slate-600 mb-1">الفاتورة المخصصة (إلزامي)</label>
+                        <select name="invoice_id" class="w-full border rounded-xl px-3 py-2" required>
+                            <option value="">اختر فاتورة</option>
+                            ${openInvs.map(inv => `<option value="${inv.invoice_id || inv.id}">${sanitizeText(inv.invoice_number || inv.invoice_id)} — متبقي ${inv.remaining_amount}</option>`).join('')}
+                        </select>
+                    </div>` : ''}
                     <div class="md:col-span-2">
                         <label class="block text-sm text-slate-600 mb-1">ملاحظات</label>
                         <textarea name="notes" class="w-full border rounded-xl px-3 py-2" rows="2">${existing?.notes || ''}</textarea>
@@ -726,31 +739,47 @@
         async function submitPaymentForm(event, paymentId) {
             event.preventDefault();
             const form = event.target;
-            const payload = paymentId ? {
-                customer_id: form.customer_id.value,
-                payment_date: form.payment_date.value,
-                payment_amount: parseFloat(form.payment_amount.value || 0),
-                payment_method: form.payment_method.value,
-                status: form.status ? form.status.value : undefined,
-                notes: form.notes.value
-            } : {
-                customer_id: form.customer_id.value,
-                customer_name: customers.find(c => (c.customer_id || c.id) == form.customer_id.value)?.customer_name_ar,
-                payment_date: form.payment_date.value,
-                payment_amount: parseFloat(form.payment_amount.value || 0),
-                payment_method: form.payment_method.value,
-                entity_type: ENTITY_TYPE,
-                entity_id: ENTITY_ID,
-                payment_type: 'FULL',
-                notes: form.notes.value,
-                allocations: []
-            };
+            const amount = parseFloat(form.payment_amount.value || 0);
+            let payload;
+            if (paymentId) {
+                payload = {
+                    customer_id: form.customer_id.value,
+                    payment_date: form.payment_date.value,
+                    payment_amount: amount,
+                    payment_method: form.payment_method.value,
+                    status: form.status ? form.status.value : undefined,
+                    notes: form.notes.value
+                };
+            } else {
+                const invoiceId = form.invoice_id ? form.invoice_id.value : '';
+                if (!invoiceId) {
+                    showToast('اختر الفاتورة المخصصة — الدفع بلا تخصيص مرفوض', 'error');
+                    return;
+                }
+                payload = {
+                    customer_id: form.customer_id.value,
+                    customer_name: customers.find(c => (c.customer_id || c.id) == form.customer_id.value)?.customer_name_ar,
+                    payment_date: form.payment_date.value,
+                    payment_amount: amount,
+                    payment_method: form.payment_method.value,
+                    entity_type: ENTITY_TYPE,
+                    entity_id: ENTITY_ID,
+                    payment_type: 'FULL',
+                    notes: form.notes.value,
+                    allocations: [{ invoice_id: Number(invoiceId), allocated_amount: amount }]
+                };
+            }
 
             const endpoint = paymentId ? `${API_BASE}/finance/payments/${paymentId}` : `${API_BASE}/finance/payments`;
             const method = paymentId ? 'PUT' : 'POST';
             const res = await fetch(endpoint, { method, headers: defaultHeaders, body: JSON.stringify(payload) });
             if (!res.ok) {
-                showToast('تعذر حفظ المدفوعة', 'error');
+                let message = 'تعذر حفظ المدفوعة';
+                try {
+                    const data = await res.json();
+                    if (data && data.error) message = data.error;
+                } catch (e) { /* ignore */ }
+                showToast(message, 'error');
                 return;
             }
             showToast('تم حفظ المدفوعة بنجاح');

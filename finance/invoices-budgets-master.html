@@ -39,6 +39,7 @@
         .toast-warn { background: #f59e0b; }
     </style>
     <link rel="stylesheet" href="contrast-overrides.css">
+    <script src="/finance/finance-context.js"></script>
 </head>
 <body>
     <div class="container mx-auto px-4 py-8">
@@ -48,6 +49,10 @@
         </div>
 
         <div class="mb-6 flex flex-wrap gap-3">
+            <button onclick="openAddInvoice()" class="bg-sky-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus"></i>
+                إضافة فاتورة
+            </button>
             <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
                 <i class="fas fa-rotate"></i>
                 تحديث البيانات
@@ -278,9 +283,11 @@
     <script>
         const API_BASE = window.location.origin;
         const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
 
         const store = {
             invoices: [],
+            customers: [],
             payments: [],
             plans: [],
             budgets: [],
@@ -308,8 +315,9 @@
 
         async function loadData() {
             try {
-                const [invRes, payRes, planRes, budgetRes, expenseRes, cashflowRes, forecastRes, assetsRes] = await Promise.all([
+                const [invRes, custRes, payRes, planRes, budgetRes, expenseRes, cashflowRes, forecastRes, assetsRes] = await Promise.all([
                     fetchJson(`${API_BASE}/finance/invoices?entity_id=${ENTITY_ID}`),
+                    fetchJson(`${API_BASE}/finance/customers?entity_id=${ENTITY_ID}`),
                     fetchJson(`${API_BASE}/finance/payments?entity_id=${ENTITY_ID}`),
                     fetchJson(`${API_BASE}/finance/payment-plans?entity_id=${ENTITY_ID}`),
                     fetchJson(`${API_BASE}/finance/budgets?entity_id=${ENTITY_ID}`),
@@ -320,6 +328,7 @@
                 ]);
 
                 store.invoices = invRes.data.invoices || [];
+                store.customers = custRes.data.customers || [];
                 store.payments = payRes.data.payments || [];
                 store.plans = planRes.data.plans || [];
                 store.budgets = budgetRes.data.budgets || [];
@@ -389,6 +398,122 @@
 
             document.getElementById('invoicesTable').innerHTML = rows || `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
             document.getElementById('invoicesCount').textContent = `عدد الصفوف: ${totalInvoices}`;
+        }
+
+        function buildCustomerOptions(selectedId) {
+            const opts = store.customers.map(c => {
+                const id = c.customer_id;
+                const label = sanitizeText(c.customer_name_ar || c.customer_name || c.customer_code || id);
+                const sel = String(id) === String(selectedId) ? 'selected' : '';
+                return `<option value="${id}" ${sel}>${label}</option>`;
+            }).join('');
+            return `<option value="">اختر العميل</option>${opts}`;
+        }
+
+        function openAddInvoice() {
+            const today = new Date().toISOString().slice(0, 10);
+            const due = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay flex';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="modal bg-white rounded-2xl shadow-2xl" style="width:min(640px,94vw)">
+                    <div class="p-5 border-b flex items-center justify-between">
+                        <h3 class="font-bold text-lg">إضافة فاتورة</h3>
+                        <button onclick="this.closest('.modal-overlay').remove()" class="text-slate-500 hover:text-slate-700"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <label class="block mb-1 text-slate-600">العميل</label>
+                            <select id="inv-add-customer-id" class="w-full border rounded-lg px-3 py-2">${buildCustomerOptions()}</select>
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-slate-600">تاريخ الفاتورة</label>
+                            <input id="inv-add-invoice-date" type="date" class="w-full border rounded-lg px-3 py-2" value="${today}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-slate-600">تاريخ الاستحقاق</label>
+                            <input id="inv-add-due-date" type="date" class="w-full border rounded-lg px-3 py-2" value="${due}">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-slate-600">إجمالي الفاتورة</label>
+                            <input id="inv-add-total-amount" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2" value="">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block mb-1 text-slate-600">وصف البند</label>
+                            <input id="inv-add-line-desc" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="خدمة أو منتج">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block mb-1 text-slate-600">ملاحظات</label>
+                            <textarea id="inv-add-notes" class="w-full border rounded-lg px-3 py-2" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="p-5 border-t flex items-center justify-end gap-2">
+                        <button onclick="this.closest('.modal-overlay').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                        <button onclick="submitAddInvoice()" class="px-4 py-2 rounded-lg bg-sky-600 text-white">حفظ</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function submitAddInvoice() {
+            const customerIdValue = document.getElementById('inv-add-customer-id').value;
+            const invoiceDateValue = document.getElementById('inv-add-invoice-date').value;
+            const dueDateValue = document.getElementById('inv-add-due-date').value;
+            const totalValue = parseFloat(document.getElementById('inv-add-total-amount').value || 0);
+            const descValue = (document.getElementById('inv-add-line-desc').value || '').trim() || 'خدمة';
+
+            if (!customerIdValue) {
+                showToast('اختر العميل أولاً', 'warn');
+                return;
+            }
+            if (!invoiceDateValue || !dueDateValue) {
+                showToast('أدخل تاريخ الفاتورة وتاريخ الاستحقاق', 'warn');
+                return;
+            }
+            if (!Number.isFinite(totalValue) || totalValue <= 0) {
+                showToast('إجمالي الفاتورة يجب أن يكون أكبر من صفر', 'warn');
+                return;
+            }
+
+            const payload = {
+                customer_id: Number(customerIdValue),
+                invoice_date: invoiceDateValue,
+                due_date: dueDateValue,
+                entity_type: ENTITY_TYPE,
+                entity_id: ENTITY_ID,
+                allow_partial_payment: true,
+                allow_installments: false,
+                notes: document.getElementById('inv-add-notes').value,
+                lines: [{
+                    item_name: descValue,
+                    description: descValue,
+                    quantity: 1,
+                    unit_price: totalValue,
+                    tax_percentage: 0,
+                    discount_percentage: 0
+                }]
+            };
+
+            const res = await fetch(`${API_BASE}/finance/invoices`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                document.querySelector('.modal-overlay')?.remove();
+                showToast('تم إنشاء الفاتورة وحفظها', 'success');
+                await loadData();
+            } else {
+                let message = 'تعذر إضافة الفاتورة';
+                try {
+                    const data = await res.json();
+                    if (data && data.error) message = data.error;
+                } catch (e) { /* ignore */ }
+                showToast(message, 'warn');
+            }
         }
 
         function openEditInvoice(invoiceId) {
@@ -690,15 +815,113 @@
             document.getElementById('paymentModal').style.display = 'none';
         }
 
-        function confirmAction() {
-            if (modalState.type === 'plan') {
-                showToast('تم إنشاء خطة دفع (محاكاة)', 'success');
-            } else if (modalState.type === 'partial') {
-                showToast('تم تسجيل سداد جزئي (محاكاة)', 'info');
-            } else {
-                showToast('تم تسجيل سداد كامل (محاكاة)', 'success');
+        async function confirmAction() {
+            const invoice = modalState.invoice;
+            if (!invoice) {
+                showToast('لم يتم العثور على الفاتورة', 'warn');
+                return;
             }
-            closeModal();
+
+            try {
+                if (modalState.type === 'plan') {
+                    const count = parseInt(document.getElementById('planCount')?.value || '0', 10);
+                    const installmentAmount = parseFloat(document.getElementById('planAmount')?.value || 0);
+                    const remaining = parseFloat(invoice.remaining_amount || 0);
+                    if (!Number.isFinite(count) || count <= 0) {
+                        showToast('عدد الأقساط غير صالح', 'warn');
+                        return;
+                    }
+                    if (!Number.isFinite(installmentAmount) || installmentAmount <= 0) {
+                        showToast('قيمة القسط غير صالحة', 'warn');
+                        return;
+                    }
+                    const totalAmount = remaining > 0 ? remaining : (installmentAmount * count);
+                    const startDate = new Date().toISOString().slice(0, 10);
+                    const end = new Date();
+                    end.setMonth(end.getMonth() + count);
+                    const payload = {
+                        plan_number: `PLAN-${invoice.invoice_id}-${Date.now()}`,
+                        customer_id: Number(invoice.customer_id),
+                        invoice_id: Number(invoice.invoice_id),
+                        start_date: startDate,
+                        end_date: end.toISOString().slice(0, 10),
+                        total_amount: totalAmount,
+                        paid_amount: 0,
+                        number_of_installments: count,
+                        installment_amount: installmentAmount,
+                        installment_frequency: 'MONTHLY',
+                        status: 'active',
+                        entity_type: ENTITY_TYPE,
+                        entity_id: ENTITY_ID,
+                        created_by: 'invoices-budgets-master'
+                    };
+                    const res = await fetch(`${API_BASE}/finance/payment-plans`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) {
+                        let message = 'تعذر إنشاء خطة الدفع';
+                        try {
+                            const data = await res.json();
+                            if (data && data.error) message = data.error;
+                        } catch (e) { /* ignore */ }
+                        showToast(message, 'warn');
+                        return;
+                    }
+                    showToast('تم إنشاء خطة الدفع وحفظها', 'success');
+                } else {
+                    const amount = parseFloat(document.getElementById('paymentAmount')?.value || 0);
+                    const remaining = parseFloat(invoice.remaining_amount || 0);
+                    if (!Number.isFinite(amount) || amount <= 0) {
+                        showToast('قيمة السداد غير صالحة', 'warn');
+                        return;
+                    }
+                    if (amount > remaining + 0.01) {
+                        showToast('قيمة السداد تتجاوز المتبقي', 'warn');
+                        return;
+                    }
+                    if (!invoice.customer_id) {
+                        showToast('الفاتورة بلا عميل — لا يمكن التحصيل', 'warn');
+                        return;
+                    }
+                    const paymentType = modalState.type === 'full' ? 'FULL' : 'PARTIAL';
+                    const payload = {
+                        customer_id: Number(invoice.customer_id),
+                        payment_date: new Date().toISOString().slice(0, 10),
+                        payment_amount: amount,
+                        payment_method: 'BANK',
+                        payment_type: paymentType,
+                        entity_type: ENTITY_TYPE,
+                        entity_id: invoice.entity_id || ENTITY_ID,
+                        notes: `تحصيل من واجهة الفواتير — ${invoice.invoice_number || invoice.invoice_id}`,
+                        allocations: [{
+                            invoice_id: Number(invoice.invoice_id),
+                            allocated_amount: amount
+                        }]
+                    };
+                    const res = await fetch(`${API_BASE}/finance/payments`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) {
+                        let message = 'تعذر تسجيل السداد';
+                        try {
+                            const data = await res.json();
+                            if (data && data.error) message = data.error;
+                        } catch (e) { /* ignore */ }
+                        showToast(message, 'warn');
+                        return;
+                    }
+                    showToast(modalState.type === 'full' ? 'تم تسجيل السداد الكامل' : 'تم تسجيل السداد الجزئي', 'success');
+                }
+                closeModal();
+                await loadData();
+            } catch (error) {
+                console.error(error);
+                showToast('خطأ غير متوقع أثناء حفظ العملية', 'warn');
+            }
         }
 
         function showToast(message, type) {
@@ -816,6 +1039,6 @@
         document.addEventListener('DOMContentLoaded', loadData);
     </script>
     <script src="/finance/finance-smart-search.js"></script>
-  <script src="/finance/finance-related-actions.js"></script>
+    <script src="/finance/finance-related-actions.js"></script>
 </body>
 </html>
