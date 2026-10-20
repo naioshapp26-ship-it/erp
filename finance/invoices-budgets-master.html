@@ -53,6 +53,10 @@
                 <i class="fas fa-plus"></i>
                 إضافة فاتورة
             </button>
+            <button onclick="openAddBudget()" class="bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
+                <i class="fas fa-plus"></i>
+                إضافة ميزانية
+            </button>
             <button onclick="refreshData()" class="bg-white text-sky-700 border border-sky-100 shadow-sm px-6 py-3 rounded-full font-bold hover:shadow-lg transition flex items-center gap-2">
                 <i class="fas fa-rotate"></i>
                 تحديث البيانات
@@ -455,6 +459,68 @@
                 </div>
             `;
             document.body.appendChild(modal);
+        }
+
+        function openAddBudget() {
+            const year = new Date().getFullYear();
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay flex';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="modal bg-white rounded-2xl shadow-2xl" style="width:min(520px,94vw)">
+                    <div class="p-5 border-b flex items-center justify-between">
+                        <h3 class="font-bold text-lg">إضافة ميزانية</h3>
+                        <button onclick="this.closest('.modal-overlay').remove()" class="text-slate-500"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="p-5 space-y-3 text-sm">
+                        <div><label class="block mb-1">كود الميزانية</label><input id="bud-code" class="w-full border rounded-lg px-3 py-2" value="BUD-${Date.now()}"></div>
+                        <div><label class="block mb-1">الاسم</label><input id="bud-name" class="w-full border rounded-lg px-3 py-2" value="ميزانية تشغيل"></div>
+                        <div><label class="block mb-1">النوع</label>
+                          <select id="bud-type" class="w-full border rounded-lg px-3 py-2">
+                            <option value="REVENUE">إيرادات</option><option value="EXPENSE" selected>مصروفات</option>
+                            <option value="CASHFLOW">تدفقات</option><option value="CAPITAL">رأسمالية</option>
+                          </select>
+                        </div>
+                        <div><label class="block mb-1">السنة</label><input id="bud-year" type="number" class="w-full border rounded-lg px-3 py-2" value="${year}"></div>
+                    </div>
+                    <div class="p-5 border-t flex justify-end gap-2">
+                        <button onclick="this.closest('.modal-overlay').remove()" class="px-4 py-2 rounded-lg border">إلغاء</button>
+                        <button onclick="submitAddBudget()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white">حفظ</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        async function submitAddBudget() {
+            const payload = {
+                budget_code: document.getElementById('bud-code').value.trim(),
+                budget_name_ar: document.getElementById('bud-name').value.trim(),
+                budget_type: document.getElementById('bud-type').value,
+                fiscal_year: Number(document.getElementById('bud-year').value),
+                scenario: 'base',
+                status: 'draft',
+                entity_type: ENTITY_TYPE,
+                entity_id: ENTITY_ID,
+                created_by: 'invoices-budgets-master'
+            };
+            if (!payload.budget_code || !payload.budget_name_ar || !payload.fiscal_year) {
+                showToast('أكمل بيانات الميزانية', 'warn');
+                return;
+            }
+            const res = await fetch(`${API_BASE}/finance/budgets`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                let msg = 'تعذر إنشاء الميزانية';
+                try { const d = await res.json(); if (d.error) msg = d.error; } catch (e) {}
+                showToast(msg, 'warn');
+                return;
+            }
+            document.querySelector('.modal-overlay')?.remove();
+            showToast('تم حفظ الميزانية', 'success');
+            await loadData();
         }
 
         async function submitAddInvoice() {

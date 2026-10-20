@@ -545,21 +545,62 @@
             expiredBar: document.getElementById('expiredBar')
         };
 
-        function loadData() {
-            const stored = localStorage.getItem(storageKey);
-            const auditStored = localStorage.getItem(auditKey);
-            discounts = stored ? JSON.parse(stored) : seedDiscounts;
-            auditEntries = auditStored ? JSON.parse(auditStored) : [];
-            if (!stored) {
-                saveData('تهيئة بيانات الخصومات');
+        const API_BASE = window.location.origin;
+        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        function financeHeaders() {
+            return { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) };
+        }
+
+        function mapRow(row) {
+            return {
+                id: String(row.id),
+                name: row.name,
+                code: row.discount_code,
+                scope: row.scope,
+                type: row.discount_type,
+                value: Number(row.value || 0),
+                cap: Number(row.cap_amount || 0),
+                minQty: Number(row.min_qty || 1),
+                minInvoice: Number(row.min_invoice || 0),
+                startDate: row.start_date ? String(row.start_date).slice(0, 10) : '',
+                endDate: row.end_date ? String(row.end_date).slice(0, 10) : '',
+                approval: row.approval || '',
+                status: row.status || 'نشط',
+                channel: row.channel || '',
+                createdBy: row.created_by || '',
+                reason: row.reason || '',
+                stackable: Boolean(row.stackable),
+                priority: Number(row.priority || 2)
+            };
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch(`${API_BASE}/finance/item-discounts?entity_id=${ENTITY_ID}`, { headers: financeHeaders() });
+                const data = await res.json();
+                discounts = (data.discounts || []).map(mapRow);
+                if (!discounts.length) {
+                    // seed once into Postgres (not localStorage)
+                    for (const s of seedDiscounts.slice(0, 2)) {
+                        await fetch(`${API_BASE}/finance/item-discounts`, {
+                            method: 'POST',
+                            headers: financeHeaders(),
+                            body: JSON.stringify({ ...s, entity_id: ENTITY_ID })
+                        });
+                    }
+                    const res2 = await fetch(`${API_BASE}/finance/item-discounts?entity_id=${ENTITY_ID}`, { headers: financeHeaders() });
+                    const data2 = await res2.json();
+                    discounts = (data2.discounts || []).map(mapRow);
+                }
+            } catch (e) {
+                console.error(e);
+                discounts = [];
             }
+            auditEntries = [];
         }
 
         function saveData(actionLabel) {
-            localStorage.setItem(storageKey, JSON.stringify(discounts));
-            if (actionLabel) {
-                addAudit(actionLabel);
-            }
+            if (actionLabel) addAudit(actionLabel);
         }
 
         function addAudit(action) {
@@ -571,7 +612,6 @@
             };
             auditEntries.unshift(entry);
             auditEntries = auditEntries.slice(0, 6);
-            localStorage.setItem(auditKey, JSON.stringify(auditEntries));
             renderAudit();
         }
 
@@ -697,10 +737,12 @@
             openModal();
         }
 
-        function deleteDiscount(id) {
+        async function deleteDiscount(id) {
             if (!confirm('هل تريد حذف هذا الخصم؟')) return;
-            discounts = discounts.filter(item => item.id !== id);
-            saveData(`حذف خصم ${id}`);
+            const res = await fetch(`${API_BASE}/finance/item-discounts/${id}`, { method: 'DELETE', headers: financeHeaders() });
+            if (!res.ok) { alert('تعذر الحذف'); return; }
+            addAudit(`حذف خصم ${id}`);
+            await loadData();
             renderTable();
         }
 
@@ -769,15 +811,24 @@
                 priority: 2
             };
 
-            if (currentEditId) {
-                discounts = discounts.map(item => item.id === currentEditId ? payload : item);
-                saveData(`تعديل خصم ${payload.id}`);
-            } else {
-                discounts.unshift(payload);
-                saveData(`إضافة خصم ${payload.id}`);
-            }
-            closeModal();
-            renderTable();
+            (async () => {
+                if (currentEditId) {
+                    const res = await fetch(`${API_BASE}/finance/item-discounts/${currentEditId}`, {
+                        method: 'PUT', headers: financeHeaders(), body: JSON.stringify({ ...payload, entity_id: ENTITY_ID })
+                    });
+                    if (!res.ok) { alert((await res.json()).error || 'تعذر التعديل'); return; }
+                    addAudit(`تعديل خصم ${payload.code}`);
+                } else {
+                    const res = await fetch(`${API_BASE}/finance/item-discounts`, {
+                        method: 'POST', headers: financeHeaders(), body: JSON.stringify({ ...payload, entity_id: ENTITY_ID })
+                    });
+                    if (!res.ok) { alert((await res.json()).error || 'تعذر الإضافة'); return; }
+                    addAudit(`إضافة خصم ${payload.code}`);
+                }
+                closeModal();
+                await loadData();
+                renderTable();
+            })();
         });
 
         selectors.search.addEventListener('input', renderTable);
@@ -809,10 +860,13 @@
             }
         });
 
-        loadData();
-        renderTable();
-        renderAudit();
+        (async () => {
+            await loadData();
+            renderTable();
+            renderAudit();
+        })();
     </script>
+    <script src="/finance/finance-context.js"></script>
     <script src="/finance/finance-smart-search.js"></script>
   <script src="/finance/finance-related-actions.js"></script>
 </body>
