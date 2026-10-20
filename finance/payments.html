@@ -210,6 +210,12 @@
                         <input id="customerName" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="اسم العميل">
                     </div>
                 </div>
+                <div>
+                    <label class="block text-sm text-slate-700 mb-1">الفاتورة المخصصة (إلزامي عند الإنشاء)</label>
+                    <select id="allocationInvoiceId" class="w-full border rounded-lg px-3 py-2">
+                        <option value="">اختر فاتورة مفتوحة للتحصيل</option>
+                    </select>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm text-slate-700 mb-1">المبلغ</label>
@@ -313,7 +319,9 @@
                 ? window.location.origin
                 : '');
         const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
         let allPayments = [];
+        let openInvoices = [];
         let paymentModalMode = 'create';
         let editingPaymentId = null;
 
@@ -333,6 +341,36 @@
             return text ? JSON.parse(text) : {};
         }
 
+        async function loadOpenInvoices() {
+            try {
+                const response = await fetch(`${API_BASE}/finance/invoices?entity_id=${ENTITY_ID}`, {
+                    headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
+                });
+                const data = await parseJsonResponse(response);
+                const list = data.invoices || [];
+                openInvoices = list.filter(inv => {
+                    const rem = parseFloat(inv.remaining_amount || 0);
+                    const status = String(inv.status || '').toUpperCase();
+                    return rem > 0.009 && status !== 'CANCELLED' && status !== 'PAID';
+                });
+                populateInvoiceSelect();
+            } catch (error) {
+                console.error('❌ خطأ في تحميل الفواتير للتخصيص:', error);
+                openInvoices = [];
+            }
+        }
+
+        function populateInvoiceSelect(selectedId) {
+            const sel = document.getElementById('allocationInvoiceId');
+            if (!sel) return;
+            const opts = openInvoices.map(inv => {
+                const label = `${inv.invoice_number || inv.invoice_id} — ${inv.customer_name_ar || inv.customer_name || ''} — متبقي ${inv.remaining_amount}`;
+                const selAttr = String(inv.invoice_id) === String(selectedId) ? 'selected' : '';
+                return `<option value="${inv.invoice_id}" data-customer="${inv.customer_id || ''}" data-remaining="${inv.remaining_amount || 0}" ${selAttr}>${label}</option>`;
+            }).join('');
+            sel.innerHTML = `<option value="">اختر فاتورة مفتوحة للتحصيل</option>${opts}`;
+        }
+
         async function loadPayments() {
             try {
                 const response = await fetch(`${API_BASE}/finance/payments?entity_id=${ENTITY_ID}`, {
@@ -350,6 +388,7 @@
                 }
 
                 allPayments = data.payments || [];
+                await loadOpenInvoices();
                 renderSummary(data.summary || {});
                 renderTable(allPayments);
             } catch (error) {
@@ -516,6 +555,7 @@
             document.getElementById('paymentDistrict').value = '';
             document.getElementById('paymentNationalAddress').value = '';
             document.getElementById('paymentShortAddress').value = '';
+            populateInvoiceSelect();
         }
 
         function fillPaymentForm(payment) {
@@ -560,7 +600,8 @@
                 'paymentCity',
                 'paymentDistrict',
                 'paymentNationalAddress',
-                'paymentShortAddress'
+                'paymentShortAddress',
+                'allocationInvoiceId'
             ].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.disabled = disabled;
@@ -568,8 +609,10 @@
         }
 
         async function submitPayment() {
+            const invoiceIdRaw = document.getElementById('allocationInvoiceId')?.value || '';
             const payload = {
                 entity_id: ENTITY_ID,
+                entity_type: ENTITY_TYPE,
                 payment_number: document.getElementById('paymentNumber').value.trim(),
                 payment_date: document.getElementById('paymentDate').value,
                 customer_id: parseInt(document.getElementById('customerId').value || 0, 10),
@@ -594,6 +637,22 @@
             if (!payload.payment_date || !payload.customer_id || !payload.payment_amount) {
                 alert('يرجى إدخال التاريخ والعميل والمبلغ');
                 return;
+            }
+
+            if (paymentModalMode === 'create') {
+                if (!invoiceIdRaw) {
+                    alert('اختر الفاتورة المخصصة — الدفع بلا تخصيص مرفوض (ADVANCE-B)');
+                    return;
+                }
+                const inv = openInvoices.find(i => String(i.invoice_id) === String(invoiceIdRaw));
+                if (inv && inv.customer_id && Number(inv.customer_id) !== Number(payload.customer_id)) {
+                    alert('العميل لا يطابق فاتورة التخصيص');
+                    return;
+                }
+                payload.allocations = [{
+                    invoice_id: Number(invoiceIdRaw),
+                    allocated_amount: payload.payment_amount
+                }];
             }
 
             try {

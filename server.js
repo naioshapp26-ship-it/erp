@@ -3553,6 +3553,10 @@ app.use('/finance', financeRoutes);
 // Finance Quick Offers API Routes
 const quickOffersRoutes = require('./finance/api/quick-offers');
 app.use('/finance/quick-offers', quickOffersRoutes);
+const itemDiscountsRoutes = require('./finance/api/item-discounts');
+app.use('/finance/item-discounts', itemDiscountsRoutes);
+const purchaseOrdersRoutes = require('./finance/api/purchase-orders');
+app.use('/finance/purchases', purchaseOrdersRoutes);
 
 // Finance Return Requests API Routes
 const returnRequestsRoutes = require('./finance/api/return-requests');

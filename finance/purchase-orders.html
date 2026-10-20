@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>أوامر الشراء وفواتير الموردين</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="/finance/finance-context.js"></script>
+  <style>body{font-family:'Cairo',sans-serif;background:#f8fafc}</style>
+</head>
+<body class="p-6">
+  <h1 class="text-3xl font-bold mb-2">أوامر الشراء وفواتير الموردين</h1>
+  <p class="text-slate-600 mb-6">حفظ Postgres حقيقي — بدون localStorage</p>
+  <div class="flex flex-wrap gap-3 mb-6">
+    <button onclick="openPo()" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold">أمر شراء جديد</button>
+    <button onclick="openVi()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">فاتورة مورد</button>
+    <button onclick="loadAll()" class="bg-white border px-4 py-2 rounded-lg font-bold">تحديث</button>
+    <a href="/finance/expenses.html" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold">الموردين/المصروفات</a>
+  </div>
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="bg-white rounded-2xl shadow p-4">
+      <h2 class="font-bold mb-3">أوامر الشراء</h2>
+      <table class="w-full text-sm"><thead><tr class="text-right text-slate-500"><th class="p-2">الرقم</th><th>المورد</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
+      <tbody id="poTable"></tbody></table>
+    </div>
+    <div class="bg-white rounded-2xl shadow p-4">
+      <h2 class="font-bold mb-3">فواتير الموردين</h2>
+      <table class="w-full text-sm"><thead><tr class="text-right text-slate-500"><th class="p-2">الرقم</th><th>المورد</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
+      <tbody id="viTable"></tbody></table>
+    </div>
+  </div>
+  <script>
+    const API = location.origin;
+    const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+    const H = () => ({ 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) });
+
+    async function loadAll() {
+      const [po, vi] = await Promise.all([
+        fetch(`${API}/finance/purchases/orders?entity_id=${ENTITY_ID}`, { headers: H() }).then(r => r.json()),
+        fetch(`${API}/finance/purchases/vendor-invoices?entity_id=${ENTITY_ID}`, { headers: H() }).then(r => r.json())
+      ]);
+      document.getElementById('poTable').innerHTML = (po.orders || []).map(o => `
+        <tr class="border-t"><td class="p-2">${o.po_number}</td><td>${o.vendor_name || '-'}</td><td>${o.total_amount}</td><td>${o.status}</td>
+        <td><button class="text-rose-600" onclick="delPo(${o.po_id})">حذف</button></td></tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">لا بيانات</td></tr>';
+      document.getElementById('viTable').innerHTML = (vi.invoices || []).map(i => `
+        <tr class="border-t"><td class="p-2">${i.invoice_number}</td><td>${i.vendor_name || '-'}</td><td>${i.total_amount}</td><td>${i.status}</td>
+        <td><button class="text-rose-600" onclick="delVi(${i.vendor_invoice_id})">حذف</button></td></tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">لا بيانات</td></tr>';
+    }
+
+    async function openPo() {
+      const vendor_name = prompt('اسم المورد');
+      if (!vendor_name) return;
+      const total_amount = Number(prompt('المبلغ', '1000') || 0);
+      const res = await fetch(`${API}/finance/purchases/orders`, {
+        method: 'POST', headers: H(),
+        body: JSON.stringify({ vendor_name, total_amount, entity_id: ENTITY_ID, status: 'OPEN', notes: 'FC-P2' })
+      });
+      if (!res.ok) { alert((await res.json()).error || 'فشل'); return; }
+      await loadAll();
+    }
+
+    async function openVi() {
+      const vendor_name = prompt('اسم المورد');
+      if (!vendor_name) return;
+      const total_amount = Number(prompt('المبلغ', '1000') || 0);
+      const res = await fetch(`${API}/finance/purchases/vendor-invoices`, {
+        method: 'POST', headers: H(),
+        body: JSON.stringify({ vendor_name, total_amount, entity_id: ENTITY_ID, notes: 'FC-P2' })
+      });
+      if (!res.ok) { alert((await res.json()).error || 'فشل'); return; }
+      await loadAll();
+    }
+
+    async function delPo(id) {
+      if (!confirm('حذف؟')) return;
+      await fetch(`${API}/finance/purchases/orders/${id}`, { method: 'DELETE', headers: H() });
+      await loadAll();
+    }
+    async function delVi(id) {
+      if (!confirm('حذف؟')) return;
+      await fetch(`${API}/finance/purchases/vendor-invoices/${id}`, { method: 'DELETE', headers: H() });
+      await loadAll();
+    }
+    loadAll();
+  </script>
+</body>
+</html>

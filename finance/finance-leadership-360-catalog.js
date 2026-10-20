@@ -58,9 +58,9 @@
         {
           id: 'offers-discounts',
           label: 'العروض والخصومات المتقدمة',
-          status: 'coming_soon',
+          status: 'operational',
           href: '/finance/item-invoice-discounts.html',
-          note: 'واجهة محلية فقط (localStorage) — بلا حفظ خادمي؛ الصفحة محفوظة دون حذف بياناتها المحلية'
+          note: 'حفظ Postgres عبر /finance/item-discounts'
         },
         {
           id: 'deposits',
@@ -84,11 +84,11 @@
           href: '/finance/expenses.html',
           note: 'إدارة موردين مرتبطة بالمصروفات فقط — ليست دورة مشتريات (طلبات/أوامر/استلام)'
         },
-        { id: 'purchase-requests', label: 'طلبات الشراء', status: 'coming_soon', href: null },
-        { id: 'purchase-orders', label: 'أوامر الشراء', status: 'coming_soon', href: null },
-        { id: 'vendor-quotes', label: 'عروض أسعار الموردين', status: 'coming_soon', href: null },
-        { id: 'vendor-invoices', label: 'فواتير الموردين', status: 'coming_soon', href: null },
-        { id: 'receiving', label: 'الاستلام ومتابعة المشتريات', status: 'coming_soon', href: null }
+        { id: 'purchase-requests', label: 'طلبات الشراء', status: 'partial', href: '/finance/purchase-orders.html', note: 'مسار أوامر الشراء — طلبات رسمية لاحقًا' },
+        { id: 'purchase-orders', label: 'أوامر الشراء', status: 'operational', href: '/finance/purchase-orders.html' },
+        { id: 'vendor-quotes', label: 'عروض أسعار الموردين', status: 'partial', href: '/finance/purchase-orders.html', note: 'عبر أوامر الشراء مؤقتًا' },
+        { id: 'vendor-invoices', label: 'فواتير الموردين', status: 'operational', href: '/finance/purchase-orders.html' },
+        { id: 'receiving', label: 'الاستلام ومتابعة المشتريات', status: 'partial', href: '/finance/purchase-orders.html', note: 'متابعة عبر حالة أمر الشراء' }
       ]
     },
     {
@@ -498,15 +498,15 @@
     'sales.e-invoice': 'coming_soon',
     'sales.zatca': 'partial',
     'sales.return-policy': 'operational',
-    'sales.offers-discounts': 'coming_soon',
+    'sales.offers-discounts': 'operational',
     'sales.deposits': 'coming_soon',
     'sales.collection': 'operational',
     'purchases.vendors': 'partial',
-    'purchases.purchase-requests': 'coming_soon',
-    'purchases.purchase-orders': 'coming_soon',
-    'purchases.vendor-quotes': 'coming_soon',
-    'purchases.vendor-invoices': 'coming_soon',
-    'purchases.receiving': 'coming_soon',
+    'purchases.purchase-requests': 'partial',
+    'purchases.purchase-orders': 'operational',
+    'purchases.vendor-quotes': 'partial',
+    'purchases.vendor-invoices': 'operational',
+    'purchases.receiving': 'partial',
     'inventory.stock-vendors': 'partial',
     'qa.qa-accounting': 'partial',
     'qa.qa-invoices': 'partial',

@@ -1544,6 +1544,7 @@
                 notes: document.getElementById('inv-add-notes').value,
                 lines: [
                     {
+                        item_name: descValue,
                         description: descValue,
                         quantity: 1,
                         unit_price: totalValue,
@@ -1658,6 +1659,12 @@
                             <label class="block mb-1 text-gray-600">نوع الدفع</label>
                             <select id="pay-add-type" class="w-full border rounded-lg px-3 py-2">
                                 ${buildSelectOptions(Object.values(PAYMENT_TYPE_LABELS), 'كاملة')}
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block mb-1 text-gray-600">الفاتورة المخصصة (إلزامي)</label>
+                            <select id="pay-add-invoice-id" class="w-full border rounded-lg px-3 py-2">
+                                ${buildInvoiceOptions()}
                             </select>
                         </div>
                         <div class="md:col-span-2">
@@ -1777,6 +1784,12 @@
                 return;
             }
 
+            const invoiceIdValue = document.getElementById('pay-add-invoice-id')?.value;
+            if (!invoiceIdValue) {
+                alert('اختر الفاتورة المخصصة أولاً — الدفع بلا تخصيص مرفوض');
+                return;
+            }
+
             const payload = {
                 customer_id: Number(customerIdValue),
                 payment_date: dateValue,
@@ -1785,7 +1798,11 @@
                 payment_type: typeValue || 'FULL',
                 entity_type: ENTITY_TYPE,
                 entity_id: ENTITY_ID,
-                notes: document.getElementById('pay-add-notes').value
+                notes: document.getElementById('pay-add-notes').value,
+                allocations: [{
+                    invoice_id: Number(invoiceIdValue),
+                    allocated_amount: amountValue
+                }]
             };
 
             const res = await fetch(`${API_BASE}/finance/payments`, {
