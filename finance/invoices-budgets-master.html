@@ -286,8 +286,15 @@
 
     <script>
         const API_BASE = window.location.origin;
-        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
-        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
+        let ENTITY_ID = '';
+        let ENTITY_TYPE = '';
+        function syncFinanceEntity() {
+            ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : '';
+            ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : '';
+        }
+        function entityQS() {
+            return ENTITY_ID ? `entity_id=${encodeURIComponent(ENTITY_ID)}` : '';
+        }
 
         const store = {
             invoices: [],
@@ -319,16 +326,18 @@
 
         async function loadData() {
             try {
+                const qs = entityQS();
+                const q = qs ? `?${qs}` : '';
                 const [invRes, custRes, payRes, planRes, budgetRes, expenseRes, cashflowRes, forecastRes, assetsRes] = await Promise.all([
-                    fetchJson(`${API_BASE}/finance/invoices?entity_id=${ENTITY_ID}`),
-                    fetchJson(`${API_BASE}/finance/customers?entity_id=${ENTITY_ID}`),
-                    fetchJson(`${API_BASE}/finance/payments?entity_id=${ENTITY_ID}`),
-                    fetchJson(`${API_BASE}/finance/payment-plans?entity_id=${ENTITY_ID}`),
-                    fetchJson(`${API_BASE}/finance/budgets?entity_id=${ENTITY_ID}`),
-                    fetchJson(`${API_BASE}/finance/expenses?entity_id=${ENTITY_ID}`),
-                    fetchJson(`${API_BASE}/finance/cashflow/overview?entity_id=${ENTITY_ID}`),
-                    fetchJson(`${API_BASE}/finance/ai-forecasts?entity_id=${ENTITY_ID}`),
-                    fetchJson(`${API_BASE}/finance/fixed-assets?entity_id=${ENTITY_ID}`)
+                    fetchJson(`${API_BASE}/finance/invoices${q}`),
+                    fetchJson(`${API_BASE}/finance/customers${q}`),
+                    fetchJson(`${API_BASE}/finance/payments${q}`),
+                    fetchJson(`${API_BASE}/finance/payment-plans${q}`),
+                    fetchJson(`${API_BASE}/finance/budgets${q}`),
+                    fetchJson(`${API_BASE}/finance/expenses${q}`),
+                    fetchJson(`${API_BASE}/finance/cashflow/overview${q}`),
+                    fetchJson(`${API_BASE}/finance/ai-forecasts${q}`),
+                    fetchJson(`${API_BASE}/finance/fixed-assets${q}`)
                 ]);
 
                 store.invoices = invRes.data.invoices || [];
@@ -1102,7 +1111,11 @@
         function printReport() { window.print(); }
         function refreshData() { loadData(); }
 
-        document.addEventListener('DOMContentLoaded', loadData);
+        document.addEventListener('DOMContentLoaded', () => {
+            const start = () => { syncFinanceEntity(); loadData(); };
+            if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+            else start();
+        });
     </script>
     <script src="/finance/finance-smart-search.js"></script>
     <script src="/finance/finance-related-actions.js"></script>

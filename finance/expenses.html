@@ -294,7 +294,13 @@
     </div>
     <script>
             const API_BASE = window.location.origin;
-            const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+            let ENTITY_ID = '';
+            function syncFinanceEntity() {
+                ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : '';
+            }
+            function entityQS() {
+                return ENTITY_ID ? `entity_id=${encodeURIComponent(ENTITY_ID)}` : '';
+            }
             const DEFAULT_BRANCH_ID = 'BR001';
             const DEFAULT_INCUBATOR_ID = 'INC01';
             const EXPENSE_STATUS_LABELS = {
@@ -331,7 +337,8 @@
 
             async function loadReport() {
                 try {
-                    const response = await fetch(`${API_BASE}/finance/expenses?entity_id=${ENTITY_ID}`, {
+                    const qs = entityQS();
+                    const response = await fetch(`${API_BASE}/finance/expenses${qs ? `?${qs}` : ''}`, {
                         headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
                     });
                     const data = await response.json();
@@ -360,7 +367,8 @@
             }
 
             function applyFilters() {
-                const params = new URLSearchParams({ entity_id: ENTITY_ID });
+                const params = new URLSearchParams();
+                if (ENTITY_ID) params.set('entity_id', ENTITY_ID);
                 const expenseNumber = document.getElementById('expenseNumber').value;
                 const vendorName = document.getElementById('vendorName').value;
                 const expenseCategory = document.getElementById('expenseCategory').value;
@@ -1320,7 +1328,11 @@
                 loadReport();
             }
 
-            document.addEventListener('DOMContentLoaded', loadReport);
+            document.addEventListener('DOMContentLoaded', () => {
+                const start = () => { syncFinanceEntity(); loadReport(); };
+                if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+                else start();
+            });
         </script>
     <script src="/finance/finance-smart-search.js"></script>
   <script src="/finance/finance-related-actions.js"></script>
