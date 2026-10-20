@@ -23,6 +23,8 @@ const {
   sendGuardError
 } = require('../services/finance-posted-guards');
 const { computeInvoiceTotalsFromLines } = require('../services/finance-invoice-amounts');
+const pageDocumentSettings = require('../services/page-document-settings');
+const { resolveScopedEntityId, resolveScopedEntityType } = require('./resolve-scoped-entity');
 
 /**
  * B1.d.2 — invoice create via FinancePostingService.
@@ -820,7 +822,71 @@ router.post('/invoices', async (req, res) => {
       total_amount = subtotal - discount_amount + tax_amount;
     }
 
-    const invoice_number = await generateNextNumber('INV', 'finance_invoices', 'invoice_number');
+    // Apply sales-invoice page settings (prefix, due days, defaults) — no FINANCE_POST_* change
+    let invoiceDocSettings = {};
+    try {
+      const doc = await pageDocumentSettings.getDocSettings(
+        'sales-invoices',
+        pageDocumentSettings.resolveTenantId(req)
+      );
+      invoiceDocSettings = doc.value || {};
+    } catch (settingsErr) {
+      console.warn('sales-invoices settings skipped:', settingsErr.message);
+    }
+
+    if (!useService) {
+      resolvedEntityId = resolveScopedEntityId(req, resolvedEntityId);
+      resolvedEntityType = resolveScopedEntityType(req, resolvedEntityType);
+    }
+
+    if (invoiceDocSettings.require_customer !== false && !customer_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        error: 'العميل مطلوب حسب إعدادات فواتير المبيعات'
+      });
+    }
+
+    let resolvedDueDate = due_date;
+    if (!resolvedDueDate && invoice_date) {
+      const dueDays = Number(invoiceDocSettings.due_days);
+      if (Number.isFinite(dueDays) && dueDays >= 0) {
+        const d = new Date(invoice_date);
+        d.setDate(d.getDate() + dueDays);
+        resolvedDueDate = d.toISOString().slice(0, 10);
+      }
+    }
+
+    const allowPartial =
+      allow_partial_payment != null
+        ? allow_partial_payment
+        : invoiceDocSettings.allow_partial_payment_default !== false;
+    const allowInstall =
+      allow_installments != null
+        ? allow_installments
+        : !!invoiceDocSettings.allow_installments_default;
+
+    const defaultTaxPct = Number(invoiceDocSettings.default_tax_pct);
+    if (!useService && Number.isFinite(defaultTaxPct)) {
+      // Recompute legacy totals using settings default when lines omit tax_percentage
+      subtotal = 0;
+      tax_amount = 0;
+      discount_amount = 0;
+      for (const line of lines) {
+        const lineSubtotal = line.quantity * line.unit_price;
+        const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
+        const lineTaxable = lineSubtotal - lineDiscount;
+        const taxPct = line.tax_percentage != null ? line.tax_percentage : defaultTaxPct;
+        const lineTax = lineTaxable * (taxPct || 0) / 100;
+        subtotal += lineSubtotal;
+        discount_amount += lineDiscount;
+        tax_amount += lineTax;
+      }
+      total_amount = subtotal - discount_amount + tax_amount;
+    }
+
+    const invPrefix = String(invoiceDocSettings.number_prefix || 'INV').trim() || 'INV';
+    const invoice_number = await generateNextNumber(invPrefix, 'finance_invoices', 'invoice_number');
 
     const invoiceResult = await client.query(
       `INSERT INTO finance_invoices 
@@ -831,10 +897,10 @@ router.post('/invoices', async (req, res) => {
         street_name, postal_code, building_number, city, district, national_address_number, short_address)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'ISSUED', 'UNPAID', $21, $22, $23, $24, $25, $26, $27, $28)
        RETURNING *`,
-      [invoice_number, invoice_date, due_date, customer_id, customer.customer_name_ar,
+      [invoice_number, invoice_date, resolvedDueDate, customer_id, customer.customer_name_ar,
        subtotal, tax_amount, discount_amount, total_amount, total_amount,
        program_id, service_id, resolvedEntityType, resolvedEntityId, resolvedBranchId, resolvedIncubatorId, platform_id,
-       allow_partial_payment, allow_installments, notes,
+       allowPartial, allowInstall, notes,
        createdBy,
        street_name || null,
        postal_code || null,
@@ -1818,6 +1884,53 @@ router.post('/customers', async (req, res) => {
       });
     }
 
+    let customerSettings = {};
+    try {
+      const doc = await pageDocumentSettings.getDocSettings(
+        'customers',
+        pageDocumentSettings.resolveTenantId(req)
+      );
+      customerSettings = doc.value || {};
+      if (customerSettings.require_tax_number && !normalized.tax_number) {
+        return res.status(400).json({
+          success: false,
+          error: 'الرقم الضريبي مطلوب حسب إعدادات العملاء'
+        });
+      }
+      if (customerSettings.require_phone && !normalized.phone && !normalized.mobile) {
+        return res.status(400).json({
+          success: false,
+          error: 'رقم الهاتف/الجوال مطلوب حسب إعدادات العملاء'
+        });
+      }
+      if (customerSettings.require_email && !normalized.email) {
+        return res.status(400).json({
+          success: false,
+          error: 'البريد الإلكتروني مطلوب حسب إعدادات العملاء'
+        });
+      }
+    } catch (settingsErr) {
+      console.warn('customer page settings skipped:', settingsErr.message);
+    }
+
+    const resolvedEntityId = resolveScopedEntityId(req, entity_id);
+    const resolvedEntityType = resolveScopedEntityType(req, entity_type);
+    if (!resolvedEntityId) {
+      return res.status(400).json({
+        success: false,
+        error: 'entity_id is required — لا يُمنح HQ001 تلقائيًا'
+      });
+    }
+
+    const resolvedCreditLimit =
+      credit_limit != null && Number(credit_limit) !== 0
+        ? credit_limit
+        : Number(customerSettings.default_credit_limit) || credit_limit || 0;
+    const resolvedCreditDays =
+      credit_period_days != null && Number(credit_period_days) !== 30
+        ? credit_period_days
+        : Number(customerSettings.default_payment_terms_days) || credit_period_days || 30;
+
     // Generate customer code
     const customer_code = await generateNextNumber('CUST', 'finance_customers', 'customer_code');
     
@@ -1848,10 +1961,10 @@ router.post('/customers', async (req, res) => {
         normalized.country,
         normalized.tax_number,
         normalized.commercial_registration,
-        credit_limit,
-        credit_period_days,
-        entity_type,
-        entity_id,
+        resolvedCreditLimit,
+        resolvedCreditDays,
+        resolvedEntityType,
+        resolvedEntityId,
         branch_id,
         incubator_id,
         program_id,
