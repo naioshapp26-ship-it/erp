@@ -1696,6 +1696,27 @@ router.delete('/payments/:id', async (req, res) => {
 // CUSTOMERS APIs
 // ========================================
 
+async function ensureCustomerAddressColumns() {
+  await db.query(`
+    ALTER TABLE finance_customers
+    ADD COLUMN IF NOT EXISTS street_name TEXT,
+    ADD COLUMN IF NOT EXISTS postal_code TEXT,
+    ADD COLUMN IF NOT EXISTS building_number TEXT,
+    ADD COLUMN IF NOT EXISTS district TEXT,
+    ADD COLUMN IF NOT EXISTS national_address_number TEXT,
+    ADD COLUMN IF NOT EXISTS short_address TEXT,
+    ADD COLUMN IF NOT EXISTS shipping_copy_billing BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS shipping_street_name TEXT,
+    ADD COLUMN IF NOT EXISTS shipping_city TEXT,
+    ADD COLUMN IF NOT EXISTS shipping_region TEXT,
+    ADD COLUMN IF NOT EXISTS shipping_postal_code TEXT,
+    ADD COLUMN IF NOT EXISTS website TEXT,
+    ADD COLUMN IF NOT EXISTS email_secondary TEXT,
+    ADD COLUMN IF NOT EXISTS mobile_secondary TEXT,
+    ADD COLUMN IF NOT EXISTS company_name TEXT;
+  `);
+}
+
 const normalizeBoolean = (value) => {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'string') return value === 'true' || value === '1';
@@ -1804,6 +1825,7 @@ router.get('/customers', async (req, res) => {
 // Create customer
 router.post('/customers', async (req, res) => {
   try {
+    await ensureCustomerAddressColumns();
     const {
       customer_name_ar,
       customer_name_en,
