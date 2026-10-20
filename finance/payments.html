@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>💳 المدفوعات - نظام نايوش</title>
+    <script src="/finance/finance-context.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -318,8 +319,15 @@
             (window.location.origin && window.location.origin.startsWith('http')
                 ? window.location.origin
                 : '');
-        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
-        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
+        let ENTITY_ID = '';
+        let ENTITY_TYPE = '';
+        function syncFinanceEntity() {
+            ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : '';
+            ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : '';
+        }
+        function entityQS() {
+            return ENTITY_ID ? `entity_id=${encodeURIComponent(ENTITY_ID)}` : '';
+        }
         let allPayments = [];
         let openInvoices = [];
         let paymentModalMode = 'create';
@@ -343,7 +351,8 @@
 
         async function loadOpenInvoices() {
             try {
-                const response = await fetch(`${API_BASE}/finance/invoices?entity_id=${ENTITY_ID}`, {
+                const qs = entityQS();
+                const response = await fetch(`${API_BASE}/finance/invoices${qs ? `?${qs}` : ''}`, {
                     headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
                 });
                 const data = await parseJsonResponse(response);
@@ -373,7 +382,8 @@
 
         async function loadPayments() {
             try {
-                const response = await fetch(`${API_BASE}/finance/payments?entity_id=${ENTITY_ID}`, {
+                const qs = entityQS();
+                const response = await fetch(`${API_BASE}/finance/payments${qs ? `?${qs}` : ''}`, {
                     headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
                 });
 
@@ -752,7 +762,11 @@
             window.print();
         }
 
-        document.addEventListener('DOMContentLoaded', loadPayments);
+        document.addEventListener('DOMContentLoaded', () => {
+            const start = () => { syncFinanceEntity(); loadOpenInvoices(); loadPayments(); };
+            if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+            else start();
+        });
     </script>
     <script src="/finance/finance-smart-search.js"></script>
   <script src="/finance/finance-related-actions.js"></script>

@@ -1,62 +1,128 @@
 (function () {
-  const DEFAULT_CONTEXT = { entityId: '', entityType: '' };
+  /**
+   * Trusted entity scope comes from the server session (/api/auth/verify).
+   * Never invent HQ001 for arbitrary users. Never trust localStorage alone for API scope.
+   * Until session resolves, omit x-entity-* headers so the server uses the session cookie/token.
+   */
+  let context = { entityId: '', entityType: '', authenticated: false, userId: null, role: null };
+  let ready = false;
+  const readyWaiters = [];
 
-  function clearStaleCentralFinanceContext() {
-    if (!String(window.location.pathname || '').startsWith('/t/')) return;
+  function pathName() {
+    return String(window.location.pathname || '');
+  }
+
+  function isCentralFinancePath() {
+    return pathName().startsWith('/finance');
+  }
+
+  function readAuthToken() {
     try {
-      const stored = localStorage.getItem('nayosh_selected_entity');
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      const entityId = String(parsed.entityId || parsed.entity_id || '').trim();
-      const entityType = String(parsed.tenantType || parsed.tenant_type || '').trim().toUpperCase();
-      if (!entityId || entityId === 'HQ001' || entityType === 'HQ') {
-        localStorage.removeItem('nayosh_selected_entity');
-      }
+      const fromStorage =
+        localStorage.getItem('authToken') ||
+        sessionStorage.getItem('authToken') ||
+        '';
+      if (fromStorage) return fromStorage;
     } catch (_) {
-      localStorage.removeItem('nayosh_selected_entity');
+      /* */
     }
+    const cookieMatch = String(document.cookie || '').match(/(?:^|;\s*)authToken=([^;]+)/);
+    return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
   }
 
-  clearStaleCentralFinanceContext();
-
-  function readStoredContext() {
+  function clearInheritedLocalEntityOnFinance() {
+    // Prevent stale office picks from driving client-side filters on central finance pages.
+    // Does NOT grant HQ; session remains the authority for API scope.
+    if (!isCentralFinancePath()) return;
     try {
-      const stored = localStorage.getItem('nayosh_selected_entity');
-      if (!stored) return null;
-      const parsed = JSON.parse(stored);
-      return {
-        entityId: parsed.entityId || parsed.entity_id || DEFAULT_CONTEXT.entityId,
-        entityType: parsed.tenantType || parsed.tenant_type || DEFAULT_CONTEXT.entityType
-      };
-    } catch {
-      return null;
+      localStorage.removeItem('nayosh_selected_entity');
+    } catch (_) {
+      /* */
     }
   }
 
-  function readQueryContext() {
-    const params = new URLSearchParams(window.location.search);
-    const entityId = params.get('entity_id');
-    const entityType = params.get('entity_type');
-    return entityId ? { entityId, entityType: entityType || DEFAULT_CONTEXT.entityType } : null;
+  clearInheritedLocalEntityOnFinance();
+
+  function notifyReady() {
+    ready = true;
+    while (readyWaiters.length) {
+      try {
+        readyWaiters.shift()(context);
+      } catch (_) {
+        /* */
+      }
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('finance-context-ready', { detail: context }));
+    } catch (_) {
+      /* */
+    }
   }
 
-  const storedContext = readStoredContext();
-  const queryContext = readQueryContext();
-
-  const context = {
-    entityId: (queryContext && queryContext.entityId) || (storedContext && storedContext.entityId) || DEFAULT_CONTEXT.entityId,
-    entityType: (queryContext && queryContext.entityType) || (storedContext && storedContext.entityType) || DEFAULT_CONTEXT.entityType
+  window.whenFinanceContextReady = function whenFinanceContextReady(cb) {
+    if (typeof cb !== 'function') return;
+    if (ready) {
+      cb(context);
+      return;
+    }
+    readyWaiters.push(cb);
   };
 
   window.FINANCE_CONTEXT = context;
-  window.getFinanceEntityId = () => context.entityId || DEFAULT_CONTEXT.entityId;
-  window.getFinanceEntityType = () => context.entityType || DEFAULT_CONTEXT.entityType;
+  window.getFinanceEntityId = () => context.entityId || '';
+  window.getFinanceEntityType = () => context.entityType || '';
   window.getFinanceHeaders = () => {
     const headers = {};
-    const entityId = window.getFinanceEntityId();
-    const entityType = window.getFinanceEntityType();
-    if (entityId) headers['x-entity-id'] = entityId;
-    if (entityType) headers['x-entity-type'] = entityType;
+    const token = readAuthToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    // Only echo session-resolved entity; never spoof HQ for limited users.
+    if (context.authenticated && context.entityId) {
+      headers['x-entity-id'] = context.entityId;
+    }
+    if (context.authenticated && context.entityType) {
+      headers['x-entity-type'] = context.entityType;
+    }
     return headers;
   };
+
+  async function hydrateFromSession() {
+    const token = readAuthToken();
+    if (!token) {
+      notifyReady();
+      return;
+    }
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'same-origin'
+      });
+      if (!res.ok) {
+        notifyReady();
+        return;
+      }
+      const data = await res.json();
+      const user = (data && (data.user || (data.data && data.data.user))) || null;
+      if (!user) {
+        notifyReady();
+        return;
+      }
+      const entityId = String(user.entity_id || '').trim();
+      const entityType = String(user.tenant_type || '').trim().toUpperCase();
+      context = {
+        entityId,
+        entityType,
+        authenticated: true,
+        userId: user.id || null,
+        role: user.role || null
+      };
+      window.FINANCE_CONTEXT = context;
+    } catch (_) {
+      /* keep empty — server session still applies via cookie/bearer */
+    }
+    notifyReady();
+  }
+
+  // Kick off session hydrate immediately
+  hydrateFromSession();
 })();

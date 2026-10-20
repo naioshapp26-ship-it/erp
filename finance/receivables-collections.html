@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>💳 الذمم والتحصيل + الفواتير وخطط الدفع - نظام نايوش</title>
+    <script src="/finance/finance-context.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -470,8 +471,15 @@
 
     <script>
         const API_BASE = window.location.origin;
-        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
-        const ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : 'HQ';
+        let ENTITY_ID = '';
+        let ENTITY_TYPE = '';
+        function syncFinanceEntity() {
+            ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : '';
+            ENTITY_TYPE = window.getFinanceEntityType ? window.getFinanceEntityType() : '';
+        }
+        function entityQS() {
+            return ENTITY_ID ? `entity_id=${encodeURIComponent(ENTITY_ID)}` : '';
+        }
 
         const INVOICE_STATUS_LABELS = {
             ISSUED: 'مصدرة',
@@ -664,20 +672,22 @@
 
         async function loadData() {
             try {
+                const qs = entityQS();
+                const q = qs ? `?${qs}` : '';
                 const [arRes, invRes, payRes, planRes, customersRes] = await Promise.all([
-                    fetch(`${API_BASE}/finance/ar-aging?entity_id=${ENTITY_ID}`, {
+                    fetch(`${API_BASE}/finance/ar-aging${q}`, {
                         headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
                     }),
-                    fetch(`${API_BASE}/finance/invoices?entity_id=${ENTITY_ID}`, {
+                    fetch(`${API_BASE}/finance/invoices${q}`, {
                         headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
                     }),
-                    fetch(`${API_BASE}/finance/payments?entity_id=${ENTITY_ID}`, {
+                    fetch(`${API_BASE}/finance/payments${q}`, {
                         headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
                     }),
-                    fetch(`${API_BASE}/finance/payment-plans?entity_id=${ENTITY_ID}`, {
+                    fetch(`${API_BASE}/finance/payment-plans${q}`, {
                         headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
                     }),
-                    fetch(`${API_BASE}/finance/customers`, {
+                    fetch(`${API_BASE}/finance/customers${q}`, {
                         headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
                     })
                 ]);
@@ -2304,7 +2314,11 @@
             loadData();
         }
 
-        document.addEventListener('DOMContentLoaded', loadData);
+        document.addEventListener('DOMContentLoaded', () => {
+            const start = () => { syncFinanceEntity(); loadData(); };
+            if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+            else start();
+        });
     </script>
     <script src="/finance/finance-smart-search.js"></script>
   <script src="/finance/finance-related-actions.js"></script>

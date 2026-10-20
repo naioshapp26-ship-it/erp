@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>👥 العملاء - نظام نايوش</title>
+    <script src="/finance/finance-context.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -375,14 +376,18 @@
 
     <script>
         const API_BASE = window.location.origin;
-        const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
+        let ENTITY_ID = '';
+        function syncFinanceEntity() {
+            ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : '';
+        }
         let allCustomers = [];
         let customerModalMode = 'create';
         let editingCustomerId = null;
 
         async function loadCustomers() {
             try {
-                const response = await fetch(`${API_BASE}/finance/customers?entity_id=${ENTITY_ID}`, {
+                const qs = ENTITY_ID ? `?entity_id=${encodeURIComponent(ENTITY_ID)}` : '';
+                const response = await fetch(`${API_BASE}/finance/customers${qs}`, {
                     headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
                 });
                 const data = await response.json();
@@ -915,7 +920,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadCustomers();
+            const start = () => { syncFinanceEntity(); loadCustomers(); };
+            if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+            else start();
             const shippingCopy = document.getElementById('customerShippingCopy');
             if (shippingCopy) {
                 shippingCopy.addEventListener('change', applyShippingCopy);

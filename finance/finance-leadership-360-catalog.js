@@ -40,9 +40,9 @@
         {
           id: 'invoices-quotes',
           label: 'الفواتير والتحصيل والميزانيات',
-          status: 'partial',
+          status: 'operational',
           href: '/finance/invoices-budgets-master.html',
-          note: 'متاح: عرض/تعديل/حذف فواتير. ناقص: إنشاء فاتورة، عروض أسعار، تحصيل حقيقي من أزرار الصفحة'
+          note: 'إنشاء/تعديل/حذف فواتير + سداد مخصص + خطة دفع + إنشاء ميزانية'
         },
         { id: 'installments', label: 'الأقساط', status: 'operational', href: '/finance/plan-installments.html' },
         { id: 'targets-commissions', label: 'المبيعات المستهدفة والعمولات', status: 'coming_soon', href: null },
@@ -430,8 +430,8 @@
       label: 'إدارة الفواتير',
       icon: 'fa-file-invoice-dollar',
       href: '/finance/invoices-budgets-master.html',
-      status: 'partial',
-      note: 'عرض/تعديل/حذف — بلا إنشاء فاتورة ولا عروض أسعار'
+      status: 'operational',
+      note: 'إنشاء/تعديل/حذف + سداد مخصص + خطة دفع + ميزانية'
     }
   ];
 
@@ -492,7 +492,7 @@
   const AUDIT_STATUS_EXPECTATIONS = {
     'sales.pos': 'coming_soon',
     'sales.quotes': 'partial',
-    'sales.invoices-quotes': 'partial',
+    'sales.invoices-quotes': 'operational',
     'sales.installments': 'operational',
     'sales.targets-commissions': 'coming_soon',
     'sales.e-invoice': 'coming_soon',

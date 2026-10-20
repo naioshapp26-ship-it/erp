@@ -1679,6 +1679,12 @@ router.get('/customers', async (req, res) => {
   try {
     const userEntity = req.userEntity || { type: 'HQ', id: 'HQ001' };
     const { risk_level, is_active, limit = 100, offset = 0 } = req.query;
+    // finance_customers has entity_id but no office_id/branch_id columns —
+    // do not use getEntityFilter OFFICE branch (references missing c.office_id).
+    const customerScope =
+      userEntity.type === 'HQ'
+        ? '1=1'
+        : `c.entity_id = '${String(userEntity.id || '').replace(/'/g, "''")}'`;
     
     let query = `
       SELECT 
@@ -1688,7 +1694,7 @@ router.get('/customers', async (req, res) => {
         COALESCE(SUM(i.remaining_amount), 0) as total_outstanding
       FROM finance_customers c
       LEFT JOIN finance_invoices i ON c.customer_id = i.customer_id
-      WHERE ${getEntityFilter(userEntity, 'c')}
+      WHERE ${customerScope}
     `;
     
     const params = [];
