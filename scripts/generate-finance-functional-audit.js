@@ -88,13 +88,24 @@ const overrides = {
     functional: 'working'
   },
   'sales.offers-discounts': {
-    functional: 'non_working',
-    note: 'localStorage فقط — يلزم Backend+Postgres'
+    functional: 'working',
+    note: 'P2: حفظ Postgres عبر /finance/item-discounts — مثبت بالتحقق'
   },
   'sales.deposits': {
     functional: 'non_working',
-    note: 'localStorage فقط — يلزم Backend+Postgres'
-  }
+    note: 'ما زال localStorage — عربون محاسبي غير مفعّل (ADVANCE-B)'
+  },
+  'purchases.purchase-orders': {
+    functional: 'working',
+    note: 'P2: /finance/purchase-orders.html + API'
+  },
+  'purchases.vendor-invoices': {
+    functional: 'working',
+    note: 'P2: فواتير موردين Postgres'
+  },
+  'purchases.purchase-requests': { functional: 'partial', note: 'عبر صفحة أوامر الشراء مؤقتًا' },
+  'purchases.vendor-quotes': { functional: 'partial', note: 'عبر صفحة أوامر الشراء مؤقتًا' },
+  'purchases.receiving': { functional: 'partial', note: 'متابعة حالة أمر الشراء فقط' }
 };
 
 const pages = [];
