@@ -66,8 +66,8 @@
           id: 'deposits',
           label: 'العربون والدفعات المتقدمة',
           status: 'coming_soon',
-          href: '/finance/deposits-advance-payments.html',
-          note: 'واجهة محلية فقط (localStorage) — بلا حفظ خادمي؛ الصفحة وبياناتها المحلية محفوظة'
+          href: null,
+          note: 'غير منفّذ خادميًا — يوجد ملف deposits-advance-payments.html محلي (localStorage) فقط؛ لا يُفتح كوظيفة جاهزة'
         },
         { id: 'collection', label: 'التحصيل', status: 'operational', href: '/finance/receivables-collections.html' }
       ]
@@ -350,7 +350,13 @@
         },
         { id: 'report-export', label: 'تصدير التقارير', status: 'coming_soon', href: null },
         { id: 'pnl', label: 'تقارير الأرباح والخسائر', status: 'operational', href: '/finance/income-statement.html' },
-        { id: 'balance-sheet', label: 'الميزانية العمومية', status: 'operational', href: '/finance/balance-sheet.html' },
+        {
+          id: 'balance-sheet',
+          label: 'الميزانية العمومية',
+          status: 'partial',
+          href: '/finance/balance-sheet.html',
+          note: 'الواجهة موجودة لكن GET /finance/balance-sheet يفشل (جدول finance_balance_sheet غير موجود) — بلا migration في هذا الإصلاح'
+        },
         { id: 'cashflow', label: 'التدفقات النقدية', status: 'operational', href: '/finance/cashflow-summary.html' },
         {
           id: 'trial-balance',
@@ -385,7 +391,7 @@
           label: 'إعدادات الصفحات',
           status: 'operational',
           href: '/finance/leadership-page-settings.html',
-          note: 'مركز تنقل للـ13 بندًا — معظم البنود ما زالت قيد التطوير'
+          note: 'مركز إعدادات المستندات الـ13 — حفظ PostgreSQL عبر /finance/page-settings'
         },
         {
           id: 'finance-settings-hub',
@@ -397,16 +403,16 @@
         {
           id: 'numbering',
           label: 'أنظمة الترقيم',
-          status: 'operational',
+          status: 'partial',
           href: '/settings/numbering-systems',
-          note: 'ترقيم Enterprise عام'
+          note: 'ترقيم Enterprise عام — إعدادات ترقيم المستندات المالية عبر إعدادات الصفحات'
         },
         {
           id: 'print-templates',
           label: 'قوالب الطباعة',
-          status: 'operational',
+          status: 'partial',
           href: '/settings/print-templates',
-          note: 'قوالب طباعة عامة — ليست إعدادات مستند مبيعات مخصصًا بعد'
+          note: 'قوالب طباعة عامة — إعداد طباعة المستندات المالية عبر إعدادات الصفحات'
         }
       ]
     }
@@ -573,8 +579,12 @@
     'purchases.vendor-invoices': 'operational',
     'purchases.receiving': 'partial',
     'inventory.stock-vendors': 'partial',
+    'reports.balance-sheet': 'partial',
+    'settings.page-settings': 'operational',
+    'settings.numbering': 'partial',
+    'settings.print-templates': 'partial',
     'qa.qa-accounting': 'partial',
-    'qa.qa-invoices': 'partial',
+    'qa.qa-invoices': 'operational',
     'qa.qa-expenses': 'operational',
     'qa.qa-journal': 'operational',
     'qa.qa-payments': 'operational',
