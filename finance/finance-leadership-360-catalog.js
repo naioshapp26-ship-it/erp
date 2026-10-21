@@ -66,8 +66,8 @@
           id: 'deposits',
           label: 'العربون والدفعات المتقدمة',
           status: 'coming_soon',
-          href: '/finance/deposits-advance-payments.html',
-          note: 'واجهة محلية فقط (localStorage) — بلا حفظ خادمي؛ الصفحة وبياناتها المحلية محفوظة'
+          href: null,
+          note: 'غير منفّذ خادميًا — يوجد ملف deposits-advance-payments.html محلي (localStorage) فقط؛ لا يُفتح كوظيفة جاهزة'
         },
         { id: 'collection', label: 'التحصيل', status: 'operational', href: '/finance/receivables-collections.html' }
       ]
@@ -350,7 +350,13 @@
         },
         { id: 'report-export', label: 'تصدير التقارير', status: 'coming_soon', href: null },
         { id: 'pnl', label: 'تقارير الأرباح والخسائر', status: 'operational', href: '/finance/income-statement.html' },
-        { id: 'balance-sheet', label: 'الميزانية العمومية', status: 'operational', href: '/finance/balance-sheet.html' },
+        {
+          id: 'balance-sheet',
+          label: 'الميزانية العمومية',
+          status: 'partial',
+          href: '/finance/balance-sheet.html',
+          note: 'الواجهة موجودة لكن GET /finance/balance-sheet يفشل (جدول finance_balance_sheet غير موجود) — بلا migration في هذا الإصلاح'
+        },
         { id: 'cashflow', label: 'التدفقات النقدية', status: 'operational', href: '/finance/cashflow-summary.html' },
         {
           id: 'trial-balance',
@@ -383,9 +389,9 @@
         {
           id: 'page-settings',
           label: 'إعدادات الصفحات',
-          status: 'operational',
+          status: 'partial',
           href: '/finance/leadership-page-settings.html',
-          note: 'مركز تنقل للـ13 بندًا — معظم البنود ما زالت قيد التطوير'
+          note: 'مركز تنقل فقط لمعظم البنود قيد التطوير — ليس تشغيل إعدادات مستند مكتمل'
         },
         {
           id: 'finance-settings-hub',
@@ -397,16 +403,16 @@
         {
           id: 'numbering',
           label: 'أنظمة الترقيم',
-          status: 'operational',
+          status: 'partial',
           href: '/settings/numbering-systems',
-          note: 'ترقيم Enterprise عام'
+          note: 'واجهة إعدادات عامة — لم تُثبت دورة حفظ/إعادة قراءة مالية مستندية في هذا الفحص'
         },
         {
           id: 'print-templates',
           label: 'قوالب الطباعة',
-          status: 'operational',
+          status: 'partial',
           href: '/settings/print-templates',
-          note: 'قوالب طباعة عامة — ليست إعدادات مستند مبيعات مخصصًا بعد'
+          note: 'قوالب طباعة عامة — لم تُثبت كإعداد مستند مبيعات مكتمل'
         }
       ]
     }
@@ -464,21 +470,45 @@
     {
       id: 'print',
       label: 'إعدادات الطباعة',
-      status: 'operational',
+      status: 'partial',
       href: '/settings/print-templates',
-      note: 'قوالب طباعة عامة للنظام'
+      note: 'قوالب طباعة عامة — ليست إعدادات طباعة مستند مالي مكتملة'
     },
-    { id: 'quotes', label: 'عروض الأسعار', status: 'coming_soon', href: null },
-    { id: 'sales-invoices', label: 'فواتير المبيعات', status: 'coming_soon', href: null },
-    { id: 'purchase-orders', label: 'أوامر الشراء', status: 'coming_soon', href: null },
+    { id: 'quotes', label: 'عروض الأسعار', status: 'coming_soon', href: null, note: 'إعدادات عروض أسعار غير منفّذة (ليست quick-offers)' },
+    {
+      id: 'sales-invoices',
+      label: 'فواتير المبيعات',
+      status: 'coming_soon',
+      href: null,
+      note: 'إعدادات مستند الفاتورة غير منفّذة — تشغيل الفواتير عبر /finance/invoices-budgets-master.html'
+    },
+    {
+      id: 'purchase-orders',
+      label: 'أوامر الشراء',
+      status: 'coming_soon',
+      href: null,
+      note: 'إعدادات مستند أمر الشراء غير منفّذة — التشغيل عبر /finance/purchase-orders.html'
+    },
     { id: 'purchase-invoices', label: 'فواتير المشتريات', status: 'coming_soon', href: null },
     { id: 'simple-invoices', label: 'الفواتير البسيطة', status: 'coming_soon', href: null },
     { id: 'vouchers', label: 'السندات', status: 'coming_soon', href: null },
     { id: 'credit-notes', label: 'الإشعارات الدائنة', status: 'coming_soon', href: null },
     { id: 'debit-notes', label: 'الإشعارات المدينة', status: 'coming_soon', href: null },
-    { id: 'journal-entries', label: 'القيود المحاسبية', status: 'coming_soon', href: null },
+    {
+      id: 'journal-entries',
+      label: 'القيود المحاسبية',
+      status: 'coming_soon',
+      href: null,
+      note: 'إعدادات مستند القيد غير منفّذة — التشغيل عبر /finance/journal.html'
+    },
     { id: 'products', label: 'المنتجات', status: 'coming_soon', href: null },
-    { id: 'customers', label: 'العملاء', status: 'coming_soon', href: null },
+    {
+      id: 'customers',
+      label: 'العملاء',
+      status: 'coming_soon',
+      href: null,
+      note: 'إعدادات مستند العميل غير منفّذة — التشغيل عبر /finance/customers.html'
+    },
     { id: 'suppliers', label: 'الموردين', status: 'coming_soon', href: null }
   ];
 
@@ -508,12 +538,16 @@
     'purchases.vendor-invoices': 'operational',
     'purchases.receiving': 'partial',
     'inventory.stock-vendors': 'partial',
+    'reports.balance-sheet': 'partial',
+    'settings.page-settings': 'partial',
+    'settings.numbering': 'partial',
+    'settings.print-templates': 'partial',
     'qa.qa-accounting': 'partial',
-    'qa.qa-invoices': 'partial',
+    'qa.qa-invoices': 'operational',
     'qa.qa-expenses': 'operational',
     'qa.qa-journal': 'operational',
     'qa.qa-payments': 'operational',
-    'pagesettings.print': 'operational',
+    'pagesettings.print': 'partial',
     'pagesettings.quotes': 'coming_soon',
     'pagesettings.sales-invoices': 'coming_soon',
     'pagesettings.purchase-orders': 'coming_soon',
