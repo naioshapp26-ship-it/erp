@@ -207,10 +207,11 @@ async function measure(page) {
   ];
   for (const p of probeList) {
     const live = await probeHtmlHasShell(p);
-    const expectedShell = wouldInjectShell(p) && (p.startsWith('/hr') || resolveNavigationContext(p) === 'gai-finance'
+    const isFinanceApp = p === '/finance' || p.startsWith('/finance/');
+    const expectedShell = !isFinanceApp && wouldInjectShell(p) && (p.startsWith('/hr') || resolveNavigationContext(p) === 'gai-finance'
       || (resolveNavigationContext(p) === 'finance-keep' && p.startsWith('/hr')));
-    // finance-keep under /finance/*.html is NOT injected by finance middleware
-    const financeKeepViaFinanceHtml = resolveNavigationContext(p) === 'finance-keep' && p.startsWith('/finance/');
+    // /finance HTML is Leadership 360 and is never wrapped in the GAI/HR shell.
+    const financeKeepViaFinanceHtml = isFinanceApp;
     if (live.hasShell) coverage.shellLive.push({ path: p, ...live });
     else if (expectedShell && !financeKeepViaFinanceHtml) coverage.shellMissingLive.push({ path: p, ...live });
     else if (financeKeepViaFinanceHtml) {

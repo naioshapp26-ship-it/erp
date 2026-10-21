@@ -62,11 +62,18 @@ async function main() {
       ['/hr/inbound-outbound-mail', 'archive'],
       ['/hr/ocr-suite', 'gai-docs'],
       ['/hr/employee-360', 'hr'],
-      ['/finance/payment-terms.html', 'gai-finance']
+      ['/finance/payment-terms.html', 'finance-native'],
+      ['/finance/invoices-budgets-master.html', 'finance-native'],
+      ['/finance/receivables-collections.html', 'finance-native'],
+      ['/finance/customers.html', 'finance-native']
     ]) {
       const res = await get(href);
       ok(`http-${href}`, res.status === 200 || res.status === 302, 'status=' + res.status);
-      if (res.status === 200) {
+      if (res.status === 200 && expectCtx === 'finance-native') {
+        const payload = extractNavPayload(res.body);
+        const gai = res.body.includes('التكامل الإداري المحكوم') || res.body.includes('hr-portal-shell.js');
+        ok(`finance-native-${href}`, !payload && !gai, gai ? 'still wrapped in GAI shell' : 'native finance page');
+      } else if (res.status === 200) {
         const payload = extractNavPayload(res.body);
         ok(`payload-${href}`, payload && payload.context === expectCtx, JSON.stringify(payload && payload.context));
         if (expectCtx === 'archive' || expectCtx === 'gai-docs' || expectCtx === 'gai-finance') {
