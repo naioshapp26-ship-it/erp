@@ -119,7 +119,8 @@ async function main() {
     await page.goto(`${BASE}/finance/payment-terms.html`, { waitUntil: 'networkidle2', timeout: 60000 });
     await new Promise((r) => setTimeout(r, 1500));
     info = await sidebarInfo(page);
-    record('finance-moved-gai', !info.hasHrSystemLabel && (info.ctx === 'gai-finance' || info.hasGai), JSON.stringify(info));
+    const financeText = await page.evaluate(() => document.body.innerText || '');
+    record('finance-page-not-gai', !info.hasGai && !financeText.includes('التكامل الإداري المحكوم'), JSON.stringify(info));
     await page.screenshot({ path: path.join(OUT, '05-finance-moved-gai.png'), fullPage: false });
 
     await page.goto(`${BASE}/hr/employees`, { waitUntil: 'networkidle2', timeout: 60000 });
