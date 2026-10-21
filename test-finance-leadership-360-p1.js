@@ -236,8 +236,8 @@ function getStatus(urlPath) {
       };
     });
     settingsState.count === 13 ? pass('settings-13-items') : fail('settings-13-items', String(settingsState.count));
-    settingsState.links >= 1 ? pass('settings-has-operational-link') : fail('settings-has-operational-link');
-    settingsState.soon >= 1 ? pass('settings-has-coming-soon') : fail('settings-has-coming-soon');
+    settingsState.links === 13 ? pass('settings-all-operational-links', String(settingsState.links)) : fail('settings-all-operational-links', String(settingsState.links));
+    settingsState.soon === 0 ? pass('settings-none-coming-soon') : fail('settings-none-coming-soon', String(settingsState.soon));
     settingsState.title === 'إعدادات الصفحات' ? pass('settings-title') : fail('settings-title', settingsState.title);
     await page.screenshot({ path: path.join(ART, 'finance-leadership-360-page-settings.png'), fullPage: false });
 

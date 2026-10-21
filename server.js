@@ -3550,6 +3550,10 @@ app.use('/api/e-offices', eOfficesRoutes);
 const financeRoutes = require('./finance/api/finance-routes');
 app.use('/finance', financeRoutes);
 
+// Finance page-document settings (persist to setting_values; no new migration files)
+const financePageSettingsRoutes = require('./finance/api/page-document-settings');
+app.use('/finance/page-settings', financePageSettingsRoutes);
+
 // Finance Quick Offers API Routes
 const quickOffersRoutes = require('./finance/api/quick-offers');
 app.use('/finance/quick-offers', quickOffersRoutes);

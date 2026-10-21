@@ -389,9 +389,9 @@
         {
           id: 'page-settings',
           label: 'إعدادات الصفحات',
-          status: 'partial',
+          status: 'operational',
           href: '/finance/leadership-page-settings.html',
-          note: 'مركز تنقل فقط لمعظم البنود قيد التطوير — ليس تشغيل إعدادات مستند مكتمل'
+          note: 'مركز إعدادات المستندات الـ13 — حفظ PostgreSQL عبر /finance/page-settings'
         },
         {
           id: 'finance-settings-hub',
@@ -405,14 +405,14 @@
           label: 'أنظمة الترقيم',
           status: 'partial',
           href: '/settings/numbering-systems',
-          note: 'واجهة إعدادات عامة — لم تُثبت دورة حفظ/إعادة قراءة مالية مستندية في هذا الفحص'
+          note: 'ترقيم Enterprise عام — إعدادات ترقيم المستندات المالية عبر إعدادات الصفحات'
         },
         {
           id: 'print-templates',
           label: 'قوالب الطباعة',
           status: 'partial',
           href: '/settings/print-templates',
-          note: 'قوالب طباعة عامة — لم تُثبت كإعداد مستند مبيعات مكتمل'
+          note: 'قوالب طباعة عامة — إعداد طباعة المستندات المالية عبر إعدادات الصفحات'
         }
       ]
     }
@@ -465,51 +465,92 @@
     }
   ];
 
-  /** Image-2 page settings hub (13). Only print is operational (general templates). */
+  /** Image-2 page settings hub (13). All persist via /finance/page-settings → PostgreSQL. */
   const PAGE_SETTINGS = [
     {
       id: 'print',
       label: 'إعدادات الطباعة',
-      status: 'partial',
-      href: '/settings/print-templates',
-      note: 'قوالب طباعة عامة — ليست إعدادات طباعة مستند مالي مكتملة'
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=print',
+      note: 'حفظ وتطبيق إعدادات الطباعة للمستندات المالية'
     },
-    { id: 'quotes', label: 'عروض الأسعار', status: 'coming_soon', href: null, note: 'إعدادات عروض أسعار غير منفّذة (ليست quick-offers)' },
+    {
+      id: 'quotes',
+      label: 'عروض الأسعار',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=quotes',
+      note: 'بادئة الرقم ومدة الصلاحية والضريبة الافتراضية'
+    },
     {
       id: 'sales-invoices',
       label: 'فواتير المبيعات',
-      status: 'coming_soon',
-      href: null,
-      note: 'إعدادات مستند الفاتورة غير منفّذة — تشغيل الفواتير عبر /finance/invoices-budgets-master.html'
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=sales-invoices',
+      note: 'تُطبَّق على إنشاء فواتير /finance/invoices'
     },
     {
       id: 'purchase-orders',
       label: 'أوامر الشراء',
-      status: 'coming_soon',
-      href: null,
-      note: 'إعدادات مستند أمر الشراء غير منفّذة — التشغيل عبر /finance/purchase-orders.html'
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=purchase-orders'
     },
-    { id: 'purchase-invoices', label: 'فواتير المشتريات', status: 'coming_soon', href: null },
-    { id: 'simple-invoices', label: 'الفواتير البسيطة', status: 'coming_soon', href: null },
-    { id: 'vouchers', label: 'السندات', status: 'coming_soon', href: null },
-    { id: 'credit-notes', label: 'الإشعارات الدائنة', status: 'coming_soon', href: null },
-    { id: 'debit-notes', label: 'الإشعارات المدينة', status: 'coming_soon', href: null },
+    {
+      id: 'purchase-invoices',
+      label: 'فواتير المشتريات',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=purchase-invoices'
+    },
+    {
+      id: 'simple-invoices',
+      label: 'الفواتير البسيطة',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=simple-invoices'
+    },
+    {
+      id: 'vouchers',
+      label: 'السندات',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=vouchers'
+    },
+    {
+      id: 'credit-notes',
+      label: 'الإشعارات الدائنة',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=credit-notes'
+    },
+    {
+      id: 'debit-notes',
+      label: 'الإشعارات المدينة',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=debit-notes'
+    },
     {
       id: 'journal-entries',
       label: 'القيود المحاسبية',
-      status: 'coming_soon',
-      href: null,
-      note: 'إعدادات مستند القيد غير منفّذة — التشغيل عبر /finance/journal.html'
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=journal-entries',
+      note: 'تُطبَّق عند إنشاء القيود (التوازن والوصف)'
     },
-    { id: 'products', label: 'المنتجات', status: 'coming_soon', href: null },
+    {
+      id: 'products',
+      label: 'المنتجات',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=products'
+    },
     {
       id: 'customers',
       label: 'العملاء',
-      status: 'coming_soon',
-      href: null,
-      note: 'إعدادات مستند العميل غير منفّذة — التشغيل عبر /finance/customers.html'
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=customers',
+      note: 'تُطبَّق على إنشاء العملاء'
     },
-    { id: 'suppliers', label: 'الموردين', status: 'coming_soon', href: null }
+    {
+      id: 'suppliers',
+      label: 'الموردين',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=suppliers',
+      note: 'تُطبَّق على إنشاء الموردين'
+    }
   ];
 
   const STATUS_LABEL = {
@@ -539,7 +580,7 @@
     'purchases.receiving': 'partial',
     'inventory.stock-vendors': 'partial',
     'reports.balance-sheet': 'partial',
-    'settings.page-settings': 'partial',
+    'settings.page-settings': 'operational',
     'settings.numbering': 'partial',
     'settings.print-templates': 'partial',
     'qa.qa-accounting': 'partial',
@@ -547,19 +588,19 @@
     'qa.qa-expenses': 'operational',
     'qa.qa-journal': 'operational',
     'qa.qa-payments': 'operational',
-    'pagesettings.print': 'partial',
-    'pagesettings.quotes': 'coming_soon',
-    'pagesettings.sales-invoices': 'coming_soon',
-    'pagesettings.purchase-orders': 'coming_soon',
-    'pagesettings.purchase-invoices': 'coming_soon',
-    'pagesettings.simple-invoices': 'coming_soon',
-    'pagesettings.vouchers': 'coming_soon',
-    'pagesettings.credit-notes': 'coming_soon',
-    'pagesettings.debit-notes': 'coming_soon',
-    'pagesettings.journal-entries': 'coming_soon',
-    'pagesettings.products': 'coming_soon',
-    'pagesettings.customers': 'coming_soon',
-    'pagesettings.suppliers': 'coming_soon'
+    'pagesettings.print': 'operational',
+    'pagesettings.quotes': 'operational',
+    'pagesettings.sales-invoices': 'operational',
+    'pagesettings.purchase-orders': 'operational',
+    'pagesettings.purchase-invoices': 'operational',
+    'pagesettings.simple-invoices': 'operational',
+    'pagesettings.vouchers': 'operational',
+    'pagesettings.credit-notes': 'operational',
+    'pagesettings.debit-notes': 'operational',
+    'pagesettings.journal-entries': 'operational',
+    'pagesettings.products': 'operational',
+    'pagesettings.customers': 'operational',
+    'pagesettings.suppliers': 'operational'
   };
 
   function resolveHref(page, sectionId) {

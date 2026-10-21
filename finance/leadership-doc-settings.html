@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إعدادات المستند — القيادة المالية 360</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="contrast-overrides.css">
+  <style>
+    body {
+      font-family: 'Tajawal', 'Cairo', sans-serif;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(185, 28, 28, 0.1), transparent 42%),
+        linear-gradient(165deg, #fffefe 0%, #f6f7f8 55%, #f1f2f3 100%);
+      min-height: 100vh;
+    }
+    .panel {
+      max-width: 40rem;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #93c5fd;
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+    }
+    label { font-weight: 800; color: #0f172a; font-size: 0.9rem; }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 0.45rem;
+      padding: 0.55rem 0.75rem;
+      font-weight: 700;
+    }
+    .msg { font-weight: 800; font-size: 0.9rem; }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+  <div class="mb-6 flex flex-wrap gap-2 justify-center">
+    <a href="/finance/leadership-page-settings.html" class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm">
+      <i class="fas fa-sliders"></i>
+      إعدادات الصفحات
+    </a>
+    <a href="/finance" class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm">
+      <i class="fas fa-compass"></i>
+      القيادة المالية 360
+    </a>
+  </div>
+
+  <div class="panel">
+    <h1 id="doc-title" class="text-xl font-black text-red-700 text-center mb-1">إعدادات المستند</h1>
+    <p id="doc-meta" class="text-center text-sm text-slate-500 font-bold mb-4">تحميل…</p>
+    <div id="fields" class="space-y-3"></div>
+    <div class="mt-5 flex flex-wrap gap-2 justify-center">
+      <button id="btn-save" type="button" class="rounded-lg bg-red-700 text-white px-5 py-2 font-black hover:bg-red-800">
+        حفظ في قاعدة البيانات
+      </button>
+      <button id="btn-reload" type="button" class="rounded-lg border border-slate-300 bg-white px-5 py-2 font-black text-slate-700">
+        إعادة القراءة
+      </button>
+    </div>
+    <p id="status" class="msg text-center mt-3 text-slate-600" role="status"></p>
+  </div>
+
+  <script src="/finance/finance-context.js"></script>
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const docId = (params.get('doc') || '').trim();
+      const fieldsEl = document.getElementById('fields');
+      const statusEl = document.getElementById('status');
+      const titleEl = document.getElementById('doc-title');
+      const metaEl = document.getElementById('doc-meta');
+      let schema = null;
+      let current = null;
+
+      function headers() {
+        return Object.assign({ 'Content-Type': 'application/json' }, window.getFinanceHeaders ? window.getFinanceHeaders() : {});
+      }
+
+      function setStatus(text, ok) {
+        statusEl.textContent = text || '';
+        statusEl.className = 'msg text-center mt-3 ' + (ok === true ? 'text-green-700' : ok === false ? 'text-red-700' : 'text-slate-600');
+      }
+
+      function renderFields(value) {
+        fieldsEl.innerHTML = '';
+        (schema.fields || []).forEach((field) => {
+          const wrap = document.createElement('div');
+          const id = 'f_' + field.name;
+          const val = value[field.name];
+          if (field.type === 'boolean') {
+            wrap.innerHTML = `
+              <label class="inline-flex items-center gap-2 cursor-pointer">
+                <input id="${id}" type="checkbox" ${val ? 'checked' : ''} class="w-4 h-4">
+                <span>${field.name}</span>
+              </label>`;
+          } else {
+            const inputType = field.type === 'number' ? 'number' : 'text';
+            wrap.innerHTML = `
+              <label for="${id}">${field.name}</label>
+              <input id="${id}" type="${inputType}" value="${val == null ? '' : String(val).replace(/"/g, '&quot;')}">`;
+          }
+          fieldsEl.appendChild(wrap);
+        });
+      }
+
+      function collectValue() {
+        const value = {};
+        (schema.fields || []).forEach((field) => {
+          const el = document.getElementById('f_' + field.name);
+          if (!el) return;
+          if (field.type === 'boolean') value[field.name] = !!el.checked;
+          else if (field.type === 'number') value[field.name] = el.value === '' ? null : Number(el.value);
+          else value[field.name] = el.value;
+        });
+        return value;
+      }
+
+      async function load() {
+        if (!docId) {
+          setStatus('معرّف المستند ناقص (?doc=...)', false);
+          return;
+        }
+        setStatus('جاري التحميل من PostgreSQL…');
+        const schemaRes = await fetch('/finance/page-settings/' + encodeURIComponent(docId) + '/schema', { headers: headers(), credentials: 'same-origin' });
+        const schemaJson = await schemaRes.json();
+        if (!schemaRes.ok || !schemaJson.success) {
+          setStatus(schemaJson.error || 'تعذّر تحميل المخطط', false);
+          return;
+        }
+        schema = schemaJson.schema;
+        titleEl.textContent = schema.label_ar || docId;
+
+        const res = await fetch('/finance/page-settings/' + encodeURIComponent(docId), { headers: headers(), credentials: 'same-origin' });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setStatus(json.error || 'تعذّر تحميل الإعدادات', false);
+          return;
+        }
+        current = json.item;
+        metaEl.textContent = (current.isDefault ? 'قيم افتراضية' : 'محفوظة') +
+          ' · الإصدار ' + (current.version || 0) +
+          (current.updated_at ? ' · آخر تحديث ' + new Date(current.updated_at).toLocaleString('ar') : '');
+        renderFields(current.value || {});
+        setStatus('تم التحميل من قاعدة البيانات', true);
+      }
+
+      async function save() {
+        if (!schema) return;
+        setStatus('جاري الحفظ…');
+        const res = await fetch('/finance/page-settings/' + encodeURIComponent(docId), {
+          method: 'PUT',
+          headers: headers(),
+          credentials: 'same-origin',
+          body: JSON.stringify({ value: collectValue(), reason: 'ui-save' })
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setStatus(json.error || 'فشل الحفظ', false);
+          return;
+        }
+        current = json.item;
+        metaEl.textContent = 'محفوظة · الإصدار ' + current.version +
+          (current.updated_at ? ' · ' + new Date(current.updated_at).toLocaleString('ar') : '');
+        setStatus('تم الحفظ وإعادة القراءة من PostgreSQL', true);
+      }
+
+      document.getElementById('btn-save').addEventListener('click', save);
+      document.getElementById('btn-reload').addEventListener('click', load);
+
+      function start() { load().catch((e) => setStatus(e.message || String(e), false)); }
+      if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+      else start();
+    })();
+  </script>
+</body>
+</html>

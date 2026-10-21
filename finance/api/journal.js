@@ -5,6 +5,7 @@
  */
 
 const { getRequestEntityContext, buildEntityScopeCondition } = require('../../entity-context');
+const { resolveScopedEntityId } = require('./resolve-scoped-entity');
 
 // Database connection
 const db = require('../../db');
@@ -43,7 +44,7 @@ function normalizeAmount(value) {
  * Get all journal entries with their lines
  */
 async function getJournalEntries(req, res) {
-    const { entity_id } = req.query;
+    const entity_id = resolveScopedEntityId(req, req.query.entity_id);
 
     if (!entity_id) {
         return res.status(400).json({
@@ -128,7 +129,7 @@ async function getJournalEntries(req, res) {
  */
 async function getJournalEntry(req, res) {
     const { entry_id } = req.params;
-    const { entity_id } = req.query;
+    const entity_id = resolveScopedEntityId(req, req.query.entity_id);
 
     if (!entity_id) {
         return res.status(400).json({
@@ -201,7 +202,7 @@ async function getJournalEntry(req, res) {
  * Get account balances for trial balance
  */
 async function getAccountBalances(req, res) {
-    const { entity_id } = req.query;
+    const entity_id = resolveScopedEntityId(req, req.query.entity_id);
 
     if (!entity_id) {
         return res.status(400).json({
@@ -254,7 +255,8 @@ async function getAccountBalances(req, res) {
  */
 async function getAccountLedger(req, res) {
     const { account_id } = req.params;
-    const { entity_id, start_date, end_date } = req.query;
+    const { entity_id: entityIdQuery, start_date, end_date } = req.query;
+    const entity_id = resolveScopedEntityId(req, entityIdQuery);
 
     if (!entity_id) {
         return res.status(400).json({
@@ -366,7 +368,7 @@ async function getAccountLedger(req, res) {
  */
 async function createJournalEntry(req, res) {
     const {
-        entity_id,
+        entity_id: bodyEntityId,
         entry_number,
         entry_date,
         entry_type,
@@ -378,6 +380,8 @@ async function createJournalEntry(req, res) {
         lines
     } = req.body;
 
+    const entity_id = resolveScopedEntityId(req, bodyEntityId);
+
     if (!entity_id || !entry_date || !lines || lines.length === 0) {
         return res.status(400).json({
             success: false,
@@ -385,11 +389,27 @@ async function createJournalEntry(req, res) {
         });
     }
 
+    let jeSettings = { require_balanced: true, require_description: true, number_prefix: 'JE' };
+    try {
+        const pageSettings = require('../services/page-document-settings');
+        const doc = await pageSettings.getDocSettings('journal-entries', pageSettings.resolveTenantId(req));
+        jeSettings = { ...jeSettings, ...(doc.value || {}) };
+    } catch (settingsErr) {
+        console.warn('journal settings skipped:', settingsErr.message);
+    }
+
+    if (jeSettings.require_description && !String(description || '').trim()) {
+        return res.status(400).json({
+            success: false,
+            error: 'وصف القيد مطلوب حسب إعدادات القيود المحاسبية'
+        });
+    }
+
     // Validate that debits = credits
     const totalDebit = lines.reduce((sum, line) => sum + normalizeAmount(line.debit_amount), 0);
     const totalCredit = lines.reduce((sum, line) => sum + normalizeAmount(line.credit_amount), 0);
 
-    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+    if (jeSettings.require_balanced !== false && Math.abs(totalDebit - totalCredit) > 0.01) {
         return res.status(400).json({
             success: false,
             error: 'Journal entry is not balanced. Total debit must equal total credit.',
@@ -406,6 +426,9 @@ async function createJournalEntry(req, res) {
 
         console.log('📝 Creating new journal entry...');
 
+        const prefix = String(jeSettings.number_prefix || 'JE').trim() || 'JE';
+        const resolvedEntryNumber = entry_number || `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
         // Insert journal entry
         const entryQuery = `
             INSERT INTO finance_journal_entries (
@@ -418,7 +441,7 @@ async function createJournalEntry(req, res) {
 
         const entryValues = [
             entity_id,
-            entry_number || `JE-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+            resolvedEntryNumber,
             entry_date,
             entry_type || 'GENERAL',
             description,
@@ -516,7 +539,7 @@ async function createJournalEntry(req, res) {
  */
 async function deleteJournalEntry(req, res) {
     const { entry_id } = req.params;
-    const { entity_id } = req.query;
+    const entity_id = resolveScopedEntityId(req, req.query.entity_id);
 
     if (!entity_id) {
         return res.status(400).json({

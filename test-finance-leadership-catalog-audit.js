@@ -91,12 +91,15 @@ function postJson(urlPath, body) {
   const disc = catalog.getPage('sales', 'offers-discounts');
   dep.href && disc.href ? pass('local-pages-href-preserved') : fail('local-pages-href-preserved');
 
-  // Page settings: exactly 1 operational (print), 12 coming_soon
+  // Page settings: all 13 operational with real editor hrefs (batch-1 document settings)
   const psOps = catalog.PAGE_SETTINGS.filter((p) => p.status === 'operational');
   const psSoon = catalog.PAGE_SETTINGS.filter((p) => p.status === 'coming_soon');
   catalog.PAGE_SETTINGS.length === 13 ? pass('pagesettings-13') : fail('pagesettings-13');
-  psOps.length === 1 && psOps[0].id === 'print' ? pass('pagesettings-only-print-operational') : fail('pagesettings-only-print-operational', String(psOps.length));
-  psSoon.length === 12 ? pass('pagesettings-12-coming-soon') : fail('pagesettings-12-coming-soon', String(psSoon.length));
+  psOps.length === 13 ? pass('pagesettings-all-operational', String(psOps.length)) : fail('pagesettings-all-operational', String(psOps.length));
+  psSoon.length === 0 ? pass('pagesettings-none-coming-soon') : fail('pagesettings-none-coming-soon', String(psSoon.length));
+  psOps.every((p) => p.href && String(p.href).includes('leadership-doc-settings.html'))
+    ? pass('pagesettings-editor-hrefs')
+    : fail('pagesettings-editor-hrefs');
 
   // Quick access
   const qaAcc = catalog.QUICK_ACCESS.find((q) => q.id === 'qa-accounting');
@@ -210,7 +213,7 @@ function postJson(urlPath, body) {
       ops: document.querySelectorAll('#page-settings-list a[data-status="operational"]').length,
       soon: document.querySelectorAll('#page-settings-list [data-status="coming_soon"]').length
     }));
-    settings.total === 13 && settings.ops === 1 && settings.soon === 12
+    settings.total === 13 && settings.ops === 13 && settings.soon === 0
       ? pass('ui-settings-13')
       : fail('ui-settings-13', JSON.stringify(settings));
     await page.screenshot({ path: path.join(ART, 'finance-catalog-corrected-page-settings.png'), fullPage: false });

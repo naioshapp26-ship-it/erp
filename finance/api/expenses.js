@@ -4,6 +4,7 @@
  */
 
 const { getRequestEntityContext, buildEntityScopeCondition } = require('../../entity-context');
+const { resolveScopedEntityId, resolveScopedEntityType } = require('./resolve-scoped-entity');
 
 const db = require('../../db');
 const pool = db.pool;
@@ -31,7 +32,8 @@ async function ensureExpenseAddressColumns() {
 }
 
 async function getExpenses(req, res) {
-    const { entity_id, status, expense_category, expense_type, from_date, to_date, expense_number, vendor_name, invoice_number } = req.query;
+    const { status, expense_category, expense_type, from_date, to_date, expense_number, vendor_name, invoice_number } = req.query;
+    const entity_id = resolveScopedEntityId(req, req.query.entity_id);
 
     if (!entity_id) {
         return res.status(400).json({
@@ -239,8 +241,8 @@ async function createExpense(req, res) {
             amount,
             tax_amount = 0,
             status = 'approved',
-            entity_type = 'HQ',
-            entity_id = 'HQ001',
+            entity_type = null,
+            entity_id = null,
             branch_id = null,
             incubator_id = null,
             platform_id = null,
@@ -266,6 +268,15 @@ async function createExpense(req, res) {
             });
         }
 
+        const resolvedEntityId = resolveScopedEntityId(req, entity_id);
+        const resolvedEntityType = resolveScopedEntityType(req, entity_type);
+        if (!resolvedEntityId) {
+            return res.status(400).json({
+                success: false,
+                error: 'entity_id is required — لا يُمنح HQ001 تلقائيًا'
+            });
+        }
+
         const parsedAmount = parseFloat(amount);
         const parsedTax = parseFloat(tax_amount || 0);
         const total_amount = parsedAmount + parsedTax;
@@ -281,8 +292,8 @@ async function createExpense(req, res) {
             parsedTax,
             total_amount,
             status,
-            entity_type,
-            entity_id,
+            resolvedEntityType,
+            resolvedEntityId,
             branch_id,
             incubator_id,
             platform_id,
@@ -411,14 +422,42 @@ async function createVendor(req, res) {
             commercial_registration = null,
             payment_terms = null,
             payment_term_days = 30,
-            entity_type = 'HQ',
-            entity_id = 'HQ001',
+            entity_type = null,
+            entity_id = null,
             is_active = true,
             created_by = 'النظام'
         } = req.body || {};
 
         if (!vendor_code || !vendor_name_ar) {
             return res.status(400).json({ success: false, error: 'كود المورد واسم المورد (عربي) مطلوبان' });
+        }
+
+        const resolvedEntityId = resolveScopedEntityId(req, entity_id);
+        const resolvedEntityType = resolveScopedEntityType(req, entity_type);
+        if (!resolvedEntityId) {
+            return res.status(400).json({
+                success: false,
+                error: 'entity_id is required — لا يُمنح HQ001 تلقائيًا'
+            });
+        }
+
+        let resolvedPaymentTermDays = payment_term_days;
+        try {
+            const pageSettings = require('../services/page-document-settings');
+            const tenantId = pageSettings.resolveTenantId(req);
+            const doc = await pageSettings.getDocSettings('suppliers', tenantId);
+            const supplierSettings = doc.value || {};
+            if (supplierSettings.require_tax_number && !tax_number) {
+                return res.status(400).json({ success: false, error: 'الرقم الضريبي مطلوب حسب إعدادات الموردين' });
+            }
+            if (supplierSettings.require_phone && !phone && !mobile) {
+                return res.status(400).json({ success: false, error: 'رقم الجوال/الهاتف مطلوب حسب إعدادات الموردين' });
+            }
+            if (payment_term_days == null || Number(payment_term_days) === 30) {
+                resolvedPaymentTermDays = Number(supplierSettings.default_payment_terms_days) || payment_term_days;
+            }
+        } catch (settingsErr) {
+            console.warn('supplier settings skipped:', settingsErr.message);
         }
 
         const insertQuery = `
@@ -471,9 +510,9 @@ async function createVendor(req, res) {
             tax_number,
             commercial_registration,
             payment_terms,
-            payment_term_days,
-            entity_type,
-            entity_id,
+            resolvedPaymentTermDays,
+            resolvedEntityType,
+            resolvedEntityId,
             typeof is_active === 'string'
                 ? ['true', 'نعم', '1'].includes(is_active.toLowerCase())
                 : !!is_active,

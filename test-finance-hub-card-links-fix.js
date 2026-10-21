@@ -95,8 +95,12 @@ async function main() {
     pass('balance-sheet-demoted', bs.status);
   } else fail('balance-sheet-demoted', JSON.stringify(bs));
 
+  const pageSettings = getPage('settings', 'page-settings');
+  if (pageSettings && pageSettings.status === 'operational') {
+    pass('page-settings-operational', pageSettings.href);
+  } else fail('page-settings-operational', JSON.stringify(pageSettings));
+
   for (const [sid, pid] of [
-    ['settings', 'page-settings'],
     ['settings', 'numbering'],
     ['settings', 'print-templates']
   ]) {
@@ -106,8 +110,13 @@ async function main() {
   }
 
   const printPs = PAGE_SETTINGS.find((p) => p.id === 'print');
-  if (printPs && printPs.status === 'partial') pass('pagesettings-print-partial', 'ok');
-  else fail('pagesettings-print-partial', JSON.stringify(printPs));
+  if (
+    printPs &&
+    printPs.status === 'operational' &&
+    String(printPs.href || '').includes('leadership-doc-settings.html')
+  ) {
+    pass('pagesettings-print-operational', printPs.href);
+  } else fail('pagesettings-print-operational', JSON.stringify(printPs));
 
   // No operational card may resolve to coming-soon
   let badOps = 0;
