@@ -697,6 +697,19 @@ router.delete('/invoices/:id', async (req, res) => {
   }
 });
 
+async function ensureInvoiceAddressColumns() {
+  await db.query(`
+    ALTER TABLE finance_invoices
+    ADD COLUMN IF NOT EXISTS street_name TEXT,
+    ADD COLUMN IF NOT EXISTS postal_code TEXT,
+    ADD COLUMN IF NOT EXISTS building_number TEXT,
+    ADD COLUMN IF NOT EXISTS city TEXT,
+    ADD COLUMN IF NOT EXISTS district TEXT,
+    ADD COLUMN IF NOT EXISTS national_address_number TEXT,
+    ADD COLUMN IF NOT EXISTS short_address TEXT;
+  `);
+}
+
 // Create new invoice
 // B1.d.2: when FINANCE_POST_INVOICE_VIA_SERVICE=true → service posting (exclusive).
 // Default false → legacy inline JE (unchanged). Never run both paths.
@@ -705,6 +718,7 @@ router.post('/invoices', async (req, res) => {
   const useService = isFinancePostInvoiceViaService();
 
   try {
+    await ensureInvoiceAddressColumns();
     await client.query('BEGIN');
 
     const {

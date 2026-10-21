@@ -4,6 +4,7 @@
  */
 
 const { getRequestEntityContext, buildEntityScopeCondition } = require('../../entity-context');
+const { resolveScopedEntityId, resolveScopedEntityType } = require('./resolve-scoped-entity');
 
 const db = require('../../db');
 const pool = db.pool;
@@ -91,7 +92,8 @@ function deriveInvoiceStatus(totalAmount, paidAmount, dueDate, provided) {
 }
 
 async function getARAging(req, res) {
-    const { entity_id, status, aging_category, from_date, to_date, invoice_number, customer_name, customer_code } = req.query;
+    const { status, aging_category, from_date, to_date, invoice_number, customer_name, customer_code } = req.query;
+    const entity_id = resolveScopedEntityId(req, req.query.entity_id);
 
     if (!entity_id) {
         return res.status(400).json({
@@ -235,13 +237,22 @@ async function createARAgingInvoice(req, res) {
             paid_amount = 0,
             status,
             payment_status,
-            entity_type = 'HQ',
-            entity_id = 'HQ001',
+            entity_type = null,
+            entity_id = null,
             branch_id = null,
             incubator_id = null,
             notes = null,
             created_by = 'لوحة التحكم'
         } = req.body || {};
+
+        const resolvedEntityId = resolveScopedEntityId(req, entity_id);
+        const resolvedEntityType = resolveScopedEntityType(req, entity_type);
+        if (!resolvedEntityId) {
+            return res.status(400).json({
+                success: false,
+                error: 'معرّف الكيان مطلوب — لا يُمنح HQ001 تلقائيًا'
+            });
+        }
 
         if (!customer_id || !invoice_date || !due_date || total_amount == null) {
             return res.status(400).json({
@@ -297,6 +308,17 @@ async function createARAgingInvoice(req, res) {
             resolvedPaymentStatus = derivePaymentStatus(parsedTotal, parsedPaid, null);
         }
 
+        await pool.query(`
+            ALTER TABLE finance_invoices
+            ADD COLUMN IF NOT EXISTS street_name TEXT,
+            ADD COLUMN IF NOT EXISTS postal_code TEXT,
+            ADD COLUMN IF NOT EXISTS building_number TEXT,
+            ADD COLUMN IF NOT EXISTS city TEXT,
+            ADD COLUMN IF NOT EXISTS district TEXT,
+            ADD COLUMN IF NOT EXISTS national_address_number TEXT,
+            ADD COLUMN IF NOT EXISTS short_address TEXT;
+        `);
+
         const insertQuery = `
             INSERT INTO finance_invoices (
                 invoice_number,
@@ -312,13 +334,6 @@ async function createARAgingInvoice(req, res) {
                 remaining_amount,
                 status,
                 payment_status,
-                street_name,
-                postal_code,
-                building_number,
-                city,
-                district,
-                national_address_number,
-                short_address,
                 entity_type,
                 entity_id,
                 branch_id,
@@ -326,7 +341,7 @@ async function createARAgingInvoice(req, res) {
                 notes,
                 created_by
             ) VALUES (
-                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
+                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
             )
             RETURNING *;
         `;
@@ -345,15 +360,8 @@ async function createARAgingInvoice(req, res) {
             remaining_amount,
             resolvedStatus,
             resolvedPaymentStatus,
-            street_name,
-            postal_code,
-            building_number,
-            city,
-            district,
-            national_address_number,
-            short_address,
-            entity_type,
-            entity_id,
+            resolvedEntityType,
+            resolvedEntityId,
             branch_id,
             incubator_id,
             notes,
