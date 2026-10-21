@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المبيعات المستهدفة والعمولات — القيادة المالية 360</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="contrast-overrides.css">
+  <style>
+    body { font-family: 'Tajawal','Cairo',sans-serif; background: linear-gradient(165deg,#fffefe,#f5f6f7 55%,#eef1f4); min-height:100vh; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid #e2e8f0; padding:0.65rem 0.5rem; text-align:right; font-weight:700; }
+    input, select { border:1px solid #cbd5e1; border-radius:0.45rem; padding:0.45rem 0.65rem; width:100%; font-weight:700; }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+  <div class="mb-4">
+    <a href="/finance#section=sales" class="rounded-full border bg-white px-4 py-2 text-sm font-bold">← المبيعات</a>
+  </div>
+  <h1 class="text-2xl font-black text-red-700 mb-1">المبيعات المستهدفة والعمولات</h1>
+  <p class="text-sm text-slate-600 font-bold mb-4">أهداف المندوبين وعمولاتهم — حفظ وقراءة من PostgreSQL.</p>
+
+  <div class="grid lg:grid-cols-2 gap-4">
+    <section class="bg-white border border-sky-200 rounded-xl p-4 shadow-sm space-y-2">
+      <h2 class="font-black mb-2">إضافة هدف</h2>
+      <label class="block text-sm font-black">المندوب<input id="salesperson" type="text"></label>
+      <label class="block text-sm font-black">الفترة (مثال: 2026-Q1)<input id="period" type="text" placeholder="2026-Q1"></label>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="block text-sm font-black">من تاريخ<input id="period_start" type="date"></label>
+        <label class="block text-sm font-black">إلى تاريخ<input id="period_end" type="date"></label>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <label class="block text-sm font-black">الهدف<input id="target_amount" type="number" value="100000"></label>
+        <label class="block text-sm font-black">المحقق<input id="achieved_amount" type="number" value="0"></label>
+        <label class="block text-sm font-black">نسبة العمولة %<input id="commission_rate" type="number" value="5" step="0.01"></label>
+      </div>
+      <button id="btn-create" type="button" class="w-full rounded-lg bg-red-700 text-white py-2 font-black">حفظ</button>
+      <p id="form-status" class="text-sm font-bold text-slate-600"></p>
+    </section>
+    <section class="bg-white border border-sky-200 rounded-xl p-4 shadow-sm overflow-auto">
+      <div class="flex justify-between mb-3">
+        <h2 class="font-black">السجلات</h2>
+        <button id="btn-reload" type="button" class="rounded-lg border px-3 py-1 font-black text-sm">إعادة القراءة</button>
+      </div>
+      <table>
+        <thead><tr><th>المندوب</th><th>الفترة</th><th>الهدف</th><th>المحقق</th><th>العمولة</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <p id="list-status" class="text-sm font-bold text-slate-600 mt-2"></p>
+    </section>
+  </div>
+
+  <script src="/finance/finance-context.js"></script>
+  <script>
+    (function () {
+      const rowsEl = document.getElementById('rows');
+      const formStatus = document.getElementById('form-status');
+      const listStatus = document.getElementById('list-status');
+      function headers() {
+        return Object.assign({ 'Content-Type': 'application/json' }, window.getFinanceHeaders ? window.getFinanceHeaders() : {});
+      }
+      async function load() {
+        listStatus.textContent = 'جاري التحميل…';
+        const res = await fetch('/finance/sales-targets', { headers: headers(), credentials: 'same-origin' });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          listStatus.textContent = json.error || 'فشل التحميل';
+          return;
+        }
+        rowsEl.innerHTML = (json.targets || []).map((t) => `
+          <tr>
+            <td>${t.salesperson_name}</td>
+            <td>${t.period_label}</td>
+            <td>${Number(t.target_amount).toLocaleString('en-US')}</td>
+            <td>${Number(t.achieved_amount).toLocaleString('en-US')}</td>
+            <td>${Number(t.commission_amount).toLocaleString('en-US')} (${t.commission_rate}%)</td>
+          </tr>`).join('') || '<tr><td colspan="5">لا توجد أهداف بعد</td></tr>';
+        listStatus.textContent = `من PostgreSQL — ${json.count} سجل`;
+      }
+      async function create() {
+        formStatus.textContent = 'جاري الحفظ…';
+        const payload = {
+          salesperson_name: document.getElementById('salesperson').value.trim(),
+          period_label: document.getElementById('period').value.trim(),
+          period_start: document.getElementById('period_start').value || null,
+          period_end: document.getElementById('period_end').value || null,
+          target_amount: Number(document.getElementById('target_amount').value) || 0,
+          achieved_amount: Number(document.getElementById('achieved_amount').value) || 0,
+          commission_rate: Number(document.getElementById('commission_rate').value) || 0
+        };
+        const res = await fetch('/finance/sales-targets', {
+          method: 'POST', headers: headers(), credentials: 'same-origin', body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          formStatus.textContent = json.error || 'فشل الحفظ';
+          formStatus.className = 'text-sm font-bold text-red-700';
+          return;
+        }
+        formStatus.textContent = `تم الحفظ — عمولة ${json.target.commission_amount}`;
+        formStatus.className = 'text-sm font-bold text-green-700';
+        await load();
+      }
+      document.getElementById('btn-create').onclick = () => create().catch((e) => { formStatus.textContent = e.message; });
+      document.getElementById('btn-reload').onclick = () => load().catch((e) => { listStatus.textContent = e.message; });
+      function start() { load().catch((e) => { listStatus.textContent = e.message; }); }
+      if (window.whenFinanceContextReady) window.whenFinanceContextReady(start); else start();
+    })();
+  </script>
+</body>
+</html>

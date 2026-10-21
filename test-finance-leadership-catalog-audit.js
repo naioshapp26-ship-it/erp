@@ -50,9 +50,9 @@ function postJson(urlPath, body) {
 
   // Critical audit corrections
   const must = [
-    ['sales', 'invoices-quotes', 'partial', 'الفواتير'],
-    ['sales', 'quotes', 'partial', 'ترويج'],
-    ['sales', 'deposits', 'coming_soon', 'عربون'],
+    ['sales', 'invoices-quotes', 'operational', 'الفواتير'],
+    ['sales', 'quotes', 'operational', 'عروض أسعار'],
+    ['sales', 'deposits', 'operational', 'عربون'],
     ['sales', 'offers-discounts', 'coming_soon', 'خصومات'],
     ['sales', 'zatca', 'partial', 'ضرائب'],
     ['purchases', 'vendors', 'partial', 'مصروف'],
@@ -82,9 +82,13 @@ function postJson(urlPath, body) {
 
   // Quotes must NOT claim sales quotations only as "عروض الأسعار" without clarification
   const quotes = catalog.getPage('sales', 'quotes');
-  /ترويج|ليست عروض أسعار مبيعات/.test((quotes.label || '') + (quotes.note || ''))
-    ? pass('quotes-not-sales-quote-claim')
-    : fail('quotes-not-sales-quote-claim', quotes.label);
+  quotes?.status === 'operational' && /sales-quotes\.html/.test(quotes.href || '')
+    ? pass('quotes-sales-quote-operational')
+    : fail('quotes-sales-quote-operational', JSON.stringify(quotes));
+  const promo = catalog.getPage('sales', 'promo-offers');
+  promo?.status === 'partial' && /quick-offers\.html/.test(promo.href || '')
+    ? pass('promo-offers-partial')
+    : fail('promo-offers-partial', JSON.stringify(promo));
 
   // Deposits/discounts keep href (no page delete) but coming_soon badge
   const dep = catalog.getPage('sales', 'deposits');
@@ -185,7 +189,7 @@ function postJson(urlPath, body) {
     const dep = sales.find((s) => /عربون/.test(s.label || ''));
     const promo = sales.find((s) => /ترويج/.test(s.label || '') || /ترويج/.test(s.note || ''));
     inv?.status === 'partial' ? pass('ui-sales-invoices-partial') : fail('ui-sales-invoices-partial', JSON.stringify(inv));
-    dep?.status === 'coming_soon' ? pass('ui-sales-deposits-soon') : fail('ui-sales-deposits-soon', JSON.stringify(dep));
+    dep?.status === 'operational' ? pass('ui-sales-deposits-operational') : fail('ui-sales-deposits-operational', JSON.stringify(dep));
     promo ? pass('ui-sales-promo-label') : fail('ui-sales-promo-label');
     await page.screenshot({ path: path.join(ART, 'finance-catalog-corrected-sales.png'), fullPage: false });
 
