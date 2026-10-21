@@ -1008,7 +1008,20 @@
         }
 
         function translateStatus(value) {
-            const map = { PAID: 'مدفوع', OVERDUE: 'متأخر', PARTIAL: 'جزئي', OPEN: 'مفتوح', APPROVED: 'معتمد', POSTED: 'مرحل', ACTIVE: 'نشط', CLOSED: 'مغلق', DRAFT: 'مسودة', CANCELLED: 'ملغي' };
+            const map = {
+                PAID: 'مدفوع',
+                ISSUED: 'مصدرة',
+                UNPAID: 'غير مدفوعة',
+                OVERDUE: 'متأخر',
+                PARTIAL: 'جزئي',
+                OPEN: 'مفتوح',
+                APPROVED: 'معتمد',
+                POSTED: 'مرحل',
+                ACTIVE: 'نشط',
+                CLOSED: 'مغلق',
+                DRAFT: 'مسودة',
+                CANCELLED: 'ملغي'
+            };
             return map[String(value || '').toUpperCase()] || 'غير محدد';
         }
 
@@ -1045,8 +1058,13 @@
         function sanitizeText(value) {
             if (value === null || value === undefined || value === '') return '-';
             const text = typeof value === 'string' ? value : JSON.stringify(value);
-            const cleaned = text.replace(/[A-Za-z]+/g, '').replace(/\s{2,}/g, ' ').trim();
-            return cleaned || '-';
+            const escaped = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            return `<bdi>${escaped}</bdi>`;
         }
 
         function calcGrowthRate(invoices) {
