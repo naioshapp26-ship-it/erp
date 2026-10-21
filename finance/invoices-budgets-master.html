@@ -527,7 +527,7 @@
                 showToast(msg, 'warn');
                 return;
             }
-            document.querySelector('.modal-overlay')?.remove();
+            closeDynamicModal();
             showToast('تم حفظ الميزانية', 'success');
             await loadData();
         }
@@ -578,7 +578,7 @@
             });
 
             if (res.ok) {
-                document.querySelector('.modal-overlay')?.remove();
+                closeDynamicModal();
                 showToast('تم إنشاء الفاتورة وحفظها', 'success');
                 await loadData();
             } else {
@@ -687,7 +687,7 @@
                 body: JSON.stringify(payload)
             });
             if (res.ok) {
-                document.querySelector('.modal-overlay')?.remove();
+                closeDynamicModal();
                 await loadData();
             } else {
                 alert('تعذر تحديث الفاتورة');
@@ -999,6 +999,12 @@
             }
         }
 
+        function closeDynamicModal() {
+            const nodes = [...document.querySelectorAll('.modal-overlay')].filter((el) => el.id !== 'paymentModal');
+            const open = [...nodes].reverse().find((el) => el.style.display === 'flex');
+            (open || nodes[nodes.length - 1])?.remove();
+        }
+
         function showToast(message, type) {
             const toast = document.createElement('div');
             toast.className = `toast ${type === 'success' ? 'toast-success' : type === 'warn' ? 'toast-warn' : 'toast-info'}`;
@@ -1008,7 +1014,20 @@
         }
 
         function translateStatus(value) {
-            const map = { PAID: 'مدفوع', OVERDUE: 'متأخر', PARTIAL: 'جزئي', OPEN: 'مفتوح', APPROVED: 'معتمد', POSTED: 'مرحل', ACTIVE: 'نشط', CLOSED: 'مغلق', DRAFT: 'مسودة', CANCELLED: 'ملغي' };
+            const map = {
+                PAID: 'مدفوع',
+                ISSUED: 'مصدرة',
+                UNPAID: 'غير مدفوعة',
+                OVERDUE: 'متأخر',
+                PARTIAL: 'جزئي',
+                OPEN: 'مفتوح',
+                APPROVED: 'معتمد',
+                POSTED: 'مرحل',
+                ACTIVE: 'نشط',
+                CLOSED: 'مغلق',
+                DRAFT: 'مسودة',
+                CANCELLED: 'ملغي'
+            };
             return map[String(value || '').toUpperCase()] || 'غير محدد';
         }
 
@@ -1045,8 +1064,13 @@
         function sanitizeText(value) {
             if (value === null || value === undefined || value === '') return '-';
             const text = typeof value === 'string' ? value : JSON.stringify(value);
-            const cleaned = text.replace(/[A-Za-z]+/g, '').replace(/\s{2,}/g, ' ').trim();
-            return cleaned || '-';
+            const escaped = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            return `<bdi>${escaped}</bdi>`;
         }
 
         function calcGrowthRate(invoices) {
