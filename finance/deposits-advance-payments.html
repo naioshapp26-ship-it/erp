@@ -58,8 +58,8 @@
                 <div>
                     <p class="text-xs text-slate-500">حالة الربط</p>
                     <div class="flex items-center gap-2">
-                        <span class="badge bg-emerald-100 text-emerald-700">نشط</span>
-                        <span class="text-xs text-slate-500">آخر مزامنة: <span id="lastSync">الآن</span></span>
+                        <span class="badge bg-emerald-100 text-emerald-700">PostgreSQL</span>
+                        <span class="text-xs text-slate-500">آخر مزامنة: <span id="lastSync">—</span></span>
                     </div>
                 </div>
                 <div>
@@ -310,8 +310,8 @@
         </div>
     </div>
 
+    <script src="/finance/finance-context.js"></script>
     <script>
-        const storageKey = 'depositAdvancePayments.v1';
         const state = {
             records: [],
             filtered: [],
@@ -320,6 +320,10 @@
             sortDir: 'asc',
             audit: []
         };
+
+        function apiHeaders() {
+            return Object.assign({ 'Content-Type': 'application/json' }, window.getFinanceHeaders ? window.getFinanceHeaders() : {});
+        }
 
         const defaultRecords = [
             {
@@ -452,15 +456,26 @@
             }
         ];
 
-        function loadData() {
-            const stored = localStorage.getItem(storageKey);
-            state.records = stored ? JSON.parse(stored) : defaultRecords;
+        async function loadData() {
             state.audit = [];
-            addAudit('تم تحميل البيانات وتشغيل لوحة العربون.');
+            try {
+                const res = await fetch('/finance/deposits', { headers: apiHeaders(), credentials: 'same-origin' });
+                const json = await res.json();
+                if (!res.ok || !json.success) {
+                    throw new Error(json.error || 'فشل تحميل العربون من الخادم');
+                }
+                state.records = Array.isArray(json.records) ? json.records : [];
+                document.getElementById('lastSync').textContent = new Date().toLocaleString('ar');
+                addAudit(`تم التحميل من PostgreSQL — ${state.records.length} سجل (كيان ${json.entity_id}).`);
+            } catch (err) {
+                state.records = [];
+                addAudit('خطأ تحميل: ' + (err.message || String(err)));
+                alert(err.message || 'تعذّر تحميل العربون من قاعدة البيانات');
+            }
         }
 
         function saveData() {
-            localStorage.setItem(storageKey, JSON.stringify(state.records));
+            /* persistence is server-side via /finance/deposits only */
         }
 
         function formatCurrency(amount, currency) {
@@ -662,15 +677,6 @@
             `).join('');
         }
 
-        function refreshData() {
-            loadData();
-            saveData();
-            applyFilters();
-            renderStats();
-            addAudit('تم تحديث السجلات يدويا.');
-            document.getElementById('lastSync').textContent = 'الآن';
-        }
-
         function printPage() { window.print(); }
 
         function copySummary() {
@@ -734,11 +740,11 @@
             return `DAP-${new Date().getFullYear().toString().slice(2)}${base}`;
         }
 
-        function saveRecord(event) {
+        async function saveRecord(event) {
             event.preventDefault();
-            const id = document.getElementById('recordId').value || generateId();
+            const id = document.getElementById('recordId').value;
             const record = {
-                id,
+                id: id || undefined,
                 client: document.getElementById('clientInput').value.trim(),
                 type: document.getElementById('typeInput').value,
                 amount: parseFloat(document.getElementById('amountInput').value),
@@ -750,33 +756,43 @@
                 method: document.getElementById('methodInput').value,
                 refundable: document.getElementById('refundInput').value === 'true',
                 risk: parseInt(document.getElementById('riskInput').value || '0', 10),
-                settlement: { invoice: 'INV-AUTO', settled: 0, remaining: parseFloat(document.getElementById('amountInput').value) },
-                notes: document.getElementById('notesInput').value.trim() || '---'
+                settlement: { invoice: '', settled: 0, remaining: parseFloat(document.getElementById('amountInput').value) || 0 },
+                notes: document.getElementById('notesInput').value.trim() || ''
             };
-
-            const existingIndex = state.records.findIndex((r) => r.id === id);
-            if (existingIndex >= 0) {
-                state.records[existingIndex] = record;
-                addAudit(`تم تحديث السجل ${id}.`);
-            } else {
-                state.records.unshift(record);
-                addAudit(`تم إضافة سجل جديد ${id}.`);
+            try {
+                const editing = !!id;
+                const res = await fetch(editing ? `/finance/deposits/${encodeURIComponent(id)}` : '/finance/deposits', {
+                    method: editing ? 'PUT' : 'POST',
+                    headers: apiHeaders(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify(record)
+                });
+                const json = await res.json();
+                if (!res.ok || !json.success) throw new Error(json.error || 'فشل الحفظ');
+                addAudit(editing ? `تم تحديث السجل ${json.record.id} في PostgreSQL.` : `تم إضافة ${json.record.id} في PostgreSQL.`);
+                closeModal();
+                await refreshData();
+            } catch (err) {
+                alert(err.message || String(err));
             }
-
-            saveData();
-            applyFilters();
-            renderStats();
-            closeModal();
         }
 
-        function deleteRecord(id) {
+        async function deleteRecord(id) {
             if (!confirm('هل تريد حذف السجل؟')) return;
-            state.records = state.records.filter((r) => r.id !== id);
-            state.selected.delete(id);
-            saveData();
-            applyFilters();
-            renderStats();
-            addAudit(`تم حذف السجل ${id}.`);
+            try {
+                const res = await fetch(`/finance/deposits/${encodeURIComponent(id)}`, {
+                    method: 'DELETE',
+                    headers: apiHeaders(),
+                    credentials: 'same-origin'
+                });
+                const json = await res.json();
+                if (!res.ok || !json.success) throw new Error(json.error || 'فشل الحذف');
+                state.selected.delete(id);
+                addAudit(`تم حذف السجل ${id} من PostgreSQL.`);
+                await refreshData();
+            } catch (err) {
+                alert(err.message || String(err));
+            }
         }
 
         function viewRecord(id) {
@@ -803,26 +819,35 @@
             addAudit('تم تصدير ملف CSV.');
         }
 
-        function bulkSettle() {
+        async function bulkSettle() {
             if (state.selected.size === 0) {
                 alert('يرجى اختيار السجلات أولا.');
                 return;
             }
-            state.records = state.records.map((r) => {
-                if (state.selected.has(r.id)) {
-                    return {
-                        ...r,
-                        status: 'مسوى',
-                        settlement: { ...r.settlement, settled: r.amount, remaining: 0 }
-                    };
+            try {
+                const ids = [...state.selected];
+                for (const id of ids) {
+                    const r = state.records.find((x) => x.id === id);
+                    if (!r) continue;
+                    const res = await fetch(`/finance/deposits/${encodeURIComponent(id)}`, {
+                        method: 'PUT',
+                        headers: apiHeaders(),
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            status: 'مسوى',
+                            amount: r.amount,
+                            settlement: { invoice: r.settlement?.invoice || '', settled: r.amount, remaining: 0 }
+                        })
+                    });
+                    const json = await res.json();
+                    if (!res.ok || !json.success) throw new Error(json.error || `فشل تسوية ${id}`);
                 }
-                return r;
-            });
-            state.selected.clear();
-            saveData();
-            applyFilters();
-            renderStats();
-            addAudit('تمت التسوية الجماعية للسجلات المحددة.');
+                state.selected.clear();
+                addAudit('تمت التسوية الجماعية في PostgreSQL.');
+                await refreshData();
+            } catch (err) {
+                alert(err.message || String(err));
+            }
         }
 
         function bulkReminder() {
@@ -846,13 +871,19 @@
             document.getElementById(id).addEventListener('input', applyFilters);
         });
 
-        function init() {
-            loadData();
+        async function refreshData() {
+            await loadData();
             renderStats();
             renderTasks();
             applyFilters();
+        }
+
+        function init() {
             const now = new Date();
             document.getElementById('todayRange').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const start = () => refreshData().catch((e) => console.error(e));
+            if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+            else start();
         }
 
         init();

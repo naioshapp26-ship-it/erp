@@ -3554,6 +3554,14 @@ app.use('/finance', financeRoutes);
 const financePageSettingsRoutes = require('./finance/api/page-document-settings');
 app.use('/finance/page-settings', financePageSettingsRoutes);
 
+// Finance sales batch-2: deposits, quotations, targets/commissions
+const financeDepositsRoutes = require('./finance/api/deposits');
+app.use('/finance/deposits', financeDepositsRoutes);
+const financeSalesQuotesRoutes = require('./finance/api/sales-quotes');
+app.use('/finance/sales-quotes', financeSalesQuotesRoutes);
+const financeSalesTargetsRoutes = require('./finance/api/sales-targets');
+app.use('/finance/sales-targets', financeSalesTargetsRoutes);
+
 // Finance Quick Offers API Routes
 const quickOffersRoutes = require('./finance/api/quick-offers');
 app.use('/finance/quick-offers', quickOffersRoutes);

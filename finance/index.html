@@ -515,9 +515,31 @@
             transform: translateY(-2px);
             border-color: rgba(220, 38, 38, 0.5);
         }
-        .fl360-page-list a.is-soon {
+        .fl360-page-list a.is-soon,
+        .fl360-page-list .fl360-soon-item {
             border-style: dashed;
             background: #fffafa;
+            cursor: default;
+            opacity: 0.95;
+        }
+        .fl360-page-list .fl360-soon-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            border: 1px solid #fecaca;
+            border-radius: 0.75rem;
+            padding: 0.85rem 1rem;
+            background: #fffafa;
+        }
+        .fl360-banner {
+            border: 1px solid #86efac;
+            background: #f0fdf4;
+            color: #14532d;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            font-weight: 800;
+            font-size: 0.9rem;
+            margin-bottom: 0.85rem;
         }
         .fl360-mobile-toggle {
             display: none;
@@ -704,7 +726,29 @@
           nav.querySelectorAll('.fl360-nav-btn').forEach((b) => {
             b.classList.toggle('is-active', b.dataset.sectionId === sectionId);
           });
+          const opsCount = section.pages.filter((p) => p.status === 'operational').length;
+          const soonCount = section.pages.filter((p) => p.status === 'coming_soon').length;
+          const banner = document.createElement('div');
+          banner.className = 'fl360-banner';
+          banner.textContent = `${opsCount} صفحة تشغيلية جاهزة للاستخدام` +
+            (soonCount ? ` · ${soonCount} غير منفّذة بعد (لا تفتح صفحة وهمية)` : '');
+          pagesEl.appendChild(banner);
+
           section.pages.forEach((page) => {
+            const note = page.note ? `<span class="text-xs text-slate-500 font-bold">${page.note}</span>` : '';
+            if (page.status === 'coming_soon' && !page.href) {
+              const div = document.createElement('div');
+              div.className = 'fl360-soon-item';
+              div.dataset.status = 'coming_soon';
+              div.dataset.pageId = page.id;
+              div.innerHTML = `
+                <span class="font-black text-base">${page.label}</span>
+                ${statusHtml(page.status)}
+                ${note || '<span class="text-xs text-slate-500 font-bold">غير منفّذة بعد</span>'}
+              `;
+              pagesEl.appendChild(div);
+              return;
+            }
             const href = scope(cat.resolveHref(page, section.id));
             const a = document.createElement('a');
             a.href = href;
@@ -714,7 +758,7 @@
             a.innerHTML = `
               <span class="font-black text-base">${page.label}</span>
               ${statusHtml(page.status)}
-              ${page.note ? `<span class="text-xs text-slate-500 font-bold">${page.note}</span>` : ''}
+              ${note}
             `;
             pagesEl.appendChild(a);
           });

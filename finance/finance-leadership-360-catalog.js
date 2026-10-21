@@ -29,13 +29,20 @@
       label: 'المبيعات',
       icon: 'fa-cart-shopping',
       pages: [
-        { id: 'pos', label: 'نقاط البيع', status: 'coming_soon', href: null },
+        { id: 'pos', label: 'نقاط البيع', status: 'coming_soon', href: null, note: 'غير منفّذ بعد — لا يفتح صفحة وهمية' },
         {
           id: 'quotes',
+          label: 'عروض أسعار المبيعات',
+          status: 'operational',
+          href: '/finance/sales-quotes.html',
+          note: 'بنود + صلاحية + ضريبة من إعدادات الصفحة — حفظ PostgreSQL'
+        },
+        {
+          id: 'promo-offers',
           label: 'عروض ترويجية سريعة',
           status: 'partial',
           href: '/finance/quick-offers.html',
-          note: 'عروض ترويجية/خصومات محفوظة — ليست عروض أسعار مبيعات (بنود وصلاحية وتحويل لفاتورة)'
+          note: 'خصومات ترويجية محفوظة — منفصلة عن عروض الأسعار'
         },
         {
           id: 'invoices-quotes',
@@ -45,8 +52,14 @@
           note: 'إنشاء/تعديل/حذف فواتير + سداد مخصص + خطة دفع + إنشاء ميزانية'
         },
         { id: 'installments', label: 'الأقساط', status: 'operational', href: '/finance/plan-installments.html' },
-        { id: 'targets-commissions', label: 'المبيعات المستهدفة والعمولات', status: 'coming_soon', href: null },
-        { id: 'e-invoice', label: 'الفاتورة الإلكترونية', status: 'coming_soon', href: null },
+        {
+          id: 'targets-commissions',
+          label: 'المبيعات المستهدفة والعمولات',
+          status: 'operational',
+          href: '/finance/sales-targets-commissions.html',
+          note: 'أهداف المندوبين وعمولاتهم — حفظ PostgreSQL'
+        },
+        { id: 'e-invoice', label: 'الفاتورة الإلكترونية', status: 'coming_soon', href: null, note: 'غير منفّذ بعد — بلا تكامل حكومي' },
         {
           id: 'zatca',
           label: 'إعدادات الضرائب الداخلية',
@@ -65,9 +78,9 @@
         {
           id: 'deposits',
           label: 'العربون والدفعات المتقدمة',
-          status: 'coming_soon',
+          status: 'operational',
           href: '/finance/deposits-advance-payments.html',
-          note: 'واجهة محلية فقط (localStorage) — بلا حفظ خادمي؛ الصفحة وبياناتها المحلية محفوظة'
+          note: 'حفظ وقراءة من PostgreSQL عبر /finance/deposits'
         },
         { id: 'collection', label: 'التحصيل', status: 'operational', href: '/finance/receivables-collections.html' }
       ]
@@ -556,15 +569,16 @@
   /** Expected post-audit status map for regression tests (pageId → status). */
   const AUDIT_STATUS_EXPECTATIONS = {
     'sales.pos': 'coming_soon',
-    'sales.quotes': 'partial',
+    'sales.quotes': 'operational',
+    'sales.promo-offers': 'partial',
     'sales.invoices-quotes': 'operational',
     'sales.installments': 'operational',
-    'sales.targets-commissions': 'coming_soon',
+    'sales.targets-commissions': 'operational',
     'sales.e-invoice': 'coming_soon',
     'sales.zatca': 'partial',
     'sales.return-policy': 'operational',
     'sales.offers-discounts': 'operational',
-    'sales.deposits': 'coming_soon',
+    'sales.deposits': 'operational',
     'sales.collection': 'operational',
     'purchases.vendors': 'partial',
     'purchases.purchase-requests': 'partial',
