@@ -15,6 +15,7 @@
         radial-gradient(circle at 12% 0%, rgba(185, 28, 28, 0.1), transparent 42%),
         linear-gradient(165deg, #fffefe 0%, #f6f7f8 55%, #f1f2f3 100%);
       min-height: 100vh;
+      padding-top: 4.5rem;
     }
     .panel {
       max-width: 40rem;
@@ -34,9 +35,31 @@
       font-weight: 700;
     }
     .msg { font-weight: 800; font-size: 0.9rem; }
+    .group { margin-top: 1.1rem; }
+    .group h2 { font-size: 0.95rem; font-weight: 900; color: #991b1b; margin: 0 0 0.55rem; }
+    .hint { color: #64748b; font-size: 0.78rem; font-weight: 700; margin: 0.2rem 0 0.35rem; }
+    .currency-search, select.choice { width: 100%; border: 1px solid #cbd5e1; border-radius: 0.45rem; padding: 0.55rem 0.75rem; font-weight: 700; background: #fff; }
+    .currency-list { max-height: 220px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 0.45rem; margin-top: 0.35rem; }
+    .currency-list button { display: block; width: 100%; text-align: right; background: #fff; border: 0; border-bottom: 1px solid #f1f5f9; padding: 0.55rem 0.7rem; font-weight: 800; }
+    .currency-list button[aria-selected="true"] { background: #fef2f2; color: #991b1b; }
+    .chosen { font-size: 0.82rem; font-weight: 800; color: #166534; margin-top: 0.35rem; }
+    body.settings-doc { padding: 8rem 0.75rem 1.5rem; }
+    @media (min-width: 768px) {
+      body.settings-doc { padding: 7.5rem 2rem 2.5rem; }
+    }
+    @media (max-width: 640px) {
+      .panel { padding: 1rem; }
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #10151c; color: #e8eef5; }
+      .panel { background: #1a222c; border-color: #334155; }
+      label, .group h2 { color: #fecdd3; }
+      .hint { color: #94a3b8; }
+      input[type="text"], input[type="number"], .currency-search, select.choice, .currency-list, .currency-list button { background: #0f172a; color: #e8eef5; border-color: #334155; }
+    }
   </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="settings-doc">
   <div class="mb-6 flex flex-wrap gap-2 justify-center">
     <a href="/finance/leadership-page-settings.html" class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm">
       <i class="fas fa-sliders"></i>
@@ -84,25 +107,60 @@
         statusEl.className = 'msg text-center mt-3 ' + (ok === true ? 'text-green-700' : ok === false ? 'text-red-700' : 'text-slate-600');
       }
 
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function fieldControl(field, value) {
+        const id = 'f_' + field.name;
+        if (field.widget === 'boolean' || field.type === 'boolean') {
+          return `<label class="inline-flex items-center gap-2 cursor-pointer" for="${id}"><input id="${id}" type="checkbox" ${value ? 'checked' : ''} class="w-4 h-4"><span>${escapeHtml(field.label_ar)}</span></label><p class="hint">${escapeHtml(field.hint_ar || '')}</p>`;
+        }
+        if (field.widget === 'currency') {
+          const options = field.options || [];
+          const selected = options.find((option) => option.value === value) || options[0];
+          const buttons = options.map((option) => `<button type="button" data-code="${escapeHtml(option.value)}" data-search="${escapeHtml(option.search || '')}" aria-selected="${option.value === (selected && selected.value) ? 'true' : 'false'}">${escapeHtml(option.label_ar)}</button>`).join('');
+          return `<label for="${id}_search">${escapeHtml(field.label_ar)}</label><p class="hint">${escapeHtml(field.hint_ar || '')}</p><input id="${id}_search" class="currency-search" placeholder="ابحث باسم الدولة أو العملة أو الرمز" autocomplete="off"><input id="${id}" type="hidden" value="${escapeHtml(selected ? selected.value : '')}"><p class="chosen" id="${id}_chosen">${selected ? 'المختار: ' + escapeHtml(selected.label_ar) : ''}</p><div class="currency-list" id="${id}_list">${buttons}</div>`;
+        }
+        if (field.widget === 'choice') {
+          const options = (field.options || []).map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === value ? 'selected' : ''}>${escapeHtml(option.label_ar)}</option>`).join('');
+          return `<label for="${id}">${escapeHtml(field.label_ar)}</label><p class="hint">${escapeHtml(field.hint_ar || '')}</p><select id="${id}" class="choice">${options}</select>`;
+        }
+        const inputType = field.type === 'number' ? 'number' : 'text';
+        return `<label for="${id}">${escapeHtml(field.label_ar)}</label><p class="hint">${escapeHtml(field.hint_ar || '')}</p><input id="${id}" type="${inputType}" value="${escapeHtml(value == null ? '' : value)}">`;
+      }
+
       function renderFields(value) {
         fieldsEl.innerHTML = '';
-        (schema.fields || []).forEach((field) => {
-          const wrap = document.createElement('div');
-          const id = 'f_' + field.name;
-          const val = value[field.name];
-          if (field.type === 'boolean') {
-            wrap.innerHTML = `
-              <label class="inline-flex items-center gap-2 cursor-pointer">
-                <input id="${id}" type="checkbox" ${val ? 'checked' : ''} class="w-4 h-4">
-                <span>${field.name}</span>
-              </label>`;
-          } else {
-            const inputType = field.type === 'number' ? 'number' : 'text';
-            wrap.innerHTML = `
-              <label for="${id}">${field.name}</label>
-              <input id="${id}" type="${inputType}" value="${val == null ? '' : String(val).replace(/"/g, '&quot;')}">`;
-          }
-          fieldsEl.appendChild(wrap);
+        const groups = schema.groups && schema.groups.length ? schema.groups : [{ label_ar: 'الإعدادات', fields: schema.fields || [] }];
+        groups.forEach((group) => {
+          const section = document.createElement('section');
+          section.className = 'group';
+          section.innerHTML = `<h2>${escapeHtml(group.label_ar)}</h2>` + group.fields.map((field) => `<div class="field">${fieldControl(field, value[field.name])}</div>`).join('');
+          fieldsEl.appendChild(section);
+        });
+        fieldsEl.querySelectorAll('.currency-search').forEach((input) => {
+          const list = document.getElementById(input.id.replace('_search', '_list'));
+          const hidden = document.getElementById(input.id.replace('_search', ''));
+          const chosen = document.getElementById(input.id.replace('_search', '_chosen'));
+          input.addEventListener('input', () => {
+            const q = input.value.trim().toLowerCase();
+            list.querySelectorAll('button').forEach((button) => {
+              const hay = (button.getAttribute('data-search') || button.textContent).toLowerCase();
+              button.hidden = q && !hay.includes(q) && !button.textContent.toLowerCase().includes(q);
+            });
+          });
+          list.addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-code]');
+            if (!button) return;
+            hidden.value = button.getAttribute('data-code');
+            chosen.textContent = 'المختار: ' + button.textContent;
+            list.querySelectorAll('button').forEach((item) => item.setAttribute('aria-selected', item === button ? 'true' : 'false'));
+          });
         });
       }
 
