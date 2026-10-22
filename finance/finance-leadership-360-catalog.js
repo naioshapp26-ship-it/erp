@@ -85,22 +85,10 @@
           note: 'إدارة موردين مرتبطة بالمصروفات فقط — ليست دورة مشتريات (طلبات/أوامر/استلام)'
         },
         { id: 'purchase-requests', label: 'طلبات الشراء', status: 'partial', href: '/finance/purchase-orders.html', note: 'مسار أوامر الشراء — طلبات رسمية لاحقًا' },
-        {
-          id: 'purchase-orders',
-          label: 'أوامر الشراء',
-          status: 'operational',
-          href: '/finance/purchase-orders.html',
-          note: 'أوامر ببنود أصناف + إجمالي محسوب'
-        },
+        { id: 'purchase-orders', label: 'أوامر الشراء', status: 'operational', href: '/finance/purchase-orders.html' },
         { id: 'vendor-quotes', label: 'عروض أسعار الموردين', status: 'partial', href: '/finance/purchase-orders.html', note: 'عبر أوامر الشراء مؤقتًا' },
         { id: 'vendor-invoices', label: 'فواتير الموردين', status: 'operational', href: '/finance/purchase-orders.html' },
-        {
-          id: 'receiving',
-          label: 'الاستلام ومتابعة المشتريات',
-          status: 'operational',
-          href: '/finance/purchase-orders.html',
-          note: 'استلام بنود إلى مستودع يحدّث finance_stock_*'
-        }
+        { id: 'receiving', label: 'الاستلام ومتابعة المشتريات', status: 'partial', href: '/finance/inventory.html#links', note: 'أثر المخزون والقيد من استلام الأمر المعتمد. متابعة الأمر تبقى في أوامر الشراء' }
       ]
     },
     {
@@ -108,35 +96,11 @@
       label: 'المنتجات والتكاليف',
       icon: 'fa-boxes-stacked',
       pages: [
-        {
-          id: 'product-settings',
-          label: 'إعدادات المنتجات',
-          status: 'operational',
-          href: '/finance/products.html',
-          note: 'سجل أصناف Postgres — تكلفة/بيع/متابعة مخزنية'
-        },
-        {
-          id: 'product-classify',
-          label: 'تصنيف المنتجات والخدمات',
-          status: 'partial',
-          href: '/finance/products.html',
-          note: 'تصنيف عبر حقل الفئة والنوع — قوائم أسعار متقدمة لاحقًا'
-        },
-        {
-          id: 'product-costs',
-          label: 'تكاليف المنتجات',
-          status: 'partial',
-          href: '/finance/products.html',
-          note: 'تكلفة شراء ومتوسط تكلفة مخزني — تقارير هامش متقدمة لاحقًا'
-        },
+        { id: 'product-settings', label: 'إعدادات المنتجات', status: 'operational', href: '/finance/inventory.html#items', note: 'سجل أصناف وخدمات في Postgres عبر /finance/inventory' },
+        { id: 'product-classify', label: 'تصنيف المنتجات والخدمات', status: 'partial', href: '/finance/inventory.html#items', note: 'فئة نصية على الصنف — لا شجرة تصنيف مستقلة بعد' },
+        { id: 'product-costs', label: 'تكاليف المنتجات', status: 'partial', href: '/finance/inventory.html#balances', note: 'متوسط التكلفة المرجح على رصيد الصنف والمستودع — بلا تكلفة مشروعات' },
         { id: 'price-lists', label: 'قوائم الأسعار', status: 'coming_soon', href: null },
-        {
-          id: 'margins',
-          label: 'احتساب التكلفة وهوامش الربح',
-          status: 'partial',
-          href: '/finance/products.html',
-          note: 'فرق سعر البيع/التكلفة على مستوى الصنف — تقارير ربحية لاحقًا'
-        }
+        { id: 'margins', label: 'احتساب التكلفة وهوامش الربح', status: 'partial', href: '/finance/inventory.html#balances', note: 'هامش الوحدة = سعر البيع − متوسط التكلفة. بلا تقرير ربحية حسب القسم' }
       ]
     },
     {
@@ -144,26 +108,9 @@
       label: 'المخزون',
       icon: 'fa-warehouse',
       pages: [
-        {
-          id: 'stock',
-          label: 'المخزون',
-          status: 'operational',
-          href: '/finance/inventory.html',
-          note: 'أرصدة ومستودعات وحركات مع منع الرصيد السالب وإلغاء بعكس'
-        },
-        {
-          id: 'product-mgmt',
-          label: 'إدارة المنتجات',
-          status: 'operational',
-          href: '/finance/products.html'
-        },
-        {
-          id: 'stock-purchases',
-          label: 'المشتريات المرتبطة بالمخزون',
-          status: 'operational',
-          href: '/finance/purchase-orders.html',
-          note: 'استلام أمر الشراء يرحّل حركة إدخال مخزني'
-        },
+        { id: 'stock', label: 'المخزون', status: 'operational', href: '/finance/inventory.html', note: 'أرصدة وحركات فعلية. الرصيد السالب ممنوع. القيد يُنشأ عند استلام أمر شراء معتمد أو صرف فاتورة أو مرتجع، لا عند الإدخال اليدوي' },
+        { id: 'product-mgmt', label: 'إدارة المنتجات', status: 'operational', href: '/finance/inventory.html#items' },
+        { id: 'stock-purchases', label: 'المشتريات المرتبطة بالمخزون', status: 'partial', href: '/finance/inventory.html#links', note: 'استلام أمر الشراء المعتمد يزيد الرصيد والتكلفة وينشئ قيدًا. إنشاء الأمر وحده لا يحرّك المخزون. بلا سطور أمر شراء مستقلة بعد' },
         {
           id: 'stock-vendors',
           label: 'موردو المصروفات (مرجع)',
@@ -171,27 +118,9 @@
           href: '/finance/expenses.html',
           note: 'نفس موردي المصروفات — ليست إدارة موردي مخزون/مشتريات مكتملة'
         },
-        {
-          id: 'procurement-cycle',
-          label: 'دورة المشتريات',
-          status: 'partial',
-          href: '/finance/purchase-orders.html',
-          note: 'أوامر + بنود + استلام — طلبات شراء رسمية لاحقًا'
-        },
-        {
-          id: 'warehouse-docs',
-          label: 'الأذون المخزنية',
-          status: 'operational',
-          href: '/finance/inventory.html',
-          note: 'حركات إدخال/إخراج/تحويل/افتتاح/تسوية من صفحة المخزون'
-        },
-        {
-          id: 'stock-count',
-          label: 'إدارة الجرد',
-          status: 'partial',
-          href: '/finance/inventory.html',
-          note: 'تسوية ADJUST مع سبب — جلسة جرد متعددة الأصناف لاحقًا'
-        }
+        { id: 'procurement-cycle', label: 'دورة المشتريات', status: 'coming_soon', href: null },
+        { id: 'warehouse-docs', label: 'الأذون المخزنية', status: 'operational', href: '/finance/inventory.html#moves', note: 'إذن إدخال وإخراج وتحويل وتسوية. الحركة المعتمدة لا تُعدَّل' },
+        { id: 'stock-count', label: 'إدارة الجرد', status: 'partial', href: '/finance/inventory.html#moves', note: 'تسوية كمية بسبب موثق. بلا مسار اعتماد منفصل بعد' }
       ]
     },
     {
@@ -648,18 +577,8 @@
     'purchases.purchase-orders': 'operational',
     'purchases.vendor-quotes': 'partial',
     'purchases.vendor-invoices': 'operational',
-    'purchases.receiving': 'operational',
-    'products-costs.product-settings': 'operational',
-    'products-costs.product-classify': 'partial',
-    'products-costs.product-costs': 'partial',
-    'products-costs.margins': 'partial',
-    'inventory.stock': 'operational',
-    'inventory.product-mgmt': 'operational',
-    'inventory.stock-purchases': 'operational',
+    'purchases.receiving': 'partial',
     'inventory.stock-vendors': 'partial',
-    'inventory.procurement-cycle': 'partial',
-    'inventory.warehouse-docs': 'operational',
-    'inventory.stock-count': 'partial',
     'reports.balance-sheet': 'partial',
     'settings.page-settings': 'operational',
     'settings.numbering': 'partial',

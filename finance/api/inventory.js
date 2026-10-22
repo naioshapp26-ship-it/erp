@@ -1,825 +1,735 @@
 'use strict';
 
-/**
- * Finance inventory master data + stock movements.
- * Tables are ensured at runtime (CREATE IF NOT EXISTS) — no production migration files.
- */
-
 const express = require('express');
-const router = express.Router();
 const db = require('../../db');
-const { resolveScopedEntityId, resolveScopedEntityType } = require('./resolve-scoped-entity');
+const { resolveScopedEntityId } = require('./resolve-scoped-entity');
+const { applyInbound, applyOutbound, roundQty, roundCost } = require('../services/inventory-policy');
+const { ensureStockLinkSchema } = require('../services/stock-link');
 
-const MOVEMENT_TYPES = new Set(['OPENING', 'IN', 'OUT', 'TRANSFER', 'ADJUST']);
-let tablesReady = false;
+const router = express.Router();
+let tablesReady = null;
 
-async function ensureInventoryTables() {
-  if (tablesReady) return;
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS finance_products (
-      product_id SERIAL PRIMARY KEY,
-      sku TEXT NOT NULL,
-      name_ar TEXT NOT NULL,
-      name_en TEXT,
-      product_type TEXT NOT NULL DEFAULT 'GOODS',
-      category TEXT,
-      unit TEXT NOT NULL DEFAULT 'PCS',
-      cost_price NUMERIC NOT NULL DEFAULT 0,
-      sale_price NUMERIC NOT NULL DEFAULT 0,
-      track_inventory BOOLEAN NOT NULL DEFAULT TRUE,
-      reorder_level NUMERIC NOT NULL DEFAULT 0,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
-      entity_id TEXT NOT NULL DEFAULT 'HQ001',
-      entity_type TEXT NOT NULL DEFAULT 'HQ',
-      notes TEXT,
-      created_by TEXT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
-      UNIQUE (entity_id, sku)
-    );
+function entityOf(req) {
+  if (!req.authenticatedEntityContext && !req.userEntity) return null;
+  return resolveScopedEntityId(req);
+}
 
-    CREATE TABLE IF NOT EXISTS finance_warehouses (
-      warehouse_id SERIAL PRIMARY KEY,
-      code TEXT NOT NULL,
-      name_ar TEXT NOT NULL,
-      location TEXT,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
-      entity_id TEXT NOT NULL DEFAULT 'HQ001',
-      entity_type TEXT NOT NULL DEFAULT 'HQ',
-      notes TEXT,
-      created_by TEXT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW(),
-      UNIQUE (entity_id, code)
-    );
+function actorOf(req) {
+  return req.authUser?.email || req.authUser?.name || 'session';
+}
 
-    CREATE TABLE IF NOT EXISTS finance_stock_balances (
-      balance_id SERIAL PRIMARY KEY,
-      product_id INTEGER NOT NULL REFERENCES finance_products(product_id),
-      warehouse_id INTEGER NOT NULL REFERENCES finance_warehouses(warehouse_id),
-      quantity NUMERIC NOT NULL DEFAULT 0,
-      avg_cost NUMERIC NOT NULL DEFAULT 0,
-      entity_id TEXT NOT NULL DEFAULT 'HQ001',
-      updated_at TIMESTAMP DEFAULT NOW(),
-      UNIQUE (product_id, warehouse_id, entity_id)
-    );
+function fail(res, status, error) {
+  return res.status(status).json({ success: false, error });
+}
 
-    CREATE TABLE IF NOT EXISTS finance_stock_movements (
-      movement_id SERIAL PRIMARY KEY,
-      movement_number TEXT UNIQUE NOT NULL,
-      movement_type TEXT NOT NULL,
-      product_id INTEGER NOT NULL REFERENCES finance_products(product_id),
-      warehouse_id INTEGER NOT NULL REFERENCES finance_warehouses(warehouse_id),
-      warehouse_to_id INTEGER REFERENCES finance_warehouses(warehouse_id),
-      quantity NUMERIC NOT NULL,
-      unit_cost NUMERIC NOT NULL DEFAULT 0,
-      reference_type TEXT,
-      reference_id TEXT,
-      status TEXT NOT NULL DEFAULT 'POSTED',
-      notes TEXT,
-      entity_id TEXT NOT NULL DEFAULT 'HQ001',
-      entity_type TEXT NOT NULL DEFAULT 'HQ',
-      created_by TEXT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      posted_at TIMESTAMP DEFAULT NOW(),
-      cancelled_at TIMESTAMP,
-      cancel_reason TEXT
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_fin_products_entity ON finance_products(entity_id);
-    CREATE INDEX IF NOT EXISTS idx_fin_warehouses_entity ON finance_warehouses(entity_id);
-    CREATE INDEX IF NOT EXISTS idx_fin_stock_bal_entity ON finance_stock_balances(entity_id);
-    CREATE INDEX IF NOT EXISTS idx_fin_stock_mov_entity ON finance_stock_movements(entity_id);
-    CREATE INDEX IF NOT EXISTS idx_fin_stock_mov_product ON finance_stock_movements(product_id, warehouse_id);
-  `);
-  tablesReady = true;
+async function ensureTables() {
+  if (!tablesReady) {
+    tablesReady = (async () => {
+      await db.query(`
+      CREATE TABLE IF NOT EXISTS finance_items (
+        item_id SERIAL PRIMARY KEY,
+        entity_id TEXT NOT NULL,
+        sku TEXT NOT NULL,
+        name_ar TEXT NOT NULL,
+        item_type TEXT NOT NULL DEFAULT 'product',
+        category TEXT,
+        unit TEXT NOT NULL DEFAULT 'وحدة',
+        sale_price NUMERIC(14,2) NOT NULL DEFAULT 0,
+        reorder_level NUMERIC(14,3) NOT NULL DEFAULT 0,
+        is_stocked BOOLEAN NOT NULL DEFAULT true,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (entity_id, sku)
+      );
+      CREATE TABLE IF NOT EXISTS finance_warehouses (
+        warehouse_id SERIAL PRIMARY KEY,
+        entity_id TEXT NOT NULL,
+        code TEXT NOT NULL,
+        name_ar TEXT NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (entity_id, code)
+      );
+      CREATE TABLE IF NOT EXISTS finance_units (
+        unit_id SERIAL PRIMARY KEY,
+        entity_id TEXT NOT NULL,
+        code TEXT NOT NULL,
+        name_ar TEXT NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (entity_id, code)
+      );
+      CREATE TABLE IF NOT EXISTS finance_stock_balances (
+        entity_id TEXT NOT NULL,
+        item_id INTEGER NOT NULL REFERENCES finance_items(item_id),
+        warehouse_id INTEGER NOT NULL REFERENCES finance_warehouses(warehouse_id),
+        qty NUMERIC(14,3) NOT NULL DEFAULT 0,
+        avg_cost NUMERIC(14,4) NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (entity_id, item_id, warehouse_id)
+      );
+      CREATE TABLE IF NOT EXISTS finance_stock_documents (
+        document_id SERIAL PRIMARY KEY,
+        entity_id TEXT NOT NULL,
+        document_no TEXT NOT NULL,
+        client_request_id TEXT,
+        movement_type TEXT NOT NULL,
+        reason TEXT,
+        created_by TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (entity_id, document_no),
+        UNIQUE (entity_id, client_request_id)
+      );
+      CREATE TABLE IF NOT EXISTS finance_stock_movements (
+        movement_id SERIAL PRIMARY KEY,
+        document_id INTEGER NOT NULL REFERENCES finance_stock_documents(document_id),
+        entity_id TEXT NOT NULL,
+        item_id INTEGER NOT NULL REFERENCES finance_items(item_id),
+        warehouse_id INTEGER NOT NULL REFERENCES finance_warehouses(warehouse_id),
+        counter_warehouse_id INTEGER REFERENCES finance_warehouses(warehouse_id),
+        movement_type TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        quantity NUMERIC(14,3) NOT NULL,
+        unit_cost NUMERIC(14,4) NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS finance_stock_counters (
+        entity_id TEXT PRIMARY KEY,
+        last_no INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS finance_item_audit (
+        audit_id SERIAL PRIMARY KEY,
+        entity_id TEXT NOT NULL,
+        record_type TEXT NOT NULL,
+        record_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        before_data JSONB,
+        after_data JSONB,
+        actor TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_finance_items_entity ON finance_items(entity_id);
+      CREATE INDEX IF NOT EXISTS idx_finance_wh_entity ON finance_warehouses(entity_id);
+      CREATE INDEX IF NOT EXISTS idx_finance_stock_mov_entity ON finance_stock_movements(entity_id, created_at DESC);
+    `);
+      await ensureStockLinkSchema(db);
+    })().catch((error) => {
+      tablesReady = null;
+      throw error;
+    });
+  }
+  return tablesReady;
 }
 
 function requireEntity(req, res) {
-  const entityId = resolveScopedEntityId(req, req.query.entity_id || (req.body && req.body.entity_id));
-  if (!entityId) {
-    res.status(400).json({ success: false, error: 'entity_id مطلوب', code: 'ENTITY_REQUIRED' });
+  const entityId = entityOf(req);
+  if (!entityId || !req.authenticatedEntityContext) {
+    fail(res, 401, 'يجب تسجيل الدخول لتحديد الكيان.');
     return null;
   }
-  return {
-    entityId,
-    entityType: resolveScopedEntityType(req, req.query.entity_type || (req.body && req.body.entity_type)) || 'HQ'
-  };
+  return entityId;
 }
 
-function readText(v, fallback = '') {
-  if (v === undefined || v === null) return fallback;
-  return String(v).trim();
-}
-
-function toNum(v, fallback = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function movementNumber(prefix = 'STM') {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 900 + 100)}`;
-}
-
-async function getOrCreateBalance(client, productId, warehouseId, entityId) {
-  const existing = await client.query(
-    `SELECT * FROM finance_stock_balances
-     WHERE product_id = $1 AND warehouse_id = $2 AND entity_id = $3
-     FOR UPDATE`,
-    [productId, warehouseId, entityId]
+async function assertActiveUnit(client, entityId, code) {
+  const unit = String(code || '').trim().toUpperCase();
+  if (!unit) return { ok: false, error: 'وحدة القياس مطلوبة.' };
+  const found = await client.query(
+    `SELECT code FROM finance_units WHERE entity_id = $1 AND code = $2 AND is_active = true`,
+    [entityId, unit]
   );
-  if (existing.rows[0]) return existing.rows[0];
-  const created = await client.query(
-    `INSERT INTO finance_stock_balances (product_id, warehouse_id, quantity, avg_cost, entity_id)
-     VALUES ($1,$2,0,0,$3) RETURNING *`,
-    [productId, warehouseId, entityId]
-  );
-  return created.rows[0];
+  if (!found.rows.length) return { ok: false, error: 'وحدة القياس غير موجودة أو موقوفة.' };
+  return { ok: true, code: unit };
 }
 
-async function applyQtyDelta(client, { productId, warehouseId, entityId, qtyDelta, unitCost, allowNegative }) {
-  const bal = await getOrCreateBalance(client, productId, warehouseId, entityId);
-  const currentQty = toNum(bal.quantity);
-  const nextQty = currentQty + qtyDelta;
-  if (!allowNegative && nextQty < -0.000001) {
-    const err = new Error('الرصيد غير كافٍ — سياسة منع الرصيد السالب');
-    err.code = 'NEGATIVE_STOCK';
-    err.status = 409;
-    throw err;
-  }
-
-  let nextAvg = toNum(bal.avg_cost);
-  if (qtyDelta > 0 && unitCost != null) {
-    const cost = toNum(unitCost);
-    const incomingValue = qtyDelta * cost;
-    const currentValue = currentQty * nextAvg;
-    nextAvg = nextQty > 0 ? (currentValue + incomingValue) / nextQty : cost;
-  }
-
-  const updated = await client.query(
-    `UPDATE finance_stock_balances
-     SET quantity = $4, avg_cost = $5, updated_at = NOW()
-     WHERE balance_id = $1 AND product_id = $2 AND warehouse_id = $3
-     RETURNING *`,
-    [bal.balance_id, productId, warehouseId, nextQty, nextAvg]
+async function audit(client, entityId, recordType, recordId, action, beforeData, afterData, actor) {
+  await client.query(
+    `INSERT INTO finance_item_audit
+      (entity_id, record_type, record_id, action, before_data, after_data, actor)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [entityId, recordType, recordId, action, beforeData ? JSON.stringify(beforeData) : null, afterData ? JSON.stringify(afterData) : null, actor]
   );
-  return updated.rows[0];
 }
 
-async function postMovement(client, {
-  movementType,
-  productId,
-  warehouseId,
-  warehouseToId,
-  quantity,
-  unitCost,
-  referenceType,
-  referenceId,
-  notes,
-  entityId,
-  entityType,
-  createdBy,
-  allowNegative
-}) {
-  const type = String(movementType || '').toUpperCase();
-  if (!MOVEMENT_TYPES.has(type)) {
-    const err = new Error('نوع الحركة غير مدعوم');
-    err.code = 'INVALID_MOVEMENT_TYPE';
-    err.status = 400;
-    throw err;
-  }
-  const qty = Math.abs(toNum(quantity));
-  if (qty <= 0) {
-    const err = new Error('الكمية يجب أن تكون أكبر من صفر');
-    err.code = 'INVALID_QTY';
-    err.status = 400;
-    throw err;
-  }
-
-  const product = await client.query(
-    `SELECT * FROM finance_products WHERE product_id = $1 AND entity_id = $2 FOR UPDATE`,
-    [productId, entityId]
-  );
-  if (!product.rows[0]) {
-    const err = new Error('الصنف غير موجود');
-    err.code = 'PRODUCT_NOT_FOUND';
-    err.status = 404;
-    throw err;
-  }
-  if (!product.rows[0].track_inventory) {
-    const err = new Error('هذا الصنف غير متابع مخزنيًا');
-    err.code = 'NOT_TRACKED';
-    err.status = 409;
-    throw err;
-  }
-
-  const wh = await client.query(
-    `SELECT warehouse_id FROM finance_warehouses WHERE warehouse_id = $1 AND entity_id = $2`,
-    [warehouseId, entityId]
-  );
-  if (!wh.rows[0]) {
-    const err = new Error('المستودع غير موجود');
-    err.code = 'WAREHOUSE_NOT_FOUND';
-    err.status = 404;
-    throw err;
-  }
-
-  if (type === 'TRANSFER') {
-    if (!warehouseToId || Number(warehouseToId) === Number(warehouseId)) {
-      const err = new Error('مستودع الوجهة مطلوب ومختلف عن المصدر');
-      err.code = 'TRANSFER_TARGET_REQUIRED';
-      err.status = 400;
-      throw err;
-    }
-    const whTo = await client.query(
-      `SELECT warehouse_id FROM finance_warehouses WHERE warehouse_id = $1 AND entity_id = $2`,
-      [warehouseToId, entityId]
-    );
-    if (!whTo.rows[0]) {
-      const err = new Error('مستودع الوجهة غير موجود');
-      err.code = 'WAREHOUSE_TO_NOT_FOUND';
-      err.status = 404;
-      throw err;
-    }
-  }
-
-  const cost = unitCost != null ? toNum(unitCost) : toNum(product.rows[0].cost_price);
-  const number = movementNumber(type === 'OPENING' ? 'OPN' : 'STM');
-
-  if (type === 'OPENING' || type === 'IN') {
-    await applyQtyDelta(client, {
-      productId,
-      warehouseId,
-      entityId,
-      qtyDelta: qty,
-      unitCost: cost,
-      allowNegative: !!allowNegative
-    });
-  } else if (type === 'OUT') {
-    await applyQtyDelta(client, {
-      productId,
-      warehouseId,
-      entityId,
-      qtyDelta: -qty,
-      unitCost: null,
-      allowNegative: !!allowNegative
-    });
-  } else if (type === 'ADJUST') {
-    // quantity signed via notes convention: positive increase, negative decrease via signed body.quantity
-    const signed = toNum(quantity);
-    await applyQtyDelta(client, {
-      productId,
-      warehouseId,
-      entityId,
-      qtyDelta: signed,
-      unitCost: signed > 0 ? cost : null,
-      allowNegative: !!allowNegative
-    });
-  } else if (type === 'TRANSFER') {
-    await applyQtyDelta(client, {
-      productId,
-      warehouseId,
-      entityId,
-      qtyDelta: -qty,
-      unitCost: null,
-      allowNegative: !!allowNegative
-    });
-    await applyQtyDelta(client, {
-      productId,
-      warehouseId: warehouseToId,
-      entityId,
-      qtyDelta: qty,
-      unitCost: cost,
-      allowNegative: true
-    });
-  }
-
-  const movQty = type === 'ADJUST' ? toNum(quantity) : qty;
-  const inserted = await client.query(
-    `INSERT INTO finance_stock_movements (
-      movement_number, movement_type, product_id, warehouse_id, warehouse_to_id,
-      quantity, unit_cost, reference_type, reference_id, status, notes,
-      entity_id, entity_type, created_by
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'POSTED',$10,$11,$12,$13)
-    RETURNING *`,
-    [
-      number,
-      type,
-      productId,
-      warehouseId,
-      warehouseToId || null,
-      movQty,
-      cost,
-      referenceType || null,
-      referenceId != null ? String(referenceId) : null,
-      notes || null,
-      entityId,
-      entityType,
-      createdBy || 'ui'
-    ]
-  );
-  return inserted.rows[0];
-}
-
-// ---------- Products ----------
-router.get('/products', async (req, res) => {
+router.get('/items', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
   try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const q = readText(req.query.q).toLowerCase();
-    const onlyActive = String(req.query.active || '') === '1';
-    const params = [scope.entityId];
-    let sql = `SELECT * FROM finance_products WHERE entity_id = $1`;
-    if (onlyActive) sql += ` AND is_active = TRUE`;
+    await ensureTables();
+    const q = String(req.query.q || '').trim();
+    const params = [entityId];
+    let sql = `SELECT i.*,
+      CASE
+        WHEN EXISTS (SELECT 1 FROM finance_stock_movements m WHERE m.entity_id = i.entity_id AND m.item_id = i.item_id)
+          THEN 'الصنف مرتبط بحركة مخزون معتمدة ولا يُحذف. يمكن تعطيله.'
+        WHEN EXISTS (SELECT 1 FROM finance_stock_balances b WHERE b.entity_id = i.entity_id AND b.item_id = i.item_id AND b.qty <> 0)
+          THEN 'الصنف له رصيد. عطّله أو سوِّ الرصيد بحركة عكسية.'
+        ELSE NULL
+      END AS delete_block_reason
+      FROM finance_items i WHERE i.entity_id = $1`;
     if (q) {
       params.push(`%${q}%`);
-      sql += ` AND (LOWER(sku) LIKE $2 OR LOWER(name_ar) LIKE $2 OR LOWER(COALESCE(name_en,'')) LIKE $2 OR LOWER(COALESCE(category,'')) LIKE $2)`;
+      sql += ` AND (i.sku ILIKE $2 OR i.name_ar ILIKE $2 OR COALESCE(i.category,'') ILIKE $2)`;
     }
-    sql += ` ORDER BY product_id DESC`;
-    const r = await db.query(sql, params);
-    res.json({ success: true, products: r.rows, count: r.rows.length });
-  } catch (e) {
-    console.error('inventory products list', e);
-    res.status(500).json({ success: false, error: e.message });
+    sql += ` ORDER BY i.item_id DESC`;
+    const result = await db.query(sql, params);
+    res.json({ success: true, items: result.rows, count: result.rows.length });
+  } catch (error) {
+    fail(res, 500, error.message);
   }
 });
 
-router.post('/products', async (req, res) => {
-  try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const b = req.body || {};
-    const nameAr = readText(b.name_ar);
-    if (!nameAr) {
-      return res.status(400).json({ success: false, error: 'اسم الصنف بالعربية إلزامي', code: 'NAME_REQUIRED' });
-    }
-    const sku = readText(b.sku) || `SKU-${Date.now().toString().slice(-8)}`;
-    const r = await db.query(
-      `INSERT INTO finance_products (
-        sku, name_ar, name_en, product_type, category, unit, cost_price, sale_price,
-        track_inventory, reorder_level, is_active, entity_id, entity_type, notes, created_by
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-      RETURNING *`,
-      [
-        sku,
-        nameAr,
-        readText(b.name_en) || null,
-        readText(b.product_type, 'GOODS').toUpperCase() || 'GOODS',
-        readText(b.category) || null,
-        readText(b.unit, 'PCS') || 'PCS',
-        toNum(b.cost_price),
-        toNum(b.sale_price),
-        b.track_inventory === false || b.track_inventory === 'false' ? false : true,
-        toNum(b.reorder_level),
-        b.is_active === false || b.is_active === 'false' ? false : true,
-        scope.entityId,
-        scope.entityType,
-        readText(b.notes) || null,
-        readText(b.created_by, 'ui')
-      ]
-    );
-    res.status(201).json({ success: true, product: r.rows[0] });
-  } catch (e) {
-    const status = e.code === '23505' ? 409 : 500;
-    res.status(status).json({
-      success: false,
-      error: e.code === '23505' ? 'رمز الصنف (SKU) مكرر لنفس الكيان' : e.message,
-      code: e.code === '23505' ? 'DUPLICATE_SKU' : 'ERROR'
-    });
-  }
-});
-
-router.put('/products/:id', async (req, res) => {
-  try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const b = req.body || {};
-    const r = await db.query(
-      `UPDATE finance_products SET
-        sku = COALESCE($3, sku),
-        name_ar = COALESCE($4, name_ar),
-        name_en = COALESCE($5, name_en),
-        product_type = COALESCE($6, product_type),
-        category = COALESCE($7, category),
-        unit = COALESCE($8, unit),
-        cost_price = COALESCE($9, cost_price),
-        sale_price = COALESCE($10, sale_price),
-        track_inventory = COALESCE($11, track_inventory),
-        reorder_level = COALESCE($12, reorder_level),
-        is_active = COALESCE($13, is_active),
-        notes = COALESCE($14, notes),
-        updated_at = NOW()
-       WHERE product_id = $1 AND entity_id = $2
-       RETURNING *`,
-      [
-        req.params.id,
-        scope.entityId,
-        b.sku != null ? readText(b.sku) : null,
-        b.name_ar != null ? readText(b.name_ar) : null,
-        b.name_en != null ? readText(b.name_en) : null,
-        b.product_type != null ? readText(b.product_type).toUpperCase() : null,
-        b.category != null ? readText(b.category) : null,
-        b.unit != null ? readText(b.unit) : null,
-        b.cost_price != null ? toNum(b.cost_price) : null,
-        b.sale_price != null ? toNum(b.sale_price) : null,
-        b.track_inventory != null ? !(b.track_inventory === false || b.track_inventory === 'false') : null,
-        b.reorder_level != null ? toNum(b.reorder_level) : null,
-        b.is_active != null ? !(b.is_active === false || b.is_active === 'false') : null,
-        b.notes != null ? readText(b.notes) : null
-      ]
-    );
-    if (!r.rows[0]) return res.status(404).json({ success: false, error: 'الصنف غير موجود' });
-    res.json({ success: true, product: r.rows[0] });
-  } catch (e) {
-    const status = e.code === '23505' ? 409 : 500;
-    res.status(status).json({ success: false, error: e.message });
-  }
-});
-
-router.delete('/products/:id', async (req, res) => {
+router.post('/items', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  const body = req.body || {};
+  const sku = String(body.sku || '').trim().toUpperCase();
+  const name = String(body.name_ar || '').trim();
+  const itemType = body.item_type === 'service' ? 'service' : 'product';
+  const salePrice = roundCost(body.sale_price || 0);
+  const reorder = roundQty(body.reorder_level || 0);
+  if (!sku || !name) return fail(res, 400, 'رمز الصنف والاسم العربي مطلوبان.');
+  if (!Number.isFinite(salePrice) || salePrice < 0) return fail(res, 400, 'سعر البيع غير صالح.');
+  if (!Number.isFinite(reorder) || reorder < 0) return fail(res, 400, 'حد إعادة الطلب غير صالح.');
   const client = await db.pool.connect();
   try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
+    await ensureTables();
     await client.query('BEGIN');
-    const bal = await client.query(
-      `SELECT COALESCE(SUM(ABS(quantity)),0)::float AS q
-       FROM finance_stock_balances WHERE product_id = $1 AND entity_id = $2`,
-      [req.params.id, scope.entityId]
-    );
-    const mov = await client.query(
-      `SELECT COUNT(*)::int AS n FROM finance_stock_movements
-       WHERE product_id = $1 AND entity_id = $2 AND status = 'POSTED'`,
-      [req.params.id, scope.entityId]
-    );
-    if (toNum(bal.rows[0].q) > 0.0001 || mov.rows[0].n > 0) {
+    const unit = await assertActiveUnit(client, entityId, body.unit);
+    if (!unit.ok) {
       await client.query('ROLLBACK');
-      return res.status(409).json({
-        success: false,
-        error: 'لا يمكن حذف صنف له حركات أو رصيد. عطّله بدل الحذف.',
-        code: 'HAS_STOCK_HISTORY'
-      });
+      return fail(res, 400, unit.error);
     }
-    const r = await client.query(
-      `DELETE FROM finance_products WHERE product_id = $1 AND entity_id = $2 RETURNING product_id`,
-      [req.params.id, scope.entityId]
+    const inserted = await client.query(
+      `INSERT INTO finance_items
+        (entity_id, sku, name_ar, item_type, category, unit, sale_price, reorder_level, is_stocked)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING *`,
+      [
+        entityId,
+        sku,
+        name,
+        itemType,
+        String(body.category || '').trim() || null,
+        unit.code,
+        salePrice,
+        reorder,
+        itemType === 'service' ? false : body.is_stocked !== false
+      ]
     );
-    if (!r.rows[0]) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ success: false, error: 'الصنف غير موجود' });
-    }
+    await audit(client, entityId, 'item', inserted.rows[0].item_id, 'create', null, inserted.rows[0], actorOf(req));
     await client.query('COMMIT');
-    res.json({ success: true, deleted: r.rows[0].product_id });
-  } catch (e) {
-    try { await client.query('ROLLBACK'); } catch { /* */ }
-    res.status(500).json({ success: false, error: e.message });
+    res.status(201).json({ success: true, item: inserted.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    fail(res, error.code === '23505' ? 409 : 500, error.code === '23505' ? 'رمز الصنف مستخدم داخل هذا الكيان.' : error.message);
   } finally {
     client.release();
   }
 });
 
-// ---------- Warehouses ----------
-router.get('/warehouses', async (req, res) => {
+router.put('/items/:id', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  const body = req.body || {};
+  const client = await db.pool.connect();
   try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const r = await db.query(
-      `SELECT * FROM finance_warehouses WHERE entity_id = $1 ORDER BY warehouse_id DESC`,
-      [scope.entityId]
+    await ensureTables();
+    await client.query('BEGIN');
+    const current = await client.query(
+      `SELECT * FROM finance_items WHERE item_id = $1 AND entity_id = $2 FOR UPDATE`,
+      [req.params.id, entityId]
     );
-    res.json({ success: true, warehouses: r.rows, count: r.rows.length });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
+    if (!current.rows.length) {
+      await client.query('ROLLBACK');
+      return fail(res, 404, 'الصنف غير موجود في هذا الكيان.');
+    }
+    const row = current.rows[0];
+    const name = body.name_ar != null ? String(body.name_ar).trim() : row.name_ar;
+    const salePrice = body.sale_price != null ? roundCost(body.sale_price) : Number(row.sale_price);
+    const reorder = body.reorder_level != null ? roundQty(body.reorder_level) : Number(row.reorder_level);
+    if (!name) {
+      await client.query('ROLLBACK');
+      return fail(res, 400, 'الاسم العربي مطلوب.');
+    }
+    if (!Number.isFinite(salePrice) || salePrice < 0 || !Number.isFinite(reorder) || reorder < 0) {
+      await client.query('ROLLBACK');
+      return fail(res, 400, 'السعر أو حد الطلب غير صالح.');
+    }
+    let unitCode = row.unit;
+    if (body.unit != null) {
+      const unit = await assertActiveUnit(client, entityId, body.unit);
+      if (!unit.ok) {
+        await client.query('ROLLBACK');
+        return fail(res, 400, unit.error);
+      }
+      unitCode = unit.code;
+    }
+    const updated = await client.query(
+      `UPDATE finance_items SET
+         name_ar = $3,
+         category = $4,
+         unit = $5,
+         sale_price = $6,
+         reorder_level = $7,
+         is_active = $8,
+         updated_at = NOW()
+       WHERE item_id = $1 AND entity_id = $2
+       RETURNING *`,
+      [
+        row.item_id,
+        entityId,
+        name,
+        body.category != null ? (String(body.category).trim() || null) : row.category,
+        unitCode,
+        salePrice,
+        reorder,
+        body.is_active != null ? !!body.is_active : row.is_active
+      ]
+    );
+    await audit(client, entityId, 'item', row.item_id, 'update', row, updated.rows[0], actorOf(req));
+    await client.query('COMMIT');
+    res.json({ success: true, item: updated.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    fail(res, 500, error.message);
+  } finally {
+    client.release();
+  }
+});
+
+router.get('/units', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  try {
+    await ensureTables();
+    const result = await db.query(
+      `SELECT u.*,
+        CASE WHEN EXISTS (SELECT 1 FROM finance_items i WHERE i.entity_id = u.entity_id AND i.unit = u.code)
+          THEN 'الوحدة مستخدمة في أصناف. عطّلها بدل الحذف.'
+          ELSE NULL
+        END AS delete_block_reason
+       FROM finance_units u WHERE u.entity_id = $1 ORDER BY u.code`,
+      [entityId]
+    );
+    res.json({ success: true, units: result.rows, count: result.rows.length });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+});
+
+router.post('/units', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  const code = String((req.body || {}).code || '').trim().toUpperCase();
+  const name = String((req.body || {}).name_ar || '').trim();
+  if (!code || !name) return fail(res, 400, 'رمز وحدة القياس والاسم مطلوبان.');
+  const client = await db.pool.connect();
+  try {
+    await ensureTables();
+    await client.query('BEGIN');
+    const inserted = await client.query(
+      `INSERT INTO finance_units (entity_id, code, name_ar) VALUES ($1,$2,$3) RETURNING *`,
+      [entityId, code, name]
+    );
+    await audit(client, entityId, 'unit', inserted.rows[0].unit_id, 'create', null, inserted.rows[0], actorOf(req));
+    await client.query('COMMIT');
+    res.status(201).json({ success: true, unit: inserted.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    fail(res, error.code === '23505' ? 409 : 500, error.code === '23505' ? 'رمز وحدة القياس مستخدم داخل هذا الكيان.' : error.message);
+  } finally {
+    client.release();
+  }
+});
+
+router.put('/units/:id', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  const client = await db.pool.connect();
+  try {
+    await ensureTables();
+    await client.query('BEGIN');
+    const current = await client.query(
+      `SELECT * FROM finance_units WHERE unit_id = $1 AND entity_id = $2 FOR UPDATE`,
+      [req.params.id, entityId]
+    );
+    if (!current.rows.length) {
+      await client.query('ROLLBACK');
+      return fail(res, 404, 'وحدة القياس غير موجودة في هذا الكيان.');
+    }
+    const updated = await client.query(
+      `UPDATE finance_units SET name_ar = $3, is_active = $4
+       WHERE unit_id = $1 AND entity_id = $2 RETURNING *`,
+      [
+        current.rows[0].unit_id,
+        entityId,
+        String((req.body || {}).name_ar || current.rows[0].name_ar).trim() || current.rows[0].name_ar,
+        (req.body || {}).is_active != null ? !!(req.body || {}).is_active : current.rows[0].is_active
+      ]
+    );
+    await audit(client, entityId, 'unit', current.rows[0].unit_id, 'update', current.rows[0], updated.rows[0], actorOf(req));
+    await client.query('COMMIT');
+    res.json({ success: true, unit: updated.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    fail(res, 500, error.message);
+  } finally {
+    client.release();
+  }
+});
+
+router.get('/warehouses', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  try {
+    await ensureTables();
+    const result = await db.query(
+      `SELECT w.*,
+        CASE
+          WHEN EXISTS (SELECT 1 FROM finance_stock_movements m WHERE m.entity_id = w.entity_id AND m.warehouse_id = w.warehouse_id)
+            THEN 'المستودع مرتبط بحركة معتمدة ولا يُحذف. يمكن تعطيله.'
+          WHEN EXISTS (SELECT 1 FROM finance_stock_balances b WHERE b.entity_id = w.entity_id AND b.warehouse_id = w.warehouse_id AND b.qty <> 0)
+            THEN 'المستودع له رصيد. عطّله بدل الحذف.'
+          ELSE NULL
+        END AS delete_block_reason
+       FROM finance_warehouses w WHERE w.entity_id = $1 ORDER BY w.warehouse_id DESC`,
+      [entityId]
+    );
+    res.json({ success: true, warehouses: result.rows, count: result.rows.length });
+  } catch (error) {
+    fail(res, 500, error.message);
   }
 });
 
 router.post('/warehouses', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  const code = String((req.body || {}).code || '').trim().toUpperCase();
+  const name = String((req.body || {}).name_ar || '').trim();
+  if (!code || !name) return fail(res, 400, 'رمز المستودع والاسم مطلوبان.');
+  const client = await db.pool.connect();
   try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const b = req.body || {};
-    const nameAr = readText(b.name_ar);
-    if (!nameAr) {
-      return res.status(400).json({ success: false, error: 'اسم المستودع إلزامي' });
-    }
-    const code = readText(b.code) || `WH-${Date.now().toString().slice(-6)}`;
-    const r = await db.query(
-      `INSERT INTO finance_warehouses
-        (code, name_ar, location, is_active, entity_id, entity_type, notes, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [
-        code,
-        nameAr,
-        readText(b.location) || null,
-        b.is_active === false || b.is_active === 'false' ? false : true,
-        scope.entityId,
-        scope.entityType,
-        readText(b.notes) || null,
-        readText(b.created_by, 'ui')
-      ]
+    await ensureTables();
+    await client.query('BEGIN');
+    const inserted = await client.query(
+      `INSERT INTO finance_warehouses (entity_id, code, name_ar) VALUES ($1,$2,$3) RETURNING *`,
+      [entityId, code, name]
     );
-    res.status(201).json({ success: true, warehouse: r.rows[0] });
-  } catch (e) {
-    const status = e.code === '23505' ? 409 : 500;
-    res.status(status).json({
-      success: false,
-      error: e.code === '23505' ? 'رمز المستودع مكرر' : e.message
-    });
+    await audit(client, entityId, 'warehouse', inserted.rows[0].warehouse_id, 'create', null, inserted.rows[0], actorOf(req));
+    await client.query('COMMIT');
+    res.status(201).json({ success: true, warehouse: inserted.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    fail(res, error.code === '23505' ? 409 : 500, error.code === '23505' ? 'رمز المستودع مستخدم داخل هذا الكيان.' : error.message);
+  } finally {
+    client.release();
   }
 });
 
-router.put('/warehouses/:id', async (req, res) => {
-  try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const b = req.body || {};
-    const r = await db.query(
-      `UPDATE finance_warehouses SET
-        code = COALESCE($3, code),
-        name_ar = COALESCE($4, name_ar),
-        location = COALESCE($5, location),
-        is_active = COALESCE($6, is_active),
-        notes = COALESCE($7, notes),
-        updated_at = NOW()
-       WHERE warehouse_id = $1 AND entity_id = $2
-       RETURNING *`,
-      [
-        req.params.id,
-        scope.entityId,
-        b.code != null ? readText(b.code) : null,
-        b.name_ar != null ? readText(b.name_ar) : null,
-        b.location != null ? readText(b.location) : null,
-        b.is_active != null ? !(b.is_active === false || b.is_active === 'false') : null,
-        b.notes != null ? readText(b.notes) : null
-      ]
-    );
-    if (!r.rows[0]) return res.status(404).json({ success: false, error: 'المستودع غير موجود' });
-    res.json({ success: true, warehouse: r.rows[0] });
-  } catch (e) {
-    res.status(e.code === '23505' ? 409 : 500).json({ success: false, error: e.message });
+async function lockBalance(client, entityId, itemId, warehouseId) {
+  const existing = await client.query(
+    `SELECT qty, avg_cost FROM finance_stock_balances
+     WHERE entity_id = $1 AND item_id = $2 AND warehouse_id = $3
+     FOR UPDATE`,
+    [entityId, itemId, warehouseId]
+  );
+  if (existing.rows.length) {
+    return { qty: Number(existing.rows[0].qty), avgCost: Number(existing.rows[0].avg_cost) };
   }
-});
+  await client.query(
+    `INSERT INTO finance_stock_balances (entity_id, item_id, warehouse_id, qty, avg_cost)
+     VALUES ($1,$2,$3,0,0)
+     ON CONFLICT (entity_id, item_id, warehouse_id) DO NOTHING`,
+    [entityId, itemId, warehouseId]
+  );
+  const locked = await client.query(
+    `SELECT qty, avg_cost FROM finance_stock_balances
+     WHERE entity_id = $1 AND item_id = $2 AND warehouse_id = $3
+     FOR UPDATE`,
+    [entityId, itemId, warehouseId]
+  );
+  return { qty: Number(locked.rows[0].qty), avgCost: Number(locked.rows[0].avg_cost) };
+}
 
-// ---------- Balances / summary ----------
+async function saveBalance(client, entityId, itemId, warehouseId, next) {
+  await client.query(
+    `UPDATE finance_stock_balances
+     SET qty = $4, avg_cost = $5, updated_at = NOW()
+     WHERE entity_id = $1 AND item_id = $2 AND warehouse_id = $3`,
+    [entityId, itemId, warehouseId, next.qty, next.avgCost]
+  );
+}
+
+async function nextDocumentNo(client, entityId) {
+  const result = await client.query(
+    `INSERT INTO finance_stock_counters (entity_id, last_no) VALUES ($1, 1)
+     ON CONFLICT (entity_id) DO UPDATE SET last_no = finance_stock_counters.last_no + 1
+     RETURNING last_no`,
+    [entityId]
+  );
+  return `STK-${String(result.rows[0].last_no).padStart(4, '0')}`;
+}
+
+async function loadDocument(client, entityId, documentId) {
+  const doc = await client.query(
+    `SELECT * FROM finance_stock_documents WHERE document_id = $1 AND entity_id = $2`,
+    [documentId, entityId]
+  );
+  const lines = await client.query(
+    `SELECT m.*, i.sku, i.name_ar, w.code AS warehouse_code
+     FROM finance_stock_movements m
+     JOIN finance_items i ON i.item_id = m.item_id
+     JOIN finance_warehouses w ON w.warehouse_id = m.warehouse_id
+     WHERE m.document_id = $1
+     ORDER BY m.movement_id`,
+    [documentId]
+  );
+  return { document: doc.rows[0], lines: lines.rows };
+}
+
 router.get('/balances', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
   try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const lowOnly = String(req.query.low_stock || '') === '1';
-    const params = [scope.entityId];
+    await ensureTables();
+    const result = await db.query(
+      `SELECT b.entity_id, b.item_id, b.warehouse_id, b.qty, b.avg_cost,
+              i.sku, i.name_ar, i.unit, i.sale_price, i.reorder_level, i.item_type, i.is_stocked, i.is_active,
+              w.code AS warehouse_code, w.name_ar AS warehouse_name,
+              (b.qty * b.avg_cost) AS stock_value,
+              (i.sale_price - b.avg_cost) AS unit_margin
+       FROM finance_stock_balances b
+       JOIN finance_items i ON i.item_id = b.item_id AND i.entity_id = b.entity_id
+       JOIN finance_warehouses w ON w.warehouse_id = b.warehouse_id AND w.entity_id = b.entity_id
+       WHERE b.entity_id = $1
+       ORDER BY i.sku, w.code`,
+      [entityId]
+    );
+    const low = result.rows.filter((row) => row.is_stocked && Number(row.reorder_level) > 0 && Number(row.qty) <= Number(row.reorder_level));
+    const totalValue = roundCost(result.rows.reduce((sum, row) => sum + Number(row.stock_value || 0), 0));
+    res.json({
+      success: true,
+      balances: result.rows,
+      low_stock: low,
+      low_stock_count: low.length,
+      total_value: totalValue,
+      valuation: 'weighted_average'
+    });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+});
+
+router.get('/movements', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  try {
+    await ensureTables();
+    const params = [entityId];
     let sql = `
-      SELECT b.*,
-             p.sku, p.name_ar, p.unit, p.reorder_level, p.cost_price, p.sale_price, p.track_inventory,
-             w.code AS warehouse_code, w.name_ar AS warehouse_name,
-             (b.quantity * b.avg_cost) AS stock_value
-      FROM finance_stock_balances b
-      JOIN finance_products p ON p.product_id = b.product_id
-      JOIN finance_warehouses w ON w.warehouse_id = b.warehouse_id
-      WHERE b.entity_id = $1 AND p.track_inventory = TRUE`;
-    if (lowOnly) {
-      sql += ` AND b.quantity <= p.reorder_level`;
+      SELECT d.document_id, d.document_no, d.movement_type, d.reason, d.created_by, d.created_at,
+             d.source_type, d.source_id, d.journal_entry_id, d.currency_code, d.reverses_document_id,
+             m.movement_id, m.direction, m.quantity, m.unit_cost, m.item_id, m.warehouse_id,
+             i.sku, i.name_ar, w.code AS warehouse_code
+      FROM finance_stock_documents d
+      JOIN finance_stock_movements m ON m.document_id = d.document_id
+      JOIN finance_items i ON i.item_id = m.item_id
+      JOIN finance_warehouses w ON w.warehouse_id = m.warehouse_id
+      WHERE d.entity_id = $1`;
+    if (req.query.item_id) {
+      params.push(req.query.item_id);
+      sql += ` AND m.item_id = $${params.length}`;
     }
     if (req.query.warehouse_id) {
       params.push(req.query.warehouse_id);
-      sql += ` AND b.warehouse_id = $${params.length}`;
+      sql += ` AND m.warehouse_id = $${params.length}`;
     }
-    if (req.query.product_id) {
-      params.push(req.query.product_id);
-      sql += ` AND b.product_id = $${params.length}`;
+    if (req.query.movement_type) {
+      params.push(String(req.query.movement_type).toUpperCase());
+      sql += ` AND d.movement_type = $${params.length}`;
     }
-    sql += ` ORDER BY p.name_ar, w.name_ar`;
-    const r = await db.query(sql, params);
-    const totalValue = r.rows.reduce((s, row) => s + toNum(row.stock_value), 0);
-    const lowCount = r.rows.filter((row) => toNum(row.quantity) <= toNum(row.reorder_level)).length;
-    res.json({
-      success: true,
-      balances: r.rows,
-      count: r.rows.length,
-      summary: {
-        lines: r.rows.length,
-        total_value: totalValue,
-        low_stock_count: lowCount
-      }
-    });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
+    if (req.query.from) {
+      params.push(req.query.from);
+      sql += ` AND d.created_at::date >= $${params.length}::date`;
+    }
+    if (req.query.to) {
+      params.push(req.query.to);
+      sql += ` AND d.created_at::date <= $${params.length}::date`;
+    }
+    sql += ` ORDER BY d.document_id DESC, m.movement_id ASC LIMIT 200`;
+    const result = await db.query(sql, params);
+    res.json({ success: true, movements: result.rows, count: result.rows.length });
+  } catch (error) {
+    fail(res, 500, error.message);
   }
 });
 
-router.get('/summary', async (req, res) => {
-  try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const [products, warehouses, value, low, movements] = await Promise.all([
-      db.query(`SELECT COUNT(*)::int AS n FROM finance_products WHERE entity_id = $1 AND is_active = TRUE`, [scope.entityId]),
-      db.query(`SELECT COUNT(*)::int AS n FROM finance_warehouses WHERE entity_id = $1 AND is_active = TRUE`, [scope.entityId]),
-      db.query(
-        `SELECT COALESCE(SUM(b.quantity * b.avg_cost),0)::float AS v,
-                COALESCE(SUM(b.quantity),0)::float AS q
-         FROM finance_stock_balances b
-         JOIN finance_products p ON p.product_id = b.product_id
-         WHERE b.entity_id = $1 AND p.track_inventory = TRUE`,
-        [scope.entityId]
-      ),
-      db.query(
-        `SELECT COUNT(*)::int AS n
-         FROM finance_stock_balances b
-         JOIN finance_products p ON p.product_id = b.product_id
-         WHERE b.entity_id = $1 AND p.track_inventory = TRUE AND b.quantity <= p.reorder_level`,
-        [scope.entityId]
-      ),
-      db.query(
-        `SELECT COUNT(*)::int AS n FROM finance_stock_movements
-         WHERE entity_id = $1 AND status = 'POSTED'`,
-        [scope.entityId]
-      )
-    ]);
-    res.json({
-      success: true,
-      summary: {
-        active_products: products.rows[0].n,
-        active_warehouses: warehouses.rows[0].n,
-        on_hand_qty: value.rows[0].q,
-        stock_value: value.rows[0].v,
-        low_stock_count: low.rows[0].n,
-        posted_movements: movements.rows[0].n
-      }
-    });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// ---------- Movements ----------
-router.get('/movements', async (req, res) => {
-  try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const params = [scope.entityId];
-    let sql = `
-      SELECT m.*,
-             p.sku, p.name_ar AS product_name,
-             w.name_ar AS warehouse_name,
-             wt.name_ar AS warehouse_to_name
-      FROM finance_stock_movements m
-      JOIN finance_products p ON p.product_id = m.product_id
-      JOIN finance_warehouses w ON w.warehouse_id = m.warehouse_id
-      LEFT JOIN finance_warehouses wt ON wt.warehouse_id = m.warehouse_to_id
-      WHERE m.entity_id = $1`;
-    if (req.query.status) {
-      params.push(String(req.query.status).toUpperCase());
-      sql += ` AND m.status = $${params.length}`;
-    }
-    if (req.query.product_id) {
-      params.push(req.query.product_id);
-      sql += ` AND m.product_id = $${params.length}`;
-    }
-    if (req.query.q) {
-      params.push(`%${String(req.query.q).toLowerCase()}%`);
-      sql += ` AND (LOWER(m.movement_number) LIKE $${params.length} OR LOWER(p.sku) LIKE $${params.length} OR LOWER(p.name_ar) LIKE $${params.length})`;
-    }
-    sql += ` ORDER BY m.movement_id DESC LIMIT 500`;
-    const r = await db.query(sql, params);
-    res.json({ success: true, movements: r.rows, count: r.rows.length });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
+router.put('/movements/:id', (req, res) => {
+  fail(res, 409, 'الحركة المعتمدة لا تُعدَّل. التصحيح بحركة عكسية أو تسوية موثقة.');
 });
 
 router.post('/movements', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  const body = req.body || {};
+  const type = String(body.movement_type || '').toUpperCase();
+  const allowed = ['OPENING', 'IN', 'OUT', 'ADJUSTMENT', 'TRANSFER'];
+  if (!allowed.includes(type)) return fail(res, 400, 'نوع الحركة غير معروف.');
+  const quantity = roundQty(body.quantity);
+  if (!(quantity > 0)) return fail(res, 400, 'الكمية يجب أن تكون أكبر من صفر.');
+  const direction = String(body.direction || '').toLowerCase();
+  if (type === 'ADJUSTMENT' && direction !== 'in' && direction !== 'out') {
+    return fail(res, 400, 'التسوية تحتاج اتجاه إدخال أو إخراج.');
+  }
+  if ((type === 'ADJUSTMENT' || type === 'OUT') && !String(body.reason || '').trim()) {
+    return fail(res, 400, 'سبب الحركة مطلوب للإخراج والتسوية.');
+  }
+  const clientRequestId = String(body.client_request_id || '').trim() || null;
   const client = await db.pool.connect();
   try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const b = req.body || {};
+    await ensureTables();
     await client.query('BEGIN');
-    const movement = await postMovement(client, {
-      movementType: b.movement_type,
-      productId: b.product_id,
-      warehouseId: b.warehouse_id,
-      warehouseToId: b.warehouse_to_id,
-      quantity: b.quantity,
-      unitCost: b.unit_cost,
-      referenceType: b.reference_type || 'MANUAL',
-      referenceId: b.reference_id,
-      notes: b.notes,
-      entityId: scope.entityId,
-      entityType: scope.entityType,
-      createdBy: b.created_by || 'ui',
-      allowNegative: b.allow_negative === true
-    });
+    if (clientRequestId) {
+      const existing = await client.query(
+        `SELECT document_id FROM finance_stock_documents WHERE entity_id = $1 AND client_request_id = $2`,
+        [entityId, clientRequestId]
+      );
+      if (existing.rows.length) {
+        const replay = await loadDocument(client, entityId, existing.rows[0].document_id);
+        await client.query('COMMIT');
+        return res.json({ success: true, replayed: true, ...replay });
+      }
+    }
+
+    const item = await client.query(
+      `SELECT * FROM finance_items WHERE item_id = $1 AND entity_id = $2 FOR UPDATE`,
+      [body.item_id, entityId]
+    );
+    if (!item.rows.length) {
+      await client.query('ROLLBACK');
+      return fail(res, 404, 'الصنف غير موجود في هذا الكيان.');
+    }
+    if (!item.rows[0].is_active) {
+      await client.query('ROLLBACK');
+      return fail(res, 409, 'الصنف غير نشط.');
+    }
+    if (!item.rows[0].is_stocked || item.rows[0].item_type === 'service') {
+      await client.query('ROLLBACK');
+      return fail(res, 422, 'الخدمات لا تُحرّك مخزونًا. سجّلها كصنف خدمة بدون رصيد.');
+    }
+
+    const warehouse = await client.query(
+      `SELECT * FROM finance_warehouses WHERE warehouse_id = $1 AND entity_id = $2`,
+      [body.warehouse_id, entityId]
+    );
+    if (!warehouse.rows.length || !warehouse.rows[0].is_active) {
+      await client.query('ROLLBACK');
+      return fail(res, 404, 'المستودع غير موجود أو غير نشط.');
+    }
+
+    let counter = null;
+    if (type === 'TRANSFER') {
+      if (String(body.counter_warehouse_id) === String(body.warehouse_id)) {
+        await client.query('ROLLBACK');
+        return fail(res, 400, 'مستودع التحويل يجب أن يختلف عن المصدر.');
+      }
+      const other = await client.query(
+        `SELECT * FROM finance_warehouses WHERE warehouse_id = $1 AND entity_id = $2`,
+        [body.counter_warehouse_id, entityId]
+      );
+      if (!other.rows.length || !other.rows[0].is_active) {
+        await client.query('ROLLBACK');
+        return fail(res, 404, 'مستودع الوجهة غير موجود أو غير نشط.');
+      }
+      counter = other.rows[0];
+    }
+
+    const source = await lockBalance(client, entityId, item.rows[0].item_id, warehouse.rows[0].warehouse_id);
+    if (type === 'OPENING' && source.qty > 0) {
+      await client.query('ROLLBACK');
+      return fail(res, 409, 'يوجد رصيد بالفعل. استخدم إدخالًا أو تسوية بدل رصيد افتتاحي جديد.');
+    }
+
+    const lines = [];
+    if (type === 'OUT' || (type === 'ADJUSTMENT' && direction === 'out') || type === 'TRANSFER') {
+      const next = applyOutbound(source, quantity);
+      if (!next.ok) {
+        await client.query('ROLLBACK');
+        return fail(res, 409, next.error);
+      }
+      await saveBalance(client, entityId, item.rows[0].item_id, warehouse.rows[0].warehouse_id, next);
+      lines.push({
+        warehouse_id: warehouse.rows[0].warehouse_id,
+        counter_warehouse_id: counter ? counter.warehouse_id : null,
+        direction: 'out',
+        quantity,
+        unit_cost: next.appliedUnitCost
+      });
+      if (type === 'TRANSFER') {
+        const destBalance = await lockBalance(client, entityId, item.rows[0].item_id, counter.warehouse_id);
+        const inbound = applyInbound(destBalance, quantity, next.appliedUnitCost);
+        await saveBalance(client, entityId, item.rows[0].item_id, counter.warehouse_id, inbound);
+        lines.push({
+          warehouse_id: counter.warehouse_id,
+          counter_warehouse_id: warehouse.rows[0].warehouse_id,
+          direction: 'in',
+          quantity,
+          unit_cost: inbound.appliedUnitCost
+        });
+      }
+    } else {
+      const unitCost = roundCost(body.unit_cost);
+      const next = applyInbound(source, quantity, unitCost);
+      if (!next.ok) {
+        await client.query('ROLLBACK');
+        return fail(res, 400, next.error);
+      }
+      await saveBalance(client, entityId, item.rows[0].item_id, warehouse.rows[0].warehouse_id, next);
+      lines.push({
+        warehouse_id: warehouse.rows[0].warehouse_id,
+        counter_warehouse_id: null,
+        direction: 'in',
+        quantity,
+        unit_cost: next.appliedUnitCost
+      });
+    }
+
+    const documentNo = await nextDocumentNo(client, entityId);
+    const doc = await client.query(
+      `INSERT INTO finance_stock_documents
+        (entity_id, document_no, client_request_id, movement_type, reason, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [entityId, documentNo, clientRequestId, type, String(body.reason || '').trim() || null, actorOf(req)]
+    );
+    for (const line of lines) {
+      await client.query(
+        `INSERT INTO finance_stock_movements
+          (document_id, entity_id, item_id, warehouse_id, counter_warehouse_id, movement_type, direction, quantity, unit_cost)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [doc.rows[0].document_id, entityId, item.rows[0].item_id, line.warehouse_id, line.counter_warehouse_id, type, line.direction, line.quantity, line.unit_cost]
+      );
+    }
+    const payload = await loadDocument(client, entityId, doc.rows[0].document_id);
     await client.query('COMMIT');
-    res.status(201).json({ success: true, movement });
-  } catch (e) {
-    try { await client.query('ROLLBACK'); } catch { /* */ }
-    res.status(e.status || 500).json({ success: false, error: e.message, code: e.code || 'ERROR' });
+    res.status(201).json({ success: true, replayed: false, ...payload, valuation: 'weighted_average', journal_posted: false });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    fail(res, 500, error.message);
   } finally {
     client.release();
   }
 });
 
-router.post('/movements/:id/cancel', async (req, res) => {
-  const client = await db.pool.connect();
-  try {
-    await ensureInventoryTables();
-    const scope = requireEntity(req, res);
-    if (!scope) return;
-    const reason = readText(req.body && req.body.reason);
-    if (!reason) {
-      return res.status(400).json({ success: false, error: 'سبب الإلغاء إلزامي', code: 'REASON_REQUIRED' });
-    }
-    await client.query('BEGIN');
-    const movRes = await client.query(
-      `SELECT * FROM finance_stock_movements
-       WHERE movement_id = $1 AND entity_id = $2 FOR UPDATE`,
-      [req.params.id, scope.entityId]
-    );
-    if (!movRes.rows[0]) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ success: false, error: 'الحركة غير موجودة' });
-    }
-    const mov = movRes.rows[0];
-    if (String(mov.status).toUpperCase() === 'CANCELLED') {
-      await client.query('ROLLBACK');
-      return res.status(409).json({ success: false, error: 'الحركة ملغاة مسبقًا', code: 'ALREADY_CANCELLED' });
-    }
-
-    const type = String(mov.movement_type).toUpperCase();
-    const qty = Math.abs(toNum(mov.quantity));
-    if (type === 'OPENING' || type === 'IN') {
-      await applyQtyDelta(client, {
-        productId: mov.product_id,
-        warehouseId: mov.warehouse_id,
-        entityId: scope.entityId,
-        qtyDelta: -qty,
-        unitCost: null,
-        allowNegative: false
-      });
-    } else if (type === 'OUT') {
-      await applyQtyDelta(client, {
-        productId: mov.product_id,
-        warehouseId: mov.warehouse_id,
-        entityId: scope.entityId,
-        qtyDelta: qty,
-        unitCost: toNum(mov.unit_cost),
-        allowNegative: true
-      });
-    } else if (type === 'ADJUST') {
-      await applyQtyDelta(client, {
-        productId: mov.product_id,
-        warehouseId: mov.warehouse_id,
-        entityId: scope.entityId,
-        qtyDelta: -toNum(mov.quantity),
-        unitCost: toNum(mov.quantity) < 0 ? toNum(mov.unit_cost) : null,
-        allowNegative: false
-      });
-    } else if (type === 'TRANSFER') {
-      await applyQtyDelta(client, {
-        productId: mov.product_id,
-        warehouseId: mov.warehouse_to_id,
-        entityId: scope.entityId,
-        qtyDelta: -qty,
-        unitCost: null,
-        allowNegative: false
-      });
-      await applyQtyDelta(client, {
-        productId: mov.product_id,
-        warehouseId: mov.warehouse_id,
-        entityId: scope.entityId,
-        qtyDelta: qty,
-        unitCost: toNum(mov.unit_cost),
-        allowNegative: true
-      });
-    }
-
-    const updated = await client.query(
-      `UPDATE finance_stock_movements
-       SET status = 'CANCELLED', cancelled_at = NOW(), cancel_reason = $2
-       WHERE movement_id = $1 RETURNING *`,
-      [mov.movement_id, reason]
-    );
-    await client.query('COMMIT');
-    res.json({ success: true, movement: updated.rows[0], message: 'تم إلغاء الحركة وعكس أثرها على الرصيد' });
-  } catch (e) {
-    try { await client.query('ROLLBACK'); } catch { /* */ }
-    res.status(e.status || 500).json({ success: false, error: e.message, code: e.code || 'ERROR' });
-  } finally {
-    client.release();
-  }
-});
+const recordHelpers = {
+  requireEntity,
+  fail,
+  actorOf,
+  ensureTables,
+  audit,
+  assertActiveUnit
+};
+require('./inventory-records').register(router, recordHelpers);
+require('./inventory-link').register(router, recordHelpers);
 
 module.exports = router;
-module.exports.ensureInventoryTables = ensureInventoryTables;
-module.exports.postMovement = postMovement;
-module.exports.applyQtyDelta = applyQtyDelta;

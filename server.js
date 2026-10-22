@@ -3557,8 +3557,8 @@ const itemDiscountsRoutes = require('./finance/api/item-discounts');
 app.use('/finance/item-discounts', itemDiscountsRoutes);
 const purchaseOrdersRoutes = require('./finance/api/purchase-orders');
 app.use('/finance/purchases', purchaseOrdersRoutes);
-const financeInventoryRoutes = require('./finance/api/inventory');
-app.use('/finance/inventory', financeInventoryRoutes);
+const inventoryRoutes = require('./finance/api/inventory');
+app.use('/finance/inventory', inventoryRoutes);
 
 // Finance Return Requests API Routes
 const returnRequestsRoutes = require('./finance/api/return-requests');

@@ -4,295 +4,535 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>المخزون — القيادة المالية 360</title>
-  <script src="/finance/finance-context.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>body{font-family:'Cairo',sans-serif;background:#f8fafc;color:#0f172a}.number-en{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}</style>
+  <link rel="stylesheet" href="/finance/record-actions.css">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f6f8;
+      --card: #fff;
+      --text: #142033;
+      --muted: #5c6b7a;
+      --line: #d7dee6;
+      --accent: #9f1239;
+      --ok: #166534;
+      --warn: #9a3412;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #10151c; --card: #1a222c; --text: #e8eef5; --muted: #a8b6c4; --line: #2c3846; --accent: #fb7185; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Cairo, sans-serif; background: var(--bg); color: var(--text); }
+    header, main { width: min(1100px, calc(100% - 24px)); margin: 0 auto; }
+    header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 58px 0 18px; }
+    header p { margin: 6px 0 0; }
+    a { color: var(--accent); font-weight: 700; text-decoration: none; }
+    h1 { font-size: 1.4rem; margin: 0; }
+    .muted { color: var(--muted); font-size: .92rem; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    nav button, .btn { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 10px; padding: 8px 12px; font: inherit; font-weight: 700; cursor: pointer; }
+    nav button.active, .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    section { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    section.active { display: block; }
+    form { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin: 12px 0; }
+    input, select { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); min-width: 0; width: 100%; }
+    .num { direction: ltr; text-align: end; font-variant-numeric: tabular-nums; }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px 6px; text-align: right; vertical-align: top; }
+    .empty { padding: 18px; border: 1px dashed var(--line); border-radius: 12px; }
+    .msg { min-height: 1.4em; font-weight: 700; }
+    .msg.err { color: var(--warn); }
+    .msg.ok { color: var(--ok); }
+    .wrap { overflow-x: auto; }
+    .trace { white-space: pre-wrap; font-size: .88rem; }
+    @media (max-width: 700px) { header { flex-direction: column; align-items: flex-start; } }
+  </style>
 </head>
-<body class="p-4 md:p-8">
-  <div class="max-w-7xl mx-auto">
-    <header class="mb-6">
-      <h1 class="text-3xl font-extrabold mb-1">المخزون التشغيلي</h1>
-      <p class="text-slate-600">مستودعات، أرصدة، حركات إدخال/إخراج/تحويل/جرد — مصدر الحقيقة Postgres</p>
-      <nav class="mt-4 flex flex-wrap gap-2 text-sm">
-        <a href="/finance/inventory.html" class="px-3 py-1 rounded-full bg-slate-900 text-white font-bold">المخزون</a>
-        <a href="/finance/products.html" class="px-3 py-1 rounded-full bg-white border font-bold">الأصناف</a>
-        <a href="/finance/purchase-orders.html" class="px-3 py-1 rounded-full bg-white border font-bold">المشتريات</a>
-        <a href="/finance/customers.html" class="px-3 py-1 rounded-full bg-white border font-bold">العملاء</a>
-      </nav>
-    </header>
-
-    <div id="alert" class="hidden mb-4 rounded-xl border px-4 py-3 text-sm font-bold"></div>
-
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">أصناف نشطة</div><div id="sProducts" class="text-2xl font-extrabold number-en">—</div></div>
-      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">مستودعات</div><div id="sWarehouses" class="text-2xl font-extrabold number-en">—</div></div>
-      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">كمية متاحة</div><div id="sQty" class="text-2xl font-extrabold number-en">—</div></div>
-      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">قيمة المخزون</div><div id="sValue" class="text-2xl font-extrabold number-en">—</div></div>
-      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">منخفض الرصيد</div><div id="sLow" class="text-2xl font-extrabold number-en text-amber-700">—</div></div>
+<body>
+  <header>
+    <div>
+      <h1>المخزون</h1>
+      <p class="muted">الأرصدة في Postgres بمتوسط التكلفة المرجح. إنشاء أمر الشراء لا يزيد الرصيد. الاستلام المعتمد والصرف من فاتورة مصدرة والمرتجع ينشئون قيودًا مزدوجة، والحركة المعتمدة لا تُحذف.</p>
     </div>
+    <a href="/finance">القيادة المالية 360</a>
+  </header>
+  <main>
+    <nav>
+      <button type="button" data-tab="balances" class="active">الأرصدة</button>
+      <button type="button" data-tab="alerts">تنبيهات النقص</button>
+      <button type="button" data-tab="valuation">تقرير التقييم</button>
+      <button type="button" data-tab="items">الأصناف</button>
+      <button type="button" data-tab="units">وحدات القياس</button>
+      <button type="button" data-tab="warehouses">المستودعات</button>
+      <button type="button" data-tab="moves">تقرير الحركة</button>
+      <button type="button" data-tab="links">الربط المحاسبي</button>
+    </nav>
+    <p id="msg" class="msg" role="status"></p>
 
-    <div class="flex flex-wrap gap-2 mb-4">
-      <button data-tab="balances" class="tabBtn px-4 py-2 rounded-lg font-bold bg-slate-900 text-white">الأرصدة</button>
-      <button data-tab="movements" class="tabBtn px-4 py-2 rounded-lg font-bold bg-white border">الحركات</button>
-      <button data-tab="warehouses" class="tabBtn px-4 py-2 rounded-lg font-bold bg-white border">المستودعات</button>
-      <button id="btnMovement" class="mr-auto bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">حركة جديدة</button>
-      <button id="btnWarehouse" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold">مستودع جديد</button>
-      <button id="btnRefresh" class="bg-white border px-4 py-2 rounded-lg font-bold">تحديث</button>
-      <label class="flex items-center gap-2 text-sm font-bold bg-white border px-3 py-2 rounded-lg">
-        <input type="checkbox" id="lowOnly"> منخفض فقط
-      </label>
-    </div>
-
-    <section id="panel-balances" class="bg-white border rounded-2xl overflow-hidden shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-slate-500"><tr>
-            <th class="p-3 text-right">الصنف</th><th class="p-3 text-right">المستودع</th>
-            <th class="p-3 text-right">الكمية</th><th class="p-3 text-right">متوسط التكلفة</th>
-            <th class="p-3 text-right">القيمة</th><th class="p-3 text-right">حد إعادة الطلب</th>
-          </tr></thead>
-          <tbody id="balBody"></tbody>
-        </table>
-      </div>
-      <div id="balEmpty" class="hidden p-10 text-center text-slate-500">لا أرصدة بعد. أنشئ مستودعًا وصنفًا ثم سجّل رصيد افتتاح أو استلام شراء.</div>
+    <section id="balances" class="active">
+      <h2>أرصدة المخزون</h2>
+      <div id="balance-empty" class="empty">لا توجد أرصدة بعد. أضف صنفًا ومستودعًا ثم سجّل استلامًا أو رصيدًا افتتاحيًا.</div>
+      <div class="wrap"><table id="balance-table" hidden><thead><tr><th data-sort="sku">الصنف</th><th data-sort="warehouse_code">المستودع</th><th data-sort="qty">الكمية</th><th data-sort="avg_cost">متوسط التكلفة</th><th data-sort="stock_value">قيمة المخزون</th><th data-sort="unit_margin">هامش الوحدة</th><th>تنبيه</th></tr></thead><tbody></tbody></table></div>
     </section>
 
-    <section id="panel-movements" class="hidden bg-white border rounded-2xl overflow-hidden shadow-sm">
-      <div class="p-3 border-b"><input id="movSearch" class="border rounded-lg px-3 py-2 w-full md:w-80" placeholder="بحث برقم الحركة أو الصنف"></div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-slate-500"><tr>
-            <th class="p-3 text-right">الرقم</th><th class="p-3 text-right">النوع</th><th class="p-3 text-right">الصنف</th>
-            <th class="p-3 text-right">المستودع</th><th class="p-3 text-right">الكمية</th>
-            <th class="p-3 text-right">التكلفة</th><th class="p-3 text-right">الحالة</th><th class="p-3"></th>
-          </tr></thead>
-          <tbody id="movBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="panel-warehouses" class="hidden bg-white border rounded-2xl overflow-hidden shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-slate-500"><tr>
-            <th class="p-3 text-right">الرمز</th><th class="p-3 text-right">الاسم</th><th class="p-3 text-right">الموقع</th><th class="p-3 text-right">الحالة</th>
-          </tr></thead>
-          <tbody id="whBody"></tbody>
-        </table>
-      </div>
-      <div id="whEmpty" class="hidden p-10 text-center text-slate-500">لا مستودعات. أنشئ أول مستودع لبدء الحركات.</div>
-    </section>
-  </div>
-
-  <div id="movModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
-      <h2 class="text-xl font-extrabold mb-4">حركة مخزنية</h2>
-      <form id="movForm" class="grid gap-3">
-        <label class="text-sm">النوع
-          <select id="m_type" class="mt-1 w-full border rounded-lg px-3 py-2">
-            <option value="OPENING">رصيد افتتاح</option>
-            <option value="IN">إدخال</option>
-            <option value="OUT">إخراج</option>
-            <option value="TRANSFER">تحويل</option>
-            <option value="ADJUST">تسوية جرد (+/-)</option>
-          </select>
-        </label>
-        <label class="text-sm">الصنف
-          <select id="m_product" required class="mt-1 w-full border rounded-lg px-3 py-2"></select>
-        </label>
-        <label class="text-sm">المستودع
-          <select id="m_warehouse" required class="mt-1 w-full border rounded-lg px-3 py-2"></select>
-        </label>
-        <label id="toWhWrap" class="text-sm hidden">إلى مستودع
-          <select id="m_warehouse_to" class="mt-1 w-full border rounded-lg px-3 py-2"></select>
-        </label>
-        <label class="text-sm">الكمية (للتسوية استخدم سالب للنقص)
-          <input id="m_qty" type="number" step="0.01" required class="mt-1 w-full border rounded-lg px-3 py-2 number-en">
-        </label>
-        <label class="text-sm">تكلفة الوحدة
-          <input id="m_cost" type="number" step="0.01" class="mt-1 w-full border rounded-lg px-3 py-2 number-en">
-        </label>
-        <label class="text-sm">ملاحظات<textarea id="m_notes" class="mt-1 w-full border rounded-lg px-3 py-2" rows="2"></textarea></label>
-        <div class="flex justify-end gap-2">
-          <button type="button" id="movCancel" class="px-4 py-2 border rounded-lg font-bold">إلغاء</button>
-          <button class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold">ترحيل الحركة</button>
-        </div>
+    <section id="items">
+      <h2>الأصناف والخدمات</h2>
+      <form id="item-form">
+        <input name="sku" placeholder="الرمز" required>
+        <input name="name_ar" placeholder="الاسم" required>
+        <select name="item_type"><option value="product">منتج مخزني</option><option value="service">خدمة</option></select>
+        <input name="category" placeholder="الفئة">
+        <select name="unit" required></select>
+        <input class="num" name="sale_price" type="number" min="0" step="0.01" placeholder="سعر البيع" value="0">
+        <input class="num" name="reorder_level" type="number" min="0" step="0.001" placeholder="حد إعادة الطلب" value="0">
+        <button class="btn primary" type="submit">حفظ الصنف</button>
       </form>
-    </div>
-  </div>
+      <input id="item-search" placeholder="بحث بالرمز أو الاسم أو الفئة">
+      <button class="btn" id="item-match" type="button">تحديد كل النتائج المطابقة</button>
+      <div id="item-empty" class="empty">لا توجد أصناف. أول سجل يُنشأ من النموذج أعلاه.</div>
+      <div class="wrap"><table id="item-table" hidden><thead><tr><th data-sort="sku">الرمز</th><th data-sort="name_ar">الاسم</th><th data-sort="item_type">النوع</th><th data-sort="category">الفئة</th><th data-sort="unit">الوحدة</th><th data-sort="sale_price">سعر البيع</th><th data-sort="reorder_level">حد الطلب</th></tr></thead><tbody></tbody></table></div>
+    </section>
 
+    <section id="alerts">
+      <h2>تنبيهات نقص المخزون</h2>
+      <p class="muted">يظهر الصنف عندما تكون الكمية عند حد إعادة الطلب أو أقل، وحد الطلب أكبر من صفر.</p>
+      <div id="alert-empty" class="empty">لا توجد تنبيهات. إما لا أرصدة، أو لم يُضبط حد إعادة الطلب.</div>
+      <div class="wrap"><table id="alert-table" hidden><thead><tr><th>الصنف</th><th>المستودع</th><th>الكمية</th><th>حد الطلب</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="valuation">
+      <h2>تقرير تقييم المخزون</h2>
+      <p class="muted">الطريقة: متوسط التكلفة المرجح. الإجمالي من الأرصدة المحفوظة فقط.</p>
+      <p id="valuation-total" class="muted"></p>
+      <div id="valuation-empty" class="empty">لا توجد قيمة مخزون لأن الأرصدة فارغة.</div>
+      <div class="wrap"><table id="valuation-table" hidden><thead><tr><th>الصنف</th><th>المستودع</th><th>الكمية</th><th>متوسط التكلفة</th><th>القيمة</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="units">
+      <h2>وحدات القياس</h2>
+      <form id="unit-form">
+        <input name="code" placeholder="الرمز، مثل PCS" required>
+        <input name="name_ar" placeholder="الاسم، مثل قطعة" required>
+        <button class="btn primary" type="submit">حفظ الوحدة</button>
+      </form>
+      <div id="unit-empty" class="empty">لا توجد وحدات. أنشئ أول وحدة قبل إضافة الأصناف.</div>
+      <div class="wrap"><table id="unit-table" hidden><thead><tr><th data-sort="code">الرمز</th><th data-sort="name_ar">الاسم</th><th data-sort="is_active">الحالة</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="warehouses">
+      <h2>المستودعات</h2>
+      <form id="wh-form">
+        <input name="code" placeholder="الرمز" required>
+        <input name="name_ar" placeholder="الاسم" required>
+        <button class="btn primary" type="submit">حفظ المستودع</button>
+      </form>
+      <div id="wh-empty" class="empty">لا توجد مستودعات.</div>
+      <div class="wrap"><table id="wh-table" hidden><thead><tr><th data-sort="code">الرمز</th><th data-sort="name_ar">الاسم</th><th data-sort="is_active">الحالة</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="moves">
+      <h2>تقرير الحركة والأذون</h2>
+      <form id="move-filter">
+        <select name="movement_type"><option value="">كل الأنواع</option><option>OPENING</option><option>IN</option><option>OUT</option><option>ADJUSTMENT</option><option>TRANSFER</option><option>RECEIPT</option><option>ISSUE</option><option>RETURN</option></select>
+        <input name="from" type="date">
+        <input name="to" type="date">
+        <button class="btn" type="submit">تصفية التقرير</button>
+      </form>
+      <form id="move-form">
+        <select name="item_id" required></select>
+        <select name="warehouse_id" required></select>
+        <select name="counter_warehouse_id"><option value="">مستودع الوجهة للتحويل</option></select>
+        <select name="movement_type">
+          <option value="OPENING">رصيد افتتاحي</option>
+          <option value="IN">إدخال</option>
+          <option value="OUT">إخراج</option>
+          <option value="ADJUSTMENT">تسوية جرد</option>
+          <option value="TRANSFER">تحويل</option>
+        </select>
+        <select name="direction"><option value="in">اتجاه الإدخال</option><option value="out">اتجاه الإخراج</option></select>
+        <input class="num" name="quantity" type="number" min="0.001" step="0.001" placeholder="الكمية" required>
+        <input class="num" name="unit_cost" type="number" min="0" step="0.0001" placeholder="تكلفة الوحدة للإدخال">
+        <input name="reason" placeholder="السبب للإخراج أو التسوية">
+        <button class="btn primary" type="submit">ترحيل الحركة</button>
+      </form>
+      <p class="muted">الإدخال اليدوي لا ينشئ قيدًا. الاستلام والصرف والمرتجع من تبويب الربط المحاسبي.</p>
+      <div id="move-empty" class="empty">لا توجد حركات.</div>
+      <div class="wrap"><table id="move-table" hidden><thead><tr><th data-sort="document_no">المستند</th><th data-sort="movement_type">النوع</th><th data-sort="sku">الصنف</th><th data-sort="warehouse_code">المستودع</th><th data-sort="direction">الاتجاه</th><th data-sort="quantity">الكمية</th><th data-sort="unit_cost">التكلفة</th><th data-sort="source_id">المصدر</th><th data-sort="journal_entry_id">القيد</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="links">
+      <h2>ربط المشتريات والمبيعات والقيود</h2>
+      <p class="muted">استخدم أوامر الشراء والفواتير الموجودة. الرصيد يتحرك عند الاستلام أو الصرف فقط، ومعهما قيد متوازن إذا اكتمل ربط الحسابات.</p>
+      <h3>حسابات الأثر المالي</h3>
+      <form id="map-form">
+        <input class="num" name="inventory_account_id" type="number" placeholder="حساب المخزون" required>
+        <input class="num" name="grni_account_id" type="number" placeholder="حساب الوسيط / الدائنون" required>
+        <input class="num" name="cogs_account_id" type="number" placeholder="حساب تكلفة المبيعات" required>
+        <input name="currency_code" placeholder="العملة، مثل SAR" value="SAR" maxlength="3">
+        <button class="btn primary" type="submit">حفظ الربط</button>
+      </form>
+      <p id="map-now" class="muted"></p>
+      <h3>استلام أمر شراء معتمد</h3>
+      <form id="receipt-form">
+        <input class="num" name="po_id" type="number" placeholder="رقم أمر الشراء" required>
+        <select name="warehouse_id" required></select>
+        <select name="item_id" required></select>
+        <input class="num" name="quantity" type="number" min="0.001" step="0.001" placeholder="الكمية" required>
+        <input class="num" name="unit_cost" type="number" min="0" step="0.0001" placeholder="تكلفة الوحدة" required>
+        <input class="num" name="cost_center_id" type="number" placeholder="مركز التكلفة">
+        <input name="currency_code" placeholder="العملة" value="SAR">
+        <button class="btn primary" type="submit">ترحيل الاستلام</button>
+      </form>
+      <h3>صرف فاتورة مبيعات مصدرة</h3>
+      <form id="issue-form">
+        <input class="num" name="invoice_id" type="number" placeholder="رقم الفاتورة" required>
+        <select name="warehouse_id" required></select>
+        <select name="item_id" required></select>
+        <input class="num" name="quantity" type="number" min="0.001" step="0.001" placeholder="الكمية" required>
+        <input class="num" name="cost_center_id" type="number" placeholder="مركز التكلفة">
+        <button class="btn primary" type="submit">ترحيل الصرف</button>
+      </form>
+      <h3>مرتجع أو إلغاء منضبط</h3>
+      <form id="return-form">
+        <input class="num" name="document_id" type="number" placeholder="مستند المخزون الأصلي" required>
+        <select name="item_id" required></select>
+        <select name="warehouse_id" required></select>
+        <input class="num" name="quantity" type="number" min="0.001" step="0.001" placeholder="الكمية" required>
+        <input name="reason" placeholder="سبب المرتجع" required>
+        <button class="btn primary" type="submit">ترحيل المرتجع</button>
+      </form>
+      <h3>تتبع المستند</h3>
+      <form id="trace-form">
+        <select name="from_type">
+          <option value="PURCHASE_ORDER">أمر شراء</option>
+          <option value="SALES_INVOICE">فاتورة مبيعات</option>
+          <option value="STOCK_DOCUMENT">مستند مخزون</option>
+          <option value="JOURNAL_ENTRY">قيد</option>
+        </select>
+        <input name="from_id" placeholder="المعرّف" required>
+        <button class="btn" type="submit">عرض السلسلة</button>
+      </form>
+      <pre id="trace-out" class="trace"></pre>
+    </section>
+  </main>
+  <script src="/finance/record-actions.js"></script>
   <script>
-    const API = location.origin;
-    let ENTITY = '';
-    let products = [], warehouses = [], balances = [], movements = [];
+    const state = { items: [], warehouses: [], units: [], movements: [], requestId: null, receiptId: null, issueId: null, returnId: null };
+    const msg = document.getElementById('msg');
+    const actionsApi = window.NaioshRecordActions;
+    function say(text, ok) { msg.textContent = text || ''; msg.className = 'msg ' + (ok ? 'ok' : 'err'); }
+    function n(value) { return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 4 }); }
+    function text(value) { return actionsApi.escapeHtml(value); }
+    async function api(path, options) {
+      const res = await fetch(path, Object.assign({ credentials: 'include', headers: { 'Content-Type': 'application/json' } }, options || {}));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || 'تعذر تنفيذ العملية');
+      return data;
+    }
+    function masterActions(row) {
+      return [
+        { id: 'view', label: 'عرض' },
+        { id: 'edit', label: 'تعديل' },
+        { id: 'copy', label: 'نسخ' },
+        { id: 'toggle', label: row.is_active ? 'تعطيل' : 'تفعيل' },
+        row.delete_block_reason
+          ? { id: 'delete', label: 'حذف', disabled: true, reason: row.delete_block_reason }
+          : { id: 'delete', label: 'حذف', danger: true }
+      ];
+    }
+    const itemTable = actionsApi.bind({
+      table: document.getElementById('item-table'),
+      emptyEl: document.getElementById('item-empty'),
+      getId: (row) => row.item_id,
+      sortValue: (row, key) => key === 'sale_price' || key === 'reorder_level' ? Number(row[key]) : String(row[key] || ''),
+      exportName: 'items.csv',
+      exportHeaders: [{ key: 'sku', label: 'الرمز' }, { key: 'name_ar', label: 'الاسم' }],
+      cells: (item) => `<td class="num">${text(item.sku)}</td><td>${text(item.name_ar)}</td><td>${item.item_type === 'service' ? 'خدمة' : 'منتج'}</td><td>${text(item.category || '')}</td><td class="num">${text(item.unit)}</td><td class="num">${n(item.sale_price)}</td><td class="num">${n(item.reorder_level)}</td>`,
+      actions: (item) => item.item_type === 'service' ? masterActions(item).filter((action) => action.id !== 'copy' || true) : masterActions(item),
+      bulk: [{ id: 'deactivate', label: 'تعطيل المحدد' }, { id: 'activate', label: 'تفعيل المحدد' }],
+      onAction: (action, row) => act('item', action, row),
+      onBulk: (action, ids) => bulk('item', action, ids)
+    });
+    const unitTable = actionsApi.bind({
+      table: document.getElementById('unit-table'),
+      emptyEl: document.getElementById('unit-empty'),
+      getId: (row) => row.unit_id,
+      sortValue: (row, key) => key === 'is_active' ? (row.is_active ? 1 : 0) : String(row[key] || ''),
+      exportName: 'units.csv',
+      exportHeaders: [{ key: 'code', label: 'الرمز' }, { key: 'name_ar', label: 'الاسم' }],
+      cells: (unit) => `<td class="num">${text(unit.code)}</td><td>${text(unit.name_ar)}</td><td>${unit.is_active ? 'نشطة' : 'موقوفة'}</td>`,
+      actions: (unit) => masterActions(unit).filter((action) => action.id !== 'copy'),
+      bulk: [{ id: 'deactivate', label: 'تعطيل المحدد' }, { id: 'activate', label: 'تفعيل المحدد' }],
+      onAction: (action, row) => act('unit', action, row),
+      onBulk: (action, ids) => bulk('unit', action, ids)
+    });
+    const whTable = actionsApi.bind({
+      table: document.getElementById('wh-table'),
+      emptyEl: document.getElementById('wh-empty'),
+      getId: (row) => row.warehouse_id,
+      sortValue: (row, key) => key === 'is_active' ? (row.is_active ? 1 : 0) : String(row[key] || ''),
+      exportName: 'warehouses.csv',
+      exportHeaders: [{ key: 'code', label: 'الرمز' }, { key: 'name_ar', label: 'الاسم' }],
+      cells: (wh) => `<td class="num">${text(wh.code)}</td><td>${text(wh.name_ar)}</td><td>${wh.is_active ? 'نشط' : 'موقوف'}</td>`,
+      actions: (wh) => masterActions(wh).filter((action) => action.id !== 'copy'),
+      bulk: [{ id: 'deactivate', label: 'تعطيل المحدد' }, { id: 'activate', label: 'تفعيل المحدد' }],
+      onAction: (action, row) => act('warehouse', action, row),
+      onBulk: (action, ids) => bulk('warehouse', action, ids)
+    });
+    const balanceTable = actionsApi.bind({
+      table: document.getElementById('balance-table'),
+      emptyEl: document.getElementById('balance-empty'),
+      getId: (row) => row.item_id + '-' + row.warehouse_id,
+      sortValue: (row, key) => ['qty', 'avg_cost', 'stock_value', 'unit_margin'].includes(key) ? Number(row[key] || 0) : String(row[key] || ''),
+      exportName: 'balances.csv',
+      exportHeaders: [{ key: 'sku', label: 'الصنف' }, { key: 'qty', label: 'الكمية' }, { key: 'avg_cost', label: 'التكلفة' }],
+      cells: (row) => `<td>${text(row.sku)} — ${text(row.name_ar)}</td><td>${text(row.warehouse_code)}</td><td class="num">${n(row.qty)} ${text(row.unit)}</td><td class="num">${n(row.avg_cost)}</td><td class="num">${n(row.stock_value)}</td><td class="num">${n(row.unit_margin)}</td><td>${Number(row.reorder_level) > 0 && Number(row.qty) <= Number(row.reorder_level) ? 'تحت حد الطلب' : ''}</td>`,
+      actions: () => [{ id: 'view', label: 'عرض' }, { id: 'delete', disabled: true, reason: 'الرصيد نتيجة الحركات ولا يُحذف من هنا.' }],
+      bulk: [],
+      onAction: async (action, row) => { if (action === 'view') await actionsApi.show(row.sku, `<p>الكمية ${n(row.qty)} ومتوسط التكلفة ${n(row.avg_cost)}</p>`); },
+      onBulk: async () => {}
+    });
+    const alertTable = actionsApi.bind({
+      table: document.getElementById('alert-table'),
+      emptyEl: document.getElementById('alert-empty'),
+      getId: (row) => row.item_id + '-' + row.warehouse_id,
+      sortValue: (row, key) => String(row[key] || ''),
+      cells: (row) => `<td>${text(row.sku)} — ${text(row.name_ar)}</td><td>${text(row.warehouse_code)}</td><td class="num">${n(row.qty)}</td><td class="num">${n(row.reorder_level)}</td>`,
+      actions: () => [{ id: 'view', label: 'عرض' }],
+      bulk: [],
+      onAction: async (action, row) => { if (action === 'view') await actionsApi.show(row.sku, `<p>الكمية ${n(row.qty)} وحد الطلب ${n(row.reorder_level)}</p>`); },
+      onBulk: async () => {}
+    });
+    const valuationTable = actionsApi.bind({
+      table: document.getElementById('valuation-table'),
+      emptyEl: document.getElementById('valuation-empty'),
+      getId: (row) => row.item_id + '-' + row.warehouse_id,
+      sortValue: (row, key) => String(row[key] || ''),
+      exportName: 'valuation.csv',
+      exportHeaders: [{ key: 'sku', label: 'الصنف' }, { key: 'stock_value', label: 'القيمة' }],
+      cells: (row) => `<td>${text(row.sku)}</td><td>${text(row.warehouse_code)}</td><td class="num">${n(row.qty)}</td><td class="num">${n(row.avg_cost)}</td><td class="num">${n(row.stock_value)}</td>`,
+      actions: () => [{ id: 'view', label: 'عرض' }],
+      bulk: [],
+      onAction: async (action, row) => { if (action === 'view') await actionsApi.show(row.sku, `<p>القيمة ${n(row.stock_value)}</p>`); },
+      onBulk: async () => {}
+    });
+    const moveTable = actionsApi.bind({
+      table: document.getElementById('move-table'),
+      emptyEl: document.getElementById('move-empty'),
+      getId: (row) => row.movement_id,
+      sortValue: (row, key) => ['quantity', 'unit_cost', 'journal_entry_id'].includes(key) ? Number(row[key] || 0) : String(row[key] || ''),
+      exportName: 'movements.csv',
+      exportHeaders: [{ key: 'document_no', label: 'المستند' }, { key: 'sku', label: 'الصنف' }, { key: 'quantity', label: 'الكمية' }],
+      cells: (row) => `<td class="num">${text(row.document_no)}</td><td>${text(row.movement_type)}</td><td>${text(row.sku)}</td><td class="num">${text(row.warehouse_code)}</td><td>${row.direction === 'in' ? 'إدخال' : 'إخراج'}</td><td class="num">${n(row.quantity)}</td><td class="num">${n(row.unit_cost)}</td><td>${text(row.source_type || '')} ${text(row.source_id || '')}</td><td class="num">${text(row.journal_entry_id || '—')}</td>`,
+      actions: () => [{ id: 'view', label: 'عرض' }, { id: 'delete', disabled: true, reason: 'الحركة المعتمدة لا تُحذف ولا تُعدَّل. استخدم مرتجعًا.' }],
+      bulk: [],
+      onAction: async (action, row) => {
+        if (action !== 'view') return;
+        const data = await api('/finance/inventory/documents/' + row.document_id);
+        const journal = data.journal;
+        await actionsApi.show(row.document_no, `<p>المصدر: ${text(data.document.source_type || '—')} ${text(data.document.source_id || '')}</p><p>القيد: ${journal ? text(journal.entry.entry_number) + ' / متوازن: ' + (journal.balanced ? 'نعم' : 'لا') : 'لا يوجد قيد لهذه الحركة اليدوية'}</p>`);
+      },
+      onBulk: async () => {}
+    });
 
-    function headers() {
-      return { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) };
+    function filteredItems() {
+      const q = document.getElementById('item-search').value.trim().toLowerCase();
+      return state.items.filter((item) => !q || `${item.sku} ${item.name_ar} ${item.category || ''} ${item.unit || ''}`.toLowerCase().includes(q));
     }
-    function qs(extra = '') {
-      const base = ENTITY ? `entity_id=${encodeURIComponent(ENTITY)}` : '';
-      if (!extra) return base ? `?${base}` : '';
-      return `?${base ? base + '&' : ''}${extra}`;
+    async function act(type, action, row) {
+      const id = row[type === 'item' ? 'item_id' : type === 'unit' ? 'unit_id' : 'warehouse_id'];
+      const path = '/finance/inventory/' + (type === 'item' ? 'items' : type === 'unit' ? 'units' : 'warehouses') + '/' + id;
+      try {
+        if (action === 'view') {
+          const data = await api(path);
+          const audit = (data.audit || []).slice(0, 8).map((entry) => `<li>${text(entry.action)} — ${text(entry.actor || '')} — ${text(entry.created_at || '')}</li>`).join('');
+          await actionsApi.show('تفاصيل السجل', `<p>${text(JSON.stringify(data.item || data.unit || data.warehouse))}</p><ul>${audit || '<li>لا سجل بعد</li>'}</ul>`);
+        } else if (action === 'edit') {
+          const values = await actionsApi.form('تعديل', type === 'item'
+            ? [{ name: 'name_ar', label: 'الاسم', value: row.name_ar }, { name: 'category', label: 'الفئة', value: row.category || '' }, { name: 'sale_price', label: 'سعر البيع', value: row.sale_price, type: 'number' }, { name: 'reorder_level', label: 'حد الطلب', value: row.reorder_level, type: 'number' }]
+            : [{ name: 'name_ar', label: 'الاسم', value: row.name_ar }]);
+          if (!values) return;
+          await api(path, { method: 'PUT', body: JSON.stringify(values) });
+          say('تم حفظ التعديل.', true);
+          await loadAll();
+        } else if (action === 'copy') {
+          const values = await actionsApi.form('نسخ الصنف', [{ name: 'sku', label: 'رمز جديد', value: row.sku + '-COPY' }]);
+          if (!values) return;
+          await api(path + '/copy', { method: 'POST', body: JSON.stringify(values) });
+          say('تم نسخ الصنف بدون رصيد.', true);
+          await loadAll();
+        } else if (action === 'toggle') {
+          await api(path, { method: 'PUT', body: JSON.stringify({ is_active: !row.is_active }) });
+          say(row.is_active ? 'تم التعطيل.' : 'تم التفعيل.', true);
+          await loadAll();
+        } else if (action === 'delete') {
+          if (!(await actionsApi.confirm('حذف هذا السجل نهائيًا؟'))) return;
+          await api(path, { method: 'DELETE' });
+          say('تم الحذف.', true);
+          await loadAll();
+        }
+      } catch (error) { say(error.message, false); }
     }
-    function showAlert(msg, ok) {
-      const el = document.getElementById('alert');
-      el.className = `mb-4 rounded-xl border px-4 py-3 text-sm font-bold ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`;
-      el.textContent = msg;
-      el.classList.remove('hidden');
+    async function bulk(type, action, ids) {
+      if (!ids.length) return;
+      if (!(await actionsApi.confirm('تنفيذ الإجراء على ' + ids.length + ' سجل؟ كل سجل يُفحص وحده.'))) return;
+      try {
+        const result = await api('/finance/inventory/bulk', { method: 'POST', body: JSON.stringify({ record_type: type, action, ids }) });
+        const failed = (result.results || []).filter((row) => !row.ok).map((row) => row.error).join(' ');
+        say(failed ? 'نجح ' + result.updated + ' وفشل الباقي: ' + failed : 'تم تحديث ' + result.updated + ' سجل.', !failed);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
     }
-    function setTab(tab) {
-      ['balances','movements','warehouses'].forEach(t => {
-        document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
-      });
-      document.querySelectorAll('.tabBtn').forEach(btn => {
-        const on = btn.dataset.tab === tab;
-        btn.className = `tabBtn px-4 py-2 rounded-lg font-bold ${on ? 'bg-slate-900 text-white' : 'bg-white border'}`;
-      });
+    async function loadMovements() {
+      const filter = Object.fromEntries(new FormData(document.getElementById('move-filter')).entries());
+      const query = new URLSearchParams();
+      if (filter.movement_type) query.set('movement_type', filter.movement_type);
+      if (filter.from) query.set('from', filter.from);
+      if (filter.to) query.set('to', filter.to);
+      const movements = await api('/finance/inventory/movements' + (query.toString() ? '?' + query : ''));
+      state.movements = movements.movements;
+      moveTable.paint(state.movements);
     }
     function fillSelects() {
-      const pOpts = products.filter(p => p.track_inventory && p.is_active).map(p => `<option value="${p.product_id}">${p.sku} — ${p.name_ar}</option>`).join('');
-      const wOpts = warehouses.filter(w => w.is_active).map(w => `<option value="${w.warehouse_id}">${w.code} — ${w.name_ar}</option>`).join('');
-      document.getElementById('m_product').innerHTML = pOpts || '<option value="">لا أصناف متابَعة</option>';
-      document.getElementById('m_warehouse').innerHTML = wOpts || '<option value="">لا مستودعات</option>';
-      document.getElementById('m_warehouse_to').innerHTML = wOpts;
-    }
-    function renderBalances() {
-      const body = document.getElementById('balBody');
-      document.getElementById('balEmpty').classList.toggle('hidden', balances.length > 0);
-      body.innerHTML = balances.map(b => {
-        const low = Number(b.quantity) <= Number(b.reorder_level);
-        return `<tr class="border-t ${low ? 'bg-amber-50' : ''}">
-          <td class="p-3"><span class="font-bold number-en">${b.sku}</span> ${b.name_ar}</td>
-          <td class="p-3">${b.warehouse_name}</td>
-          <td class="p-3 number-en font-bold">${Number(b.quantity).toFixed(2)} ${b.unit || ''}</td>
-          <td class="p-3 number-en">${Number(b.avg_cost).toFixed(2)}</td>
-          <td class="p-3 number-en">${Number(b.stock_value).toFixed(2)}</td>
-          <td class="p-3 number-en">${Number(b.reorder_level).toFixed(2)}${low ? ' ⚠' : ''}</td>
-        </tr>`;
-      }).join('');
-    }
-    function renderMovements() {
-      const q = document.getElementById('movSearch').value.trim().toLowerCase();
-      const list = movements.filter(m => !q || [m.movement_number, m.sku, m.product_name].join(' ').toLowerCase().includes(q));
-      document.getElementById('movBody').innerHTML = list.map(m => `
-        <tr class="border-t">
-          <td class="p-3 number-en font-bold">${m.movement_number}</td>
-          <td class="p-3">${m.movement_type}</td>
-          <td class="p-3">${m.sku} — ${m.product_name}</td>
-          <td class="p-3">${m.warehouse_name}${m.warehouse_to_name ? ' → ' + m.warehouse_to_name : ''}</td>
-          <td class="p-3 number-en">${Number(m.quantity).toFixed(2)}</td>
-          <td class="p-3 number-en">${Number(m.unit_cost).toFixed(2)}</td>
-          <td class="p-3">${m.status}</td>
-          <td class="p-3">${m.status === 'POSTED' ? `<button class="text-rose-700 font-bold" data-cancel="${m.movement_id}">إلغاء</button>` : '-'}</td>
-        </tr>`).join('') || '<tr><td colspan="8" class="p-6 text-center text-slate-400">لا حركات</td></tr>';
-      document.querySelectorAll('[data-cancel]').forEach(btn => btn.onclick = () => cancelMov(btn.dataset.cancel));
-    }
-    function renderWarehouses() {
-      document.getElementById('whEmpty').classList.toggle('hidden', warehouses.length > 0);
-      document.getElementById('whBody').innerHTML = warehouses.map(w => `
-        <tr class="border-t"><td class="p-3 number-en font-bold">${w.code}</td><td class="p-3">${w.name_ar}</td>
-        <td class="p-3">${w.location || '-'}</td><td class="p-3">${w.is_active ? 'نشط' : 'موقوف'}</td></tr>`).join('');
+      const unitSelect = document.querySelector('#item-form [name=unit]');
+      unitSelect.innerHTML = state.units.filter((unit) => unit.is_active).map((unit) => `<option value="${text(unit.code)}">${text(unit.code)} — ${text(unit.name_ar)}</option>`).join('');
+      const itemOptions = state.items.filter((item) => item.is_stocked && item.is_active).map((item) => `<option value="${item.item_id}">${text(item.sku)} — ${text(item.name_ar)}</option>`).join('');
+      const whOptions = state.warehouses.filter((wh) => wh.is_active).map((wh) => `<option value="${wh.warehouse_id}">${text(wh.code)} — ${text(wh.name_ar)}</option>`).join('');
+      document.querySelectorAll('[name=item_id]').forEach((select) => { select.innerHTML = itemOptions; });
+      document.querySelectorAll('[name=warehouse_id]').forEach((select) => { select.innerHTML = whOptions; });
+      const dest = document.querySelector('[name=counter_warehouse_id]');
+      dest.innerHTML = '<option value="">مستودع الوجهة للتحويل</option>' + whOptions;
     }
     async function loadAll() {
-      const low = document.getElementById('lowOnly').checked ? 'low_stock=1' : '';
-      const [sum, bal, mov, wh, prod] = await Promise.all([
-        fetch(`${API}/finance/inventory/summary${qs()}`, { headers: headers() }).then(r => r.json()),
-        fetch(`${API}/finance/inventory/balances${qs(low)}`, { headers: headers() }).then(r => r.json()),
-        fetch(`${API}/finance/inventory/movements${qs()}`, { headers: headers() }).then(r => r.json()),
-        fetch(`${API}/finance/inventory/warehouses${qs()}`, { headers: headers() }).then(r => r.json()),
-        fetch(`${API}/finance/inventory/products${qs('active=1')}`, { headers: headers() }).then(r => r.json())
+      const [items, warehouses, units, balances, map] = await Promise.all([
+        api('/finance/inventory/items'),
+        api('/finance/inventory/warehouses'),
+        api('/finance/inventory/units'),
+        api('/finance/inventory/balances'),
+        api('/finance/inventory/account-map')
       ]);
-      if (!sum.success) { showAlert(sum.error || 'فشل الملخص', false); return; }
-      const s = sum.summary || {};
-      document.getElementById('sProducts').textContent = s.active_products ?? 0;
-      document.getElementById('sWarehouses').textContent = s.active_warehouses ?? 0;
-      document.getElementById('sQty').textContent = Number(s.on_hand_qty || 0).toFixed(2);
-      document.getElementById('sValue').textContent = Number(s.stock_value || 0).toFixed(2);
-      document.getElementById('sLow').textContent = s.low_stock_count ?? 0;
-      balances = bal.balances || [];
-      movements = mov.movements || [];
-      warehouses = wh.warehouses || [];
-      products = prod.products || [];
+      state.items = items.items;
+      state.warehouses = warehouses.warehouses;
+      state.units = units.units;
+      itemTable.paint(filteredItems());
+      unitTable.paint(state.units);
+      whTable.paint(state.warehouses);
+      balanceTable.paint(balances.balances);
+      alertTable.paint(balances.low_stock);
+      valuationTable.paint(balances.balances);
+      document.getElementById('valuation-total').textContent = balances.balances.length ? 'إجمالي قيمة المخزون: ' + n(balances.total_value) : '';
+      document.getElementById('map-now').textContent = map.account_map ? 'الربط الحالي محفوظ للعملة ' + map.account_map.currency_code : 'لم يُحفظ ربط محاسبي لهذا الكيان بعد.';
       fillSelects();
-      renderBalances();
-      renderMovements();
-      renderWarehouses();
+      await loadMovements();
     }
-    async function cancelMov(id) {
-      const reason = prompt('سبب إلغاء الحركة (إلزامي)');
-      if (!reason) return;
-      const res = await fetch(`${API}/finance/inventory/movements/${id}/cancel${qs()}`, {
-        method: 'POST', headers: headers(), body: JSON.stringify({ reason, entity_id: ENTITY || undefined })
+    document.querySelectorAll('nav button').forEach((button) => button.addEventListener('click', () => {
+      document.querySelectorAll('nav button').forEach((el) => el.classList.remove('active'));
+      document.querySelectorAll('main section').forEach((el) => el.classList.remove('active'));
+      button.classList.add('active');
+      document.getElementById(button.dataset.tab).classList.add('active');
+      history.replaceState(null, '', '#' + button.dataset.tab);
+    }));
+    document.getElementById('item-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.target).entries());
+      try {
+        await api('/finance/inventory/items', { method: 'POST', body: JSON.stringify(data) });
+        event.target.reset();
+        say('تم حفظ الصنف.', true);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+    document.getElementById('item-search').addEventListener('input', () => itemTable.paint(filteredItems()));
+    document.getElementById('item-match').addEventListener('click', () => {
+      const rows = filteredItems();
+      itemTable.selectIds(rows.map((row) => row.item_id));
+      say('تم تحديد ' + rows.length + ' سجلًا مطابقًا للبحث.', true);
+    });
+    document.getElementById('unit-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await api('/finance/inventory/units', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.target).entries())) });
+        event.target.reset();
+        say('تم حفظ وحدة القياس.', true);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+    document.getElementById('wh-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await api('/finance/inventory/warehouses', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.target).entries())) });
+        event.target.reset();
+        say('تم حفظ المستودع.', true);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+    document.getElementById('move-filter').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try { await loadMovements(); say('تم تحديث تقرير الحركة.', true); } catch (error) { say(error.message, false); }
+    });
+    document.getElementById('move-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!state.requestId) state.requestId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+      const data = Object.fromEntries(new FormData(event.target).entries());
+      data.client_request_id = state.requestId;
+      try {
+        const result = await api('/finance/inventory/movements', { method: 'POST', body: JSON.stringify(data) });
+        state.requestId = null;
+        say(result.replayed ? 'هذه الحركة مسجلة مسبقًا ولم تتكرر.' : 'تم ترحيل الحركة ' + result.document.document_no + '. لم يُنشأ قيد محاسبي.', true);
+        event.target.reset();
+        await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+    async function linkedSubmit(formId, key, path, build) {
+      document.getElementById(formId).addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state[key]) state[key] = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        data.client_request_id = state[key];
+        try {
+          const result = await api(path, { method: 'POST', body: JSON.stringify(build(data)) });
+          state[key] = null;
+          const journal = result.journal && result.journal.entry ? result.journal.entry.entry_number : 'بدون قيد';
+          say((result.replayed ? 'الطلب مكرر ولم يُرحَّل مرة ثانية. ' : 'تم الترحيل ') + result.document.document_no + ' / ' + journal, true);
+          await loadAll();
+        } catch (error) { say(error.message, false); }
       });
-      const data = await res.json();
-      if (!res.ok) { showAlert(data.error || 'فشل الإلغاء', false); return; }
-      showAlert('تم إلغاء الحركة وعكس الرصيد', true);
-      await loadAll();
     }
-
-    document.querySelectorAll('.tabBtn').forEach(btn => btn.onclick = () => setTab(btn.dataset.tab));
-    document.getElementById('btnRefresh').onclick = loadAll;
-    document.getElementById('lowOnly').onchange = loadAll;
-    document.getElementById('movSearch').oninput = renderMovements;
-    document.getElementById('m_type').onchange = () => {
-      document.getElementById('toWhWrap').classList.toggle('hidden', document.getElementById('m_type').value !== 'TRANSFER');
-    };
-    document.getElementById('btnWarehouse').onclick = async () => {
-      const name_ar = prompt('اسم المستودع');
-      if (!name_ar) return;
-      const code = prompt('رمز المستودع (اختياري)') || undefined;
-      const location = prompt('الموقع (اختياري)') || undefined;
-      const res = await fetch(`${API}/finance/inventory/warehouses`, {
-        method: 'POST', headers: headers(),
-        body: JSON.stringify({ name_ar, code, location, entity_id: ENTITY || undefined })
-      });
-      const data = await res.json();
-      if (!res.ok) { showAlert(data.error || 'فشل', false); return; }
-      showAlert('تم إنشاء المستودع', true);
-      await loadAll();
-    };
-    document.getElementById('btnMovement').onclick = () => {
-      fillSelects();
-      document.getElementById('movModal').classList.remove('hidden');
-      document.getElementById('movModal').classList.add('flex');
-    };
-    document.getElementById('movCancel').onclick = () => {
-      document.getElementById('movModal').classList.add('hidden');
-      document.getElementById('movModal').classList.remove('flex');
-    };
-    document.getElementById('movForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const body = {
-        entity_id: ENTITY || undefined,
-        movement_type: document.getElementById('m_type').value,
-        product_id: Number(document.getElementById('m_product').value),
-        warehouse_id: Number(document.getElementById('m_warehouse').value),
-        warehouse_to_id: document.getElementById('m_type').value === 'TRANSFER'
-          ? Number(document.getElementById('m_warehouse_to').value) : undefined,
-        quantity: Number(document.getElementById('m_qty').value),
-        unit_cost: document.getElementById('m_cost').value === '' ? undefined : Number(document.getElementById('m_cost').value),
-        notes: document.getElementById('m_notes').value.trim(),
-        reference_type: 'MANUAL'
-      };
-      const res = await fetch(`${API}/finance/inventory/movements`, {
-        method: 'POST', headers: headers(), body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      if (!res.ok) { showAlert(data.error || 'فشل ترحيل الحركة', false); return; }
-      document.getElementById('movCancel').click();
-      showAlert('تم ترحيل الحركة', true);
-      await loadAll();
-    };
-
-    function boot() {
-      ENTITY = window.getFinanceEntityId ? window.getFinanceEntityId() : '';
-      setTab('balances');
-      loadAll();
-    }
-    if (window.whenFinanceContextReady) window.whenFinanceContextReady(boot);
-    else boot();
+    document.getElementById('map-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await api('/finance/inventory/account-map', { method: 'PUT', body: JSON.stringify(Object.fromEntries(new FormData(event.target).entries())) });
+        say('تم حفظ ربط الحسابات.', true);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+    linkedSubmit('receipt-form', 'receiptId', '/finance/inventory/receipts', (data) => ({
+      po_id: Number(data.po_id), warehouse_id: Number(data.warehouse_id), cost_center_id: data.cost_center_id || null,
+      currency_code: data.currency_code, client_request_id: data.client_request_id,
+      lines: [{ item_id: Number(data.item_id), quantity: Number(data.quantity), unit_cost: Number(data.unit_cost) }]
+    }));
+    linkedSubmit('issue-form', 'issueId', '/finance/inventory/issues', (data) => ({
+      invoice_id: Number(data.invoice_id), warehouse_id: Number(data.warehouse_id), cost_center_id: data.cost_center_id || null,
+      client_request_id: data.client_request_id,
+      lines: [{ item_id: Number(data.item_id), quantity: Number(data.quantity) }]
+    }));
+    linkedSubmit('return-form', 'returnId', '/finance/inventory/returns', (data) => ({
+      document_id: Number(data.document_id), reason: data.reason, client_request_id: data.client_request_id,
+      lines: [{ item_id: Number(data.item_id), warehouse_id: Number(data.warehouse_id), quantity: Number(data.quantity) }]
+    }));
+    document.getElementById('trace-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.target).entries());
+      try {
+        const result = await api('/finance/inventory/trace?from_type=' + encodeURIComponent(data.from_type) + '&from_id=' + encodeURIComponent(data.from_id));
+        document.getElementById('trace-out').textContent = JSON.stringify(result.nodes, null, 2);
+        say('تم تحميل سلسلة المستندات.', true);
+      } catch (error) { say(error.message, false); }
+    });
+    const initial = (location.hash || '#balances').slice(1);
+    const initialButton = document.querySelector(`nav button[data-tab="${initial}"]`);
+    if (initialButton) initialButton.click();
+    loadAll().catch((error) => say(error.message, false));
   </script>
 </body>
 </html>
