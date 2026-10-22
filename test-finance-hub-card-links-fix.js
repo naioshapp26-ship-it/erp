@@ -2,7 +2,7 @@
 
 /**
  * Validate Finance Leadership 360 card-link honesty fix (no deploy).
- * - deposits must resolve to coming-soon (not localStorage page)
+ * - deposits open the Postgres ledger, not the old localStorage page
  * - balance-sheet must not be marked operational
  * - settings print/numbering/page-settings not operational
  * - core finance backends still load for HQ session
@@ -82,13 +82,9 @@ async function main() {
   fs.mkdirSync(ART, { recursive: true });
 
   const deposits = getPage('sales', 'deposits');
-  if (!deposits || deposits.status !== 'coming_soon' || deposits.href) {
-    fail('deposits-no-local-href', JSON.stringify(deposits));
-  } else {
-    const href = resolveHref(deposits, 'sales');
-    if (href.includes('leadership-coming-soon')) pass('deposits-no-local-href', href);
-    else fail('deposits-no-local-href', href);
-  }
+  if (deposits && deposits.status === 'operational' && deposits.href === '/finance/deposits.html') {
+    pass('deposits-operational', deposits.href);
+  } else fail('deposits-operational', JSON.stringify(deposits));
 
   const bs = getPage('reports', 'balance-sheet');
   if (bs && bs.status === 'partial' && bs.href === '/finance/balance-sheet.html') {

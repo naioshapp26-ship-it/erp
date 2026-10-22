@@ -29,7 +29,7 @@
       label: 'المبيعات',
       icon: 'fa-cart-shopping',
       pages: [
-        { id: 'pos', label: 'نقاط البيع', status: 'coming_soon', href: null },
+        { id: 'pos', label: 'نقاط البيع', status: 'operational', href: '/finance/pos.html', note: 'تذاكر بيع محفوظة في Postgres. بلا بوابة دفع خارجية.' },
         {
           id: 'quotes',
           label: 'عروض ترويجية سريعة',
@@ -45,8 +45,8 @@
           note: 'إنشاء/تعديل/حذف فواتير + سداد مخصص + خطة دفع + إنشاء ميزانية'
         },
         { id: 'installments', label: 'الأقساط', status: 'operational', href: '/finance/plan-installments.html' },
-        { id: 'targets-commissions', label: 'المبيعات المستهدفة والعمولات', status: 'coming_soon', href: null },
-        { id: 'e-invoice', label: 'الفاتورة الإلكترونية', status: 'coming_soon', href: null },
+        { id: 'targets-commissions', label: 'المبيعات المستهدفة والعمولات', status: 'operational', href: '/finance/sales-targets.html', note: 'الهدف يُقارن بمجموع فواتير الفترة. العمولات في /finance/commissions.html' },
+        { id: 'e-invoice', label: 'الفاتورة الإلكترونية', status: 'partial', href: '/finance/e-invoice-queue.html', note: 'طابور محلي مرتبط برقم فاتورة. الإرسال الحكومي غير موصول.' },
         {
           id: 'zatca',
           label: 'إعدادات الضرائب الداخلية',
@@ -65,9 +65,9 @@
         {
           id: 'deposits',
           label: 'العربون والدفعات المتقدمة',
-          status: 'coming_soon',
-          href: null,
-          note: 'غير منفّذ خادميًا — يوجد ملف deposits-advance-payments.html محلي (localStorage) فقط؛ لا يُفتح كوظيفة جاهزة'
+          status: 'operational',
+          href: '/finance/deposits.html',
+          note: 'عربون محفوظ، وتطبيقه على فاتورة يحدّث المدفوع والمتبقي. ملف localStorage القديم ليس المسار.'
         },
         { id: 'collection', label: 'التحصيل', status: 'operational', href: '/finance/receivables-collections.html' }
       ]
@@ -84,7 +84,7 @@
           href: '/finance/expenses.html',
           note: 'إدارة موردين مرتبطة بالمصروفات فقط — ليست دورة مشتريات (طلبات/أوامر/استلام)'
         },
-        { id: 'purchase-requests', label: 'طلبات الشراء', status: 'partial', href: '/finance/purchase-orders.html', note: 'مسار أوامر الشراء — طلبات رسمية لاحقًا' },
+        { id: 'purchase-requests', label: 'طلبات الشراء', status: 'operational', href: '/finance/purchase-requests.html', note: 'طلب مستقل قابل للتحويل إلى أمر شراء' },
         { id: 'purchase-orders', label: 'أوامر الشراء', status: 'operational', href: '/finance/purchase-orders.html' },
         { id: 'vendor-quotes', label: 'عروض أسعار الموردين', status: 'partial', href: '/finance/purchase-orders.html', note: 'عبر أوامر الشراء مؤقتًا' },
         { id: 'vendor-invoices', label: 'فواتير الموردين', status: 'operational', href: '/finance/purchase-orders.html' },
@@ -99,7 +99,7 @@
         { id: 'product-settings', label: 'إعدادات المنتجات', status: 'operational', href: '/finance/inventory.html#items', note: 'سجل أصناف وخدمات في Postgres عبر /finance/inventory' },
         { id: 'product-classify', label: 'تصنيف المنتجات والخدمات', status: 'partial', href: '/finance/inventory.html#items', note: 'فئة نصية على الصنف — لا شجرة تصنيف مستقلة بعد' },
         { id: 'product-costs', label: 'تكاليف المنتجات', status: 'partial', href: '/finance/inventory.html#balances', note: 'متوسط التكلفة المرجح على رصيد الصنف والمستودع — بلا تكلفة مشروعات' },
-        { id: 'price-lists', label: 'قوائم الأسعار', status: 'coming_soon', href: null },
+        { id: 'price-lists', label: 'قوائم الأسعار', status: 'operational', href: '/finance/price-lists.html', note: 'قوائم وبنود محفوظة' },
         { id: 'margins', label: 'احتساب التكلفة وهوامش الربح', status: 'partial', href: '/finance/inventory.html#balances', note: 'هامش الوحدة = سعر البيع − متوسط التكلفة. بلا تقرير ربحية حسب القسم' }
       ]
     },
@@ -118,7 +118,7 @@
           href: '/finance/expenses.html',
           note: 'نفس موردي المصروفات — ليست إدارة موردي مخزون/مشتريات مكتملة'
         },
-        { id: 'procurement-cycle', label: 'دورة المشتريات', status: 'coming_soon', href: null },
+        { id: 'procurement-cycle', label: 'دورة المشتريات', status: 'operational', href: '/finance/purchase-requests.html', note: 'من طلب الشراء إلى أمر الشراء' },
         { id: 'warehouse-docs', label: 'الأذون المخزنية', status: 'operational', href: '/finance/inventory.html#moves', note: 'إذن إدخال وإخراج وتحويل وتسوية. الحركة المعتمدة لا تُعدَّل' },
         { id: 'stock-count', label: 'إدارة الجرد', status: 'partial', href: '/finance/inventory.html#moves', note: 'تسوية كمية بسبب موثق. بلا مسار اعتماد منفصل بعد' }
       ]
@@ -144,7 +144,7 @@
           href: '/finance/fixed-assets.html',
           note: 'احتساب ضمن صفحة الأصول — التحقق من اكتمال الترحيل المحاسبي لاحقًا'
         },
-        { id: 'asset-moves', label: 'حركة الأصول ونقلها واستبعادها', status: 'coming_soon', href: null }
+        { id: 'asset-moves', label: 'حركة الأصول ونقلها واستبعادها', status: 'operational', href: '/finance/asset-moves.html', note: 'نقل أو استبعاد أو بيع أصل قائم، والإلغاء يعكس آخر حالة' }
       ]
     },
     {
@@ -177,10 +177,10 @@
           href: '/finance/chart-accounts-ui-design.html',
           note: 'واجهة تصميم شجرة — مكملة لدليل الحسابات'
         },
-        { id: 'cost-centers', label: 'مراكز التكلفة', status: 'coming_soon', href: null },
+        { id: 'cost-centers', label: 'مراكز التكلفة', status: 'operational', href: '/finance/cost-centers.html' },
         { id: 'expenses', label: 'المصروفات', status: 'operational', href: '/finance/expenses.html' },
         { id: 'journals', label: 'القيود المحاسبية', status: 'operational', href: '/finance/journal.html' },
-        { id: 'checks', label: 'دورة الشيكات', status: 'coming_soon', href: null },
+        { id: 'checks', label: 'دورة الشيكات', status: 'operational', href: '/finance/checks.html', note: 'شيكات محفوظة مع إلغاء بسبب' },
         {
           id: 'accounting-assets',
           label: 'إدارة الأصول المحاسبية',
@@ -233,10 +233,10 @@
       icon: 'fa-user-tie',
       pages: [
         { id: 'customer-followup', label: 'متابعة العملاء', status: 'operational', href: '/finance/customers.html' },
-        { id: 'loyalty', label: 'نقاط الولاء', status: 'coming_soon', href: null },
-        { id: 'subscriptions', label: 'الاشتراكات والعضويات', status: 'coming_soon', href: null },
-        { id: 'points-balances', label: 'النقاط والأرصدة', status: 'coming_soon', href: null },
-        { id: 'insurance', label: 'التأمينات', status: 'coming_soon', href: null }
+        { id: 'loyalty', label: 'نقاط الولاء', status: 'operational', href: '/finance/loyalty.html' },
+        { id: 'subscriptions', label: 'الاشتراكات والعضويات', status: 'operational', href: '/finance/subscriptions.html' },
+        { id: 'points-balances', label: 'النقاط والأرصدة', status: 'operational', href: '/finance/loyalty.html', note: 'الرصيد مجموع حركات النقاط غير الملغاة' },
+        { id: 'insurance', label: 'التأمينات', status: 'operational', href: '/finance/insurance.html' }
       ]
     },
     {
@@ -286,9 +286,9 @@
       label: 'المهام والمشاريع',
       icon: 'fa-diagram-project',
       pages: [
-        { id: 'tasks', label: 'المهام', status: 'coming_soon', href: null },
-        { id: 'projects', label: 'المشاريع', status: 'coming_soon', href: null },
-        { id: 'project-costing', label: 'ربط المصروفات والإيرادات والتكاليف بالمشاريع', status: 'coming_soon', href: null }
+        { id: 'tasks', label: 'المهام', status: 'operational', href: '/finance/tasks.html' },
+        { id: 'projects', label: 'المشاريع', status: 'operational', href: '/finance/projects.html' },
+        { id: 'project-costing', label: 'ربط المصروفات والإيرادات والتكاليف بالمشاريع', status: 'operational', href: '/finance/project-costs.html' }
       ]
     },
     {
@@ -296,8 +296,8 @@
       label: 'قيود البنود المؤتمتة',
       icon: 'fa-robot',
       pages: [
-        { id: 'auto-rules', label: 'قواعد توليد القيود تلقائيًا', status: 'coming_soon', href: null },
-        { id: 'op-account-map', label: 'ربط أنواع العمليات بالحسابات', status: 'coming_soon', href: null },
+        { id: 'auto-rules', label: 'قواعد توليد القيود تلقائيًا', status: 'operational', href: '/finance/auto-journal-rules.html', note: 'التنفيذ ينشئ قيدًا متوازنًا على الحسابين المحددين' },
+        { id: 'op-account-map', label: 'ربط أنواع العمليات بالحسابات', status: 'operational', href: '/finance/auto-journal-rules.html', note: 'الربط هو حساب المدين والدائن داخل القاعدة' },
         {
           id: 'pre-post-review',
           label: 'مراجعة القيود قبل الترحيل',
@@ -305,7 +305,7 @@
           href: '/finance/journal.html',
           note: 'مراجعة عبر دفتر القيود — بلا محرك قواعد مؤتمت'
         },
-        { id: 'exec-log', label: 'سجل التنفيذ والأخطاء', status: 'coming_soon', href: null }
+        { id: 'exec-log', label: 'سجل التنفيذ والأخطاء', status: 'operational', href: '/finance/auto-journal-rules.html', note: 'كل تنفيذ ناجح يُحفظ كسجل auto-runs مع رقم القيد' }
       ]
     },
     {
@@ -316,9 +316,9 @@
         {
           id: 'gov-integrations',
           label: 'الخدمات والتكاملات الحكومية المصرح بها',
-          status: 'coming_soon',
-          href: null,
-          note: 'لا تكامل وهمي — يُفعَّل بعد اعتماد المفاتيح'
+          status: 'partial',
+          href: '/finance/gov-integrations.html',
+          note: 'سجل الجهات فقط. تعليم الخدمة متصلة مرفوض لأن الموصل غير موجود'
         }
       ]
     },
@@ -327,13 +327,13 @@
       label: 'التشغيل',
       icon: 'fa-gears',
       pages: [
-        { id: 'work-orders', label: 'أوامر الشغل', status: 'coming_soon', href: null },
-        { id: 'workflow', label: 'دورة العمل', status: 'coming_soon', href: null },
-        { id: 'bookings', label: 'الحجوزات', status: 'coming_soon', href: null },
-        { id: 'rentals', label: 'إدارة الإيجارات والوحدات', status: 'coming_soon', href: null },
-        { id: 'lease-contracts', label: 'عقود الإيجار', status: 'coming_soon', href: null },
-        { id: 'time-tracking', label: 'تتبع الوقت', status: 'coming_soon', href: null },
-        { id: 'manufacturing', label: 'إدارة التصنيع', status: 'coming_soon', href: null }
+        { id: 'work-orders', label: 'أوامر الشغل', status: 'operational', href: '/finance/work-orders.html' },
+        { id: 'workflow', label: 'دورة العمل', status: 'operational', href: '/finance/workflows.html', note: 'قوالب خطوات محفوظة. صندوق الموافقات الحالي غير مربوط تلقائيًا.' },
+        { id: 'bookings', label: 'الحجوزات', status: 'operational', href: '/finance/bookings.html' },
+        { id: 'rentals', label: 'إدارة الإيجارات والوحدات', status: 'operational', href: '/finance/rentals.html' },
+        { id: 'lease-contracts', label: 'عقود الإيجار', status: 'operational', href: '/finance/leases.html' },
+        { id: 'time-tracking', label: 'تتبع الوقت', status: 'operational', href: '/finance/time-entries.html' },
+        { id: 'manufacturing', label: 'إدارة التصنيع', status: 'operational', href: '/finance/manufacturing.html', note: 'قائمة مكونات محفوظة. لا أوامر إنتاج متعددة المراحل.' }
       ]
     },
     {
@@ -348,7 +348,7 @@
           href: '/finance/financial-reports-ai-journal.html',
           note: 'تقارير مجمّعة جزئية — ليست مركز تقارير موحّدًا'
         },
-        { id: 'report-export', label: 'تصدير التقارير', status: 'coming_soon', href: null },
+        { id: 'report-export', label: 'تصدير التقارير', status: 'operational', href: '/finance/report-exports.html', note: 'CSV للفواتير والعملاء والمصروفات من Postgres' },
         { id: 'pnl', label: 'تقارير الأرباح والخسائر', status: 'operational', href: '/finance/income-statement.html' },
         {
           id: 'balance-sheet',
@@ -561,19 +561,19 @@
 
   /** Expected post-audit status map for regression tests (pageId → status). */
   const AUDIT_STATUS_EXPECTATIONS = {
-    'sales.pos': 'coming_soon',
+    'sales.pos': 'operational',
     'sales.quotes': 'partial',
     'sales.invoices-quotes': 'operational',
     'sales.installments': 'operational',
-    'sales.targets-commissions': 'coming_soon',
-    'sales.e-invoice': 'coming_soon',
+    'sales.targets-commissions': 'operational',
+    'sales.e-invoice': 'partial',
     'sales.zatca': 'partial',
     'sales.return-policy': 'operational',
     'sales.offers-discounts': 'operational',
-    'sales.deposits': 'coming_soon',
+    'sales.deposits': 'operational',
     'sales.collection': 'operational',
     'purchases.vendors': 'partial',
-    'purchases.purchase-requests': 'partial',
+    'purchases.purchase-requests': 'operational',
     'purchases.purchase-orders': 'operational',
     'purchases.vendor-quotes': 'partial',
     'purchases.vendor-invoices': 'operational',
