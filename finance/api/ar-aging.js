@@ -242,7 +242,14 @@ async function createARAgingInvoice(req, res) {
             branch_id = null,
             incubator_id = null,
             notes = null,
-            created_by = 'لوحة التحكم'
+            created_by = 'لوحة التحكم',
+            street_name = null,
+            postal_code = null,
+            building_number = null,
+            city = null,
+            district = null,
+            national_address_number = null,
+            short_address = null
         } = req.body || {};
 
         const resolvedEntityId = resolveScopedEntityId(req, entity_id);

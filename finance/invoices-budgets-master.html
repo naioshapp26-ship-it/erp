@@ -46,6 +46,11 @@
         <div class="mb-8 text-slate-900">
             <h1 class="text-4xl font-bold mb-2">🧾 الفواتير والتحصيل والميزانيات التقديرية</h1>
             <p class="text-lg text-slate-600">الفواتير والتحصيل + نموذج الميزانية التقديرية + تحليل الانحراف (الصفحة 34)</p>
+            <nav class="mt-4 flex flex-wrap gap-2 text-sm">
+                <a href="/finance/customers.html" class="px-3 py-1 rounded-full bg-white border font-bold">العملاء</a>
+                <a href="/finance/invoices-budgets-master.html" class="px-3 py-1 rounded-full bg-slate-900 text-white font-bold">الفواتير</a>
+                <a href="/finance/receivables-collections.html" class="px-3 py-1 rounded-full bg-white border font-bold">التحصيل</a>
+            </nav>
         </div>
 
         <div class="mb-6 flex flex-wrap gap-3">
@@ -79,6 +84,10 @@
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-bold text-slate-800">🧾 واجهة الفواتير والتحصيل</h2>
                 <span class="text-sm text-slate-500">قائمة الفواتير مع حالة السداد والإجراءات</span>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-bold text-slate-700 mb-2" for="invoiceSearch">بحث في الفواتير</label>
+                <input id="invoiceSearch" type="search" placeholder="رقم الفاتورة أو اسم العميل أو الحالة" class="w-full md:max-w-md border border-slate-300 rounded-lg px-4 py-2" oninput="renderInvoices()">
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
                 <div class="stat-card shape-b bg-gradient-to-br from-sky-500 to-blue-600 text-slate-900 p-5">
@@ -326,10 +335,15 @@
 
         async function loadData() {
             try {
+                const params = new URLSearchParams();
+                if (ENTITY_ID) params.set('entity_id', ENTITY_ID);
+                const presetCustomer = new URLSearchParams(window.location.search).get('customer_id');
+                if (presetCustomer) params.set('customer_id', presetCustomer);
+                const invoiceQuery = params.toString() ? `?${params.toString()}` : '';
                 const qs = entityQS();
                 const q = qs ? `?${qs}` : '';
                 const [invRes, custRes, payRes, planRes, budgetRes, expenseRes, cashflowRes, forecastRes, assetsRes] = await Promise.all([
-                    fetchJson(`${API_BASE}/finance/invoices${q}`),
+                    fetchJson(`${API_BASE}/finance/invoices${invoiceQuery}`),
                     fetchJson(`${API_BASE}/finance/customers${q}`),
                     fetchJson(`${API_BASE}/finance/payments${q}`),
                     fetchJson(`${API_BASE}/finance/payment-plans${q}`),
@@ -388,7 +402,18 @@
             document.getElementById('plansCount').textContent = store.plans.length.toLocaleString('en-US');
             document.getElementById('avgInvoice').textContent = formatMoney(avgInvoice);
 
-            const rows = store.invoices.map(inv => `
+            const q = (document.getElementById('invoiceSearch')?.value || '').trim().toLowerCase();
+            const visibleInvoices = store.invoices.filter((inv) => {
+                if (!q) return true;
+                const blob = [inv.invoice_number, inv.customer_name_ar, inv.customer_name, inv.customer_code, inv.status, translateStatus(inv.status)].join(' ').toLowerCase();
+                return blob.includes(q);
+            });
+            const rows = visibleInvoices.map(inv => {
+                const cancelled = String(inv.status || '').toUpperCase() === 'CANCELLED';
+                const paid = Number(inv.paid_amount || 0) > 0.009;
+                const posted = !!inv.journal_entry_id;
+                const canDelete = !cancelled && !posted && !paid;
+                return `
                 <tr class="hover:bg-sky-50">
                     <td class="px-3 py-2">${sanitizeText(inv.invoice_number)}</td>
                     <td class="px-3 py-2">${formatDate(inv.invoice_date)}</td>
@@ -399,18 +424,21 @@
                     <td class="px-3 py-2">${translateStatus(inv.status)}</td>
                     <td class="px-3 py-2">
                         <div class="flex flex-wrap gap-2">
-                            <button onclick="openAction('full', '${inv.invoice_id}')" class="bg-emerald-600 text-white px-3 py-1 rounded-full text-xs">سداد كامل</button>
-                            <button onclick="openAction('partial', '${inv.invoice_id}')" class="bg-amber-500 text-white px-3 py-1 rounded-full text-xs">سداد جزئي</button>
-                            <button onclick="openAction('plan', '${inv.invoice_id}')" class="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs">إنشاء خطة دفع</button>
-                            <button onclick="openEditInvoice(${inv.invoice_id})" class="bg-white text-slate-900 px-3 py-1 rounded-full text-xs border border-white">تعديل</button>
-                            <button onclick="deleteInvoice(${inv.invoice_id})" class="bg-rose-600 text-white px-3 py-1 rounded-full text-xs">حذف</button>
+                            ${cancelled ? '' : `<button onclick="openAction('full', '${inv.invoice_id}')" class="bg-emerald-600 text-white px-3 py-1 rounded-full text-xs">سداد كامل</button>`}
+                            ${cancelled ? '' : `<button onclick="openAction('partial', '${inv.invoice_id}')" class="bg-amber-500 text-white px-3 py-1 rounded-full text-xs">سداد جزئي</button>`}
+                            ${cancelled ? '' : `<button onclick="openAction('plan', '${inv.invoice_id}')" class="bg-indigo-600 text-white px-3 py-1 rounded-full text-xs">إنشاء خطة دفع</button>`}
+                            <a href="/finance/receivables-collections.html?invoice_number=${encodeURIComponent(inv.invoice_number || '')}&customer_name=${encodeURIComponent(inv.customer_name_ar || inv.customer_name || '')}" class="bg-sky-800 text-white px-3 py-1 rounded-full text-xs">التحصيل</a>
+                            ${cancelled ? '' : `<button onclick="openEditInvoice(${inv.invoice_id})" class="bg-white text-slate-900 px-3 py-1 rounded-full text-xs border border-white">تعديل</button>`}
+                            ${cancelled ? '' : `<button onclick="cancelInvoice(${inv.invoice_id})" class="bg-slate-800 text-white px-3 py-1 rounded-full text-xs">إلغاء</button>`}
+                            ${canDelete ? `<button onclick="deleteInvoice(${inv.invoice_id})" class="bg-rose-600 text-white px-3 py-1 rounded-full text-xs">حذف</button>` : ''}
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
 
             document.getElementById('invoicesTable').innerHTML = rows || `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-500">لا توجد بيانات</td></tr>`;
-            document.getElementById('invoicesCount').textContent = `عدد الصفوف: ${totalInvoices}`;
+            document.getElementById('invoicesCount').textContent = `عدد الصفوف: ${visibleInvoices.length}${q ? ` من ${totalInvoices}` : ''}`;
         }
 
         function buildCustomerOptions(selectedId) {
@@ -690,20 +718,45 @@
                 closeDynamicModal();
                 await loadData();
             } else {
-                alert('تعذر تحديث الفاتورة');
+                let message = 'تعذر تحديث الفاتورة';
+                try {
+                    const data = await res.json();
+                    if (data && data.error) message = data.error;
+                } catch (e) { /* ignore */ }
+                alert(message);
+            }
+        }
+
+        async function cancelInvoice(invoiceId) {
+            const reason = prompt('سبب إلغاء الفاتورة', 'إلغاء فاتورة قبل التحصيل');
+            if (!reason || !reason.trim()) return;
+            const res = await fetch(`${API_BASE}/finance/invoices/${invoiceId}/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                body: JSON.stringify({ reason: reason.trim() })
+            });
+            let data = {};
+            try { data = await res.json(); } catch (e) { /* ignore */ }
+            if (res.ok) {
+                showToast(data.message || 'تم إلغاء الفاتورة', 'success');
+                await loadData();
+            } else {
+                alert(data.error || 'تعذر إلغاء الفاتورة');
             }
         }
 
         async function deleteInvoice(invoiceId) {
-            if (!confirm('هل تريد حذف هذه الفاتورة؟')) return;
+            if (!confirm('حذف الفاتورة متاح فقط إذا لم تُرحَّل ولم يُحصَّل عليها. المتابعة؟')) return;
             const res = await fetch(`${API_BASE}/finance/invoices/${invoiceId}`, {
                 method: 'DELETE',
                 headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
             });
+            let data = {};
+            try { data = await res.json(); } catch (e) { /* ignore */ }
             if (res.ok) {
                 await loadData();
             } else {
-                alert('تعذر حذف الفاتورة');
+                alert(data.error || 'تعذر حذف الفاتورة. الفاتورة المرحّلة تُلغى بقيد عكسي ولا تُحذف.');
             }
         }
 
