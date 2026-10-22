@@ -1137,6 +1137,7 @@ router.post('/payments', async (req, res) => {
   const useService = isFinancePostPaymentViaService();
 
   try {
+    await ensurePaymentAddressColumns();
     await client.query('BEGIN');
 
     const {
@@ -1163,8 +1164,15 @@ router.post('/payments', async (req, res) => {
       allocations = [] // [{ invoice_id, allocated_amount }]
     } = req.body;
 
-    let resolvedEntityId = entity_id || (req.userEntity ? req.userEntity.id : 'HQ001');
-    let resolvedEntityType = entity_type || (req.userEntity ? req.userEntity.type : 'HQ');
+    let resolvedEntityId = resolveScopedEntityId(req, entity_id);
+    let resolvedEntityType = resolveScopedEntityType(req, entity_type);
+    if (!resolvedEntityId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        error: 'entity_id is required — لا يُمنح HQ001 تلقائيًا'
+      });
+    }
     let resolvedBranchId = branch_id;
     let resolvedIncubatorId = incubator_id;
     let createdBy = req.headers['x-user-id'] || 'system';

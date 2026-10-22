@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المخزون — القيادة المالية 360</title>
+  <script src="/finance/finance-context.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --accent: #991b1b;
+      --accent-soft: #fef2f2;
+      --ok: #166534;
+      --ok-bg: #dcfce7;
+      --warn: #92400e;
+      --warn-bg: #fef3c7;
+      --bad: #991b1b;
+      --bad-bg: #fee2e2;
+      --shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+    html[data-theme="dark"] {
+      --bg: #0b1220;
+      --card: #152033;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --line: #334155;
+      --accent: #f87171;
+      --accent-soft: #3f1d1d;
+      --ok: #86efac;
+      --ok-bg: #14532d;
+      --warn: #fcd34d;
+      --warn-bg: #451a03;
+      --bad: #fecaca;
+      --bad-bg: #450a0a;
+      --shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    }
+    @media (prefers-color-scheme: dark) {
+      html:not([data-theme="light"]) {
+        --bg: #0b1220;
+        --card: #152033;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --line: #334155;
+        --accent: #f87171;
+        --accent-soft: #3f1d1d;
+        --ok: #86efac;
+        --ok-bg: #14532d;
+        --warn: #fcd34d;
+        --warn-bg: #451a03;
+        --bad: #fecaca;
+        --bad-bg: #450a0a;
+        --shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Cairo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .num { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+    header.top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-top: 42px;
+    }
+    h1 { margin: 0 0 4px; font-size: 1.7rem; line-height: 1.35; }
+    .sub { margin: 0; color: var(--muted); font-weight: 600; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    a.btn, button.btn {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    button.btn.primary { background: linear-gradient(135deg, #dc2626, #991b1b); color: #fff; border-color: transparent; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+    }
+    .kpi span { display: block; color: var(--muted); font-size: 0.85rem; font-weight: 700; }
+    .kpi strong { font-size: 1.6rem; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .tabs button.is-on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    .panel { display: none; }
+    .panel.is-on { display: block; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .span { grid-column: 1 / -1; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 800; color: var(--muted); }
+    input, select {
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px;
+      font-family: inherit;
+      font-weight: 700;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { text-align: right; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-size: 0.78rem; }
+    .table-scroll { overflow: auto; }
+    .badge { display: inline-flex; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; font-weight: 800; }
+    .badge.ok { background: var(--ok-bg); color: var(--ok); }
+    .badge.warn { background: var(--warn-bg); color: var(--warn); }
+    .badge.bad { background: var(--bad-bg); color: var(--bad); }
+    .empty {
+      text-align: center;
+      padding: 28px 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .banner {
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .banner.show { display: block; }
+    .banner.ok { background: var(--ok-bg); color: var(--ok); }
+    .banner.bad { background: var(--bad-bg); color: var(--bad); }
+    .note { color: var(--muted); font-size: 0.85rem; font-weight: 700; }
+    @media (max-width: 900px) {
+      .kpis, .grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .kpis, .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 1.35rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <h1>المخزون</h1>
+        <p class="sub">أرصدة وحركات مرحّلة من Postgres. التقييم: متوسط مرجّح. الحركة المرحّلة لا تُعدَّل.</p>
+      </div>
+      <div class="row">
+        <a class="btn" href="/finance#section=inventory">لوحة القيادة</a>
+        <button class="btn" id="themeBtn" type="button">الوضع الداكن</button>
+        <button class="btn" id="reloadBtn" type="button">تحديث</button>
+      </div>
+    </header>
+    <div id="banner" class="banner" role="status"></div>
+    <div class="kpis">
+      <div class="kpi"><span>الأصناف</span><strong class="num" id="kpiItems">—</strong></div>
+      <div class="kpi"><span>المستودعات</span><strong class="num" id="kpiWh">—</strong></div>
+      <div class="kpi"><span>قيمة المخزون</span><strong class="num" id="kpiValue">—</strong></div>
+      <div class="kpi"><span>منخفض الرصيد</span><strong class="num" id="kpiLow">—</strong></div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="btn is-on" type="button" data-tab="balances">الأرصدة</button>
+      <button class="btn" type="button" data-tab="items">الأصناف</button>
+      <button class="btn" type="button" data-tab="warehouses">المستودعات</button>
+      <button class="btn" type="button" data-tab="moves">الأذون</button>
+    </div>
+
+    <section class="panel" id="panel-balances">
+      <div class="card">
+        <p class="note">لا تُعرض أرقام تقديرية. القيمة = الكمية × متوسط التكلفة بعد الحركات المرحّلة فقط.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>الصنف</th><th>المستودع</th><th>الكمية</th><th>متوسط التكلفة</th><th>القيمة</th><th>الحالة</th></tr></thead>
+            <tbody id="balBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="balEmpty">لا أرصدة بعد. أضف صنفًا ومستودعًا ثم سجّل حركة إدخال.</div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-items">
+      <div class="card">
+        <h2 style="margin:0 0 10px;font-size:1.05rem">صنف جديد</h2>
+        <form id="itemForm" class="grid">
+          <label>الرمز<input name="sku" required maxlength="40" autocomplete="off"></label>
+          <label>الاسم<input name="name_ar" required maxlength="160"></label>
+          <label>النوع
+            <select name="item_type"><option value="product">منتج</option><option value="service">خدمة</option></select>
+          </label>
+          <label>الفئة<input name="category" maxlength="80"></label>
+          <label>الوحدة<input name="unit_name" value="وحدة" maxlength="40"></label>
+          <label>تكلفة الشراء<input class="num" name="purchase_cost" type="number" min="0" step="0.0001" value="0"></label>
+          <label>سعر البيع<input class="num" name="sale_price" type="number" min="0" step="0.0001" value="0"></label>
+          <label>حد إعادة الطلب<input class="num" name="reorder_level" type="number" min="0" step="0.0001" value="0"></label>
+          <label>تتبع مخزني
+            <select name="track_inventory"><option value="true">نعم</option><option value="false">لا</option></select>
+          </label>
+          <div class="span" style="align-self:end"><button class="btn primary" type="submit">حفظ الصنف</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <label>بحث<input id="itemQ" placeholder="رمز أو اسم أو فئة"></label>
+        <div class="table-scroll" style="margin-top:10px">
+          <table>
+            <thead><tr><th>الرمز</th><th>الاسم</th><th>النوع</th><th>الفئة</th><th>التكلفة</th><th>السعر</th><th>الهامش %</th><th>حد الطلب</th><th></th></tr></thead>
+            <tbody id="itemBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="itemEmpty">لا أصناف لهذا الكيان. أنشئ أول صنف من النموذج أعلاه.</div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-warehouses">
+      <div class="card">
+        <h2 style="margin:0 0 10px;font-size:1.05rem">مستودع جديد</h2>
+        <form id="whForm" class="grid">
+          <label>الرمز<input name="code" required maxlength="40" autocomplete="off"></label>
+          <label>الاسم<input name="name_ar" required maxlength="160"></label>
+          <label>الموقع<input name="location_name" maxlength="160"></label>
+          <div class="span" style="align-self:end"><button class="btn primary" type="submit">حفظ المستودع</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>الرمز</th><th>الاسم</th><th>الموقع</th><th>الحالة</th></tr></thead>
+            <tbody id="whBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="whEmpty">لا مستودعات. أنشئ أول مستودع قبل أي حركة.</div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-moves">
+      <div class="card">
+        <h2 style="margin:0 0 10px;font-size:1.05rem">إذن مخزني</h2>
+        <p class="note">الإدخال يحدّث المتوسط المرجّح. الإخراج والتحويل يمنعان الرصيد السالب ما لم تُفعَّل السياسة من إعدادات المنتجات. لا يُنشأ قيد يومية من هذه الشاشة.</p>
+        <form id="moveForm" class="grid">
+          <label>النوع
+            <select name="move_type">
+              <option value="IN">إدخال</option>
+              <option value="OUT">إخراج</option>
+              <option value="TRANSFER">تحويل</option>
+              <option value="ADJUST">تسوية</option>
+            </select>
+          </label>
+          <label>الصنف<select name="item_id" id="moveItem" required></select></label>
+          <label>المستودع<select name="warehouse_id" id="moveWh" required></select></label>
+          <label>مستودع الوجهة<select name="warehouse_to_id" id="moveWhTo"><option value="">—</option></select></label>
+          <label>الكمية<input class="num" name="qty" type="number" step="0.0001" required></label>
+          <label>تكلفة الوحدة<input class="num" name="unit_cost" type="number" min="0" step="0.0001" placeholder="تكلفة الصنف"></label>
+          <label>بيان<input name="notes" maxlength="240"></label>
+          <div class="span" style="align-self:end"><button class="btn primary" id="moveSubmit" type="submit">ترحيل الحركة</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>الرقم</th><th>النوع</th><th>الصنف</th><th>من</th><th>إلى</th><th>الكمية</th><th>التكلفة</th><th>الحالة</th><th>بواسطة</th><th>الوقت</th></tr></thead>
+            <tbody id="moveBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="moveEmpty">لا حركات. أول إدخال يظهر هنا بعد الترحيل ويبقى بعد إعادة الدخول.</div>
+      </div>
+    </section>
+  </div>
+  <script>
+    const state = { items: [], warehouses: [], balances: [], moves: [], low: 0 };
+    const TYPE_AR = { IN: 'إدخال', OUT: 'إخراج', TRANSFER: 'تحويل', ADJUST: 'تسوية' };
+
+    function n(v, digits) {
+      const x = Number(v);
+      if (!Number.isFinite(x)) return '—';
+      return x.toLocaleString('en-US', { maximumFractionDigits: digits == null ? 4 : digits });
+    }
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function headers() {
+      return Object.assign({ 'Content-Type': 'application/json' }, window.getFinanceHeaders ? window.getFinanceHeaders() : {});
+    }
+    function show(kind, text) {
+      const el = document.getElementById('banner');
+      el.className = 'banner show ' + kind;
+      el.textContent = text;
+    }
+    function tabFromHash() {
+      const h = (location.hash || '#balances').replace('#', '');
+      return ['balances', 'items', 'warehouses', 'moves'].includes(h) ? h : 'balances';
+    }
+    function showTab(name) {
+      document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === name));
+      document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('is-on', p.id === 'panel-' + name));
+      if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+    }
+
+    async function api(path, opts) {
+      const res = await fetch('/finance/inventory' + path, Object.assign({ headers: headers() }, opts || {}));
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        const err = new Error(json.error || 'تعذر إكمال الطلب');
+        err.status = res.status;
+        throw err;
+      }
+      return json;
+    }
+
+    function fillSelects() {
+      const itemSel = document.getElementById('moveItem');
+      const whSel = document.getElementById('moveWh');
+      const toSel = document.getElementById('moveWhTo');
+      const itemOpts = state.items.filter((i) => i.is_active !== false).map((i) =>
+        `<option value="${i.id}">${esc(i.sku)} — ${esc(i.name_ar)}</option>`).join('');
+      const whOpts = state.warehouses.filter((w) => w.is_active !== false).map((w) =>
+        `<option value="${w.id}">${esc(w.code)} — ${esc(w.name_ar)}</option>`).join('');
+      itemSel.innerHTML = itemOpts || '<option value="">لا أصناف</option>';
+      whSel.innerHTML = whOpts || '<option value="">لا مستودعات</option>';
+      toSel.innerHTML = '<option value="">—</option>' + whOpts;
+    }
+
+    function render() {
+      const q = document.getElementById('itemQ').value.trim().toLowerCase();
+      const items = state.items.filter((i) => !q || [i.sku, i.name_ar, i.category].join(' ').toLowerCase().includes(q));
+      document.getElementById('kpiItems').textContent = n(state.items.length, 0);
+      document.getElementById('kpiWh').textContent = n(state.warehouses.length, 0);
+      const value = state.balances.reduce((s, b) => s + Number(b.stock_value || 0), 0);
+      document.getElementById('kpiValue').textContent = n(value, 2);
+      document.getElementById('kpiLow').textContent = n(state.low, 0);
+
+      const balBody = document.getElementById('balBody');
+      balBody.innerHTML = state.balances.map((b) => `<tr>
+        <td>${esc(b.sku)} — ${esc(b.name_ar)}</td>
+        <td>${esc(b.warehouse_name)}</td>
+        <td class="num">${n(b.qty)}</td>
+        <td class="num">${n(b.avg_cost)}</td>
+        <td class="num">${n(b.stock_value, 2)}</td>
+        <td>${b.low_stock ? '<span class="badge warn">تحت حد الطلب</span>' : '<span class="badge ok">متاح</span>'}</td>
+      </tr>`).join('');
+      document.getElementById('balEmpty').style.display = state.balances.length ? 'none' : 'block';
+
+      const itemBody = document.getElementById('itemBody');
+      itemBody.innerHTML = items.map((i) => `<tr>
+        <td class="num">${esc(i.sku)}</td>
+        <td>${esc(i.name_ar)}</td>
+        <td>${i.item_type === 'service' ? 'خدمة' : 'منتج'}</td>
+        <td>${esc(i.category || '—')}</td>
+        <td class="num">${n(i.purchase_cost)}</td>
+        <td class="num">${n(i.sale_price)}</td>
+        <td class="num">${i.margin_pct == null ? '—' : n(i.margin_pct, 2)}</td>
+        <td class="num">${n(i.reorder_level)}</td>
+        <td><button class="btn" type="button" data-edit-item="${i.id}">تعديل السعر</button></td>
+      </tr>`).join('');
+      document.getElementById('itemEmpty').style.display = items.length ? 'none' : 'block';
+
+      const whBody = document.getElementById('whBody');
+      whBody.innerHTML = state.warehouses.map((w) => `<tr>
+        <td class="num">${esc(w.code)}</td>
+        <td>${esc(w.name_ar)}</td>
+        <td>${esc(w.location_name || '—')}</td>
+        <td>${w.is_active ? '<span class="badge ok">نشط</span>' : '<span class="badge bad">موقوف</span>'}</td>
+      </tr>`).join('');
+      document.getElementById('whEmpty').style.display = state.warehouses.length ? 'none' : 'block';
+
+      const moveBody = document.getElementById('moveBody');
+      moveBody.innerHTML = state.moves.map((m) => `<tr>
+        <td class="num">${esc(m.move_number)}</td>
+        <td>${esc(TYPE_AR[m.move_type] || m.move_type)}</td>
+        <td>${esc(m.sku)} — ${esc(m.item_name)}</td>
+        <td>${esc(m.warehouse_name)}</td>
+        <td>${esc(m.warehouse_to_name || '—')}</td>
+        <td class="num">${n(m.qty)}</td>
+        <td class="num">${n(m.unit_cost)}</td>
+        <td><span class="badge ok">${esc(m.status)}</span></td>
+        <td>${esc(m.created_by || '—')}</td>
+        <td class="num">${esc(String(m.created_at || '').replace('T', ' ').slice(0, 19))}</td>
+      </tr>`).join('');
+      document.getElementById('moveEmpty').style.display = state.moves.length ? 'none' : 'block';
+      fillSelects();
+    }
+
+    async function loadAll() {
+      const [items, warehouses, balances, moves] = await Promise.all([
+        api('/items'), api('/warehouses'), api('/balances'), api('/moves')
+      ]);
+      state.items = items.items || [];
+      state.warehouses = warehouses.warehouses || [];
+      state.balances = balances.balances || [];
+      state.low = Number(balances.low_stock_count || 0);
+      state.moves = moves.moves || [];
+      render();
+    }
+
+    document.querySelectorAll('.tabs button').forEach((b) => {
+      b.addEventListener('click', () => showTab(b.dataset.tab));
+    });
+    window.addEventListener('hashchange', () => showTab(tabFromHash()));
+    document.getElementById('itemQ').addEventListener('input', render);
+    document.getElementById('reloadBtn').addEventListener('click', () => loadAll().catch((e) => show('bad', e.message)));
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme');
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      document.getElementById('themeBtn').textContent = next === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن';
+    });
+
+    document.getElementById('itemForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const body = Object.fromEntries(fd.entries());
+      body.track_inventory = body.track_inventory !== 'false';
+      body.purchase_cost = Number(body.purchase_cost);
+      body.sale_price = Number(body.sale_price);
+      body.reorder_level = Number(body.reorder_level);
+      try {
+        await api('/items', { method: 'POST', body: JSON.stringify(body) });
+        ev.target.reset();
+        show('ok', 'تم حفظ الصنف');
+        await loadAll();
+        showTab('items');
+      } catch (e) {
+        show('bad', e.message);
+      }
+    });
+
+    document.getElementById('itemBody').addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('[data-edit-item]');
+      if (!btn) return;
+      const item = state.items.find((i) => String(i.id) === btn.dataset.editItem);
+      if (!item) return;
+      const sale = prompt('سعر البيع', String(item.sale_price));
+      if (sale == null) return;
+      const cost = prompt('تكلفة الشراء', String(item.purchase_cost));
+      if (cost == null) return;
+      try {
+        await api('/items/' + item.id, {
+          method: 'PUT',
+          body: JSON.stringify({ sale_price: Number(sale), purchase_cost: Number(cost), name_ar: item.name_ar })
+        });
+        show('ok', 'تم تحديث الصنف');
+        await loadAll();
+      } catch (e) {
+        show('bad', e.message);
+      }
+    });
+
+    document.getElementById('whForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const body = Object.fromEntries(new FormData(ev.target).entries());
+      try {
+        await api('/warehouses', { method: 'POST', body: JSON.stringify(body) });
+        ev.target.reset();
+        show('ok', 'تم حفظ المستودع');
+        await loadAll();
+        showTab('warehouses');
+      } catch (e) {
+        show('bad', e.message);
+      }
+    });
+
+    document.getElementById('moveForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const btn = document.getElementById('moveSubmit');
+      const body = Object.fromEntries(new FormData(ev.target).entries());
+      body.qty = Number(body.qty);
+      body.item_id = Number(body.item_id);
+      body.warehouse_id = Number(body.warehouse_id);
+      if (body.warehouse_to_id) body.warehouse_to_id = Number(body.warehouse_to_id);
+      else delete body.warehouse_to_id;
+      if (body.unit_cost === '') delete body.unit_cost;
+      else body.unit_cost = Number(body.unit_cost);
+      body.idempotency_key = 'ui-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+      btn.disabled = true;
+      try {
+        const saved = await api('/moves', { method: 'POST', body: JSON.stringify(body) });
+        show('ok', saved.duplicate ? 'الحركة مسجّلة مسبقًا' : 'تم ترحيل ' + (saved.move && saved.move.move_number));
+        ev.target.querySelector('[name=qty]').value = '';
+        ev.target.querySelector('[name=notes]').value = '';
+        await loadAll();
+        showTab('moves');
+      } catch (e) {
+        show('bad', e.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    function start() {
+      showTab(tabFromHash());
+      loadAll().catch((e) => show('bad', e.message));
+    }
+    if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+    else start();
+  </script>
+</body>
+</html>

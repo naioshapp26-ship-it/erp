@@ -3550,6 +3550,9 @@ app.use('/finance', financeRoutes);
 const financePageSettingsRoutes = require('./finance/api/page-document-settings');
 app.use('/finance/page-settings', financePageSettingsRoutes);
 
+const financeInventoryRoutes = require('./finance/api/inventory');
+app.use('/finance/inventory', financeInventoryRoutes);
+
 // Finance Quick Offers API Routes
 const quickOffersRoutes = require('./finance/api/quick-offers');
 app.use('/finance/quick-offers', quickOffersRoutes);

@@ -96,11 +96,35 @@
       label: 'المنتجات والتكاليف',
       icon: 'fa-boxes-stacked',
       pages: [
-        { id: 'product-settings', label: 'إعدادات المنتجات', status: 'coming_soon', href: null },
-        { id: 'product-classify', label: 'تصنيف المنتجات والخدمات', status: 'coming_soon', href: null },
-        { id: 'product-costs', label: 'تكاليف المنتجات', status: 'coming_soon', href: null },
+        {
+          id: 'product-settings',
+          label: 'إعدادات المنتجات',
+          status: 'operational',
+          href: '/finance/leadership-doc-settings.html?doc=products',
+          note: 'تُحفظ في إعدادات الصفحات وتُقرأ عند حركات المخزون (مثل منع الرصيد السالب)'
+        },
+        {
+          id: 'product-classify',
+          label: 'تصنيف المنتجات والخدمات',
+          status: 'partial',
+          href: '/finance/inventory.html#items',
+          note: 'فئة ونوع الصنف داخل السجل — شجرة تصنيف مستقلة لاحقًا'
+        },
+        {
+          id: 'product-costs',
+          label: 'تكاليف المنتجات',
+          status: 'partial',
+          href: '/finance/inventory.html#balances',
+          note: 'تكلفة الشراء ومتوسط التكلفة المرجّح من الحركات المرحّلة'
+        },
         { id: 'price-lists', label: 'قوائم الأسعار', status: 'coming_soon', href: null },
-        { id: 'margins', label: 'احتساب التكلفة وهوامش الربح', status: 'coming_soon', href: null }
+        {
+          id: 'margins',
+          label: 'احتساب التكلفة وهوامش الربح',
+          status: 'partial',
+          href: '/finance/inventory.html#items',
+          note: 'هامش من سعر البيع وتكلفة الشراء — ليس تقرير ربحية محاسبي بعد الترحيل'
+        }
       ]
     },
     {
@@ -108,8 +132,20 @@
       label: 'المخزون',
       icon: 'fa-warehouse',
       pages: [
-        { id: 'stock', label: 'المخزون', status: 'coming_soon', href: null },
-        { id: 'product-mgmt', label: 'إدارة المنتجات', status: 'coming_soon', href: null },
+        {
+          id: 'stock',
+          label: 'المخزون',
+          status: 'operational',
+          href: '/finance/inventory.html',
+          note: 'أرصدة وحركات مرحّلة بمتوسط مرجّح. لا قيد محاسبي تلقائي حتى تفعيل الترحيل'
+        },
+        {
+          id: 'product-mgmt',
+          label: 'إدارة المنتجات',
+          status: 'partial',
+          href: '/finance/inventory.html#items',
+          note: 'إضافة وتعديل أصناف وخدمات داخل الكيان — بدون قوائم أسعار متعددة'
+        },
         { id: 'stock-purchases', label: 'المشتريات المرتبطة بالمخزون', status: 'coming_soon', href: null },
         {
           id: 'stock-vendors',
@@ -119,8 +155,14 @@
           note: 'نفس موردي المصروفات — ليست إدارة موردي مخزون/مشتريات مكتملة'
         },
         { id: 'procurement-cycle', label: 'دورة المشتريات', status: 'coming_soon', href: null },
-        { id: 'warehouse-docs', label: 'الأذون المخزنية', status: 'coming_soon', href: null },
-        { id: 'stock-count', label: 'إدارة الجرد', status: 'coming_soon', href: null }
+        {
+          id: 'warehouse-docs',
+          label: 'الأذون المخزنية',
+          status: 'operational',
+          href: '/finance/inventory.html#moves',
+          note: 'إدخال وإخراج وتحويل وتسوية. الحركة المرحّلة لا تُعدَّل في مكانها'
+        },
+        { id: 'stock-count', label: 'إدارة الجرد', status: 'coming_soon', href: null, note: 'التسوية اليدوية موجودة كحركة ADJUST — دورة جرد معتمدة لاحقًا' }
       ]
     },
     {
@@ -578,7 +620,18 @@
     'purchases.vendor-quotes': 'partial',
     'purchases.vendor-invoices': 'operational',
     'purchases.receiving': 'partial',
+    'inventory.stock': 'operational',
+    'inventory.product-mgmt': 'partial',
+    'inventory.stock-purchases': 'coming_soon',
     'inventory.stock-vendors': 'partial',
+    'inventory.procurement-cycle': 'coming_soon',
+    'inventory.warehouse-docs': 'operational',
+    'inventory.stock-count': 'coming_soon',
+    'products-costs.product-settings': 'operational',
+    'products-costs.product-classify': 'partial',
+    'products-costs.product-costs': 'partial',
+    'products-costs.price-lists': 'coming_soon',
+    'products-costs.margins': 'partial',
     'reports.balance-sheet': 'partial',
     'settings.page-settings': 'operational',
     'settings.numbering': 'partial',
