@@ -341,13 +341,6 @@ async function createARAgingInvoice(req, res) {
                 remaining_amount,
                 status,
                 payment_status,
-                street_name,
-                postal_code,
-                building_number,
-                city,
-                district,
-                national_address_number,
-                short_address,
                 entity_type,
                 entity_id,
                 branch_id,
@@ -355,7 +348,7 @@ async function createARAgingInvoice(req, res) {
                 notes,
                 created_by
             ) VALUES (
-                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
+                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
             )
             RETURNING *;
         `;
@@ -374,13 +367,6 @@ async function createARAgingInvoice(req, res) {
             remaining_amount,
             resolvedStatus,
             resolvedPaymentStatus,
-            street_name,
-            postal_code,
-            building_number,
-            city,
-            district,
-            national_address_number,
-            short_address,
             resolvedEntityType,
             resolvedEntityId,
             branch_id,
