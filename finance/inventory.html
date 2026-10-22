@@ -56,9 +56,12 @@
   <main>
     <nav>
       <button type="button" data-tab="balances" class="active">الأرصدة</button>
+      <button type="button" data-tab="alerts">تنبيهات النقص</button>
+      <button type="button" data-tab="valuation">تقرير التقييم</button>
       <button type="button" data-tab="items">الأصناف</button>
+      <button type="button" data-tab="units">وحدات القياس</button>
       <button type="button" data-tab="warehouses">المستودعات</button>
-      <button type="button" data-tab="moves">الحركات</button>
+      <button type="button" data-tab="moves">تقرير الحركة</button>
     </nav>
     <p id="msg" class="msg" role="status"></p>
 
@@ -75,14 +78,40 @@
         <input name="name_ar" placeholder="الاسم" required>
         <select name="item_type"><option value="product">منتج مخزني</option><option value="service">خدمة</option></select>
         <input name="category" placeholder="الفئة">
-        <input name="unit" placeholder="الوحدة" value="وحدة">
+        <select name="unit" required></select>
         <input class="num" name="sale_price" type="number" min="0" step="0.01" placeholder="سعر البيع" value="0">
         <input class="num" name="reorder_level" type="number" min="0" step="0.001" placeholder="حد إعادة الطلب" value="0">
         <button class="btn primary" type="submit">حفظ الصنف</button>
       </form>
       <input id="item-search" placeholder="بحث بالرمز أو الاسم أو الفئة">
       <div id="item-empty" class="empty">لا توجد أصناف. أول سجل يُنشأ من النموذج أعلاه.</div>
-      <div class="wrap"><table id="item-table" hidden><thead><tr><th>الرمز</th><th>الاسم</th><th>النوع</th><th>الفئة</th><th>سعر البيع</th><th>حد الطلب</th><th></th></tr></thead><tbody></tbody></table></div>
+      <div class="wrap"><table id="item-table" hidden><thead><tr><th>الرمز</th><th>الاسم</th><th>النوع</th><th>الفئة</th><th>الوحدة</th><th>سعر البيع</th><th>حد الطلب</th><th></th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="alerts">
+      <h2>تنبيهات نقص المخزون</h2>
+      <p class="muted">يظهر الصنف عندما تكون الكمية عند حد إعادة الطلب أو أقل، وحد الطلب أكبر من صفر.</p>
+      <div id="alert-empty" class="empty">لا توجد تنبيهات. إما لا أرصدة، أو لم يُضبط حد إعادة الطلب.</div>
+      <div class="wrap"><table id="alert-table" hidden><thead><tr><th>الصنف</th><th>المستودع</th><th>الكمية</th><th>حد الطلب</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="valuation">
+      <h2>تقرير تقييم المخزون</h2>
+      <p class="muted">الطريقة: متوسط التكلفة المرجح. الإجمالي من الأرصدة المحفوظة فقط.</p>
+      <p id="valuation-total" class="muted"></p>
+      <div id="valuation-empty" class="empty">لا توجد قيمة مخزون لأن الأرصدة فارغة.</div>
+      <div class="wrap"><table id="valuation-table" hidden><thead><tr><th>الصنف</th><th>المستودع</th><th>الكمية</th><th>متوسط التكلفة</th><th>القيمة</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="units">
+      <h2>وحدات القياس</h2>
+      <form id="unit-form">
+        <input name="code" placeholder="الرمز، مثل PCS" required>
+        <input name="name_ar" placeholder="الاسم، مثل قطعة" required>
+        <button class="btn primary" type="submit">حفظ الوحدة</button>
+      </form>
+      <div id="unit-empty" class="empty">لا توجد وحدات. أنشئ أول وحدة قبل إضافة الأصناف.</div>
+      <div class="wrap"><table id="unit-table" hidden><thead><tr><th>الرمز</th><th>الاسم</th><th>الحالة</th></tr></thead><tbody></tbody></table></div>
     </section>
 
     <section id="warehouses">
@@ -97,7 +126,13 @@
     </section>
 
     <section id="moves">
-      <h2>حركة مخزنية</h2>
+      <h2>تقرير الحركة والأذون</h2>
+      <form id="move-filter">
+        <select name="movement_type"><option value="">كل الأنواع</option><option>OPENING</option><option>IN</option><option>OUT</option><option>ADJUSTMENT</option><option>TRANSFER</option></select>
+        <input name="from" type="date">
+        <input name="to" type="date">
+        <button class="btn" type="submit">تصفية التقرير</button>
+      </form>
       <form id="move-form">
         <select name="item_id" required></select>
         <select name="warehouse_id" required></select>
@@ -120,7 +155,7 @@
     </section>
   </main>
   <script>
-    const state = { items: [], warehouses: [], requestId: null };
+    const state = { items: [], warehouses: [], units: [], requestId: null };
     const msg = document.getElementById('msg');
     function say(text, ok) { msg.textContent = text || ''; msg.className = 'msg ' + (ok ? 'ok' : 'err'); }
     function n(value) { return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 4 }); }
@@ -137,21 +172,39 @@
       empty.hidden = !!rows.length;
       table.querySelector('tbody').innerHTML = rows.map(render).join('');
     }
+    function paintItems() {
+      const q = document.getElementById('item-search').value.trim().toLowerCase();
+      const shown = state.items.filter((item) => !q || `${item.sku} ${item.name_ar} ${item.category || ''} ${item.unit || ''}`.toLowerCase().includes(q));
+      showTable('item-table', shown, (item) => `<tr><td class="num">${item.sku}</td><td>${item.name_ar}</td><td>${item.item_type === 'service' ? 'خدمة' : 'منتج'}</td><td>${item.category || ''}</td><td class="num">${item.unit}</td><td class="num">${n(item.sale_price)}</td><td class="num">${n(item.reorder_level)}</td><td><button type="button" data-off="${item.item_id}">${item.is_active ? 'إيقاف' : 'تنشيط'}</button></td></tr>`);
+    }
+    async function loadMovements() {
+      const filter = Object.fromEntries(new FormData(document.getElementById('move-filter')).entries());
+      const query = new URLSearchParams();
+      if (filter.movement_type) query.set('movement_type', filter.movement_type);
+      if (filter.from) query.set('from', filter.from);
+      if (filter.to) query.set('to', filter.to);
+      const movements = await api('/finance/inventory/movements' + (query.toString() ? '?' + query : ''));
+      showTable('move-table', movements.movements, (row) => `<tr><td class="num">${row.document_no}</td><td>${row.movement_type}</td><td>${row.sku}</td><td class="num">${row.warehouse_code}</td><td>${row.direction === 'in' ? 'إدخال' : 'إخراج'}</td><td class="num">${n(row.quantity)}</td><td class="num">${n(row.unit_cost)}</td><td>${row.reason || ''}</td></tr>`);
+    }
     async function loadAll() {
-      const [items, warehouses, balances, movements] = await Promise.all([
+      const [items, warehouses, units, balances] = await Promise.all([
         api('/finance/inventory/items'),
         api('/finance/inventory/warehouses'),
-        api('/finance/inventory/balances'),
-        api('/finance/inventory/movements')
+        api('/finance/inventory/units'),
+        api('/finance/inventory/balances')
       ]);
       state.items = items.items;
       state.warehouses = warehouses.warehouses;
-      showTable('balance-table', balances.balances, (row) => `<tr><td>${row.sku} — ${row.name_ar}</td><td>${row.warehouse_code}</td><td class="num">${n(row.qty)}</td><td class="num">${n(row.avg_cost)}</td><td class="num">${n(row.stock_value)}</td><td class="num">${n(row.unit_margin)}</td><td>${Number(row.reorder_level) > 0 && Number(row.qty) <= Number(row.reorder_level) ? 'تحت حد الطلب' : ''}</td></tr>`);
-      const q = document.getElementById('item-search').value.trim();
-      const shown = state.items.filter((item) => !q || `${item.sku} ${item.name_ar} ${item.category || ''}`.includes(q));
-      showTable('item-table', shown, (item) => `<tr><td class="num">${item.sku}</td><td>${item.name_ar}</td><td>${item.item_type === 'service' ? 'خدمة' : 'منتج'}</td><td>${item.category || ''}</td><td class="num">${n(item.sale_price)}</td><td class="num">${n(item.reorder_level)}</td><td><button type="button" data-off="${item.item_id}">${item.is_active ? 'إيقاف' : 'تنشيط'}</button></td></tr>`);
+      state.units = units.units;
+      showTable('balance-table', balances.balances, (row) => `<tr><td>${row.sku} — ${row.name_ar}</td><td>${row.warehouse_code}</td><td class="num">${n(row.qty)} ${row.unit}</td><td class="num">${n(row.avg_cost)}</td><td class="num">${n(row.stock_value)}</td><td class="num">${n(row.unit_margin)}</td><td>${Number(row.reorder_level) > 0 && Number(row.qty) <= Number(row.reorder_level) ? 'تحت حد الطلب' : ''}</td></tr>`);
+      showTable('alert-table', balances.low_stock, (row) => `<tr><td>${row.sku} — ${row.name_ar}</td><td>${row.warehouse_code}</td><td class="num">${n(row.qty)}</td><td class="num">${n(row.reorder_level)}</td></tr>`);
+      showTable('valuation-table', balances.balances, (row) => `<tr><td>${row.sku}</td><td>${row.warehouse_code}</td><td class="num">${n(row.qty)}</td><td class="num">${n(row.avg_cost)}</td><td class="num">${n(row.stock_value)}</td></tr>`);
+      document.getElementById('valuation-total').textContent = balances.balances.length ? 'إجمالي قيمة المخزون: ' + n(balances.total_value) : '';
+      paintItems();
+      showTable('unit-table', state.units, (unit) => `<tr><td class="num">${unit.code}</td><td>${unit.name_ar}</td><td>${unit.is_active ? 'نشطة' : 'موقوفة'}</td></tr>`);
       showTable('wh-table', state.warehouses, (wh) => `<tr><td class="num">${wh.code}</td><td>${wh.name_ar}</td><td>${wh.is_active ? 'نشط' : 'موقوف'}</td></tr>`);
-      showTable('move-table', movements.movements, (row) => `<tr><td class="num">${row.document_no}</td><td>${row.movement_type}</td><td>${row.sku}</td><td class="num">${row.warehouse_code}</td><td>${row.direction === 'in' ? 'إدخال' : 'إخراج'}</td><td class="num">${n(row.quantity)}</td><td class="num">${n(row.unit_cost)}</td><td>${row.reason || ''}</td></tr>`);
+      const unitSelect = document.querySelector('#item-form [name=unit]');
+      unitSelect.innerHTML = state.units.filter((unit) => unit.is_active).map((unit) => `<option value="${unit.code}">${unit.code} — ${unit.name_ar}</option>`).join('');
       const itemSelect = document.querySelector('[name=item_id]');
       const whSelect = document.querySelector('[name=warehouse_id]');
       const destSelect = document.querySelector('[name=counter_warehouse_id]');
@@ -159,6 +212,7 @@
       const whOptions = state.warehouses.filter((wh) => wh.is_active).map((wh) => `<option value="${wh.warehouse_id}">${wh.code} — ${wh.name_ar}</option>`).join('');
       whSelect.innerHTML = whOptions;
       destSelect.innerHTML = '<option value="">مستودع الوجهة للتحويل</option>' + whOptions;
+      await loadMovements();
     }
     document.querySelectorAll('nav button').forEach((button) => button.addEventListener('click', () => {
       document.querySelectorAll('nav button').forEach((el) => el.classList.remove('active'));
@@ -177,7 +231,20 @@
         await loadAll();
       } catch (error) { say(error.message, false); }
     });
-    document.getElementById('item-search').addEventListener('input', () => loadAll().catch((error) => say(error.message, false)));
+    document.getElementById('item-search').addEventListener('input', paintItems);
+    document.getElementById('unit-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await api('/finance/inventory/units', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.target).entries())) });
+        event.target.reset();
+        say('تم حفظ وحدة القياس.', true);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+    document.getElementById('move-filter').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try { await loadMovements(); say('تم تحديث تقرير الحركة.', true); } catch (error) { say(error.message, false); }
+    });
     document.getElementById('item-table').addEventListener('click', async (event) => {
       const id = event.target.getAttribute('data-off');
       if (!id) return;

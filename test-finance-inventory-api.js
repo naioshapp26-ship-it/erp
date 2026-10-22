@@ -21,22 +21,28 @@ const ENTITY = 'INV-PHASE1-TEST';
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
-  req.userEntity = { type: 'OFFICE', id: ENTITY };
+  const entityId = req.headers['x-test-entity'] || ENTITY;
+  req.userEntity = { type: 'OFFICE', id: entityId };
   req.authenticatedEntityContext = req.userEntity;
   req.authUser = { email: 'inventory-phase1@local.test' };
   next();
 });
 app.use('/finance/inventory', inventoryRoutes);
 
-function call(method, path, body) {
+function call(method, path, body, extraHeaders) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
+    const headers = Object.assign({}, extraHeaders || {});
+    if (payload) {
+      headers['Content-Type'] = 'application/json';
+      headers['Content-Length'] = Buffer.byteLength(payload);
+    }
     const req = http.request({
       hostname: '127.0.0.1',
       port: server.address().port,
       path,
       method,
-      headers: payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}
+      headers
     }, (res) => {
       let raw = '';
       res.on('data', (chunk) => { raw += chunk; });
@@ -64,6 +70,10 @@ let server;
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
   try {
+    const unit = await call('POST', '/finance/inventory/units', { code: 'pcs', name_ar: 'قطعة' });
+    ok('create-unit', unit.status === 201 && unit.json.unit.code === 'PCS', String(unit.status));
+    const dupUnit = await call('POST', '/finance/inventory/units', { code: 'PCS', name_ar: 'مكررة' });
+    ok('duplicate-unit', dupUnit.status === 409);
     const wh = await call('POST', '/finance/inventory/warehouses', { code: 'MAIN', name_ar: 'المستودع الرئيسي' });
     ok('create-warehouse', wh.status === 201 && wh.json.warehouse.code === 'MAIN', String(wh.status));
     const wh2 = await call('POST', '/finance/inventory/warehouses', { code: 'EAST', name_ar: 'مستودع الشرق' });
@@ -71,13 +81,17 @@ let server;
     const dup = await call('POST', '/finance/inventory/warehouses', { code: 'main', name_ar: 'مكرر' });
     ok('duplicate-warehouse', dup.status === 409);
 
+    const missingUnit = await call('POST', '/finance/inventory/items', {
+      sku: 'no-unit', name_ar: 'بدون وحدة', item_type: 'product'
+    });
+    ok('item-requires-unit', missingUnit.status === 400);
     const item = await call('POST', '/finance/inventory/items', {
-      sku: 'sku-1', name_ar: 'صنف اختبار', item_type: 'product', category: 'عام', unit: 'قطعة', sale_price: 15, reorder_level: 4
+      sku: 'sku-1', name_ar: 'صنف اختبار', item_type: 'product', category: 'عام', unit: 'PCS', sale_price: 15, reorder_level: 4
     });
     ok('create-item', item.status === 201 && item.json.item.sku === 'SKU-1');
-    const dupItem = await call('POST', '/finance/inventory/items', { sku: 'SKU-1', name_ar: 'آخر' });
-    ok('duplicate-sku', dupItem.status === 409);
-    const service = await call('POST', '/finance/inventory/items', { sku: 'SRV-1', name_ar: 'خدمة', item_type: 'service', sale_price: 20 });
+    const dupItem = await call('POST', '/finance/inventory/items', { sku: 'SKU-1', name_ar: 'آخر', unit: 'PCS' });
+    ok('duplicate-sku', dupItem.status === 409, String(dupItem.status) + ' ' + ((dupItem.json && dupItem.json.error) || ''));
+    const service = await call('POST', '/finance/inventory/items', { sku: 'SRV-1', name_ar: 'خدمة', item_type: 'service', unit: 'PCS', sale_price: 20 });
     ok('create-service', service.status === 201 && service.json.item.is_stocked === false);
 
     const itemId = item.json.item.item_id;
@@ -126,6 +140,14 @@ let server;
     const dest = after.json.balances.find((b) => b.warehouse_id === wh2Id);
     ok('balances-after-transfer', Number(source.qty) === 11 && Number(dest.qty) === 4 && Number(dest.avg_cost) === 6, JSON.stringify({ source: source && source.qty, dest: dest && dest.qty }));
     ok('journal-not-claimed', transfer.json.journal_posted === false);
+    const raised = await call('PUT', '/finance/inventory/items/' + itemId, { reorder_level: 20 });
+    ok('raise-reorder', raised.status === 200);
+    const alerts = await call('GET', '/finance/inventory/balances');
+    ok('low-stock-alert', alerts.json.low_stock_count >= 1 && Number(alerts.json.total_value) > 0, String(alerts.json.low_stock_count));
+    const filtered = await call('GET', '/finance/inventory/movements?movement_type=TRANSFER');
+    ok('movement-report-filter', filtered.status === 200 && filtered.json.movements.every((row) => row.movement_type === 'TRANSFER') && filtered.json.count >= 2);
+    const other = await call('GET', '/finance/inventory/items', null, { 'x-test-entity': 'INV-OTHER-ENTITY' });
+    ok('entity-isolation', other.status === 200 && other.json.count === 0, String(other.json && other.json.count));
   } catch (error) {
     ok('unexpected', false, error.stack || error.message);
   } finally {
@@ -134,6 +156,7 @@ let server;
     await db.query(`DELETE FROM finance_stock_balances WHERE entity_id = $1`, [ENTITY]);
     await db.query(`DELETE FROM finance_item_audit WHERE entity_id = $1`, [ENTITY]);
     await db.query(`DELETE FROM finance_items WHERE entity_id = $1`, [ENTITY]);
+    await db.query(`DELETE FROM finance_units WHERE entity_id = $1`, [ENTITY]);
     await db.query(`DELETE FROM finance_warehouses WHERE entity_id = $1`, [ENTITY]);
     await db.query(`DELETE FROM finance_stock_counters WHERE entity_id = $1`, [ENTITY]);
     server.close();

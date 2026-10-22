@@ -49,6 +49,15 @@ async function ensureTables() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE (entity_id, code)
       );
+      CREATE TABLE IF NOT EXISTS finance_units (
+        unit_id SERIAL PRIMARY KEY,
+        entity_id TEXT NOT NULL,
+        code TEXT NOT NULL,
+        name_ar TEXT NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (entity_id, code)
+      );
       CREATE TABLE IF NOT EXISTS finance_stock_balances (
         entity_id TEXT NOT NULL,
         item_id INTEGER NOT NULL REFERENCES finance_items(item_id),
@@ -118,6 +127,17 @@ function requireEntity(req, res) {
   return entityId;
 }
 
+async function assertActiveUnit(client, entityId, code) {
+  const unit = String(code || '').trim().toUpperCase();
+  if (!unit) return { ok: false, error: 'وحدة القياس مطلوبة.' };
+  const found = await client.query(
+    `SELECT code FROM finance_units WHERE entity_id = $1 AND code = $2 AND is_active = true`,
+    [entityId, unit]
+  );
+  if (!found.rows.length) return { ok: false, error: 'وحدة القياس غير موجودة أو موقوفة.' };
+  return { ok: true, code: unit };
+}
+
 async function audit(client, entityId, recordType, recordId, action, beforeData, afterData, actor) {
   await client.query(
     `INSERT INTO finance_item_audit
@@ -163,6 +183,11 @@ router.post('/items', async (req, res) => {
   try {
     await ensureTables();
     await client.query('BEGIN');
+    const unit = await assertActiveUnit(client, entityId, body.unit);
+    if (!unit.ok) {
+      await client.query('ROLLBACK');
+      return fail(res, 400, unit.error);
+    }
     const inserted = await client.query(
       `INSERT INTO finance_items
         (entity_id, sku, name_ar, item_type, category, unit, sale_price, reorder_level, is_stocked)
@@ -174,7 +199,7 @@ router.post('/items', async (req, res) => {
         name,
         itemType,
         String(body.category || '').trim() || null,
-        String(body.unit || '').trim() || 'وحدة',
+        unit.code,
         salePrice,
         reorder,
         itemType === 'service' ? false : body.is_stocked !== false
@@ -219,6 +244,15 @@ router.put('/items/:id', async (req, res) => {
       await client.query('ROLLBACK');
       return fail(res, 400, 'السعر أو حد الطلب غير صالح.');
     }
+    let unitCode = row.unit;
+    if (body.unit != null) {
+      const unit = await assertActiveUnit(client, entityId, body.unit);
+      if (!unit.ok) {
+        await client.query('ROLLBACK');
+        return fail(res, 400, unit.error);
+      }
+      unitCode = unit.code;
+    }
     const updated = await client.query(
       `UPDATE finance_items SET
          name_ar = $3,
@@ -235,7 +269,7 @@ router.put('/items/:id', async (req, res) => {
         entityId,
         name,
         body.category != null ? (String(body.category).trim() || null) : row.category,
-        body.unit != null ? (String(body.unit).trim() || row.unit) : row.unit,
+        unitCode,
         salePrice,
         reorder,
         body.is_active != null ? !!body.is_active : row.is_active
@@ -244,6 +278,82 @@ router.put('/items/:id', async (req, res) => {
     await audit(client, entityId, 'item', row.item_id, 'update', row, updated.rows[0], actorOf(req));
     await client.query('COMMIT');
     res.json({ success: true, item: updated.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    fail(res, 500, error.message);
+  } finally {
+    client.release();
+  }
+});
+
+router.get('/units', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  try {
+    await ensureTables();
+    const result = await db.query(
+      `SELECT * FROM finance_units WHERE entity_id = $1 ORDER BY code`,
+      [entityId]
+    );
+    res.json({ success: true, units: result.rows, count: result.rows.length });
+  } catch (error) {
+    fail(res, 500, error.message);
+  }
+});
+
+router.post('/units', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  const code = String((req.body || {}).code || '').trim().toUpperCase();
+  const name = String((req.body || {}).name_ar || '').trim();
+  if (!code || !name) return fail(res, 400, 'رمز وحدة القياس والاسم مطلوبان.');
+  const client = await db.pool.connect();
+  try {
+    await ensureTables();
+    await client.query('BEGIN');
+    const inserted = await client.query(
+      `INSERT INTO finance_units (entity_id, code, name_ar) VALUES ($1,$2,$3) RETURNING *`,
+      [entityId, code, name]
+    );
+    await audit(client, entityId, 'unit', inserted.rows[0].unit_id, 'create', null, inserted.rows[0], actorOf(req));
+    await client.query('COMMIT');
+    res.status(201).json({ success: true, unit: inserted.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    fail(res, error.code === '23505' ? 409 : 500, error.code === '23505' ? 'رمز وحدة القياس مستخدم داخل هذا الكيان.' : error.message);
+  } finally {
+    client.release();
+  }
+});
+
+router.put('/units/:id', async (req, res) => {
+  const entityId = requireEntity(req, res);
+  if (!entityId) return;
+  const client = await db.pool.connect();
+  try {
+    await ensureTables();
+    await client.query('BEGIN');
+    const current = await client.query(
+      `SELECT * FROM finance_units WHERE unit_id = $1 AND entity_id = $2 FOR UPDATE`,
+      [req.params.id, entityId]
+    );
+    if (!current.rows.length) {
+      await client.query('ROLLBACK');
+      return fail(res, 404, 'وحدة القياس غير موجودة في هذا الكيان.');
+    }
+    const updated = await client.query(
+      `UPDATE finance_units SET name_ar = $3, is_active = $4
+       WHERE unit_id = $1 AND entity_id = $2 RETURNING *`,
+      [
+        current.rows[0].unit_id,
+        entityId,
+        String((req.body || {}).name_ar || current.rows[0].name_ar).trim() || current.rows[0].name_ar,
+        (req.body || {}).is_active != null ? !!(req.body || {}).is_active : current.rows[0].is_active
+      ]
+    );
+    await audit(client, entityId, 'unit', current.rows[0].unit_id, 'update', current.rows[0], updated.rows[0], actorOf(req));
+    await client.query('COMMIT');
+    res.json({ success: true, unit: updated.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');
     fail(res, 500, error.message);
@@ -372,7 +482,15 @@ router.get('/balances', async (req, res) => {
       [entityId]
     );
     const low = result.rows.filter((row) => row.is_stocked && Number(row.reorder_level) > 0 && Number(row.qty) <= Number(row.reorder_level));
-    res.json({ success: true, balances: result.rows, low_stock: low, valuation: 'weighted_average' });
+    const totalValue = roundCost(result.rows.reduce((sum, row) => sum + Number(row.stock_value || 0), 0));
+    res.json({
+      success: true,
+      balances: result.rows,
+      low_stock: low,
+      low_stock_count: low.length,
+      total_value: totalValue,
+      valuation: 'weighted_average'
+    });
   } catch (error) {
     fail(res, 500, error.message);
   }
@@ -400,6 +518,18 @@ router.get('/movements', async (req, res) => {
     if (req.query.warehouse_id) {
       params.push(req.query.warehouse_id);
       sql += ` AND m.warehouse_id = $${params.length}`;
+    }
+    if (req.query.movement_type) {
+      params.push(String(req.query.movement_type).toUpperCase());
+      sql += ` AND d.movement_type = $${params.length}`;
+    }
+    if (req.query.from) {
+      params.push(req.query.from);
+      sql += ` AND d.created_at::date >= $${params.length}::date`;
+    }
+    if (req.query.to) {
+      params.push(req.query.to);
+      sql += ` AND d.created_at::date <= $${params.length}::date`;
     }
     sql += ` ORDER BY d.document_id DESC, m.movement_id ASC LIMIT 200`;
     const result = await db.query(sql, params);
