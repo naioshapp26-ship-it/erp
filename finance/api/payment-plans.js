@@ -4,6 +4,7 @@
  */
 
 const { getRequestEntityContext, buildEntityScopeCondition } = require('../../entity-context');
+const { resolveScopedEntityId } = require('./resolve-scoped-entity');
 
 const db = require('../../db');
 const pool = db.pool;
@@ -28,7 +29,8 @@ async function ensurePaymentPlanAddressColumns() {
 }
 
 async function getPaymentPlans(req, res) {
-    const { entity_id, status, from_date, to_date, plan_number, customer_name, invoice_number } = req.query;
+    const { status, from_date, to_date, plan_number, customer_name, invoice_number } = req.query;
+    const entity_id = resolveScopedEntityId(req, req.query.entity_id);
 
     if (!entity_id) {
         return res.status(400).json({

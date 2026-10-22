@@ -32,6 +32,11 @@
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-slate-900 mb-2">👥 العملاء (Customers)</h1>
             <p class="text-slate-600">عرض جميع العملاء وربطهم بالبيانات المالية</p>
+            <nav class="mt-4 flex flex-wrap gap-2 text-sm">
+                <a href="/finance/customers.html" class="px-3 py-1 rounded-full bg-slate-900 text-white font-bold">العملاء</a>
+                <a href="/finance/invoices-budgets-master.html" class="px-3 py-1 rounded-full bg-white border font-bold">الفواتير</a>
+                <a href="/finance/receivables-collections.html" class="px-3 py-1 rounded-full bg-white border font-bold">التحصيل</a>
+            </nav>
         </div>
 
         <!-- Action Buttons -->
@@ -445,6 +450,8 @@
                                 <button onclick="deleteCustomer(${c.customer_id})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف">
                                     <i class="fas fa-trash text-lg"></i>
                                 </button>
+                                <a href="/finance/invoices-budgets-master.html?customer_id=${c.customer_id}" class="px-2 py-2 bg-sky-700 hover:bg-sky-800 text-white rounded-lg text-xs font-bold" title="فواتير العميل">فواتير</a>
+                                <a href="/finance/receivables-collections.html?customer_name=${encodeURIComponent(c.customer_name_ar || '')}&customer_code=${encodeURIComponent(c.customer_code || '')}" class="px-2 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold" title="تحصيل العميل">تحصيل</a>
                             </div>
                         </td>
                     </tr>
@@ -730,6 +737,8 @@
                 risk_level: document.getElementById('customerRisk').value.trim(),
                 risk_score: parseInt(document.getElementById('customerRiskScore').value || 0, 10),
                 risk_factors: document.getElementById('customerRiskFactors').value.trim(),
+                entity_id: ENTITY_ID || undefined,
+                entity_type: window.getFinanceEntityType ? (window.getFinanceEntityType() || undefined) : undefined,
                 is_active: status === 'active',
                 is_blocked: status === 'blocked',
                 blocked_reason: document.getElementById('customerBlockedReason').value.trim()
@@ -796,14 +805,16 @@
 
         async function deleteCustomer(customerId) {
             if (!confirm('هل تريد حذف هذا العميل؟')) return;
-            const res = await fetch(`${API_BASE}/finance/customers/${customerId}?entity_id=${ENTITY_ID}`, {
+            const res = await fetch(`${API_BASE}/finance/customers/${customerId}?entity_id=${encodeURIComponent(ENTITY_ID || '')}`, {
                 method: 'DELETE',
                 headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
             });
+            let data = {};
+            try { data = await res.json(); } catch (e) { /* */ }
             if (res.ok) {
+                alert(data.message || 'تم حذف العميل');
                 await loadCustomers();
             } else {
-                const data = await res.json();
                 alert(data.error || 'تعذر حذف العميل');
             }
         }

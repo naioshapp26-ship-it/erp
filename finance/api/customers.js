@@ -417,7 +417,7 @@ async function updateCustomer(req, res) {
     }
 
     try {
-        const existing = await pool.query('SELECT customer_id, entity_id, customer_code FROM finance_customers WHERE customer_id = $1', [customer_id]);
+        const existing = await pool.query('SELECT * FROM finance_customers WHERE customer_id = $1', [customer_id]);
         if (!existing.rows.length) {
             return res.status(404).json({ success: false, error: 'Customer not found' });
         }

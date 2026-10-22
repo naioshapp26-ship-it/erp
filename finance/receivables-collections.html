@@ -57,7 +57,13 @@
         <div class="mb-8 bg-slate-900 text-white rounded-2xl p-6 shadow-lg">
             <h1 class="text-4xl font-bold mb-2">💳 الذمم والتحصيل والفواتير وخطط الدفع</h1>
             <p class="text-lg opacity-90">منطقة الذمم والتحصيل ومنطقة الفواتير وخطط الدفع (الصفحة 26)</p>
+            <nav class="mt-4 flex flex-wrap gap-2 text-sm">
+                <a href="/finance/customers.html" class="px-3 py-1 rounded-full bg-white text-slate-900 font-bold">العملاء</a>
+                <a href="/finance/invoices-budgets-master.html" class="px-3 py-1 rounded-full bg-white text-slate-900 font-bold">الفواتير</a>
+                <a href="/finance/receivables-collections.html" class="px-3 py-1 rounded-full bg-emerald-500 text-white font-bold">التحصيل</a>
+            </nav>
         </div>
+        <div id="loadError" class="hidden mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 font-bold"></div>
 
         <div class="mb-6 flex gap-3 flex-wrap">
             <button onclick="downloadCSV()" class="bg-white text-gray-800 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-50 transition flex items-center gap-3 border border-gray-200 hover:border-blue-500 group">
@@ -693,13 +699,18 @@
                 ]);
 
                 const [arData, invData, payData, planData, customersData] = await Promise.all([
-                    arRes.json(), invRes.json(), payRes.json(), planRes.json(), customersRes.json()
+                    arRes.json().catch(() => ({ success: false, error: 'استجابة أعمار الذمم غير صالحة' })),
+                    invRes.json().catch(() => ({ success: false, error: 'استجابة الفواتير غير صالحة' })),
+                    payRes.json().catch(() => ({ success: false, error: 'استجابة المدفوعات غير صالحة' })),
+                    planRes.json().catch(() => ({ success: false, error: 'استجابة خطط الدفع غير صالحة' })),
+                    customersRes.json().catch(() => ({ success: false, customers: [] }))
                 ]);
 
-                if (!arData.success) throw new Error(arData.error || 'تعذر تحميل أعمار الذمم');
-                if (!invData.success) throw new Error(invData.error || 'تعذر تحميل الفواتير');
-                if (!payData.success) throw new Error(payData.error || 'تعذر تحميل المدفوعات');
-                if (!planData.success) throw new Error(planData.error || 'تعذر تحميل خطط الدفع');
+                const errors = [];
+                if (!arData.success) errors.push(arData.error || 'تعذر تحميل أعمار الذمم');
+                if (!invData.success) errors.push(invData.error || 'تعذر تحميل الفواتير');
+                if (!payData.success) errors.push(payData.error || 'تعذر تحميل المدفوعات');
+                if (!planData.success) errors.push(planData.error || 'تعذر تحميل خطط الدفع');
 
                 arRows = arData.rows || [];
                 invoices = invData.invoices || [];
@@ -707,9 +718,19 @@
                 plans = planData.plans || [];
                 customers = (customersData && customersData.success && customersData.customers) ? customersData.customers : [];
 
+                const errEl = document.getElementById('loadError');
+                if (errEl) {
+                    errEl.textContent = errors.join(' — ');
+                    errEl.classList.toggle('hidden', errors.length === 0);
+                }
                 applyFilters();
             } catch (error) {
                 console.error('❌ خطأ في تحميل البيانات:', error);
+                const errEl = document.getElementById('loadError');
+                if (errEl) {
+                    errEl.textContent = error.message || 'تعذر تحميل بيانات التحصيل';
+                    errEl.classList.remove('hidden');
+                }
             }
         }
 
@@ -719,23 +740,34 @@
             const customerCode = document.getElementById('customerCode').value.trim();
             const invoiceStatus = document.getElementById('invoiceStatus').value.trim();
 
-            const filteredAr = arRows.filter(r => {
-                const matchInvoice = !invoiceNumber || (r.invoice_number || '').toString().includes(invoiceNumber);
-                const matchCustomer = !customerName || ((r.customer_name_ar || '').includes(customerName) || (r.customer_name_en || '').includes(customerName));
-                const matchCode = !customerCode || ((r.customer_code || '').includes(customerCode));
-                const statusValue = (r.status || '').toString();
+            const matchesCustomer = (row) => {
+                const matchCustomer = !customerName || ((row.customer_name_ar || row.customer_name || '').includes(customerName) || (row.customer_name_en || '').includes(customerName));
+                const matchCode = !customerCode || ((row.customer_code || '').includes(customerCode));
+                return matchCustomer && matchCode;
+            };
+            const matchesInvoice = (row) => {
+                if (!invoiceNumber) return true;
+                return (row.invoice_number || '').toString().includes(invoiceNumber);
+            };
+            const matchesStatus = (row) => {
+                if (!invoiceStatus) return true;
+                const statusValue = (row.status || '').toString();
                 const statusLabel = translateInvoiceStatus(statusValue);
-                const matchStatus = !invoiceStatus || statusValue.toLowerCase().includes(invoiceStatus.toLowerCase()) || statusLabel.toLowerCase().includes(invoiceStatus.toLowerCase());
-                return matchInvoice && matchCustomer && matchCode && matchStatus;
-            });
+                const needle = invoiceStatus.toLowerCase();
+                return statusValue.toLowerCase().includes(needle) || statusLabel.toLowerCase().includes(needle);
+            };
 
-            renderSummary(filteredAr, invoices, payments, plans);
-            renderCharts(filteredAr, payments);
+            const filteredAr = arRows.filter(r => matchesInvoice(r) && matchesCustomer(r) && matchesStatus(r));
+            const filteredInvoices = invoices.filter(r => matchesInvoice(r) && matchesCustomer(r) && matchesStatus(r));
+            const filteredPayments = payments.filter(r => matchesCustomer(r) && (!invoiceStatus || matchesStatus(r)));
+
+            renderSummary(filteredAr, filteredInvoices, filteredPayments, plans);
+            renderCharts(filteredAr, filteredPayments);
             renderAIInsights(filteredAr);
             renderTopCustomers(plans);
             renderAgingTable(filteredAr);
-            renderInvoicesTable(invoices);
-            renderPaymentsTable(payments);
+            renderInvoicesTable(filteredInvoices);
+            renderPaymentsTable(filteredPayments);
             renderPlansTable(plans);
         }
 
@@ -752,8 +784,9 @@
             const openInvoices = arData.length;
             const today = new Date();
 
-            const daily = payData.filter(p => isWithinDays(p.payment_date, 1)).reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0);
-            const weekly = payData.filter(p => isWithinDays(p.payment_date, 7)).reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0);
+            const activePays = payData.filter(p => String(p.status || '').toUpperCase() !== 'CANCELLED');
+            const daily = activePays.filter(p => isWithinDays(p.payment_date, 1)).reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0);
+            const weekly = activePays.filter(p => isWithinDays(p.payment_date, 7)).reduce((sum, p) => sum + parseFloat(p.payment_amount || 0), 0);
 
             document.getElementById('totalAR').textContent = formatMoney(totalAR);
             document.getElementById('openInvoices').textContent = openInvoices;
@@ -1035,9 +1068,8 @@
                             <button onclick="openEditPayment(${r.payment_id})" class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md font-semibold" title="تعديل">
                                 <i class="fas fa-pen text-lg"></i>
                             </button>
-                            <button onclick="deletePayment(${r.payment_id})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف">
-                                <i class="fas fa-trash text-lg"></i>
-                            </button>
+                            ${String(r.status || '').toUpperCase() === 'CANCELLED' ? '' : `<button onclick="cancelPayment(${r.payment_id})" class="px-2 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold" title="إلغاء التحصيل">إلغاء</button>`}
+                            ${!r.journal_entry_id && String(r.status || '').toUpperCase() !== 'CANCELLED' ? `<button onclick="deletePayment(${r.payment_id})" class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md font-semibold" title="حذف"><i class="fas fa-trash text-lg"></i></button>` : ''}
                         </div>
                     </td>
                 </tr>
@@ -1866,6 +1898,24 @@
             }
         }
 
+        async function cancelPayment(paymentId) {
+            const reason = prompt('سبب إلغاء التحصيل', 'إلغاء تحصيل وإعادة المبلغ للفاتورة');
+            if (!reason || !reason.trim()) return;
+            const res = await fetch(`${API_BASE}/finance/payments/${paymentId}/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) },
+                body: JSON.stringify({ reason: reason.trim() })
+            });
+            let data = {};
+            try { data = await res.json(); } catch (e) { /* ignore */ }
+            if (res.ok) {
+                alert(data.message || 'تم إلغاء التحصيل');
+                await loadData();
+            } else {
+                alert(data.error || 'تعذر إلغاء التحصيل');
+            }
+        }
+
         async function deletePayment(paymentId) {
             if (!confirm('هل تريد حذف هذه الدفعة؟')) return;
             const res = await fetch(`${API_BASE}/finance/payments/${paymentId}`, {
@@ -2314,8 +2364,18 @@
             loadData();
         }
 
+        function applyUrlFilters() {
+            const params = new URLSearchParams(window.location.search);
+            const invoiceNumber = params.get('invoice_number');
+            const customerName = params.get('customer_name');
+            const customerCode = params.get('customer_code');
+            if (invoiceNumber) document.getElementById('invoiceNumber').value = invoiceNumber;
+            if (customerName) document.getElementById('customerName').value = customerName;
+            if (customerCode) document.getElementById('customerCode').value = customerCode;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            const start = () => { syncFinanceEntity(); loadData(); };
+            const start = () => { syncFinanceEntity(); applyUrlFilters(); loadData(); };
             if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
             else start();
         });

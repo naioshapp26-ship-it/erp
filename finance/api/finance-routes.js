@@ -46,6 +46,35 @@ function isFinancePostPaymentViaService() {
   return v === '1' || v === 'true' || v === 'yes' || v === 'on';
 }
 
+function sameStoredValue(current, next) {
+  if (current == null && (next == null || next === '')) return true;
+  if (next == null && (current == null || current === '')) return true;
+  if (current instanceof Date) {
+    return current.toISOString().slice(0, 10) === String(next).slice(0, 10);
+  }
+  const left = typeof current === 'number' ? current : Number(current);
+  const right = typeof next === 'number' ? next : Number(next);
+  if (Number.isFinite(left) && Number.isFinite(right) && String(current).trim() !== '' && String(next).trim() !== '') {
+    return Math.abs(left - right) < 0.009;
+  }
+  return String(current ?? '').trim().toUpperCase() === String(next ?? '').trim().toUpperCase();
+}
+
+function fieldPresentAndChanged(row, body, field) {
+  if (!Object.prototype.hasOwnProperty.call(body || {}, field)) return false;
+  return !sameStoredValue(row[field], body[field]);
+}
+
+const INVOICE_FINANCIAL_FIELDS = [
+  'invoice_number', 'invoice_date', 'customer_id', 'customer_name',
+  'subtotal', 'tax_amount', 'discount_amount', 'total_amount', 'paid_amount', 'remaining_amount',
+  'status', 'payment_status', 'entity_type', 'entity_id', 'branch_id', 'incubator_id', 'platform_id'
+];
+
+const PAYMENT_FINANCIAL_FIELDS = [
+  'payment_date', 'payment_amount', 'payment_method', 'payment_type', 'status'
+];
+
 // ========================================
 // Helper Functions
 // ========================================
@@ -504,7 +533,7 @@ router.post('/journal-entries/:id/reverse', async (req, res) => {
 router.get('/invoices', async (req, res) => {
   try {
     const userEntity = req.userEntity || { type: 'HQ', id: 'HQ001' };
-    const { status, customer_id, from_date, to_date, limit = 100, offset = 0 } = req.query;
+    const { status, customer_id, from_date, to_date, q, limit = 100, offset = 0 } = req.query;
     
     let query = `
       SELECT 
@@ -537,6 +566,11 @@ router.get('/invoices', async (req, res) => {
     if (to_date) {
       params.push(to_date);
       query += ` AND i.invoice_date <= $${params.length}`;
+    }
+
+    if (q && String(q).trim()) {
+      params.push(`%${String(q).trim()}%`);
+      query += ` AND (i.invoice_number ILIKE $${params.length} OR c.customer_name_ar ILIKE $${params.length} OR COALESCE(c.customer_code, '') ILIKE $${params.length})`;
     }
     
     query += ` ORDER BY i.invoice_date DESC, i.invoice_number DESC`;
@@ -614,7 +648,18 @@ router.get('/invoices/:id', async (req, res) => {
 router.put('/invoices/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await assertInvoiceMutable(db.pool, id);
+    const payloadPreview = req.body || {};
+    const existingInvoice = await db.query('SELECT * FROM finance_invoices WHERE invoice_id = $1', [id]);
+    if (!existingInvoice.rows.length) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+    const financialChanged = INVOICE_FINANCIAL_FIELDS.some((field) =>
+      fieldPresentAndChanged(existingInvoice.rows[0], payloadPreview, field)
+    );
+    // Posted invoices keep their ledger amounts. Notes, due date, and address stay editable.
+    if (financialChanged) {
+      await assertInvoiceMutable(db.pool, id);
+    }
     const allowedFields = [
       'invoice_number', 'invoice_date', 'due_date', 'customer_id', 'customer_name',
       'subtotal', 'tax_amount', 'discount_amount', 'total_amount', 'paid_amount', 'remaining_amount',
@@ -697,6 +742,139 @@ router.delete('/invoices/:id', async (req, res) => {
   }
 });
 
+async function ensureInvoiceAddressColumns() {
+  await db.query(`
+    ALTER TABLE finance_invoices
+    ADD COLUMN IF NOT EXISTS street_name TEXT,
+    ADD COLUMN IF NOT EXISTS postal_code TEXT,
+    ADD COLUMN IF NOT EXISTS building_number TEXT,
+    ADD COLUMN IF NOT EXISTS city TEXT,
+    ADD COLUMN IF NOT EXISTS district TEXT,
+    ADD COLUMN IF NOT EXISTS national_address_number TEXT,
+    ADD COLUMN IF NOT EXISTS short_address TEXT;
+  `);
+}
+
+async function ensurePaymentAddressColumns() {
+  await db.query(`
+    ALTER TABLE finance_payments
+    ADD COLUMN IF NOT EXISTS street_name TEXT,
+    ADD COLUMN IF NOT EXISTS postal_code TEXT,
+    ADD COLUMN IF NOT EXISTS building_number TEXT,
+    ADD COLUMN IF NOT EXISTS city TEXT,
+    ADD COLUMN IF NOT EXISTS district TEXT,
+    ADD COLUMN IF NOT EXISTS national_address_number TEXT,
+    ADD COLUMN IF NOT EXISTS short_address TEXT;
+  `);
+}
+
+// Cancel a posted invoice by reversing its issue journal. Hard delete stays blocked.
+router.post('/invoices/:id/cancel', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+    const reason = String((req.body && req.body.reason) || '').trim();
+    if (!reason) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'سبب الإلغاء إلزامي', code: 'REASON_REQUIRED' });
+    }
+
+    const invRes = await client.query(
+      'SELECT * FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE',
+      [id]
+    );
+    if (!invRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'الفاتورة غير موجودة', code: 'NOT_FOUND' });
+    }
+    const invoice = invRes.rows[0];
+    const actor = resolveActor({ req });
+    if (!actor.authenticated) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({
+        success: false,
+        error: 'يجب تسجيل الدخول قبل إلغاء فاتورة مرحّلة',
+        code: 'AUTH_REQUIRED'
+      });
+    }
+    try {
+      assertEntityOwns(invoice.entity_id, actor, 'الفاتورة');
+    } catch (ownErr) {
+      await client.query('ROLLBACK');
+      if (ownErr instanceof PostingError) {
+        return res.status(ownErr.status).json({ success: false, error: ownErr.message, code: ownErr.code });
+      }
+      throw ownErr;
+    }
+    if (String(invoice.status || '').toUpperCase() === 'CANCELLED') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, error: 'الفاتورة ملغاة مسبقًا', code: 'ALREADY_CANCELLED' });
+    }
+
+    const paid = Number(invoice.paid_amount || 0);
+    const alloc = await client.query(
+      `SELECT COUNT(*)::int AS n
+       FROM finance_payment_allocations a
+       JOIN finance_payments p ON p.payment_id = a.payment_id
+       WHERE a.invoice_id = $1
+         AND UPPER(COALESCE(p.status, '')) <> 'CANCELLED'`,
+      [id]
+    );
+    if (paid > 0.009 || alloc.rows[0].n > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        success: false,
+        error: 'لا يمكن إلغاء فاتورة عليها تحصيل. ألغِ التحصيل أولًا.',
+        code: 'COLLECTION_EXISTS'
+      });
+    }
+
+    let reversal = null;
+    if (invoice.journal_entry_id) {
+      try {
+        reversal = await reverseEntry(client, invoice.journal_entry_id, {
+          req,
+          reason,
+          manageTransaction: false
+        });
+      } catch (revErr) {
+        if (!(revErr instanceof PostingError) || revErr.code !== 'ALREADY_REVERSED') throw revErr;
+      }
+    }
+
+    const updated = await client.query(
+      `UPDATE finance_invoices
+       SET status = 'CANCELLED', updated_at = NOW()
+       WHERE invoice_id = $1
+       RETURNING *`,
+      [id]
+    );
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      invoice: updated.rows[0],
+      reversal_entry_id: reversal && reversal.entry ? reversal.entry.entry_id : null,
+      message: 'تم إلغاء الفاتورة وعكس قيد الإصدار'
+    });
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch { /* */ }
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
+    if (sendGuardError(res, error)) return;
+    console.error('Error cancelling invoice:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
 // Create new invoice
 // B1.d.2: when FINANCE_POST_INVOICE_VIA_SERVICE=true → service posting (exclusive).
 // Default false → legacy inline JE (unchanged). Never run both paths.
@@ -705,6 +883,7 @@ router.post('/invoices', async (req, res) => {
   const useService = isFinancePostInvoiceViaService();
 
   try {
+    await ensureInvoiceAddressColumns();
     await client.query('BEGIN');
 
     const {
@@ -1110,6 +1289,7 @@ router.post('/payments', async (req, res) => {
   const useService = isFinancePostPaymentViaService();
 
   try {
+    await ensurePaymentAddressColumns();
     await client.query('BEGIN');
 
     const {
@@ -1455,10 +1635,10 @@ router.post('/payments', async (req, res) => {
           `قيد آلي - دفعة رقم ${payment_number}`,
           payment_number,
           payment_id,
-          entity_type,
-          entity_id,
-          branch_id,
-          incubator_id,
+          resolvedEntityType,
+          resolvedEntityId,
+          resolvedBranchId,
+          resolvedIncubatorId,
           createdBy
         ]
       );
@@ -1532,13 +1712,50 @@ router.put('/payments/:id', async (req, res) => {
     await client.query('BEGIN');
     const { id } = req.params;
     const actor = resolveActor({ req });
-    const payment = await assertPaymentMutable(client, id, {
-      forDelete: false,
-      ctx: { req },
-      forUpdate: true
-    });
-
     const body = req.body || {};
+    const currentRes = await client.query(
+      'SELECT * FROM finance_payments WHERE payment_id = $1 FOR UPDATE',
+      [id]
+    );
+    if (!currentRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+    const currentPayment = currentRes.rows[0];
+    const financialChanged = PAYMENT_FINANCIAL_FIELDS.some((field) =>
+      fieldPresentAndChanged(currentPayment, body, field)
+    );
+    let payment = currentPayment;
+    if (financialChanged) {
+      payment = await assertPaymentMutable(client, id, {
+        forDelete: false,
+        ctx: { req },
+        forUpdate: true
+      });
+    } else if (currentPayment.journal_entry_id || actor.authenticated) {
+      if (!actor.authenticated) {
+        await client.query('ROLLBACK');
+        return res.status(401).json({
+          success: false,
+          error: 'يجب تسجيل الدخول قبل تعديل دفعة مرحّلة',
+          code: 'AUTH_REQUIRED'
+        });
+      }
+      try {
+        assertEntityOwns(currentPayment.entity_id, actor, 'الدفعة');
+      } catch (ownErr) {
+        await client.query('ROLLBACK');
+        if (ownErr instanceof PostingError) {
+          return res.status(ownErr.status).json({
+            success: false,
+            error: ownErr.message,
+            code: ownErr.code
+          });
+        }
+        throw ownErr;
+      }
+    }
+
     // Reject bypass attempts: clearing JE link, moving entity, or mutating posting fields
     const forbidden = [
       'journal_entry_id',
@@ -1686,6 +1903,122 @@ router.delete('/payments/:id', async (req, res) => {
     }
     if (sendGuardError(res, error)) return;
     console.error('Error deleting payment:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Cancel a posted collection: reverse its journal and restore the invoice balance.
+router.post('/payments/:id/cancel', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+    const reason = String((req.body && req.body.reason) || '').trim();
+    if (!reason) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'سبب الإلغاء إلزامي', code: 'REASON_REQUIRED' });
+    }
+
+    const payRes = await client.query(
+      'SELECT * FROM finance_payments WHERE payment_id = $1 FOR UPDATE',
+      [id]
+    );
+    if (!payRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'الدفعة غير موجودة', code: 'NOT_FOUND' });
+    }
+    const payment = payRes.rows[0];
+    const actor = resolveActor({ req });
+    if (!actor.authenticated) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({
+        success: false,
+        error: 'يجب تسجيل الدخول قبل إلغاء تحصيل مرحّل',
+        code: 'AUTH_REQUIRED'
+      });
+    }
+    try {
+      assertEntityOwns(payment.entity_id, actor, 'الدفعة');
+    } catch (ownErr) {
+      await client.query('ROLLBACK');
+      if (ownErr instanceof PostingError) {
+        return res.status(ownErr.status).json({ success: false, error: ownErr.message, code: ownErr.code });
+      }
+      throw ownErr;
+    }
+    if (String(payment.status || '').toUpperCase() === 'CANCELLED') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, error: 'التحصيل ملغى مسبقًا', code: 'ALREADY_CANCELLED' });
+    }
+
+    const allocs = await client.query(
+      'SELECT invoice_id, allocated_amount FROM finance_payment_allocations WHERE payment_id = $1 ORDER BY invoice_id',
+      [id]
+    );
+    let reversal = null;
+    if (payment.journal_entry_id) {
+      try {
+        reversal = await reverseEntry(client, payment.journal_entry_id, {
+          req,
+          reason,
+          manageTransaction: false
+        });
+      } catch (revErr) {
+        if (!(revErr instanceof PostingError) || revErr.code !== 'ALREADY_REVERSED') throw revErr;
+      }
+    }
+
+    for (const row of allocs.rows) {
+      const amount = Number(row.allocated_amount || 0);
+      await client.query(
+        `UPDATE finance_invoices
+         SET paid_amount = GREATEST(COALESCE(paid_amount, 0) - $1, 0),
+             remaining_amount = LEAST(COALESCE(total_amount, 0), COALESCE(remaining_amount, 0) + $1),
+             payment_status = CASE
+               WHEN GREATEST(COALESCE(paid_amount, 0) - $1, 0) <= 0.009 THEN 'UNPAID'
+               WHEN GREATEST(COALESCE(paid_amount, 0) - $1, 0) + 0.009 >= COALESCE(total_amount, 0) THEN 'PAID'
+               ELSE 'PARTIAL'
+             END,
+             status = CASE
+               WHEN UPPER(COALESCE(status, '')) = 'CANCELLED' THEN status
+               WHEN GREATEST(COALESCE(paid_amount, 0) - $1, 0) + 0.009 >= COALESCE(total_amount, 0) THEN 'PAID'
+               WHEN UPPER(COALESCE(status, '')) = 'PAID' THEN 'ISSUED'
+               ELSE status
+             END,
+             updated_at = NOW()
+         WHERE invoice_id = $2`,
+        [amount, row.invoice_id]
+      );
+    }
+
+    const updated = await client.query(
+      `UPDATE finance_payments
+       SET status = 'CANCELLED', updated_at = NOW()
+       WHERE payment_id = $1
+       RETURNING *`,
+      [id]
+    );
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      payment: updated.rows[0],
+      reversal_entry_id: reversal && reversal.entry ? reversal.entry.entry_id : null,
+      message: 'تم إلغاء التحصيل وعكس أثره على الفاتورة'
+    });
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch { /* */ }
+    if (error instanceof PostingError) {
+      return res.status(error.status).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        ...(error.extra || {})
+      });
+    }
+    if (sendGuardError(res, error)) return;
+    console.error('Error cancelling payment:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();
