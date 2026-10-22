@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>المخزون — القيادة المالية 360</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/finance/record-actions.css">
   <style>
     :root {
       color-scheme: light dark;
@@ -23,7 +24,8 @@
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Cairo, sans-serif; background: var(--bg); color: var(--text); }
     header, main { width: min(1100px, calc(100% - 24px)); margin: 0 auto; }
-    header { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 18px 0; }
+    header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 58px 0 18px; }
+    header p { margin: 6px 0 0; }
     a { color: var(--accent); font-weight: 700; text-decoration: none; }
     h1 { font-size: 1.4rem; margin: 0; }
     .muted { color: var(--muted); font-size: .92rem; }
@@ -33,7 +35,7 @@
     section { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
     section.active { display: block; }
     form { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin: 12px 0; }
-    input, select { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+    input, select { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); min-width: 0; width: 100%; }
     .num { direction: ltr; text-align: end; font-variant-numeric: tabular-nums; }
     table { width: 100%; border-collapse: collapse; font-size: .92rem; }
     th, td { border-bottom: 1px solid var(--line); padding: 8px 6px; text-align: right; vertical-align: top; }
@@ -42,6 +44,7 @@
     .msg.err { color: var(--warn); }
     .msg.ok { color: var(--ok); }
     .wrap { overflow-x: auto; }
+    .trace { white-space: pre-wrap; font-size: .88rem; }
     @media (max-width: 700px) { header { flex-direction: column; align-items: flex-start; } }
   </style>
 </head>
@@ -49,7 +52,7 @@
   <header>
     <div>
       <h1>المخزون</h1>
-      <p class="muted">أصناف ومستودعات وحركات محفوظة في Postgres. التقييم: متوسط التكلفة المرجح. الرصيد السالب ممنوع، والحركة المعتمدة لا تُعدَّل. الترحيل للحسابات غير مفعّل في هذه المرحلة.</p>
+      <p class="muted">الأرصدة في Postgres بمتوسط التكلفة المرجح. إنشاء أمر الشراء لا يزيد الرصيد. الاستلام المعتمد والصرف من فاتورة مصدرة والمرتجع ينشئون قيودًا مزدوجة، والحركة المعتمدة لا تُحذف.</p>
     </div>
     <a href="/finance">القيادة المالية 360</a>
   </header>
@@ -62,13 +65,14 @@
       <button type="button" data-tab="units">وحدات القياس</button>
       <button type="button" data-tab="warehouses">المستودعات</button>
       <button type="button" data-tab="moves">تقرير الحركة</button>
+      <button type="button" data-tab="links">الربط المحاسبي</button>
     </nav>
     <p id="msg" class="msg" role="status"></p>
 
     <section id="balances" class="active">
       <h2>أرصدة المخزون</h2>
-      <div id="balance-empty" class="empty">لا توجد أرصدة بعد. أضف صنفًا ومستودعًا ثم سجّل رصيدًا افتتاحيًا.</div>
-      <div class="wrap"><table id="balance-table" hidden><thead><tr><th>الصنف</th><th>المستودع</th><th>الكمية</th><th>متوسط التكلفة</th><th>قيمة المخزون</th><th>هامش الوحدة</th><th>تنبيه</th></tr></thead><tbody></tbody></table></div>
+      <div id="balance-empty" class="empty">لا توجد أرصدة بعد. أضف صنفًا ومستودعًا ثم سجّل استلامًا أو رصيدًا افتتاحيًا.</div>
+      <div class="wrap"><table id="balance-table" hidden><thead><tr><th data-sort="sku">الصنف</th><th data-sort="warehouse_code">المستودع</th><th data-sort="qty">الكمية</th><th data-sort="avg_cost">متوسط التكلفة</th><th data-sort="stock_value">قيمة المخزون</th><th data-sort="unit_margin">هامش الوحدة</th><th>تنبيه</th></tr></thead><tbody></tbody></table></div>
     </section>
 
     <section id="items">
@@ -84,8 +88,9 @@
         <button class="btn primary" type="submit">حفظ الصنف</button>
       </form>
       <input id="item-search" placeholder="بحث بالرمز أو الاسم أو الفئة">
+      <button class="btn" id="item-match" type="button">تحديد كل النتائج المطابقة</button>
       <div id="item-empty" class="empty">لا توجد أصناف. أول سجل يُنشأ من النموذج أعلاه.</div>
-      <div class="wrap"><table id="item-table" hidden><thead><tr><th>الرمز</th><th>الاسم</th><th>النوع</th><th>الفئة</th><th>الوحدة</th><th>سعر البيع</th><th>حد الطلب</th><th></th></tr></thead><tbody></tbody></table></div>
+      <div class="wrap"><table id="item-table" hidden><thead><tr><th data-sort="sku">الرمز</th><th data-sort="name_ar">الاسم</th><th data-sort="item_type">النوع</th><th data-sort="category">الفئة</th><th data-sort="unit">الوحدة</th><th data-sort="sale_price">سعر البيع</th><th data-sort="reorder_level">حد الطلب</th></tr></thead><tbody></tbody></table></div>
     </section>
 
     <section id="alerts">
@@ -111,7 +116,7 @@
         <button class="btn primary" type="submit">حفظ الوحدة</button>
       </form>
       <div id="unit-empty" class="empty">لا توجد وحدات. أنشئ أول وحدة قبل إضافة الأصناف.</div>
-      <div class="wrap"><table id="unit-table" hidden><thead><tr><th>الرمز</th><th>الاسم</th><th>الحالة</th></tr></thead><tbody></tbody></table></div>
+      <div class="wrap"><table id="unit-table" hidden><thead><tr><th data-sort="code">الرمز</th><th data-sort="name_ar">الاسم</th><th data-sort="is_active">الحالة</th></tr></thead><tbody></tbody></table></div>
     </section>
 
     <section id="warehouses">
@@ -122,13 +127,13 @@
         <button class="btn primary" type="submit">حفظ المستودع</button>
       </form>
       <div id="wh-empty" class="empty">لا توجد مستودعات.</div>
-      <div class="wrap"><table id="wh-table" hidden><thead><tr><th>الرمز</th><th>الاسم</th><th>الحالة</th></tr></thead><tbody></tbody></table></div>
+      <div class="wrap"><table id="wh-table" hidden><thead><tr><th data-sort="code">الرمز</th><th data-sort="name_ar">الاسم</th><th data-sort="is_active">الحالة</th></tr></thead><tbody></tbody></table></div>
     </section>
 
     <section id="moves">
       <h2>تقرير الحركة والأذون</h2>
       <form id="move-filter">
-        <select name="movement_type"><option value="">كل الأنواع</option><option>OPENING</option><option>IN</option><option>OUT</option><option>ADJUSTMENT</option><option>TRANSFER</option></select>
+        <select name="movement_type"><option value="">كل الأنواع</option><option>OPENING</option><option>IN</option><option>OUT</option><option>ADJUSTMENT</option><option>TRANSFER</option><option>RECEIPT</option><option>ISSUE</option><option>RETURN</option></select>
         <input name="from" type="date">
         <input name="to" type="date">
         <button class="btn" type="submit">تصفية التقرير</button>
@@ -150,32 +155,233 @@
         <input name="reason" placeholder="السبب للإخراج أو التسوية">
         <button class="btn primary" type="submit">ترحيل الحركة</button>
       </form>
+      <p class="muted">الإدخال اليدوي لا ينشئ قيدًا. الاستلام والصرف والمرتجع من تبويب الربط المحاسبي.</p>
       <div id="move-empty" class="empty">لا توجد حركات.</div>
-      <div class="wrap"><table id="move-table" hidden><thead><tr><th>المستند</th><th>النوع</th><th>الصنف</th><th>المستودع</th><th>الاتجاه</th><th>الكمية</th><th>التكلفة</th><th>السبب</th></tr></thead><tbody></tbody></table></div>
+      <div class="wrap"><table id="move-table" hidden><thead><tr><th data-sort="document_no">المستند</th><th data-sort="movement_type">النوع</th><th data-sort="sku">الصنف</th><th data-sort="warehouse_code">المستودع</th><th data-sort="direction">الاتجاه</th><th data-sort="quantity">الكمية</th><th data-sort="unit_cost">التكلفة</th><th data-sort="source_id">المصدر</th><th data-sort="journal_entry_id">القيد</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="links">
+      <h2>ربط المشتريات والمبيعات والقيود</h2>
+      <p class="muted">استخدم أوامر الشراء والفواتير الموجودة. الرصيد يتحرك عند الاستلام أو الصرف فقط، ومعهما قيد متوازن إذا اكتمل ربط الحسابات.</p>
+      <h3>حسابات الأثر المالي</h3>
+      <form id="map-form">
+        <input class="num" name="inventory_account_id" type="number" placeholder="حساب المخزون" required>
+        <input class="num" name="grni_account_id" type="number" placeholder="حساب الوسيط / الدائنون" required>
+        <input class="num" name="cogs_account_id" type="number" placeholder="حساب تكلفة المبيعات" required>
+        <input name="currency_code" placeholder="العملة، مثل SAR" value="SAR" maxlength="3">
+        <button class="btn primary" type="submit">حفظ الربط</button>
+      </form>
+      <p id="map-now" class="muted"></p>
+      <h3>استلام أمر شراء معتمد</h3>
+      <form id="receipt-form">
+        <input class="num" name="po_id" type="number" placeholder="رقم أمر الشراء" required>
+        <select name="warehouse_id" required></select>
+        <select name="item_id" required></select>
+        <input class="num" name="quantity" type="number" min="0.001" step="0.001" placeholder="الكمية" required>
+        <input class="num" name="unit_cost" type="number" min="0" step="0.0001" placeholder="تكلفة الوحدة" required>
+        <input class="num" name="cost_center_id" type="number" placeholder="مركز التكلفة">
+        <input name="currency_code" placeholder="العملة" value="SAR">
+        <button class="btn primary" type="submit">ترحيل الاستلام</button>
+      </form>
+      <h3>صرف فاتورة مبيعات مصدرة</h3>
+      <form id="issue-form">
+        <input class="num" name="invoice_id" type="number" placeholder="رقم الفاتورة" required>
+        <select name="warehouse_id" required></select>
+        <select name="item_id" required></select>
+        <input class="num" name="quantity" type="number" min="0.001" step="0.001" placeholder="الكمية" required>
+        <input class="num" name="cost_center_id" type="number" placeholder="مركز التكلفة">
+        <button class="btn primary" type="submit">ترحيل الصرف</button>
+      </form>
+      <h3>مرتجع أو إلغاء منضبط</h3>
+      <form id="return-form">
+        <input class="num" name="document_id" type="number" placeholder="مستند المخزون الأصلي" required>
+        <select name="item_id" required></select>
+        <select name="warehouse_id" required></select>
+        <input class="num" name="quantity" type="number" min="0.001" step="0.001" placeholder="الكمية" required>
+        <input name="reason" placeholder="سبب المرتجع" required>
+        <button class="btn primary" type="submit">ترحيل المرتجع</button>
+      </form>
+      <h3>تتبع المستند</h3>
+      <form id="trace-form">
+        <select name="from_type">
+          <option value="PURCHASE_ORDER">أمر شراء</option>
+          <option value="SALES_INVOICE">فاتورة مبيعات</option>
+          <option value="STOCK_DOCUMENT">مستند مخزون</option>
+          <option value="JOURNAL_ENTRY">قيد</option>
+        </select>
+        <input name="from_id" placeholder="المعرّف" required>
+        <button class="btn" type="submit">عرض السلسلة</button>
+      </form>
+      <pre id="trace-out" class="trace"></pre>
     </section>
   </main>
+  <script src="/finance/record-actions.js"></script>
   <script>
-    const state = { items: [], warehouses: [], units: [], requestId: null };
+    const state = { items: [], warehouses: [], units: [], movements: [], requestId: null, receiptId: null, issueId: null, returnId: null };
     const msg = document.getElementById('msg');
+    const actionsApi = window.NaioshRecordActions;
     function say(text, ok) { msg.textContent = text || ''; msg.className = 'msg ' + (ok ? 'ok' : 'err'); }
     function n(value) { return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 4 }); }
+    function text(value) { return actionsApi.escapeHtml(value); }
     async function api(path, options) {
       const res = await fetch(path, Object.assign({ credentials: 'include', headers: { 'Content-Type': 'application/json' } }, options || {}));
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success === false) throw new Error(data.error || 'تعذر تنفيذ العملية');
       return data;
     }
-    function showTable(id, rows, render) {
-      const table = document.getElementById(id);
-      const empty = document.getElementById(id.replace('-table', '-empty'));
-      table.hidden = !rows.length;
-      empty.hidden = !!rows.length;
-      table.querySelector('tbody').innerHTML = rows.map(render).join('');
+    function masterActions(row) {
+      return [
+        { id: 'view', label: 'عرض' },
+        { id: 'edit', label: 'تعديل' },
+        { id: 'copy', label: 'نسخ' },
+        { id: 'toggle', label: row.is_active ? 'تعطيل' : 'تفعيل' },
+        row.delete_block_reason
+          ? { id: 'delete', label: 'حذف', disabled: true, reason: row.delete_block_reason }
+          : { id: 'delete', label: 'حذف', danger: true }
+      ];
     }
-    function paintItems() {
+    const itemTable = actionsApi.bind({
+      table: document.getElementById('item-table'),
+      emptyEl: document.getElementById('item-empty'),
+      getId: (row) => row.item_id,
+      sortValue: (row, key) => key === 'sale_price' || key === 'reorder_level' ? Number(row[key]) : String(row[key] || ''),
+      exportName: 'items.csv',
+      exportHeaders: [{ key: 'sku', label: 'الرمز' }, { key: 'name_ar', label: 'الاسم' }],
+      cells: (item) => `<td class="num">${text(item.sku)}</td><td>${text(item.name_ar)}</td><td>${item.item_type === 'service' ? 'خدمة' : 'منتج'}</td><td>${text(item.category || '')}</td><td class="num">${text(item.unit)}</td><td class="num">${n(item.sale_price)}</td><td class="num">${n(item.reorder_level)}</td>`,
+      actions: (item) => item.item_type === 'service' ? masterActions(item).filter((action) => action.id !== 'copy' || true) : masterActions(item),
+      bulk: [{ id: 'deactivate', label: 'تعطيل المحدد' }, { id: 'activate', label: 'تفعيل المحدد' }],
+      onAction: (action, row) => act('item', action, row),
+      onBulk: (action, ids) => bulk('item', action, ids)
+    });
+    const unitTable = actionsApi.bind({
+      table: document.getElementById('unit-table'),
+      emptyEl: document.getElementById('unit-empty'),
+      getId: (row) => row.unit_id,
+      sortValue: (row, key) => key === 'is_active' ? (row.is_active ? 1 : 0) : String(row[key] || ''),
+      exportName: 'units.csv',
+      exportHeaders: [{ key: 'code', label: 'الرمز' }, { key: 'name_ar', label: 'الاسم' }],
+      cells: (unit) => `<td class="num">${text(unit.code)}</td><td>${text(unit.name_ar)}</td><td>${unit.is_active ? 'نشطة' : 'موقوفة'}</td>`,
+      actions: (unit) => masterActions(unit).filter((action) => action.id !== 'copy'),
+      bulk: [{ id: 'deactivate', label: 'تعطيل المحدد' }, { id: 'activate', label: 'تفعيل المحدد' }],
+      onAction: (action, row) => act('unit', action, row),
+      onBulk: (action, ids) => bulk('unit', action, ids)
+    });
+    const whTable = actionsApi.bind({
+      table: document.getElementById('wh-table'),
+      emptyEl: document.getElementById('wh-empty'),
+      getId: (row) => row.warehouse_id,
+      sortValue: (row, key) => key === 'is_active' ? (row.is_active ? 1 : 0) : String(row[key] || ''),
+      exportName: 'warehouses.csv',
+      exportHeaders: [{ key: 'code', label: 'الرمز' }, { key: 'name_ar', label: 'الاسم' }],
+      cells: (wh) => `<td class="num">${text(wh.code)}</td><td>${text(wh.name_ar)}</td><td>${wh.is_active ? 'نشط' : 'موقوف'}</td>`,
+      actions: (wh) => masterActions(wh).filter((action) => action.id !== 'copy'),
+      bulk: [{ id: 'deactivate', label: 'تعطيل المحدد' }, { id: 'activate', label: 'تفعيل المحدد' }],
+      onAction: (action, row) => act('warehouse', action, row),
+      onBulk: (action, ids) => bulk('warehouse', action, ids)
+    });
+    const balanceTable = actionsApi.bind({
+      table: document.getElementById('balance-table'),
+      emptyEl: document.getElementById('balance-empty'),
+      getId: (row) => row.item_id + '-' + row.warehouse_id,
+      sortValue: (row, key) => ['qty', 'avg_cost', 'stock_value', 'unit_margin'].includes(key) ? Number(row[key] || 0) : String(row[key] || ''),
+      exportName: 'balances.csv',
+      exportHeaders: [{ key: 'sku', label: 'الصنف' }, { key: 'qty', label: 'الكمية' }, { key: 'avg_cost', label: 'التكلفة' }],
+      cells: (row) => `<td>${text(row.sku)} — ${text(row.name_ar)}</td><td>${text(row.warehouse_code)}</td><td class="num">${n(row.qty)} ${text(row.unit)}</td><td class="num">${n(row.avg_cost)}</td><td class="num">${n(row.stock_value)}</td><td class="num">${n(row.unit_margin)}</td><td>${Number(row.reorder_level) > 0 && Number(row.qty) <= Number(row.reorder_level) ? 'تحت حد الطلب' : ''}</td>`,
+      actions: () => [{ id: 'view', label: 'عرض' }, { id: 'delete', disabled: true, reason: 'الرصيد نتيجة الحركات ولا يُحذف من هنا.' }],
+      bulk: [],
+      onAction: async (action, row) => { if (action === 'view') await actionsApi.show(row.sku, `<p>الكمية ${n(row.qty)} ومتوسط التكلفة ${n(row.avg_cost)}</p>`); },
+      onBulk: async () => {}
+    });
+    const alertTable = actionsApi.bind({
+      table: document.getElementById('alert-table'),
+      emptyEl: document.getElementById('alert-empty'),
+      getId: (row) => row.item_id + '-' + row.warehouse_id,
+      sortValue: (row, key) => String(row[key] || ''),
+      cells: (row) => `<td>${text(row.sku)} — ${text(row.name_ar)}</td><td>${text(row.warehouse_code)}</td><td class="num">${n(row.qty)}</td><td class="num">${n(row.reorder_level)}</td>`,
+      actions: () => [{ id: 'view', label: 'عرض' }],
+      bulk: [],
+      onAction: async (action, row) => { if (action === 'view') await actionsApi.show(row.sku, `<p>الكمية ${n(row.qty)} وحد الطلب ${n(row.reorder_level)}</p>`); },
+      onBulk: async () => {}
+    });
+    const valuationTable = actionsApi.bind({
+      table: document.getElementById('valuation-table'),
+      emptyEl: document.getElementById('valuation-empty'),
+      getId: (row) => row.item_id + '-' + row.warehouse_id,
+      sortValue: (row, key) => String(row[key] || ''),
+      exportName: 'valuation.csv',
+      exportHeaders: [{ key: 'sku', label: 'الصنف' }, { key: 'stock_value', label: 'القيمة' }],
+      cells: (row) => `<td>${text(row.sku)}</td><td>${text(row.warehouse_code)}</td><td class="num">${n(row.qty)}</td><td class="num">${n(row.avg_cost)}</td><td class="num">${n(row.stock_value)}</td>`,
+      actions: () => [{ id: 'view', label: 'عرض' }],
+      bulk: [],
+      onAction: async (action, row) => { if (action === 'view') await actionsApi.show(row.sku, `<p>القيمة ${n(row.stock_value)}</p>`); },
+      onBulk: async () => {}
+    });
+    const moveTable = actionsApi.bind({
+      table: document.getElementById('move-table'),
+      emptyEl: document.getElementById('move-empty'),
+      getId: (row) => row.movement_id,
+      sortValue: (row, key) => ['quantity', 'unit_cost', 'journal_entry_id'].includes(key) ? Number(row[key] || 0) : String(row[key] || ''),
+      exportName: 'movements.csv',
+      exportHeaders: [{ key: 'document_no', label: 'المستند' }, { key: 'sku', label: 'الصنف' }, { key: 'quantity', label: 'الكمية' }],
+      cells: (row) => `<td class="num">${text(row.document_no)}</td><td>${text(row.movement_type)}</td><td>${text(row.sku)}</td><td class="num">${text(row.warehouse_code)}</td><td>${row.direction === 'in' ? 'إدخال' : 'إخراج'}</td><td class="num">${n(row.quantity)}</td><td class="num">${n(row.unit_cost)}</td><td>${text(row.source_type || '')} ${text(row.source_id || '')}</td><td class="num">${text(row.journal_entry_id || '—')}</td>`,
+      actions: () => [{ id: 'view', label: 'عرض' }, { id: 'delete', disabled: true, reason: 'الحركة المعتمدة لا تُحذف ولا تُعدَّل. استخدم مرتجعًا.' }],
+      bulk: [],
+      onAction: async (action, row) => {
+        if (action !== 'view') return;
+        const data = await api('/finance/inventory/documents/' + row.document_id);
+        const journal = data.journal;
+        await actionsApi.show(row.document_no, `<p>المصدر: ${text(data.document.source_type || '—')} ${text(data.document.source_id || '')}</p><p>القيد: ${journal ? text(journal.entry.entry_number) + ' / متوازن: ' + (journal.balanced ? 'نعم' : 'لا') : 'لا يوجد قيد لهذه الحركة اليدوية'}</p>`);
+      },
+      onBulk: async () => {}
+    });
+
+    function filteredItems() {
       const q = document.getElementById('item-search').value.trim().toLowerCase();
-      const shown = state.items.filter((item) => !q || `${item.sku} ${item.name_ar} ${item.category || ''} ${item.unit || ''}`.toLowerCase().includes(q));
-      showTable('item-table', shown, (item) => `<tr><td class="num">${item.sku}</td><td>${item.name_ar}</td><td>${item.item_type === 'service' ? 'خدمة' : 'منتج'}</td><td>${item.category || ''}</td><td class="num">${item.unit}</td><td class="num">${n(item.sale_price)}</td><td class="num">${n(item.reorder_level)}</td><td><button type="button" data-off="${item.item_id}">${item.is_active ? 'إيقاف' : 'تنشيط'}</button></td></tr>`);
+      return state.items.filter((item) => !q || `${item.sku} ${item.name_ar} ${item.category || ''} ${item.unit || ''}`.toLowerCase().includes(q));
+    }
+    async function act(type, action, row) {
+      const id = row[type === 'item' ? 'item_id' : type === 'unit' ? 'unit_id' : 'warehouse_id'];
+      const path = '/finance/inventory/' + (type === 'item' ? 'items' : type === 'unit' ? 'units' : 'warehouses') + '/' + id;
+      try {
+        if (action === 'view') {
+          const data = await api(path);
+          const audit = (data.audit || []).slice(0, 8).map((entry) => `<li>${text(entry.action)} — ${text(entry.actor || '')} — ${text(entry.created_at || '')}</li>`).join('');
+          await actionsApi.show('تفاصيل السجل', `<p>${text(JSON.stringify(data.item || data.unit || data.warehouse))}</p><ul>${audit || '<li>لا سجل بعد</li>'}</ul>`);
+        } else if (action === 'edit') {
+          const values = await actionsApi.form('تعديل', type === 'item'
+            ? [{ name: 'name_ar', label: 'الاسم', value: row.name_ar }, { name: 'category', label: 'الفئة', value: row.category || '' }, { name: 'sale_price', label: 'سعر البيع', value: row.sale_price, type: 'number' }, { name: 'reorder_level', label: 'حد الطلب', value: row.reorder_level, type: 'number' }]
+            : [{ name: 'name_ar', label: 'الاسم', value: row.name_ar }]);
+          if (!values) return;
+          await api(path, { method: 'PUT', body: JSON.stringify(values) });
+          say('تم حفظ التعديل.', true);
+          await loadAll();
+        } else if (action === 'copy') {
+          const values = await actionsApi.form('نسخ الصنف', [{ name: 'sku', label: 'رمز جديد', value: row.sku + '-COPY' }]);
+          if (!values) return;
+          await api(path + '/copy', { method: 'POST', body: JSON.stringify(values) });
+          say('تم نسخ الصنف بدون رصيد.', true);
+          await loadAll();
+        } else if (action === 'toggle') {
+          await api(path, { method: 'PUT', body: JSON.stringify({ is_active: !row.is_active }) });
+          say(row.is_active ? 'تم التعطيل.' : 'تم التفعيل.', true);
+          await loadAll();
+        } else if (action === 'delete') {
+          if (!(await actionsApi.confirm('حذف هذا السجل نهائيًا؟'))) return;
+          await api(path, { method: 'DELETE' });
+          say('تم الحذف.', true);
+          await loadAll();
+        }
+      } catch (error) { say(error.message, false); }
+    }
+    async function bulk(type, action, ids) {
+      if (!ids.length) return;
+      if (!(await actionsApi.confirm('تنفيذ الإجراء على ' + ids.length + ' سجل؟ كل سجل يُفحص وحده.'))) return;
+      try {
+        const result = await api('/finance/inventory/bulk', { method: 'POST', body: JSON.stringify({ record_type: type, action, ids }) });
+        const failed = (result.results || []).filter((row) => !row.ok).map((row) => row.error).join(' ');
+        say(failed ? 'نجح ' + result.updated + ' وفشل الباقي: ' + failed : 'تم تحديث ' + result.updated + ' سجل.', !failed);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
     }
     async function loadMovements() {
       const filter = Object.fromEntries(new FormData(document.getElementById('move-filter')).entries());
@@ -184,34 +390,39 @@
       if (filter.from) query.set('from', filter.from);
       if (filter.to) query.set('to', filter.to);
       const movements = await api('/finance/inventory/movements' + (query.toString() ? '?' + query : ''));
-      showTable('move-table', movements.movements, (row) => `<tr><td class="num">${row.document_no}</td><td>${row.movement_type}</td><td>${row.sku}</td><td class="num">${row.warehouse_code}</td><td>${row.direction === 'in' ? 'إدخال' : 'إخراج'}</td><td class="num">${n(row.quantity)}</td><td class="num">${n(row.unit_cost)}</td><td>${row.reason || ''}</td></tr>`);
+      state.movements = movements.movements;
+      moveTable.paint(state.movements);
+    }
+    function fillSelects() {
+      const unitSelect = document.querySelector('#item-form [name=unit]');
+      unitSelect.innerHTML = state.units.filter((unit) => unit.is_active).map((unit) => `<option value="${text(unit.code)}">${text(unit.code)} — ${text(unit.name_ar)}</option>`).join('');
+      const itemOptions = state.items.filter((item) => item.is_stocked && item.is_active).map((item) => `<option value="${item.item_id}">${text(item.sku)} — ${text(item.name_ar)}</option>`).join('');
+      const whOptions = state.warehouses.filter((wh) => wh.is_active).map((wh) => `<option value="${wh.warehouse_id}">${text(wh.code)} — ${text(wh.name_ar)}</option>`).join('');
+      document.querySelectorAll('[name=item_id]').forEach((select) => { select.innerHTML = itemOptions; });
+      document.querySelectorAll('[name=warehouse_id]').forEach((select) => { select.innerHTML = whOptions; });
+      const dest = document.querySelector('[name=counter_warehouse_id]');
+      dest.innerHTML = '<option value="">مستودع الوجهة للتحويل</option>' + whOptions;
     }
     async function loadAll() {
-      const [items, warehouses, units, balances] = await Promise.all([
+      const [items, warehouses, units, balances, map] = await Promise.all([
         api('/finance/inventory/items'),
         api('/finance/inventory/warehouses'),
         api('/finance/inventory/units'),
-        api('/finance/inventory/balances')
+        api('/finance/inventory/balances'),
+        api('/finance/inventory/account-map')
       ]);
       state.items = items.items;
       state.warehouses = warehouses.warehouses;
       state.units = units.units;
-      showTable('balance-table', balances.balances, (row) => `<tr><td>${row.sku} — ${row.name_ar}</td><td>${row.warehouse_code}</td><td class="num">${n(row.qty)} ${row.unit}</td><td class="num">${n(row.avg_cost)}</td><td class="num">${n(row.stock_value)}</td><td class="num">${n(row.unit_margin)}</td><td>${Number(row.reorder_level) > 0 && Number(row.qty) <= Number(row.reorder_level) ? 'تحت حد الطلب' : ''}</td></tr>`);
-      showTable('alert-table', balances.low_stock, (row) => `<tr><td>${row.sku} — ${row.name_ar}</td><td>${row.warehouse_code}</td><td class="num">${n(row.qty)}</td><td class="num">${n(row.reorder_level)}</td></tr>`);
-      showTable('valuation-table', balances.balances, (row) => `<tr><td>${row.sku}</td><td>${row.warehouse_code}</td><td class="num">${n(row.qty)}</td><td class="num">${n(row.avg_cost)}</td><td class="num">${n(row.stock_value)}</td></tr>`);
+      itemTable.paint(filteredItems());
+      unitTable.paint(state.units);
+      whTable.paint(state.warehouses);
+      balanceTable.paint(balances.balances);
+      alertTable.paint(balances.low_stock);
+      valuationTable.paint(balances.balances);
       document.getElementById('valuation-total').textContent = balances.balances.length ? 'إجمالي قيمة المخزون: ' + n(balances.total_value) : '';
-      paintItems();
-      showTable('unit-table', state.units, (unit) => `<tr><td class="num">${unit.code}</td><td>${unit.name_ar}</td><td>${unit.is_active ? 'نشطة' : 'موقوفة'}</td></tr>`);
-      showTable('wh-table', state.warehouses, (wh) => `<tr><td class="num">${wh.code}</td><td>${wh.name_ar}</td><td>${wh.is_active ? 'نشط' : 'موقوف'}</td></tr>`);
-      const unitSelect = document.querySelector('#item-form [name=unit]');
-      unitSelect.innerHTML = state.units.filter((unit) => unit.is_active).map((unit) => `<option value="${unit.code}">${unit.code} — ${unit.name_ar}</option>`).join('');
-      const itemSelect = document.querySelector('[name=item_id]');
-      const whSelect = document.querySelector('[name=warehouse_id]');
-      const destSelect = document.querySelector('[name=counter_warehouse_id]');
-      itemSelect.innerHTML = state.items.filter((item) => item.is_stocked && item.is_active).map((item) => `<option value="${item.item_id}">${item.sku} — ${item.name_ar}</option>`).join('');
-      const whOptions = state.warehouses.filter((wh) => wh.is_active).map((wh) => `<option value="${wh.warehouse_id}">${wh.code} — ${wh.name_ar}</option>`).join('');
-      whSelect.innerHTML = whOptions;
-      destSelect.innerHTML = '<option value="">مستودع الوجهة للتحويل</option>' + whOptions;
+      document.getElementById('map-now').textContent = map.account_map ? 'الربط الحالي محفوظ للعملة ' + map.account_map.currency_code : 'لم يُحفظ ربط محاسبي لهذا الكيان بعد.';
+      fillSelects();
       await loadMovements();
     }
     document.querySelectorAll('nav button').forEach((button) => button.addEventListener('click', () => {
@@ -231,27 +442,18 @@
         await loadAll();
       } catch (error) { say(error.message, false); }
     });
-    document.getElementById('item-search').addEventListener('input', paintItems);
+    document.getElementById('item-search').addEventListener('input', () => itemTable.paint(filteredItems()));
+    document.getElementById('item-match').addEventListener('click', () => {
+      const rows = filteredItems();
+      itemTable.selectIds(rows.map((row) => row.item_id));
+      say('تم تحديد ' + rows.length + ' سجلًا مطابقًا للبحث.', true);
+    });
     document.getElementById('unit-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       try {
         await api('/finance/inventory/units', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.target).entries())) });
         event.target.reset();
         say('تم حفظ وحدة القياس.', true);
-        await loadAll();
-      } catch (error) { say(error.message, false); }
-    });
-    document.getElementById('move-filter').addEventListener('submit', async (event) => {
-      event.preventDefault();
-      try { await loadMovements(); say('تم تحديث تقرير الحركة.', true); } catch (error) { say(error.message, false); }
-    });
-    document.getElementById('item-table').addEventListener('click', async (event) => {
-      const id = event.target.getAttribute('data-off');
-      if (!id) return;
-      const item = state.items.find((row) => String(row.item_id) === id);
-      try {
-        await api('/finance/inventory/items/' + id, { method: 'PUT', body: JSON.stringify({ is_active: !item.is_active }) });
-        say('تم تحديث حالة الصنف.', true);
         await loadAll();
       } catch (error) { say(error.message, false); }
     });
@@ -264,6 +466,10 @@
         await loadAll();
       } catch (error) { say(error.message, false); }
     });
+    document.getElementById('move-filter').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try { await loadMovements(); say('تم تحديث تقرير الحركة.', true); } catch (error) { say(error.message, false); }
+    });
     document.getElementById('move-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!state.requestId) state.requestId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
@@ -275,6 +481,52 @@
         say(result.replayed ? 'هذه الحركة مسجلة مسبقًا ولم تتكرر.' : 'تم ترحيل الحركة ' + result.document.document_no + '. لم يُنشأ قيد محاسبي.', true);
         event.target.reset();
         await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+    async function linkedSubmit(formId, key, path, build) {
+      document.getElementById(formId).addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!state[key]) state[key] = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        data.client_request_id = state[key];
+        try {
+          const result = await api(path, { method: 'POST', body: JSON.stringify(build(data)) });
+          state[key] = null;
+          const journal = result.journal && result.journal.entry ? result.journal.entry.entry_number : 'بدون قيد';
+          say((result.replayed ? 'الطلب مكرر ولم يُرحَّل مرة ثانية. ' : 'تم الترحيل ') + result.document.document_no + ' / ' + journal, true);
+          await loadAll();
+        } catch (error) { say(error.message, false); }
+      });
+    }
+    document.getElementById('map-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await api('/finance/inventory/account-map', { method: 'PUT', body: JSON.stringify(Object.fromEntries(new FormData(event.target).entries())) });
+        say('تم حفظ ربط الحسابات.', true);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+    linkedSubmit('receipt-form', 'receiptId', '/finance/inventory/receipts', (data) => ({
+      po_id: Number(data.po_id), warehouse_id: Number(data.warehouse_id), cost_center_id: data.cost_center_id || null,
+      currency_code: data.currency_code, client_request_id: data.client_request_id,
+      lines: [{ item_id: Number(data.item_id), quantity: Number(data.quantity), unit_cost: Number(data.unit_cost) }]
+    }));
+    linkedSubmit('issue-form', 'issueId', '/finance/inventory/issues', (data) => ({
+      invoice_id: Number(data.invoice_id), warehouse_id: Number(data.warehouse_id), cost_center_id: data.cost_center_id || null,
+      client_request_id: data.client_request_id,
+      lines: [{ item_id: Number(data.item_id), quantity: Number(data.quantity) }]
+    }));
+    linkedSubmit('return-form', 'returnId', '/finance/inventory/returns', (data) => ({
+      document_id: Number(data.document_id), reason: data.reason, client_request_id: data.client_request_id,
+      lines: [{ item_id: Number(data.item_id), warehouse_id: Number(data.warehouse_id), quantity: Number(data.quantity) }]
+    }));
+    document.getElementById('trace-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.target).entries());
+      try {
+        const result = await api('/finance/inventory/trace?from_type=' + encodeURIComponent(data.from_type) + '&from_id=' + encodeURIComponent(data.from_id));
+        document.getElementById('trace-out').textContent = JSON.stringify(result.nodes, null, 2);
+        say('تم تحميل سلسلة المستندات.', true);
       } catch (error) { say(error.message, false); }
     });
     const initial = (location.hash || '#balances').slice(1);
