@@ -3,61 +3,187 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>أوامر الشراء وفواتير الموردين</title>
+  <title>أوامر الشراء والاستلام — القيادة المالية 360</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="/finance/finance-context.js"></script>
-  <style>body{font-family:'Cairo',sans-serif;background:#f8fafc}</style>
+  <style>body{font-family:'Cairo',sans-serif;background:#f8fafc}.number-en{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}</style>
 </head>
-<body class="p-6">
-  <h1 class="text-3xl font-bold mb-2">أوامر الشراء وفواتير الموردين</h1>
-  <p class="text-slate-600 mb-6">حفظ Postgres حقيقي — بدون localStorage</p>
-  <div class="flex flex-wrap gap-3 mb-6">
-    <button onclick="openPo()" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold">أمر شراء جديد</button>
-    <button onclick="openVi()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">فاتورة مورد</button>
-    <button onclick="loadAll()" class="bg-white border px-4 py-2 rounded-lg font-bold">تحديث</button>
-    <a href="/finance/expenses.html" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold">الموردين/المصروفات</a>
-  </div>
-  <div class="grid md:grid-cols-2 gap-6">
-    <div class="bg-white rounded-2xl shadow p-4">
-      <h2 class="font-bold mb-3">أوامر الشراء</h2>
-      <table class="w-full text-sm"><thead><tr class="text-right text-slate-500"><th class="p-2">الرقم</th><th>المورد</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
-      <tbody id="poTable"></tbody></table>
+<body class="p-4 md:p-6">
+  <div class="max-w-7xl mx-auto">
+    <h1 class="text-3xl font-extrabold mb-1">أوامر الشراء وفواتير الموردين</h1>
+    <p class="text-slate-600 mb-4">بنود أصناف + استلام إلى المستودع يحدّث المخزون فورًا — Postgres حقيقي</p>
+    <nav class="mb-6 flex flex-wrap gap-2 text-sm">
+      <a href="/finance/purchase-orders.html" class="px-3 py-1 rounded-full bg-slate-900 text-white font-bold">المشتريات</a>
+      <a href="/finance/inventory.html" class="px-3 py-1 rounded-full bg-white border font-bold">المخزون</a>
+      <a href="/finance/products.html" class="px-3 py-1 rounded-full bg-white border font-bold">الأصناف</a>
+      <a href="/finance/expenses.html" class="px-3 py-1 rounded-full bg-white border font-bold">موردو المصروفات</a>
+    </nav>
+
+    <div id="alert" class="hidden mb-4 rounded-xl border px-4 py-3 text-sm font-bold"></div>
+
+    <div class="flex flex-wrap gap-3 mb-6">
+      <button onclick="openPoModal()" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold">أمر شراء ببنود</button>
+      <button onclick="openVi()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">فاتورة مورد</button>
+      <button onclick="loadAll()" class="bg-white border px-4 py-2 rounded-lg font-bold">تحديث</button>
+      <input id="search" class="border rounded-lg px-3 py-2" placeholder="بحث" oninput="renderPo()">
     </div>
-    <div class="bg-white rounded-2xl shadow p-4">
-      <h2 class="font-bold mb-3">فواتير الموردين</h2>
-      <table class="w-full text-sm"><thead><tr class="text-right text-slate-500"><th class="p-2">الرقم</th><th>المورد</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
-      <tbody id="viTable"></tbody></table>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div class="bg-white rounded-2xl shadow border p-4">
+        <h2 class="font-bold mb-3">أوامر الشراء</h2>
+        <table class="w-full text-sm"><thead><tr class="text-right text-slate-500"><th class="p-2">الرقم</th><th>المورد</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
+        <tbody id="poTable"></tbody></table>
+      </div>
+      <div class="bg-white rounded-2xl shadow border p-4">
+        <h2 class="font-bold mb-3">فواتير الموردين</h2>
+        <table class="w-full text-sm"><thead><tr class="text-right text-slate-500"><th class="p-2">الرقم</th><th>المورد</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
+        <tbody id="viTable"></tbody></table>
+      </div>
+    </div>
+
+    <div id="detail" class="hidden mt-6 bg-white rounded-2xl shadow border p-4">
+      <div class="flex flex-wrap items-center gap-3 mb-3">
+        <h2 class="font-extrabold text-lg" id="detailTitle">تفاصيل أمر الشراء</h2>
+        <button onclick="receiveSelected()" class="bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold text-sm">استلام المتبقي للمستودع</button>
+        <button onclick="document.getElementById('detail').classList.add('hidden')" class="border px-3 py-1.5 rounded-lg font-bold text-sm">إغلاق</button>
+      </div>
+      <div id="detailLines" class="overflow-x-auto"></div>
     </div>
   </div>
+
+  <div id="poModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+      <h2 class="text-xl font-extrabold mb-4">أمر شراء جديد</h2>
+      <div class="grid md:grid-cols-2 gap-3 mb-3">
+        <label class="text-sm">المورد<input id="po_vendor" class="mt-1 w-full border rounded-lg px-3 py-2" required></label>
+        <label class="text-sm">ملاحظات<input id="po_notes" class="mt-1 w-full border rounded-lg px-3 py-2"></label>
+      </div>
+      <div class="mb-2 font-bold">البنود</div>
+      <div id="lineRows" class="space-y-2 mb-3"></div>
+      <button type="button" onclick="addLineRow()" class="text-sky-700 font-bold mb-4">+ بند</button>
+      <div class="flex justify-end gap-2">
+        <button onclick="closePoModal()" class="px-4 py-2 border rounded-lg font-bold">إلغاء</button>
+        <button onclick="savePo()" class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold">حفظ</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API = location.origin;
-    const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
-    const H = () => ({ 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) });
+    let ENTITY = '';
+    let products = [];
+    let warehouses = [];
+    let orders = [];
+    let currentDetail = null;
 
-    async function loadAll() {
-      const [po, vi] = await Promise.all([
-        fetch(`${API}/finance/purchases/orders?entity_id=${ENTITY_ID}`, { headers: H() }).then(r => r.json()),
-        fetch(`${API}/finance/purchases/vendor-invoices?entity_id=${ENTITY_ID}`, { headers: H() }).then(r => r.json())
-      ]);
-      document.getElementById('poTable').innerHTML = (po.orders || []).map(o => `
-        <tr class="border-t"><td class="p-2">${o.po_number}</td><td>${o.vendor_name || '-'}</td><td>${o.total_amount}</td><td>${o.status}</td>
-        <td><button class="text-rose-600" onclick="delPo(${o.po_id})">حذف</button></td></tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">لا بيانات</td></tr>';
-      document.getElementById('viTable').innerHTML = (vi.invoices || []).map(i => `
-        <tr class="border-t"><td class="p-2">${i.invoice_number}</td><td>${i.vendor_name || '-'}</td><td>${i.total_amount}</td><td>${i.status}</td>
-        <td><button class="text-rose-600" onclick="delVi(${i.vendor_invoice_id})">حذف</button></td></tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">لا بيانات</td></tr>';
+    const H = () => ({ 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) });
+    function qs() { return ENTITY ? `?entity_id=${encodeURIComponent(ENTITY)}` : ''; }
+    function showAlert(msg, ok) {
+      const el = document.getElementById('alert');
+      el.className = `mb-4 rounded-xl border px-4 py-3 text-sm font-bold ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`;
+      el.textContent = msg; el.classList.remove('hidden');
     }
 
-    async function openPo() {
-      const vendor_name = prompt('اسم المورد');
-      if (!vendor_name) return;
-      const total_amount = Number(prompt('المبلغ', '1000') || 0);
+    function productOptions(selected) {
+      return products.map(p => `<option value="${p.product_id}" ${String(selected)===String(p.product_id)?'selected':''}>${p.sku} — ${p.name_ar}</option>`).join('');
+    }
+    function addLineRow(pre) {
+      const wrap = document.getElementById('lineRows');
+      const div = document.createElement('div');
+      div.className = 'grid md:grid-cols-4 gap-2 items-end border rounded-lg p-2';
+      div.innerHTML = `
+        <label class="text-xs md:col-span-2">الصنف<select class="line-product mt-1 w-full border rounded px-2 py-1">${productOptions(pre && pre.product_id)}</select></label>
+        <label class="text-xs">الكمية<input type="number" step="0.01" class="line-qty mt-1 w-full border rounded px-2 py-1 number-en" value="${pre && pre.qty != null ? pre.qty : 1}"></label>
+        <label class="text-xs">تكلفة<input type="number" step="0.01" class="line-cost mt-1 w-full border rounded px-2 py-1 number-en" value="${pre && pre.unit_cost != null ? pre.unit_cost : 0}"></label>`;
+      wrap.appendChild(div);
+    }
+    function openPoModal() {
+      document.getElementById('lineRows').innerHTML = '';
+      document.getElementById('po_vendor').value = '';
+      document.getElementById('po_notes').value = '';
+      addLineRow();
+      document.getElementById('poModal').classList.remove('hidden');
+      document.getElementById('poModal').classList.add('flex');
+    }
+    function closePoModal() {
+      document.getElementById('poModal').classList.add('hidden');
+      document.getElementById('poModal').classList.remove('flex');
+    }
+    async function savePo() {
+      const lines = [...document.querySelectorAll('#lineRows > div')].map(row => ({
+        product_id: Number(row.querySelector('.line-product').value),
+        qty: Number(row.querySelector('.line-qty').value),
+        unit_cost: Number(row.querySelector('.line-cost').value),
+        description: row.querySelector('.line-product').selectedOptions[0]?.textContent || ''
+      })).filter(l => l.product_id && l.qty > 0);
+      if (!lines.length) { showAlert('أضف بندًا واحدًا على الأقل', false); return; }
+      const vendor_name = document.getElementById('po_vendor').value.trim();
+      if (!vendor_name) { showAlert('اسم المورد إلزامي', false); return; }
       const res = await fetch(`${API}/finance/purchases/orders`, {
         method: 'POST', headers: H(),
-        body: JSON.stringify({ vendor_name, total_amount, entity_id: ENTITY_ID, status: 'OPEN', notes: 'FC-P2' })
+        body: JSON.stringify({
+          vendor_name, notes: document.getElementById('po_notes').value.trim() || 'PO-INV',
+          entity_id: ENTITY || undefined, status: 'OPEN', lines
+        })
       });
-      if (!res.ok) { alert((await res.json()).error || 'فشل'); return; }
+      const data = await res.json();
+      if (!res.ok) { showAlert(data.error || 'فشل', false); return; }
+      closePoModal();
+      showAlert('تم إنشاء أمر الشراء', true);
       await loadAll();
+      await showDetail(data.order.po_id);
+    }
+
+    function renderPo() {
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      const list = orders.filter(o => !q || [o.po_number, o.vendor_name, o.status].join(' ').toLowerCase().includes(q));
+      document.getElementById('poTable').innerHTML = list.map(o => `
+        <tr class="border-t"><td class="p-2 number-en font-bold">${o.po_number}</td><td>${o.vendor_name || '-'}</td>
+        <td class="number-en">${o.total_amount}</td><td>${o.status}</td>
+        <td class="whitespace-nowrap">
+          <button class="text-sky-700 font-bold ml-2" onclick="showDetail(${o.po_id})">تفاصيل</button>
+          <button class="text-rose-600 font-bold" onclick="delPo(${o.po_id})">حذف</button>
+        </td></tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">لا بيانات — أنشئ أمر شراء ببنود</td></tr>';
+    }
+
+    async function showDetail(id) {
+      const res = await fetch(`${API}/finance/purchases/orders/${id}${qs()}`, { headers: H() });
+      const data = await res.json();
+      if (!res.ok) { showAlert(data.error || 'فشل', false); return; }
+      currentDetail = data;
+      document.getElementById('detail').classList.remove('hidden');
+      document.getElementById('detailTitle').textContent = `أمر ${data.order.po_number} — ${data.order.status}`;
+      document.getElementById('detailLines').innerHTML = `
+        <table class="w-full text-sm"><thead><tr class="text-slate-500 text-right">
+          <th class="p-2">الصنف</th><th>الكمية</th><th>المستلم</th><th>المتبقي</th><th>التكلفة</th></tr></thead>
+        <tbody>${(data.lines||[]).map(l => {
+          const rem = Number(l.qty) - Number(l.received_qty);
+          return `<tr class="border-t"><td class="p-2">${l.sku || '-'} ${l.product_name || l.description || ''}</td>
+            <td class="number-en">${l.qty}</td><td class="number-en">${l.received_qty}</td>
+            <td class="number-en font-bold">${rem}</td><td class="number-en">${l.unit_cost}</td></tr>`;
+        }).join('') || '<tr><td colspan="5" class="p-4 text-slate-400">لا بنود</td></tr>'}</tbody></table>`;
+    }
+
+    async function receiveSelected() {
+      if (!currentDetail) return;
+      if (!warehouses.length) { showAlert('أنشئ مستودعًا من صفحة المخزون أولًا', false); return; }
+      const whLabel = warehouses.map(w => `${w.warehouse_id}:${w.code} ${w.name_ar}`).join('\n');
+      const pick = prompt(`أدخل رقم المستودع (warehouse_id):\n${whLabel}`, String(warehouses[0].warehouse_id));
+      if (!pick) return;
+      const lines = (currentDetail.lines || [])
+        .map(l => ({ line_id: l.line_id, qty: Number(l.qty) - Number(l.received_qty) }))
+        .filter(l => l.qty > 0.0001);
+      if (!lines.length) { showAlert('لا متبقي للاستلام', false); return; }
+      const res = await fetch(`${API}/finance/purchases/orders/${currentDetail.order.po_id}/receive`, {
+        method: 'POST', headers: H(),
+        body: JSON.stringify({ warehouse_id: Number(pick), lines, entity_id: ENTITY || undefined, notes: 'استلام من واجهة المشتريات' })
+      });
+      const data = await res.json();
+      if (!res.ok) { showAlert(data.error || 'فشل الاستلام', false); return; }
+      showAlert(`تم الاستلام — حالة الأمر: ${data.order.status}`, true);
+      await loadAll();
+      await showDetail(data.order.po_id);
     }
 
     async function openVi() {
@@ -66,23 +192,49 @@
       const total_amount = Number(prompt('المبلغ', '1000') || 0);
       const res = await fetch(`${API}/finance/purchases/vendor-invoices`, {
         method: 'POST', headers: H(),
-        body: JSON.stringify({ vendor_name, total_amount, entity_id: ENTITY_ID, notes: 'FC-P2' })
+        body: JSON.stringify({ vendor_name, total_amount, entity_id: ENTITY || undefined, notes: 'VI-UI' })
       });
-      if (!res.ok) { alert((await res.json()).error || 'فشل'); return; }
+      if (!res.ok) { showAlert((await res.json()).error || 'فشل', false); return; }
       await loadAll();
     }
-
     async function delPo(id) {
       if (!confirm('حذف؟')) return;
-      await fetch(`${API}/finance/purchases/orders/${id}`, { method: 'DELETE', headers: H() });
+      const res = await fetch(`${API}/finance/purchases/orders/${id}${qs()}`, { method: 'DELETE', headers: H() });
+      const data = await res.json();
+      if (!res.ok) { showAlert(data.error || 'فشل', false); return; }
       await loadAll();
     }
     async function delVi(id) {
       if (!confirm('حذف؟')) return;
-      await fetch(`${API}/finance/purchases/vendor-invoices/${id}`, { method: 'DELETE', headers: H() });
+      await fetch(`${API}/finance/purchases/vendor-invoices/${id}${qs()}`, { method: 'DELETE', headers: H() });
       await loadAll();
     }
-    loadAll();
+
+    async function loadAll() {
+      const [po, vi, prod, wh] = await Promise.all([
+        fetch(`${API}/finance/purchases/orders${qs()}`, { headers: H() }).then(r => r.json()),
+        fetch(`${API}/finance/purchases/vendor-invoices${qs()}`, { headers: H() }).then(r => r.json()),
+        fetch(`${API}/finance/inventory/products${qs() ? qs() + '&active=1' : '?active=1'}`, { headers: H() }).then(r => r.json()),
+        fetch(`${API}/finance/inventory/warehouses${qs()}`, { headers: H() }).then(r => r.json())
+      ]);
+      if (!po.success) { showAlert(po.error || 'فشل تحميل الأوامر', false); }
+      orders = po.orders || [];
+      products = prod.products || [];
+      warehouses = wh.warehouses || [];
+      renderPo();
+      document.getElementById('viTable').innerHTML = (vi.invoices || []).map(i => `
+        <tr class="border-t"><td class="p-2 number-en">${i.invoice_number}</td><td>${i.vendor_name || '-'}</td>
+        <td class="number-en">${i.total_amount}</td><td>${i.status}</td>
+        <td><button class="text-rose-600 font-bold" onclick="delVi(${i.vendor_invoice_id})">حذف</button></td></tr>`
+      ).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">لا بيانات</td></tr>';
+    }
+
+    function boot() {
+      ENTITY = window.getFinanceEntityId ? window.getFinanceEntityId() : '';
+      loadAll();
+    }
+    if (window.whenFinanceContextReady) window.whenFinanceContextReady(boot);
+    else boot();
   </script>
 </body>
 </html>

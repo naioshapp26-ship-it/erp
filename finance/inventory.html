@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المخزون — القيادة المالية 360</title>
+  <script src="/finance/finance-context.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>body{font-family:'Cairo',sans-serif;background:#f8fafc;color:#0f172a}.number-en{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}</style>
+</head>
+<body class="p-4 md:p-8">
+  <div class="max-w-7xl mx-auto">
+    <header class="mb-6">
+      <h1 class="text-3xl font-extrabold mb-1">المخزون التشغيلي</h1>
+      <p class="text-slate-600">مستودعات، أرصدة، حركات إدخال/إخراج/تحويل/جرد — مصدر الحقيقة Postgres</p>
+      <nav class="mt-4 flex flex-wrap gap-2 text-sm">
+        <a href="/finance/inventory.html" class="px-3 py-1 rounded-full bg-slate-900 text-white font-bold">المخزون</a>
+        <a href="/finance/products.html" class="px-3 py-1 rounded-full bg-white border font-bold">الأصناف</a>
+        <a href="/finance/purchase-orders.html" class="px-3 py-1 rounded-full bg-white border font-bold">المشتريات</a>
+        <a href="/finance/customers.html" class="px-3 py-1 rounded-full bg-white border font-bold">العملاء</a>
+      </nav>
+    </header>
+
+    <div id="alert" class="hidden mb-4 rounded-xl border px-4 py-3 text-sm font-bold"></div>
+
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">أصناف نشطة</div><div id="sProducts" class="text-2xl font-extrabold number-en">—</div></div>
+      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">مستودعات</div><div id="sWarehouses" class="text-2xl font-extrabold number-en">—</div></div>
+      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">كمية متاحة</div><div id="sQty" class="text-2xl font-extrabold number-en">—</div></div>
+      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">قيمة المخزون</div><div id="sValue" class="text-2xl font-extrabold number-en">—</div></div>
+      <div class="bg-white border rounded-xl p-4"><div class="text-xs text-slate-500">منخفض الرصيد</div><div id="sLow" class="text-2xl font-extrabold number-en text-amber-700">—</div></div>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mb-4">
+      <button data-tab="balances" class="tabBtn px-4 py-2 rounded-lg font-bold bg-slate-900 text-white">الأرصدة</button>
+      <button data-tab="movements" class="tabBtn px-4 py-2 rounded-lg font-bold bg-white border">الحركات</button>
+      <button data-tab="warehouses" class="tabBtn px-4 py-2 rounded-lg font-bold bg-white border">المستودعات</button>
+      <button id="btnMovement" class="mr-auto bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">حركة جديدة</button>
+      <button id="btnWarehouse" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold">مستودع جديد</button>
+      <button id="btnRefresh" class="bg-white border px-4 py-2 rounded-lg font-bold">تحديث</button>
+      <label class="flex items-center gap-2 text-sm font-bold bg-white border px-3 py-2 rounded-lg">
+        <input type="checkbox" id="lowOnly"> منخفض فقط
+      </label>
+    </div>
+
+    <section id="panel-balances" class="bg-white border rounded-2xl overflow-hidden shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-slate-500"><tr>
+            <th class="p-3 text-right">الصنف</th><th class="p-3 text-right">المستودع</th>
+            <th class="p-3 text-right">الكمية</th><th class="p-3 text-right">متوسط التكلفة</th>
+            <th class="p-3 text-right">القيمة</th><th class="p-3 text-right">حد إعادة الطلب</th>
+          </tr></thead>
+          <tbody id="balBody"></tbody>
+        </table>
+      </div>
+      <div id="balEmpty" class="hidden p-10 text-center text-slate-500">لا أرصدة بعد. أنشئ مستودعًا وصنفًا ثم سجّل رصيد افتتاح أو استلام شراء.</div>
+    </section>
+
+    <section id="panel-movements" class="hidden bg-white border rounded-2xl overflow-hidden shadow-sm">
+      <div class="p-3 border-b"><input id="movSearch" class="border rounded-lg px-3 py-2 w-full md:w-80" placeholder="بحث برقم الحركة أو الصنف"></div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-slate-500"><tr>
+            <th class="p-3 text-right">الرقم</th><th class="p-3 text-right">النوع</th><th class="p-3 text-right">الصنف</th>
+            <th class="p-3 text-right">المستودع</th><th class="p-3 text-right">الكمية</th>
+            <th class="p-3 text-right">التكلفة</th><th class="p-3 text-right">الحالة</th><th class="p-3"></th>
+          </tr></thead>
+          <tbody id="movBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="panel-warehouses" class="hidden bg-white border rounded-2xl overflow-hidden shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-slate-500"><tr>
+            <th class="p-3 text-right">الرمز</th><th class="p-3 text-right">الاسم</th><th class="p-3 text-right">الموقع</th><th class="p-3 text-right">الحالة</th>
+          </tr></thead>
+          <tbody id="whBody"></tbody>
+        </table>
+      </div>
+      <div id="whEmpty" class="hidden p-10 text-center text-slate-500">لا مستودعات. أنشئ أول مستودع لبدء الحركات.</div>
+    </section>
+  </div>
+
+  <div id="movModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+      <h2 class="text-xl font-extrabold mb-4">حركة مخزنية</h2>
+      <form id="movForm" class="grid gap-3">
+        <label class="text-sm">النوع
+          <select id="m_type" class="mt-1 w-full border rounded-lg px-3 py-2">
+            <option value="OPENING">رصيد افتتاح</option>
+            <option value="IN">إدخال</option>
+            <option value="OUT">إخراج</option>
+            <option value="TRANSFER">تحويل</option>
+            <option value="ADJUST">تسوية جرد (+/-)</option>
+          </select>
+        </label>
+        <label class="text-sm">الصنف
+          <select id="m_product" required class="mt-1 w-full border rounded-lg px-3 py-2"></select>
+        </label>
+        <label class="text-sm">المستودع
+          <select id="m_warehouse" required class="mt-1 w-full border rounded-lg px-3 py-2"></select>
+        </label>
+        <label id="toWhWrap" class="text-sm hidden">إلى مستودع
+          <select id="m_warehouse_to" class="mt-1 w-full border rounded-lg px-3 py-2"></select>
+        </label>
+        <label class="text-sm">الكمية (للتسوية استخدم سالب للنقص)
+          <input id="m_qty" type="number" step="0.01" required class="mt-1 w-full border rounded-lg px-3 py-2 number-en">
+        </label>
+        <label class="text-sm">تكلفة الوحدة
+          <input id="m_cost" type="number" step="0.01" class="mt-1 w-full border rounded-lg px-3 py-2 number-en">
+        </label>
+        <label class="text-sm">ملاحظات<textarea id="m_notes" class="mt-1 w-full border rounded-lg px-3 py-2" rows="2"></textarea></label>
+        <div class="flex justify-end gap-2">
+          <button type="button" id="movCancel" class="px-4 py-2 border rounded-lg font-bold">إلغاء</button>
+          <button class="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold">ترحيل الحركة</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API = location.origin;
+    let ENTITY = '';
+    let products = [], warehouses = [], balances = [], movements = [];
+
+    function headers() {
+      return { 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) };
+    }
+    function qs(extra = '') {
+      const base = ENTITY ? `entity_id=${encodeURIComponent(ENTITY)}` : '';
+      if (!extra) return base ? `?${base}` : '';
+      return `?${base ? base + '&' : ''}${extra}`;
+    }
+    function showAlert(msg, ok) {
+      const el = document.getElementById('alert');
+      el.className = `mb-4 rounded-xl border px-4 py-3 text-sm font-bold ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`;
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+    function setTab(tab) {
+      ['balances','movements','warehouses'].forEach(t => {
+        document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
+      });
+      document.querySelectorAll('.tabBtn').forEach(btn => {
+        const on = btn.dataset.tab === tab;
+        btn.className = `tabBtn px-4 py-2 rounded-lg font-bold ${on ? 'bg-slate-900 text-white' : 'bg-white border'}`;
+      });
+    }
+    function fillSelects() {
+      const pOpts = products.filter(p => p.track_inventory && p.is_active).map(p => `<option value="${p.product_id}">${p.sku} — ${p.name_ar}</option>`).join('');
+      const wOpts = warehouses.filter(w => w.is_active).map(w => `<option value="${w.warehouse_id}">${w.code} — ${w.name_ar}</option>`).join('');
+      document.getElementById('m_product').innerHTML = pOpts || '<option value="">لا أصناف متابَعة</option>';
+      document.getElementById('m_warehouse').innerHTML = wOpts || '<option value="">لا مستودعات</option>';
+      document.getElementById('m_warehouse_to').innerHTML = wOpts;
+    }
+    function renderBalances() {
+      const body = document.getElementById('balBody');
+      document.getElementById('balEmpty').classList.toggle('hidden', balances.length > 0);
+      body.innerHTML = balances.map(b => {
+        const low = Number(b.quantity) <= Number(b.reorder_level);
+        return `<tr class="border-t ${low ? 'bg-amber-50' : ''}">
+          <td class="p-3"><span class="font-bold number-en">${b.sku}</span> ${b.name_ar}</td>
+          <td class="p-3">${b.warehouse_name}</td>
+          <td class="p-3 number-en font-bold">${Number(b.quantity).toFixed(2)} ${b.unit || ''}</td>
+          <td class="p-3 number-en">${Number(b.avg_cost).toFixed(2)}</td>
+          <td class="p-3 number-en">${Number(b.stock_value).toFixed(2)}</td>
+          <td class="p-3 number-en">${Number(b.reorder_level).toFixed(2)}${low ? ' ⚠' : ''}</td>
+        </tr>`;
+      }).join('');
+    }
+    function renderMovements() {
+      const q = document.getElementById('movSearch').value.trim().toLowerCase();
+      const list = movements.filter(m => !q || [m.movement_number, m.sku, m.product_name].join(' ').toLowerCase().includes(q));
+      document.getElementById('movBody').innerHTML = list.map(m => `
+        <tr class="border-t">
+          <td class="p-3 number-en font-bold">${m.movement_number}</td>
+          <td class="p-3">${m.movement_type}</td>
+          <td class="p-3">${m.sku} — ${m.product_name}</td>
+          <td class="p-3">${m.warehouse_name}${m.warehouse_to_name ? ' → ' + m.warehouse_to_name : ''}</td>
+          <td class="p-3 number-en">${Number(m.quantity).toFixed(2)}</td>
+          <td class="p-3 number-en">${Number(m.unit_cost).toFixed(2)}</td>
+          <td class="p-3">${m.status}</td>
+          <td class="p-3">${m.status === 'POSTED' ? `<button class="text-rose-700 font-bold" data-cancel="${m.movement_id}">إلغاء</button>` : '-'}</td>
+        </tr>`).join('') || '<tr><td colspan="8" class="p-6 text-center text-slate-400">لا حركات</td></tr>';
+      document.querySelectorAll('[data-cancel]').forEach(btn => btn.onclick = () => cancelMov(btn.dataset.cancel));
+    }
+    function renderWarehouses() {
+      document.getElementById('whEmpty').classList.toggle('hidden', warehouses.length > 0);
+      document.getElementById('whBody').innerHTML = warehouses.map(w => `
+        <tr class="border-t"><td class="p-3 number-en font-bold">${w.code}</td><td class="p-3">${w.name_ar}</td>
+        <td class="p-3">${w.location || '-'}</td><td class="p-3">${w.is_active ? 'نشط' : 'موقوف'}</td></tr>`).join('');
+    }
+    async function loadAll() {
+      const low = document.getElementById('lowOnly').checked ? 'low_stock=1' : '';
+      const [sum, bal, mov, wh, prod] = await Promise.all([
+        fetch(`${API}/finance/inventory/summary${qs()}`, { headers: headers() }).then(r => r.json()),
+        fetch(`${API}/finance/inventory/balances${qs(low)}`, { headers: headers() }).then(r => r.json()),
+        fetch(`${API}/finance/inventory/movements${qs()}`, { headers: headers() }).then(r => r.json()),
+        fetch(`${API}/finance/inventory/warehouses${qs()}`, { headers: headers() }).then(r => r.json()),
+        fetch(`${API}/finance/inventory/products${qs('active=1')}`, { headers: headers() }).then(r => r.json())
+      ]);
+      if (!sum.success) { showAlert(sum.error || 'فشل الملخص', false); return; }
+      const s = sum.summary || {};
+      document.getElementById('sProducts').textContent = s.active_products ?? 0;
+      document.getElementById('sWarehouses').textContent = s.active_warehouses ?? 0;
+      document.getElementById('sQty').textContent = Number(s.on_hand_qty || 0).toFixed(2);
+      document.getElementById('sValue').textContent = Number(s.stock_value || 0).toFixed(2);
+      document.getElementById('sLow').textContent = s.low_stock_count ?? 0;
+      balances = bal.balances || [];
+      movements = mov.movements || [];
+      warehouses = wh.warehouses || [];
+      products = prod.products || [];
+      fillSelects();
+      renderBalances();
+      renderMovements();
+      renderWarehouses();
+    }
+    async function cancelMov(id) {
+      const reason = prompt('سبب إلغاء الحركة (إلزامي)');
+      if (!reason) return;
+      const res = await fetch(`${API}/finance/inventory/movements/${id}/cancel${qs()}`, {
+        method: 'POST', headers: headers(), body: JSON.stringify({ reason, entity_id: ENTITY || undefined })
+      });
+      const data = await res.json();
+      if (!res.ok) { showAlert(data.error || 'فشل الإلغاء', false); return; }
+      showAlert('تم إلغاء الحركة وعكس الرصيد', true);
+      await loadAll();
+    }
+
+    document.querySelectorAll('.tabBtn').forEach(btn => btn.onclick = () => setTab(btn.dataset.tab));
+    document.getElementById('btnRefresh').onclick = loadAll;
+    document.getElementById('lowOnly').onchange = loadAll;
+    document.getElementById('movSearch').oninput = renderMovements;
+    document.getElementById('m_type').onchange = () => {
+      document.getElementById('toWhWrap').classList.toggle('hidden', document.getElementById('m_type').value !== 'TRANSFER');
+    };
+    document.getElementById('btnWarehouse').onclick = async () => {
+      const name_ar = prompt('اسم المستودع');
+      if (!name_ar) return;
+      const code = prompt('رمز المستودع (اختياري)') || undefined;
+      const location = prompt('الموقع (اختياري)') || undefined;
+      const res = await fetch(`${API}/finance/inventory/warehouses`, {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ name_ar, code, location, entity_id: ENTITY || undefined })
+      });
+      const data = await res.json();
+      if (!res.ok) { showAlert(data.error || 'فشل', false); return; }
+      showAlert('تم إنشاء المستودع', true);
+      await loadAll();
+    };
+    document.getElementById('btnMovement').onclick = () => {
+      fillSelects();
+      document.getElementById('movModal').classList.remove('hidden');
+      document.getElementById('movModal').classList.add('flex');
+    };
+    document.getElementById('movCancel').onclick = () => {
+      document.getElementById('movModal').classList.add('hidden');
+      document.getElementById('movModal').classList.remove('flex');
+    };
+    document.getElementById('movForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const body = {
+        entity_id: ENTITY || undefined,
+        movement_type: document.getElementById('m_type').value,
+        product_id: Number(document.getElementById('m_product').value),
+        warehouse_id: Number(document.getElementById('m_warehouse').value),
+        warehouse_to_id: document.getElementById('m_type').value === 'TRANSFER'
+          ? Number(document.getElementById('m_warehouse_to').value) : undefined,
+        quantity: Number(document.getElementById('m_qty').value),
+        unit_cost: document.getElementById('m_cost').value === '' ? undefined : Number(document.getElementById('m_cost').value),
+        notes: document.getElementById('m_notes').value.trim(),
+        reference_type: 'MANUAL'
+      };
+      const res = await fetch(`${API}/finance/inventory/movements`, {
+        method: 'POST', headers: headers(), body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) { showAlert(data.error || 'فشل ترحيل الحركة', false); return; }
+      document.getElementById('movCancel').click();
+      showAlert('تم ترحيل الحركة', true);
+      await loadAll();
+    };
+
+    function boot() {
+      ENTITY = window.getFinanceEntityId ? window.getFinanceEntityId() : '';
+      setTab('balances');
+      loadAll();
+    }
+    if (window.whenFinanceContextReady) window.whenFinanceContextReady(boot);
+    else boot();
+  </script>
+</body>
+</html>
