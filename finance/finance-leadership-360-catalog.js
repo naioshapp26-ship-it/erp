@@ -96,11 +96,11 @@
       label: 'المنتجات والتكاليف',
       icon: 'fa-boxes-stacked',
       pages: [
-        { id: 'product-settings', label: 'إعدادات المنتجات', status: 'coming_soon', href: null },
-        { id: 'product-classify', label: 'تصنيف المنتجات والخدمات', status: 'coming_soon', href: null },
-        { id: 'product-costs', label: 'تكاليف المنتجات', status: 'coming_soon', href: null },
+        { id: 'product-settings', label: 'إعدادات المنتجات', status: 'operational', href: '/finance/inventory.html#items', note: 'سجل أصناف وخدمات في Postgres عبر /finance/inventory' },
+        { id: 'product-classify', label: 'تصنيف المنتجات والخدمات', status: 'partial', href: '/finance/inventory.html#items', note: 'فئة نصية على الصنف — لا شجرة تصنيف مستقلة بعد' },
+        { id: 'product-costs', label: 'تكاليف المنتجات', status: 'partial', href: '/finance/inventory.html#balances', note: 'متوسط التكلفة المرجح على رصيد الصنف والمستودع — بلا تكلفة مشروعات' },
         { id: 'price-lists', label: 'قوائم الأسعار', status: 'coming_soon', href: null },
-        { id: 'margins', label: 'احتساب التكلفة وهوامش الربح', status: 'coming_soon', href: null }
+        { id: 'margins', label: 'احتساب التكلفة وهوامش الربح', status: 'partial', href: '/finance/inventory.html#balances', note: 'هامش الوحدة = سعر البيع − متوسط التكلفة. بلا تقرير ربحية حسب القسم' }
       ]
     },
     {
@@ -108,9 +108,9 @@
       label: 'المخزون',
       icon: 'fa-warehouse',
       pages: [
-        { id: 'stock', label: 'المخزون', status: 'coming_soon', href: null },
-        { id: 'product-mgmt', label: 'إدارة المنتجات', status: 'coming_soon', href: null },
-        { id: 'stock-purchases', label: 'المشتريات المرتبطة بالمخزون', status: 'coming_soon', href: null },
+        { id: 'stock', label: 'المخزون', status: 'operational', href: '/finance/inventory.html', note: 'أرصدة وحركات فعلية. الرصيد السالب ممنوع. لا قيد محاسبي تلقائي بعد' },
+        { id: 'product-mgmt', label: 'إدارة المنتجات', status: 'operational', href: '/finance/inventory.html#items' },
+        { id: 'stock-purchases', label: 'المشتريات المرتبطة بالمخزون', status: 'coming_soon', href: null, note: 'استلام أمر الشراء لا يزيد المخزون تلقائيًا بعد' },
         {
           id: 'stock-vendors',
           label: 'موردو المصروفات (مرجع)',
@@ -119,8 +119,8 @@
           note: 'نفس موردي المصروفات — ليست إدارة موردي مخزون/مشتريات مكتملة'
         },
         { id: 'procurement-cycle', label: 'دورة المشتريات', status: 'coming_soon', href: null },
-        { id: 'warehouse-docs', label: 'الأذون المخزنية', status: 'coming_soon', href: null },
-        { id: 'stock-count', label: 'إدارة الجرد', status: 'coming_soon', href: null }
+        { id: 'warehouse-docs', label: 'الأذون المخزنية', status: 'operational', href: '/finance/inventory.html#moves', note: 'إذن إدخال وإخراج وتحويل وتسوية. الحركة المعتمدة لا تُعدَّل' },
+        { id: 'stock-count', label: 'إدارة الجرد', status: 'partial', href: '/finance/inventory.html#moves', note: 'تسوية كمية بسبب موثق. بلا مسار اعتماد منفصل بعد' }
       ]
     },
     {
