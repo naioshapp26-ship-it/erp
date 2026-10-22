@@ -4,6 +4,7 @@ const express = require('express');
 const db = require('../../db');
 const { resolveScopedEntityId } = require('./resolve-scoped-entity');
 const { applyInbound, applyOutbound, roundQty, roundCost } = require('../services/inventory-policy');
+const { ensureStockLinkSchema } = require('../services/stock-link');
 
 const router = express.Router();
 let tablesReady = null;
@@ -23,7 +24,8 @@ function fail(res, status, error) {
 
 async function ensureTables() {
   if (!tablesReady) {
-    tablesReady = db.query(`
+    tablesReady = (async () => {
+      await db.query(`
       CREATE TABLE IF NOT EXISTS finance_items (
         item_id SERIAL PRIMARY KEY,
         entity_id TEXT NOT NULL,
@@ -110,7 +112,9 @@ async function ensureTables() {
       CREATE INDEX IF NOT EXISTS idx_finance_items_entity ON finance_items(entity_id);
       CREATE INDEX IF NOT EXISTS idx_finance_wh_entity ON finance_warehouses(entity_id);
       CREATE INDEX IF NOT EXISTS idx_finance_stock_mov_entity ON finance_stock_movements(entity_id, created_at DESC);
-    `).catch((error) => {
+    `);
+      await ensureStockLinkSchema(db);
+    })().catch((error) => {
       tablesReady = null;
       throw error;
     });
@@ -154,12 +158,20 @@ router.get('/items', async (req, res) => {
     await ensureTables();
     const q = String(req.query.q || '').trim();
     const params = [entityId];
-    let sql = `SELECT * FROM finance_items WHERE entity_id = $1`;
+    let sql = `SELECT i.*,
+      CASE
+        WHEN EXISTS (SELECT 1 FROM finance_stock_movements m WHERE m.entity_id = i.entity_id AND m.item_id = i.item_id)
+          THEN 'الصنف مرتبط بحركة مخزون معتمدة ولا يُحذف. يمكن تعطيله.'
+        WHEN EXISTS (SELECT 1 FROM finance_stock_balances b WHERE b.entity_id = i.entity_id AND b.item_id = i.item_id AND b.qty <> 0)
+          THEN 'الصنف له رصيد. عطّله أو سوِّ الرصيد بحركة عكسية.'
+        ELSE NULL
+      END AS delete_block_reason
+      FROM finance_items i WHERE i.entity_id = $1`;
     if (q) {
       params.push(`%${q}%`);
-      sql += ` AND (sku ILIKE $2 OR name_ar ILIKE $2 OR COALESCE(category,'') ILIKE $2)`;
+      sql += ` AND (i.sku ILIKE $2 OR i.name_ar ILIKE $2 OR COALESCE(i.category,'') ILIKE $2)`;
     }
-    sql += ` ORDER BY item_id DESC`;
+    sql += ` ORDER BY i.item_id DESC`;
     const result = await db.query(sql, params);
     res.json({ success: true, items: result.rows, count: result.rows.length });
   } catch (error) {
@@ -292,7 +304,12 @@ router.get('/units', async (req, res) => {
   try {
     await ensureTables();
     const result = await db.query(
-      `SELECT * FROM finance_units WHERE entity_id = $1 ORDER BY code`,
+      `SELECT u.*,
+        CASE WHEN EXISTS (SELECT 1 FROM finance_items i WHERE i.entity_id = u.entity_id AND i.unit = u.code)
+          THEN 'الوحدة مستخدمة في أصناف. عطّلها بدل الحذف.'
+          ELSE NULL
+        END AS delete_block_reason
+       FROM finance_units u WHERE u.entity_id = $1 ORDER BY u.code`,
       [entityId]
     );
     res.json({ success: true, units: result.rows, count: result.rows.length });
@@ -368,7 +385,15 @@ router.get('/warehouses', async (req, res) => {
   try {
     await ensureTables();
     const result = await db.query(
-      `SELECT * FROM finance_warehouses WHERE entity_id = $1 ORDER BY warehouse_id DESC`,
+      `SELECT w.*,
+        CASE
+          WHEN EXISTS (SELECT 1 FROM finance_stock_movements m WHERE m.entity_id = w.entity_id AND m.warehouse_id = w.warehouse_id)
+            THEN 'المستودع مرتبط بحركة معتمدة ولا يُحذف. يمكن تعطيله.'
+          WHEN EXISTS (SELECT 1 FROM finance_stock_balances b WHERE b.entity_id = w.entity_id AND b.warehouse_id = w.warehouse_id AND b.qty <> 0)
+            THEN 'المستودع له رصيد. عطّله بدل الحذف.'
+          ELSE NULL
+        END AS delete_block_reason
+       FROM finance_warehouses w WHERE w.entity_id = $1 ORDER BY w.warehouse_id DESC`,
       [entityId]
     );
     res.json({ success: true, warehouses: result.rows, count: result.rows.length });
@@ -504,6 +529,7 @@ router.get('/movements', async (req, res) => {
     const params = [entityId];
     let sql = `
       SELECT d.document_id, d.document_no, d.movement_type, d.reason, d.created_by, d.created_at,
+             d.source_type, d.source_id, d.journal_entry_id, d.currency_code, d.reverses_document_id,
              m.movement_id, m.direction, m.quantity, m.unit_cost, m.item_id, m.warehouse_id,
              i.sku, i.name_ar, w.code AS warehouse_code
       FROM finance_stock_documents d
@@ -694,5 +720,16 @@ router.post('/movements', async (req, res) => {
     client.release();
   }
 });
+
+const recordHelpers = {
+  requireEntity,
+  fail,
+  actorOf,
+  ensureTables,
+  audit,
+  assertActiveUnit
+};
+require('./inventory-records').register(router, recordHelpers);
+require('./inventory-link').register(router, recordHelpers);
 
 module.exports = router;
