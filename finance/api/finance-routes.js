@@ -751,7 +751,8 @@ async function ensureInvoiceAddressColumns() {
     ADD COLUMN IF NOT EXISTS city TEXT,
     ADD COLUMN IF NOT EXISTS district TEXT,
     ADD COLUMN IF NOT EXISTS national_address_number TEXT,
-    ADD COLUMN IF NOT EXISTS short_address TEXT;
+    ADD COLUMN IF NOT EXISTS short_address TEXT,
+    ADD COLUMN IF NOT EXISTS currency_code VARCHAR(3);
   `);
 }
 
@@ -1065,6 +1066,7 @@ router.post('/invoices', async (req, res) => {
     }
 
     const invPrefix = String(invoiceDocSettings.number_prefix || 'INV').trim() || 'INV';
+    const invoiceCurrency = String(invoiceDocSettings.default_currency || 'SAR').trim().toUpperCase() || 'SAR';
     const invoice_number = await generateNextNumber(invPrefix, 'finance_invoices', 'invoice_number');
 
     const invoiceResult = await client.query(
@@ -1073,8 +1075,9 @@ router.post('/invoices', async (req, res) => {
         subtotal, tax_amount, discount_amount, total_amount, remaining_amount,
         program_id, service_id, entity_type, entity_id, branch_id, incubator_id, platform_id,
         allow_partial_payment, allow_installments, notes, status, payment_status, created_by,
-        street_name, postal_code, building_number, city, district, national_address_number, short_address)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'ISSUED', 'UNPAID', $21, $22, $23, $24, $25, $26, $27, $28)
+        street_name, postal_code, building_number, city, district, national_address_number, short_address,
+        currency_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'ISSUED', 'UNPAID', $21, $22, $23, $24, $25, $26, $27, $28, $29)
        RETURNING *`,
       [invoice_number, invoice_date, resolvedDueDate, customer_id, customer.customer_name_ar,
        subtotal, tax_amount, discount_amount, total_amount, total_amount,
@@ -1087,7 +1090,8 @@ router.post('/invoices', async (req, res) => {
        city || null,
        district || null,
        national_address_number || null,
-       short_address || null]
+       short_address || null,
+       invoiceCurrency]
     );
 
     const invoice_id = invoiceResult.rows[0].invoice_id;
