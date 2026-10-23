@@ -34,7 +34,7 @@ function httpJson(method, urlPath, body) {
       res.on('end', () => {
         let json = null;
         try { json = raw ? JSON.parse(raw) : null; } catch { /* csv */ }
-        resolve({ status: res.statusCode, json, raw: raw.slice(0, 300) });
+        resolve({ status: res.statusCode, json, raw: raw.slice(0, 40000) });
       });
     });
     req.on('error', reject);
@@ -59,18 +59,37 @@ async function main() {
   ];
   for (const page of pages) {
     const r = await httpJson('GET', page);
-    if (r.status === 200 && !/قيد التطوير/.test(r.raw)) pass(`page ${page}`);
-    else fail(`page ${page}`, `HTTP ${r.status}`);
+    const shell = r.raw.includes('id="app"') && r.raw.includes('/finance/ops-shell.css') && r.raw.includes('ops-ui.js');
+    if (r.status === 200 && shell && !/قيد التطوير/.test(r.raw)) pass(`page ${page}`);
+    else fail(`page ${page}`, `HTTP ${r.status} shell=${shell}`);
   }
+  const ui = await httpJson('GET', '/finance/ops-ui.js');
+  if (ui.status === 200 && ui.raw.includes('تعديل') && ui.raw.includes('حذف') && ui.raw.includes('إضافة معلومة')) pass('row actions in shared ui');
+  else fail('row actions in shared ui', `HTTP ${ui.status}`);
 
   const entity = { entity_id: 'HQ001', entity_type: 'HQ' };
   const cc = await httpJson('POST', '/finance/ops/cost-centers', { ...entity, title: `مركز ${stamp}`, record_number: `CC-${stamp}` });
   if (cc.status === 201) pass('create cost center', cc.json.record.record_number);
   else fail('create cost center', cc.raw);
+  if (cc.json && cc.json.record) {
+    const edited = await httpJson('PUT', `/finance/ops/cost-centers/${cc.json.record.record_id}?entity_id=HQ001`, {
+      ...entity,
+      title: `مركز معدّل ${stamp}`,
+      payload: { extra: [{ label: 'الفرع', value: 'الرياض' }] }
+    });
+    const extra = edited.json && edited.json.record && edited.json.record.payload && edited.json.record.payload.extra;
+    if (edited.status === 200 && edited.json.record.title === `مركز معدّل ${stamp}` && extra && extra[0] && extra[0].label === 'الفرع') pass('edit cost center and extra field');
+    else fail('edit cost center and extra field', edited.raw);
+  }
 
   const found = await httpJson('GET', `/finance/ops/cost-centers?entity_id=HQ001&q=${encodeURIComponent(stamp)}`);
   if (found.status === 200 && (found.json.records || []).some((row) => row.record_number === `CC-${stamp}`)) pass('search cost center');
   else fail('search cost center', found.raw);
+  if (cc.json && cc.json.record) {
+    const removed = await httpJson('DELETE', `/finance/ops/cost-centers/${cc.json.record.record_id}?entity_id=HQ001`);
+    if (removed.status === 200) pass('delete cost center');
+    else fail('delete cost center', removed.raw);
+  }
 
   const chk = await httpJson('POST', '/finance/ops/checks', { ...entity, party_name: `طرف ${stamp}`, amount: 250, title: 'بنك الاختبار' });
   if (chk.status === 201) pass('create check');
@@ -94,6 +113,20 @@ async function main() {
     const again = await httpJson('POST', `/finance/ops/purchase-requests/${pr.json.record.record_id}/convert`, { ...entity, vendor_name: `مورد ${stamp}` });
     if (again.status === 409) pass('block double convert');
     else fail('block double convert', again.raw);
+    const noteEdit = await httpJson('PUT', `/finance/ops/purchase-requests/${pr.json.record.record_id}?entity_id=HQ001`, {
+      ...entity,
+      title: `طلب ${stamp} بعد التحويل`,
+      amount: 80,
+      notes: 'ملاحظة بعد التحويل'
+    });
+    if (noteEdit.status === 200 && noteEdit.json.record.notes === 'ملاحظة بعد التحويل') pass('edit converted request notes');
+    else fail('edit converted request notes', noteEdit.raw);
+    const amountEdit = await httpJson('PUT', `/finance/ops/purchase-requests/${pr.json.record.record_id}?entity_id=HQ001`, {
+      ...entity,
+      amount: 81
+    });
+    if (amountEdit.status === 409) pass('block converted amount edit');
+    else fail('block converted amount edit', amountEdit.raw);
   }
 
   const loy = await httpJson('POST', '/finance/ops/loyalty', { ...entity, party_name: `عميل ${stamp}`, amount: 15, notes: 'اختبار' });
