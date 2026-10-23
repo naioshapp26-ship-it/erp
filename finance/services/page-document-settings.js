@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('../../db');
+const { fieldMeta, validateField } = require('../finance-field-labels');
 
 const DOC_DEFS = {
   print: {
@@ -195,7 +196,7 @@ function resolveTenantId(req) {
 async function getDocSettings(docId, tenantId = 0) {
   await ensureSchema();
   if (!DOC_DEFS[docId]) {
-    const err = new Error(`Unknown document settings id: ${docId}`);
+    const err = new Error('إعدادات هذا المستند غير معروفة.');
     err.status = 404;
     throw err;
   }
@@ -238,18 +239,33 @@ async function getDocSettings(docId, tenantId = 0) {
 async function putDocSettings(docId, tenantId, value, actorId = null, reason = null) {
   await ensureSchema();
   if (!DOC_DEFS[docId]) {
-    const err = new Error(`Unknown document settings id: ${docId}`);
+    const err = new Error('إعدادات هذا المستند غير معروفة.');
     err.status = 404;
     throw err;
   }
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    const err = new Error('value must be a JSON object');
+    const err = new Error('أرسل الإعدادات في شكل بيانات منظمة.');
     err.status = 400;
     throw err;
   }
   const key = definitionKey(docId);
   const defaults = DOC_DEFS[docId].default_value;
-  const merged = { ...defaults, ...value };
+  const merged = { ...defaults };
+  for (const key of Object.keys(defaults)) {
+    if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+    let next = value[key];
+    const meta = fieldMeta(key, defaults[key]);
+    if (meta.widget === 'currency' && next != null) next = String(next).trim().toUpperCase();
+    if (meta.widget === 'number' && next != null && next !== '') next = Number(next);
+    if (meta.widget === 'boolean') next = !!next;
+    const problem = validateField(key, next, defaults[key]);
+    if (problem) {
+      const err = new Error(problem);
+      err.status = 400;
+      throw err;
+    }
+    merged[key] = next;
+  }
   const existing = await db.query(
     `SELECT id, value, version
      FROM setting_values
@@ -334,13 +350,29 @@ function getFieldSchema(docId) {
   const def = DOC_DEFS[docId];
   if (!def) return null;
   const fields = Object.entries(def.default_value).map(([name, sample]) => {
-    let type = typeof sample;
-    if (type === 'boolean') type = 'boolean';
-    else if (type === 'number') type = 'number';
-    else type = 'string';
-    return { name, type, default: sample };
+    const meta = fieldMeta(name, sample);
+    const type = meta.widget === 'boolean' ? 'boolean' : meta.widget === 'number' ? 'number' : 'string';
+    return {
+      name,
+      type,
+      default: sample,
+      label_ar: meta.label_ar,
+      hint_ar: meta.hint_ar,
+      group_ar: meta.group_ar,
+      widget: meta.widget,
+      options: meta.options
+    };
   });
-  return { docId, label_ar: def.label_ar, fields };
+  const groups = [];
+  fields.forEach((field) => {
+    let group = groups.find((item) => item.label_ar === field.group_ar);
+    if (!group) {
+      group = { label_ar: field.group_ar, fields: [] };
+      groups.push(group);
+    }
+    group.fields.push(field);
+  });
+  return { docId, label_ar: def.label_ar, fields, groups };
 }
 
 module.exports = {
