@@ -454,7 +454,13 @@ router.put('/:kind/:id', async (req, res) => {
     if (!existing.rows[0]) return res.status(404).json({ success: false, error: 'السجل غير موجود' });
     if (LOCKED.has(String(existing.rows[0].status || '').toUpperCase())) {
       const b = req.body || {};
-      if (b.amount != null || b.status || b.customer_id || b.asset_id || b.invoice_id) {
+      const same = (left, right) => String(left == null ? '' : left) === String(right == null ? '' : right);
+      const financialChange = (b.amount != null && !same(num(b.amount), num(existing.rows[0].amount)))
+        || (b.status && text(b.status).toUpperCase() !== String(existing.rows[0].status || '').toUpperCase())
+        || (b.customer_id != null && !same(b.customer_id, existing.rows[0].customer_id))
+        || (b.asset_id != null && !same(b.asset_id, existing.rows[0].asset_id))
+        || (b.invoice_id != null && !same(b.invoice_id, existing.rows[0].invoice_id));
+      if (financialChange) {
         return res.status(409).json({
           success: false,
           error: 'السجل المرحّل لا يُعدَّل ماليًا. استخدم الإلغاء إن كان متاحًا.',
@@ -466,12 +472,17 @@ router.put('/:kind/:id', async (req, res) => {
     const payload = b.payload ? payloadOf(b) : null;
     const r = await db.query(
       `UPDATE finance_ops_records SET
-        title = COALESCE($4, title),
-        party_name = COALESCE($5, party_name),
-        amount = COALESCE($6, amount),
-        notes = COALESCE($7, notes),
-        payload = COALESCE($8::jsonb, payload),
-        status = COALESCE($9, status),
+        record_number = COALESCE($4, record_number),
+        title = COALESCE($5, title),
+        party_name = COALESCE($6, party_name),
+        amount = COALESCE($7, amount),
+        notes = COALESCE($8, notes),
+        payload = COALESCE($9::jsonb, payload),
+        status = COALESCE($10, status),
+        customer_id = COALESCE($11, customer_id),
+        asset_id = COALESCE($12, asset_id),
+        project_id = COALESCE($13, project_id),
+        invoice_id = COALESCE($14, invoice_id),
         updated_at = NOW()
        WHERE record_id = $1 AND kind = $2 AND entity_id = $3
        RETURNING *`,
@@ -479,12 +490,17 @@ router.put('/:kind/:id', async (req, res) => {
         req.params.id,
         kind,
         entityId,
+        b.record_number != null ? text(b.record_number) : null,
         b.title != null ? text(b.title) : null,
         b.party_name != null ? text(b.party_name) : null,
         b.amount != null ? num(b.amount) : null,
         b.notes != null ? text(b.notes) : null,
         payload ? JSON.stringify(payload) : null,
-        b.status ? text(b.status).toUpperCase() : null
+        b.status ? text(b.status).toUpperCase() : null,
+        b.customer_id != null ? b.customer_id : null,
+        b.asset_id != null ? b.asset_id : null,
+        b.project_id != null ? b.project_id : null,
+        b.invoice_id != null ? b.invoice_id : null
       ]
     );
     res.json({ success: true, record: r.rows[0] });
