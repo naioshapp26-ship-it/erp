@@ -4779,7 +4779,7 @@ const app = (() => {
         loadRoute('invoices-enhanced');
     };
 
-    const reverseTransaction = (trxId) => {
+    const reverseTransaction = async (trxId) => {
         const originalTrx = db.transactions.find(t => t.id === trxId);
         if (!originalTrx) return;
         if (await window.ErpDialog.confirm('هل أنت متأكد من إجراء قيد عكسي؟ سيتم خصم المبلغ من الرصيد.')) {
@@ -6494,7 +6494,7 @@ const app = (() => {
     };
 
     // Delete transaction from ledger
-    window.deleteTransaction = function(trxId) {
+    window.deleteTransaction = async function(trxId) {
         if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذه المعاملة المالية؟')) {
             return;
         }
@@ -6975,7 +6975,7 @@ const app = (() => {
     };
 
     // Delete Invoice Function - يحذف الفاتورة ويعيد تصيير الجدول فقط دون الانتقال من الصفحة
-    window.deleteInvoice = function(invoiceId) {
+    window.deleteInvoice = async function(invoiceId) {
         const invoice = db.invoices.find(inv => inv.id === invoiceId);
         if (!invoice) {
             showToast('لم يتم العثور على الفاتورة', 'error');
@@ -7472,7 +7472,7 @@ const app = (() => {
         // يمكن إضافة modal أو صفحة منفصلة لإدارة الكيان
     };
 
-    window.suspendEntity = function(entityId) {
+    window.suspendEntity = async function(entityId) {
         if (!await window.ErpDialog.confirm('هل أنت متأكد من إيقاف هذا الكيان مؤقتاً؟')) return;
         
         fetch(`/api/entities/${entityId}`, {
@@ -7641,7 +7641,7 @@ const app = (() => {
         }
     };
 
-    window.deleteEntityPermanent = function(entityId) {
+    window.deleteEntityPermanent = async function(entityId) {
         if (!await window.ErpDialog.confirm('⚠️ تحذير: هل أنت متأكد من الحذف النهائي؟\n\nهذا الإجراء لا يمكن التراجع عنه وسيتم حذف جميع البيانات المرتبطة.')) return;
         
         fetch(`/api/entities/${entityId}`, {
@@ -21106,7 +21106,7 @@ const app = (() => {
         showToast(`تم فتح تعديل المستند: ${record.docNumber} (محاكاة)`, 'info');
     };
 
-    const deleteRecordsFinancialCollection = (recordId) => {
+    const deleteRecordsFinancialCollection = async (recordId) => {
         const record = recordsFinancialCollectionData.find(item => item.id === recordId);
         if (!record) return;
         const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
@@ -21501,7 +21501,7 @@ const app = (() => {
         showToast(`تم فتح تعديل المستند: ${record.docNumber} (محاكاة)`, 'info');
     };
 
-    const deleteRecordsFinancialAffairs = (recordId) => {
+    const deleteRecordsFinancialAffairs = async (recordId) => {
         const record = recordsFinancialAffairsData.find(item => item.id === recordId);
         if (!record) return;
         const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
@@ -22055,7 +22055,7 @@ const app = (() => {
         openRecordsAcademicAdminForm('تعديل', record);
     };
 
-    const deleteRecordsAcademicAdmin = (recordId) => {
+    const deleteRecordsAcademicAdmin = async (recordId) => {
         const record = recordsAcademicAdminData.find(item => item.id === recordId);
         if (!record) return;
         const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
@@ -22450,7 +22450,7 @@ const app = (() => {
         showToast(`تم فتح تعديل المستند: ${record.docNumber} (محاكاة)`, 'info');
     };
 
-    const deleteRecordsQuality = (recordId) => {
+    const deleteRecordsQuality = async (recordId) => {
         const record = recordsQualityData.find(item => item.id === recordId);
         if (!record) return;
         const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
@@ -22845,7 +22845,7 @@ const app = (() => {
         showToast(`تم فتح تعديل المستند: ${record.docNumber} (محاكاة)`, 'info');
     };
 
-    const deleteRecordsExecutive = (recordId) => {
+    const deleteRecordsExecutive = async (recordId) => {
         const record = recordsExecutiveData.find(item => item.id === recordId);
         if (!record) return;
         const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
@@ -23240,7 +23240,7 @@ const app = (() => {
         showToast(`تم فتح تعديل المستند: ${record.docNumber} (محاكاة)`, 'info');
     };
 
-    const deleteRecordsFacilities = (recordId) => {
+    const deleteRecordsFacilities = async (recordId) => {
         const record = recordsFacilitiesData.find(item => item.id === recordId);
         if (!record) return;
         const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
@@ -23645,7 +23645,7 @@ const app = (() => {
         showToast(`تم فتح تعديل المستند: ${record.docNumber} (محاكاة)`, 'info');
     };
 
-    const deleteRecordsConfidential = (recordId) => {
+    const deleteRecordsConfidential = async (recordId) => {
         const record = recordsConfidentialData.find(item => item.id === recordId);
         if (!record) return;
         const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
@@ -28985,7 +28985,7 @@ window.submitEditTask = async function(taskId) {
 };
 
 // Delete task from view modal
-window.deleteTaskFromView = function() {
+window.deleteTaskFromView = async function() {
   if (!currentViewedTaskId) {
     window.ErpDialog.toast('❌ لم يتم تحديد مهمة للحذف');
     return;
