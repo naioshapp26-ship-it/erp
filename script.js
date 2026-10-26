@@ -1173,7 +1173,7 @@ const app = (() => {
                       : `${entities.length} كيان متاح`;
                   };
 
-                  loadMoreBtn.addEventListener('click', () => {
+                  loadMoreBtn.addEventListener('click', async () => {
                     currentPage++;
                     renderPage(true);
                   });
@@ -1924,7 +1924,7 @@ const app = (() => {
         }
     };
 
-    window.addEventListener('click', (e) => {
+    window.addEventListener('click', async (e) => {
         const menu = document.getElementById('role-menu');
         const btn = document.querySelector('button[onclick*="toggleRoleMenu"]');
         if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && !btn.contains(e.target)) toggleRoleMenu();
@@ -2593,7 +2593,7 @@ const app = (() => {
     const handleDownloadAppClick = async () => {
         const started = await triggerPwaInstall();
         if (!started) {
-            alert(getInstallInstructions());
+            window.ErpDialog.toast(getInstallInstructions());
         }
     };
 
@@ -2774,7 +2774,7 @@ const app = (() => {
         startPwaInstall = handleManualInstall;
         window.startPwaInstall = handleManualInstall;
 
-        document.addEventListener('click', (event) => {
+        document.addEventListener('click', async (event) => {
             const target = event.target.closest(inlineInstallSelector);
             if (!target) return;
             event.preventDefault();
@@ -2792,7 +2792,7 @@ const app = (() => {
                     await navigator.clipboard.writeText(window.location.href);
                     if (installFeedback) installFeedback.classList.remove('hidden');
                 } catch (error) {
-                    alert('تعذر نسخ الرابط تلقائيًا. انسخ الرابط يدويًا من شريط العنوان.');
+                    window.ErpDialog.toast('تعذر نسخ الرابط تلقائيًا. انسخ الرابط يدويًا من شريط العنوان.');
                 }
             });
         }
@@ -3200,9 +3200,9 @@ const app = (() => {
         const backdrop = document.getElementById('help-guide-backdrop');
         if (!button || !closeButton || !backdrop) return;
 
-        button.addEventListener('click', () => setHelpGuideOpen(true));
-        closeButton.addEventListener('click', () => setHelpGuideOpen(false));
-        backdrop.addEventListener('click', () => setHelpGuideOpen(false));
+        button.addEventListener('click', async () => setHelpGuideOpen(true));
+        closeButton.addEventListener('click', async () => setHelpGuideOpen(false));
+        backdrop.addEventListener('click', async () => setHelpGuideOpen(false));
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') setHelpGuideOpen(false);
         });
@@ -4782,7 +4782,7 @@ const app = (() => {
     const reverseTransaction = (trxId) => {
         const originalTrx = db.transactions.find(t => t.id === trxId);
         if (!originalTrx) return;
-        if (confirm('هل أنت متأكد من إجراء قيد عكسي؟ سيتم خصم المبلغ من الرصيد.')) {
+        if (await window.ErpDialog.confirm('هل أنت متأكد من إجراء قيد عكسي؟ سيتم خصم المبلغ من الرصيد.')) {
             // 1. Create Reversal Transaction
             const revId = `REV-${Math.floor(1000 + Math.random() * 9000)}`;
             
@@ -6394,7 +6394,7 @@ const app = (() => {
         const amount = parseFloat(document.getElementById('trx-amount').value);
 
         if (!desc || !amount) {
-            alert('يرجى تعبئة جميع الحقول');
+            window.ErpDialog.toast('يرجى تعبئة جميع الحقول');
             return;
         }
 
@@ -6425,7 +6425,7 @@ const app = (() => {
     window.viewTransactionDetails = function(trxId) {
         const transaction = db.ledger.find(t => t.trxId === trxId);
         if (!transaction) {
-            alert('لم يتم العثور على المعاملة');
+            window.ErpDialog.toast('لم يتم العثور على المعاملة');
             return;
         }
 
@@ -6495,7 +6495,7 @@ const app = (() => {
 
     // Delete transaction from ledger
     window.deleteTransaction = function(trxId) {
-        if (!confirm('هل أنت متأكد من حذف هذه المعاملة المالية؟')) {
+        if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذه المعاملة المالية؟')) {
             return;
         }
 
@@ -6515,7 +6515,7 @@ const app = (() => {
     window.viewInvoiceDetails = function(invoiceId) {
         const invoice = db.invoices.find(inv => inv.id === invoiceId);
         if (!invoice) {
-            alert('لم يتم العثور على الفاتورة');
+            window.ErpDialog.toast('لم يتم العثور على الفاتورة');
             return;
         }
 
@@ -6615,7 +6615,7 @@ const app = (() => {
     window.printInvoice = function(invoiceId) {
         const invoice = db.invoices.find(inv => inv.id === invoiceId);
         if (!invoice) {
-            alert('لم يتم العثور على الفاتورة');
+            window.ErpDialog.toast('لم يتم العثور على الفاتورة');
             return;
         }
 
@@ -6983,7 +6983,7 @@ const app = (() => {
         }
 
         // Confirm deletion
-        if (!confirm(`هل أنت متأكد من حذف الفاتورة ${invoiceId}؟\n\nهذا الإجراء لا يمكن التراجع عنه.`)) {
+        if (!await window.ErpDialog.confirm(`هل أنت متأكد من حذف الفاتورة ${invoiceId}؟\n\nهذا الإجراء لا يمكن التراجع عنه.`)) {
             return;
         }
 
@@ -7363,7 +7363,7 @@ const app = (() => {
     };
 
     window.deleteRequest = async function(requestId) {
-        if (!confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
+        if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
 
         try {
             await window.fetchAPI(`/employee-requests/${requestId}`, {
@@ -7473,7 +7473,7 @@ const app = (() => {
     };
 
     window.suspendEntity = function(entityId) {
-        if (!confirm('هل أنت متأكد من إيقاف هذا الكيان مؤقتاً؟')) return;
+        if (!await window.ErpDialog.confirm('هل أنت متأكد من إيقاف هذا الكيان مؤقتاً؟')) return;
         
         fetch(`/api/entities/${entityId}`, {
             method: 'PUT',
@@ -7620,7 +7620,7 @@ const app = (() => {
     };
 
     // Close dropdowns when clicking outside
-    document.addEventListener('click', function(event) {
+    document.addEventListener('click', async function(event) {
         const isDropdownButton = event.target.closest('[onclick*="toggleDropdown"]');
         const isDropdownMenu = event.target.closest('[id^="dropdown-menu-"]');
         
@@ -7642,7 +7642,7 @@ const app = (() => {
     };
 
     window.deleteEntityPermanent = function(entityId) {
-        if (!confirm('⚠️ تحذير: هل أنت متأكد من الحذف النهائي؟\n\nهذا الإجراء لا يمكن التراجع عنه وسيتم حذف جميع البيانات المرتبطة.')) return;
+        if (!await window.ErpDialog.confirm('⚠️ تحذير: هل أنت متأكد من الحذف النهائي؟\n\nهذا الإجراء لا يمكن التراجع عنه وسيتم حذف جميع البيانات المرتبطة.')) return;
         
         fetch(`/api/entities/${entityId}`, {
             method: 'DELETE',
@@ -10263,7 +10263,7 @@ const app = (() => {
     };
 
     const deleteFacilitiesContract = async (contractId) => {
-        if (!confirm('هل أنت متأكد من حذف العقد؟')) return;
+        if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف العقد؟')) return;
         try {
             await fetchAPI(`/api/facilities/contracts/${contractId}`, { method: 'DELETE' });
             showToast('✅ تم حذف العقد بنجاح', 'success');
@@ -10396,7 +10396,7 @@ const app = (() => {
 
         const submitBtn = document.getElementById('facilities-modal-submit');
         if (submitBtn) {
-            submitBtn.onclick = () => {
+            submitBtn.onclick = async () => {
                 const payload = fields.reduce((acc, field) => {
                     acc[field.id] = document.getElementById(field.id)?.value || '';
                     return acc;
@@ -10586,7 +10586,7 @@ const app = (() => {
 
         const submitBtn = document.getElementById('supplychain-modal-submit');
         if (submitBtn) {
-            submitBtn.onclick = () => {
+            submitBtn.onclick = async () => {
                 const payload = fields.reduce((acc, field) => {
                     acc[field.id] = document.getElementById(field.id)?.value || '';
                     return acc;
@@ -10711,7 +10711,7 @@ const app = (() => {
 
         const submitBtn = document.getElementById('quality-policy-modal-submit');
         if (submitBtn) {
-            submitBtn.onclick = () => {
+            submitBtn.onclick = async () => {
                 const payload = fields.reduce((acc, field) => {
                     acc[field.id] = document.getElementById(field.id)?.value || '';
                     return acc;
@@ -18796,7 +18796,7 @@ const app = (() => {
                 });
             };
             mount.querySelectorAll('[data-up]').forEach((btn) => {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', async () => {
                     const state = readState();
                     const id = btn.getAttribute('data-up');
                     const i = state.orderIds.indexOf(id);
@@ -18806,7 +18806,7 @@ const app = (() => {
                 });
             });
             mount.querySelectorAll('[data-down]').forEach((btn) => {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', async () => {
                     const state = readState();
                     const id = btn.getAttribute('data-down');
                     const i = state.orderIds.indexOf(id);
@@ -20268,7 +20268,7 @@ const app = (() => {
     const deleteRecordsMasterRegister = async (recordId) => {
         const record = recordsMasterRegisterData.find(item => String(item.id) === String(recordId));
         if (!record) return;
-        const ok = confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
+        const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
         if (!ok) return;
         try {
             await fetchAPI(`/records/master-register/${recordId}`, { method: 'DELETE' });
@@ -20707,7 +20707,7 @@ const app = (() => {
     const deleteRecordsStudents = async (recordId) => {
         const record = recordsStudentsData.find(item => String(item.id) === String(recordId));
         if (!record) return;
-        const ok = confirm(`هل تريد حذف سجل الطالب ${record.studentNumber}؟`);
+        const ok = await window.ErpDialog.confirm(`هل تريد حذف سجل الطالب ${record.studentNumber}؟`);
         if (!ok) return;
         try {
             await fetchAPI(`/records/students-affairs/${recordId}`, { method: 'DELETE' });
@@ -21109,7 +21109,7 @@ const app = (() => {
     const deleteRecordsFinancialCollection = (recordId) => {
         const record = recordsFinancialCollectionData.find(item => item.id === recordId);
         if (!record) return;
-        const ok = confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
+        const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
         if (!ok) return;
         showToast('تم حذف المستند (محاكاة)', 'success');
     };
@@ -21504,7 +21504,7 @@ const app = (() => {
     const deleteRecordsFinancialAffairs = (recordId) => {
         const record = recordsFinancialAffairsData.find(item => item.id === recordId);
         if (!record) return;
-        const ok = confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
+        const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
         if (!ok) return;
         showToast('تم حذف المستند (محاكاة)', 'success');
     };
@@ -22058,7 +22058,7 @@ const app = (() => {
     const deleteRecordsAcademicAdmin = (recordId) => {
         const record = recordsAcademicAdminData.find(item => item.id === recordId);
         if (!record) return;
-        const ok = confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
+        const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
         if (!ok) return;
         showToast('تم حذف المستند (محاكاة)', 'success');
     };
@@ -22453,7 +22453,7 @@ const app = (() => {
     const deleteRecordsQuality = (recordId) => {
         const record = recordsQualityData.find(item => item.id === recordId);
         if (!record) return;
-        const ok = confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
+        const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
         if (!ok) return;
         showToast('تم حذف المستند (محاكاة)', 'success');
     };
@@ -22848,7 +22848,7 @@ const app = (() => {
     const deleteRecordsExecutive = (recordId) => {
         const record = recordsExecutiveData.find(item => item.id === recordId);
         if (!record) return;
-        const ok = confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
+        const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
         if (!ok) return;
         showToast('تم حذف المستند (محاكاة)', 'success');
     };
@@ -23243,7 +23243,7 @@ const app = (() => {
     const deleteRecordsFacilities = (recordId) => {
         const record = recordsFacilitiesData.find(item => item.id === recordId);
         if (!record) return;
-        const ok = confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
+        const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
         if (!ok) return;
         showToast('تم حذف المستند (محاكاة)', 'success');
     };
@@ -23648,7 +23648,7 @@ const app = (() => {
     const deleteRecordsConfidential = (recordId) => {
         const record = recordsConfidentialData.find(item => item.id === recordId);
         if (!record) return;
-        const ok = confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
+        const ok = await window.ErpDialog.confirm(`هل تريد حذف المستند ${record.docNumber}؟`);
         if (!ok) return;
         showToast('تم حذف المستند (محاكاة)', 'success');
     };
@@ -25979,7 +25979,7 @@ const app = (() => {
     };
 
     const deleteLink = async (officeId, platformId, officeName, platformName) => {
-        const confirm = window.confirm(`هل أنت متأكد من حذف الربط بين:\n\n💼 ${officeName}\n↕️\n🖥️ ${platformName}\n\n⚠️ لا يمكن التراجع عن هذا الإجراء!`);
+        const confirm = await window.ErpDialog.confirm(`هل أنت متأكد من حذف الربط بين:\n\n💼 ${officeName}\n↕️\n🖥️ ${platformName}\n\n⚠️ لا يمكن التراجع عن هذا الإجراء!`);
         
         if (!confirm) return;
 
@@ -26742,7 +26742,7 @@ const app = (() => {
             </div>
         `;
         document.body.appendChild(modal);
-        modal.querySelector('#employee-menu-form')?.addEventListener('submit', (e) => {
+        modal.querySelector('#employee-menu-form')?.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const payload = Object.fromEntries(formData.entries());
@@ -28166,7 +28166,7 @@ const app = (() => {
         startPwaInstall: async () => {
             const started = await triggerPwaInstall();
             if (!started) {
-                alert(getInstallInstructions());
+                window.ErpDialog.toast(getInstallInstructions());
             }
         }
     };
@@ -28365,7 +28365,7 @@ window._hrTasksSubmitCreate = function() {
     const priority = document.getElementById('_htPriority')?.value || 'متوسطة';
     const status = document.getElementById('_htStatus')?.value || 'جديدة';
     const dueDate = document.getElementById('_htDue')?.value || '';
-    if (!title) { alert('يرجى إدخال اسم المهمة'); return; }
+    if (!title) { window.ErpDialog.toast('يرجى إدخال اسم المهمة'); return; }
     const id = window._hrTasksState.nextId++;
     window._hrTasksState.tasks.push({ id, title, description: desc, assignee, priority, status, dueDate, createdAt: new Date().toLocaleDateString('ar-SA') });
     window._hrTasksState.history[id] = [`تم إنشاء المهمة - ${new Date().toLocaleString('ar-SA')}`];
@@ -28446,7 +28446,7 @@ window._hrTasksSubmitEdit = function(id) {
     const task = window._hrTasksState.tasks.find(t => t.id === id);
     if (!task) return;
     const title = (document.getElementById('_htTitle')?.value || '').trim();
-    if (!title) { alert('يرجى إدخال اسم المهمة'); return; }
+    if (!title) { window.ErpDialog.toast('يرجى إدخال اسم المهمة'); return; }
     const oldStatus = task.status;
     task.title = title;
     task.description = (document.getElementById('_htDesc')?.value || '').trim();
@@ -28708,7 +28708,7 @@ window.submitCreateTask = async function() {
 
   // Validation
   if (!formData.title || !formData.assignee || !formData.priority || !formData.status || !formData.type || !formData.dueDate) {
-    alert('❌ يرجى ملء جميع الحقول المطلوبة');
+    window.ErpDialog.toast('❌ يرجى ملء جميع الحقول المطلوبة');
     return;
   }
 
@@ -28737,13 +28737,13 @@ window.submitCreateTask = async function() {
     
     // Close modal and show success
     window.closeCreateTaskModal();
-    alert(`✅ تم إنشاء المهمة "${formData.title}" بنجاح!`);
+    window.ErpDialog.toast(`✅ تم إنشاء المهمة "${formData.title}" بنجاح!`);
     
     // Refresh the tasks page to show the new task
     app.loadRoute('tasks');
   } catch (error) {
     console.error('Error creating task:', error);
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 
@@ -28761,7 +28761,7 @@ window.viewTaskDetails = function(taskId) {
     const task = db.tasks.find(t => t.id === taskId);
     
     if (!task) {
-      alert('❌ لم يتم العثور على المهمة');
+      window.ErpDialog.toast('❌ لم يتم العثور على المهمة');
       return;
     }
     
@@ -28859,7 +28859,7 @@ window.viewTaskDetails = function(taskId) {
     }
   } catch (error) {
     console.error('Error viewing task:', error);
-    alert('❌ خطأ في عرض تفاصيل المهمة');
+    window.ErpDialog.toast('❌ خطأ في عرض تفاصيل المهمة');
   }
 };
 
@@ -28875,7 +28875,7 @@ window.closeViewTaskModal = function() {
 // Edit task from view modal
 window.editTaskFromView = function() {
   if (!currentViewedTaskId) {
-    alert('❌ لم يتم تحديد مهمة للتعديل');
+    window.ErpDialog.toast('❌ لم يتم تحديد مهمة للتعديل');
     return;
   }
   
@@ -28884,7 +28884,7 @@ window.editTaskFromView = function() {
     const task = db.tasks.find(t => t.id === currentViewedTaskId);
     
     if (!task) {
-      alert('❌ لم يتم العثور على المهمة');
+      window.ErpDialog.toast('❌ لم يتم العثور على المهمة');
       return;
     }
     
@@ -28916,7 +28916,7 @@ window.editTaskFromView = function() {
     window.openCreateTaskModal();
   } catch (error) {
     console.error('Error editing task:', error);
-    alert('❌ خطأ في تحرير المهمة');
+    window.ErpDialog.toast('❌ خطأ في تحرير المهمة');
   }
 };
 
@@ -28933,7 +28933,7 @@ window.submitEditTask = async function(taskId) {
 
   // Validation
   if (!formData.title || !formData.priority || !formData.status || !formData.type || !formData.dueDate) {
-    alert('❌ يرجى ملء جميع الحقول المطلوبة');
+    window.ErpDialog.toast('❌ يرجى ملء جميع الحقول المطلوبة');
     return;
   }
 
@@ -28942,7 +28942,7 @@ window.submitEditTask = async function(taskId) {
     const taskIndex = db.tasks.findIndex(t => t.id === taskId);
     
     if (taskIndex === -1) {
-      alert('❌ لم يتم العثور على المهمة');
+      window.ErpDialog.toast('❌ لم يتم العثور على المهمة');
       return;
     }
     
@@ -28974,20 +28974,20 @@ window.submitEditTask = async function(taskId) {
       submitBtn.setAttribute('onclick', 'window.submitCreateTask()');
     }
     
-    alert(`✅ تم تحديث المهمة "${formData.title}" بنجاح!`);
+    window.ErpDialog.toast(`✅ تم تحديث المهمة "${formData.title}" بنجاح!`);
     
     // Refresh tasks page
     app.loadRoute('tasks');
   } catch (error) {
     console.error('Error updating task:', error);
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 
 // Delete task from view modal
 window.deleteTaskFromView = function() {
   if (!currentViewedTaskId) {
-    alert('❌ لم يتم تحديد مهمة للحذف');
+    window.ErpDialog.toast('❌ لم يتم تحديد مهمة للحذف');
     return;
   }
   
@@ -28996,12 +28996,12 @@ window.deleteTaskFromView = function() {
     const task = db.tasks.find(t => t.id === currentViewedTaskId);
     
     if (!task) {
-      alert('❌ لم يتم العثور على المهمة');
+      window.ErpDialog.toast('❌ لم يتم العثور على المهمة');
       return;
     }
     
     // Confirm deletion
-    if (!confirm(`هل أنت متأكد من حذف المهمة "${task.title}"؟\n\nهذا الإجراء لا يمكن التراجع عنه.`)) {
+    if (!await window.ErpDialog.confirm(`هل أنت متأكد من حذف المهمة "${task.title}"؟\n\nهذا الإجراء لا يمكن التراجع عنه.`)) {
       return;
     }
     
@@ -29015,13 +29015,13 @@ window.deleteTaskFromView = function() {
     // Close modal
     window.closeViewTaskModal();
     
-    alert('✅ تم حذف المهمة بنجاح!');
+    window.ErpDialog.toast('✅ تم حذف المهمة بنجاح!');
     
     // Refresh tasks page
     app.loadRoute('tasks');
   } catch (error) {
     console.error('Error deleting task:', error);
-    alert('❌ خطأ في حذف المهمة');
+    window.ErpDialog.toast('❌ خطأ في حذف المهمة');
   }
 };
 
@@ -29856,10 +29856,10 @@ window.openAddProgramModal = function() {
       });
       
       window.closeIncubatorModal();
-      alert('✅ تم إضافة البرنامج بنجاح!');
+      window.ErpDialog.toast('✅ تم إضافة البرنامج بنجاح!');
       window.switchIncubatorTab('programs');
     } catch (error) {
-      alert('❌ حدث خطأ: ' + error.message);
+      window.ErpDialog.toast('❌ حدث خطأ: ' + error.message);
     }
   });
 };
@@ -29964,10 +29964,10 @@ window.openAddBeneficiaryModal = function() {
       });
       
       window.closeIncubatorModal();
-      alert('✅ تم إضافة المستفيد بنجاح!');
+      window.ErpDialog.toast('✅ تم إضافة المستفيد بنجاح!');
       window.switchIncubatorTab('beneficiaries');
     } catch (error) {
-      alert('❌ حدث خطأ: ' + error.message);
+      window.ErpDialog.toast('❌ حدث خطأ: ' + error.message);
     }
   });
 };
@@ -30075,7 +30075,7 @@ window.openAddSessionModal = async function() {
     
     // Validate program selection
     if (!program_id) {
-      alert('⚠️ يجب اختيار البرنامج التدريبي');
+      window.ErpDialog.toast('⚠️ يجب اختيار البرنامج التدريبي');
       return;
     }
     
@@ -30084,7 +30084,7 @@ window.openAddSessionModal = async function() {
     const end_date = formData.get('end_date');
     
     if (!start_date || !end_date) {
-      alert('⚠️ يجب إدخال تاريخ البدء والانتهاء');
+      window.ErpDialog.toast('⚠️ يجب إدخال تاريخ البدء والانتهاء');
       return;
     }
     
@@ -30093,12 +30093,12 @@ window.openAddSessionModal = async function() {
     const endDateObj = new Date(end_date);
     
     if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
-      alert('⚠️ صيغة التاريخ غير صحيحة');
+      window.ErpDialog.toast('⚠️ صيغة التاريخ غير صحيحة');
       return;
     }
     
     if (endDateObj < startDateObj) {
-      alert('⚠️ تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء');
+      window.ErpDialog.toast('⚠️ تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء');
       return;
     }
     
@@ -30126,11 +30126,11 @@ window.openAddSessionModal = async function() {
       });
       
       window.closeIncubatorModal();
-      alert('✅ تم إضافة الدفعة بنجاح!');
+      window.ErpDialog.toast('✅ تم إضافة الدفعة بنجاح!');
       window.switchIncubatorTab('sessions');
     } catch (error) {
       console.error('Error adding session:', error);
-      alert('❌ حدث خطأ: ' + error.message);
+      window.ErpDialog.toast('❌ حدث خطأ: ' + error.message);
     }
   });
 };
@@ -30164,7 +30164,7 @@ window.viewSessionDetails = async function(sessionId) {
     const session = sessions.find(s => s.id === sessionId);
     
     if (!session) {
-      alert('❌ لم يتم العثور على الدفعة');
+      window.ErpDialog.toast('❌ لم يتم العثور على الدفعة');
       return;
     }
     
@@ -30255,7 +30255,7 @@ window.viewSessionDetails = async function(sessionId) {
     document.body.appendChild(modal);
   } catch (error) {
     console.error('Error viewing session:', error);
-    alert('❌ حدث خطأ في عرض تفاصيل الدفعة');
+    window.ErpDialog.toast('❌ حدث خطأ في عرض تفاصيل الدفعة');
   }
 };
 
@@ -30266,7 +30266,7 @@ window.editSession = async function(sessionId) {
     const session = sessions.find(s => s.id === sessionId);
     
     if (!session) {
-      alert('❌ لم يتم العثور على الدفعة');
+      window.ErpDialog.toast('❌ لم يتم العثور على الدفعة');
       return;
     }
     
@@ -30379,16 +30379,16 @@ window.editSession = async function(sessionId) {
         });
         
         window.closeIncubatorModal();
-        alert('✅ تم تحديث الدفعة بنجاح!');
+        window.ErpDialog.toast('✅ تم تحديث الدفعة بنجاح!');
         window.switchIncubatorTab('sessions');
       } catch (error) {
         console.error('Error updating session:', error);
-        alert('❌ حدث خطأ: ' + error.message);
+        window.ErpDialog.toast('❌ حدث خطأ: ' + error.message);
       }
     });
   } catch (error) {
     console.error('Error editing session:', error);
-    alert('❌ حدث خطأ في تحميل بيانات الدفعة');
+    window.ErpDialog.toast('❌ حدث خطأ في تحميل بيانات الدفعة');
   }
 };
 
@@ -30406,7 +30406,7 @@ window.manageEnrollments = async function(sessionId, sessionName) {
     
     const session = sessions.find(s => s.id === sessionId);
     if (!session) {
-      alert('❌ لم يتم العثور على الدفعة');
+      window.ErpDialog.toast('❌ لم يتم العثور على الدفعة');
       return;
     }
     
@@ -30533,7 +30533,7 @@ window.manageEnrollments = async function(sessionId, sessionName) {
     document.body.appendChild(modal);
   } catch (error) {
     console.error('Error managing enrollments:', error);
-    alert('❌ حدث خطأ في تحميل بيانات المتدربين: ' + error.message);
+    window.ErpDialog.toast('❌ حدث خطأ في تحميل بيانات المتدربين: ' + error.message);
   }
 };
 
@@ -30543,7 +30543,7 @@ window.addEnrollment = async function(sessionId, sessionName) {
   const beneficiaryId = select.value;
   
   if (!beneficiaryId) {
-    alert('⚠️ يرجى اختيار المستفيد');
+    window.ErpDialog.toast('⚠️ يرجى اختيار المستفيد');
     return;
   }
   
@@ -30558,18 +30558,18 @@ window.addEnrollment = async function(sessionId, sessionName) {
       })
     });
     
-    alert('✅ تم تسجيل المتدرب بنجاح!');
+    window.ErpDialog.toast('✅ تم تسجيل المتدرب بنجاح!');
     window.closeIncubatorModal();
     window.manageEnrollments(sessionId, sessionName);
   } catch (error) {
     console.error('Error adding enrollment:', error);
-    alert('❌ حدث خطأ: ' + error.message);
+    window.ErpDialog.toast('❌ حدث خطأ: ' + error.message);
   }
 };
 
 // Remove Enrollment
 window.removeEnrollment = async function(enrollmentId, sessionId, sessionName) {
-  if (!confirm('هل أنت متأكد من حذف هذا المتدرب من الدفعة؟')) {
+  if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذا المتدرب من الدفعة؟')) {
     return;
   }
   
@@ -30578,12 +30578,12 @@ window.removeEnrollment = async function(enrollmentId, sessionId, sessionName) {
       method: 'DELETE'
     });
     
-    alert('✅ تم حذف المتدرب بنجاح!');
+    window.ErpDialog.toast('✅ تم حذف المتدرب بنجاح!');
     window.closeIncubatorModal();
     window.manageEnrollments(sessionId, sessionName);
   } catch (error) {
     console.error('Error removing enrollment:', error);
-    alert('❌ حدث خطأ: ' + error.message);
+    window.ErpDialog.toast('❌ حدث خطأ: ' + error.message);
   }
 };
 
@@ -30598,7 +30598,7 @@ window.viewCertificateDetails = async function(certificateId) {
     const cert = certificates.find(c => c.id === certificateId);
     
     if (!cert) {
-      alert('❌ لم يتم العثور على الشهادة');
+      window.ErpDialog.toast('❌ لم يتم العثور على الشهادة');
       return;
     }
     
@@ -30677,7 +30677,7 @@ window.viewCertificateDetails = async function(certificateId) {
               <div class="flex gap-2">
                 <input type="text" readonly value="${cert.verification_url || 'https://nayosh.sa/verify/' + cert.certificate_number}" 
                        class="flex-1 bg-gray-50 border rounded px-3 py-2 text-sm" id="verify-url">
-                <button onclick="navigator.clipboard.writeText(document.getElementById('verify-url').value); alert('تم نسخ الرابط')" 
+                <button onclick="navigator.clipboard.writeText(document.getElementById('verify-url').value); window.ErpDialog.toast('تم نسخ الرابط')" 
                         class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
                   <i class="fas fa-copy"></i>
                 </button>
@@ -30716,7 +30716,7 @@ window.viewCertificateDetails = async function(certificateId) {
     document.body.appendChild(modal);
   } catch (error) {
     console.error('Error viewing certificate:', error);
-    alert('❌ حدث خطأ في عرض الشهادة');
+    window.ErpDialog.toast('❌ حدث خطأ في عرض الشهادة');
   }
 };
 
@@ -30728,7 +30728,7 @@ window.printCertificate = async function(certificateId) {
     const cert = response[0];
     
     if (!cert) {
-      alert('❌ لم يتم العثور على الشهادة');
+      window.ErpDialog.toast('❌ لم يتم العثور على الشهادة');
       return;
     }
     
@@ -31038,7 +31038,7 @@ window.printCertificate = async function(certificateId) {
     
   } catch (error) {
     console.error('Error printing certificate:', error);
-    alert('❌ حدث خطأ في طباعة الشهادة');
+    window.ErpDialog.toast('❌ حدث خطأ في طباعة الشهادة');
   }
 };
 
@@ -31053,7 +31053,7 @@ window.viewProgramDetails = async function(programId) {
     const program = programs.find(p => p.id === programId);
     
     if (!program) {
-      alert('❌ لم يتم العثور على البرنامج');
+      window.ErpDialog.toast('❌ لم يتم العثور على البرنامج');
       return;
     }
     
@@ -31132,7 +31132,7 @@ window.viewProgramDetails = async function(programId) {
     document.body.appendChild(modal);
   } catch (error) {
     console.error('Error viewing program:', error);
-    alert('❌ حدث خطأ في عرض تفاصيل البرنامج');
+    window.ErpDialog.toast('❌ حدث خطأ في عرض تفاصيل البرنامج');
   }
 };
 
@@ -31143,7 +31143,7 @@ window.editProgram = async function(programId) {
     const program = programs.find(p => p.id === programId);
     
     if (!program) {
-      alert('❌ لم يتم العثور على البرنامج');
+      window.ErpDialog.toast('❌ لم يتم العثور على البرنامج');
       return;
     }
     
@@ -31255,16 +31255,16 @@ window.editProgram = async function(programId) {
         });
         
         window.closeIncubatorModal();
-        alert('✅ تم تحديث البرنامج بنجاح!');
+        window.ErpDialog.toast('✅ تم تحديث البرنامج بنجاح!');
         window.switchIncubatorTab('programs');
       } catch (error) {
         console.error('Error updating program:', error);
-        alert('❌ حدث خطأ: ' + error.message);
+        window.ErpDialog.toast('❌ حدث خطأ: ' + error.message);
       }
     });
   } catch (error) {
     console.error('Error editing program:', error);
-    alert('❌ حدث خطأ في تحميل بيانات البرنامج');
+    window.ErpDialog.toast('❌ حدث خطأ في تحميل بيانات البرنامج');
   }
 };
 
@@ -31279,7 +31279,7 @@ window.viewBeneficiaryDetails = async function(beneficiaryId) {
     const beneficiary = beneficiaries.find(b => b.id === beneficiaryId);
     
     if (!beneficiary) {
-      alert('❌ لم يتم العثور على المستفيد');
+      window.ErpDialog.toast('❌ لم يتم العثور على المستفيد');
       return;
     }
     
@@ -31344,7 +31344,7 @@ window.viewBeneficiaryDetails = async function(beneficiaryId) {
     document.body.appendChild(modal);
   } catch (error) {
     console.error('Error viewing beneficiary:', error);
-    alert('❌ حدث خطأ في عرض تفاصيل المستفيد');
+    window.ErpDialog.toast('❌ حدث خطأ في عرض تفاصيل المستفيد');
   }
 };
 
@@ -31355,7 +31355,7 @@ window.editBeneficiary = async function(beneficiaryId) {
     const beneficiary = beneficiaries.find(b => b.id === beneficiaryId);
     
     if (!beneficiary) {
-      alert('❌ لم يتم العثور على المستفيد');
+      window.ErpDialog.toast('❌ لم يتم العثور على المستفيد');
       return;
     }
     
@@ -31455,16 +31455,16 @@ window.editBeneficiary = async function(beneficiaryId) {
         });
         
         window.closeIncubatorModal();
-        alert('✅ تم تحديث بيانات المستفيد بنجاح!');
+        window.ErpDialog.toast('✅ تم تحديث بيانات المستفيد بنجاح!');
         window.switchIncubatorTab('beneficiaries');
       } catch (error) {
         console.error('Error updating beneficiary:', error);
-        alert('❌ حدث خطأ: ' + error.message);
+        window.ErpDialog.toast('❌ حدث خطأ: ' + error.message);
       }
     });
   } catch (error) {
     console.error('Error editing beneficiary:', error);
-    alert('❌ حدث خطأ في تحميل بيانات المستفيد');
+    window.ErpDialog.toast('❌ حدث خطأ في تحميل بيانات المستفيد');
   }
 };
 
@@ -31521,7 +31521,7 @@ window.fetchAPI = async function(endpoint, options = {}) {
 
 // Helper to expose openAssessmentModal if needed
 app.openAssessmentModal = async (enrollmentId, name, programId) => {
-    const score = prompt(`رصد درجة المتدرب: ${name}\nالدرجة من 100:`);
+    const score = await window.ErpDialog.prompt(`رصد درجة المتدرب: ${name}\nالدرجة من 100:`);
     if (score && !isNaN(score)) {
         try {
             // Simplified: directly issue certificate (skipping detailed assessment for now)
@@ -31542,11 +31542,11 @@ app.openAssessmentModal = async (enrollmentId, name, programId) => {
                     issued_by: 'مدير التدريب'
                 })
             });
-            alert(`تم رصد الدرجة (${score}) وإصدار الشهادة بنجاح!`);
+            window.ErpDialog.toast(`تم رصد الدرجة (${score}) وإصدار الشهادة بنجاح!`);
             renderAssessments(document.getElementById('incubator-content'), app.currentUser.entityId);
         } catch (e) {
             console.error(e);
-            alert('تم حفظ الدرجة (محاكاة)');
+            window.ErpDialog.toast('تم حفظ الدرجة (محاكاة)');
         }
     }
 };
@@ -31871,7 +31871,7 @@ app.viewEmployee = async function(id) {
         `;
         document.body.appendChild(modal);
     } catch (error) {
-        alert('خطأ في تحميل بيانات الموظف');
+        window.ErpDialog.toast('خطأ في تحميل بيانات الموظف');
     }
 };
 
@@ -31899,19 +31899,19 @@ app.editEmployee = async function(id) {
         
         modal.classList.remove('hidden');
     } catch (error) {
-        alert('خطأ في تحميل بيانات الموظف للتعديل');
+        window.ErpDialog.toast('خطأ في تحميل بيانات الموظف للتعديل');
     }
 };
 
 // Delete employee
 app.deleteEmployee = async function(id, name) {
-    if (confirm(`هل أنت متأكد من حذف الموظف "${name}"؟`)) {
+    if (await window.ErpDialog.confirm(`هل أنت متأكد من حذف الموظف "${name}"؟`)) {
         try {
             await window.fetchAPI(`/employees/${id}`, { method: 'DELETE' });
-            alert('تم حذف الموظف بنجاح');
+            window.ErpDialog.toast('تم حذف الموظف بنجاح');
             app.loadRoute('employees');
         } catch (error) {
-            alert('خطأ في حذف الموظف: ' + error.message);
+            window.ErpDialog.toast('خطأ في حذف الموظف: ' + error.message);
         }
     }
 };
@@ -31919,7 +31919,7 @@ app.deleteEmployee = async function(id, name) {
 // Open create employee modal
 app.openCreateEmployeeModal = async function() {
     if (isDedicatedTenantContext(currentUser)) {
-        alert('تم عزل هذه الصفحة عن بيانات النظام العام لحسابات المستأجر.');
+        window.ErpDialog.toast('تم عزل هذه الصفحة عن بيانات النظام العام لحسابات المستأجر.');
         return;
     }
     const modal = document.getElementById('createEmployeeModal');
@@ -32006,7 +32006,7 @@ async function loadAllEntitiesForEmployee() {
 // Submit create employee form
 app.submitCreateEmployee = async function() {
     if (isDedicatedTenantContext(currentUser)) {
-        alert('لا يمكن إنشاء موظفين من المخزن العام داخل حسابات المستأجر المعزولة.');
+        window.ErpDialog.toast('لا يمكن إنشاء موظفين من المخزن العام داخل حسابات المستأجر المعزولة.');
         return;
     }
     const form = document.getElementById('createEmployeeForm');
@@ -32067,7 +32067,7 @@ app.submitCreateEmployee = async function() {
     // Validate required fields
     if (!employeeData.employee_number || !employeeData.full_name || !employeeData.position || 
         !employeeData.department || !employeeData.employment_type) {
-        alert('يرجى ملء جميع الحقول المطلوبة');
+        window.ErpDialog.toast('يرجى ملء جميع الحقول المطلوبة');
         return;
     }
 
@@ -32086,12 +32086,12 @@ app.submitCreateEmployee = async function() {
             body: JSON.stringify(employeeData)
         });
 
-        alert('تم إضافة الموظف بنجاح!');
+        window.ErpDialog.toast('تم إضافة الموظف بنجاح!');
         app.closeCreateEmployeeModal();
         app.loadRoute('employees'); // Refresh employees page
     } catch (error) {
         console.error('Employee creation error:', error);
-        alert('خطأ في إضافة الموظف: ' + error.message);
+        window.ErpDialog.toast('خطأ في إضافة الموظف: ' + error.message);
     }
 };
 
@@ -32126,7 +32126,7 @@ window.submitEditEmployee = async function() {
 
     // Validate required fields
     if (!employeeData.full_name || !employeeData.position || !employeeData.department || !employeeData.employment_type) {
-        alert('يرجى ملء جميع الحقول المطلوبة');
+        window.ErpDialog.toast('يرجى ملء جميع الحقول المطلوبة');
         return;
     }
 
@@ -32137,11 +32137,11 @@ window.submitEditEmployee = async function() {
             body: JSON.stringify(employeeData)
         });
 
-        alert('تم تحديث بيانات الموظف بنجاح!');
+        window.ErpDialog.toast('تم تحديث بيانات الموظف بنجاح!');
         window.closeEditEmployeeModal();
         app.loadRoute('employees'); // Refresh employees page
     } catch (error) {
-        alert('خطأ في تحديث بيانات الموظف: ' + error.message);
+        window.ErpDialog.toast('خطأ في تحديث بيانات الموظف: ' + error.message);
     }
 };
 
@@ -32191,11 +32191,11 @@ window.submitCreateBranch = async function() {
     if (!response.ok) throw new Error('فشل في إنشاء الفرع');
 
     const result = await response.json();
-    alert(`✅ تم إنشاء الفرع "${result.name}" بنجاح!`);
+    window.ErpDialog.toast(`✅ تم إنشاء الفرع "${result.name}" بنجاح!`);
     closeCreateBranchModal();
     app.loadRoute('hierarchy'); // البقاء في الهيكل الهرمي
   } catch (error) {
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 
@@ -32256,11 +32256,11 @@ window.submitCreateIncubator = async function() {
     if (!response.ok) throw new Error('فشل في إنشاء الحاضنة');
 
     const result = await response.json();
-    alert(`✅ تم إنشاء الحاضنة "${result.name}" بنجاح!`);
+    window.ErpDialog.toast(`✅ تم إنشاء الحاضنة "${result.name}" بنجاح!`);
     closeCreateIncubatorModal();
     app.loadRoute('hierarchy'); // البقاء في الهيكل الهرمي
   } catch (error) {
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 
@@ -32354,11 +32354,11 @@ window.submitCreatePlatform = async function() {
     if (!response.ok) throw new Error('فشل في إنشاء المنصة');
 
     const result = await response.json();
-    alert(`✅ تم إنشاء المنصة "${result.name}" بنجاح!`);
+    window.ErpDialog.toast(`✅ تم إنشاء المنصة "${result.name}" بنجاح!`);
     closeCreatePlatformModal();
     app.loadRoute('hierarchy'); // البقاء في الهيكل الهرمي
   } catch (error) {
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 
@@ -32424,7 +32424,7 @@ async function loadIncubatorsForOfficeByBranch() {
       platforms.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   } catch (error) {
     console.error('Error loading incubators:', error);
-    alert('فشل تحميل الحاضنات والمنصات: ' + error.message);
+    window.ErpDialog.toast('فشل تحميل الحاضنات والمنصات: ' + error.message);
   }
 }
 
@@ -32541,11 +32541,11 @@ window.submitCreateOffice = async function() {
     if (!response.ok) throw new Error('فشل في إنشاء المكتب');
 
     const result = await response.json();
-    alert(`✅ تم إنشاء المكتب "${result.name}" بنجاح!`);
+    window.ErpDialog.toast(`✅ تم إنشاء المكتب "${result.name}" بنجاح!`);
     closeCreateOfficeModal();
     app.loadRoute('hierarchy'); // البقاء في الهيكل الهرمي
   } catch (error) {
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 
@@ -32971,7 +32971,7 @@ const renderPaymentAnalytics = () => `
 
 // Delete Branch
 window.deleteBranch = async function(branchId, branchName) {
-  if (!confirm(`هل أنت متأكد من حذف الفرع "${branchName}"؟\nسيتم حذف جميع الحاضنات والمنصات والمكاتب التابعة له.`)) {
+  if (!await window.ErpDialog.confirm(`هل أنت متأكد من حذف الفرع "${branchName}"؟\nسيتم حذف جميع الحاضنات والمنصات والمكاتب التابعة له.`)) {
     return;
   }
   
@@ -32982,16 +32982,16 @@ window.deleteBranch = async function(branchId, branchName) {
     
     if (!response.ok) throw new Error('فشل في حذف الفرع');
     
-    alert(`✅ تم حذف الفرع "${branchName}" بنجاح`);
+    window.ErpDialog.toast(`✅ تم حذف الفرع "${branchName}" بنجاح`);
     app.loadRoute('hierarchy');
   } catch (error) {
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 
 // Delete Incubator
 window.deleteIncubator = async function(incubatorId, incubatorName) {
-  if (!confirm(`هل أنت متأكد من حذف الحاضنة "${incubatorName}"؟\nسيتم حذف جميع المنصات التابعة لها.`)) {
+  if (!await window.ErpDialog.confirm(`هل أنت متأكد من حذف الحاضنة "${incubatorName}"؟\nسيتم حذف جميع المنصات التابعة لها.`)) {
     return;
   }
   
@@ -33002,16 +33002,16 @@ window.deleteIncubator = async function(incubatorId, incubatorName) {
     
     if (!response.ok) throw new Error('فشل في حذف الحاضنة');
     
-    alert(`✅ تم حذف الحاضنة "${incubatorName}" بنجاح`);
+    window.ErpDialog.toast(`✅ تم حذف الحاضنة "${incubatorName}" بنجاح`);
     app.loadRoute('hierarchy');
   } catch (error) {
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 
 // Delete Platform
 window.deletePlatform = async function(platformId, platformName) {
-  if (!confirm(`هل أنت متأكد من حذف المنصة "${platformName}"؟`)) {
+  if (!await window.ErpDialog.confirm(`هل أنت متأكد من حذف المنصة "${platformName}"؟`)) {
     return;
   }
   
@@ -33022,16 +33022,16 @@ window.deletePlatform = async function(platformId, platformName) {
     
     if (!response.ok) throw new Error('فشل في حذف المنصة');
     
-    alert(`✅ تم حذف المنصة "${platformName}" بنجاح`);
+    window.ErpDialog.toast(`✅ تم حذف المنصة "${platformName}" بنجاح`);
     app.loadRoute('hierarchy');
   } catch (error) {
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 
 // Delete Office
 window.deleteOffice = async function(officeId, officeName) {
-  if (!confirm(`هل أنت متأكد من حذف المكتب "${officeName}"؟`)) {
+  if (!await window.ErpDialog.confirm(`هل أنت متأكد من حذف المكتب "${officeName}"؟`)) {
     return;
   }
   
@@ -33042,10 +33042,10 @@ window.deleteOffice = async function(officeId, officeName) {
     
     if (!response.ok) throw new Error('فشل في حذف المكتب');
     
-    alert(`✅ تم حذف المكتب "${officeName}" بنجاح`);
+    window.ErpDialog.toast(`✅ تم حذف المكتب "${officeName}" بنجاح`);
     app.loadRoute('hierarchy');
   } catch (error) {
-    alert(`❌ خطأ: ${error.message}`);
+    window.ErpDialog.toast(`❌ خطأ: ${error.message}`);
   }
 };
 

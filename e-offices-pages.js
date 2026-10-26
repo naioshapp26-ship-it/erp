@@ -477,7 +477,7 @@
   function toast(message, type) {
     const container = document.getElementById('toast-container');
     if (!container) {
-      window.alert(message);
+      window.ErpDialog.toast(message);
       return;
     }
     const colors = {
@@ -1089,7 +1089,7 @@
         return;
       }
       const label = getRowCells(record)[0] || 'هذا السجل';
-      const confirmed = window.confirm(`هل تريد حذف "${label}"؟`);
+      const confirmed = await window.ErpDialog.confirm(`هل تريد حذف "${label}"؟`);
       if (!confirmed) return;
       try {
         if (record.id) {

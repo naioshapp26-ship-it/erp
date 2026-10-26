@@ -27,6 +27,9 @@
   }
 
   function confirm(message) {
+    if (global.ErpDialog && typeof global.ErpDialog.confirm === 'function') {
+      return global.ErpDialog.confirm({ title: 'تأكيد', message: String(message || '') });
+    }
     return new Promise((resolve) => {
       overlay({
         done: resolve,

@@ -921,12 +921,12 @@
             }
         }
 
-        function safeParseJSON(text) {
+        async function safeParseJSON(text) {
             if (!text) return {};
             try { return JSON.parse(text); } catch (e) { return { ملاحظات: text }; }
         }
 
-        function openRiskForm(id = null) {
+        async function openRiskForm(id = null) {
             const risk = store.risks.find(r => String(r.risk_id) === String(id)) || {};
             document.getElementById('riskId').value = risk.risk_id || '';
             document.getElementById('riskCustomerId').value = risk.customer_id || '';
@@ -938,7 +938,7 @@
             toggleModal('riskModal', true);
         }
 
-        function viewRisk(id) {
+        async function viewRisk(id) {
             const risk = store.risks.find(r => String(r.risk_id) === String(id));
             if (!risk) return;
             showInfo('تفاصيل تقييم المخاطر', {
@@ -953,10 +953,10 @@
         }
 
         async function deleteRisk(id) {
-            if (!confirm('هل أنت متأكد من حذف هذا التقييم؟')) return;
+            if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذا التقييم؟')) return;
             const res = await fetch(`${API_BASE}/finance/ai-risk-scores/${id}?entity_id=${ENTITY_PARAM}`, { method: 'DELETE' });
             if (!res.ok) {
-                alert('فشل حذف التقييم');
+                window.ErpDialog.toast('فشل حذف التقييم');
                 return;
             }
             await loadData();
@@ -985,7 +985,7 @@
             });
 
             if (!res.ok) {
-                alert('فشل حفظ تقييم المخاطر');
+                window.ErpDialog.toast('فشل حفظ تقييم المخاطر');
                 return;
             }
 
@@ -1018,17 +1018,17 @@
             toggleModal('planModal', true);
         }
 
-        function viewPlan(planId) {
+        async function viewPlan(planId) {
             const plan = store.plans.find(p => String(p.plan_id) === String(planId));
             if (!plan) return;
             showInfo('تفاصيل خطة السداد', plan);
         }
 
         async function deletePlan(planId) {
-            if (!confirm('حذف خطة السداد؟')) return;
+            if (!await window.ErpDialog.confirm('حذف خطة السداد؟')) return;
             const res = await fetch(`${API_BASE}/finance/payment-plans/${planId}`, { method: 'DELETE' });
             if (!res.ok) {
-                alert('فشل حذف الخطة');
+                window.ErpDialog.toast('فشل حذف الخطة');
                 return;
             }
             await loadData();
@@ -1065,7 +1065,7 @@
             });
 
             if (!res.ok) {
-                alert('فشل حفظ الخطة');
+                window.ErpDialog.toast('فشل حفظ الخطة');
                 return;
             }
 
@@ -1073,7 +1073,7 @@
             await loadData();
         }
 
-        function openPaymentForm(paymentId = null) {
+        async function openPaymentForm(paymentId = null) {
             currentPaymentId = paymentId;
             const payment = store.payments.find(p => String(p.payment_id) === String(paymentId)) || {};
             document.getElementById('paymentId').value = payment.payment_id || '';
@@ -1088,17 +1088,17 @@
             toggleModal('paymentModal', true);
         }
 
-        function viewPayment(paymentId) {
+        async function viewPayment(paymentId) {
             const payment = store.payments.find(p => String(p.payment_id) === String(paymentId));
             if (!payment) return;
             showInfo('تفاصيل الدفعة', payment);
         }
 
         async function deletePayment(paymentId) {
-            if (!confirm('حذف الدفعة؟')) return;
+            if (!await window.ErpDialog.confirm('حذف الدفعة؟')) return;
             const res = await fetch(`${API_BASE}/finance/payments/${paymentId}?entity_id=${ENTITY_PARAM}`, { method: 'DELETE' });
             if (!res.ok) {
-                alert('فشل حذف الدفعة');
+                window.ErpDialog.toast('فشل حذف الدفعة');
                 return;
             }
             await loadData();
@@ -1129,7 +1129,7 @@
             });
 
             if (!res.ok) {
-                alert('فشل حفظ الدفعة');
+                window.ErpDialog.toast('فشل حفظ الدفعة');
                 return;
             }
 

@@ -839,7 +839,7 @@
             window.print();
         }
 
-        function copySummary() {
+        async function copySummary() {
             const summary = `ملخص الحوكمة\n` +
                 `إجمالي الفواتير: ${store.invoices.length}\n` +
                 `الفواتير المتأخرة: ${store.invoices.filter(i => String(i.status || '').toUpperCase() === 'OVERDUE').length}\n` +
@@ -850,11 +850,11 @@
             navigator.clipboard.writeText(summary).catch(() => {});
         }
 
-        function refreshData() {
+        async function refreshData() {
             loadData();
         }
 
-        function showToast(message, type) {
+        async function showToast(message, type) {
             const toast = document.createElement('div');
             toast.className = `fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg text-sm text-white shadow-lg ${type === 'success' ? 'bg-emerald-600' : 'bg-slate-700'}`;
             toast.textContent = message;
@@ -862,7 +862,7 @@
             setTimeout(() => toast.remove(), 2500);
         }
 
-        function getStoreList(tableName) {
+        async function getStoreList(tableName) {
             const map = {
                 invoices: store.invoices,
                 plans: store.plans,
@@ -874,19 +874,19 @@
             return map[tableName] || [];
         }
 
-        function getRecordById(tableName, id) {
+        async function getRecordById(tableName, id) {
             const list = getStoreList(tableName);
             return list.find(row => Number(row[`${tableName.slice(0, -1)}_id`]) === Number(id)) || list.find(row => Number(row.id) === Number(id)) || null;
         }
 
         async function addInvoice() {
-            const customerId = prompt('رقم العميل:');
+            const customerId = await window.ErpDialog.prompt('رقم العميل:');
             if (!customerId) return;
-            const amount = prompt('قيمة الفاتورة:');
+            const amount = await window.ErpDialog.prompt('قيمة الفاتورة:');
             if (!amount) return;
-            const dueDate = prompt('تاريخ الاستحقاق (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+            const dueDate = await window.ErpDialog.prompt('تاريخ الاستحقاق (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
 
-            const lineName = prompt('اسم البند:', 'خدمة مالية');
+            const lineName = await window.ErpDialog.prompt('اسم البند:', 'خدمة مالية');
 
             try {
                 const response = await fetch(`${API_BASE}/finance/invoices`, {
@@ -922,15 +922,15 @@
         }
 
         async function addPlan() {
-            const customerId = prompt('رقم العميل:');
+            const customerId = await window.ErpDialog.prompt('رقم العميل:');
             if (!customerId) return;
-            const invoiceId = prompt('رقم الفاتورة:');
+            const invoiceId = await window.ErpDialog.prompt('رقم الفاتورة:');
             if (!invoiceId) return;
-            const totalAmount = prompt('إجمالي الخطة:');
+            const totalAmount = await window.ErpDialog.prompt('إجمالي الخطة:');
             if (!totalAmount) return;
-            const installments = prompt('عدد الأقساط:', '3');
+            const installments = await window.ErpDialog.prompt('عدد الأقساط:', '3');
             if (!installments) return;
-            const installmentAmount = prompt('قيمة القسط:', String((parseFloat(totalAmount) / parseInt(installments, 10)).toFixed(2)));
+            const installmentAmount = await window.ErpDialog.prompt('قيمة القسط:', String((parseFloat(totalAmount) / parseInt(installments, 10)).toFixed(2)));
             if (!installmentAmount) return;
 
             const planNumber = `PLAN-${Date.now()}`;
@@ -968,9 +968,9 @@
         }
 
         async function addBudget() {
-            const budgetName = prompt('اسم الميزانية:');
+            const budgetName = await window.ErpDialog.prompt('اسم الميزانية:');
             if (!budgetName) return;
-            const fiscalYear = prompt('السنة المالية:', new Date().getFullYear());
+            const fiscalYear = await window.ErpDialog.prompt('السنة المالية:', new Date().getFullYear());
             if (!fiscalYear) return;
 
             const budgetCode = `BUD-${fiscalYear}-${Date.now().toString().slice(-4)}`;
@@ -1003,15 +1003,15 @@
         }
 
         async function addVariance() {
-            const fiscalYear = prompt('السنة المالية:', new Date().getFullYear());
+            const fiscalYear = await window.ErpDialog.prompt('السنة المالية:', new Date().getFullYear());
             if (!fiscalYear) return;
-            const fiscalPeriod = prompt('الفترة المالية (1-12):', '1');
+            const fiscalPeriod = await window.ErpDialog.prompt('الفترة المالية (1-12):', '1');
             if (!fiscalPeriod) return;
-            const accountId = prompt('رقم الحساب:');
+            const accountId = await window.ErpDialog.prompt('رقم الحساب:');
             if (!accountId) return;
-            const budgeted = prompt('المخطط:');
+            const budgeted = await window.ErpDialog.prompt('المخطط:');
             if (!budgeted) return;
-            const actual = prompt('الفعلي:');
+            const actual = await window.ErpDialog.prompt('الفعلي:');
             if (!actual) return;
 
             try {
@@ -1041,11 +1041,11 @@
         }
 
         async function addRisk() {
-            const customerId = prompt('رقم العميل:');
+            const customerId = await window.ErpDialog.prompt('رقم العميل:');
             if (!customerId) return;
-            const score = prompt('درجة المخاطرة (0-100):', '50');
+            const score = await window.ErpDialog.prompt('درجة المخاطرة (0-100):', '50');
             if (!score) return;
-            const level = prompt('مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL):', 'MEDIUM');
+            const level = await window.ErpDialog.prompt('مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL):', 'MEDIUM');
             if (!level) return;
 
             try {
@@ -1075,9 +1075,9 @@
         }
 
         async function addForecast() {
-            const period = prompt('فترة التوقع (MONTHLY/QUARTERLY/ANNUAL):', 'MONTHLY');
+            const period = await window.ErpDialog.prompt('فترة التوقع (MONTHLY/QUARTERLY/ANNUAL):', 'MONTHLY');
             if (!period) return;
-            const amount = prompt('قيمة التوقع:');
+            const amount = await window.ErpDialog.prompt('قيمة التوقع:');
             if (!amount) return;
 
             try {
@@ -1112,7 +1112,7 @@
                 showToast('لم يتم العثور على السجل', 'info');
                 return;
             }
-            alert(JSON.stringify(row, null, 2));
+            window.ErpDialog.toast(JSON.stringify(row, null, 2));
         }
 
         async function editRecord(tableName, id) {
@@ -1121,20 +1121,20 @@
 
             try {
                 if (tableName === 'invoices') {
-                    const status = prompt('الحالة الجديدة (PAID/UNPAID/PARTIAL/OVERDUE):', row.status || 'UNPAID');
+                    const status = await window.ErpDialog.prompt('الحالة الجديدة (PAID/UNPAID/PARTIAL/OVERDUE):', row.status || 'UNPAID');
                     if (!status) return;
                     await updateRecord(`/finance/invoices/${id}`, { status });
                 } else if (tableName === 'plans') {
-                    const status = prompt('حالة الخطة (ACTIVE/CLOSED/PENDING):', row.status || 'ACTIVE');
+                    const status = await window.ErpDialog.prompt('حالة الخطة (ACTIVE/CLOSED/PENDING):', row.status || 'ACTIVE');
                     if (!status) return;
                     await updateRecord(`/finance/payment-plans/${id}`, { status });
                 } else if (tableName === 'budgets') {
-                    const status = prompt('حالة الميزانية (DRAFT/APPROVED/REJECTED):', row.status || 'DRAFT');
+                    const status = await window.ErpDialog.prompt('حالة الميزانية (DRAFT/APPROVED/REJECTED):', row.status || 'DRAFT');
                     if (!status) return;
                     await updateRecord(`/finance/budgets/${id}`, { status });
                 } else if (tableName === 'variances') {
-                    const budgeted = prompt('المخطط:', row.budgeted_amount ?? 0);
-                    const actual = prompt('الفعلي:', row.actual_amount ?? 0);
+                    const budgeted = await window.ErpDialog.prompt('المخطط:', row.budgeted_amount ?? 0);
+                    const actual = await window.ErpDialog.prompt('الفعلي:', row.actual_amount ?? 0);
                     if (!budgeted || !actual) return;
                     await updateRecord(`/finance/budget-variances/${id}`, {
                         budgeted_amount: parseFloat(budgeted),
@@ -1143,8 +1143,8 @@
                         entity_type: ENTITY_TYPE
                     });
                 } else if (tableName === 'risks') {
-                    const score = prompt('درجة المخاطرة:', row.risk_score ?? 0);
-                    const level = prompt('مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL):', row.risk_level || 'MEDIUM');
+                    const score = await window.ErpDialog.prompt('درجة المخاطرة:', row.risk_score ?? 0);
+                    const level = await window.ErpDialog.prompt('مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL):', row.risk_level || 'MEDIUM');
                     if (!score || !level) return;
                     await updateRecord(`/finance/ai-risk-scores/${id}`, {
                         customer_id: row.customer_id,
@@ -1155,8 +1155,8 @@
                         entity_type: ENTITY_TYPE
                     });
                 } else if (tableName === 'forecasts') {
-                    const amount = prompt('قيمة التوقع:', row.forecast_amount ?? 0);
-                    const period = prompt('فترة التوقع (MONTHLY/QUARTERLY/ANNUAL):', row.forecast_period || 'MONTHLY');
+                    const amount = await window.ErpDialog.prompt('قيمة التوقع:', row.forecast_amount ?? 0);
+                    const period = await window.ErpDialog.prompt('فترة التوقع (MONTHLY/QUARTERLY/ANNUAL):', row.forecast_period || 'MONTHLY');
                     if (!amount || !period) return;
                     await updateRecord(`/finance/ai-forecasts/${id}`, {
                         entity_id: ENTITY_ID,
@@ -1189,7 +1189,7 @@
         }
 
         async function deleteRecord(tableName, id) {
-            if (!confirm('هل أنت متأكد من الحذف؟')) return;
+            if (!await window.ErpDialog.confirm('هل أنت متأكد من الحذف؟')) return;
             const map = {
                 invoices: `/finance/invoices/${id}`,
                 plans: `/finance/payment-plans/${id}`,

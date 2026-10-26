@@ -62,7 +62,7 @@ async function main() {
   const auth = { Authorization: `Bearer ${token}`, Cookie: cookie };
 
   const pages = [
-    ['/finance/accounting-integration.html', ['finance-workbench.css', 'fw-drawer', 'سجل الترحيل']],
+    ['/finance/accounting-integration.html', ['finance-workbench.css', 'fw-drawer', 'آخر القيود المرتبطة بالمصادر', 'erp-dialogs']],
     ['/finance/payments.html', ['finance-workbench.css', 'fw-drawer', 'تحصيل جديد']],
     ['/manage-tax-settings.html', ['finance-workbench.css', 'سجل التدقيق', 'effective_from']],
     ['/finance/quick-offers.html', ['finance-workbench.css', 'fw-drawer', 'سجل العروض', 'تفعيل', '/finance/quick-offers']],

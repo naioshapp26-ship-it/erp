@@ -723,12 +723,12 @@
                     const data = await res.json();
                     if (data && data.error) message = data.error;
                 } catch (e) { /* ignore */ }
-                alert(message);
+                window.ErpDialog.toast(message);
             }
         }
 
         async function cancelInvoice(invoiceId) {
-            const reason = prompt('سبب إلغاء الفاتورة', 'إلغاء فاتورة قبل التحصيل');
+            const reason = await window.ErpDialog.prompt('سبب إلغاء الفاتورة', 'إلغاء فاتورة قبل التحصيل');
             if (!reason || !reason.trim()) return;
             const res = await fetch(`${API_BASE}/finance/invoices/${invoiceId}/cancel`, {
                 method: 'POST',
@@ -741,12 +741,12 @@
                 showToast(data.message || 'تم إلغاء الفاتورة', 'success');
                 await loadData();
             } else {
-                alert(data.error || 'تعذر إلغاء الفاتورة');
+                window.ErpDialog.toast(data.error || 'تعذر إلغاء الفاتورة');
             }
         }
 
         async function deleteInvoice(invoiceId) {
-            if (!confirm('حذف الفاتورة متاح فقط إذا لم تُرحَّل ولم يُحصَّل عليها. المتابعة؟')) return;
+            if (!await window.ErpDialog.confirm('حذف الفاتورة متاح فقط إذا لم تُرحَّل ولم يُحصَّل عليها. المتابعة؟')) return;
             const res = await fetch(`${API_BASE}/finance/invoices/${invoiceId}`, {
                 method: 'DELETE',
                 headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
@@ -756,7 +756,7 @@
             if (res.ok) {
                 await loadData();
             } else {
-                alert(data.error || 'تعذر حذف الفاتورة. الفاتورة المرحّلة تُلغى بقيد عكسي ولا تُحذف.');
+                window.ErpDialog.toast(data.error || 'تعذر حذف الفاتورة. الفاتورة المرحّلة تُلغى بقيد عكسي ولا تُحذف.');
             }
         }
 

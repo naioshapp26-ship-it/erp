@@ -507,7 +507,7 @@ async function createTenant() {
 // حذف المستأجر
 // ================================================================
 let _deleteTenantId = null;
-function promptDelete(id, name) {
+async function promptDelete(id, name) {
   _deleteTenantId = id;
   document.getElementById('deleteMsg').textContent = `هل أنت متأكد من حذف المستأجر "${name}"؟`;
   document.getElementById('dropDbCheck').checked = false;
@@ -529,7 +529,7 @@ async function confirmDelete() {
 // الهجرات
 // ================================================================
 async function runMigrations(id) {
-  if (!confirm('تشغيل الهجرات لهذا المستأجر؟')) return;
+  if (!await window.ErpDialog.confirm('تشغيل الهجرات لهذا المستأجر؟')) return;
   try {
     const data = await apiPost('/api/tenants/' + id + '/run-migrations', {});
     showToast(data.message || 'تم', 'success');
@@ -539,7 +539,7 @@ async function runMigrations(id) {
 }
 
 async function runAllMigrations() {
-  if (!confirm('تشغيل الهجرات لجميع المستأجرين النشطين؟ قد يستغرق وقتاً.')) return;
+  if (!await window.ErpDialog.confirm('تشغيل الهجرات لجميع المستأجرين النشطين؟ قد يستغرق وقتاً.')) return;
   showToast('جارٍ التشغيل…', 'info');
   try {
     const data = await apiPost('/api/tenants/run-all-migrations', {});
@@ -553,7 +553,7 @@ async function runAllMigrations() {
 // الاسترداد
 // ================================================================
 async function refundPayment(txnId) {
-  const reason = prompt('سبب الاسترداد (اختياري):');
+  const reason = await window.ErpDialog.prompt('سبب الاسترداد (اختياري):');
   if (reason === null) return; // المستخدم ألغى
   try {
     const data = await apiPost('/api/tenants/' + _selectedTenantId + '/refund', { transactionId: txnId, reason });

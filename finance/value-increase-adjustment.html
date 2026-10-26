@@ -370,7 +370,7 @@
         function printPage() { window.print(); }
         function copySummary() {
             navigator.clipboard.writeText(summaryText).then(() => {
-                alert('تم نسخ ملخص زيادة مبلغ على القيمة.');
+                window.ErpDialog.toast('تم نسخ ملخص زيادة مبلغ على القيمة.');
             });
         }
 
@@ -529,17 +529,17 @@
                 const editButton = document.createElement('button');
                 editButton.className = 'bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold ml-2';
                 editButton.textContent = 'تعديل';
-                editButton.addEventListener('click', () => fillForm(row));
+                editButton.addEventListener('click', async () => fillForm(row));
 
                 const viewButton = document.createElement('button');
                 viewButton.className = 'bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-bold ml-2';
                 viewButton.textContent = 'معاينة';
-                viewButton.addEventListener('click', () => previewAdjustment(row));
+                viewButton.addEventListener('click', async () => previewAdjustment(row));
 
                 const deleteButton = document.createElement('button');
                 deleteButton.className = 'bg-rose-600 text-white px-3 py-1 rounded-full text-xs font-bold';
                 deleteButton.textContent = 'حذف';
-                deleteButton.addEventListener('click', () => deleteAdjustment(row.id));
+                deleteButton.addEventListener('click', async () => deleteAdjustment(row.id));
 
                 actionCell.appendChild(editButton);
                 actionCell.appendChild(viewButton);
@@ -632,7 +632,7 @@
                 updateStats(data.adjustments || []);
             } catch (error) {
                 console.error(error);
-                alert('تعذر جلب البيانات من قاعدة البيانات.');
+                window.ErpDialog.toast('تعذر جلب البيانات من قاعدة البيانات.');
             }
         }
 
@@ -680,7 +680,7 @@
                 }
             } catch (error) {
                 console.error(error);
-                alert('تعذر تحديث الحالة.');
+                window.ErpDialog.toast('تعذر تحديث الحالة.');
                 fetchAdjustments();
             }
         }
@@ -699,7 +699,7 @@
                 fetchLogs();
             } catch (error) {
                 console.error(error);
-                alert('تعذر تحديث الموافقة.');
+                window.ErpDialog.toast('تعذر تحديث الموافقة.');
                 fetchAdjustments();
             }
         }
@@ -718,13 +718,13 @@
                 fetchLogs();
             } catch (error) {
                 console.error(error);
-                alert('تعذر تحديث سير العمل.');
+                window.ErpDialog.toast('تعذر تحديث سير العمل.');
                 fetchAdjustments();
             }
         }
 
         async function deleteAdjustment(id) {
-            if (!confirm('هل تريد حذف هذا السجل؟')) return;
+            if (!await window.ErpDialog.confirm('هل تريد حذف هذا السجل؟')) return;
             try {
                 const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
                 const data = await response.json();
@@ -736,7 +736,7 @@
                 fetchLogs();
             } catch (error) {
                 console.error(error);
-                alert('تعذر حذف السجل.');
+                window.ErpDialog.toast('تعذر حذف السجل.');
             }
         }
 
@@ -777,7 +777,7 @@
                 `الموافقة: ${row.approval_status}`,
                 `سير العمل: ${row.workflow_stage}`
             ].join('\n');
-            alert(summary);
+            window.ErpDialog.toast(summary);
         }
 
         form.addEventListener('submit', async (event) => {
@@ -820,17 +820,17 @@
                 fetchLogs();
             } catch (error) {
                 console.error(error);
-                alert('تعذر حفظ السجل.');
+                window.ErpDialog.toast('تعذر حفظ السجل.');
             }
         });
 
         resetButton.addEventListener('click', resetForm);
-        resetFiltersButton.addEventListener('click', () => {
+        resetFiltersButton.addEventListener('click', async () => {
             filtersForm.reset();
             fetchAdjustments();
         });
 
-        filtersForm.addEventListener('submit', (event) => {
+        filtersForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             fetchAdjustments();
         });

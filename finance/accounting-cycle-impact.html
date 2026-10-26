@@ -491,16 +491,16 @@
             `).join('');
         }
 
-        function toNumber(value) {
+        async function toNumber(value) {
             const num = Number(value || 0);
             return Number.isFinite(num) ? num : 0;
         }
 
         async function addAccount() {
-            const account_code = prompt('أدخل كود الحساب الجديد (مثال: 1500)');
+            const account_code = await window.ErpDialog.prompt('أدخل كود الحساب الجديد (مثال: 1500)');
             if (!account_code) return;
-            const account_name_ar = prompt('أدخل اسم الحساب بالعربية', 'حساب جديد');
-            const account_type = (prompt('نوع الحساب (ASSET/LIABILITY/EQUITY/REVENUE/EXPENSE)', 'ASSET') || '').toUpperCase();
+            const account_name_ar = await window.ErpDialog.prompt('أدخل اسم الحساب بالعربية', 'حساب جديد');
+            const account_type = (await window.ErpDialog.prompt('نوع الحساب (ASSET/LIABILITY/EQUITY/REVENUE/EXPENSE)', 'ASSET') || '').toUpperCase();
             const normal_balance = ['ASSET', 'EXPENSE'].includes(account_type) ? 'DEBIT' : 'CREDIT';
 
             const payload = {
@@ -523,19 +523,19 @@
 
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(`تعذر إضافة الحساب: ${data.error || res.status}`);
+                window.ErpDialog.toast(`تعذر إضافة الحساب: ${data.error || res.status}`);
                 return;
             }
-            alert('تمت إضافة الحساب بنجاح');
+            window.ErpDialog.toast('تمت إضافة الحساب بنجاح');
             await loadData();
         }
 
         async function editAccount(accountId) {
             const current = store.accounts.find(a => a.account_id === accountId);
-            if (!current) return alert('الحساب غير موجود');
+            if (!current) return window.ErpDialog.toast('الحساب غير موجود');
 
-            const account_name_ar = prompt('اسم الحساب', current.account_name_ar || current.account_name || '');
-            const account_type = (prompt('نوع الحساب (ASSET/LIABILITY/EQUITY/REVENUE/EXPENSE)', current.account_type || 'ASSET') || '').toUpperCase();
+            const account_name_ar = await window.ErpDialog.prompt('اسم الحساب', current.account_name_ar || current.account_name || '');
+            const account_type = (await window.ErpDialog.prompt('نوع الحساب (ASSET/LIABILITY/EQUITY/REVENUE/EXPENSE)', current.account_type || 'ASSET') || '').toUpperCase();
             const normal_balance = ['ASSET', 'EXPENSE'].includes(account_type) ? 'DEBIT' : 'CREDIT';
 
             const res = await fetch(`/finance/chart-of-accounts/${accountId}`, {
@@ -554,46 +554,46 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(`تعذر تعديل الحساب: ${data.error || res.status}`);
+                window.ErpDialog.toast(`تعذر تعديل الحساب: ${data.error || res.status}`);
                 return;
             }
-            alert('تم تعديل الحساب');
+            window.ErpDialog.toast('تم تعديل الحساب');
             await loadData();
         }
 
         async function deleteAccount(accountId) {
-            if (!confirm('تأكيد حذف الحساب أو إلغاء تفعيله؟')) return;
+            if (!await window.ErpDialog.confirm('تأكيد حذف الحساب أو إلغاء تفعيله؟')) return;
             const res = await fetch(`/finance/chart-of-accounts/${accountId}?entity_id=${encodeURIComponent(ENTITY_ID)}`, { method: 'DELETE' });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(`تعذر الحذف: ${data.error || res.status}`);
+                window.ErpDialog.toast(`تعذر الحذف: ${data.error || res.status}`);
                 return;
             }
-            alert(data.message || 'تم الحذف');
+            window.ErpDialog.toast(data.message || 'تم الحذف');
             await loadData();
         }
 
-        function viewAccount(accountId) {
+        async function viewAccount(accountId) {
             const current = store.accounts.find(a => a.account_id === accountId);
-            if (!current) return alert('الحساب غير موجود');
-            alert(JSON.stringify(current, null, 2));
+            if (!current) return window.ErpDialog.toast('الحساب غير موجود');
+            window.ErpDialog.toast(JSON.stringify(current, null, 2));
         }
 
-        function resolveAccountByCode(code) {
+        async function resolveAccountByCode(code) {
             const cleaned = String(code || '').trim();
             return store.accounts.find(a => String(a.account_code) === cleaned);
         }
 
         async function addEntry() {
-            const description = prompt('وصف القيد', 'قيد يدوي سريع');
+            const description = await window.ErpDialog.prompt('وصف القيد', 'قيد يدوي سريع');
             if (!description) return;
-            const debitCode = prompt('كود الحساب المدين', '1130');
-            const creditCode = prompt('كود الحساب الدائن', '4100');
-            const amount = toNumber(prompt('المبلغ', '1000'));
+            const debitCode = await window.ErpDialog.prompt('كود الحساب المدين', '1130');
+            const creditCode = await window.ErpDialog.prompt('كود الحساب الدائن', '4100');
+            const amount = toNumber(await window.ErpDialog.prompt('المبلغ', '1000'));
 
             const debitAcc = resolveAccountByCode(debitCode);
             const creditAcc = resolveAccountByCode(creditCode);
-            if (!debitAcc || !creditAcc) return alert('تعذر إيجاد الأكواد المدخلة');
+            if (!debitAcc || !creditAcc) return window.ErpDialog.toast('تعذر إيجاد الأكواد المدخلة');
 
             const payload = {
                 entry_date: new Date().toISOString().slice(0, 10),
@@ -615,18 +615,18 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(`تعذر إضافة القيد: ${data.error || res.status}`);
+                window.ErpDialog.toast(`تعذر إضافة القيد: ${data.error || res.status}`);
                 return;
             }
-            alert('تم إنشاء القيد');
+            window.ErpDialog.toast('تم إنشاء القيد');
             await loadData();
         }
 
         async function editEntry(entryId) {
             const entry = store.entries.find(e => e.entry_id === entryId);
-            if (!entry) return alert('القيد غير موجود');
-            const newDesc = prompt('وصف القيد', entry.description || '') ?? entry.description;
-            const newStatus = prompt('حالة القيد (DRAFT/APPROVED/POSTED)', entry.status || 'DRAFT') || entry.status;
+            if (!entry) return window.ErpDialog.toast('القيد غير موجود');
+            const newDesc = await window.ErpDialog.prompt('وصف القيد', entry.description || '') ?? entry.description;
+            const newStatus = await window.ErpDialog.prompt('حالة القيد (DRAFT/APPROVED/POSTED)', entry.status || 'DRAFT') || entry.status;
 
             const lines = (entry.lines || []).map(l => ({
                 account_id: l.account_id,
@@ -655,41 +655,41 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(`تعذر تعديل القيد: ${data.error || res.status}`);
+                window.ErpDialog.toast(`تعذر تعديل القيد: ${data.error || res.status}`);
                 return;
             }
-            alert('تم تعديل القيد');
+            window.ErpDialog.toast('تم تعديل القيد');
             await loadData();
         }
 
         async function deleteEntry(entryId) {
-            if (!confirm('تأكيد حذف القيد وكل سطوره؟')) return;
+            if (!await window.ErpDialog.confirm('تأكيد حذف القيد وكل سطوره؟')) return;
             const res = await fetch(`/finance/journal/entries/${entryId}?entity_id=${encodeURIComponent(ENTITY_ID)}`, { method: 'DELETE' });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(`تعذر الحذف: ${data.error || res.status}`);
+                window.ErpDialog.toast(`تعذر الحذف: ${data.error || res.status}`);
                 return;
             }
-            alert('تم حذف القيد');
+            window.ErpDialog.toast('تم حذف القيد');
             await loadData();
         }
 
-        function viewEntry(entryId) {
+        async function viewEntry(entryId) {
             const entry = store.entries.find(e => e.entry_id === entryId);
-            if (!entry) return alert('القيد غير موجود');
-            alert(JSON.stringify(entry, null, 2));
+            if (!entry) return window.ErpDialog.toast('القيد غير موجود');
+            window.ErpDialog.toast(JSON.stringify(entry, null, 2));
         }
 
         async function addLine() {
-            const entryRef = prompt('أدخل رقم القيد أو المعرف', store.entries[0]?.entry_number || '');
+            const entryRef = await window.ErpDialog.prompt('أدخل رقم القيد أو المعرف', store.entries[0]?.entry_number || '');
             if (!entryRef) return;
             const target = store.entries.find(e => String(e.entry_id) === String(entryRef) || String(e.entry_number) === String(entryRef));
-            if (!target) return alert('لم يتم العثور على القيد');
+            if (!target) return window.ErpDialog.toast('لم يتم العثور على القيد');
 
-            const accountCode = prompt('كود الحساب', '1130');
-            const debit = toNumber(prompt('المبلغ المدين (اتركه صفر إن وجد دائن فقط)', '0'));
-            const credit = toNumber(prompt('المبلغ الدائن (اتركه صفر إن وجد مدين فقط)', debit ? '0' : '1000'));
-            const description = prompt('وصف السطر', 'سطر جديد');
+            const accountCode = await window.ErpDialog.prompt('كود الحساب', '1130');
+            const debit = toNumber(await window.ErpDialog.prompt('المبلغ المدين (اتركه صفر إن وجد دائن فقط)', '0'));
+            const credit = toNumber(await window.ErpDialog.prompt('المبلغ الدائن (اتركه صفر إن وجد مدين فقط)', debit ? '0' : '1000'));
+            const description = await window.ErpDialog.prompt('وصف السطر', 'سطر جديد');
 
             const payload = {
                 entity_id: ENTITY_ID,
@@ -707,20 +707,20 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(`تعذر إضافة السطر: ${data.error || res.status}`);
+                window.ErpDialog.toast(`تعذر إضافة السطر: ${data.error || res.status}`);
                 return;
             }
-            alert('تمت إضافة السطر');
+            window.ErpDialog.toast('تمت إضافة السطر');
             await loadData();
         }
 
         async function editLine(lineId) {
             const line = store.lines.find(l => l.line_id === lineId);
-            if (!line) return alert('السطر غير موجود');
-            const accountCode = prompt('كود الحساب', line.account_code || '') || line.account_code;
-            const debit = toNumber(prompt('المبلغ المدين', line.debit_amount || '0'));
-            const credit = toNumber(prompt('المبلغ الدائن', line.credit_amount || '0'));
-            const description = prompt('الوصف', line.line_description || line.description || '') || line.line_description || line.description;
+            if (!line) return window.ErpDialog.toast('السطر غير موجود');
+            const accountCode = await window.ErpDialog.prompt('كود الحساب', line.account_code || '') || line.account_code;
+            const debit = toNumber(await window.ErpDialog.prompt('المبلغ المدين', line.debit_amount || '0'));
+            const credit = toNumber(await window.ErpDialog.prompt('المبلغ الدائن', line.credit_amount || '0'));
+            const description = await window.ErpDialog.prompt('الوصف', line.line_description || line.description || '') || line.line_description || line.description;
 
             const res = await fetch(`/finance/journal-lines/${lineId}`, {
                 method: 'PUT',
@@ -735,29 +735,29 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(`تعذر تعديل السطر: ${data.error || res.status}`);
+                window.ErpDialog.toast(`تعذر تعديل السطر: ${data.error || res.status}`);
                 return;
             }
-            alert('تم تعديل السطر');
+            window.ErpDialog.toast('تم تعديل السطر');
             await loadData();
         }
 
         async function deleteLine(lineId) {
-            if (!confirm('تأكيد حذف السطر؟')) return;
+            if (!await window.ErpDialog.confirm('تأكيد حذف السطر؟')) return;
             const res = await fetch(`/finance/journal-lines/${lineId}?entity_id=${encodeURIComponent(ENTITY_ID)}`, { method: 'DELETE' });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                alert(`تعذر الحذف: ${data.error || res.status}`);
+                window.ErpDialog.toast(`تعذر الحذف: ${data.error || res.status}`);
                 return;
             }
-            alert('تم حذف السطر');
+            window.ErpDialog.toast('تم حذف السطر');
             await loadData();
         }
 
         function viewLine(lineId) {
             const line = store.lines.find(l => l.line_id === lineId);
-            if (!line) return alert('السطر غير موجود');
-            alert(JSON.stringify(line, null, 2));
+            if (!line) return window.ErpDialog.toast('السطر غير موجود');
+            window.ErpDialog.toast(JSON.stringify(line, null, 2));
         }
 
         function translateAccountType(value) {

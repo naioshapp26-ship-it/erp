@@ -595,7 +595,7 @@
             document.getElementById('termModal').classList.remove('flex');
         }
 
-        function openAssignModal(termId) {
+        async function openAssignModal(termId) {
             activeAssignTerm = termId;
             const assigned = new Set(assignments[termId] || []);
             const list = document.getElementById('assignList');
@@ -612,12 +612,12 @@
             document.getElementById('assignModal').classList.add('flex');
         }
 
-        function closeAssignModal() {
+        async function closeAssignModal() {
             document.getElementById('assignModal').classList.add('hidden');
             document.getElementById('assignModal').classList.remove('flex');
         }
 
-        function saveAssignment() {
+        async function saveAssignment() {
             const selections = Array.from(document.querySelectorAll('#assignList input:checked')).map(input => input.value);
             assignments[activeAssignTerm] = selections;
             addAudit(`تم تعيين الخطة ${activeAssignTerm} لعدد ${selections.length} عميل.`);
@@ -626,10 +626,10 @@
             showToast('تم حفظ التعيين بنجاح');
         }
 
-        function deleteTerm(termId) {
+        async function deleteTerm(termId) {
             const term = terms.find(t => t.id === termId);
             if (!term) return;
-            if (!confirm(`تأكيد حذف الخطة: ${term.name}`)) return;
+            if (!await window.ErpDialog.confirm(`تأكيد حذف الخطة: ${term.name}`)) return;
             terms = terms.filter(t => t.id !== termId);
             delete assignments[termId];
             addAudit(`تم حذف الخطة ${term.name}.`);
@@ -689,7 +689,7 @@
             });
         }
 
-        document.getElementById('termForm').addEventListener('submit', (event) => {
+        document.getElementById('termForm').addEventListener('submit', async (event) => {
             event.preventDefault();
             const id = document.getElementById('termId').value || `T-${Date.now()}`;
             const updated = {
@@ -723,7 +723,7 @@
             showToast('تم حفظ الخطة بنجاح');
         });
 
-        elements.table.addEventListener('click', (event) => {
+        elements.table.addEventListener('click', async (event) => {
             const button = event.target.closest('button');
             if (!button) return;
             const action = button.dataset.action;

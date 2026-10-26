@@ -938,7 +938,7 @@
         state.campaigns.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
     }
 
-    function switchSection(sectionId) {
+    async function switchSection(sectionId) {
       document.querySelectorAll('.section').forEach((section) => section.classList.remove('active'));
       document.getElementById(sectionId).classList.add('active');
       document.querySelectorAll('.nav-tab').forEach((button) => button.classList.toggle('active', button.dataset.section === sectionId));
@@ -961,20 +961,20 @@
     window.viewVideoDetails = (id) => {
       const item = state.materials.find((material) => material.id === Number(id));
       if (!item) return;
-      alert(`العنوان: ${item.contentTitle || item.name}\nالفعالية: ${item.eventName || '-'}\nالوصف: ${item.contentDescription || '-'}`);
+      window.ErpDialog.toast(`العنوان: ${item.contentTitle || item.name}\nالفعالية: ${item.eventName || '-'}\nالوصف: ${item.contentDescription || '-'}`);
     };
     window.playVideo = (id) => {
       const item = state.materials.find((material) => material.id === Number(id));
       if (!item) return;
       if (String(item.mediaCategory || '').toLowerCase() === 'image') {
-        alert('هذا الملف صورة وليس فيديو.');
+        window.ErpDialog.toast('هذا الملف صورة وليس فيديو.');
         return;
       }
       window.open(`/api/events-studio/recordings/${id}/view`, '_blank');
     };
     window.downloadVideo = (id) => window.open(`/api/events-studio/recordings/${id}/download`, '_blank');
     window.deleteMaterial = async (id) => {
-      if (!confirm('هل تريد حذف هذا الفيديو؟')) return;
+      if (!await window.ErpDialog.confirm('هل تريد حذف هذا الفيديو؟')) return;
       await api(`/api/events-studio/recordings/${id}`, { method: 'DELETE' });
       await loadAll();
     };
@@ -988,12 +988,12 @@
     window.viewReel = (id) => {
       const reel = state.reels.find((item) => item.id === Number(id));
       if (!reel) return;
-      alert(`المقطع: ${reel.name}\nالبداية: ${reel.startAt}s\nالنهاية: ${reel.endAt}s\nالفعالية: ${reel.campaignName || '-'}`);
+      window.ErpDialog.toast(`المقطع: ${reel.name}\nالبداية: ${reel.startAt}s\nالنهاية: ${reel.endAt}s\nالفعالية: ${reel.campaignName || '-'}`);
     };
     window.editReel = async (id) => {
       const reel = state.reels.find((item) => item.id === Number(id));
       if (!reel) return;
-      const nextName = prompt('اسم المقطع الجديد', reel.name);
+      const nextName = await window.ErpDialog.prompt('اسم المقطع الجديد', reel.name);
       if (!nextName) return;
       await api(`/api/events-studio/clips/${id}`, { method: 'PUT', body: JSON.stringify({ name: nextName }) });
       await loadAll();
@@ -1004,7 +1004,7 @@
       window.open(`/api/events-studio/recordings/${reel.recordingId}/download`, '_blank');
     };
     window.deleteReel = async (id) => {
-      if (!confirm('هل تريد حذف Reel؟')) return;
+      if (!await window.ErpDialog.confirm('هل تريد حذف Reel؟')) return;
       await api(`/api/events-studio/clips/${id}`, { method: 'DELETE' });
       await loadAll();
     };
@@ -1015,15 +1015,15 @@
     window.editEvent = async (id) => {
       const eventItem = state.campaigns.find((item) => item.id === Number(id));
       if (!eventItem) return;
-      const nextName = prompt('اسم الفعالية', eventItem.name);
+      const nextName = await window.ErpDialog.prompt('اسم الفعالية', eventItem.name);
       if (nextName === null) return;
-      const nextDate = prompt('تاريخ الفعالية (YYYY-MM-DD)', eventItem.date);
+      const nextDate = await window.ErpDialog.prompt('تاريخ الفعالية (YYYY-MM-DD)', eventItem.date);
       if (nextDate === null) return;
-      const nextTime = prompt('وقت الفعالية (HH:MM)', eventItem.time);
+      const nextTime = await window.ErpDialog.prompt('وقت الفعالية (HH:MM)', eventItem.time);
       if (nextTime === null) return;
-      const nextPlatform = prompt('المنصة', eventItem.platform || 'متعدد المنصات');
+      const nextPlatform = await window.ErpDialog.prompt('المنصة', eventItem.platform || 'متعدد المنصات');
       if (nextPlatform === null) return;
-      const nextStatus = prompt('الحالة (نشطة/قادمة/مكتملة)', eventItem.status || 'نشطة');
+      const nextStatus = await window.ErpDialog.prompt('الحالة (نشطة/قادمة/مكتملة)', eventItem.status || 'نشطة');
       if (nextStatus === null) return;
       await api(`/api/events-studio/events/${id}`, {
         method: 'PUT',
@@ -1038,7 +1038,7 @@
       await loadAll();
     };
     window.deleteEvent = async (id) => {
-      if (!confirm('هل تريد حذف هذه الفعالية؟')) return;
+      if (!await window.ErpDialog.confirm('هل تريد حذف هذه الفعالية؟')) return;
       await api(`/api/events-studio/events/${id}`, { method: 'DELETE' });
       await loadAll();
     };
@@ -1070,7 +1070,7 @@
       event.target.reset();
       document.getElementById('eventDepartment').value = 'فريق الفعاليات';
       await loadAll();
-      alert('تم حفظ الفعالية بنجاح.');
+      window.ErpDialog.toast('تم حفظ الفعالية بنجاح.');
       switchSection('manage-events');
     });
 
@@ -1116,7 +1116,7 @@
 
     startRecordButton.addEventListener('click', async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
-        alert('المتصفح لا يدعم تسجيل الفيديو المباشر.');
+        window.ErpDialog.toast('المتصفح لا يدعم تسجيل الفيديو المباشر.');
         return;
       }
       resetRecordButton.disabled = true;
@@ -1162,12 +1162,12 @@
         mediaRecorder.start();
       } catch (error) {
         console.error(error);
-        alert('تعذر تشغيل الكاميرا للتسجيل.');
+        window.ErpDialog.toast('تعذر تشغيل الكاميرا للتسجيل.');
         resetRecordingState();
       }
     });
 
-    stopRecordButton.addEventListener('click', () => {
+    stopRecordButton.addEventListener('click', async () => {
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
       }
@@ -1178,11 +1178,11 @@
     uploadRecordButton.addEventListener('click', async () => {
       const eventId = document.getElementById('recordEventId').value;
       if (!eventId) {
-        alert('اختر فعالية قبل حفظ التسجيل.');
+        window.ErpDialog.toast('اختر فعالية قبل حفظ التسجيل.');
         return;
       }
       if (!recordedBlob) {
-        alert('سجل مقطع فيديو أولاً.');
+        window.ErpDialog.toast('سجل مقطع فيديو أولاً.');
         return;
       }
       const title = document.getElementById('recordTitle').value || 'مقطع جديد';
@@ -1206,7 +1206,7 @@
       const response = await fetch('/api/events-studio/recordings/upload', { method: 'POST', body: formData });
       const body = await response.json();
       if (!response.ok) {
-        alert(body.error || 'فشل رفع التسجيل.');
+        window.ErpDialog.toast(body.error || 'فشل رفع التسجيل.');
         return;
       }
 
@@ -1239,7 +1239,7 @@
       const imageFile = document.getElementById('imageFile').files[0];
       const mediaFile = videoFile || imageFile;
       if (!mediaFile) {
-        alert('اختر ملف فيديو أو صورة من الجهاز.');
+        window.ErpDialog.toast('اختر ملف فيديو أو صورة من الجهاز.');
         return;
       }
 
@@ -1259,17 +1259,17 @@
       const response = await fetch('/api/events-studio/recordings/upload', { method: 'POST', body: formData });
       const body = await response.json();
       if (!response.ok) {
-        alert(body.error || 'فشل رفع التسجيل.');
+        window.ErpDialog.toast(body.error || 'فشل رفع التسجيل.');
         return;
       }
       event.target.reset();
       document.getElementById('campaignDepartment').value = 'فريق الفعاليات';
       await loadAll();
-      alert('تم رفع المحتوى بنجاح.');
+      window.ErpDialog.toast('تم رفع المحتوى بنجاح.');
       switchSection('video-library');
     });
 
-    document.getElementById('resetMediaForm').addEventListener('click', () => {
+    document.getElementById('resetMediaForm').addEventListener('click', async () => {
       document.getElementById('mediaUploadForm').reset();
       document.getElementById('campaignDepartment').value = 'فريق الفعاليات';
     });
@@ -1303,10 +1303,10 @@
       });
       event.target.reset();
       await loadAll();
-      alert('تم تجهيز المقطع للنشر بنجاح.');
+      window.ErpDialog.toast('تم تجهيز المقطع للنشر بنجاح.');
     });
 
-    document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListener('click', () => switchSection(button.dataset.section)));
+    document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListener('click', async () => switchSection(button.dataset.section)));
 
     // ── Self-Record Reel Logic ────────────────────────────────────────
     const selfPreview    = document.getElementById('selfRecordPreview');
@@ -1409,16 +1409,16 @@
       }
     });
 
-    selfStopBtn.addEventListener('click', () => {
+    selfStopBtn.addEventListener('click', async () => {
       if (selfRecorder && selfRecorder.state !== 'inactive') selfRecorder.stop();
     });
 
     selfResetBtn.addEventListener('click', resetSelfRecording);
 
     selfPublishBtn.addEventListener('click', async () => {
-      if (!selfBlob) { alert('سجّل مقطعاً أولاً.'); return; }
+      if (!selfBlob) { window.ErpDialog.toast('سجّل مقطعاً أولاً.'); return; }
       const platforms = [...document.querySelectorAll('.self-publish-platform:checked')].map((el) => el.value);
-      if (!platforms.length) { alert('اختر منصة واحدة على الأقل للنشر.'); return; }
+      if (!platforms.length) { window.ErpDialog.toast('اختر منصة واحدة على الأقل للنشر.'); return; }
 
       const title = document.getElementById('selfReelTitle').value.trim() || `ريلز ذاتي ${new Date().toLocaleDateString('ar-EG')}`;
       let eventId = document.getElementById('selfReelEventId').value;
@@ -1503,7 +1503,7 @@
         document.querySelectorAll('.self-publish-platform').forEach((el) => { el.checked = false; });
       } catch (err) {
         console.error(err);
-        alert('حدث خطأ أثناء النشر: ' + err.message);
+        window.ErpDialog.toast('حدث خطأ أثناء النشر: ' + err.message);
         selfPublishBtn.disabled = false;
         selfPublishBtn.innerHTML = '<i class="fas fa-rocket"></i> نشر الريلز الآن';
       }
@@ -1513,7 +1513,7 @@
 
     loadAll().catch((error) => {
       console.error(error);
-      alert('تعذر تحميل بيانات الاستوديو.');
+      window.ErpDialog.toast('تعذر تحميل بيانات الاستوديو.');
     });
   </script>
 </body>

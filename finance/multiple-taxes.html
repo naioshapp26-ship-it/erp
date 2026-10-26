@@ -673,7 +673,7 @@
         function copySummary() {
             const summaryText = `شرائح نشطة: ${document.getElementById('statActive').textContent} | متوسط النسبة: ${document.getElementById('statAverage').textContent} | تضارب: ${document.getElementById('statConflicts').textContent}`;
             navigator.clipboard.writeText(summaryText).then(() => {
-                alert('تم نسخ ملخص مركز الضرائب.');
+                window.ErpDialog.toast('تم نسخ ملخص مركز الضرائب.');
             });
         }
 
@@ -932,14 +932,14 @@
             document.getElementById('formCompound').checked = rule ? rule.compound : false;
         }
 
-        function closeModal() {
+        async function closeModal() {
             document.getElementById('ruleModal').classList.remove('active');
         }
 
-        function handleAssign(ruleId) {
+        async function handleAssign(ruleId) {
             const rule = state.rules.find(item => item.id === ruleId);
             if (!rule) return;
-            const assignment = prompt('حدد الجهة أو الفرع المطلوب:', rule.assignedTo || 'الفرع الرئيسي');
+            const assignment = await window.ErpDialog.prompt('حدد الجهة أو الفرع المطلوب:', rule.assignedTo || 'الفرع الرئيسي');
             if (assignment === null) return;
             rule.assignedTo = assignment.trim() || 'الفرع الرئيسي';
             rule.updatedAt = new Date().toISOString().slice(0, 10);
@@ -948,17 +948,17 @@
             renderAll();
         }
 
-        function handleDelete(ruleId) {
+        async function handleDelete(ruleId) {
             const rule = state.rules.find(item => item.id === ruleId);
             if (!rule) return;
-            if (!confirm(`هل تريد حذف ${rule.id} نهائيا؟`)) return;
+            if (!await window.ErpDialog.confirm(`هل تريد حذف ${rule.id} نهائيا؟`)) return;
             state.rules = state.rules.filter(item => item.id !== ruleId);
             saveRules();
             addAudit('حذف شريحة', `تم حذف ${rule.id}.`);
             renderAll();
         }
 
-        document.getElementById('addRuleBtn').addEventListener('click', () => openModal());
+        document.getElementById('addRuleBtn').addEventListener('click', async () => openModal());
 
         document.getElementById('rulesTable').addEventListener('click', event => {
             const action = event.target.dataset.action;

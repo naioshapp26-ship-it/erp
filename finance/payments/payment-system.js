@@ -278,7 +278,7 @@ const submitRecord = async () => {
   };
 
   if (!payload.record_date || !payload.customer_name || !payload.amount || !payload.status || !payload.owner_employee) {
-    alert('يرجى إدخال الحقول المطلوبة');
+    window.ErpDialog.toast('يرجى إدخال الحقول المطلوبة');
     return;
   }
 
@@ -306,12 +306,12 @@ const submitRecord = async () => {
     await loadRecords();
   } catch (error) {
     console.error('Error saving record:', error);
-    alert(error.message || 'تعذر حفظ السجل');
+    window.ErpDialog.toast(error.message || 'تعذر حفظ السجل');
   }
 };
 
 const deleteRecord = async (id) => {
-  if (!confirm('هل تريد حذف هذا السجل؟')) return;
+  if (!await window.ErpDialog.confirm('هل تريد حذف هذا السجل؟')) return;
   try {
     const res = await fetch(`${API_BASE}/finance/payment-system/records/${id}`, {
       method: 'DELETE',
@@ -324,7 +324,7 @@ const deleteRecord = async (id) => {
     await loadRecords();
   } catch (error) {
     console.error('Error deleting record:', error);
-    alert(error.message || 'تعذر حذف السجل');
+    window.ErpDialog.toast(error.message || 'تعذر حذف السجل');
   }
 };
 
@@ -350,7 +350,7 @@ const updateRecordStatus = async (id, status) => {
     renderTable(state.records);
   } catch (error) {
     console.error('Error updating status:', error);
-    alert(error.message || 'تعذر تحديث الحالة');
+    window.ErpDialog.toast(error.message || 'تعذر تحديث الحالة');
   }
 };
 

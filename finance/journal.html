@@ -1440,7 +1440,7 @@
         async function deleteJournalEntry(entryId) {
             const entry = journalEntries.find(item => item.entry_id === entryId);
             const label = entry?.entry_number ? `القيد ${entry.entry_number}` : 'هذا القيد';
-            if (!confirm(`هل تريد حذف ${label}؟`)) return;
+            if (!await window.ErpDialog.confirm(`هل تريد حذف ${label}؟`)) return;
 
             try {
                 const res = await fetch(`${API_BASE}/finance/journal/entries/${entryId}?entity_id=${ENTITY_ID}`, {
@@ -1456,7 +1456,7 @@
                 await loadJournalEntries();
             } catch (error) {
                 console.error('❌ خطأ في حذف القيد:', error);
-                alert(error.message || 'تعذر حذف القيد');
+                window.ErpDialog.toast(error.message || 'تعذر حذف القيد');
             }
         }
 
@@ -1535,7 +1535,7 @@
                 })
                 .catch(error => {
                     console.error('❌ خطأ في تحميل الحساب:', error);
-                    alert('تعذر تحميل بيانات الحساب');
+                    window.ErpDialog.toast('تعذر تحميل بيانات الحساب');
                 });
         }
 
@@ -1627,7 +1627,7 @@
             };
 
             if (!payload.account_code || !payload.account_name_ar || !payload.account_type) {
-                alert('يرجى إدخال رمز الحساب واسم الحساب ونوع الحساب');
+                window.ErpDialog.toast('يرجى إدخال رمز الحساب واسم الحساب ونوع الحساب');
                 return;
             }
 
@@ -1651,23 +1651,23 @@
                 closeAccountModal();
                 await loadAccountsList();
                 await loadTrialBalance();
-                alert(isEdit ? 'تم تعديل الحساب بنجاح' : 'تم إضافة الحساب بنجاح');
+                window.ErpDialog.toast(isEdit ? 'تم تعديل الحساب بنجاح' : 'تم إضافة الحساب بنجاح');
             } catch (error) {
                 console.error('❌ خطأ في حفظ الحساب:', error);
-                alert(error.message || 'تعذر حفظ الحساب');
+                window.ErpDialog.toast(error.message || 'تعذر حفظ الحساب');
             }
         }
 
-        function viewAccount(accountId) {
+        async function viewAccount(accountId) {
             openAccountModal('view', accountId);
         }
 
-        function editAccount(accountId) {
+        async function editAccount(accountId) {
             openAccountModal('edit', accountId);
         }
 
         async function deleteAccount(accountId) {
-            if (!confirm('هل تريد حذف هذا الحساب؟')) return;
+            if (!await window.ErpDialog.confirm('هل تريد حذف هذا الحساب؟')) return;
             try {
                 const response = await fetch(`${API_BASE}/finance/chart-of-accounts/${accountId}?entity_id=${ENTITY_ID}`, {
                     method: 'DELETE'
@@ -1680,7 +1680,7 @@
                 await loadTrialBalance();
             } catch (error) {
                 console.error('❌ خطأ في حذف الحساب:', error);
-                alert(error.message || 'تعذر حذف الحساب');
+                window.ErpDialog.toast(error.message || 'تعذر حذف الحساب');
             }
         }
 
@@ -1843,7 +1843,7 @@
             }).filter(line => line.account_id);
 
             if (!entryDate || lines.length < 2) {
-                alert('يرجى إدخال تاريخ القيد وإضافة سطرين على الأقل');
+                window.ErpDialog.toast('يرجى إدخال تاريخ القيد وإضافة سطرين على الأقل');
                 return;
             }
 
@@ -1877,10 +1877,10 @@
                 editingEntryId = null;
                 await loadJournalEntries();
                 await loadStats();
-                alert(isEdit ? 'تم تعديل القيد بنجاح' : 'تم إنشاء القيد بنجاح');
+                window.ErpDialog.toast(isEdit ? 'تم تعديل القيد بنجاح' : 'تم إنشاء القيد بنجاح');
             } catch (error) {
                 console.error('❌ خطأ في إنشاء القيد:', error);
-                alert(error.message || 'فشل حفظ القيد');
+                window.ErpDialog.toast(error.message || 'فشل حفظ القيد');
             }
         }
 
@@ -1923,7 +1923,7 @@
                 updateEntryTotals();
             } catch (error) {
                 console.error('❌ خطأ في تحميل القيد للتعديل:', error);
-                alert('تعذر تحميل القيد للتعديل');
+                window.ErpDialog.toast('تعذر تحميل القيد للتعديل');
             }
         }
 
@@ -1965,7 +1965,7 @@
                 await loadAllData();
             } catch (error) {
                 console.error('❌ خطأ في التحديث الشامل:', error);
-                alert('تعذر تنفيذ التحديث الشامل');
+                window.ErpDialog.toast('تعذر تنفيذ التحديث الشامل');
             } finally {
                 if (button) {
                     button.disabled = false;
@@ -2114,7 +2114,7 @@
         async function downloadPdfFromElement(element, filename) {
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF || !window.html2canvas) {
-                alert('مكتبات PDF غير متاحة حالياً');
+                window.ErpDialog.toast('مكتبات PDF غير متاحة حالياً');
                 return;
             }
 

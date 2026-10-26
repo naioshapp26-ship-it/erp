@@ -4606,7 +4606,7 @@
 
     const moveArchiveRecord = async (recordId) => {
       if (!recordId) return;
-      const nextDepartment = prompt('أدخل القسم الجديد لنقل المستند إليه');
+      const nextDepartment = await window.ErpDialog.prompt('أدخل القسم الجديد لنقل المستند إليه');
       if (!nextDepartment) return;
       try {
         const response = await fetch(`/api/hr/modules/e-archive/records/${recordId}`, {
@@ -4751,7 +4751,7 @@
 
     const deleteArchiveFile = async (recordId, fileId) => {
       if (!recordId || !fileId) return;
-      if (!confirm('هل أنت متأكد من حذف هذا المرفق؟ لا يمكن التراجع عن هذه العملية.')) return;
+      if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذا المرفق؟ لا يمكن التراجع عن هذه العملية.')) return;
       try {
         const response = await fetch(
           resolveApiPath(`/api/hr/modules/e-archive/records/${recordId}/files/${fileId}`),
@@ -4817,9 +4817,9 @@
       if (!recordId) return;
       const record = activeRecords.find(item => item.id === recordId);
       if (!record) return;
-      const nextDepartment = prompt('أدخل الجهة أو الإدارة المحال إليها');
+      const nextDepartment = await window.ErpDialog.prompt('أدخل الجهة أو الإدارة المحال إليها');
       if (!nextDepartment) return;
-      const nextOwner = prompt('أدخل اسم المسؤول عن المتابعة') || record.owner || '';
+      const nextOwner = await window.ErpDialog.prompt('أدخل اسم المسؤول عن المتابعة') || record.owner || '';
       const actor = window.currentUserData?.name || 'مستخدم النظام';
       const stamp = new Date().toISOString().slice(0, 10);
       const nextNote = `تم التحويل إلى ${nextDepartment} بواسطة ${actor} بتاريخ ${stamp}`;
@@ -4849,7 +4849,7 @@
 
     const deleteRecord = async (recordId) => {
       if (!activeModuleKey) return;
-      if (!confirm('هل أنت متأكد من حذف السجل؟')) return;
+      if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف السجل؟')) return;
       try {
         const response = await fetch(`/api/hr/modules/${encodeURIComponent(activeModuleKey)}/records/${recordId}`, {
           method: 'DELETE',
@@ -5138,7 +5138,7 @@
       const source = document.getElementById('rsReportSource')?.value || 'أتمتة';
       const columns = Array.from(document.querySelectorAll('.rs-col-check:checked')).map(cb => cb.value);
       const display = document.querySelector('input[name="rsDisplayType"]:checked')?.value || 'جدول';
-      if (!name) { alert('يرجى إدخال اسم التقرير'); return; }
+      if (!name) { window.ErpDialog.toast('يرجى إدخال اسم التقرير'); return; }
       const today = new Date().toISOString().slice(0,10);
       if (rsEditingId) {
         const idx = rsReports.findIndex(r => r.id === rsEditingId);
@@ -5158,7 +5158,7 @@
     window.rsEditReport = (id) => openCreateReportModal(id);
 
     window.rsDeleteReport = (id) => {
-      if (!confirm('هل أنت متأكد من حذف هذا التقرير؟')) return;
+      if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذا التقرير؟')) return;
       rsReports = rsReports.filter(r => r.id !== id);
       // If it was a default report, add to a deleted list so it stays gone
       const deletedKey = 'rs_deleted';
@@ -5300,11 +5300,11 @@
 
       // Close view modal on backdrop click
       const viewModal = document.getElementById('rsViewModal');
-      if (viewModal) viewModal.addEventListener('click', (e) => {
+      if (viewModal) viewModal.addEventListener('click', async (e) => {
         if (e.target === viewModal) closeViewReport();
       });
       const createModal = document.getElementById('rsCreateModal');
-      if (createModal) createModal.addEventListener('click', (e) => {
+      if (createModal) createModal.addEventListener('click', async (e) => {
         if (e.target === createModal) closeCreateReportModal();
       });
     };
@@ -5425,7 +5425,7 @@
         setArchiveViewMode('cards');
       }
 
-      if (recordsAddButton) recordsAddButton.addEventListener('click', () => openRecordsModal('add'));
+      if (recordsAddButton) recordsAddButton.addEventListener('click', async () => openRecordsModal('add'));
       if (recordsRefreshButton) recordsRefreshButton.addEventListener('click', loadModuleRecords);
       if (recordArchiveType) {
         recordArchiveType.addEventListener('change', syncArchiveTypeCustomVisibility);
@@ -5503,8 +5503,8 @@
       }
 
       if (archiveTableView && archiveCardView) {
-        archiveTableView.addEventListener('click', () => setArchiveViewMode('table'));
-        archiveCardView.addEventListener('click', () => setArchiveViewMode('cards'));
+        archiveTableView.addEventListener('click', async () => setArchiveViewMode('table'));
+        archiveCardView.addEventListener('click', async () => setArchiveViewMode('cards'));
       }
       if (archiveBulkArchive) archiveBulkArchive.addEventListener('click', bulkArchiveRecords);
       if (archiveBulkShare) archiveBulkShare.addEventListener('click', bulkShareRecords);
@@ -5517,7 +5517,7 @@
       const archiveQuickClear = document.getElementById('archiveQuickClear');
 
       if (archiveQuickHasFiles) {
-        archiveQuickHasFiles.addEventListener('click', () => {
+        archiveQuickHasFiles.addEventListener('click', async () => {
           archiveHasFilesOnly = !archiveHasFilesOnly;
           archiveQuickHasFiles.classList.toggle('active', archiveHasFilesOnly);
           if (recordsHasFiles) recordsHasFiles.value = archiveHasFilesOnly ? 'yes' : '';
@@ -5526,7 +5526,7 @@
       }
 
       if (archiveQuickConfidential) {
-        archiveQuickConfidential.addEventListener('click', () => {
+        archiveQuickConfidential.addEventListener('click', async () => {
           archiveConfidentialOnly = !archiveConfidentialOnly;
           archiveQuickConfidential.classList.toggle('active', archiveConfidentialOnly);
           if (recordsConfidentiality) recordsConfidentiality.value = archiveConfidentialOnly ? 'سري للغاية' : '';
@@ -5535,7 +5535,7 @@
       }
 
       if (archiveQuickLocked) {
-        archiveQuickLocked.addEventListener('click', () => {
+        archiveQuickLocked.addEventListener('click', async () => {
           archiveLockedOnly = !archiveLockedOnly;
           archiveQuickLocked.classList.toggle('active', archiveLockedOnly);
           applyRecordsFilters();
@@ -5543,7 +5543,7 @@
       }
 
       if (archiveQuickClear) {
-        archiveQuickClear.addEventListener('click', () => {
+        archiveQuickClear.addEventListener('click', async () => {
           archiveLockedOnly = false;
           archiveConfidentialOnly = false;
           archiveHasFilesOnly = false;

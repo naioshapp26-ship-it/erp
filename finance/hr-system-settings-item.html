@@ -116,7 +116,7 @@
       `).join('');
     }
 
-    function formValues() {
+    async function formValues() {
       const data = {};
       fields.forEach((f) => {
         const el = document.querySelector(`[name="${f.key}"]`);
@@ -125,7 +125,7 @@
       return data;
     }
 
-    function renderTable(records) {
+    async function renderTable(records) {
       if (!records.length) {
         document.getElementById('tableWrap').innerHTML = '<div class="p-6 text-slate-400 font-bold">لا توجد سجلات بعد</div>';
         return;
@@ -147,14 +147,14 @@
           </tbody>
         </table>
       `;
-      document.querySelectorAll('[data-edit]').forEach((btn) => btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-edit]').forEach((btn) => btn.addEventListener('click', async () => {
         const rec = records.find((r) => String(r.id) === btn.dataset.edit);
         if (!rec) return;
         document.getElementById('recordId').value = rec.id;
         renderFields(rec.data || rec);
       }));
       document.querySelectorAll('[data-del]').forEach((btn) => btn.addEventListener('click', async () => {
-        if (!confirm('حذف السجل؟')) return;
+        if (!await window.ErpDialog.confirm('حذف السجل؟')) return;
         await fetch(`/api/hr/system-settings/${key}/${btn.dataset.del}`, { method: 'DELETE', headers });
         await load();
       }));
@@ -208,7 +208,7 @@
       await load();
     });
 
-    document.getElementById('resetBtn').addEventListener('click', () => {
+    document.getElementById('resetBtn').addEventListener('click', async () => {
       document.getElementById('recordId').value = '';
       renderFields();
     });

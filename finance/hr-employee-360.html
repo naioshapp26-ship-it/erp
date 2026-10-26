@@ -995,10 +995,10 @@
             </article>`;
         }).join('');
         rosterEls.grid.querySelectorAll('.open-360-btn').forEach((btn) => {
-          btn.addEventListener('click', () => openEmployeeDetail(btn.getAttribute('data-id')));
+          btn.addEventListener('click', async () => openEmployeeDetail(btn.getAttribute('data-id')));
         });
         rosterEls.grid.querySelectorAll('.edit-emp-btn').forEach((btn) => {
-          btn.addEventListener('click', () => {
+          btn.addEventListener('click', async () => {
             const number = btn.getAttribute('data-number');
             const emp = rosterEmployees.find((row) => String(row.employee_number) === String(number));
             openEmployeeForm('edit', emp || null);
@@ -1096,7 +1096,7 @@
 
     const openEmployeeForm = (mode = 'add', emp = null) => {
       if (!canManageEmployees) {
-        alert('غير مصرح بإضافة أو تعديل الموظفين');
+        window.ErpDialog.toast('غير مصرح بإضافة أو تعديل الموظفين');
         return;
       }
       employeeFormMode = mode === 'edit' ? 'edit' : 'add';
@@ -1476,7 +1476,7 @@
         const button = document.createElement('button');
         button.className = 'tab-button' + (state.current === key ? ' active' : '');
         button.textContent = sections[key].label;
-        button.addEventListener('click', () => {
+        button.addEventListener('click', async () => {
           state.current = key;
           state.search = '';
           state.status = '';
@@ -1759,7 +1759,7 @@
         updateSummary();
         closeModal();
       } catch (error) {
-        alert(error.message);
+        window.ErpDialog.toast(error.message);
       }
     };
 
@@ -1779,7 +1779,7 @@
         openModal(item);
       }
       if (action === 'delete') {
-        if (!confirm('هل تريد حذف هذا السجل؟')) return;
+        if (!await window.ErpDialog.confirm('هل تريد حذف هذا السجل؟')) return;
         deleteRecord(id);
       }
     };
@@ -1837,15 +1837,15 @@
       renderTable();
     });
 
-    elements.addRecord.addEventListener('click', () => openModal());
+    elements.addRecord.addEventListener('click', async () => openModal());
     elements.tableBody.addEventListener('click', handleAction);
     elements.closePanel.addEventListener('click', closeDetail);
     elements.backdrop.addEventListener('click', closeDetail);
     elements.closeModal.addEventListener('click', closeModal);
-    elements.recordModal.addEventListener('click', (event) => {
+    elements.recordModal.addEventListener('click', async (event) => {
       if (event.target === elements.recordModal) closeModal();
     });
-    elements.printProfile.addEventListener('click', () => window.print());
+    elements.printProfile.addEventListener('click', async () => window.print());
     elements.exportProfile.addEventListener('click', exportProfile);
 
     const bindUploadInput = (input, mediaType) => {
@@ -1856,7 +1856,7 @@
         try {
           await uploadEmployeeMedia(file, mediaType);
         } catch (error) {
-          alert(error.message);
+          window.ErpDialog.toast(error.message);
         } finally {
           event.target.value = '';
         }
@@ -1873,7 +1873,7 @@
           try {
             await uploadEmployeeMedia(file, 'attachment');
           } catch (error) {
-            alert(error.message);
+            window.ErpDialog.toast(error.message);
             break;
           }
         }
@@ -2018,22 +2018,22 @@
         renderTable();
         updateSummary();
       } catch (error) {
-        alert(error.message);
+        window.ErpDialog.toast(error.message);
       }
     };
 
     const initializePage = async () => {
-      rosterEls.back?.addEventListener('click', () => {
+      rosterEls.back?.addEventListener('click', async () => {
         const url = new URL(window.location.href);
         url.searchParams.delete('employeeId');
         window.location.href = url.pathname;
       });
-      rosterEls.refresh?.addEventListener('click', () => loadRoster());
+      rosterEls.refresh?.addEventListener('click', async () => loadRoster());
       rosterEls.search?.addEventListener('input', () => renderRoster(rosterEmployees));
       rosterEls.department?.addEventListener('change', () => renderRoster(rosterEmployees));
       rosterEls.status?.addEventListener('change', () => renderRoster(rosterEmployees));
-      rosterEls.addBtn?.addEventListener('click', () => openEmployeeForm('add'));
-      rosterEls.addBtnInline?.addEventListener('click', () => openEmployeeForm('add'));
+      rosterEls.addBtn?.addEventListener('click', async () => openEmployeeForm('add'));
+      rosterEls.addBtnInline?.addEventListener('click', async () => openEmployeeForm('add'));
       document.getElementById('closeEmployeeForm')?.addEventListener('click', closeEmployeeForm);
       document.getElementById('cancelEmployeeForm')?.addEventListener('click', closeEmployeeForm);
       document.getElementById('employee360Form')?.addEventListener('submit', saveEmployeeForm);
@@ -2077,7 +2077,7 @@
           });
         }
       });
-      document.getElementById('changePhotoBtn')?.addEventListener('click', () => {
+      document.getElementById('changePhotoBtn')?.addEventListener('click', async () => {
         document.getElementById('detailPhotoInput')?.click();
       });
       document.getElementById('detailPhotoInput')?.addEventListener('change', async (ev) => {
@@ -2086,16 +2086,16 @@
         try {
           await uploadPhotoForEmployee(employeeId, file);
           await loadProfile();
-          alert('تم تحديث الصورة الشخصية');
+          window.ErpDialog.toast('تم تحديث الصورة الشخصية');
         } catch (err) {
-          alert(err.message || 'تعذر رفع الصورة');
+          window.ErpDialog.toast(err.message || 'تعذر رفع الصورة');
         } finally {
           ev.target.value = '';
         }
       });
       document.getElementById('removePhotoBtn')?.addEventListener('click', async () => {
         if (!employeeId || !canManageEmployees) return;
-        if (!confirm('هل تريد حذف الصورة الشخصية؟')) return;
+        if (!await window.ErpDialog.confirm('هل تريد حذف الصورة الشخصية؟')) return;
         try {
           const response = await fetch(`${profileApi}/${encodeURIComponent(employeeId)}/photo`, {
             method: 'DELETE',
@@ -2107,7 +2107,7 @@
           if (data.profile) applyProfileToUi(data.profile);
           else await loadProfile();
         } catch (err) {
-          alert(err.message || 'تعذر حذف الصورة');
+          window.ErpDialog.toast(err.message || 'تعذر حذف الصورة');
         }
       });
 
@@ -2131,7 +2131,7 @@
         await Promise.all([loadProfile(), loadRecords()]);
       } catch (error) {
         console.error('Error loading employee 360 data:', error);
-        alert(error.message || 'تعذر فتح ملف الموظف');
+        window.ErpDialog.toast(error.message || 'تعذر فتح ملف الموظف');
         await loadRoster();
         return;
       }

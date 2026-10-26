@@ -370,7 +370,7 @@
 
       if (policy.download_url) {
         downloadButton.disabled = false;
-        downloadButton.onclick = () => window.open(policy.download_url, '_blank');
+        downloadButton.onclick = async () => window.open(policy.download_url, '_blank');
       } else {
         downloadButton.disabled = true;
       }
@@ -433,7 +433,7 @@
       };
 
       if (!payload.title || !payload.authority || !payload.category) {
-        alert('يرجى إدخال اسم السياسة والجهة والتصنيف.');
+        window.ErpDialog.toast('يرجى إدخال اسم السياسة والجهة والتصنيف.');
         return;
       }
 
@@ -445,7 +445,7 @@
 
       if (!response.ok) {
         const error = await response.json();
-        alert(error.error || 'حدث خطأ أثناء حفظ السياسة.');
+        window.ErpDialog.toast(error.error || 'حدث خطأ أثناء حفظ السياسة.');
         return;
       }
 
@@ -463,7 +463,7 @@
       };
 
       if (!payload.title) {
-        alert('يرجى إدخال عنوان التحديث.');
+        window.ErpDialog.toast('يرجى إدخال عنوان التحديث.');
         return;
       }
 
@@ -475,7 +475,7 @@
 
       if (!response.ok) {
         const error = await response.json();
-        alert(error.error || 'حدث خطأ أثناء حفظ التحديث.');
+        window.ErpDialog.toast(error.error || 'حدث خطأ أثناء حفظ التحديث.');
         return;
       }
 
@@ -486,11 +486,11 @@
 
     window.deletePolicyUpdate = async (updateId) => {
       if (!currentPolicy) return;
-      if (!confirm('هل أنت متأكد من حذف هذا التحديث؟')) return;
+      if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذا التحديث؟')) return;
       const response = await fetch(`${apiBase}/${currentPolicy.id}/updates/${updateId}`, { method: 'DELETE' });
       if (!response.ok) {
         const error = await response.json();
-        alert(error.error || 'حدث خطأ أثناء الحذف.');
+        window.ErpDialog.toast(error.error || 'حدث خطأ أثناء الحذف.');
         return;
       }
       await fetchPolicy();
@@ -499,18 +499,18 @@
 
     const deleteCurrentPolicy = async () => {
       if (!currentPolicy) return;
-      if (!confirm('هل أنت متأكد من حذف هذه السياسة؟')) return;
+      if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذه السياسة؟')) return;
       const response = await fetch(`${apiBase}/${currentPolicy.id}`, { method: 'DELETE' });
       if (!response.ok) {
         const error = await response.json();
-        alert(error.error || 'حدث خطأ أثناء الحذف.');
+        window.ErpDialog.toast(error.error || 'حدث خطأ أثناء الحذف.');
         return;
       }
       notifyPoliciesUpdated();
       window.location.href = '/operational-policies';
     };
 
-    openUpdatePolicy.addEventListener('click', () => {
+    openUpdatePolicy.addEventListener('click', async () => {
       updateTitleInput.value = '';
       updateDateInput.value = '';
       updateNoteInput.value = '';
@@ -518,11 +518,11 @@
     });
     openEditPolicy.addEventListener('click', openPolicyModal);
     deletePolicy.addEventListener('click', deleteCurrentPolicy);
-    closePolicyModal.addEventListener('click', () => closeModal(policyModal));
-    cancelPolicyModal.addEventListener('click', () => closeModal(policyModal));
+    closePolicyModal.addEventListener('click', async () => closeModal(policyModal));
+    cancelPolicyModal.addEventListener('click', async () => closeModal(policyModal));
     savePolicyModal.addEventListener('click', savePolicy);
-    closeUpdateModal.addEventListener('click', () => closeModal(updateModal));
-    cancelUpdateModal.addEventListener('click', () => closeModal(updateModal));
+    closeUpdateModal.addEventListener('click', async () => closeModal(updateModal));
+    cancelUpdateModal.addEventListener('click', async () => closeModal(updateModal));
     saveUpdateModal.addEventListener('click', saveUpdate);
 
     policyCategoryInput.innerHTML = policyCategories.map(category => `<option value="${category}">${category}</option>`).join('');
