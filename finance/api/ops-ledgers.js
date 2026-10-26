@@ -39,7 +39,7 @@ const KINDS = new Set([
   'bom'
 ]);
 
-const LOCKED = new Set(['POSTED', 'APPLIED', 'CLEARED', 'CONVERTED', 'DISPOSED', 'SOLD', 'CANCELLED']);
+const LOCKED = new Set(['POSTED', 'APPLIED', 'CLEARED', 'CONVERTED', 'DISPOSED', 'SOLD', 'CANCELLED', 'VALIDATED', 'ARCHIVED', 'QUEUED']);
 let ready = false;
 
 async function ensureOpsTables() {
@@ -311,8 +311,50 @@ async function insertRecord(client, kind, body, scopeInfo) {
   }
   if (kind === 'e-invoice-queue') {
     if (!body.invoice_id) throw httpError(400, 'الفاتورة المحلية مطلوبة', 'INVOICE_REQUIRED');
+    const invoice = await client.query(
+      `SELECT invoice_id, invoice_number, customer_id, customer_name, total_amount, tax_amount,
+              status, payment_status, journal_entry_id, currency_code, entity_id
+       FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE`,
+      [body.invoice_id]
+    );
+    if (!invoice.rows[0]) throw httpError(404, 'الفاتورة المحلية غير موجودة', 'INVOICE_NOT_FOUND');
+    const inv = invoice.rows[0];
+    if (String(inv.entity_id) !== String(scopeInfo.entityId)) {
+      throw httpError(403, 'الفاتورة خارج نطاق الكيان', 'ENTITY_SCOPE');
+    }
+    if (!inv.customer_id) throw httpError(422, 'الفاتورة بلا عميل — أكمل البيانات الإلزامية أولًا', 'CUSTOMER_REQUIRED');
+    if (['CANCELLED', 'DRAFT'].includes(String(inv.status || '').toUpperCase())) {
+      throw httpError(409, 'لا تُدرج فاتورة ملغاة أو مسودة في طابور الفاتورة الإلكترونية', 'INVOICE_STATUS');
+    }
+    const dup = await client.query(
+      `SELECT record_id FROM finance_ops_records
+       WHERE entity_id = $1 AND kind = 'e-invoice-queue' AND invoice_id = $2
+         AND UPPER(status) NOT IN ('CANCELLED','REJECTED','ARCHIVED')
+       LIMIT 1`,
+      [scopeInfo.entityId, inv.invoice_id]
+    );
+    if (dup.rows[0]) {
+      throw httpError(409, 'الفاتورة موجودة مسبقًا في الطابور', 'ALREADY_QUEUED');
+    }
     payload.connector = 'ABSENT';
-    payload.note = 'لا إرسال لهيئة الزكاة أو أي بوابة حكومية من هذه البيئة';
+    payload.government_send = false;
+    payload.note = 'دورة محلية فقط. لا إرسال لهيئة ضريبية قبل تهيئة الاعتمادات الرسمية.';
+    payload.invoice_snapshot = {
+      invoice_number: inv.invoice_number,
+      customer_id: inv.customer_id,
+      customer_name: inv.customer_name,
+      total_amount: inv.total_amount,
+      tax_amount: inv.tax_amount,
+      journal_entry_id: inv.journal_entry_id,
+      currency_code: inv.currency_code || null,
+      status: inv.status
+    };
+    body.title = body.title || `فاتورة إلكترونية ${inv.invoice_number}`;
+    body.party_name = body.party_name || inv.customer_name;
+    body.amount = body.amount != null ? body.amount : inv.total_amount;
+    body.reference_type = 'INVOICE';
+    body.reference_id = String(inv.invoice_id);
+    body.status = text(body.status).toUpperCase() || 'READY';
   }
   if (kind === 'asset-moves') {
     return insertAssetMove(client, body, payload, scopeInfo);
@@ -352,7 +394,7 @@ function defaultStatus(kind) {
   if (kind === 'checks') return 'RECEIVED';
   if (kind === 'purchase-requests') return 'DRAFT';
   if (kind === 'gov-integrations') return 'DISCONNECTED';
-  if (kind === 'e-invoice-queue') return 'LOCAL_ONLY';
+  if (kind === 'e-invoice-queue') return 'READY';
   if (kind === 'loyalty' || kind === 'auto-runs') return 'POSTED';
   if (['cost-centers', 'price-lists', 'subscriptions', 'insurance', 'auto-rules', 'workflows', 'bom'].includes(kind)) return 'ACTIVE';
   if (kind === 'bookings') return 'CONFIRMED';
@@ -533,6 +575,72 @@ router.delete('/:kind/:id', async (req, res) => {
       [req.params.id, kind, entityId]
     );
     res.json({ success: true, deleted: Number(req.params.id) });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+const E_INVOICE_TRANSITIONS = {
+  READY: ['QUEUED', 'CANCELLED'],
+  QUEUED: ['VALIDATED', 'FAILED', 'REJECTED', 'CANCELLED'],
+  VALIDATED: ['ARCHIVED'],
+  FAILED: ['QUEUED', 'ARCHIVED', 'CANCELLED'],
+  REJECTED: ['QUEUED', 'ARCHIVED', 'CANCELLED'],
+  ARCHIVED: [],
+  CANCELLED: []
+};
+
+router.post('/e-invoice-queue/:id/transition', async (req, res) => {
+  try {
+    await ensureOpsTables();
+    const { entityId } = scope(req);
+    const next = text((req.body || {}).status).toUpperCase();
+    const note = text((req.body || {}).note || (req.body || {}).reason);
+    if (!next) return res.status(400).json({ success: false, error: 'الحالة التالية مطلوبة' });
+    if (next === 'SENT' || next === 'SENT_GOV' || next === 'SUBMITTED') {
+      return res.status(409).json({
+        success: false,
+        error: 'الإرسال الحكومي غير مفعّل. لا اعتمادات رسمية في هذه البيئة.',
+        code: 'CONNECTOR_ABSENT'
+      });
+    }
+    const existing = await db.query(
+      `SELECT * FROM finance_ops_records WHERE record_id = $1 AND kind = 'e-invoice-queue' AND entity_id = $2`,
+      [req.params.id, entityId]
+    );
+    if (!existing.rows[0]) return res.status(404).json({ success: false, error: 'سجل الطابور غير موجود' });
+    const current = String(existing.rows[0].status || '').toUpperCase();
+    const allowed = E_INVOICE_TRANSITIONS[current] || [];
+    if (!allowed.includes(next)) {
+      return res.status(409).json({
+        success: false,
+        error: `لا يمكن الانتقال من ${current} إلى ${next}`,
+        code: 'INVALID_TRANSITION',
+        allowed
+      });
+    }
+    const payload = {
+      ...(existing.rows[0].payload || {}),
+      last_transition: { from: current, to: next, at: new Date().toISOString(), note: note || null },
+      history: [((existing.rows[0].payload || {}).history || []), { from: current, to: next, at: new Date().toISOString(), note: note || null }].flat().slice(-20)
+    };
+    if (next === 'VALIDATED' && !payload.invoice_snapshot?.journal_entry_id) {
+      payload.validation_warning = 'الفاتورة بلا قيد محاسبي مرتبط في اللقطة المحفوظة';
+    }
+    const r = await db.query(
+      `UPDATE finance_ops_records
+       SET status = $3, payload = $4::jsonb, notes = COALESCE($5, notes), updated_at = NOW()
+       WHERE record_id = $1 AND entity_id = $2
+       RETURNING *`,
+      [req.params.id, entityId, next, JSON.stringify(payload), note || null]
+    );
+    res.json({
+      success: true,
+      record: r.rows[0],
+      message: next === 'VALIDATED'
+        ? 'اعتماد محلي ناجح. الإرسال الحكومي ما زال غير موصول.'
+        : 'تم تحديث حالة الطابور'
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

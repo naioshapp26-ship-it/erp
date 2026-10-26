@@ -24,6 +24,11 @@ const {
 } = require('../services/finance-posted-guards');
 const { computeInvoiceTotalsFromLines } = require('../services/finance-invoice-amounts');
 const pageDocumentSettings = require('../services/page-document-settings');
+const {
+  resolveDefaultTaxRate,
+  loadActiveOffer,
+  applyOfferAndTaxToLines
+} = require('../services/tax-and-offers');
 const { resolveScopedEntityId, resolveScopedEntityType } = require('./resolve-scoped-entity');
 
 /**
@@ -907,9 +912,10 @@ router.post('/invoices', async (req, res) => {
       platform_id,
       allow_partial_payment = true,
       allow_installments = false,
-      notes,
+      offer_code = null,
       lines = []
     } = req.body;
+    let notes = req.body.notes;
 
     const customerResult = await client.query(
       'SELECT * FROM finance_customers WHERE customer_id = $1',
@@ -1047,22 +1053,51 @@ router.post('/invoices', async (req, res) => {
         : !!invoiceDocSettings.allow_installments_default;
 
     const defaultTaxPct = Number(invoiceDocSettings.default_tax_pct);
-    if (!useService && Number.isFinite(defaultTaxPct)) {
-      // Recompute legacy totals using settings default when lines omit tax_percentage
-      subtotal = 0;
-      tax_amount = 0;
-      discount_amount = 0;
-      for (const line of lines) {
-        const lineSubtotal = line.quantity * line.unit_price;
-        const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
-        const lineTaxable = lineSubtotal - lineDiscount;
-        const taxPct = line.tax_percentage != null ? line.tax_percentage : defaultTaxPct;
-        const lineTax = lineTaxable * (taxPct || 0) / 100;
-        subtotal += lineSubtotal;
-        discount_amount += lineDiscount;
-        tax_amount += lineTax;
+    let activeOffer = null;
+    let resolvedTaxRate = Number.isFinite(defaultTaxPct) ? defaultTaxPct : null;
+    let exemptItemCodes = [];
+    if (!useService) {
+      try {
+        const taxHit = await resolveDefaultTaxRate(client, {
+          entityId: resolvedEntityId,
+          branchId: resolvedBranchId,
+          onDate: invoice_date,
+          applicableOn: 'invoice'
+        });
+        if (taxHit) {
+          resolvedTaxRate = taxHit.rate;
+          exemptItemCodes = taxHit.tax?.exempt_item_codes || [];
+        }
+      } catch (taxErr) {
+        console.warn('tax_settings resolve skipped:', taxErr.message);
       }
-      total_amount = subtotal - discount_amount + tax_amount;
+      if (offer_code) {
+        activeOffer = await loadActiveOffer(client, {
+          entityId: resolvedEntityId,
+          offerCode: offer_code
+        });
+        if (!activeOffer) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            success: false,
+            error: 'رمز العرض غير صالح أو خارج فترة الصلاحية أو غير مفعّل'
+          });
+        }
+      }
+      const priced = applyOfferAndTaxToLines(lines, {
+        offer: activeOffer,
+        taxRate: resolvedTaxRate,
+        settingsTaxPct: Number.isFinite(defaultTaxPct) ? defaultTaxPct : 0,
+        exemptItemCodes
+      });
+      lineRows = priced.lines;
+      subtotal = priced.subtotal;
+      discount_amount = priced.discount_amount;
+      tax_amount = priced.tax_amount;
+      total_amount = priced.total_amount;
+      if (activeOffer) {
+        notes = [notes, `عرض ترويجي: ${activeOffer.offer_code}`].filter(Boolean).join(' | ');
+      }
     }
 
     const invPrefix = String(invoiceDocSettings.number_prefix || 'INV').trim() || 'INV';
@@ -1111,18 +1146,26 @@ router.post('/invoices', async (req, res) => {
         );
       } else {
         const lineSubtotal = line.quantity * line.unit_price;
-        const lineDiscount = line.discount_amount || (lineSubtotal * (line.discount_percentage || 0) / 100);
-        const lineTaxable = lineSubtotal - lineDiscount;
-        const lineTax = lineTaxable * (line.tax_percentage || 15) / 100;
-        const lineTotal = lineTaxable + lineTax;
+        const lineDiscount = Number(line.discount_amount);
+        const resolvedDiscount = Number.isFinite(lineDiscount)
+          ? lineDiscount
+          : (lineSubtotal * (line.discount_percentage || 0) / 100);
+        const lineTaxable = Math.max(0, lineSubtotal - resolvedDiscount);
+        const taxPct = line.tax_percentage != null ? Number(line.tax_percentage) : 15;
+        const lineTax = Number.isFinite(Number(line.tax_amount))
+          ? Number(line.tax_amount)
+          : lineTaxable * (taxPct || 0) / 100;
+        const lineTotal = Number.isFinite(Number(line.line_total))
+          ? Number(line.line_total)
+          : lineTaxable + lineTax;
         await client.query(
           `INSERT INTO finance_invoice_lines 
            (invoice_id, line_number, item_code, item_name, description, quantity, unit_price,
             discount_percentage, discount_amount, tax_percentage, tax_amount, line_total, revenue_account_id)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
           [invoice_id, i + 1, line.item_code, line.item_name, line.description,
-           line.quantity, line.unit_price, line.discount_percentage || 0, lineDiscount,
-           line.tax_percentage || 15, lineTax, lineTotal, line.revenue_account_id]
+           line.quantity, line.unit_price, line.discount_percentage || 0, resolvedDiscount,
+           taxPct || 0, lineTax, lineTotal, line.revenue_account_id]
         );
       }
     }
@@ -1454,8 +1497,8 @@ router.post('/payments', async (req, res) => {
       }
     }
 
-    // Service path: lock invoices in stable order, re-check remaining + entity before insert
-    if (useService) {
+    // Lock invoices in stable order; block over-allocation on BOTH legacy and service paths.
+    if (sortedAllocs.length) {
       const seenInv = new Set();
       for (const allocation of sortedAllocs) {
         const invId = Number(allocation.invoice_id);
@@ -1470,7 +1513,7 @@ router.post('/payments', async (req, res) => {
         seenInv.add(invId);
 
         const invRes = await client.query(
-          `SELECT invoice_id, entity_id, total_amount, paid_amount, remaining_amount
+          `SELECT invoice_id, entity_id, total_amount, paid_amount, remaining_amount, status, payment_status
            FROM finance_invoices WHERE invoice_id = $1 FOR UPDATE`,
           [invId]
         );
@@ -1483,19 +1526,21 @@ router.post('/payments', async (req, res) => {
             code: 'INVOICE_NOT_FOUND'
           });
         }
-        try {
-          assertEntityOwns(inv.entity_id, actor, `فاتورة ${invId}`);
-        } catch (ownErr) {
-          await client.query('ROLLBACK');
-          if (ownErr instanceof PostingError) {
-            return res.status(ownErr.status).json({
-              success: false,
-              error: ownErr.message,
-              code: ownErr.code,
-              ...(ownErr.extra || {})
-            });
+        if (useService && actor) {
+          try {
+            assertEntityOwns(inv.entity_id, actor, `فاتورة ${invId}`);
+          } catch (ownErr) {
+            await client.query('ROLLBACK');
+            if (ownErr instanceof PostingError) {
+              return res.status(ownErr.status).json({
+                success: false,
+                error: ownErr.message,
+                code: ownErr.code,
+                ...(ownErr.extra || {})
+              });
+            }
+            throw ownErr;
           }
-          throw ownErr;
         }
         if (String(inv.entity_id) !== String(resolvedEntityId)) {
           await client.query('ROLLBACK');
@@ -1513,11 +1558,13 @@ router.post('/payments', async (req, res) => {
             : Number(inv.total_amount) - Number(inv.paid_amount || 0)
         );
         const allocated = roundMoney(allocation.allocated_amount);
-        if (allocated > remaining + 0.01) {
+        if (remaining <= 0.01 || allocated > remaining + 0.01) {
           await client.query('ROLLBACK');
           return res.status(422).json({
             success: false,
-            error: 'التخصيص يتجاوز المبلغ المتبقي للفاتورة',
+            error: remaining <= 0.01
+              ? 'الفاتورة مسددة بالكامل — لا يُسمح بتكرار التحصيل'
+              : 'التخصيص يتجاوز المبلغ المتبقي للفاتورة',
             code: 'OVER_ALLOCATION',
             invoice_id: inv.invoice_id,
             remaining,
@@ -1674,6 +1721,11 @@ router.post('/payments', async (req, res) => {
         'UPDATE finance_payments SET journal_entry_id = $1 WHERE payment_id = $2',
         [journal_entry_id, payment_id]
       );
+      const refreshedLegacy = await client.query(
+        `SELECT * FROM finance_payments WHERE payment_id = $1`,
+        [payment_id]
+      );
+      paymentRow = refreshedLegacy.rows[0] || paymentRow;
     }
 
     await client.query('COMMIT');

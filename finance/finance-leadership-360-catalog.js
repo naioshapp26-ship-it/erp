@@ -33,9 +33,9 @@
         {
           id: 'quotes',
           label: 'عروض ترويجية سريعة',
-          status: 'partial',
+          status: 'operational',
           href: '/finance/quick-offers.html',
-          note: 'عروض ترويجية/خصومات محفوظة — ليست عروض أسعار مبيعات (بنود وصلاحية وتحويل لفاتورة)'
+          note: 'إنشاء/صلاحية/أصناف/خصم + تطبيق على الفاتورة والضريبة. ليست عروض أسعار مبيعات مستقلة. الإرسال الحكومي غير مطلوب هنا.'
         },
         {
           id: 'invoices-quotes',
@@ -46,13 +46,19 @@
         },
         { id: 'installments', label: 'الأقساط', status: 'operational', href: '/finance/plan-installments.html' },
         { id: 'targets-commissions', label: 'المبيعات المستهدفة والعمولات', status: 'operational', href: '/finance/sales-targets.html', note: 'الهدف يُقارن بمجموع فواتير الفترة. العمولات في /finance/commissions.html' },
-        { id: 'e-invoice', label: 'الفاتورة الإلكترونية', status: 'partial', href: '/finance/e-invoice-queue.html', note: 'طابور محلي مرتبط برقم فاتورة. الإرسال الحكومي غير موصول.' },
+        {
+          id: 'e-invoice',
+          label: 'الفاتورة الإلكترونية',
+          status: 'partial',
+          href: '/finance/e-invoice-queue.html',
+          note: 'دورة محلية: جاهز→طابور→تحقق/رفض→أرشفة مرتبطة بفاتورة وقيد. الإرسال للجهة الضريبية يحتاج اعتمادات رسمية — غير موصول.'
+        },
         {
           id: 'zatca',
           label: 'إعدادات الضرائب الداخلية',
-          status: 'partial',
+          status: 'operational',
           href: '/manage-tax-settings.html',
-          note: 'إدارة معدلات ضريبية داخلية — ليست تكامل هيئة الزكاة والدخل أو فاتورة إلكترونية حكومية'
+          note: 'معدلات حسب الكيان وتاريخ السريان والإعفاءات + سجل تدقيق، مربوطة بالفواتير. ليست تكامل هيئة حكومية.'
         },
         { id: 'return-policy', label: 'سياسة الاسترجاع', status: 'operational', href: '/finance/return-policy.html' },
         {
@@ -420,15 +426,22 @@
 
   /** PR #182 finance functions re-surfaced on Finance (keep HR copies; do not delete). */
   const QUICK_ACCESS = [
-    { id: 'qa-expenses', label: 'إدارة المصروفات', icon: 'fa-receipt', href: '/finance/expenses.html', status: 'operational' },
+    {
+      id: 'qa-expenses',
+      label: 'إدارة المصروفات',
+      icon: 'fa-receipt',
+      href: '/finance/expenses.html',
+      status: 'operational',
+      note: 'حفظ وترحيل قيد من دليل الحسابات عند الاعتماد، وعكس معتمد بدل حذف الأثر'
+    },
     { id: 'qa-journal', label: 'مركز القيود المحاسبية', icon: 'fa-book', href: '/finance/journal.html', status: 'operational' },
     {
       id: 'qa-accounting',
       label: 'التكامل المحاسبي',
       icon: 'fa-network-wired',
-      href: '/finance/unified-accounting-overview.html',
-      status: 'partial',
-      note: 'لوحة عرض/تنقل — تغطية جزئية'
+      href: '/finance/accounting-integration.html',
+      status: 'operational',
+      note: 'ربط الفواتير/المدفوعات/المصروفات/المخزون بالقيود + عرض المرجع والتوازن وعكس القيد المعتمد'
     },
     { id: 'qa-payments', label: 'المدفوعات', icon: 'fa-money-check-dollar', href: '/finance/payments.html', status: 'operational' },
     {
@@ -562,12 +575,12 @@
   /** Expected post-audit status map for regression tests (pageId → status). */
   const AUDIT_STATUS_EXPECTATIONS = {
     'sales.pos': 'operational',
-    'sales.quotes': 'partial',
+    'sales.quotes': 'operational',
     'sales.invoices-quotes': 'operational',
     'sales.installments': 'operational',
     'sales.targets-commissions': 'operational',
     'sales.e-invoice': 'partial',
-    'sales.zatca': 'partial',
+    'sales.zatca': 'operational',
     'sales.return-policy': 'operational',
     'sales.offers-discounts': 'operational',
     'sales.deposits': 'operational',
@@ -583,7 +596,7 @@
     'settings.page-settings': 'operational',
     'settings.numbering': 'partial',
     'settings.print-templates': 'partial',
-    'qa.qa-accounting': 'partial',
+    'qa.qa-accounting': 'operational',
     'qa.qa-invoices': 'operational',
     'qa.qa-expenses': 'operational',
     'qa.qa-journal': 'operational',

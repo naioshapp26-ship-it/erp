@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>التكامل المحاسبي — القيادة المالية 360</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Tajawal', 'Cairo', sans-serif;
+      background: linear-gradient(165deg, #fffefe 0%, #f4f6f8 55%, #eef1f4 100%);
+      min-height: 100vh;
+      padding: 5.5rem 1rem 2rem;
+    }
+    .panel { background: #fff; border: 1px solid #bfdbfe; border-radius: 0.85rem; padding: 1rem 1.15rem; }
+    .stat { border: 1px solid #e2e8f0; border-radius: 0.7rem; padding: 0.85rem; background: #f8fafc; }
+    .stat strong { display: block; font-size: 1.35rem; color: #0f172a; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.55rem 0.45rem; border-bottom: 1px solid #e2e8f0; text-align: right; font-size: 0.9rem; }
+    th { color: #991b1b; font-weight: 900; }
+    .ok { color: #166534; font-weight: 800; }
+    .bad { color: #b91c1c; font-weight: 800; }
+    .msg { font-weight: 800; min-height: 1.4rem; }
+  </style>
+</head>
+<body>
+  <div class="max-w-6xl mx-auto space-y-4">
+    <div class="flex flex-wrap gap-2 justify-center">
+      <a href="/finance" class="rounded-full border bg-white px-4 py-2 text-sm font-bold">القيادة المالية 360</a>
+      <a href="/finance/journal.html" class="rounded-full border bg-white px-4 py-2 text-sm font-bold">مركز القيود</a>
+      <a href="/finance/chart-of-accounts.html" class="rounded-full border bg-white px-4 py-2 text-sm font-bold">دليل الحسابات</a>
+    </div>
+
+    <div class="panel">
+      <h1 class="text-2xl font-black text-red-700 text-center mb-1">التكامل المحاسبي</h1>
+      <p class="text-center text-slate-600 font-bold mb-4">ربط الفواتير والمدفوعات والمصروفات والمخزون بقيود متوازنة قابلة للتتبع والعكس المعتمد</p>
+      <div id="stats" class="grid grid-cols-2 md:grid-cols-5 gap-3"></div>
+      <p id="map-status" class="mt-3 text-sm font-bold text-slate-600"></p>
+    </div>
+
+    <div class="panel">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h2 class="text-lg font-black text-slate-800">آخر القيود المرتبطة بالمصادر</h2>
+        <button id="btn-reload" type="button" class="rounded-lg bg-red-700 text-white px-4 py-2 font-black">تحديث</button>
+      </div>
+      <p id="status" class="msg text-slate-600 mb-2" role="status"></p>
+      <div class="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>رقم القيد</th>
+              <th>المصدر</th>
+              <th>المرجع</th>
+              <th>مدين</th>
+              <th>دائن</th>
+              <th>التوازن</th>
+              <th>الحالة</th>
+              <th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/finance/finance-context.js"></script>
+  <script>
+    (function () {
+      const rowsEl = document.getElementById('rows');
+      const statusEl = document.getElementById('status');
+      const statsEl = document.getElementById('stats');
+      const mapEl = document.getElementById('map-status');
+
+      function headers() {
+        return Object.assign({ 'Content-Type': 'application/json' }, window.getFinanceHeaders ? window.getFinanceHeaders() : {});
+      }
+      function money(n) {
+        return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      function setStatus(text, ok) {
+        statusEl.textContent = text || '';
+        statusEl.className = 'msg mb-2 ' + (ok === true ? 'ok' : ok === false ? 'bad' : 'text-slate-600');
+      }
+
+      async function loadOverview() {
+        const res = await fetch('/finance/accounting-integration/overview', { headers: headers(), credentials: 'same-origin' });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || 'تعذّر تحميل الملخص');
+        const cards = [
+          ['فواتير بقيود', json.invoices.with_journal + ' / ' + json.invoices.total],
+          ['فواتير بلا قيد', json.invoices.missing_journal],
+          ['مدفوعات مربوطة', json.payments.with_journal + ' / ' + json.payments.total],
+          ['مصروفات مربوطة', json.expenses.with_journal + ' / ' + json.expenses.total],
+          ['قيود مرحلة', json.journals.posted]
+        ];
+        statsEl.innerHTML = cards.map(([label, value]) => `<div class="stat"><span class="text-xs font-bold text-slate-500">${label}</span><strong>${value}</strong></div>`).join('');
+        mapEl.textContent = json.inventory_map_ready
+          ? 'خريطة حسابات المخزون جاهزة لهذا الكيان.'
+          : 'خريطة حسابات المخزون ناقصة — استلام وصرف المخزون المالي يحتاج ضبط الحسابات من شاشة المخزون.';
+        mapEl.className = 'mt-3 text-sm font-bold ' + (json.inventory_map_ready ? 'ok' : 'bad');
+      }
+
+      async function loadLinks() {
+        const res = await fetch('/finance/accounting-integration/links?limit=80', { headers: headers(), credentials: 'same-origin' });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || 'تعذّر تحميل الروابط');
+        if (!json.items.length) {
+          rowsEl.innerHTML = '<tr><td colspan="8" class="text-center text-slate-500 font-bold py-6">لا قيود بعد لهذا الكيان</td></tr>';
+          return;
+        }
+        rowsEl.innerHTML = json.items.map((item) => {
+          const reverseBtn = item.can_reverse
+            ? `<button type="button" data-reverse="${item.entry_id}" class="rounded bg-slate-800 text-white px-2 py-1 text-xs font-bold">عكس معتمد</button>`
+            : (item.is_reversed ? '<span class="text-amber-700 font-bold">معكوس</span>' : '—');
+          return `<tr>
+            <td class="font-bold">${item.entry_number || item.entry_id}</td>
+            <td>${item.source_label}</td>
+            <td>${item.reference_number || item.reference_id || '—'}</td>
+            <td>${money(item.debit_total)}</td>
+            <td>${money(item.credit_total)}</td>
+            <td class="${item.balanced ? 'ok' : 'bad'}">${item.balanced ? 'متوازن' : 'غير متوازن'}</td>
+            <td>${item.is_posted || item.status === 'POSTED' ? 'مرحّل' : (item.status || '')}</td>
+            <td>${reverseBtn}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      async function reverse(entryId) {
+        const reason = window.prompt('سبب العكس المحاسبي (إلزامي):');
+        if (!reason || !reason.trim()) {
+          setStatus('أُلغي العكس — السبب مطلوب', false);
+          return;
+        }
+        setStatus('جاري إنشاء القيد العكسي…');
+        const res = await fetch('/finance/accounting-integration/journals/' + entryId + '/reverse', {
+          method: 'POST',
+          headers: headers(),
+          credentials: 'same-origin',
+          body: JSON.stringify({ reason: reason.trim() })
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setStatus(json.error || 'فشل العكس', false);
+          return;
+        }
+        setStatus('تم إنشاء قيد عكسي ' + ((json.reversal && json.reversal.entry_number) || '') + ' دون حذف الأصل', true);
+        await Promise.all([loadOverview(), loadLinks()]);
+      }
+
+      rowsEl.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-reverse]');
+        if (!btn) return;
+        reverse(btn.getAttribute('data-reverse')).catch((e) => setStatus(e.message, false));
+      });
+
+      async function refresh() {
+        setStatus('جاري التحميل من PostgreSQL…');
+        await loadOverview();
+        await loadLinks();
+        setStatus('تم التحميل', true);
+      }
+
+      document.getElementById('btn-reload').addEventListener('click', () => refresh().catch((e) => setStatus(e.message, false)));
+      function start() { refresh().catch((e) => setStatus(e.message, false)); }
+      if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+      else start();
+    })();
+  </script>
+</body>
+</html>

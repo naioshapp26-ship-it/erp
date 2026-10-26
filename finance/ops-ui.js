@@ -44,7 +44,7 @@
     commissions: ['العمولات', 'عمولة مستحقة مع نسبتها وأساسها.', 'fa-percent'],
     'auto-rules': ['قواعد القيود', 'قاعدة بحسابين، والتنفيذ ينشئ قيدًا متوازنًا.', 'fa-robot'],
     'pos-tickets': ['نقاط البيع', 'تذاكر بيع محفوظة. لا بوابة دفع خارجية.', 'fa-cash-register'],
-    'e-invoice-queue': ['فاتورة إلكترونية', 'طابور محلي. الإرسال الحكومي غير موصول.', 'fa-file-code'],
+    'e-invoice-queue': ['فاتورة إلكترونية', 'دورة محلية: تجهيز وطابور واعتماد وأرشفة. الإرسال الحكومي يحتاج اعتمادات رسمية.', 'fa-file-code'],
     'gov-integrations': ['التكاملات الحكومية', 'سجل الجهات. لا يمكن تعليم الخدمة متصلة.', 'fa-landmark'],
     'work-orders': ['أوامر الشغل', 'أوامر شغل مع تعديل وحذف.', 'fa-screwdriver-wrench'],
     workflows: ['دورات العمل', 'قوالب خطوات. صندوق الموافقات غير مربوط تلقائيًا.', 'fa-diagram-next'],
@@ -285,6 +285,21 @@
         if (kind === 'purchase-requests' && !['CONVERTED', 'CANCELLED'].includes(String(row.status).toUpperCase())) extra.push(`<button class="btn btn-mini" data-convert="${row.record_id}">تحويل لأمر</button>`);
         if (kind === 'deposits' && String(row.status).toUpperCase() === 'OPEN') extra.push(`<button class="btn btn-mini" data-apply="${row.record_id}">تطبيق على فاتورة</button>`);
         if (kind === 'auto-rules' && String(row.status).toUpperCase() === 'ACTIVE') extra.push(`<button class="btn btn-mini" data-run="${row.record_id}">تنفيذ</button>`);
+        if (kind === 'e-invoice-queue') {
+          const st = String(row.status).toUpperCase();
+          if (st === 'READY') extra.push(`<button class="btn btn-mini" data-einv="${row.record_id}" data-next="QUEUED">إدخال الطابور</button>`);
+          if (st === 'QUEUED') {
+            extra.push(`<button class="btn btn-mini" data-einv="${row.record_id}" data-next="VALIDATED">تحقق محلي</button>`);
+            extra.push(`<button class="btn btn-mini" data-einv="${row.record_id}" data-next="FAILED">فشل تحقق</button>`);
+            extra.push(`<button class="btn btn-mini" data-einv="${row.record_id}" data-next="REJECTED">رفض</button>`);
+          }
+          if (st === 'VALIDATED' || st === 'FAILED' || st === 'REJECTED') {
+            extra.push(`<button class="btn btn-mini" data-einv="${row.record_id}" data-next="ARCHIVED">أرشفة</button>`);
+          }
+          if (st === 'FAILED' || st === 'REJECTED') {
+            extra.push(`<button class="btn btn-mini" data-einv="${row.record_id}" data-next="QUEUED">إعادة للطابور</button>`);
+          }
+        }
         const actual = row.actual_amount != null ? `<div class="num">فعلي ${Number(row.actual_amount).toLocaleString('en-US')}</div>` : '';
         const extras = ((row.payload && row.payload.extra) || []).filter((item) => item && item.label);
         const extraLine = extras.length ? `<div class="extra-preview">${extras.map((item) => `${esc(item.label)}: ${esc(item.value || '')}`).join(' · ')}</div>` : '';
@@ -308,6 +323,9 @@
       document.querySelectorAll('[data-convert]').forEach((btn) => { btn.onclick = () => convert(btn.dataset.convert); });
       document.querySelectorAll('[data-apply]').forEach((btn) => { btn.onclick = () => apply(btn.dataset.apply); });
       document.querySelectorAll('[data-run]').forEach((btn) => { btn.onclick = () => runRule(btn.dataset.run); });
+      document.querySelectorAll('[data-einv]').forEach((btn) => {
+        btn.onclick = () => transitionEInvoice(btn.dataset.einv, btn.dataset.next);
+      });
     }
     async function load() {
       const res = await fetch(`/finance/ops/${kind}${qs()}`, { headers: headers() });
@@ -370,6 +388,23 @@
       const data = await res.json();
       if (!res.ok) { alertMsg(data.error || 'تعذر التنفيذ', false); return; }
       alertMsg('تم إنشاء القيد ' + data.entry_number, true);
+      load();
+    }
+    async function transitionEInvoice(id, next) {
+      const note = next === 'FAILED' || next === 'REJECTED'
+        ? (prompt('ملاحظة الحالة (اختياري)') || '')
+        : '';
+      const res = await fetch(`/finance/ops/e-invoice-queue/${id}/transition${qs()}`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ status: next, note, entity_id: entity() || undefined })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alertMsg(data.error || 'تعذر تحديث حالة الفاتورة الإلكترونية', false);
+        return;
+      }
+      alertMsg(data.message || ('تم التحديث إلى ' + next), true);
       load();
     }
 

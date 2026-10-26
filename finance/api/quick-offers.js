@@ -63,37 +63,16 @@ const ensureQuickOffersTable = async () => {
         ADD COLUMN IF NOT EXISTS city TEXT,
         ADD COLUMN IF NOT EXISTS district TEXT,
         ADD COLUMN IF NOT EXISTS national_address_number TEXT,
-        ADD COLUMN IF NOT EXISTS short_address TEXT;
+        ADD COLUMN IF NOT EXISTS short_address TEXT,
+        ADD COLUMN IF NOT EXISTS item_codes TEXT[] DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS max_discount_pct NUMERIC DEFAULT 100,
+        ADD COLUMN IF NOT EXISTS updated_by TEXT,
+        ADD COLUMN IF NOT EXISTS activated_by TEXT,
+        ADD COLUMN IF NOT EXISTS activated_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS audit_log JSONB DEFAULT '[]'::jsonb;
     `);
 
-    const { rows } = await db.query('SELECT COUNT(*)::int AS count FROM finance_quick_offers');
-    if (rows[0].count === 0) {
-      await db.query(`
-        INSERT INTO finance_quick_offers
-          (offer_code, title, category, discount_type, discount_value, start_at, end_at, status, approval_state,
-           priority, target_segment, channels, budget, expected_roi, risk_score, impressions, conversions, revenue, cost, rules, notes)
-        VALUES
-          ('QO-2026-0001', 'عرض الإطلاق السريع للمنصة', 'اشتراكات', 'percent', 22, NOW() - INTERVAL '1 day', NOW() + INTERVAL '2 days', 'active', 'approved',
-           'عالي', 'شركات التقنية الناشئة', ARRAY['web','sales','whatsapp'], 120000, 3.2, 12, 42000, 2850, 610000, 175000,
-           '{"auto_pause_roi":true,"price_floor":0.18,"audience_cap":0.3}', 'حملة افتتاحية بمدة قصيرة مع تنبيهات تلقائية'),
-          ('QO-2026-0002', 'عودة العملاء المتوقفين', 'احتفاظ', 'percent', 18, NOW() - INTERVAL '3 days', NOW() + INTERVAL '4 days', 'active', 'approved',
-           'متوسط', 'عملاء الاشتراكات السنوية', ARRAY['email','web','crm'], 85000, 2.6, 15, 29000, 1210, 245000, 72000,
-           '{"auto_pause_roi":true,"price_floor":0.15,"audience_cap":0.22}', 'تفعيل إعادة الشراء عبر قنوات متعددة'),
-          ('QO-2026-0003', 'حزمة النمو الذكي', 'خدمات', 'amount', 1500, NOW() + INTERVAL '1 day', NOW() + INTERVAL '6 days', 'pending', 'pending',
-           'عالي', 'شركات الخدمات الاستشارية', ARRAY['sales','events'], 160000, 3.8, 21, 12000, 380, 98000, 28000,
-           '{"auto_pause_roi":false,"price_floor":0.2,"audience_cap":0.35}', 'حزمة خدمات مع خصم ثابت وربط بالمبيعات'),
-          ('QO-2026-0004', 'فلاش خصم شركاء الحاضنات', 'شراكات', 'percent', 25, NOW() - INTERVAL '2 days', NOW() + INTERVAL '1 day', 'active', 'approved',
-           'عالي', 'شركاء الحاضنات والمسرعات', ARRAY['partners','web'], 70000, 4.1, 9, 18000, 740, 210000, 45000,
-           '{"auto_pause_roi":true,"price_floor":0.2,"audience_cap":0.28}', 'عرض سريع بتصعيد تلقائي للموافقة'),
-          ('QO-2026-0005', 'عروض واتساب الفوري', 'قنوات', 'percent', 12, NOW() - INTERVAL '5 days', NOW() + INTERVAL '3 days', 'active', 'approved',
-           'متوسط', 'العملاء النشطون مؤخرا', ARRAY['whatsapp','crm'], 54000, 2.1, 18, 36000, 990, 160000, 52000,
-           '{"auto_pause_roi":false,"price_floor":0.12,"audience_cap":0.4}', 'تشغيل آلي عبر البوت مع متابعة فورية'),
-          ('QO-2026-0006', 'برنامج القيادات التنفيذية', 'قطاع خاص', 'amount', 2500, NOW() + INTERVAL '2 days', NOW() + INTERVAL '10 days', 'draft', 'pending',
-           'عالي', 'القيادات التنفيذية', ARRAY['sales','events','partners'], 200000, 5.0, 30, 8000, 220, 76000, 19000,
-           '{"auto_pause_roi":false,"price_floor":0.25,"audience_cap":0.18}', 'عرض متكامل يحتاج موافقة خاصة')
-      `);
-    }
-
+    // Do not seed demo marketing offers as if they were real production data.
     console.log('✅ finance_quick_offers table ready');
   } catch (error) {
     console.error('❌ Failed to ensure finance_quick_offers table:', error);
@@ -126,6 +105,47 @@ const generateOfferCode = async () => {
   const nextNumber = String(parseInt(numeric, 10) + 1).padStart(4, '0');
   return `${prefix}${nextNumber}`;
 };
+
+const normalizeItemCodes = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  return String(value)
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const actorOf = (req) => req.headers['x-user-id'] || req.authUser?.email || req.authUser?.id || 'system';
+
+const appendAudit = (existing, entry) => {
+  const list = Array.isArray(existing) ? existing.slice(-49) : [];
+  list.push({ ...entry, at: new Date().toISOString() });
+  return list;
+};
+
+const validateOfferBody = ({ title, category, discount_type, discount_value, start_at, end_at, max_discount_pct }) => {
+  if (!title || !category || discount_value === undefined || discount_value === null || !start_at || !end_at) {
+    return 'الحقول الإلزامية: العنوان، الفئة، نوع/قيمة الخصم، وتاريخ البداية والنهاية';
+  }
+  const dtype = String(discount_type || 'percent').toLowerCase();
+  if (!['percent', 'amount'].includes(dtype)) return 'نوع الخصم يجب أن يكون نسبة أو مبلغًا ثابتًا';
+  const value = Number(discount_value);
+  if (!Number.isFinite(value) || value < 0) return 'قيمة الخصم غير صالحة';
+  if (dtype === 'percent' && value > 100) return 'نسبة الخصم لا تتجاوز 100%';
+  const maxPct = Number(max_discount_pct == null ? 100 : max_discount_pct);
+  if (!Number.isFinite(maxPct) || maxPct < 0 || maxPct > 100) return 'الحد الأعلى للخصم غير صالح';
+  if (dtype === 'percent' && value > maxPct) return `نسبة الخصم تتجاوز الحد المسموح (${maxPct}%)`;
+  if (new Date(end_at) < new Date(start_at)) return 'تاريخ نهاية العرض قبل تاريخ البداية';
+  return null;
+};
+
+function computeLineDiscount(offer, lineSubtotal) {
+  const dtype = String(offer.discount_type || 'percent').toLowerCase();
+  const value = Number(offer.discount_value) || 0;
+  if (dtype === 'amount') return Math.min(lineSubtotal, value);
+  const pct = Math.min(value, Number(offer.max_discount_pct == null ? 100 : offer.max_discount_pct));
+  return Math.round(lineSubtotal * (pct / 100) * 100) / 100;
+}
 
 router.get('/', async (req, res) => {
   try {
@@ -183,6 +203,78 @@ router.get('/summary', async (req, res) => {
   }
 });
 
+router.get('/applicable', async (req, res) => {
+  try {
+    const entity_id = resolveScopedEntityId(req, req.query.entity_id);
+    const channel = String(req.query.channel || 'invoice').trim();
+    const sku = String(req.query.sku || '').trim();
+    const when = req.query.at ? new Date(req.query.at) : new Date();
+    const result = await db.query(
+      `SELECT *
+       FROM finance_quick_offers
+       WHERE entity_id = $1
+         AND status = 'active'
+         AND approval_state = 'approved'
+         AND start_at <= $2
+         AND end_at >= $2
+         AND ($3 = ANY(channels) OR cardinality(channels) = 0)
+       ORDER BY discount_value DESC, id DESC`,
+      [entity_id, when.toISOString(), channel]
+    );
+    const offers = result.rows.filter((offer) => {
+      const codes = offer.item_codes || [];
+      if (!codes.length) return true;
+      if (!sku) return true;
+      return codes.includes(sku);
+    });
+    res.json({ success: true, offers, count: offers.length });
+  } catch (error) {
+    console.error('Error fetching applicable offers:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/preview', async (req, res) => {
+  try {
+    const entity_id = resolveScopedEntityId(req, req.body.entity_id);
+    const offer_code = String(req.body.offer_code || '').trim();
+    const lines = Array.isArray(req.body.lines) ? req.body.lines : [];
+    if (!offer_code) return res.status(400).json({ success: false, error: 'رمز العرض مطلوب' });
+    const offerRes = await db.query(
+      `SELECT * FROM finance_quick_offers
+       WHERE entity_id = $1 AND offer_code = $2
+         AND status = 'active' AND approval_state = 'approved'
+         AND start_at <= NOW() AND end_at >= NOW()
+       LIMIT 1`,
+      [entity_id, offer_code]
+    );
+    if (!offerRes.rows[0]) {
+      return res.status(404).json({ success: false, error: 'العرض غير نشط أو خارج فترة الصلاحية' });
+    }
+    const offer = offerRes.rows[0];
+    const priced = lines.map((line) => {
+      const qty = Number(line.quantity) || 0;
+      const price = Number(line.unit_price) || 0;
+      const subtotal = qty * price;
+      const codes = offer.item_codes || [];
+      const sku = String(line.item_code || line.sku || '').trim();
+      const eligible = !codes.length || (sku && codes.includes(sku));
+      const discount_amount = eligible ? computeLineDiscount(offer, subtotal) : 0;
+      return {
+        ...line,
+        eligible,
+        discount_amount,
+        line_subtotal_after_discount: Math.max(0, subtotal - discount_amount)
+      };
+    });
+    const discount_total = priced.reduce((sum, line) => sum + Number(line.discount_amount || 0), 0);
+    res.json({ success: true, offer, lines: priced, discount_total });
+  } catch (error) {
+    console.error('Error previewing offer:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const {
@@ -213,26 +305,32 @@ router.post('/', async (req, res) => {
       city,
       district,
       national_address_number,
-      short_address
+      short_address,
+      item_codes,
+      max_discount_pct = 100
     } = req.body;
     const entity_id = resolveScopedEntityId(req, req.body.entity_id);
     const entity_type = getRequestEntityContext(req).type;
+    const actor = actorOf(req);
 
-    if (!title || !category || discount_value === undefined || !start_at || !end_at) {
-      return res.status(400).json({ success: false, error: 'Missing required fields' });
-    }
+    const problem = validateOfferBody({
+      title, category, discount_type, discount_value, start_at, end_at, max_discount_pct
+    });
+    if (problem) return res.status(400).json({ success: false, error: problem });
 
     const finalOfferCode = offer_code || await generateOfferCode();
     const channelsArray = normalizeChannels(channels);
+    const itemCodes = normalizeItemCodes(item_codes);
+    const audit = appendAudit([], { action: 'create', by: actor, status, approval_state });
 
     const result = await db.query(
       `INSERT INTO finance_quick_offers
         (offer_code, title, category, discount_type, discount_value, start_at, end_at, status, approval_state,
          priority, target_segment, channels, budget, expected_roi, risk_score, impressions, conversions, revenue, cost,
          rules, notes, street_name, postal_code, building_number, city, district, national_address_number, short_address,
-         entity_id, entity_type, created_by)
+         entity_id, entity_type, created_by, item_codes, max_discount_pct, audit_log)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34::jsonb)
        RETURNING *`,
       [
         finalOfferCode,
@@ -265,7 +363,10 @@ router.post('/', async (req, res) => {
         short_address,
         entity_id,
         entity_type,
-        req.headers['x-user-id'] || 'system'
+        actor,
+        itemCodes,
+        max_discount_pct,
+        JSON.stringify(audit)
       ]
     );
 
@@ -279,6 +380,28 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const actor = actorOf(req);
+    const entityId = resolveScopedEntityId(req, req.body.entity_id);
+    const current = await db.query(
+      'SELECT * FROM finance_quick_offers WHERE id = $1 AND entity_id = $2',
+      [id, entityId]
+    );
+    if (!current.rows[0]) {
+      return res.status(404).json({ success: false, error: 'العرض غير موجود' });
+    }
+
+    const merged = {
+      title: req.body.title !== undefined ? req.body.title : current.rows[0].title,
+      category: req.body.category !== undefined ? req.body.category : current.rows[0].category,
+      discount_type: req.body.discount_type !== undefined ? req.body.discount_type : current.rows[0].discount_type,
+      discount_value: req.body.discount_value !== undefined ? req.body.discount_value : current.rows[0].discount_value,
+      start_at: req.body.start_at !== undefined ? req.body.start_at : current.rows[0].start_at,
+      end_at: req.body.end_at !== undefined ? req.body.end_at : current.rows[0].end_at,
+      max_discount_pct: req.body.max_discount_pct !== undefined ? req.body.max_discount_pct : current.rows[0].max_discount_pct
+    };
+    const problem = validateOfferBody(merged);
+    if (problem) return res.status(400).json({ success: false, error: problem });
+
     const fields = {
       title: req.body.title,
       category: req.body.category,
@@ -290,7 +413,7 @@ router.put('/:id', async (req, res) => {
       approval_state: req.body.approval_state,
       priority: req.body.priority,
       target_segment: req.body.target_segment,
-      channels: normalizeChannels(req.body.channels),
+      channels: req.body.channels !== undefined ? normalizeChannels(req.body.channels) : undefined,
       budget: req.body.budget,
       expected_roi: req.body.expected_roi,
       risk_score: req.body.risk_score,
@@ -306,24 +429,27 @@ router.put('/:id', async (req, res) => {
       city: req.body.city,
       district: req.body.district,
       national_address_number: req.body.national_address_number,
-      short_address: req.body.short_address
+      short_address: req.body.short_address,
+      item_codes: req.body.item_codes !== undefined ? normalizeItemCodes(req.body.item_codes) : undefined,
+      max_discount_pct: req.body.max_discount_pct,
+      updated_by: actor,
+      audit_log: appendAudit(current.rows[0].audit_log, { action: 'update', by: actor, fields: Object.keys(req.body || {}) })
     };
-    const entityId = resolveScopedEntityId(req, req.body.entity_id);
 
     const updates = [];
     const values = [];
     Object.entries(fields).forEach(([key, value]) => {
       if (value !== undefined) {
-        updates.push(`${key} = $${updates.length + 1}`);
-        values.push(value);
+        updates.push(`${key} = $${updates.length + 1}${key === 'audit_log' ? '::jsonb' : ''}`);
+        values.push(key === 'audit_log' ? JSON.stringify(value) : value);
       }
     });
 
     if (updates.length === 0) {
-      return res.status(400).json({ success: false, error: 'No fields to update' });
+      return res.status(400).json({ success: false, error: 'لا حقول للتعديل' });
     }
 
-    updates.push(`updated_at = NOW()`);
+    updates.push('updated_at = NOW()');
     values.push(id, entityId);
 
     const result = await db.query(
@@ -334,13 +460,72 @@ router.put('/:id', async (req, res) => {
       values
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Offer not found' });
-    }
-
     res.json({ success: true, offer: result.rows[0] });
   } catch (error) {
     console.error('Error updating quick offer:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/:id/activate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actor = actorOf(req);
+    const entityId = resolveScopedEntityId(req, req.body.entity_id);
+    const current = await db.query(
+      'SELECT * FROM finance_quick_offers WHERE id = $1 AND entity_id = $2',
+      [id, entityId]
+    );
+    if (!current.rows[0]) return res.status(404).json({ success: false, error: 'العرض غير موجود' });
+    const offer = current.rows[0];
+    if (new Date(offer.end_at) < new Date()) {
+      return res.status(409).json({ success: false, error: 'انتهت صلاحية العرض ولا يمكن تفعيله' });
+    }
+    const audit = appendAudit(offer.audit_log, { action: 'activate', by: actor });
+    const result = await db.query(
+      `UPDATE finance_quick_offers
+       SET status = 'active',
+           approval_state = 'approved',
+           activated_by = $1,
+           activated_at = NOW(),
+           updated_by = $1,
+           updated_at = NOW(),
+           audit_log = $2::jsonb
+       WHERE id = $3 AND entity_id = $4
+       RETURNING *`,
+      [actor, JSON.stringify(audit), id, entityId]
+    );
+    res.json({ success: true, offer: result.rows[0], message: 'تم تفعيل العرض' });
+  } catch (error) {
+    console.error('Error activating offer:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/:id/deactivate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actor = actorOf(req);
+    const entityId = resolveScopedEntityId(req, req.body.entity_id);
+    const current = await db.query(
+      'SELECT * FROM finance_quick_offers WHERE id = $1 AND entity_id = $2',
+      [id, entityId]
+    );
+    if (!current.rows[0]) return res.status(404).json({ success: false, error: 'العرض غير موجود' });
+    const audit = appendAudit(current.rows[0].audit_log, { action: 'deactivate', by: actor });
+    const result = await db.query(
+      `UPDATE finance_quick_offers
+       SET status = 'paused',
+           updated_by = $1,
+           updated_at = NOW(),
+           audit_log = $2::jsonb
+       WHERE id = $3 AND entity_id = $4
+       RETURNING *`,
+      [actor, JSON.stringify(audit), id, entityId]
+    );
+    res.json({ success: true, offer: result.rows[0], message: 'تم إيقاف العرض' });
+  } catch (error) {
+    console.error('Error deactivating offer:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -349,15 +534,23 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const entityId = resolveScopedEntityId(req, req.query.entity_id);
+    const current = await db.query(
+      'SELECT status FROM finance_quick_offers WHERE id = $1 AND entity_id = $2',
+      [id, entityId]
+    );
+    if (!current.rows[0]) {
+      return res.status(404).json({ success: false, error: 'العرض غير موجود' });
+    }
+    if (current.rows[0].status === 'active') {
+      return res.status(409).json({
+        success: false,
+        error: 'العرض النشط لا يُحذف. أوقفه أولًا ثم احذف المسودة إن لزم.'
+      });
+    }
     const result = await db.query(
       'DELETE FROM finance_quick_offers WHERE id = $1 AND entity_id = $2 RETURNING id',
       [id, entityId]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Offer not found' });
-    }
-
     res.json({ success: true, id: result.rows[0].id });
   } catch (error) {
     console.error('Error deleting quick offer:', error);
@@ -366,3 +559,5 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.computeLineDiscount = computeLineDiscount;
+module.exports.validateOfferBody = validateOfferBody;

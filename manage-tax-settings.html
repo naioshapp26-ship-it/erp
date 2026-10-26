@@ -274,6 +274,45 @@
                     </div>
                 </div>
 
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">الكيان القانوني</label>
+                        <input
+                            type="text"
+                            id="entity_id"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                            placeholder="مثال: HQ001 (فارغ = عام)"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">تاريخ السريان من</label>
+                        <input
+                            type="date"
+                            id="effective_from"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">تاريخ السريان إلى</label>
+                        <input
+                            type="date"
+                            id="effective_to"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                        >
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 font-bold mb-2">رموز أصناف معفاة (مفصولة بفاصلة)</label>
+                    <input
+                        type="text"
+                        id="exempt_item_codes"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                        placeholder="مثال: EXEMPT-01, ZERO-RATE"
+                    >
+                    <p class="text-xs text-gray-500 mt-1">لا تُدخل نسبًا قانونية افتراضية — المعدلات حسب إعداد الكيان المعتمد فقط.</p>
+                </div>
+
                 <!-- Branch-Specific Override Section -->
                 <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
                     <div class="flex items-center gap-3 mb-4">
@@ -517,6 +556,10 @@
             document.getElementById('taxForm').reset();
             document.getElementById('has_branch_override').checked = false;
             document.getElementById('branch-override-section').classList.add('hidden');
+            document.getElementById('entity_id').value = '';
+            document.getElementById('effective_from').value = '';
+            document.getElementById('effective_to').value = '';
+            document.getElementById('exempt_item_codes').value = '';
             document.getElementById('taxModal').classList.remove('hidden');
         }
 
@@ -550,6 +593,12 @@
                 document.getElementById('is_active').checked = tax.is_active;
                 document.getElementById('include_in_total').checked = tax.include_in_total;
                 document.getElementById('is_default').checked = tax.is_default;
+                document.getElementById('entity_id').value = tax.entity_id || '';
+                document.getElementById('effective_from').value = tax.effective_from ? String(tax.effective_from).slice(0, 10) : '';
+                document.getElementById('effective_to').value = tax.effective_to ? String(tax.effective_to).slice(0, 10) : '';
+                document.getElementById('exempt_item_codes').value = Array.isArray(tax.exempt_item_codes)
+                    ? tax.exempt_item_codes.join(', ')
+                    : (tax.exempt_item_codes || '');
 
                 if (tax.branch_id) {
                     document.getElementById('has_branch_override').checked = true;
@@ -588,7 +637,11 @@
                 max_amount: document.getElementById('max_amount').value ? parseFloat(document.getElementById('max_amount').value) : null,
                 is_active: document.getElementById('is_active').checked,
                 include_in_total: document.getElementById('include_in_total').checked,
-                is_default: document.getElementById('is_default').checked
+                is_default: document.getElementById('is_default').checked,
+                entity_id: document.getElementById('entity_id').value.trim() || null,
+                effective_from: document.getElementById('effective_from').value || null,
+                effective_to: document.getElementById('effective_to').value || null,
+                exempt_item_codes: document.getElementById('exempt_item_codes').value
             };
 
             if (document.getElementById('has_branch_override').checked) {
