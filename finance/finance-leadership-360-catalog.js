@@ -426,7 +426,14 @@
 
   /** PR #182 finance functions re-surfaced on Finance (keep HR copies; do not delete). */
   const QUICK_ACCESS = [
-    { id: 'qa-expenses', label: 'إدارة المصروفات', icon: 'fa-receipt', href: '/finance/expenses.html', status: 'operational' },
+    {
+      id: 'qa-expenses',
+      label: 'إدارة المصروفات',
+      icon: 'fa-receipt',
+      href: '/finance/expenses.html',
+      status: 'operational',
+      note: 'حفظ وترحيل قيد من دليل الحسابات عند الاعتماد، وعكس معتمد بدل حذف الأثر'
+    },
     { id: 'qa-journal', label: 'مركز القيود المحاسبية', icon: 'fa-book', href: '/finance/journal.html', status: 'operational' },
     {
       id: 'qa-accounting',

@@ -3745,6 +3745,8 @@ const expensesAPI = require('./finance/api/expenses');
 app.get('/finance/expenses/test', expensesAPI.testConnection);
 app.get('/finance/expenses', expensesAPI.getExpenses);
 app.post('/finance/expenses', expensesAPI.createExpense);
+app.post('/finance/expenses/:id/post', expensesAPI.postExpense);
+app.post('/finance/expenses/:id/cancel', expensesAPI.cancelExpense);
 app.put('/finance/expenses/:id', expensesAPI.updateExpense);
 app.delete('/finance/expenses/:id', expensesAPI.deleteExpense);
 app.post('/finance/vendors', expensesAPI.createVendor);

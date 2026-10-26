@@ -5,9 +5,112 @@
 
 const { getRequestEntityContext, buildEntityScopeCondition } = require('../../entity-context');
 const { resolveScopedEntityId, resolveScopedEntityType } = require('./resolve-scoped-entity');
+const { reverseEntry, PostingError } = require('../services/finance-posting-service');
 
 const db = require('../../db');
 const pool = db.pool;
+
+const POSTABLE_STATUSES = new Set(['APPROVED', 'POSTED', 'PAID']);
+
+function isPostableStatus(status) {
+  return POSTABLE_STATUSES.has(String(status || '').toUpperCase());
+}
+
+function mapExpenseAccountCode(category) {
+  const c = String(category || '').toLowerCase();
+  if (/راتب|salary|payroll/.test(c)) return '5100';
+  if (/إيجار|ايجار|rent/.test(c)) return '5200';
+  if (/كهرب|مرافق|utilit/.test(c)) return '5300';
+  if (/صيان|maint/.test(c)) return '5400';
+  if (/سفر|travel/.test(c)) return '6200';
+  if (/مهني|استشار|profession/.test(c)) return '6300';
+  if (/تسويق|إعلان|advert|market/.test(c)) return '8100';
+  if (/تقن|saas|استضاف|host|tech/.test(c)) return '9100';
+  return '6400'; // لوازم / مصروف عام من دليل الحسابات الحالي
+}
+
+async function generateExpenseJeNumber(client) {
+  const year = new Date().getFullYear();
+  const prefix = `JE-${year}-`;
+  const result = await client.query(
+    `SELECT entry_number FROM finance_journal_entries
+     WHERE entry_number LIKE $1
+     ORDER BY entry_id DESC LIMIT 1`,
+    [`${prefix}%`]
+  );
+  const last = result.rows[0]?.entry_number || `${prefix}0000`;
+  const numeric = Number((last.match(/\d+$/) || ['0'])[0]) || 0;
+  return `${prefix}${String(numeric + 1).padStart(4, '0')}`;
+}
+
+/**
+ * Post expense to journal using existing CoA codes (no invented accounts).
+ * Idempotent when journal_entry_id already set.
+ */
+async function postExpenseJournal(client, expense, { createdBy = 'system' } = {}) {
+  if (!expense || expense.journal_entry_id) {
+    return { skipped: true, journal_entry_id: expense?.journal_entry_id || null };
+  }
+  const amount = Number(expense.total_amount != null ? expense.total_amount : expense.amount) || 0;
+  if (amount <= 0) {
+    const err = new Error('مبلغ المصروف غير صالح للترحيل');
+    err.code = 'INVALID_AMOUNT';
+    throw err;
+  }
+  const expenseCode = mapExpenseAccountCode(expense.expense_category);
+  const cashCode = '1110';
+  const entry_number = await generateExpenseJeNumber(client);
+  const journalResult = await client.query(
+    `INSERT INTO finance_journal_entries
+     (entry_number, entry_date, entry_type, description, reference_number, reference_type, reference_id,
+      entity_type, entity_id, branch_id, incubator_id, status, is_posted, created_by)
+     VALUES ($1, $2, 'AUTO', $3, $4, 'EXPENSE', $5, $6, $7, $8, $9, 'POSTED', true, $10)
+     RETURNING *`,
+    [
+      entry_number,
+      expense.expense_date,
+      `قيد آلي - مصروف ${expense.expense_number}`,
+      expense.expense_number,
+      expense.expense_id,
+      expense.entity_type || 'HQ',
+      expense.entity_id,
+      expense.branch_id || null,
+      expense.incubator_id || null,
+      createdBy
+    ]
+  );
+  const journal_entry_id = journalResult.rows[0].entry_id;
+  await client.query(
+    `INSERT INTO finance_journal_lines
+     (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+     VALUES ($1, 1, (SELECT account_id FROM finance_accounts WHERE account_code = $2 LIMIT 1), $2, $3, 0, $4)`,
+    [journal_entry_id, expenseCode, amount, `مصروف ${expense.expense_category || ''} — ${expense.vendor_name || ''}`]
+  );
+  await client.query(
+    `INSERT INTO finance_journal_lines
+     (entry_id, line_number, account_id, account_code, debit_amount, credit_amount, description)
+     VALUES ($1, 2, (SELECT account_id FROM finance_accounts WHERE account_code = $2 LIMIT 1), $2, 0, $3, $4)`,
+    [journal_entry_id, cashCode, amount, `سداد مصروف ${expense.expense_number}`]
+  );
+  const missing = await client.query(
+    `SELECT COUNT(*)::int AS c FROM finance_journal_lines
+     WHERE entry_id = $1 AND account_id IS NULL`,
+    [journal_entry_id]
+  );
+  if (missing.rows[0].c > 0) {
+    const err = new Error(`حسابات الترحيل غير موجودة في دليل الحسابات (${expenseCode}/${cashCode})`);
+    err.code = 'ACCOUNT_NOT_FOUND';
+    throw err;
+  }
+  await client.query(
+    `UPDATE finance_expenses
+     SET journal_entry_id = $1, status = CASE WHEN UPPER(COALESCE(status,'')) IN ('DRAFT','') THEN 'APPROVED' ELSE status END,
+         updated_at = NOW()
+     WHERE expense_id = $2`,
+    [journal_entry_id, expense.expense_id]
+  );
+  return { journal_entry_id, entry_number, expense_account: expenseCode, cash_account: cashCode };
+}
 
 // Ensure address fields exist on expenses and vendors to avoid runtime errors
 async function ensureExpenseAddressColumns() {
@@ -328,12 +431,150 @@ async function createExpense(req, res) {
             short_address
         ];
 
-        const result = await pool.query(insertFields, insertValues);
-
-        res.status(201).json({ success: true, expense: result.rows[0] });
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await client.query(insertFields, insertValues);
+            let expense = result.rows[0];
+            let journal = null;
+            if (isPostableStatus(expense.status)) {
+                journal = await postExpenseJournal(client, expense, { createdBy: created_by || 'system' });
+                const refreshed = await client.query(
+                    'SELECT * FROM finance_expenses WHERE expense_id = $1',
+                    [expense.expense_id]
+                );
+                expense = refreshed.rows[0] || expense;
+            }
+            await client.query('COMMIT');
+            res.status(201).json({
+                success: true,
+                expense,
+                journal_entry_id: expense.journal_entry_id || journal?.journal_entry_id || null,
+                message: expense.journal_entry_id
+                    ? 'تم حفظ المصروف وترحيل القيد المحاسبي'
+                    : 'تم حفظ المصروف كمسودة بلا ترحيل'
+            });
+        } catch (postErr) {
+            try { await client.query('ROLLBACK'); } catch { /* */ }
+            throw postErr;
+        } finally {
+            client.release();
+        }
     } catch (error) {
         console.error('❌ Error creating expense:', error);
+        res.status(500).json({ success: false, error: error.message, code: error.code || null });
+    }
+}
+
+async function postExpense(req, res) {
+    const { id } = req.params;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const found = await client.query(
+            'SELECT * FROM finance_expenses WHERE expense_id = $1 FOR UPDATE',
+            [id]
+        );
+        if (!found.rows[0]) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'المصروف غير موجود' });
+        }
+        const expense = found.rows[0];
+        if (expense.journal_entry_id) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({
+                success: false,
+                error: 'المصروف مرحّل مسبقًا',
+                code: 'ALREADY_POSTED',
+                journal_entry_id: expense.journal_entry_id
+            });
+        }
+        const journal = await postExpenseJournal(client, expense, {
+            createdBy: req.headers['x-user-id'] || req.body?.created_by || 'system'
+        });
+        const refreshed = await client.query(
+            'SELECT * FROM finance_expenses WHERE expense_id = $1',
+            [id]
+        );
+        await client.query('COMMIT');
+        res.json({
+            success: true,
+            expense: refreshed.rows[0],
+            journal_entry_id: journal.journal_entry_id,
+            entry_number: journal.entry_number,
+            message: 'تم ترحيل قيد المصروف'
+        });
+    } catch (error) {
+        try { await client.query('ROLLBACK'); } catch { /* */ }
+        console.error('❌ Error posting expense:', error);
+        res.status(500).json({ success: false, error: error.message, code: error.code || null });
+    } finally {
+        client.release();
+    }
+}
+
+async function cancelExpense(req, res) {
+    const { id } = req.params;
+    const reason = String((req.body && req.body.reason) || '').trim();
+    if (!reason) {
+        return res.status(400).json({ success: false, error: 'سبب الإلغاء إلزامي', code: 'REASON_REQUIRED' });
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const found = await client.query(
+            'SELECT * FROM finance_expenses WHERE expense_id = $1 FOR UPDATE',
+            [id]
+        );
+        if (!found.rows[0]) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'المصروف غير موجود' });
+        }
+        const expense = found.rows[0];
+        if (String(expense.status).toUpperCase() === 'CANCELLED') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ success: false, error: 'المصروف ملغى مسبقًا', code: 'ALREADY_CANCELLED' });
+        }
+        let reversal = null;
+        if (expense.journal_entry_id) {
+            reversal = await reverseEntry(client, expense.journal_entry_id, {
+                req,
+                reason,
+                manageTransaction: false
+            });
+        }
+        const updated = await client.query(
+            `UPDATE finance_expenses
+             SET status = 'CANCELLED',
+                 notes = TRIM(BOTH ' |' FROM (COALESCE(notes::text, '') || ' | إلغاء: ' || $1::text)),
+                 updated_at = NOW()
+             WHERE expense_id = $2
+             RETURNING *`,
+            [reason, id]
+        );
+        await client.query('COMMIT');
+        res.json({
+            success: true,
+            expense: updated.rows[0],
+            reversal: reversal?.entry || reversal?.reversal || reversal,
+            message: expense.journal_entry_id
+                ? 'تم إلغاء المصروف وإنشاء قيد عكسي — القيد الأصلي لم يُحذف'
+                : 'تم إلغاء المصروف'
+        });
+    } catch (error) {
+        try { await client.query('ROLLBACK'); } catch { /* */ }
+        if (error instanceof PostingError) {
+            return res.status(error.status).json({
+                success: false,
+                error: error.message,
+                code: error.code,
+                ...(error.extra || {})
+            });
+        }
+        console.error('❌ Error cancelling expense:', error);
         res.status(500).json({ success: false, error: error.message });
+    } finally {
+        client.release();
     }
 }
 
@@ -535,10 +776,22 @@ async function createVendor(req, res) {
 async function deleteExpense(req, res) {
     const { id } = req.params;
     try {
-        const result = await pool.query('DELETE FROM finance_expenses WHERE expense_id = $1 RETURNING *', [id]);
-        if (result.rows.length === 0) {
+        const current = await pool.query(
+            'SELECT expense_id, journal_entry_id, status FROM finance_expenses WHERE expense_id = $1',
+            [id]
+        );
+        if (!current.rows[0]) {
             return res.status(404).json({ success: false, error: 'المصروف غير موجود' });
         }
+        if (current.rows[0].journal_entry_id) {
+            return res.status(409).json({
+                success: false,
+                error: 'لا يُحذف مصروف مرحّل. استخدم مسار الإلغاء المعتمد لعكس القيد.',
+                code: 'POSTED_USE_CANCEL',
+                journal_entry_id: current.rows[0].journal_entry_id
+            });
+        }
+        const result = await pool.query('DELETE FROM finance_expenses WHERE expense_id = $1 RETURNING *', [id]);
         res.json({ success: true, expense: result.rows[0] });
     } catch (error) {
         console.error('❌ Error deleting expense:', error);
@@ -659,6 +912,8 @@ module.exports = {
     createExpense,
     updateExpense,
     deleteExpense,
+    postExpense,
+    cancelExpense,
     createVendor,
     updateVendor,
     deleteVendor

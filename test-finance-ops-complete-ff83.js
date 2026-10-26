@@ -409,12 +409,37 @@ async function main() {
     description: `مصروف ${stamp}`,
     amount: 75,
     tax_amount: 0,
-    status: 'DRAFT'
+    status: 'APPROVED'
   }, auth);
   const expense = exp.json?.expense || exp.json;
-  exp.status < 300 && (expense?.expense_id || expense?.id)
-    ? pass('expense-create', String(expense.expense_id || expense.id))
-    : fail('expense-create', `${exp.status} ${exp.raw}`);
+  exp.status < 300 && (expense?.expense_id || expense?.id) && expense?.journal_entry_id
+    ? pass('expense-create-posted', `id=${expense.expense_id || expense.id} je=${expense.journal_entry_id}`)
+    : fail('expense-create-posted', `${exp.status} ${exp.raw}`);
+
+  if (expense?.expense_id && expense?.journal_entry_id) {
+    const postAgain = await httpJson('POST', `/finance/expenses/${expense.expense_id}/post`, { ...entity }, auth);
+    postAgain.status === 409
+      ? pass('expense-post-idempotent', postAgain.json?.code || String(postAgain.status))
+      : fail('expense-post-idempotent', `${postAgain.status} ${postAgain.raw}`);
+
+    const delBlocked = await httpJson('DELETE', `/finance/expenses/${expense.expense_id}`, null, auth);
+    delBlocked.status === 409
+      ? pass('expense-delete-blocked', delBlocked.json?.code || '')
+      : fail('expense-delete-blocked', `${delBlocked.status} ${delBlocked.raw}`);
+
+    const cancelExp = await httpJson('POST', `/finance/expenses/${expense.expense_id}/cancel`, {
+      ...entity,
+      reason: `إلغاء اختبار ${stamp}`
+    }, auth);
+    cancelExp.status === 200 && String(cancelExp.json?.expense?.status).toUpperCase() === 'CANCELLED'
+      ? pass('expense-cancel-reverse')
+      : fail('expense-cancel-reverse', `${cancelExp.status} ${cancelExp.raw}`);
+  }
+
+  const overviewAfterExp = await httpJson('GET', `/finance/accounting-integration/overview?entity_id=HQ001`, null, auth);
+  overviewAfterExp.status === 200 && Number(overviewAfterExp.json?.expenses?.with_journal || 0) > 0
+    ? pass('expense-visible-in-integration', String(overviewAfterExp.json.expenses.with_journal))
+    : fail('expense-visible-in-integration', overviewAfterExp.raw);
 
   // --- Catalog honesty check ---
   const catalog = require('./finance/finance-leadership-360-catalog');
