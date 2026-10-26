@@ -110,10 +110,10 @@ router.put('/:id', async (req, res) => {
         channel = COALESCE($13, channel),
         reason = COALESCE($14, reason),
         updated_at = NOW()
-       WHERE id = $1 OR discount_code = $1
+       WHERE id::text = $1::text OR discount_code = $1::text
        RETURNING *`,
       [
-        id,
+        String(id),
         b.name || null,
         b.scope || null,
         b.type || b.discount_type || null,
