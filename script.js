@@ -1668,30 +1668,43 @@ const app = (() => {
             let authToken = getSessionAuthToken();
             let savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
 
-            if (!authToken || !savedUser) {
-                console.log('⚠️ لا يوجد توكن أو مستخدم محفوظ؛ إعادة توجيه لتسجيل الدخول');
+            if (!authToken) {
+                console.log('⚠️ لا يوجد توكن محفوظ؛ إعادة توجيه لتسجيل الدخول');
                 clearAuthSessionAndRedirect();
                 return;
             }
 
-            // محاولة استرجاع بيانات المستخدم
-            try {
-                const userData = JSON.parse(savedUser);
-                currentUser = normalizeCurrentUserData(userData, readStoredMenu());
-                resetScopedClientSeedData();
-                window.currentUserData = currentUser;
-                console.log('✅ تم استرجاع بيانات المستخدم:', currentUser);
-            } catch (e) {
-                console.error('❌ خطأ في استرجاع بيانات المستخدم:', e);
-                // مسح البيانات الفاسدة وإعادة التوجيه
-                clearAuthSessionAndRedirect();
-                return;
+            // Keep auth cookie in sync with storage so HTML route guard does not bounce.
+            syncAuthCookieForNavigation();
+
+            // محاولة استرجاع بيانات المستخدم — إن غابت مع وجود توكن نُكمّلها من /verify (منع حلقة dashboard↔login)
+            if (savedUser) {
+                try {
+                    const userData = JSON.parse(savedUser);
+                    currentUser = normalizeCurrentUserData(userData, readStoredMenu());
+                    resetScopedClientSeedData();
+                    window.currentUserData = currentUser;
+                    console.log('✅ تم استرجاع بيانات المستخدم:', currentUser);
+                } catch (e) {
+                    console.error('❌ خطأ في استرجاع بيانات المستخدم:', e);
+                    savedUser = null;
+                    currentUser = null;
+                }
             }
-            
-            // التحقق من صلاحية التوكن مع السيرفر (اختياري)
+
+            // التحقق من صلاحية التوكن مع السيرفر (ويُهَيْدر المستخدم إن لزم)
             try {
                 const verifiedUser = await syncCurrentSessionUser({ forceRedirectOnFailure: false });
-                if (!verifiedUser) {
+                if (verifiedUser) {
+                    currentUser = normalizeCurrentUserData(verifiedUser, readStoredMenu());
+                    resetScopedClientSeedData();
+                    window.currentUserData = currentUser;
+                    persistUserSnapshot(currentUser);
+                } else if (!currentUser) {
+                    console.log('❌ التوكن غير صالح ولا توجد بيانات مستخدم — إعادة توجيه');
+                    clearAuthSessionAndRedirect();
+                    return;
+                } else {
                     const tenantType = String(currentUser?.tenantType || currentUser?.tenant_type || '').trim().toUpperCase();
                     const canUseCachedTenantSession = getAppAuthContext().isTenant
                         && tenantType === 'TENANT'
@@ -1704,6 +1717,11 @@ const app = (() => {
                     console.warn('⚠️ تعذر التحقق من الجلسة؛ الاستمرار بالبيانات المحفوظة');
                 }
             } catch (verifyError) {
+                if (!currentUser) {
+                    console.warn('⚠️ تعذر التحقق من التوكن بلا مستخدم محفوظ:', verifyError);
+                    clearAuthSessionAndRedirect();
+                    return;
+                }
                 const tenantType = String(currentUser?.tenantType || currentUser?.tenant_type || '').trim().toUpperCase();
                 const canUseCachedTenantSession = getAppAuthContext().isTenant
                     && tenantType === 'TENANT'

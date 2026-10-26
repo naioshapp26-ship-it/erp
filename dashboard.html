@@ -24,7 +24,19 @@
           : '/login-page.html';
         var token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
         var user = localStorage.getItem('user') || sessionStorage.getItem('user');
-        if (!token || !user) {
+        if (!token) {
+          var cookieMatch = String(document.cookie || '').match(/(?:^|;\s*)authToken=([^;]+)/);
+          if (cookieMatch) {
+            token = decodeURIComponent(cookieMatch[1]);
+            try {
+              localStorage.setItem('authToken', token);
+              sessionStorage.setItem('authToken', token);
+            } catch (e) { /* ignore quota */ }
+          }
+        }
+        // Missing user with a valid token must NOT bounce to login (causes redirect loops).
+        // script.js / boot path will hydrate user via /api/auth/verify.
+        if (!token) {
           window.location.replace(redirectPath + location.search + location.hash);
         }
       })();

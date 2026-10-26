@@ -590,6 +590,20 @@
                 .then(res => res.json())
                 .then(result => {
                     if (result.success) {
+                        // Persist user + cookie. Token in localStorage alone is not enough:
+                        // requireAuthForHtml only sees the cookie on navigation → dashboard↔login loop.
+                        const activeUser = result.user || result.data?.user || null;
+                        if (activeUser) {
+                            const serialized = JSON.stringify(activeUser);
+                            localStorage.setItem('user', serialized);
+                            sessionStorage.setItem('user', serialized);
+                        }
+                        if (token) {
+                            localStorage.setItem('authToken', token);
+                            sessionStorage.setItem('authToken', token);
+                            const secure = location.protocol === 'https:' ? '; Secure' : '';
+                            document.cookie = `authToken=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 24}${secure}`;
+                        }
                         showAlert('لديك جلسة نشطة بالفعل. جاري تحويلك...', 'success');
                         setTimeout(() => {
                             window.location.href = resolvePostLoginRedirect();
@@ -597,6 +611,8 @@
                     } else {
                         localStorage.removeItem('authToken');
                         sessionStorage.removeItem('authToken');
+                        localStorage.removeItem('user');
+                        sessionStorage.removeItem('user');
                         document.cookie = 'authToken=; Max-Age=0; Path=/; SameSite=Lax';
                     }
                 })
