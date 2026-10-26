@@ -85,10 +85,10 @@
       pages: [
         {
           id: 'vendors',
-          label: 'موردو المصروفات',
-          status: 'partial',
-          href: '/finance/expenses.html',
-          note: 'إدارة موردين مرتبطة بالمصروفات فقط — ليست دورة مشتريات (طلبات/أوامر/استلام)'
+          label: 'موردو المشتريات',
+          status: 'operational',
+          href: '/finance/purchase-vendors.html',
+          note: 'نطاق PURCHASE/BOTH على finance_vendors + ربط أوامر/فواتير/مستحق. موردو المصروفات فقط ما زالوا عبر expenses'
         },
         { id: 'purchase-requests', label: 'طلبات الشراء', status: 'operational', href: '/finance/purchase-requests.html', note: 'طلب مستقل قابل للتحويل إلى أمر شراء' },
         {
@@ -98,7 +98,13 @@
           href: '/finance/purchase-orders.html',
           note: 'مسودة→اعتماد→استلام/إلغاء، بنود وضرائب، مفوتر/متبقي، تدقيق — منضدة purchase-orders'
         },
-        { id: 'vendor-quotes', label: 'عروض أسعار الموردين', status: 'partial', href: '/finance/purchase-orders.html', note: 'لا وحدة عروض أسعار مستقلة بعد — يُدار مؤقتًا عبر أوامر الشراء' },
+        {
+          id: 'vendor-quotes',
+          label: 'عروض أسعار الموردين',
+          status: 'operational',
+          href: '/finance/vendor-quotes.html',
+          note: 'وحدة مستقلة: مسودة→إرسال→قبول/رفض→تحويل لأمر شراء مع بنود وتدقيق'
+        },
         {
           id: 'vendor-invoices',
           label: 'فواتير الموردين',
@@ -109,9 +115,9 @@
         {
           id: 'receiving',
           label: 'الاستلام ومتابعة المشتريات',
-          status: 'partial',
-          href: '/finance/inventory.html#links',
-          note: 'تأكيد الاستلام على الأمر موجود؛ أثر المخزون والقيد المحاسبي يتم عبر استلام المخزون المرتبط بالأمر المعتمد — ليست شاشة استلام مشتريات مستقلة'
+          status: 'operational',
+          href: '/finance/purchase-receiving.html',
+          note: 'شاشة مستقلة: استلام أمر معتمد يزيد المخزون وينشئ قيد GRNI عبر stock-link'
         }
       ]
     },
@@ -143,10 +149,10 @@
         },
         {
           id: 'stock-vendors',
-          label: 'موردو المصروفات (مرجع)',
-          status: 'partial',
-          href: '/finance/expenses.html',
-          note: 'نفس موردي المصروفات — ليست إدارة موردي مخزون/مشتريات مكتملة'
+          label: 'موردو المشتريات (مرجع)',
+          status: 'operational',
+          href: '/finance/purchase-vendors.html',
+          note: 'إدارة موردي المشتريات؛ موردي المصروفات يبقون في expenses عند الحاجة'
         },
         { id: 'procurement-cycle', label: 'دورة المشتريات', status: 'operational', href: '/finance/purchase-requests.html', note: 'من طلب الشراء إلى أمر الشراء' },
         { id: 'warehouse-docs', label: 'الأذون المخزنية', status: 'operational', href: '/finance/inventory.html#moves', note: 'إذن إدخال وإخراج وتحويل وتسوية. الحركة المعتمدة لا تُعدَّل' },
@@ -609,12 +615,12 @@
     'sales.offers-discounts': 'operational',
     'sales.deposits': 'operational',
     'sales.collection': 'operational',
-    'purchases.vendors': 'partial',
+    'purchases.vendors': 'operational',
     'purchases.purchase-requests': 'operational',
     'purchases.purchase-orders': 'operational',
-    'purchases.vendor-quotes': 'partial',
+    'purchases.vendor-quotes': 'operational',
     'purchases.vendor-invoices': 'operational',
-    'purchases.receiving': 'partial',
+    'purchases.receiving': 'operational',
     'inventory.stock-vendors': 'partial',
     'reports.balance-sheet': 'partial',
     'settings.page-settings': 'operational',

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>عروض أسعار الموردين — تشغيل مالي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/finance/finance-workbench.css">
+  <style>
+    .po-line-row{display:grid;grid-template-columns:1.2fr 2fr .7fr .9fr .6fr auto;gap:6px;align-items:end;margin-bottom:6px}
+    .po-line-row label{display:grid;gap:4px;font-size:.78rem;font-weight:800;color:#64748b}
+    .po-line-row input{border:1px solid var(--fw-line);border-radius:10px;padding:8px 10px;font:inherit}
+    .audit-list{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
+    .audit-list li{background:#f8fafc;border:1px solid var(--fw-line);border-radius:10px;padding:8px 10px;font-size:.85rem}
+    @media(max-width:900px){.po-line-row{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body class="fw-body">
+  <div class="fw-shell">
+    <div id="topnav"></div>
+    <header class="fw-hero">
+      <div>
+        <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
+        <h1><i class="fas fa-file-signature"></i> عروض أسعار الموردين</h1>
+        <p>وحدة مستقلة: مسودة → إرسال → قبول/رفض → تحويل إلى أمر شراء مسودة، مع بنود وضريبة وسجل تدقيق في Postgres.</p>
+      </div>
+      <div class="fw-actions">
+        <button type="button" class="fw-btn fw-btn-ok" id="btn-add"><i class="fas fa-plus"></i> عرض سعر جديد</button>
+        <button type="button" class="fw-btn" id="btn-reload"><i class="fas fa-rotate"></i> تحديث</button>
+        <a class="fw-btn" href="/finance/purchase-orders.html">أوامر الشراء</a>
+        <a class="fw-btn" href="/finance/purchase-vendors.html">موردو المشتريات</a>
+      </div>
+    </header>
+    <div id="alert" class="fw-alert info" hidden></div>
+    <div class="fw-kpis" id="kpis"></div>
+    <div class="fw-toolbar">
+      <input type="search" id="q" class="fw-grow" placeholder="بحث برقم العرض أو المورد…">
+      <select id="filter-status">
+        <option value="">كل الحالات</option>
+        <option value="DRAFT">مسودة</option>
+        <option value="SENT">مُرسل</option>
+        <option value="ACCEPTED">مقبول</option>
+        <option value="REJECTED">مرفوض</option>
+        <option value="CONVERTED">محوّل</option>
+      </select>
+      <select id="page-size"><option value="25" selected>25</option><option value="50">50</option></select>
+    </div>
+    <div class="fw-layout">
+      <section class="fw-card">
+        <div class="fw-card-head"><h2>سجل العروض</h2><span id="count" class="fw-badge muted">0</span></div>
+        <div id="table-host"></div>
+        <div class="fw-pager" id="pager"></div>
+      </section>
+      <aside class="fw-drawer" id="drawer">
+        <div class="fw-empty"><i class="fas fa-hand-pointer"></i>اختر عرض سعر للمعاينة والإجراءات</div>
+      </aside>
+    </div>
+  </div>
+  <div class="fw-modal" id="modal" hidden>
+    <form class="fw-sheet" id="form" style="max-width:920px">
+      <h2 id="modal-title">عرض سعر جديد</h2>
+      <input type="hidden" id="edit_id">
+      <div class="fw-form-grid">
+        <label>المورد *<input id="vendor_name" list="vendor-list" required></label>
+        <datalist id="vendor-list"></datalist>
+        <label>العملة<select id="currency"><option>SAR</option><option>EGP</option><option>USD</option></select></label>
+        <label>تاريخ العرض *<input type="date" id="quote_date" required></label>
+        <label>صالح حتى<input type="date" id="valid_until"></label>
+        <label class="wide">ملاحظات<textarea id="notes" rows="2"></textarea></label>
+      </div>
+      <div style="margin-top:12px">
+        <div class="fw-actions" style="justify-content:space-between"><strong>البنود *</strong>
+          <button type="button" class="fw-btn fw-btn-mini" id="btn-add-line"><i class="fas fa-plus"></i> بند</button></div>
+        <div id="lines"></div>
+        <p class="fw-alert info" id="totals-hint" style="margin-top:10px"></p>
+      </div>
+      <div class="fw-sheet-actions">
+        <button type="button" class="fw-btn" id="btn-cancel">إلغاء</button>
+        <button type="submit" class="fw-btn fw-btn-primary">حفظ المسودة</button>
+      </div>
+    </form>
+  </div>
+  <script src="/finance/finance-context.js"></script>
+  <script src="/finance/finance-workbench.js"></script>
+  <script>
+  (function(){
+    const FW=window.FinanceWorkbench;
+    const state={quotes:[],page:1,selected:null,detail:null};
+    const AR={DRAFT:'مسودة',SENT:'مُرسل',ACCEPTED:'مقبول',REJECTED:'مرفوض',CONVERTED:'محوّل'};
+    document.getElementById('topnav').innerHTML=FW.topNav([
+      ['/finance','اللوحة'],['/finance/vendor-quotes.html','عروض الأسعار'],
+      ['/finance/purchase-orders.html','أوامر الشراء'],['/finance/purchase-vendors.html','الموردون']
+    ],'/finance/vendor-quotes.html');
+    const qs=()=>`entity_id=${encodeURIComponent(FW.entityId()||'HQ001')}`;
+    const payload=()=>({entity_id:FW.entityId()||'HQ001',entity_type:'HQ'});
+    const today=()=>new Date().toISOString().slice(0,10);
+    function lineHtml(l={}){return `<div class="po-line-row">
+      <label>كود<input data-f="item_code" value="${FW.esc(l.item_code||'')}"></label>
+      <label>الصنف *<input data-f="item_name" value="${FW.esc(l.item_name||'')}" required></label>
+      <label>كمية<input type="number" min="0.001" step="0.001" data-f="quantity" value="${FW.esc(l.quantity!=null?l.quantity:1)}"></label>
+      <label>سعر<input type="number" min="0" step="0.01" data-f="unit_price" value="${FW.esc(l.unit_price!=null?l.unit_price:0)}"></label>
+      <label>ض%<input type="number" min="0" step="0.01" data-f="tax_pct" value="${FW.esc(l.tax_pct!=null?l.tax_pct:15)}"></label>
+      <button type="button" class="fw-btn fw-btn-mini fw-btn-danger" data-rm>&times;</button></div>`;}
+    function collect(){return [...document.querySelectorAll('#lines .po-line-row')].map(row=>({
+      item_code:row.querySelector('[data-f=item_code]').value.trim()||null,
+      item_name:row.querySelector('[data-f=item_name]').value.trim(),
+      quantity:Number(row.querySelector('[data-f=quantity]').value||0),
+      unit_price:Number(row.querySelector('[data-f=unit_price]').value||0),
+      tax_pct:Number(row.querySelector('[data-f=tax_pct]').value||0)
+    })).filter(l=>l.item_name&&l.quantity>0);}
+    function hint(){const lines=collect();const sub=lines.reduce((s,l)=>s+l.quantity*l.unit_price,0);
+      const tax=lines.reduce((s,l)=>s+l.quantity*l.unit_price*(l.tax_pct/100),0);
+      document.getElementById('totals-hint').textContent=`${lines.length} بنود · قبل الضريبة ${FW.money(sub)} · ضريبة ${FW.money(tax)} · إجمالي ${FW.money(sub+tax)}`;}
+    function filtered(){const q=document.getElementById('q').value.trim().toLowerCase();
+      const st=document.getElementById('filter-status').value;
+      return state.quotes.filter(x=>{
+        if(st&&String(x.status).toUpperCase()!==st)return false;
+        if(!q)return true;
+        return `${x.quote_number} ${x.vendor_name||''}`.toLowerCase().includes(q);
+      });}
+    function renderKpis(){const rows=state.quotes;
+      const draft=rows.filter(r=>r.status==='DRAFT').length;
+      const sent=rows.filter(r=>r.status==='SENT').length;
+      const acc=rows.filter(r=>r.status==='ACCEPTED').length;
+      const amount=rows.reduce((s,r)=>s+Number(r.total_amount||0),0);
+      document.getElementById('kpis').innerHTML=[
+        ['العروض',rows.length,`${draft} مسودة`],['مُرسلة',sent,'بانتظار الرد'],
+        ['مقبولة',acc,'قابلة للتحويل'],['قيمة العروض',FW.money(amount),'SAR']
+      ].map(([a,b,c])=>`<div class="fw-kpi"><span>${a}</span><strong>${b}</strong><em>${c}</em></div>`).join('');}
+    function renderTable(){const host=document.getElementById('table-host');
+      const page=FW.paginate(filtered(),state.page,Number(document.getElementById('page-size').value)||25);
+      state.page=page.page;document.getElementById('count').textContent=String(page.total);
+      FW.renderPager(document.getElementById('pager'),page,p=>{state.page=p;renderTable();});
+      if(!page.total){host.innerHTML=FW.emptyState('لا عروض أسعار','<div style="margin-top:10px"><button class="fw-btn fw-btn-ok" id="empty-add">عرض جديد</button></div>');
+        document.getElementById('empty-add')?.addEventListener('click',openCreate);return;}
+      host.innerHTML=`<div class="fw-table-wrap"><table class="fw-table"><thead><tr>
+        <th>الرقم</th><th>المورد</th><th>التاريخ</th><th>صالح حتى</th><th>البنود</th><th>الإجمالي</th><th>الحالة</th><th></th>
+        </tr></thead><tbody>${page.rows.map(q=>`<tr class="${state.selected===q.quote_id?'active':''}" data-id="${q.quote_id}">
+          <td class="fw-num">${FW.esc(q.quote_number)}</td><td>${FW.esc(q.vendor_name)}</td>
+          <td>${FW.esc(String(q.quote_date||'').slice(0,10))}</td>
+          <td>${FW.esc(q.valid_until?String(q.valid_until).slice(0,10):'—')}</td>
+          <td class="fw-num">${FW.esc(q.line_count||0)}</td>
+          <td class="fw-num">${FW.money(q.total_amount,q.currency_code)}</td>
+          <td>${FW.statusBadge(AR[String(q.status).toUpperCase()]||q.status)}</td>
+          <td><button type="button" class="fw-btn fw-btn-mini" data-view="${q.quote_id}">معاينة</button></td>
+        </tr>`).join('')}</tbody></table></div>`;}
+    async function show(id){state.selected=Number(id);renderTable();
+      const drawer=document.getElementById('drawer');drawer.innerHTML=FW.loadingState();
+      const res=await FW.api('GET',`/finance/purchases/quotes/${id}?${qs()}`);
+      if(!res.ok||!res.json?.success){drawer.innerHTML=FW.emptyState(res.json?.error||'فشل');return;}
+      state.detail=res.json;const q=res.json.quote;const lines=res.json.lines||[];
+      const st=String(q.status).toUpperCase();
+      const audit=Array.isArray(q.audit_log)?q.audit_log:(()=>{try{return JSON.parse(q.audit_log||'[]')}catch{return[]}})();
+      drawer.innerHTML=`<h3>${FW.esc(q.quote_number)}</h3>
+        <div class="fw-meta">
+          <div><span>المورد</span><strong>${FW.esc(q.vendor_name)}</strong></div>
+          <div><span>الحالة</span><strong>${FW.statusBadge(AR[st]||q.status)}</strong></div>
+          <div><span>الإجمالي</span><strong class="fw-num">${FW.money(q.total_amount,q.currency_code)}</strong></div>
+          <div><span>أمر محوّل</span><strong class="fw-num">${q.converted_po_id||'—'}</strong></div>
+        </div>
+        <h4 style="margin:12px 0 8px">البنود</h4>
+        <div class="fw-table-wrap"><table class="fw-table"><thead><tr><th>#</th><th>الصنف</th><th>كمية</th><th>سعر</th><th>إجمالي</th></tr></thead>
+        <tbody>${lines.map(l=>`<tr><td>${l.line_number}</td><td>${FW.esc(l.item_name)}</td><td class="fw-num">${l.quantity}</td>
+          <td class="fw-num">${FW.money(l.unit_price)}</td><td class="fw-num">${FW.money(l.line_total)}</td></tr>`).join('')}</tbody></table></div>
+        <div class="fw-actions" style="margin-top:12px">
+          ${st==='DRAFT'?`<button class="fw-btn" id="d-edit">تعديل</button><button class="fw-btn fw-btn-ok" id="d-send">إرسال</button><button class="fw-btn fw-btn-danger" id="d-del">حذف</button>`:''}
+          ${st==='SENT'||st==='DRAFT'?`<button class="fw-btn fw-btn-ok" id="d-accept">قبول</button><button class="fw-btn fw-btn-danger" id="d-reject">رفض</button>`:''}
+          ${st==='ACCEPTED'||st==='SENT'?`<button class="fw-btn fw-btn-primary" id="d-convert">تحويل لأمر شراء</button>`:''}
+          ${q.converted_po_id?`<a class="fw-btn" href="/finance/purchase-orders.html">فتح أوامر الشراء</a>`:''}
+        </div>
+        <h4 style="margin:12px 0 8px">التدقيق</h4>
+        <ul class="audit-list">${audit.slice().reverse().map(e=>`<li><strong>${FW.esc(e.action)}</strong> — ${FW.esc(e.by||'')} — ${FW.esc(e.at||'')}</li>`).join('')||'<li>لا أحداث</li>'}</ul>`;
+      document.getElementById('d-edit')?.addEventListener('click',()=>openCreate(res.json));
+      document.getElementById('d-send')?.addEventListener('click',()=>act(id,'send','إرسال العرض؟'));
+      document.getElementById('d-accept')?.addEventListener('click',()=>act(id,'accept','قبول العرض؟'));
+      document.getElementById('d-reject')?.addEventListener('click',()=>act(id,'reject','رفض العرض؟'));
+      document.getElementById('d-convert')?.addEventListener('click',async()=>{
+        if(!await window.ErpDialog.confirm('تحويل العرض إلى أمر شراء مسودة؟'))return;
+        const r=await FW.api('POST',`/finance/purchases/quotes/${id}/convert`,payload());
+        if(!r.ok)return FW.setAlert(document.getElementById('alert'),r.json?.error||'فشل','err');
+        FW.setAlert(document.getElementById('alert'),r.json?.message||'تم التحويل','ok');
+        await load();show(id);
+      });
+      document.getElementById('d-del')?.addEventListener('click',async()=>{
+        if(!await window.ErpDialog.confirm('حذف المسودة؟'))return;
+        const r=await FW.api('DELETE',`/finance/purchases/quotes/${id}?${qs()}`);
+        if(!r.ok)return FW.setAlert(document.getElementById('alert'),r.json?.error||'فشل','err');
+        state.selected=null;await load();
+        document.getElementById('drawer').innerHTML='<div class="fw-empty"><i class="fas fa-inbox"></i>اختر عرضًا</div>';
+      });}
+    async function act(id,action,msg){if(!await window.ErpDialog.confirm(msg))return;
+      const r=await FW.api('POST',`/finance/purchases/quotes/${id}/${action}`,payload());
+      if(!r.ok)return FW.setAlert(document.getElementById('alert'),r.json?.error||'فشل','err');
+      await load();show(id);}
+    function openCreate(detail){document.getElementById('edit_id').value=detail?.quote?.quote_id||'';
+      document.getElementById('modal-title').textContent=detail?.quote?`تعديل ${detail.quote.quote_number}`:'عرض سعر جديد';
+      document.getElementById('vendor_name').value=detail?.quote?.vendor_name||'';
+      document.getElementById('currency').value=detail?.quote?.currency_code||'SAR';
+      document.getElementById('quote_date').value=detail?.quote?.quote_date?String(detail.quote.quote_date).slice(0,10):today();
+      document.getElementById('valid_until').value=detail?.quote?.valid_until?String(detail.quote.valid_until).slice(0,10):'';
+      document.getElementById('notes').value=detail?.quote?.notes||'';
+      document.getElementById('lines').innerHTML=(detail?.lines?.length?detail.lines:[{}]).map(lineHtml).join('');
+      hint();document.getElementById('modal').hidden=false;}
+    async function load(){document.getElementById('table-host').innerHTML=FW.loadingState();
+      const [quotes,vendors]=await Promise.all([
+        FW.api('GET',`/finance/purchases/quotes?${qs()}`),
+        FW.api('GET',`/finance/purchases/vendors?${qs()}&scope=PURCHASE`)
+      ]);
+      if(!quotes.ok||!quotes.json?.success)throw new Error(quotes.json?.error||'فشل التحميل');
+      state.quotes=quotes.json.quotes||[];
+      document.getElementById('vendor-list').innerHTML=(vendors.json?.vendors||[]).map(v=>
+        `<option value="${FW.esc(v.vendor_name_ar||v.vendor_name||'')}"></option>`).join('');
+      renderKpis();renderTable();
+      FW.setAlert(document.getElementById('alert'),`تم تحميل ${state.quotes.length} عرض سعر`,'ok');}
+    document.getElementById('btn-add-line').onclick=()=>{document.getElementById('lines').insertAdjacentHTML('beforeend',lineHtml({}));hint();};
+    document.getElementById('lines').addEventListener('click',e=>{const b=e.target.closest('[data-rm]');if(!b)return;
+      if(document.querySelectorAll('#lines .po-line-row').length<=1)return window.ErpDialog.toast('بند واحد على الأقل');
+      b.closest('.po-line-row').remove();hint();});
+    document.getElementById('lines').addEventListener('input',hint);
+    document.getElementById('form').onsubmit=async e=>{e.preventDefault();const lines=collect();
+      if(!lines.length)return FW.setAlert(document.getElementById('alert'),'أضف بنودًا','err');
+      const body={...payload(),vendor_name:document.getElementById('vendor_name').value.trim(),
+        currency_code:document.getElementById('currency').value,quote_date:document.getElementById('quote_date').value,
+        valid_until:document.getElementById('valid_until').value||null,notes:document.getElementById('notes').value||null,lines};
+      const edit=document.getElementById('edit_id').value;
+      const res=edit?await FW.api('PUT',`/finance/purchases/quotes/${edit}`,body):await FW.api('POST','/finance/purchases/quotes',body);
+      if(!res.ok||!res.json?.success)return FW.setAlert(document.getElementById('alert'),res.json?.error||'فشل','err');
+      document.getElementById('modal').hidden=true;await load();show(res.json.quote.quote_id);};
+    document.getElementById('table-host').addEventListener('click',e=>{
+      const id=e.target.closest('[data-view]')?.dataset.view||e.target.closest('[data-id]')?.dataset.id;if(id)show(id);});
+    document.getElementById('btn-add').onclick=()=>openCreate();
+    document.getElementById('btn-cancel').onclick=()=>{document.getElementById('modal').hidden=true;};
+    document.getElementById('btn-reload').onclick=()=>load().catch(err=>FW.setAlert(document.getElementById('alert'),err.message,'err'));
+    ['q','filter-status','page-size'].forEach(id=>{document.getElementById(id).addEventListener('input',()=>{state.page=1;renderTable();});
+      document.getElementById(id).addEventListener('change',()=>{state.page=1;renderTable();});});
+    const start=()=>load().catch(err=>FW.setAlert(document.getElementById('alert'),err.message,'err'));
+    window.whenFinanceContextReady?window.whenFinanceContextReady(start):start();
+  })();
+  </script>
+</body>
+</html>

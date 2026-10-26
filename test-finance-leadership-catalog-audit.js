@@ -56,7 +56,7 @@ function postJson(urlPath, body) {
     ['sales', 'offers-discounts', 'operational', 'خصومات'],
     ['sales', 'zatca', 'operational', 'ضرائب'],
     ['sales', 'e-invoice', 'partial', 'إلكتروني'],
-    ['purchases', 'vendors', 'partial', 'مصروف'],
+    ['purchases', 'vendors', 'operational', 'مشتريات'],
     ['inventory', 'stock-vendors', 'partial', 'مصروف']
   ];
 
@@ -195,9 +195,9 @@ function postJson(urlPath, body) {
     await page.click('#fl360-nav .fl360-nav-btn[data-section-id="purchases"]');
     await new Promise((r) => setTimeout(r, 250));
     const purchases = await page.evaluate(() => [...document.querySelectorAll('#fl360-pages a')].map((a) => a.textContent.replace(/\s+/g, ' ')));
-    purchases.some((t) => /موردو المصروفات/.test(t) && /جزئية/.test(t))
-      ? pass('ui-purchases-expense-vendors')
-      : fail('ui-purchases-expense-vendors', purchases[0] || '');
+    purchases.some((t) => /موردو المشتريات/.test(t) && /تشغيلية/.test(t))
+      ? pass('ui-purchases-vendors-operational')
+      : fail('ui-purchases-vendors-operational', purchases.slice(0, 3).join(' | ') || '');
     await page.screenshot({ path: path.join(ART, 'finance-catalog-corrected-purchases.png'), fullPage: false });
 
     await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });

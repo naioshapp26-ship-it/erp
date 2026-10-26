@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>موردو المشتريات — تشغيل مالي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/finance/finance-workbench.css">
+</head>
+<body class="fw-body">
+  <div class="fw-shell">
+    <div id="topnav"></div>
+    <header class="fw-hero">
+      <div>
+        <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
+        <h1><i class="fas fa-truck-field"></i> موردو المشتريات</h1>
+        <p>سجل موردي المشتريات (نطاق PURCHASE/BOTH) مرتبط بأوامر الشراء وفواتير الموردين والمدفوعات. الإيقاف بدل الحذف للحفاظ على الأثر التاريخي.</p>
+      </div>
+      <div class="fw-actions">
+        <button type="button" class="fw-btn fw-btn-ok" id="btn-add"><i class="fas fa-plus"></i> مورد مشتريات</button>
+        <button type="button" class="fw-btn" id="btn-reload"><i class="fas fa-rotate"></i> تحديث</button>
+        <a class="fw-btn" href="/finance/purchase-orders.html">أوامر/فواتير</a>
+        <a class="fw-btn" href="/finance/expenses.html">موردو المصروفات</a>
+      </div>
+    </header>
+    <div id="alert" class="fw-alert info" hidden></div>
+    <div class="fw-kpis" id="kpis"></div>
+    <div class="fw-toolbar">
+      <input type="search" id="q" class="fw-grow" placeholder="بحث بالاسم أو الرمز أو الرقم الضريبي…">
+      <select id="filter-active"><option value="">الكل</option><option value="1" selected>نشط</option><option value="0">موقوف</option></select>
+      <select id="page-size"><option value="25" selected>25</option><option value="50">50</option></select>
+    </div>
+    <div class="fw-layout">
+      <section class="fw-card">
+        <div class="fw-card-head"><h2>الموردون</h2><span id="count" class="fw-badge muted">0</span></div>
+        <div id="table-host"></div>
+        <div class="fw-pager" id="pager"></div>
+      </section>
+      <aside class="fw-drawer" id="drawer">
+        <div class="fw-empty"><i class="fas fa-hand-pointer"></i>اختر موردًا لعرض الأوامر والفواتير والأرصدة</div>
+      </aside>
+    </div>
+  </div>
+  <div class="fw-modal" id="modal" hidden>
+    <form class="fw-sheet" id="form">
+      <h2 id="modal-title">مورد مشتريات جديد</h2>
+      <input type="hidden" id="edit_id">
+      <div class="fw-form-grid">
+        <label>الاسم عربي *<input id="vendor_name_ar" required></label>
+        <label>الاسم إنجليزي<input id="vendor_name_en"></label>
+        <label>الرمز<input id="vendor_code" placeholder="يُولَّد تلقائيًا"></label>
+        <label>النطاق
+          <select id="vendor_scope"><option value="PURCHASE">مشتريات</option><option value="BOTH">مشتريات ومصروفات</option></select>
+        </label>
+        <label>البريد<input type="email" id="email"></label>
+        <label>الجوال<input id="mobile"></label>
+        <label>الرقم الضريبي<input id="tax_number"></label>
+        <label>أيام السداد<input type="number" id="payment_term_days" value="30"></label>
+        <label>المدينة<input id="city"></label>
+        <label class="wide">شروط الدفع<input id="payment_terms"></label>
+      </div>
+      <div class="fw-sheet-actions">
+        <button type="button" class="fw-btn" id="btn-cancel">إلغاء</button>
+        <button type="submit" class="fw-btn fw-btn-primary">حفظ</button>
+      </div>
+    </form>
+  </div>
+  <script src="/finance/finance-context.js"></script>
+  <script src="/finance/finance-workbench.js"></script>
+  <script>
+  (function(){
+    const FW=window.FinanceWorkbench;
+    const state={vendors:[],page:1,selected:null};
+    document.getElementById('topnav').innerHTML=FW.topNav([
+      ['/finance','اللوحة'],['/finance/purchase-vendors.html','موردو المشتريات'],
+      ['/finance/purchase-orders.html','أوامر الشراء'],['/finance/vendor-quotes.html','عروض الأسعار']
+    ],'/finance/purchase-vendors.html');
+    const qs=()=>`entity_id=${encodeURIComponent(FW.entityId()||'HQ001')}`;
+    const payload=()=>({entity_id:FW.entityId()||'HQ001',entity_type:'HQ'});
+    function filtered(){const q=document.getElementById('q').value.trim().toLowerCase();
+      const act=document.getElementById('filter-active').value;
+      return state.vendors.filter(v=>{
+        if(act==='1'&&v.is_active===false)return false;
+        if(act==='0'&&v.is_active!==false)return false;
+        if(!q)return true;
+        return `${v.vendor_code} ${v.vendor_name_ar||''} ${v.vendor_name_en||''} ${v.tax_number||''}`.toLowerCase().includes(q);
+      });}
+    function renderKpis(){const rows=state.vendors;const active=rows.filter(v=>v.is_active!==false).length;
+      document.getElementById('kpis').innerHTML=[
+        ['موردو المشتريات',rows.length,'نطاق PURCHASE/BOTH'],['نشطون',active,'قابلون للاستخدام'],
+        ['موقوفون',rows.length-active,'بدون حذف'],['الكيان',FW.entityId()||'HQ001','من الجلسة']
+      ].map(([a,b,c])=>`<div class="fw-kpi"><span>${a}</span><strong>${b}</strong><em>${c}</em></div>`).join('');}
+    function renderTable(){const host=document.getElementById('table-host');
+      const page=FW.paginate(filtered(),state.page,Number(document.getElementById('page-size').value)||25);
+      state.page=page.page;document.getElementById('count').textContent=String(page.total);
+      FW.renderPager(document.getElementById('pager'),page,p=>{state.page=p;renderTable();});
+      if(!page.total){host.innerHTML=FW.emptyState('لا موردو مشتريات بعد','<div style="margin-top:10px"><button class="fw-btn fw-btn-ok" id="empty-add">إضافة مورد</button></div>');
+        document.getElementById('empty-add')?.addEventListener('click',openCreate);return;}
+      host.innerHTML=`<div class="fw-table-wrap"><table class="fw-table"><thead><tr>
+        <th>الرمز</th><th>الاسم</th><th>النطاق</th><th>الضريبي</th><th>الجوال</th><th>الحالة</th><th></th></tr></thead>
+        <tbody>${page.rows.map(v=>`<tr class="${state.selected===v.vendor_id?'active':''}" data-id="${v.vendor_id}">
+          <td class="fw-num">${FW.esc(v.vendor_code)}</td><td>${FW.esc(v.vendor_name_ar)}</td>
+          <td>${FW.esc(v.vendor_scope||'—')}</td><td class="fw-num">${FW.esc(v.tax_number||'—')}</td>
+          <td>${FW.esc(v.mobile||v.phone||'—')}</td>
+          <td>${v.is_active===false?FW.badge('موقوف','bad'):FW.badge('نشط','ok')}</td>
+          <td><button type="button" class="fw-btn fw-btn-mini" data-view="${v.vendor_id}">معاينة</button></td>
+        </tr>`).join('')}</tbody></table></div>`;}
+    async function show(id){state.selected=Number(id);renderTable();
+      const drawer=document.getElementById('drawer');drawer.innerHTML=FW.loadingState();
+      const res=await FW.api('GET',`/finance/purchases/vendors/${id}?${qs()}`);
+      if(!res.ok||!res.json?.success){drawer.innerHTML=FW.emptyState(res.json?.error||'فشل');return;}
+      const v=res.json.vendor;const t=res.json.totals||{};
+      drawer.innerHTML=`<h3>${FW.esc(v.vendor_name_ar)}</h3>
+        <div class="fw-meta">
+          <div><span>الرمز</span><strong class="fw-num">${FW.esc(v.vendor_code)}</strong></div>
+          <div><span>النطاق</span><strong>${FW.esc(v.vendor_scope||'—')}</strong></div>
+          <div><span>أوامر</span><strong>${t.orders_count||0}</strong></div>
+          <div><span>فواتير</span><strong>${t.invoices_count||0}</strong></div>
+          <div><span>مدفوع</span><strong class="fw-num">${FW.money(t.paid_amount)}</strong></div>
+          <div><span>مستحق</span><strong class="fw-num">${FW.money(t.payable_amount)}</strong></div>
+        </div>
+        <h4 style="margin:12px 0 8px">أوامر مرتبطة</h4>
+        <ul style="padding:0;list-style:none;display:grid;gap:6px">${(res.json.orders||[]).map(o=>
+          `<li class="fw-alert info">${FW.esc(o.po_number)} — ${FW.statusBadge(o.status)} — ${FW.money(o.total_amount)}</li>`).join('')||'<li class="fw-alert info">لا أوامر</li>'}</ul>
+        <h4 style="margin:12px 0 8px">فواتير مرتبطة</h4>
+        <ul style="padding:0;list-style:none;display:grid;gap:6px">${(res.json.invoices||[]).map(i=>
+          `<li class="fw-alert info">${FW.esc(i.invoice_number)} — ${FW.statusBadge(i.status)} — متبقي ${FW.money(Math.max(Number(i.total_amount)-Number(i.paid_amount||0),0))}</li>`).join('')||'<li class="fw-alert info">لا فواتير</li>'}</ul>
+        <div class="fw-actions" style="margin-top:12px">
+          <button class="fw-btn" id="d-edit">تعديل</button>
+          ${v.is_active!==false?`<button class="fw-btn fw-btn-danger" id="d-stop">إيقاف</button>`:''}
+          <a class="fw-btn" href="/finance/purchase-orders.html">أوامر/فواتير</a>
+        </div>`;
+      document.getElementById('d-edit')?.addEventListener('click',()=>openCreate(v));
+      document.getElementById('d-stop')?.addEventListener('click',async()=>{
+        if(!await window.ErpDialog.confirm('إيقاف المورد دون حذف؟'))return;
+        const r=await FW.api('POST',`/finance/purchases/vendors/${id}/deactivate`,payload());
+        if(!r.ok)return FW.setAlert(document.getElementById('alert'),r.json?.error||'فشل','err');
+        await load();show(id);});}
+    function openCreate(v){document.getElementById('form').reset();
+      document.getElementById('edit_id').value=v?.vendor_id||'';
+      document.getElementById('modal-title').textContent=v?`تعديل ${v.vendor_name_ar}`:'مورد مشتريات جديد';
+      if(v){document.getElementById('vendor_name_ar').value=v.vendor_name_ar||'';
+        document.getElementById('vendor_name_en').value=v.vendor_name_en||'';
+        document.getElementById('vendor_code').value=v.vendor_code||'';
+        document.getElementById('vendor_scope').value=v.vendor_scope||'PURCHASE';
+        document.getElementById('email').value=v.email||'';
+        document.getElementById('mobile').value=v.mobile||'';
+        document.getElementById('tax_number').value=v.tax_number||'';
+        document.getElementById('payment_term_days').value=v.payment_term_days||30;
+        document.getElementById('city').value=v.city||'';
+        document.getElementById('payment_terms').value=v.payment_terms||'';}
+      document.getElementById('modal').hidden=false;}
+    async function load(){document.getElementById('table-host').innerHTML=FW.loadingState();
+      const res=await FW.api('GET',`/finance/purchases/vendors?${qs()}&scope=PURCHASE`);
+      if(!res.ok||!res.json?.success)throw new Error(res.json?.error||'فشل التحميل');
+      state.vendors=res.json.vendors||[];renderKpis();renderTable();
+      FW.setAlert(document.getElementById('alert'),`تم تحميل ${state.vendors.length} مورد مشتريات`,'ok');}
+    document.getElementById('form').onsubmit=async e=>{e.preventDefault();
+      const body={...payload(),vendor_name_ar:document.getElementById('vendor_name_ar').value.trim(),
+        vendor_name_en:document.getElementById('vendor_name_en').value.trim()||null,
+        vendor_code:document.getElementById('vendor_code').value.trim()||undefined,
+        vendor_scope:document.getElementById('vendor_scope').value,
+        email:document.getElementById('email').value||null,mobile:document.getElementById('mobile').value||null,
+        tax_number:document.getElementById('tax_number').value||null,
+        payment_term_days:Number(document.getElementById('payment_term_days').value||30),
+        city:document.getElementById('city').value||null,payment_terms:document.getElementById('payment_terms').value||null};
+      const edit=document.getElementById('edit_id').value;
+      const res=edit?await FW.api('PUT',`/finance/purchases/vendors/${edit}`,body):await FW.api('POST','/finance/purchases/vendors',body);
+      if(!res.ok||!res.json?.success)return FW.setAlert(document.getElementById('alert'),res.json?.error||'فشل','err');
+      document.getElementById('modal').hidden=true;await load();show(res.json.vendor.vendor_id);};
+    document.getElementById('table-host').addEventListener('click',e=>{
+      const id=e.target.closest('[data-view]')?.dataset.view||e.target.closest('[data-id]')?.dataset.id;if(id)show(id);});
+    document.getElementById('btn-add').onclick=()=>openCreate();
+    document.getElementById('btn-cancel').onclick=()=>{document.getElementById('modal').hidden=true;};
+    document.getElementById('btn-reload').onclick=()=>load().catch(err=>FW.setAlert(document.getElementById('alert'),err.message,'err'));
+    ['q','filter-active','page-size'].forEach(id=>{const el=document.getElementById(id);
+      el.addEventListener('input',()=>{state.page=1;renderTable();});el.addEventListener('change',()=>{state.page=1;renderTable();});});
+    const start=()=>load().catch(err=>FW.setAlert(document.getElementById('alert'),err.message,'err'));
+    window.whenFinanceContextReady?window.whenFinanceContextReady(start):start();
+  })();
+  </script>
+</body>
+</html>

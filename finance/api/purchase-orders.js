@@ -4,11 +4,39 @@
  * Purchase orders + vendor invoices — operational procurement docs.
  * Draft → approve → receive/cancel; invoices link to POs; payments update balances.
  * Does not invent parallel ledgers; posting hooks are reserved for accounting integration.
+ * Mutations require session-backed purchases authz (not client role headers alone).
  */
 
 const express = require('express');
 const router = express.Router();
 const db = require('../../db');
+const { denyUnless } = require('../services/purchases-authz');
+
+function mapPurchasesAction(req) {
+  const method = String(req.method || 'GET').toUpperCase();
+  const path = String(req.path || '');
+  // Only authorize routes owned by this router; sibling mounts handle quotes/vendors/receiving.
+  if (!/^\/(summary|orders|vendor-invoices)(\/|$)/i.test(path)) return null;
+  if (method === 'GET') return 'view';
+  if (/\/orders\/[^/]+\/approve$/i.test(path) && method === 'POST') return 'approve';
+  if (/\/orders\/[^/]+\/receive$/i.test(path) && method === 'POST') return 'receive';
+  if (/\/orders\/[^/]+\/cancel$/i.test(path) && method === 'POST') return 'cancel';
+  if (/\/vendor-invoices\/[^/]+\/approve$/i.test(path) && method === 'POST') return 'invoice';
+  if (/\/vendor-invoices\/[^/]+\/pay$/i.test(path) && method === 'POST') return 'pay';
+  if (/\/vendor-invoices/i.test(path) && method === 'POST') return 'invoice';
+  if (/\/vendor-invoices/i.test(path) && method === 'DELETE') return 'delete_draft';
+  if (/\/orders/i.test(path) && method === 'POST') return 'create';
+  if (/\/orders/i.test(path) && method === 'PUT') return 'update';
+  if (/\/orders/i.test(path) && method === 'DELETE') return 'delete_draft';
+  return 'view';
+}
+
+router.use((req, res, next) => {
+  const action = mapPurchasesAction(req);
+  if (!action) return next();
+  if (denyUnless(req, res, action)) return;
+  return next();
+});
 
 async function ensureTables() {
   await db.query(`
@@ -109,7 +137,11 @@ function entityId(req, body) {
 }
 
 function actor(req, body) {
-  return (body && (body.created_by || body.actor))
+  return req.purchasesActor?.userName
+    || req.purchasesActor?.userId
+    || req.authUser?.email
+    || req.authUser?.name
+    || (body && (body.created_by || body.actor))
     || req.headers['x-user-email']
     || req.headers['x-user-id']
     || 'ui';
@@ -420,8 +452,8 @@ async function transitionPo(req, res, nextStatus, extra = {}) {
     if (nextStatus === 'APPROVED' && status !== 'DRAFT') {
       return res.status(409).json({ success: false, error: 'الاعتماد متاح للمسودات فقط', code: 'BAD_STATE' });
     }
-    if (nextStatus === 'RECEIVED' && !['APPROVED', 'PARTIAL'].includes(status)) {
-      return res.status(409).json({ success: false, error: 'الاستلام يتطلب أمرًا معتمدًا', code: 'BAD_STATE' });
+    if (nextStatus === 'RECEIVED' && !['APPROVED', 'PARTIAL', 'PARTIALLY_RECEIVED'].includes(status)) {
+      return res.status(409).json({ success: false, error: 'الاستلام يتطلب أمرًا معتمدًا أو مستلمًا جزئيًا', code: 'BAD_STATE' });
     }
     if (nextStatus === 'CANCELLED') {
       if (['RECEIVED', 'CANCELLED'].includes(status)) {
