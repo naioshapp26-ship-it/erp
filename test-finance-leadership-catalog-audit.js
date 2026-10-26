@@ -48,13 +48,14 @@ function postJson(urlPath, body) {
 (async () => {
   const changes = [];
 
-  // Critical audit corrections
+  // Critical audit corrections (updated after ops-complete close-out)
   const must = [
-    ['sales', 'invoices-quotes', 'partial', 'الفواتير'],
-    ['sales', 'quotes', 'partial', 'ترويج'],
-    ['sales', 'deposits', 'coming_soon', 'عربون'],
-    ['sales', 'offers-discounts', 'coming_soon', 'خصومات'],
-    ['sales', 'zatca', 'partial', 'ضرائب'],
+    ['sales', 'invoices-quotes', 'operational', 'الفواتير'],
+    ['sales', 'quotes', 'operational', 'ترويج'],
+    ['sales', 'deposits', 'operational', 'عربون'],
+    ['sales', 'offers-discounts', 'operational', 'خصومات'],
+    ['sales', 'zatca', 'operational', 'ضرائب'],
+    ['sales', 'e-invoice', 'partial', 'إلكتروني'],
     ['purchases', 'vendors', 'partial', 'مصروف'],
     ['inventory', 'stock-vendors', 'partial', 'مصروف']
   ];
@@ -104,8 +105,10 @@ function postJson(urlPath, body) {
   // Quick access
   const qaAcc = catalog.QUICK_ACCESS.find((q) => q.id === 'qa-accounting');
   const qaInv = catalog.QUICK_ACCESS.find((q) => q.id === 'qa-invoices');
-  qaAcc?.status === 'partial' ? pass('qa-accounting-partial') : fail('qa-accounting-partial');
-  qaInv?.status === 'partial' ? pass('qa-invoices-partial') : fail('qa-invoices-partial');
+  qaAcc?.status === 'operational' && String(qaAcc.href || '').includes('accounting-integration')
+    ? pass('qa-accounting-operational')
+    : fail('qa-accounting-operational', JSON.stringify(qaAcc));
+  qaInv?.status === 'operational' ? pass('qa-invoices-operational') : fail('qa-invoices-operational', qaInv?.status);
 
   // 16 sections intact
   catalog.SECTIONS.length === 16 ? pass('sections-16') : fail('sections-16');
