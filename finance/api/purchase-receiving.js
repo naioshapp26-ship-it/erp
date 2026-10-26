@@ -16,6 +16,14 @@ const {
   present,
   httpError
 } = require('../services/stock-link');
+const inventoryApi = require('./inventory');
+
+async function ensureInventoryAndLink(clientOrDb) {
+  if (typeof inventoryApi.ensureTables === 'function') {
+    await inventoryApi.ensureTables();
+  }
+  await ensureStockLinkSchema(clientOrDb || require('../../db'));
+}
 
 function entityId(req, body) {
   return (body && body.entity_id) || req.query.entity_id || req.headers['x-entity-id']
@@ -81,7 +89,7 @@ router.get('/receiving/documents', async (req, res) => {
   const client = await db.pool.connect();
   try {
     const eid = entityId(req);
-    await ensureStockLinkSchema(client);
+    await ensureInventoryAndLink(client);
     const r = await client.query(
       `SELECT d.document_id, d.document_no, d.movement_type, d.reason, d.created_by, d.created_at,
               d.journal_entry_id, d.source_type, d.source_id,
@@ -108,7 +116,7 @@ router.get('/receiving/documents/:id', async (req, res) => {
   const client = await db.pool.connect();
   try {
     const eid = entityId(req);
-    await ensureStockLinkSchema(client);
+    await ensureInventoryAndLink(client);
     const payload = await present(client, eid, Number(req.params.id));
     res.json({ success: true, ...payload });
   } catch (e) {
@@ -123,7 +131,7 @@ router.post('/receiving', async (req, res) => {
   try {
     const body = req.body || {};
     const eid = entityId(req, body);
-    await ensureStockLinkSchema(client);
+    await ensureInventoryAndLink(client);
     await client.query('BEGIN');
     const result = await postReceipt(client, {
       entityId: eid,

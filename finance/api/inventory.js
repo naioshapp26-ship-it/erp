@@ -733,3 +733,4 @@ require('./inventory-records').register(router, recordHelpers);
 require('./inventory-link').register(router, recordHelpers);
 
 module.exports = router;
+module.exports.ensureTables = ensureTables;
