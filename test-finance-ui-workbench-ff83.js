@@ -71,6 +71,7 @@ async function main() {
     ['/finance/pos.html', ['ops-shell.css', 'ops-ui.js', 'data-kind="pos-tickets"']],
     ['/finance/e-invoice-queue.html', ['ops-shell.css', 'e-invoice-queue']],
     ['/finance/expenses.html', ['التكامل المحاسبي', 'max-width:1680px']],
+    ['/finance/purchase-orders.html', ['finance-workbench.css', 'fw-drawer', 'أمر شراء جديد', 'فواتير الموردين', '/finance/purchases']],
     ['/finance/finance-workbench.js', ['FinanceWorkbench', 'paginate']],
     ['/finance/finance-workbench.css', ['fw-shell', '1680px']]
   ];

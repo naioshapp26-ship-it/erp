@@ -91,10 +91,28 @@
           note: 'إدارة موردين مرتبطة بالمصروفات فقط — ليست دورة مشتريات (طلبات/أوامر/استلام)'
         },
         { id: 'purchase-requests', label: 'طلبات الشراء', status: 'operational', href: '/finance/purchase-requests.html', note: 'طلب مستقل قابل للتحويل إلى أمر شراء' },
-        { id: 'purchase-orders', label: 'أوامر الشراء', status: 'operational', href: '/finance/purchase-orders.html' },
-        { id: 'vendor-quotes', label: 'عروض أسعار الموردين', status: 'partial', href: '/finance/purchase-orders.html', note: 'عبر أوامر الشراء مؤقتًا' },
-        { id: 'vendor-invoices', label: 'فواتير الموردين', status: 'operational', href: '/finance/purchase-orders.html' },
-        { id: 'receiving', label: 'الاستلام ومتابعة المشتريات', status: 'partial', href: '/finance/inventory.html#links', note: 'أثر المخزون والقيد من استلام الأمر المعتمد. متابعة الأمر تبقى في أوامر الشراء' }
+        {
+          id: 'purchase-orders',
+          label: 'أوامر الشراء',
+          status: 'operational',
+          href: '/finance/purchase-orders.html',
+          note: 'مسودة→اعتماد→استلام/إلغاء، بنود وضرائب، مفوتر/متبقي، تدقيق — منضدة purchase-orders'
+        },
+        { id: 'vendor-quotes', label: 'عروض أسعار الموردين', status: 'partial', href: '/finance/purchase-orders.html', note: 'لا وحدة عروض أسعار مستقلة بعد — يُدار مؤقتًا عبر أوامر الشراء' },
+        {
+          id: 'vendor-invoices',
+          label: 'فواتير الموردين',
+          status: 'operational',
+          href: '/finance/purchase-orders.html',
+          note: 'ربط بأمر معتمد، منع التكرار، اعتماد وسداد جزئي/كامل، بلا حذف بعد الاعتماد'
+        },
+        {
+          id: 'receiving',
+          label: 'الاستلام ومتابعة المشتريات',
+          status: 'partial',
+          href: '/finance/inventory.html#links',
+          note: 'تأكيد الاستلام على الأمر موجود؛ أثر المخزون والقيد المحاسبي يتم عبر استلام المخزون المرتبط بالأمر المعتمد — ليست شاشة استلام مشتريات مستقلة'
+        }
       ]
     },
     {
@@ -116,7 +134,13 @@
       pages: [
         { id: 'stock', label: 'المخزون', status: 'operational', href: '/finance/inventory.html', note: 'أرصدة وحركات فعلية. الرصيد السالب ممنوع. القيد يُنشأ عند استلام أمر شراء معتمد أو صرف فاتورة أو مرتجع، لا عند الإدخال اليدوي' },
         { id: 'product-mgmt', label: 'إدارة المنتجات', status: 'operational', href: '/finance/inventory.html#items' },
-        { id: 'stock-purchases', label: 'المشتريات المرتبطة بالمخزون', status: 'partial', href: '/finance/inventory.html#links', note: 'استلام أمر الشراء المعتمد يزيد الرصيد والتكلفة وينشئ قيدًا. إنشاء الأمر وحده لا يحرّك المخزون. بلا سطور أمر شراء مستقلة بعد' },
+        {
+          id: 'stock-purchases',
+          label: 'المشتريات المرتبطة بالمخزون',
+          status: 'partial',
+          href: '/finance/inventory.html#links',
+          note: 'أمر الشراء له بنود مستقلة. الاستلام المخزني على أمر معتمد يزيد الرصيد وينشئ قيدًا. إنشاء الأمر أو اعتماده وحده لا يحرّك المخزون'
+        },
         {
           id: 'stock-vendors',
           label: 'موردو المصروفات (مرجع)',

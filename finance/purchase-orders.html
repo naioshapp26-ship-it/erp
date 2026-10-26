@@ -3,86 +3,848 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>أوامر الشراء وفواتير الموردين</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <script src="/finance/finance-context.js"></script>
-  <style>body{font-family:'Cairo',sans-serif;background:#f8fafc}</style>
+  <title>أوامر الشراء وفواتير الموردين — تشغيل مالي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/finance/finance-workbench.css">
+  <style>
+    .po-tabs { display:flex; gap:8px; margin: 0 0 14px; flex-wrap:wrap; }
+    .po-tabs button {
+      border:1px solid var(--fw-line); background:#fff; border-radius:999px;
+      padding:9px 16px; font:inherit; font-weight:800; cursor:pointer; color:var(--fw-ink);
+    }
+    .po-tabs button.active { background:#b91c1c; color:#fff; border-color:#b91c1c; }
+    .po-lines-editor { display:grid; gap:8px; margin-top:8px; }
+    .po-line-row {
+      display:grid; grid-template-columns: 1.2fr 2fr 0.7fr 0.9fr 0.6fr auto;
+      gap:6px; align-items:end;
+    }
+    @media (max-width: 900px) {
+      .po-line-row { grid-template-columns: 1fr 1fr; }
+    }
+    .po-line-row label { display:grid; gap:4px; font-size:.78rem; font-weight:800; color:#64748b; }
+    .po-line-row input {
+      border:1px solid var(--fw-line); border-radius:10px; padding:8px 10px; font:inherit;
+    }
+    .audit-list { list-style:none; padding:0; margin:12px 0 0; display:grid; gap:6px; }
+    .audit-list li {
+      background:#f8fafc; border:1px solid var(--fw-line); border-radius:10px;
+      padding:8px 10px; font-size:.85rem;
+    }
+    .fw-print-only { display:none; }
+    @media print {
+      .fw-topnav, .fw-toolbar, .fw-actions, .po-tabs, .fw-pager, #alert { display:none !important; }
+      .fw-drawer { display:block !important; position:static; width:100%; box-shadow:none; border:0; }
+      .fw-layout { display:block; }
+      .fw-print-only { display:block; }
+    }
+  </style>
 </head>
-<body class="p-6">
-  <h1 class="text-3xl font-bold mb-2">أوامر الشراء وفواتير الموردين</h1>
-  <p class="text-slate-600 mb-6">حفظ Postgres حقيقي — بدون localStorage</p>
-  <div class="flex flex-wrap gap-3 mb-6">
-    <button onclick="openPo()" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-bold">أمر شراء جديد</button>
-    <button onclick="openVi()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">فاتورة مورد</button>
-    <button onclick="loadAll()" class="bg-white border px-4 py-2 rounded-lg font-bold">تحديث</button>
-    <a href="/finance/expenses.html" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold">الموردين/المصروفات</a>
-  </div>
-  <div class="grid md:grid-cols-2 gap-6">
-    <div class="bg-white rounded-2xl shadow p-4">
-      <h2 class="font-bold mb-3">أوامر الشراء</h2>
-      <table class="w-full text-sm"><thead><tr class="text-right text-slate-500"><th class="p-2">الرقم</th><th>المورد</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
-      <tbody id="poTable"></tbody></table>
+<body class="fw-body">
+  <div class="fw-shell">
+    <div id="topnav"></div>
+    <header class="fw-hero">
+      <div>
+        <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
+        <h1><i class="fas fa-file-invoice-dollar"></i> أوامر الشراء وفواتير الموردين</h1>
+        <p>دورة مشتريات تشغيلية من المسودة إلى الاعتماد والاستلام والفوترة والسداد، مع بنود وضرائب ومبالغ مفوترة/متبقية وسجل تدقيق — محفوظة في Postgres دون بيانات وهمية.</p>
+      </div>
+      <div class="fw-actions">
+        <button type="button" class="fw-btn fw-btn-ok" id="btn-new-po"><i class="fas fa-plus"></i> أمر شراء جديد</button>
+        <button type="button" class="fw-btn fw-btn-primary" id="btn-new-vi"><i class="fas fa-file-invoice"></i> فاتورة مورد</button>
+        <button type="button" class="fw-btn" id="btn-reload"><i class="fas fa-rotate"></i> تحديث</button>
+        <a class="fw-btn" href="/finance/expenses.html">الموردون / المصروفات</a>
+        <a class="fw-btn" href="/finance/inventory.html#links">استلام المخزون</a>
+        <a class="fw-btn" href="/finance/accounting-integration.html">التكامل المحاسبي</a>
+      </div>
+    </header>
+
+    <div id="alert" class="fw-alert info" hidden></div>
+    <div class="fw-kpis" id="kpis"></div>
+
+    <div class="po-tabs" role="tablist">
+      <button type="button" class="active" data-tab="orders" id="tab-orders">أوامر الشراء</button>
+      <button type="button" data-tab="invoices" id="tab-invoices">فواتير الموردين</button>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4">
-      <h2 class="font-bold mb-3">فواتير الموردين</h2>
-      <table class="w-full text-sm"><thead><tr class="text-right text-slate-500"><th class="p-2">الرقم</th><th>المورد</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
-      <tbody id="viTable"></tbody></table>
+
+    <div class="fw-toolbar" id="toolbar-orders">
+      <input type="search" id="q-po" class="fw-grow" placeholder="بحث برقم الأمر أو المورد…">
+      <select id="filter-po-status">
+        <option value="">كل حالات الأمر</option>
+        <option value="DRAFT">مسودة</option>
+        <option value="APPROVED">معتمد</option>
+        <option value="RECEIVED">مستلم</option>
+        <option value="CANCELLED">ملغى</option>
+      </select>
+      <input type="date" id="po-from" title="من تاريخ">
+      <input type="date" id="po-to" title="إلى تاريخ">
+      <select id="po-page-size"><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select>
+    </div>
+
+    <div class="fw-toolbar" id="toolbar-invoices" hidden>
+      <input type="search" id="q-vi" class="fw-grow" placeholder="بحث برقم الفاتورة أو المورد أو أمر الشراء…">
+      <select id="filter-vi-status">
+        <option value="">كل حالات الفاتورة</option>
+        <option value="OPEN">مفتوحة</option>
+        <option value="APPROVED">معتمدة</option>
+        <option value="PARTIAL">سداد جزئي</option>
+        <option value="PAID">مسددة</option>
+      </select>
+      <input type="date" id="vi-from">
+      <input type="date" id="vi-to">
+      <select id="vi-page-size"><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select>
+    </div>
+
+    <div class="fw-layout">
+      <section class="fw-card">
+        <div class="fw-card-head">
+          <h2 id="panel-title">أوامر الشراء</h2>
+          <span id="count" class="fw-badge muted">0</span>
+        </div>
+        <div id="table-host"></div>
+        <div class="fw-pager" id="pager"></div>
+      </section>
+      <aside class="fw-drawer" id="drawer">
+        <div class="fw-empty"><i class="fas fa-hand-pointer"></i>اختر أمر شراء أو فاتورة مورد لعرض التفاصيل والإجراءات وسجل التدقيق</div>
+      </aside>
     </div>
   </div>
+
+  <!-- PO modal -->
+  <div class="fw-modal" id="modal-po" hidden>
+    <form class="fw-sheet" id="form-po" style="max-width:920px">
+      <h2 id="po-modal-title">أمر شراء جديد</h2>
+      <input type="hidden" id="po_edit_id">
+      <div class="fw-form-grid">
+        <label>المورد *
+          <input id="po_vendor_name" list="vendor-list" required placeholder="اسم المورد">
+          <datalist id="vendor-list"></datalist>
+        </label>
+        <label>العملة
+          <select id="po_currency">
+            <option value="SAR">SAR</option>
+            <option value="EGP">EGP</option>
+            <option value="USD">USD</option>
+            <option value="AED">AED</option>
+          </select>
+        </label>
+        <label>تاريخ الأمر *<input type="date" id="po_order_date" required></label>
+        <label>التوريد المتوقع<input type="date" id="po_expected_date"></label>
+        <label class="wide">ملاحظات<textarea id="po_notes" rows="2"></textarea></label>
+      </div>
+      <div style="margin-top:12px">
+        <div class="fw-actions" style="justify-content:space-between">
+          <strong>بنود الأمر *</strong>
+          <button type="button" class="fw-btn fw-btn-mini" id="btn-add-line"><i class="fas fa-plus"></i> بند</button>
+        </div>
+        <div class="po-lines-editor" id="po-lines"></div>
+        <p class="fw-alert info" id="po-totals-hint" style="margin-top:10px">الإجمالي يُحسب من البنود والضريبة.</p>
+      </div>
+      <div class="fw-sheet-actions">
+        <button type="button" class="fw-btn" id="btn-po-cancel">إلغاء</button>
+        <button type="submit" class="fw-btn fw-btn-primary" id="btn-po-save">حفظ المسودة</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Vendor invoice modal -->
+  <div class="fw-modal" id="modal-vi" hidden>
+    <form class="fw-sheet" id="form-vi">
+      <h2>فاتورة مورد</h2>
+      <div class="fw-form-grid">
+        <label>رقم الفاتورة<input id="vi_number" placeholder="يُولَّد تلقائيًا إن تُرك فارغًا"></label>
+        <label>المورد *
+          <input id="vi_vendor_name" list="vendor-list" required>
+        </label>
+        <label class="wide">أمر الشراء المرتبط
+          <select id="vi_po_id">
+            <option value="">— بدون ربط —</option>
+          </select>
+        </label>
+        <label>تاريخ الإصدار *<input type="date" id="vi_invoice_date" required></label>
+        <label>تاريخ الاستحقاق<input type="date" id="vi_due_date"></label>
+        <label>الإجمالي قبل الضريبة *<input type="number" step="0.01" min="0" id="vi_subtotal" required></label>
+        <label>الضريبة<input type="number" step="0.01" min="0" id="vi_tax" value="0"></label>
+        <label>الإجمالي *<input type="number" step="0.01" min="0.01" id="vi_total" required></label>
+        <label>العملة
+          <select id="vi_currency">
+            <option value="SAR">SAR</option>
+            <option value="EGP">EGP</option>
+            <option value="USD">USD</option>
+          </select>
+        </label>
+        <label class="wide">ملاحظات<textarea id="vi_notes" rows="2"></textarea></label>
+      </div>
+      <p class="fw-alert info">لا يُسمح بربط فاتورة بأمر مسودة أو ملغى. تكرار نفس رقم الفاتورة على نفس الأمر مرفوض.</p>
+      <div class="fw-sheet-actions">
+        <button type="button" class="fw-btn" id="btn-vi-cancel">إلغاء</button>
+        <button type="submit" class="fw-btn fw-btn-primary">حفظ الفاتورة</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="/finance/finance-context.js"></script>
+  <script src="/finance/finance-workbench.js"></script>
   <script>
-    const API = location.origin;
-    const ENTITY_ID = window.getFinanceEntityId ? window.getFinanceEntityId() : 'HQ001';
-    const H = () => ({ 'Content-Type': 'application/json', ...(window.getFinanceHeaders ? window.getFinanceHeaders() : {}) });
+    (function () {
+      const FW = window.FinanceWorkbench;
+      const state = {
+        tab: 'orders',
+        orders: [],
+        invoices: [],
+        summary: null,
+        vendors: [],
+        page: 1,
+        selectedPo: null,
+        selectedVi: null,
+        poDetail: null
+      };
 
-    async function loadAll() {
-      const [po, vi] = await Promise.all([
-        fetch(`${API}/finance/purchases/orders?entity_id=${ENTITY_ID}`, { headers: H() }).then(r => r.json()),
-        fetch(`${API}/finance/purchases/vendor-invoices?entity_id=${ENTITY_ID}`, { headers: H() }).then(r => r.json())
-      ]);
-      document.getElementById('poTable').innerHTML = (po.orders || []).map(o => `
-        <tr class="border-t"><td class="p-2">${o.po_number}</td><td>${o.vendor_name || '-'}</td><td>${o.total_amount}</td><td>${o.status}</td>
-        <td><button class="text-rose-600" onclick="delPo(${o.po_id})">حذف</button></td></tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">لا بيانات</td></tr>';
-      document.getElementById('viTable').innerHTML = (vi.invoices || []).map(i => `
-        <tr class="border-t"><td class="p-2">${i.invoice_number}</td><td>${i.vendor_name || '-'}</td><td>${i.total_amount}</td><td>${i.status}</td>
-        <td><button class="text-rose-600" onclick="delVi(${i.vendor_invoice_id})">حذف</button></td></tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">لا بيانات</td></tr>';
-    }
+      const STATUS_AR = {
+        DRAFT: 'مسودة',
+        APPROVED: 'معتمد',
+        RECEIVED: 'مستلم',
+        CANCELLED: 'ملغى',
+        OPEN: 'مفتوحة',
+        PARTIAL: 'جزئي',
+        PAID: 'مسددة',
+        VOID: 'لاغية'
+      };
 
-    async function openPo() {
-      const vendor_name = await window.ErpDialog.prompt('اسم المورد');
-      if (!vendor_name) return;
-      const total_amount = Number(await window.ErpDialog.prompt('المبلغ', '1000') || 0);
-      const res = await fetch(`${API}/finance/purchases/orders`, {
-        method: 'POST', headers: H(),
-        body: JSON.stringify({ vendor_name, total_amount, entity_id: ENTITY_ID, status: 'OPEN', notes: 'FC-P2' })
+      document.getElementById('topnav').innerHTML = FW.topNav([
+        ['/finance', 'اللوحة'],
+        ['/finance/purchase-orders.html', 'أوامر الشراء'],
+        ['/finance/purchase-requests.html', 'طلبات الشراء'],
+        ['/finance/expenses.html', 'المصروفات'],
+        ['/finance/inventory.html', 'المخزون'],
+        ['/finance/accounting-integration.html', 'التكامل']
+      ], '/finance/purchase-orders.html');
+
+      function entityQS() {
+        const id = FW.entityId() || 'HQ001';
+        return `entity_id=${encodeURIComponent(id)}`;
+      }
+
+      function entityPayload() {
+        return { entity_id: FW.entityId() || 'HQ001', entity_type: 'HQ' };
+      }
+
+      function statusLabel(s) {
+        const u = String(s || '').toUpperCase();
+        return STATUS_AR[u] || s || '—';
+      }
+
+      function money(n, c) {
+        return FW.money(n, c || 'SAR');
+      }
+
+      function today() {
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function parseAudit(raw) {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        try { return JSON.parse(raw); } catch { return []; }
+      }
+
+      function setTab(tab) {
+        state.tab = tab;
+        state.page = 1;
+        document.querySelectorAll('.po-tabs button').forEach((b) => {
+          b.classList.toggle('active', b.dataset.tab === tab);
+        });
+        document.getElementById('toolbar-orders').hidden = tab !== 'orders';
+        document.getElementById('toolbar-invoices').hidden = tab !== 'invoices';
+        document.getElementById('panel-title').textContent = tab === 'orders' ? 'أوامر الشراء' : 'فواتير الموردين';
+        renderTable();
+        if (tab === 'orders' && state.selectedPo) showPo(state.selectedPo);
+        else if (tab === 'invoices' && state.selectedVi) showVi(state.selectedVi);
+        else {
+          document.getElementById('drawer').innerHTML =
+            '<div class="fw-empty"><i class="fas fa-hand-pointer"></i>اختر سجلًا لعرض التفاصيل</div>';
+        }
+      }
+
+      function filteredOrders() {
+        const q = document.getElementById('q-po').value.trim().toLowerCase();
+        const st = document.getElementById('filter-po-status').value;
+        const from = document.getElementById('po-from').value;
+        const to = document.getElementById('po-to').value;
+        return state.orders.filter((o) => {
+          if (st && String(o.status).toUpperCase() !== st) return false;
+          const d = String(o.order_date || '').slice(0, 10);
+          if (from && d < from) return false;
+          if (to && d > to) return false;
+          if (!q) return true;
+          return `${o.po_number} ${o.vendor_name || ''} ${o.notes || ''}`.toLowerCase().includes(q);
+        });
+      }
+
+      function filteredInvoices() {
+        const q = document.getElementById('q-vi').value.trim().toLowerCase();
+        const st = document.getElementById('filter-vi-status').value;
+        const from = document.getElementById('vi-from').value;
+        const to = document.getElementById('vi-to').value;
+        return state.invoices.filter((inv) => {
+          if (st && String(inv.status).toUpperCase() !== st) return false;
+          const d = String(inv.invoice_date || '').slice(0, 10);
+          if (from && d < from) return false;
+          if (to && d > to) return false;
+          if (!q) return true;
+          return `${inv.invoice_number} ${inv.vendor_name || ''} ${inv.po_number || ''}`.toLowerCase().includes(q);
+        });
+      }
+
+      function renderKpis() {
+        const s = state.summary || {};
+        const o = s.orders || {};
+        const v = s.invoices || {};
+        const openAP = Math.max(Number(v.amount || 0) - Number(v.paid_amount || 0), 0);
+        document.getElementById('kpis').innerHTML = [
+          ['أوامر الشراء', o.total || state.orders.length, `${o.draft || 0} مسودة · ${o.approved || 0} معتمد`],
+          ['قيمة الأوامر', money(o.amount), s.currency || 'SAR'],
+          ['فواتير الموردين', v.total || state.invoices.length, `${v.open || 0} مفتوحة · ${v.paid || 0} مسددة`],
+          ['ذمم موردين', money(openAP), `مدفوع ${money(v.paid_amount)}`]
+        ].map(([a, b, c]) => `<div class="fw-kpi"><span>${a}</span><strong>${b}</strong><em>${c}</em></div>`).join('');
+      }
+
+      function renderTable() {
+        const host = document.getElementById('table-host');
+        if (state.tab === 'orders') {
+          const rows = filteredOrders();
+          const page = FW.paginate(rows, state.page, Number(document.getElementById('po-page-size').value) || 25);
+          state.page = page.page;
+          document.getElementById('count').textContent = String(page.total);
+          FW.renderPager(document.getElementById('pager'), page, (p) => { state.page = p; renderTable(); });
+          if (!page.total) {
+            host.innerHTML = FW.emptyState(
+              'لا أوامر شراء مطابقة — ابدأ بأول أمر شراء ببنود حقيقية',
+              '<div style="margin-top:10px"><button type="button" class="fw-btn fw-btn-ok" id="empty-po">أمر شراء جديد</button></div>'
+            );
+            document.getElementById('empty-po')?.addEventListener('click', () => openPoModal());
+            return;
+          }
+          host.innerHTML = `<div class="fw-table-wrap"><table class="fw-table">
+            <thead><tr>
+              <th>رقم الأمر</th><th>المورد</th><th>الإنشاء</th><th>التوريد المتوقع</th>
+              <th>البنود</th><th>الإجمالي</th><th>المفوتر</th><th>المتبقي</th><th>الحالة</th><th>إجراءات</th>
+            </tr></thead>
+            <tbody>${page.rows.map((o) => `
+              <tr class="${state.selectedPo === o.po_id ? 'active' : ''}" data-po="${o.po_id}">
+                <td class="fw-num">${FW.esc(o.po_number)}</td>
+                <td>${FW.esc(o.vendor_name || '—')}</td>
+                <td>${FW.esc(String(o.order_date || '').slice(0, 10))}</td>
+                <td>${FW.esc(o.expected_date ? String(o.expected_date).slice(0, 10) : '—')}</td>
+                <td class="fw-num">${FW.esc(o.line_count || 0)}</td>
+                <td class="fw-num">${money(o.total_amount, o.currency_code)}</td>
+                <td class="fw-num">${money(o.invoiced_amount, o.currency_code)}</td>
+                <td class="fw-num">${money(o.remaining_to_invoice, o.currency_code)}</td>
+                <td>${FW.statusBadge(statusLabel(o.status))}</td>
+                <td class="fw-actions" onclick="event.stopPropagation()">
+                  <button type="button" class="fw-btn fw-btn-mini" data-view-po="${o.po_id}">معاينة</button>
+                </td>
+              </tr>`).join('')}</tbody></table></div>`;
+          return;
+        }
+
+        const rows = filteredInvoices();
+        const page = FW.paginate(rows, state.page, Number(document.getElementById('vi-page-size').value) || 25);
+        state.page = page.page;
+        document.getElementById('count').textContent = String(page.total);
+        FW.renderPager(document.getElementById('pager'), page, (p) => { state.page = p; renderTable(); });
+        if (!page.total) {
+          host.innerHTML = FW.emptyState(
+            'لا فواتير موردين — أنشئ فاتورة واربطها بأمر معتمد عند الحاجة',
+            '<div style="margin-top:10px"><button type="button" class="fw-btn fw-btn-primary" id="empty-vi">فاتورة مورد</button></div>'
+          );
+          document.getElementById('empty-vi')?.addEventListener('click', () => openViModal());
+          return;
+        }
+        host.innerHTML = `<div class="fw-table-wrap"><table class="fw-table">
+          <thead><tr>
+            <th>رقم الفاتورة</th><th>المورد</th><th>أمر الشراء</th><th>الإصدار</th><th>الاستحقاق</th>
+            <th>الإجمالي</th><th>الضريبة</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>إجراءات</th>
+          </tr></thead>
+          <tbody>${page.rows.map((inv) => `
+            <tr class="${state.selectedVi === inv.vendor_invoice_id ? 'active' : ''}" data-vi="${inv.vendor_invoice_id}">
+              <td class="fw-num">${FW.esc(inv.invoice_number)}</td>
+              <td>${FW.esc(inv.vendor_name || '—')}</td>
+              <td class="fw-num">${FW.esc(inv.po_number || '—')}</td>
+              <td>${FW.esc(String(inv.invoice_date || '').slice(0, 10))}</td>
+              <td>${FW.esc(inv.due_date ? String(inv.due_date).slice(0, 10) : '—')}</td>
+              <td class="fw-num">${money(inv.total_amount, inv.currency_code)}</td>
+              <td class="fw-num">${money(inv.tax_amount, inv.currency_code)}</td>
+              <td class="fw-num">${money(inv.paid_amount, inv.currency_code)}</td>
+              <td class="fw-num">${money(inv.remaining_amount, inv.currency_code)}</td>
+              <td>${FW.statusBadge(statusLabel(inv.status))}</td>
+              <td class="fw-actions" onclick="event.stopPropagation()">
+                <button type="button" class="fw-btn fw-btn-mini" data-view-vi="${inv.vendor_invoice_id}">معاينة</button>
+              </td>
+            </tr>`).join('')}</tbody></table></div>`;
+      }
+
+      function auditHtml(entries) {
+        const list = parseAudit(entries);
+        if (!list.length) return '<p class="fw-alert info">لا إدخالات تدقيق بعد</p>';
+        return `<ul class="audit-list">${list.slice().reverse().map((e) => `
+          <li><strong>${FW.esc(e.action || 'event')}</strong>
+            — ${FW.esc(e.by || '—')}
+            — ${FW.esc(e.at || '')}
+            ${e.amount != null ? ` — مبلغ ${FW.esc(e.amount)}` : ''}
+            ${e.reason ? ` — ${FW.esc(e.reason)}` : ''}
+          </li>`).join('')}</ul>`;
+      }
+
+      async function showPo(id) {
+        state.selectedPo = Number(id);
+        state.selectedVi = null;
+        renderTable();
+        const drawer = document.getElementById('drawer');
+        drawer.innerHTML = FW.loadingState('تحميل تفاصيل الأمر…');
+        const res = await FW.api('GET', `/finance/purchases/orders/${id}?${entityQS()}`);
+        if (!res.ok || !res.json?.success) {
+          drawer.innerHTML = FW.emptyState(res.json?.error || 'تعذر تحميل الأمر');
+          return;
+        }
+        state.poDetail = res.json;
+        const o = res.json.order;
+        const lines = res.json.lines || [];
+        const invoices = res.json.invoices || [];
+        const st = String(o.status || '').toUpperCase();
+        const canEdit = st === 'DRAFT';
+        const canApprove = st === 'DRAFT';
+        const canReceive = st === 'APPROVED' || st === 'PARTIAL';
+        const canCancel = !['RECEIVED', 'CANCELLED'].includes(st);
+        const canDelete = st === 'DRAFT';
+        const canInvoice = ['APPROVED', 'RECEIVED', 'PARTIAL'].includes(st);
+
+        drawer.innerHTML = `
+          <h3>${FW.esc(o.po_number)}</h3>
+          <div class="fw-meta">
+            <div><span>المورد</span><strong>${FW.esc(o.vendor_name || '—')}</strong></div>
+            <div><span>الحالة</span><strong>${FW.statusBadge(statusLabel(o.status))}</strong></div>
+            <div><span>تاريخ الأمر</span><strong>${FW.esc(String(o.order_date || '').slice(0, 10))}</strong></div>
+            <div><span>التوريد المتوقع</span><strong>${FW.esc(o.expected_date ? String(o.expected_date).slice(0, 10) : '—')}</strong></div>
+            <div><span>العملة</span><strong>${FW.esc(o.currency_code || 'SAR')}</strong></div>
+            <div><span>قبل الضريبة</span><strong class="fw-num">${money(o.subtotal, o.currency_code)}</strong></div>
+            <div><span>الضريبة</span><strong class="fw-num">${money(o.tax_amount, o.currency_code)}</strong></div>
+            <div><span>الإجمالي</span><strong class="fw-num">${money(o.total_amount, o.currency_code)}</strong></div>
+            <div><span>المفوتر</span><strong class="fw-num">${money(o.invoiced_amount, o.currency_code)}</strong></div>
+            <div><span>متبقي للفوترة</span><strong class="fw-num">${money(o.remaining_to_invoice, o.currency_code)}</strong></div>
+            <div><span>اعتمد بواسطة</span><strong>${FW.esc(o.approved_by || '—')}</strong></div>
+            <div style="grid-column:1/-1"><span>ملاحظات</span><strong>${FW.esc(o.notes || '—')}</strong></div>
+          </div>
+          <h4 style="margin:14px 0 8px">البنود (${lines.length})</h4>
+          <div class="fw-table-wrap"><table class="fw-table">
+            <thead><tr><th>#</th><th>الصنف</th><th>الكمية</th><th>السعر</th><th>ض%</th><th>الإجمالي</th></tr></thead>
+            <tbody>${lines.map((l) => `
+              <tr>
+                <td>${FW.esc(l.line_number)}</td>
+                <td>${FW.esc(l.item_name)}${l.item_code ? ` <small class="fw-num">(${FW.esc(l.item_code)})</small>` : ''}</td>
+                <td class="fw-num">${FW.esc(l.quantity)}</td>
+                <td class="fw-num">${money(l.unit_price, o.currency_code)}</td>
+                <td class="fw-num">${FW.esc(l.tax_pct)}</td>
+                <td class="fw-num">${money(l.line_total, o.currency_code)}</td>
+              </tr>`).join('') || '<tr><td colspan="6">لا بنود</td></tr>'}
+            </tbody>
+          </table></div>
+          <h4 style="margin:14px 0 8px">الفواتير المرتبطة (${invoices.length})</h4>
+          ${invoices.length ? `<ul class="audit-list">${invoices.map((inv) => `
+            <li><button type="button" class="fw-btn fw-btn-mini" data-jump-vi="${inv.vendor_invoice_id}">${FW.esc(inv.invoice_number)}</button>
+              — ${FW.statusBadge(statusLabel(inv.status))} — ${money(inv.total_amount)}</li>`).join('')}</ul>`
+            : '<p class="fw-alert info">لا فواتير مرتبطة بعد</p>'}
+          <div class="fw-actions" style="margin-top:12px">
+            ${canEdit ? `<button type="button" class="fw-btn" id="d-edit-po">تعديل</button>` : `<button type="button" class="fw-btn" disabled title="التعديل للمسودات فقط">تعديل</button>`}
+            ${canApprove ? `<button type="button" class="fw-btn fw-btn-ok" id="d-approve-po">اعتماد</button>` : ''}
+            ${canReceive ? `<button type="button" class="fw-btn fw-btn-warn" id="d-receive-po">تأكيد الاستلام</button>` : ''}
+            ${canInvoice ? `<button type="button" class="fw-btn fw-btn-primary" id="d-invoice-po">فاتورة من الأمر</button>` : ''}
+            <button type="button" class="fw-btn" id="d-print-po"><i class="fas fa-print"></i> طباعة</button>
+            ${canCancel ? `<button type="button" class="fw-btn fw-btn-danger" id="d-cancel-po">إلغاء</button>` : ''}
+            ${canDelete ? `<button type="button" class="fw-btn fw-btn-danger" id="d-delete-po">حذف المسودة</button>` : ''}
+            <a class="fw-btn" href="/finance/inventory.html#links">استلام مخزون</a>
+          </div>
+          <h4 style="margin:14px 0 8px">سجل التدقيق</h4>
+          ${auditHtml(o.audit_log)}
+          <div class="fw-print-only"><p>طُبع من NAIOSH ERP — ${FW.esc(new Date().toLocaleString('ar-EG'))}</p></div>`;
+
+        document.getElementById('d-edit-po')?.addEventListener('click', () => openPoModal(res.json));
+        document.getElementById('d-approve-po')?.addEventListener('click', () => transitionPo(id, 'approve', 'اعتماد أمر الشراء؟'));
+        document.getElementById('d-receive-po')?.addEventListener('click', () => transitionPo(id, 'receive', 'تأكيد استلام الأمر؟ أثر المخزون يُسجَّل عبر صفحة الاستلام عند الربط.'));
+        document.getElementById('d-cancel-po')?.addEventListener('click', async () => {
+          const reason = await window.ErpDialog.prompt('سبب إلغاء أمر الشراء (إلزامي):');
+          if (!reason || !String(reason).trim()) return;
+          const r = await FW.api('POST', `/finance/purchases/orders/${id}/cancel`, { ...entityPayload(), reason: String(reason).trim() });
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الإلغاء', 'err');
+          FW.setAlert(document.getElementById('alert'), 'تم إلغاء أمر الشراء', 'ok');
+          await load();
+          showPo(id);
+        });
+        document.getElementById('d-delete-po')?.addEventListener('click', async () => {
+          if (!await window.ErpDialog.confirm('حذف المسودة نهائيًا؟ الأوامر المعتمدة تُلغى ولا تُحذف.')) return;
+          const r = await FW.api('DELETE', `/finance/purchases/orders/${id}?${entityQS()}`);
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الحذف', 'err');
+          state.selectedPo = null;
+          FW.setAlert(document.getElementById('alert'), 'حُذفت المسودة', 'ok');
+          await load();
+          document.getElementById('drawer').innerHTML = '<div class="fw-empty"><i class="fas fa-inbox"></i>اختر سجلًا</div>';
+        });
+        document.getElementById('d-invoice-po')?.addEventListener('click', () => openViModal({
+          vendor_name: o.vendor_name,
+          po_id: o.po_id,
+          currency_code: o.currency_code,
+          subtotal: o.subtotal,
+          tax_amount: o.tax_amount,
+          total_amount: Math.max(Number(o.remaining_to_invoice || o.total_amount), 0) || o.total_amount
+        }));
+        document.getElementById('d-print-po')?.addEventListener('click', () => window.print());
+        drawer.querySelectorAll('[data-jump-vi]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            setTab('invoices');
+            showVi(btn.getAttribute('data-jump-vi'));
+          });
+        });
+      }
+
+      async function showVi(id) {
+        state.selectedVi = Number(id);
+        state.selectedPo = null;
+        renderTable();
+        const drawer = document.getElementById('drawer');
+        drawer.innerHTML = FW.loadingState('تحميل الفاتورة…');
+        const res = await FW.api('GET', `/finance/purchases/vendor-invoices/${id}?${entityQS()}`);
+        if (!res.ok || !res.json?.success) {
+          drawer.innerHTML = FW.emptyState(res.json?.error || 'تعذر التحميل');
+          return;
+        }
+        const inv = res.json.invoice;
+        const st = String(inv.status || '').toUpperCase();
+        const rem = Number(inv.remaining_amount != null ? inv.remaining_amount : Math.max(Number(inv.total_amount) - Number(inv.paid_amount || 0), 0));
+        const canApprove = st === 'OPEN';
+        const canPay = rem > 0.009 && !['CANCELLED', 'VOID'].includes(st);
+        const canDelete = st === 'OPEN' && Number(inv.paid_amount || 0) === 0;
+
+        drawer.innerHTML = `
+          <h3>${FW.esc(inv.invoice_number)}</h3>
+          <div class="fw-meta">
+            <div><span>المورد</span><strong>${FW.esc(inv.vendor_name || '—')}</strong></div>
+            <div><span>الحالة</span><strong>${FW.statusBadge(statusLabel(inv.status))}</strong></div>
+            <div><span>أمر الشراء</span><strong class="fw-num">${inv.po_id ? `<button type="button" class="fw-btn fw-btn-mini" id="jump-po">${FW.esc(inv.po_number || inv.po_id)}</button>` : '—'}</strong></div>
+            <div><span>الإصدار</span><strong>${FW.esc(String(inv.invoice_date || '').slice(0, 10))}</strong></div>
+            <div><span>الاستحقاق</span><strong>${FW.esc(inv.due_date ? String(inv.due_date).slice(0, 10) : '—')}</strong></div>
+            <div><span>قبل الضريبة</span><strong class="fw-num">${money(inv.subtotal, inv.currency_code)}</strong></div>
+            <div><span>الضريبة</span><strong class="fw-num">${money(inv.tax_amount, inv.currency_code)}</strong></div>
+            <div><span>الإجمالي</span><strong class="fw-num">${money(inv.total_amount, inv.currency_code)}</strong></div>
+            <div><span>المدفوع</span><strong class="fw-num">${money(inv.paid_amount, inv.currency_code)}</strong></div>
+            <div><span>المتبقي</span><strong class="fw-num">${money(rem, inv.currency_code)}</strong></div>
+            <div><span>اعتمد بواسطة</span><strong>${FW.esc(inv.approved_by || '—')}</strong></div>
+            <div style="grid-column:1/-1"><span>ملاحظات</span><strong>${FW.esc(inv.notes || '—')}</strong></div>
+          </div>
+          <div class="fw-actions" style="margin-top:12px">
+            ${canApprove ? `<button type="button" class="fw-btn fw-btn-ok" id="d-approve-vi">اعتماد</button>` : `<button type="button" class="fw-btn" disabled title="الاعتماد للمفتوحة فقط">اعتماد</button>`}
+            ${canPay ? `<button type="button" class="fw-btn fw-btn-primary" id="d-pay-vi">تسجيل دفعة</button>` : `<button type="button" class="fw-btn" disabled title="لا متبقي للسداد">تسجيل دفعة</button>`}
+            ${canDelete ? `<button type="button" class="fw-btn fw-btn-danger" id="d-delete-vi">حذف (غير معتمدة)</button>` : `<button type="button" class="fw-btn" disabled title="لا حذف بعد الاعتماد أو السداد">حذف</button>`}
+            <button type="button" class="fw-btn" id="d-print-vi"><i class="fas fa-print"></i> طباعة</button>
+          </div>
+          <h4 style="margin:14px 0 8px">سجل التدقيق</h4>
+          ${auditHtml(inv.audit_log)}`;
+
+        document.getElementById('jump-po')?.addEventListener('click', () => {
+          setTab('orders');
+          showPo(inv.po_id);
+        });
+        document.getElementById('d-approve-vi')?.addEventListener('click', async () => {
+          if (!await window.ErpDialog.confirm('اعتماد فاتورة المورد؟')) return;
+          const r = await FW.api('POST', `/finance/purchases/vendor-invoices/${id}/approve`, entityPayload());
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الاعتماد', 'err');
+          FW.setAlert(document.getElementById('alert'), 'تم اعتماد الفاتورة', 'ok');
+          await load();
+          showVi(id);
+        });
+        document.getElementById('d-pay-vi')?.addEventListener('click', async () => {
+          const amountStr = await window.ErpDialog.prompt(`مبلغ الدفعة (المتبقي ${rem}):`, String(rem));
+          if (amountStr == null) return;
+          const amount = Number(amountStr);
+          if (!(amount > 0)) {
+            FW.setAlert(document.getElementById('alert'), 'مبلغ غير صالح', 'err');
+            return;
+          }
+          const method = await window.ErpDialog.prompt('طريقة الدفع (CASH / BANK_TRANSFER / CHECK):', 'BANK_TRANSFER');
+          const reference = await window.ErpDialog.prompt('مرجع العملية (اختياري):', '');
+          const r = await FW.api('POST', `/finance/purchases/vendor-invoices/${id}/pay`, {
+            ...entityPayload(),
+            amount,
+            method: method || 'BANK_TRANSFER',
+            reference: reference || null
+          });
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل السداد', 'err');
+          FW.setAlert(document.getElementById('alert'), `تم تسجيل الدفعة — متبقي ${money(r.json.remaining_amount)}`, 'ok');
+          await load();
+          showVi(id);
+        });
+        document.getElementById('d-delete-vi')?.addEventListener('click', async () => {
+          if (!await window.ErpDialog.confirm('حذف فاتورة غير معتمدة؟')) return;
+          const r = await FW.api('DELETE', `/finance/purchases/vendor-invoices/${id}?${entityQS()}`);
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الحذف', 'err');
+          state.selectedVi = null;
+          await load();
+          document.getElementById('drawer').innerHTML = '<div class="fw-empty"><i class="fas fa-inbox"></i>اختر سجلًا</div>';
+        });
+        document.getElementById('d-print-vi')?.addEventListener('click', () => window.print());
+      }
+
+      async function transitionPo(id, action, confirmMsg) {
+        if (!await window.ErpDialog.confirm(confirmMsg)) return;
+        const r = await FW.api('POST', `/finance/purchases/orders/${id}/${action}`, entityPayload());
+        if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل التحديث', 'err');
+        FW.setAlert(document.getElementById('alert'), r.json?.message || 'تم التحديث', 'ok');
+        await load();
+        showPo(id);
+      }
+
+      function lineRowHtml(line = {}) {
+        return `<div class="po-line-row">
+          <label>كود<input data-f="item_code" value="${FW.esc(line.item_code || '')}"></label>
+          <label>الصنف *<input data-f="item_name" required value="${FW.esc(line.item_name || '')}"></label>
+          <label>الكمية<input type="number" min="0.001" step="0.001" data-f="quantity" value="${FW.esc(line.quantity != null ? line.quantity : 1)}"></label>
+          <label>السعر<input type="number" min="0" step="0.01" data-f="unit_price" value="${FW.esc(line.unit_price != null ? line.unit_price : 0)}"></label>
+          <label>ض%<input type="number" min="0" step="0.01" data-f="tax_pct" value="${FW.esc(line.tax_pct != null ? line.tax_pct : 15)}"></label>
+          <button type="button" class="fw-btn fw-btn-mini fw-btn-danger" data-rm-line title="حذف البند"><i class="fas fa-trash"></i></button>
+        </div>`;
+      }
+
+      function refreshPoTotalsHint() {
+        const lines = collectLines();
+        const sub = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
+        const tax = lines.reduce((s, l) => s + l.quantity * l.unit_price * (l.tax_pct / 100), 0);
+        document.getElementById('po-totals-hint').textContent =
+          `البنود: ${lines.length} · قبل الضريبة: ${money(sub)} · ضريبة: ${money(tax)} · الإجمالي: ${money(sub + tax)}`;
+      }
+
+      function collectLines() {
+        return [...document.querySelectorAll('#po-lines .po-line-row')].map((row) => ({
+          item_code: row.querySelector('[data-f="item_code"]').value.trim() || null,
+          item_name: row.querySelector('[data-f="item_name"]').value.trim(),
+          quantity: Number(row.querySelector('[data-f="quantity"]').value || 0),
+          unit_price: Number(row.querySelector('[data-f="unit_price"]').value || 0),
+          tax_pct: Number(row.querySelector('[data-f="tax_pct"]').value || 0)
+        })).filter((l) => l.item_name && l.quantity > 0);
+      }
+
+      function openPoModal(detail) {
+        document.getElementById('po_edit_id').value = detail?.order?.po_id || '';
+        document.getElementById('po-modal-title').textContent = detail?.order ? `تعديل ${detail.order.po_number}` : 'أمر شراء جديد';
+        document.getElementById('po_vendor_name').value = detail?.order?.vendor_name || '';
+        document.getElementById('po_currency').value = detail?.order?.currency_code || 'SAR';
+        document.getElementById('po_order_date').value = detail?.order?.order_date
+          ? String(detail.order.order_date).slice(0, 10) : today();
+        document.getElementById('po_expected_date').value = detail?.order?.expected_date
+          ? String(detail.order.expected_date).slice(0, 10) : '';
+        document.getElementById('po_notes').value = detail?.order?.notes || '';
+        const host = document.getElementById('po-lines');
+        const lines = detail?.lines?.length ? detail.lines : [{}];
+        host.innerHTML = lines.map(lineRowHtml).join('');
+        refreshPoTotalsHint();
+        document.getElementById('modal-po').hidden = false;
+      }
+
+      function openViModal(prefill) {
+        document.getElementById('form-vi').reset();
+        document.getElementById('vi_invoice_date').value = today();
+        fillPoSelect(prefill?.po_id);
+        if (prefill) {
+          document.getElementById('vi_vendor_name').value = prefill.vendor_name || '';
+          document.getElementById('vi_currency').value = prefill.currency_code || 'SAR';
+          const total = Number(prefill.total_amount || 0);
+          const tax = Number(prefill.tax_amount || 0);
+          const sub = Number(prefill.subtotal != null ? prefill.subtotal : Math.max(total - tax, 0));
+          document.getElementById('vi_subtotal').value = sub;
+          document.getElementById('vi_tax').value = tax;
+          document.getElementById('vi_total').value = total;
+          if (prefill.po_id) document.getElementById('vi_po_id').value = String(prefill.po_id);
+        }
+        document.getElementById('modal-vi').hidden = false;
+      }
+
+      function fillPoSelect(selected) {
+        const eligible = state.orders.filter((o) => {
+          const st = String(o.status).toUpperCase();
+          return !['DRAFT', 'CANCELLED'].includes(st);
+        });
+        document.getElementById('vi_po_id').innerHTML =
+          `<option value="">— بدون ربط —</option>` +
+          eligible.map((o) => `<option value="${o.po_id}" ${Number(selected) === Number(o.po_id) ? 'selected' : ''}>
+            ${FW.esc(o.po_number)} — ${FW.esc(o.vendor_name || '')} — متبقي فوترة ${money(o.remaining_to_invoice)}
+          </option>`).join('');
+      }
+
+      function fillVendorList() {
+        document.getElementById('vendor-list').innerHTML = state.vendors.map((v) =>
+          `<option value="${FW.esc(v.vendor_name || v.name || '')}"></option>`
+        ).join('');
+      }
+
+      async function loadVendors() {
+        const res = await FW.api('GET', `/finance/expenses?${entityQS()}`);
+        state.vendors = res.json?.vendors || [];
+        fillVendorList();
+      }
+
+      async function load() {
+        document.getElementById('table-host').innerHTML = FW.loadingState();
+        const qs = entityQS();
+        const [sum, orders, invoices] = await Promise.all([
+          FW.api('GET', `/finance/purchases/summary?${qs}`),
+          FW.api('GET', `/finance/purchases/orders?${qs}`),
+          FW.api('GET', `/finance/purchases/vendor-invoices?${qs}`)
+        ]);
+        if (!orders.ok || !orders.json?.success) throw new Error(orders.json?.error || 'فشل تحميل أوامر الشراء');
+        if (!invoices.ok || !invoices.json?.success) throw new Error(invoices.json?.error || 'فشل تحميل فواتير الموردين');
+        state.summary = sum.json?.success ? sum.json : null;
+        state.orders = orders.json.orders || [];
+        state.invoices = invoices.json.invoices || [];
+        await loadVendors().catch(() => { state.vendors = []; });
+        renderKpis();
+        renderTable();
+        FW.setAlert(
+          document.getElementById('alert'),
+          `تم تحميل ${state.orders.length} أمر شراء و ${state.invoices.length} فاتورة مورد من Postgres`,
+          'ok'
+        );
+      }
+
+      document.querySelectorAll('.po-tabs button').forEach((btn) => {
+        btn.addEventListener('click', () => setTab(btn.dataset.tab));
       });
-      if (!res.ok) { window.ErpDialog.toast((await res.json()).error || 'فشل'); return; }
-      await loadAll();
-    }
 
-    async function openVi() {
-      const vendor_name = await window.ErpDialog.prompt('اسم المورد');
-      if (!vendor_name) return;
-      const total_amount = Number(await window.ErpDialog.prompt('المبلغ', '1000') || 0);
-      const res = await fetch(`${API}/finance/purchases/vendor-invoices`, {
-        method: 'POST', headers: H(),
-        body: JSON.stringify({ vendor_name, total_amount, entity_id: ENTITY_ID, notes: 'FC-P2' })
+      document.getElementById('btn-add-line').addEventListener('click', () => {
+        document.getElementById('po-lines').insertAdjacentHTML('beforeend', lineRowHtml({}));
+        refreshPoTotalsHint();
       });
-      if (!res.ok) { window.ErpDialog.toast((await res.json()).error || 'فشل'); return; }
-      await loadAll();
-    }
+      document.getElementById('po-lines').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-rm-line]');
+        if (!btn) return;
+        const rows = document.querySelectorAll('#po-lines .po-line-row');
+        if (rows.length <= 1) {
+          window.ErpDialog.toast('يلزم بند واحد على الأقل');
+          return;
+        }
+        btn.closest('.po-line-row').remove();
+        refreshPoTotalsHint();
+      });
+      document.getElementById('po-lines').addEventListener('input', refreshPoTotalsHint);
 
-    async function delPo(id) {
-      if (!await window.ErpDialog.confirm('حذف؟')) return;
-      await fetch(`${API}/finance/purchases/orders/${id}`, { method: 'DELETE', headers: H() });
-      await loadAll();
-    }
-    async function delVi(id) {
-      if (!await window.ErpDialog.confirm('حذف؟')) return;
-      await fetch(`${API}/finance/purchases/vendor-invoices/${id}`, { method: 'DELETE', headers: H() });
-      await loadAll();
-    }
-    loadAll();
+      document.getElementById('form-po').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const lines = collectLines();
+        if (!lines.length) {
+          FW.setAlert(document.getElementById('alert'), 'أضف بند شراء واحدًا على الأقل بكمية وسعر', 'err');
+          return;
+        }
+        const payload = {
+          ...entityPayload(),
+          vendor_name: document.getElementById('po_vendor_name').value.trim(),
+          currency_code: document.getElementById('po_currency').value,
+          order_date: document.getElementById('po_order_date').value,
+          expected_date: document.getElementById('po_expected_date').value || null,
+          notes: document.getElementById('po_notes').value || null,
+          lines
+        };
+        const editId = document.getElementById('po_edit_id').value;
+        const res = editId
+          ? await FW.api('PUT', `/finance/purchases/orders/${editId}`, payload)
+          : await FW.api('POST', '/finance/purchases/orders', payload);
+        if (!res.ok || !res.json?.success) {
+          FW.setAlert(document.getElementById('alert'), res.json?.error || 'فشل حفظ الأمر', 'err');
+          return;
+        }
+        document.getElementById('modal-po').hidden = true;
+        await load();
+        setTab('orders');
+        showPo(res.json.order.po_id);
+        FW.setAlert(document.getElementById('alert'), `حُفظ الأمر ${res.json.order.po_number}`, 'ok');
+      });
+
+      function syncViTotal() {
+        const sub = Number(document.getElementById('vi_subtotal').value || 0);
+        const tax = Number(document.getElementById('vi_tax').value || 0);
+        if (!document.getElementById('vi_total').dataset.manual) {
+          document.getElementById('vi_total').value = (sub + tax).toFixed(2);
+        }
+      }
+      document.getElementById('vi_subtotal').addEventListener('input', syncViTotal);
+      document.getElementById('vi_tax').addEventListener('input', syncViTotal);
+      document.getElementById('vi_total').addEventListener('input', () => {
+        document.getElementById('vi_total').dataset.manual = '1';
+      });
+
+      document.getElementById('vi_po_id').addEventListener('change', () => {
+        const po = state.orders.find((o) => Number(o.po_id) === Number(document.getElementById('vi_po_id').value));
+        if (!po) return;
+        document.getElementById('vi_vendor_name').value = po.vendor_name || document.getElementById('vi_vendor_name').value;
+        document.getElementById('vi_currency').value = po.currency_code || 'SAR';
+        const rem = Number(po.remaining_to_invoice || po.total_amount || 0);
+        const taxRatio = Number(po.total_amount) > 0 ? Number(po.tax_amount || 0) / Number(po.total_amount) : 0.15 / 1.15;
+        const tax = rem * taxRatio;
+        document.getElementById('vi_total').value = rem.toFixed(2);
+        document.getElementById('vi_tax').value = tax.toFixed(2);
+        document.getElementById('vi_subtotal').value = (rem - tax).toFixed(2);
+        delete document.getElementById('vi_total').dataset.manual;
+      });
+
+      document.getElementById('form-vi').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = {
+          ...entityPayload(),
+          invoice_number: document.getElementById('vi_number').value.trim() || undefined,
+          vendor_name: document.getElementById('vi_vendor_name').value.trim(),
+          po_id: document.getElementById('vi_po_id').value ? Number(document.getElementById('vi_po_id').value) : null,
+          invoice_date: document.getElementById('vi_invoice_date').value,
+          due_date: document.getElementById('vi_due_date').value || null,
+          subtotal: Number(document.getElementById('vi_subtotal').value || 0),
+          tax_amount: Number(document.getElementById('vi_tax').value || 0),
+          total_amount: Number(document.getElementById('vi_total').value || 0),
+          currency_code: document.getElementById('vi_currency').value,
+          notes: document.getElementById('vi_notes').value || null
+        };
+        const res = await FW.api('POST', '/finance/purchases/vendor-invoices', payload);
+        if (!res.ok || !res.json?.success) {
+          FW.setAlert(document.getElementById('alert'), res.json?.error || 'فشل حفظ الفاتورة', 'err');
+          return;
+        }
+        document.getElementById('modal-vi').hidden = true;
+        await load();
+        setTab('invoices');
+        showVi(res.json.invoice.vendor_invoice_id);
+        FW.setAlert(document.getElementById('alert'), `حُفظت الفاتورة ${res.json.invoice.invoice_number}`, 'ok');
+      });
+
+      document.getElementById('table-host').addEventListener('click', (e) => {
+        const po = e.target.closest('[data-view-po], [data-po]')?.getAttribute('data-view-po')
+          || e.target.closest('[data-po]')?.getAttribute('data-po');
+        const vi = e.target.closest('[data-view-vi], [data-vi]')?.getAttribute('data-view-vi')
+          || e.target.closest('[data-vi]')?.getAttribute('data-vi');
+        if (po) showPo(po);
+        if (vi) showVi(vi);
+      });
+
+      document.getElementById('btn-new-po').onclick = () => openPoModal();
+      document.getElementById('btn-new-vi').onclick = () => openViModal();
+      document.getElementById('btn-po-cancel').onclick = () => { document.getElementById('modal-po').hidden = true; };
+      document.getElementById('btn-vi-cancel').onclick = () => { document.getElementById('modal-vi').hidden = true; };
+      document.getElementById('btn-reload').onclick = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+
+      ['q-po', 'filter-po-status', 'po-from', 'po-to', 'po-page-size', 'q-vi', 'filter-vi-status', 'vi-from', 'vi-to', 'vi-page-size']
+        .forEach((id) => {
+          const el = document.getElementById(id);
+          el.addEventListener('input', () => { state.page = 1; renderTable(); });
+          el.addEventListener('change', () => { state.page = 1; renderTable(); });
+        });
+
+      const start = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+      if (window.whenFinanceContextReady) window.whenFinanceContextReady(start);
+      else start();
+    })();
   </script>
 </body>
 </html>

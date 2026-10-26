@@ -135,9 +135,8 @@ let server;
     const po = await call('POST', '/finance/purchases/orders', {
       po_number: 'PO-ZLNK-' + Date.now(),
       vendor_name: 'مورد اختبار',
-      status: 'DRAFT',
-      total_amount: 50,
-      entity_id: ENTITY
+      entity_id: ENTITY,
+      lines: [{ item_code: 'LNK1', item_name: 'صنف الربط', quantity: 10, unit_price: 5, tax_pct: 0 }]
     });
     ok('po-created', po.status === 201, String(po.status) + ' ' + JSON.stringify(po.json && po.json.error));
     const before = await call('GET', '/finance/inventory/balances');
@@ -152,7 +151,7 @@ let server;
     const still = await call('GET', '/finance/inventory/balances');
     ok('draft-receipt-no-balance', still.json.balances.length === 0);
 
-    await call('PUT', '/finance/purchases/orders/' + po.json.order.po_id, { status: 'APPROVED' });
+    await call('POST', '/finance/purchases/orders/' + po.json.order.po_id + '/approve', { entity_id: ENTITY });
     const receiptKey = 'receipt-1';
     const receipt = await call('POST', '/finance/inventory/receipts', {
       po_id: po.json.order.po_id,
