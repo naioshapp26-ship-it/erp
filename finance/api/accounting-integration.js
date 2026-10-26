@@ -175,7 +175,8 @@ router.get('/source/:type/:id', async (req, res) => {
       source = r.rows[0] || null;
     } else if (type === 'PAYMENT') {
       const r = await db.query(
-        `SELECT payment_id AS id, payment_number AS number, amount AS total_amount, status, journal_entry_id
+        `SELECT payment_id AS id, payment_number AS number, payment_amount AS total_amount, status, journal_entry_id,
+                customer_name, payment_method, payment_date
          FROM finance_payments WHERE payment_id = $1 AND entity_id = $2`,
         [id, entityId]
       );
@@ -227,6 +228,65 @@ router.get('/source/:type/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('accounting source', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/journals/:entryId', async (req, res) => {
+  try {
+    const entityId = entityOf(req);
+    const entryId = Number(req.params.entryId);
+    if (!entityId || !Number.isFinite(entryId)) {
+      return res.status(400).json({ success: false, error: 'معرّف القيد أو الكيان غير صالح' });
+    }
+    const entryRes = await db.query(
+      `SELECT * FROM finance_journal_entries WHERE entry_id = $1 AND entity_id = $2`,
+      [entryId, entityId]
+    );
+    if (!entryRes.rows[0]) {
+      return res.status(404).json({ success: false, error: 'القيد غير موجود في هذا الكيان' });
+    }
+    const entry = entryRes.rows[0];
+    const linesRes = await db.query(
+      `SELECT line_id, line_number, account_id, account_code, account_name,
+              debit_amount, credit_amount, description
+       FROM finance_journal_lines
+       WHERE entry_id = $1
+       ORDER BY line_number, line_id`,
+      [entryId]
+    ).catch(async () =>
+      db.query(
+        `SELECT line_id, line_number, account_id, account_code,
+                debit_amount, credit_amount, description
+         FROM finance_journal_lines WHERE entry_id = $1 ORDER BY line_number, line_id`,
+        [entryId]
+      )
+    );
+    const debit = linesRes.rows.reduce((s, l) => s + Number(l.debit_amount || 0), 0);
+    const credit = linesRes.rows.reduce((s, l) => s + Number(l.credit_amount || 0), 0);
+    const reversal = await findActiveReversal(db.pool, entryId).catch(() => []);
+    res.json({
+      success: true,
+      entry,
+      lines: linesRes.rows,
+      debit_total: debit,
+      credit_total: credit,
+      balanced: Math.abs(debit - credit) <= 0.01,
+      source_label: sourceLabel(entry.reference_type),
+      reversals: reversal,
+      can_reverse: !!(entry.is_posted || entry.status === 'POSTED')
+        && !(reversal && reversal.length)
+        && entry.entry_type !== 'REVERSAL'
+        && entry.reference_type !== 'JOURNAL_REVERSAL',
+      links: {
+        journal: '/finance/journal.html',
+        invoices: '/finance/invoices-budgets-master.html',
+        payments: '/finance/payments.html',
+        expenses: '/finance/expenses.html'
+      }
+    });
+  } catch (error) {
+    console.error('accounting journal detail', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

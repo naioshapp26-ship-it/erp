@@ -78,7 +78,9 @@
   const STATUS = {
     OPEN: 'مفتوح', ACTIVE: 'نشط', DRAFT: 'مسودة', RECEIVED: 'مستلم', POSTED: 'مرحّل',
     APPLIED: 'مطبّق', CANCELLED: 'ملغى', CONVERTED: 'محوّل', CONFIRMED: 'مؤكد',
-    DISCONNECTED: 'غير متصل', LOCAL_ONLY: 'محلي', PAID: 'مدفوع', PARTIAL: 'جزئي'
+    DISCONNECTED: 'غير متصل', LOCAL_ONLY: 'محلي', PAID: 'مدفوع', PARTIAL: 'جزئي',
+    READY: 'جاهز', QUEUED: 'في الطابور', VALIDATED: 'مُتحقق', FAILED: 'فشل',
+    REJECTED: 'مرفوض', ARCHIVED: 'مؤرشف'
   };
   const PAYLOAD_KEYS = ['move_type', 'to_location', 'period_start', 'period_end', 'percent', 'debit_account_id', 'credit_account_id'];
   const TOP_KEYS = ['record_number', 'title', 'party_name', 'amount', 'notes', 'customer_id', 'asset_id', 'project_id', 'invoice_id', 'reference_type'];
@@ -158,18 +160,26 @@
         <div class="ops-toolbar">
           <button class="btn btn-add" id="add" type="button"><i class="fas fa-plus"></i> إضافة</button>
           <input id="q" placeholder="بحث بالرقم أو البيان أو الطرف أو الحالة">
+          <select id="status-filter"><option value="">كل الحالات</option></select>
+          <select id="page-size"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select>
           <button class="btn btn-ghost" id="refresh" type="button"><i class="fas fa-rotate"></i> تحديث</button>
         </div>
         <div id="alert"></div>
         <div id="extra"></div>
-        <div class="ops-card">
-          <div class="empty-state" id="empty" hidden><i class="fas fa-folder-open"></i>لا سجلات بعد. اضغط إضافة لإنشاء أول سجل.</div>
-          <div style="overflow-x:auto">
-            <table>
-              <thead><tr><th>الرقم</th><th>البيان</th><th>الطرف</th><th>القيمة</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-              <tbody id="rows"></tbody>
-            </table>
+        <div class="ops-layout">
+          <div class="ops-card">
+            <div class="empty-state" id="empty" hidden><i class="fas fa-folder-open"></i>لا سجلات بعد. اضغط إضافة لإنشاء أول سجل.</div>
+            <div style="overflow-x:auto">
+              <table>
+                <thead><tr><th>الرقم</th><th>البيان</th><th>الطرف</th><th>القيمة</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                <tbody id="rows"></tbody>
+              </table>
+            </div>
+            <div class="ops-pager" id="pager"></div>
           </div>
+          <aside class="ops-drawer" id="drawer">
+            <div class="empty-state"><i class="fas fa-hand-pointer"></i>اختر سجلًا لعرض التفاصيل والمعاملات المرتبطة</div>
+          </aside>
         </div>
       </div>
       <div class="ops-modal" id="modal" hidden>
@@ -198,6 +208,8 @@
 
     let records = [];
     let editing = null;
+    let page = 1;
+    let selectedId = null;
 
     function alertMsg(text, ok) {
       document.getElementById('alert').innerHTML = `<div class="ops-alert ${ok ? 'ok' : 'err'}">${esc(text)}</div>`;
@@ -207,8 +219,39 @@
     }
     function badge(status) {
       const key = String(status || '').toUpperCase();
-      const cls = key === 'CANCELLED' ? 'cancel' : 'open';
+      const cls = key === 'CANCELLED' || key === 'FAILED' || key === 'REJECTED' ? 'cancel' : 'open';
       return `<span class="badge ${cls}">${esc(statusLabel(key))}</span>`;
+    }
+    function showDrawer(row) {
+      const drawer = document.getElementById('drawer');
+      if (!row) {
+        drawer.innerHTML = `<div class="empty-state"><i class="fas fa-hand-pointer"></i>اختر سجلًا لعرض التفاصيل والمعاملات المرتبطة</div>`;
+        return;
+      }
+      selectedId = row.record_id;
+      const payload = row.payload || {};
+      const extras = (payload.extra || []).filter((item) => item && item.label);
+      const snap = payload.invoice_snapshot || null;
+      drawer.innerHTML = `
+        <h3>${esc(row.record_number || row.title || row.record_id)}</h3>
+        <div class="meta">
+          <div><span>البيان</span><strong>${esc(row.title || '—')}</strong></div>
+          <div><span>الطرف</span><strong>${esc(row.party_name || '—')}</strong></div>
+          <div><span>القيمة</span><strong class="num">${Number(row.amount || 0).toLocaleString('en-US')}</strong></div>
+          <div><span>الحالة</span><strong>${badge(row.status)}</strong></div>
+          <div><span>التاريخ</span><strong>${esc(String(row.record_date || row.created_at || '').slice(0, 10) || '—')}</strong></div>
+          <div><span>مرجع فاتورة</span><strong class="num">${esc(row.invoice_id || payload.invoice_id || '—')}</strong></div>
+          ${snap ? `<div><span>رقم الفاتورة</span><strong class="num">${esc(snap.invoice_number || '—')}</strong></div>
+            <div><span>قيد الفاتورة</span><strong class="num">${esc(snap.journal_entry_id || '—')}</strong></div>` : ''}
+        </div>
+        ${extras.length ? `<p style="font-weight:800;color:#64748b">${extras.map((item) => `${esc(item.label)}: ${esc(item.value || '')}`).join(' · ')}</p>` : ''}
+        <div class="actions" style="margin-top:10px">
+          <button class="btn btn-edit" type="button" data-drawer-edit="${row.record_id}"><i class="fas fa-pen"></i> تعديل</button>
+          ${kind === 'e-invoice-queue' ? `<a class="btn btn-ghost" href="/finance/invoices-budgets-master.html">الفواتير</a>
+            <a class="btn btn-ghost" href="/finance/accounting-integration.html">التكامل</a>` : ''}
+          ${kind === 'pos-tickets' ? `<a class="btn btn-ghost" href="/finance/invoices-budgets-master.html">الفواتير</a>` : ''}
+        </div>`;
+      drawer.querySelector('[data-drawer-edit]')?.addEventListener('click', () => openModal(row));
     }
     function addExtraRow(label, value) {
       const row = document.createElement('div');
@@ -271,8 +314,26 @@
     }
     function render() {
       const q = document.getElementById('q').value.trim().toLowerCase();
-      const list = records.filter((row) => !q || [row.record_number, row.title, row.party_name, row.status, row.notes].join(' ').toLowerCase().includes(q));
-      const open = records.filter((row) => !['CANCELLED', 'CONVERTED'].includes(String(row.status).toUpperCase())).length;
+      const statusFilter = document.getElementById('status-filter').value;
+      const pageSize = Number(document.getElementById('page-size').value) || 50;
+      const statuses = [...new Set(records.map((row) => String(row.status || '').toUpperCase()).filter(Boolean))].sort();
+      const statusSelect = document.getElementById('status-filter');
+      const previous = statusSelect.value;
+      statusSelect.innerHTML = `<option value="">كل الحالات</option>` + statuses.map((st) =>
+        `<option value="${esc(st)}" ${previous === st ? 'selected' : ''}>${esc(statusLabel(st))}</option>`
+      ).join('');
+      if (statusFilter) statusSelect.value = statusFilter;
+
+      const list = records.filter((row) => {
+        if (statusFilter && String(row.status || '').toUpperCase() !== statusFilter) return false;
+        if (!q) return true;
+        return [row.record_number, row.title, row.party_name, row.status, row.notes, row.invoice_id]
+          .join(' ').toLowerCase().includes(q);
+      });
+      const pages = Math.max(1, Math.ceil(list.length / pageSize));
+      page = Math.min(Math.max(1, page), pages);
+      const slice = list.slice((page - 1) * pageSize, page * pageSize);
+      const open = records.filter((row) => !['CANCELLED', 'CONVERTED', 'ARCHIVED'].includes(String(row.status).toUpperCase())).length;
       const cancelled = records.filter((row) => String(row.status).toUpperCase() === 'CANCELLED').length;
       const sum = records.reduce((total, row) => total + Number(row.amount || 0), 0);
       document.getElementById('stat-count').textContent = records.length;
@@ -280,7 +341,18 @@
       document.getElementById('stat-cancel').textContent = cancelled;
       document.getElementById('stat-sum').textContent = sum.toLocaleString('en-US');
       document.getElementById('empty').hidden = list.length > 0;
-      document.getElementById('rows').innerHTML = list.map((row) => {
+      document.getElementById('pager').innerHTML = list.length
+        ? `<span>عرض ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, list.length)} من ${list.length}</span>
+           <span class="actions">
+             <button class="btn btn-mini" type="button" id="pg-prev" ${page <= 1 ? 'disabled' : ''}>السابق</button>
+             <span>صفحة ${page}/${pages}</span>
+             <button class="btn btn-mini" type="button" id="pg-next" ${page >= pages ? 'disabled' : ''}>التالي</button>
+           </span>`
+        : '';
+      document.getElementById('pg-prev')?.addEventListener('click', () => { page -= 1; render(); });
+      document.getElementById('pg-next')?.addEventListener('click', () => { page += 1; render(); });
+
+      document.getElementById('rows').innerHTML = slice.map((row) => {
         const extra = [];
         if (kind === 'purchase-requests' && !['CONVERTED', 'CANCELLED'].includes(String(row.status).toUpperCase())) extra.push(`<button class="btn btn-mini" data-convert="${row.record_id}">تحويل لأمر</button>`);
         if (kind === 'deposits' && String(row.status).toUpperCase() === 'OPEN') extra.push(`<button class="btn btn-mini" data-apply="${row.record_id}">تطبيق على فاتورة</button>`);
@@ -303,28 +375,57 @@
         const actual = row.actual_amount != null ? `<div class="num">فعلي ${Number(row.actual_amount).toLocaleString('en-US')}</div>` : '';
         const extras = ((row.payload && row.payload.extra) || []).filter((item) => item && item.label);
         const extraLine = extras.length ? `<div class="extra-preview">${extras.map((item) => `${esc(item.label)}: ${esc(item.value || '')}`).join(' · ')}</div>` : '';
-        return `<tr>
+        const active = String(selectedId) === String(row.record_id) ? ' style="background:#fff1f2"' : '';
+        return `<tr data-row="${row.record_id}"${active}>
           <td class="num">${esc(row.record_number)}</td>
           <td>${esc(row.title || '-')}${extraLine}</td>
           <td>${esc(row.party_name || '-')}</td>
           <td class="num">${Number(row.amount || 0).toLocaleString('en-US')}</td>
           <td>${badge(row.status)}${actual}</td>
           <td class="actions">
+            <button class="btn btn-mini" data-view="${row.record_id}"><i class="fas fa-eye"></i> معاينة</button>
             <button class="btn btn-edit" data-edit="${row.record_id}"><i class="fas fa-pen"></i> تعديل</button>
             <button class="btn btn-del" data-del="${row.record_id}"><i class="fas fa-trash"></i> حذف</button>
             ${extra.join('')}
           </td>
         </tr>`;
       }).join('');
-      document.querySelectorAll('[data-edit]').forEach((btn) => {
-        btn.onclick = () => openModal(records.find((row) => String(row.record_id) === btn.dataset.edit));
+      document.querySelectorAll('[data-view]').forEach((btn) => {
+        btn.onclick = (event) => {
+          event.stopPropagation();
+          showDrawer(records.find((row) => String(row.record_id) === btn.dataset.view));
+          render();
+        };
       });
-      document.querySelectorAll('[data-del]').forEach((btn) => { btn.onclick = () => remove(btn.dataset.del); });
-      document.querySelectorAll('[data-convert]').forEach((btn) => { btn.onclick = () => convert(btn.dataset.convert); });
-      document.querySelectorAll('[data-apply]').forEach((btn) => { btn.onclick = () => apply(btn.dataset.apply); });
-      document.querySelectorAll('[data-run]').forEach((btn) => { btn.onclick = () => runRule(btn.dataset.run); });
+      document.querySelectorAll('[data-row]').forEach((tr) => {
+        tr.onclick = () => {
+          showDrawer(records.find((row) => String(row.record_id) === tr.dataset.row));
+          render();
+        };
+      });
+      document.querySelectorAll('[data-edit]').forEach((btn) => {
+        btn.onclick = (event) => {
+          event.stopPropagation();
+          openModal(records.find((row) => String(row.record_id) === btn.dataset.edit));
+        };
+      });
+      document.querySelectorAll('[data-del]').forEach((btn) => {
+        btn.onclick = (event) => { event.stopPropagation(); remove(btn.dataset.del); };
+      });
+      document.querySelectorAll('[data-convert]').forEach((btn) => {
+        btn.onclick = (event) => { event.stopPropagation(); convert(btn.dataset.convert); };
+      });
+      document.querySelectorAll('[data-apply]').forEach((btn) => {
+        btn.onclick = (event) => { event.stopPropagation(); apply(btn.dataset.apply); };
+      });
+      document.querySelectorAll('[data-run]').forEach((btn) => {
+        btn.onclick = (event) => { event.stopPropagation(); runRule(btn.dataset.run); };
+      });
       document.querySelectorAll('[data-einv]').forEach((btn) => {
-        btn.onclick = () => transitionEInvoice(btn.dataset.einv, btn.dataset.next);
+        btn.onclick = (event) => {
+          event.stopPropagation();
+          transitionEInvoice(btn.dataset.einv, btn.dataset.next);
+        };
       });
     }
     async function load() {
@@ -412,7 +513,9 @@
     document.getElementById('close').onclick = closeModal;
     document.getElementById('add-extra').onclick = () => addExtraRow();
     document.getElementById('refresh').onclick = load;
-    document.getElementById('q').oninput = render;
+    document.getElementById('q').oninput = () => { page = 1; render(); };
+    document.getElementById('status-filter').onchange = () => { page = 1; render(); };
+    document.getElementById('page-size').onchange = () => { page = 1; render(); };
     document.getElementById('modal').addEventListener('click', (event) => {
       if (event.target.id === 'modal') closeModal();
     });
