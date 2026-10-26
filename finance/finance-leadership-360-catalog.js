@@ -127,10 +127,10 @@
       icon: 'fa-boxes-stacked',
       pages: [
         { id: 'product-settings', label: 'إعدادات المنتجات', status: 'operational', href: '/finance/inventory.html#items', note: 'سجل أصناف وخدمات في Postgres عبر /finance/inventory' },
-        { id: 'product-classify', label: 'تصنيف المنتجات والخدمات', status: 'partial', href: '/finance/inventory.html#items', note: 'فئة نصية على الصنف — لا شجرة تصنيف مستقلة بعد' },
-        { id: 'product-costs', label: 'تكاليف المنتجات', status: 'partial', href: '/finance/inventory.html#balances', note: 'متوسط التكلفة المرجح على رصيد الصنف والمستودع — بلا تكلفة مشروعات' },
+        { id: 'product-classify', label: 'تصنيف المنتجات والخدمات', status: 'operational', href: '/finance/inventory.html#categories', note: 'شجرة تصنيفات مستقلة (أب/فرع) + ربط الصنف بـ category_id مع تدقيق. ليست مراكز تكلفة محاسبية.' },
+        { id: 'product-costs', label: 'تكاليف المنتجات', status: 'operational', href: '/finance/inventory.html#costs', note: 'متوسط التكلفة المرجح على رصيد الصنف/المستودع عبر /finance/inventory/costs. تكلفة المشروعات خارج النطاق.' },
         { id: 'price-lists', label: 'قوائم الأسعار', status: 'operational', href: '/finance/price-lists.html', note: 'قوائم وبنود محفوظة' },
-        { id: 'margins', label: 'احتساب التكلفة وهوامش الربح', status: 'partial', href: '/finance/inventory.html#balances', note: 'هامش الوحدة = سعر البيع − متوسط التكلفة. بلا تقرير ربحية حسب القسم' }
+        { id: 'margins', label: 'احتساب التكلفة وهوامش الربح', status: 'operational', href: '/finance/inventory.html#margins', note: 'هامش الوحدة + تجميع حسب التصنيف عبر /finance/inventory/margins-by-category. ليست ربحية أقسام GL كاملة.' }
       ]
     },
     {
@@ -143,9 +143,9 @@
         {
           id: 'stock-purchases',
           label: 'المشتريات المرتبطة بالمخزون',
-          status: 'partial',
+          status: 'operational',
           href: '/finance/inventory.html#links',
-          note: 'أمر الشراء له بنود مستقلة. الاستلام المخزني على أمر معتمد يزيد الرصيد وينشئ قيدًا. إنشاء الأمر أو اعتماده وحده لا يحرّك المخزون'
+          note: 'عرض أوامر الشراء وإيصالات المخزون عبر /finance/inventory/purchase-links. إنشاء/اعتماد الأمر وحده لا يحرّك الرصيد — الاستلام المعتمد يفعل.'
         },
         {
           id: 'stock-vendors',
@@ -156,7 +156,7 @@
         },
         { id: 'procurement-cycle', label: 'دورة المشتريات', status: 'operational', href: '/finance/purchase-requests.html', note: 'من طلب الشراء إلى أمر الشراء' },
         { id: 'warehouse-docs', label: 'الأذون المخزنية', status: 'operational', href: '/finance/inventory.html#moves', note: 'إذن إدخال وإخراج وتحويل وتسوية. الحركة المعتمدة لا تُعدَّل' },
-        { id: 'stock-count', label: 'إدارة الجرد', status: 'partial', href: '/finance/inventory.html#moves', note: 'تسوية كمية بسبب موثق. بلا مسار اعتماد منفصل بعد' }
+        { id: 'stock-count', label: 'إدارة الجرد', status: 'operational', href: '/finance/inventory.html#counts', note: 'مسودة جرد بسبب موثق ثم اعتماد ينشئ تسوية مخزون عند وجود فرق — مع صلاحيات وإلغاء مسودة.' }
       ]
     },
     {

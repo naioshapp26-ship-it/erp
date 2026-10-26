@@ -731,6 +731,7 @@ const recordHelpers = {
 };
 require('./inventory-records').register(router, recordHelpers);
 require('./inventory-link').register(router, recordHelpers);
+require('./inventory-depth').register(router, recordHelpers);
 
 module.exports = router;
 module.exports.ensureTables = ensureTables;

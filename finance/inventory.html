@@ -62,10 +62,14 @@
       <button type="button" data-tab="alerts">تنبيهات النقص</button>
       <button type="button" data-tab="valuation">تقرير التقييم</button>
       <button type="button" data-tab="items">الأصناف</button>
+      <button type="button" data-tab="categories">التصنيفات</button>
+      <button type="button" data-tab="costs">التكاليف</button>
+      <button type="button" data-tab="margins">هوامش التصنيف</button>
+      <button type="button" data-tab="counts">الجرد المعتمد</button>
       <button type="button" data-tab="units">وحدات القياس</button>
       <button type="button" data-tab="warehouses">المستودعات</button>
       <button type="button" data-tab="moves">تقرير الحركة</button>
-      <button type="button" data-tab="links">الربط المحاسبي</button>
+      <button type="button" data-tab="links">الربط المحاسبي / المشتريات</button>
     </nav>
     <p id="msg" class="msg" role="status"></p>
 
@@ -91,6 +95,52 @@
       <button class="btn" id="item-match" type="button">تحديد كل النتائج المطابقة</button>
       <div id="item-empty" class="empty">لا توجد أصناف. أول سجل يُنشأ من النموذج أعلاه.</div>
       <div class="wrap"><table id="item-table" hidden><thead><tr><th data-sort="sku">الرمز</th><th data-sort="name_ar">الاسم</th><th data-sort="item_type">النوع</th><th data-sort="category">الفئة</th><th data-sort="unit">الوحدة</th><th data-sort="sale_price">سعر البيع</th><th data-sort="reorder_level">حد الطلب</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="categories">
+      <h2>شجرة تصنيف المنتجات والخدمات</h2>
+      <p class="muted">تصنيفات مستقلة (أب/فرع) مع ربط الصنف عبر category_id — محفوظة في Postgres.</p>
+      <form id="category-form">
+        <input name="code" placeholder="الرمز" required>
+        <input name="name_ar" placeholder="اسم التصنيف" required>
+        <select name="parent_id"><option value="">بدون أب (جذر)</option></select>
+        <button class="btn primary" type="submit">حفظ التصنيف</button>
+      </form>
+      <form id="assign-category-form">
+        <select name="item_id" required></select>
+        <select name="category_id"><option value="">إزالة التصنيف</option></select>
+        <button class="btn" type="submit">ربط الصنف بالتصنيف</button>
+      </form>
+      <div id="category-empty" class="empty">لا تصنيفات بعد.</div>
+      <div class="wrap"><table id="category-table" hidden><thead><tr><th>الرمز</th><th>الاسم</th><th>الأب</th><th>أصناف</th><th>الحالة</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="costs">
+      <h2>تكاليف المنتجات (متوسط مرجّح)</h2>
+      <p class="muted">من أرصدة finance_stock_balances — بلا تكلفة مشروعات.</p>
+      <div id="costs-empty" class="empty">لا تكاليف/أرصدة بعد.</div>
+      <div class="wrap"><table id="costs-table" hidden><thead><tr><th>الصنف</th><th>المستودع</th><th>كمية</th><th>متوسط التكلفة</th><th>قيمة</th><th>سعر البيع</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="margins">
+      <h2>هوامش الربح حسب التصنيف</h2>
+      <p class="muted">هامش = (سعر البيع − متوسط التكلفة) × الكمية، مجمّع حسب شجرة التصنيف.</p>
+      <div id="margins-empty" class="empty">لا بيانات هامش بعد.</div>
+      <div class="wrap"><table id="margins-table" hidden><thead><tr><th>التصنيف</th><th>أصناف</th><th>كمية</th><th>قيمة مخزون</th><th>قيمة بيع</th><th>هامش</th><th>%</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="counts">
+      <h2>إدارة الجرد (مسودة → اعتماد)</h2>
+      <p class="muted">مسودة جرد بسبب موثق، ثم اعتماد يُنشئ تسوية مخزون عند وجود فرق كمية.</p>
+      <form id="count-form">
+        <select name="item_id" required></select>
+        <select name="warehouse_id" required></select>
+        <input class="num" name="counted_qty" type="number" step="0.001" placeholder="الكمية المعدودة" required>
+        <input name="reason" placeholder="سبب الجرد" required>
+        <button class="btn primary" type="submit">حفظ مسودة جرد</button>
+      </form>
+      <div id="counts-empty" class="empty">لا سجلات جرد.</div>
+      <div class="wrap"><table id="counts-table" hidden><thead><tr><th>الرقم</th><th>الصنف</th><th>المستودع</th><th>نظام</th><th>معدود</th><th>فرق</th><th>الحالة</th><th></th></tr></thead><tbody></tbody></table></div>
     </section>
 
     <section id="alerts">
@@ -424,6 +474,7 @@
       document.getElementById('map-now').textContent = map.account_map ? 'الربط الحالي محفوظ للعملة ' + map.account_map.currency_code : 'لم يُحفظ ربط محاسبي لهذا الكيان بعد.';
       fillSelects();
       await loadMovements();
+      await loadDepth().catch((error) => say(error.message, false));
     }
     document.querySelectorAll('nav button').forEach((button) => button.addEventListener('click', () => {
       document.querySelectorAll('nav button').forEach((el) => el.classList.remove('active'));
@@ -529,6 +580,127 @@
         say('تم تحميل سلسلة المستندات.', true);
       } catch (error) { say(error.message, false); }
     });
+    async function loadDepth() {
+      const [cats, costs, margins, counts, links] = await Promise.all([
+        api('/finance/inventory/categories').catch(() => ({ categories: [] })),
+        api('/finance/inventory/costs').catch(() => ({ costs: [] })),
+        api('/finance/inventory/margins-by-category').catch(() => ({ rows: [] })),
+        api('/finance/inventory/counts').catch(() => ({ counts: [] })),
+        api('/finance/inventory/purchase-links').catch(() => ({ purchase_orders: [], stock_receipts: [] }))
+      ]);
+      state.categories = cats.categories || [];
+      const catParent = document.querySelector('#category-form [name=parent_id]');
+      const catAssign = document.querySelector('#assign-category-form [name=category_id]');
+      const itemAssign = document.querySelector('#assign-category-form [name=item_id]');
+      if (catParent) {
+        catParent.innerHTML = '<option value="">بدون أب (جذر)</option>' + state.categories.map((c) => `<option value="${c.category_id}">${text(c.code)} — ${text(c.name_ar)}</option>`).join('');
+      }
+      if (catAssign) {
+        catAssign.innerHTML = '<option value="">إزالة التصنيف</option>' + state.categories.filter((c) => c.is_active).map((c) => `<option value="${c.category_id}">${text(c.code)} — ${text(c.name_ar)}</option>`).join('');
+      }
+      if (itemAssign) {
+        itemAssign.innerHTML = state.items.map((i) => `<option value="${i.item_id}">${text(i.sku)} — ${text(i.name_ar)}</option>`).join('');
+      }
+      const catEmpty = document.getElementById('category-empty');
+      const catTable = document.getElementById('category-table');
+      if (!state.categories.length) { catEmpty.hidden = false; catTable.hidden = true; }
+      else {
+        catEmpty.hidden = true; catTable.hidden = false;
+        catTable.querySelector('tbody').innerHTML = state.categories.map((c) =>
+          `<tr><td class="num">${text(c.code)}</td><td>${text(c.name_ar)}</td><td>${text(c.parent_name || '—')}</td><td class="num">${c.item_count || 0}</td><td>${c.is_active ? 'نشط' : 'موقوف'}</td></tr>`
+        ).join('');
+      }
+      const costRows = costs.costs || [];
+      const costsEmpty = document.getElementById('costs-empty');
+      const costsTable = document.getElementById('costs-table');
+      if (!costRows.length) { costsEmpty.hidden = false; costsTable.hidden = true; }
+      else {
+        costsEmpty.hidden = true; costsTable.hidden = false;
+        costsTable.querySelector('tbody').innerHTML = costRows.map((r) =>
+          `<tr><td>${text(r.sku)} — ${text(r.name_ar)}</td><td>${text(r.warehouse_code)}</td><td class="num">${n(r.qty)}</td><td class="num">${n(r.avg_cost)}</td><td class="num">${n(r.stock_value)}</td><td class="num">${n(r.sale_price)}</td></tr>`
+        ).join('');
+      }
+      const marginRows = margins.rows || [];
+      const marginsEmpty = document.getElementById('margins-empty');
+      const marginsTable = document.getElementById('margins-table');
+      if (!marginRows.length) { marginsEmpty.hidden = false; marginsTable.hidden = true; }
+      else {
+        marginsEmpty.hidden = true; marginsTable.hidden = false;
+        marginsTable.querySelector('tbody').innerHTML = marginRows.map((r) =>
+          `<tr><td>${text(r.category_name)}</td><td class="num">${r.item_count}</td><td class="num">${n(r.total_qty)}</td><td class="num">${n(r.stock_value)}</td><td class="num">${n(r.sale_value)}</td><td class="num">${n(r.margin_value)}</td><td class="num">${n(r.margin_pct)}%</td></tr>`
+        ).join('');
+      }
+      const countRows = counts.counts || [];
+      const countsEmpty = document.getElementById('counts-empty');
+      const countsTable = document.getElementById('counts-table');
+      if (!countRows.length) { countsEmpty.hidden = false; countsTable.hidden = true; }
+      else {
+        countsEmpty.hidden = true; countsTable.hidden = false;
+        countsTable.querySelector('tbody').innerHTML = countRows.map((r) =>
+          `<tr><td class="num">${text(r.count_number)}</td><td>${text(r.sku)}</td><td>${text(r.warehouse_code)}</td><td class="num">${n(r.system_qty)}</td><td class="num">${n(r.counted_qty)}</td><td class="num">${n(r.variance_qty)}</td><td>${text(r.status)}</td><td>${String(r.status).toUpperCase() === 'DRAFT' ? `<button type="button" class="btn" data-approve-count="${r.count_id}">اعتماد</button>` : ''}</td></tr>`
+        ).join('');
+      }
+      const linksNote = document.querySelector('#links > p.muted');
+      if (linksNote && links.note) {
+        linksNote.textContent = links.note + ` · أوامر: ${(links.purchase_orders || []).length} · إيصالات مخزون: ${(links.stock_receipts || []).length}`;
+      }
+      const countItem = document.querySelector('#count-form [name=item_id]');
+      const countWh = document.querySelector('#count-form [name=warehouse_id]');
+      if (countItem) countItem.innerHTML = state.items.filter((i) => i.is_stocked !== false && i.item_type !== 'service').map((i) => `<option value="${i.item_id}">${text(i.sku)} — ${text(i.name_ar)}</option>`).join('');
+      if (countWh) countWh.innerHTML = state.warehouses.map((w) => `<option value="${w.warehouse_id}">${text(w.code)} — ${text(w.name_ar)}</option>`).join('');
+    }
+    document.getElementById('category-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.target).entries());
+      try {
+        await api('/finance/inventory/categories', {
+          method: 'POST',
+          body: JSON.stringify({ code: data.code, name_ar: data.name_ar, parent_id: data.parent_id ? Number(data.parent_id) : null })
+        });
+        say('تم حفظ التصنيف.', true);
+        event.target.reset();
+        await loadDepth();
+      } catch (error) { say(error.message, false); }
+    });
+    document.getElementById('assign-category-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.target).entries());
+      try {
+        await api('/finance/inventory/items/' + data.item_id + '/assign-category', {
+          method: 'POST',
+          body: JSON.stringify({ category_id: data.category_id ? Number(data.category_id) : null })
+        });
+        say('تم ربط الصنف بالتصنيف.', true);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+    document.getElementById('count-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.target).entries());
+      try {
+        await api('/finance/inventory/counts', {
+          method: 'POST',
+          body: JSON.stringify({
+            item_id: Number(data.item_id),
+            warehouse_id: Number(data.warehouse_id),
+            counted_qty: Number(data.counted_qty),
+            reason: data.reason
+          })
+        });
+        say('حُفظت مسودة الجرد.', true);
+        await loadDepth();
+      } catch (error) { say(error.message, false); }
+    });
+    document.getElementById('counts-table')?.addEventListener('click', async (event) => {
+      const id = event.target.closest('[data-approve-count]')?.getAttribute('data-approve-count');
+      if (!id) return;
+      try {
+        const result = await api('/finance/inventory/counts/' + id + '/approve', { method: 'POST', body: '{}' });
+        say(result.message || 'تم اعتماد الجرد.', true);
+        await loadAll();
+      } catch (error) { say(error.message, false); }
+    });
+
     const initial = (location.hash || '#balances').slice(1);
     const initialButton = document.querySelector(`nav button[data-tab="${initial}"]`);
     if (initialButton) initialButton.click();
