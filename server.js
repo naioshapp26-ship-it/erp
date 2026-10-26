@@ -3580,6 +3580,8 @@ const inventoryRoutes = require('./finance/api/inventory');
 app.use('/finance/inventory', inventoryRoutes);
 const financeOpsRoutes = require('./finance/api/ops-ledgers');
 app.use('/finance/ops', financeOpsRoutes);
+const eInvoiceQueueRoutes = require('./finance/api/e-invoice-queue');
+app.use('/finance/e-invoice', eInvoiceQueueRoutes);
 const accountingIntegrationRoutes = require('./finance/api/accounting-integration');
 app.use('/finance/accounting-integration', accountingIntegrationRoutes);
 

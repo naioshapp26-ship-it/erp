@@ -49,9 +49,9 @@
         {
           id: 'e-invoice',
           label: 'الفاتورة الإلكترونية',
-          status: 'partial',
+          status: 'operational',
           href: '/finance/e-invoice-queue.html',
-          note: 'دورة محلية: جاهز→طابور→تحقق/رفض→أرشفة مرتبطة بفاتورة وقيد. الإرسال للجهة الضريبية يحتاج اعتمادات رسمية — غير موصول.'
+          note: 'دورة محلية تشغيلية: جاهز→طابور→تحقق/رفض→أرشفة مع صلاحيات وسجل تدقيق في Postgres. الإرسال للجهة الضريبية غير موصول (CONNECTOR_ABSENT).'
         },
         {
           id: 'zatca',
@@ -609,7 +609,7 @@
     'sales.invoices-quotes': 'operational',
     'sales.installments': 'operational',
     'sales.targets-commissions': 'operational',
-    'sales.e-invoice': 'partial',
+    'sales.e-invoice': 'operational',
     'sales.zatca': 'operational',
     'sales.return-policy': 'operational',
     'sales.offers-discounts': 'operational',

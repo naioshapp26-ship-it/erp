@@ -3,14 +3,308 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>فاتورة إلكترونية</title>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <title>الفاتورة الإلكترونية — تشغيل مالي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/finance/ops-shell.css">
+  <link rel="stylesheet" href="/finance/finance-workbench.css">
+  <style>
+    .audit-list{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
+    .audit-list li{background:#f8fafc;border:1px solid var(--fw-line);border-radius:10px;padding:8px 10px;font-size:.85rem}
+    .hist-list{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:4px;font-size:.82rem}
+    .fw-banner-warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:12px;padding:10px 14px;margin:0 0 14px;font-weight:700}
+  </style>
 </head>
-<body class="ops-body" data-kind="e-invoice-queue">
-  <div id="app"></div>
+<body class="fw-body" data-kind="e-invoice-queue">
+  <div class="fw-shell">
+    <div id="topnav"></div>
+    <header class="fw-hero">
+      <div>
+        <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
+        <h1><i class="fas fa-file-code"></i> الفاتورة الإلكترونية</h1>
+        <p>دورة محلية تشغيلية: جاهز → طابور → تحقق/رفض → أرشفة، مربوطة بفاتورة مبيعات وقيد عند توفره، مع صلاحيات وسجل تدقيق في Postgres. الإرسال للجهة الضريبية غير موصول.</p>
+      </div>
+      <div class="fw-actions">
+        <button type="button" class="fw-btn fw-btn-ok" id="btn-enqueue"><i class="fas fa-plus"></i> إدراج فاتورة</button>
+        <button type="button" class="fw-btn" id="btn-reload"><i class="fas fa-rotate"></i> تحديث</button>
+        <a class="fw-btn" href="/finance/invoices-budgets-master.html">فواتير المبيعات</a>
+        <a class="fw-btn" href="/finance/tax-settings.html">إعدادات الضرائب</a>
+      </div>
+    </header>
+    <div class="fw-banner-warn" id="connector-note">الموصل الحكومي: غير مفعّل (CONNECTOR_ABSENT) — الدورة محلية فقط.</div>
+    <div id="alert" class="fw-alert info" hidden></div>
+    <div class="fw-kpis" id="kpis"></div>
+    <div class="fw-toolbar">
+      <input type="search" id="q" class="fw-grow" placeholder="بحث برقم السجل أو الفاتورة أو العميل…">
+      <select id="filter-status">
+        <option value="">كل الحالات</option>
+        <option value="READY">جاهز</option>
+        <option value="QUEUED">في الطابور</option>
+        <option value="VALIDATED">مُتحقق</option>
+        <option value="FAILED">فشل</option>
+        <option value="REJECTED">مرفوض</option>
+        <option value="ARCHIVED">مؤرشف</option>
+        <option value="CANCELLED">ملغى</option>
+      </select>
+      <select id="page-size"><option value="25" selected>25</option><option value="50">50</option></select>
+    </div>
+    <div class="fw-layout">
+      <section class="fw-card">
+        <div class="fw-card-head"><h2>طابور الفاتورة الإلكترونية</h2><span id="count" class="fw-badge muted">0</span></div>
+        <div id="table-host"></div>
+        <div class="fw-pager" id="pager"></div>
+      </section>
+      <aside class="fw-drawer" id="drawer">
+        <div class="fw-empty"><i class="fas fa-hand-pointer"></i>اختر سجلًا للمعاينة والإجراءات</div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="fw-modal" id="modal" hidden>
+    <form class="fw-sheet" id="form" style="max-width:640px">
+      <h2>إدراج فاتورة في الطابور</h2>
+      <div class="fw-form-grid">
+        <label class="wide">فاتورة المبيعات *
+          <select id="invoice_id" required></select>
+        </label>
+        <label class="wide">مرجع داخلي (اختياري)<input id="title" placeholder="مثال: دفعة يناير"></label>
+        <label class="wide">ملاحظات<textarea id="notes" rows="2"></textarea></label>
+      </div>
+      <div class="fw-sheet-actions">
+        <button type="button" class="fw-btn" id="btn-cancel">إلغاء</button>
+        <button type="submit" class="fw-btn fw-btn-primary">حفظ وإدراج (جاهز)</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="/public/erp-dialogs.js"></script>
   <script src="/finance/finance-context.js"></script>
-  <script src="/finance/ops-ui.js"></script>
+  <script src="/finance/finance-workbench.js"></script>
+  <script>
+  (function () {
+    const FW = window.FinanceWorkbench;
+    const state = { records: [], page: 1, selected: null, eligible: [] };
+    const AR = {
+      READY: 'جاهز', QUEUED: 'في الطابور', VALIDATED: 'مُتحقق', FAILED: 'فشل',
+      REJECTED: 'مرفوض', ARCHIVED: 'مؤرشف', CANCELLED: 'ملغى'
+    };
+    document.getElementById('topnav').innerHTML = FW.topNav([
+      ['/finance', 'اللوحة'],
+      ['/finance/e-invoice-queue.html', 'الفاتورة الإلكترونية'],
+      ['/finance/invoices-budgets-master.html', 'الفواتير'],
+      ['/finance/tax-settings.html', 'الضرائب']
+    ], '/finance/e-invoice-queue.html');
+
+    const qs = () => `entity_id=${encodeURIComponent(FW.entityId() || 'HQ001')}`;
+    const payload = () => ({ entity_id: FW.entityId() || 'HQ001', entity_type: 'HQ' });
+
+    function filtered() {
+      const q = document.getElementById('q').value.trim().toLowerCase();
+      const st = document.getElementById('filter-status').value;
+      return state.records.filter((row) => {
+        if (st && String(row.status).toUpperCase() !== st) return false;
+        if (!q) return true;
+        const hay = `${row.record_number} ${row.title || ''} ${row.party_name || ''} ${row.invoice_id || ''} ${row.invoice?.invoice_number || ''}`.toLowerCase();
+        return hay.includes(q);
+      });
+    }
+
+    function renderKpis() {
+      const rows = state.records;
+      const c = (s) => rows.filter((r) => String(r.status).toUpperCase() === s).length;
+      const amount = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+      document.getElementById('kpis').innerHTML = [
+        ['السجلات', rows.length, `${c('READY')} جاهز`],
+        ['في الطابور', c('QUEUED'), 'بانتظار التحقق'],
+        ['مُتحقق', c('VALIDATED'), `${c('ARCHIVED')} مؤرشف`],
+        ['قيمة الطابور', FW.money(amount), 'محلي']
+      ].map(([a, b, c2]) => `<div class="fw-kpi"><span>${a}</span><strong>${b}</strong><em>${c2}</em></div>`).join('');
+    }
+
+    function renderTable() {
+      const host = document.getElementById('table-host');
+      const page = FW.paginate(filtered(), state.page, Number(document.getElementById('page-size').value) || 25);
+      state.page = page.page;
+      document.getElementById('count').textContent = String(page.total);
+      FW.renderPager(document.getElementById('pager'), page, (p) => { state.page = p; renderTable(); });
+      if (!page.total) {
+        host.innerHTML = FW.emptyState('لا سجلات في الطابور', '<div style="margin-top:10px"><button class="fw-btn fw-btn-ok" id="empty-add">إدراج فاتورة</button></div>');
+        document.getElementById('empty-add')?.addEventListener('click', openEnqueue);
+        return;
+      }
+      host.innerHTML = `<div class="fw-table-wrap"><table class="fw-table"><thead><tr>
+        <th>رقم السجل</th><th>الفاتورة</th><th>العميل</th><th>المبلغ</th><th>الحالة</th><th></th>
+      </tr></thead><tbody>${page.rows.map((r) => {
+        const st = String(r.status).toUpperCase();
+        return `<tr class="${state.selected === r.record_id ? 'active' : ''}" data-id="${r.record_id}">
+          <td class="fw-num">${FW.esc(r.record_number)}</td>
+          <td>${FW.esc(r.invoice?.invoice_number || r.invoice_id || '—')}</td>
+          <td>${FW.esc(r.party_name || r.invoice?.customer_name || '—')}</td>
+          <td class="fw-num">${FW.money(r.amount, r.invoice?.currency_code)}</td>
+          <td>${FW.statusBadge(AR[st] || r.status)}</td>
+          <td><button type="button" class="fw-btn fw-btn-mini" data-view="${r.record_id}">معاينة</button></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
+    }
+
+    function auditList(row) {
+      const audit = Array.isArray(row.audit_log) ? row.audit_log : (() => { try { return JSON.parse(row.audit_log || '[]'); } catch { return []; } })();
+      return audit.slice().reverse().map((e) =>
+        `<li><strong>${FW.esc(e.action)}</strong> — ${FW.esc(e.by || '')} — ${FW.esc(e.at || '')}${e.to ? ` → ${FW.esc(e.to)}` : ''}</li>`
+      ).join('') || '<li>لا أحداث</li>';
+    }
+
+    async function show(id) {
+      state.selected = Number(id);
+      renderTable();
+      const drawer = document.getElementById('drawer');
+      drawer.innerHTML = FW.loadingState();
+      const res = await FW.api('GET', `/finance/e-invoice/queue/${id}?${qs()}`);
+      if (!res.ok || !res.json?.success) {
+        drawer.innerHTML = FW.emptyState(res.json?.error || 'فشل التحميل');
+        return;
+      }
+      const row = res.json.record;
+      const st = String(row.status).toUpperCase();
+      const hist = (row.payload && row.payload.history) || [];
+      const inv = row.invoice || {};
+      drawer.innerHTML = `
+        <h3>${FW.esc(row.record_number)}</h3>
+        <div class="fw-meta">
+          <div><span>الحالة</span><strong>${FW.statusBadge(AR[st] || row.status)}</strong></div>
+          <div><span>الفاتورة</span><strong class="fw-num">${FW.esc(inv.invoice_number || row.invoice_id)}</strong></div>
+          <div><span>العميل</span><strong>${FW.esc(row.party_name || inv.customer_name || '—')}</strong></div>
+          <div><span>المبلغ</span><strong class="fw-num">${FW.money(row.amount, inv.currency_code)}</strong></div>
+          <div><span>قيد محاسبي</span><strong class="fw-num">${FW.esc(inv.journal_entry_id || row.payload?.invoice_snapshot?.journal_entry_id || '—')}</strong></div>
+          <div><span>الموصل</span><strong>${FW.esc(row.connector || 'ABSENT')}</strong></div>
+        </div>
+        ${row.payload?.validation_warning ? `<p class="fw-alert warn">${FW.esc(row.payload.validation_warning)}</p>` : ''}
+        <div class="fw-actions" style="margin-top:12px;flex-wrap:wrap">
+          ${st === 'READY' ? `<button class="fw-btn fw-btn-ok" id="d-queue">إدخال الطابور</button>
+            <button class="fw-btn" id="d-edit">تعديل الملاحظات</button>
+            <button class="fw-btn fw-btn-danger" id="d-del">حذف</button>` : ''}
+          ${st === 'QUEUED' ? `<button class="fw-btn fw-btn-ok" id="d-validate">تحقق محلي</button>
+            <button class="fw-btn fw-btn-danger" id="d-fail">فشل تحقق</button>
+            <button class="fw-btn fw-btn-danger" id="d-reject">رفض</button>` : ''}
+          ${['VALIDATED', 'FAILED', 'REJECTED'].includes(st) ? `<button class="fw-btn fw-btn-primary" id="d-archive">أرشفة</button>` : ''}
+          ${['FAILED', 'REJECTED'].includes(st) ? `<button class="fw-btn" id="d-requeue">إعادة للطابور</button>` : ''}
+          ${!['ARCHIVED', 'CANCELLED'].includes(st) ? `<button class="fw-btn fw-btn-danger" id="d-cancel">إلغاء</button>` : ''}
+          <button class="fw-btn" id="d-gov" title="غير مفعّل">إرسال حكومي</button>
+        </div>
+        <h4 style="margin:14px 0 6px">سجل الانتقالات</h4>
+        <ul class="hist-list">${hist.slice().reverse().map((h) =>
+          `<li>${FW.esc(h.from || '—')} → <strong>${FW.esc(h.to)}</strong> · ${FW.esc(h.at || '')}${h.note ? ` · ${FW.esc(h.note)}` : ''}</li>`
+        ).join('') || '<li>لا انتقالات</li>'}</ul>
+        <h4 style="margin:14px 0 6px">التدقيق</h4>
+        <ul class="audit-list">${auditList(row)}</ul>`;
+
+      const go = (next, needNote) => async () => {
+        let note = '';
+        if (needNote) {
+          note = (await window.ErpDialog?.prompt?.({
+            title: 'ملاحظة',
+            message: needNote === 'cancel' ? 'سبب الإلغاء (إلزامي)' : 'ملاحظة (اختياري)',
+            required: needNote === 'cancel',
+            multiline: true
+          })) || '';
+          if (needNote === 'cancel' && !note) return;
+        } else if (!(await window.ErpDialog?.confirm?.({ title: 'تأكيد', message: `الانتقال إلى ${AR[next] || next}؟` }))) {
+          return;
+        }
+        const r = await FW.api('POST', `/finance/e-invoice/queue/${id}/transition`, { ...payload(), status: next, note });
+        if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل', 'err');
+        FW.setAlert(document.getElementById('alert'), r.json?.message || 'تم', 'ok');
+        await load();
+        show(id);
+      };
+      document.getElementById('d-queue')?.addEventListener('click', go('QUEUED'));
+      document.getElementById('d-validate')?.addEventListener('click', go('VALIDATED'));
+      document.getElementById('d-fail')?.addEventListener('click', go('FAILED', 'note'));
+      document.getElementById('d-reject')?.addEventListener('click', go('REJECTED', 'note'));
+      document.getElementById('d-archive')?.addEventListener('click', go('ARCHIVED'));
+      document.getElementById('d-requeue')?.addEventListener('click', go('QUEUED'));
+      document.getElementById('d-cancel')?.addEventListener('click', go('CANCELLED', 'cancel'));
+      document.getElementById('d-gov')?.addEventListener('click', async () => {
+        const r = await FW.api('POST', `/finance/e-invoice/queue/${id}/gov-send`, payload());
+        FW.setAlert(document.getElementById('alert'), r.json?.error || 'الموصل غير متاح', 'err');
+      });
+      document.getElementById('d-del')?.addEventListener('click', async () => {
+        if (!(await window.ErpDialog?.confirm?.({ title: 'حذف', message: 'حذف سجل الجاهزية؟', destructive: true }))) return;
+        const r = await FW.api('DELETE', `/finance/e-invoice/queue/${id}?${qs()}`);
+        if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل', 'err');
+        state.selected = null;
+        await load();
+        document.getElementById('drawer').innerHTML = '<div class="fw-empty"><i class="fas fa-inbox"></i>اختر سجلًا</div>';
+      });
+      document.getElementById('d-edit')?.addEventListener('click', async () => {
+        const title = await window.ErpDialog?.prompt?.({ title: 'تعديل', message: 'مرجع داخلي', defaultValue: row.title || '' });
+        if (title == null) return;
+        const notes = await window.ErpDialog?.prompt?.({ title: 'تعديل', message: 'ملاحظات', defaultValue: row.notes || '', multiline: true });
+        const r = await FW.api('PUT', `/finance/e-invoice/queue/${id}`, { ...payload(), title, notes });
+        if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل', 'err');
+        await load();
+        show(id);
+      });
+    }
+
+    async function openEnqueue() {
+      const elig = await FW.api('GET', `/finance/e-invoice/eligible-invoices?${qs()}`);
+      state.eligible = elig.json?.invoices || [];
+      const sel = document.getElementById('invoice_id');
+      if (!state.eligible.length) {
+        sel.innerHTML = '<option value="">لا فواتير مؤهلة حاليًا</option>';
+      } else {
+        sel.innerHTML = state.eligible.map((inv) =>
+          `<option value="${inv.invoice_id}">${FW.esc(inv.invoice_number)} — ${FW.esc(inv.customer_name || '')} — ${FW.money(inv.total_amount)}</option>`
+        ).join('');
+      }
+      document.getElementById('title').value = '';
+      document.getElementById('notes').value = '';
+      document.getElementById('modal').hidden = false;
+    }
+
+    async function load() {
+      document.getElementById('table-host').innerHTML = FW.loadingState();
+      const res = await FW.api('GET', `/finance/e-invoice/queue?${qs()}`);
+      if (!res.ok || !res.json?.success) throw new Error(res.json?.error || 'فشل التحميل');
+      state.records = res.json.records || [];
+      if (res.json.note) document.getElementById('connector-note').textContent = res.json.note;
+      renderKpis();
+      renderTable();
+      FW.setAlert(document.getElementById('alert'), `تم تحميل ${state.records.length} سجل`, 'ok');
+    }
+
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const invoice_id = Number(document.getElementById('invoice_id').value);
+      if (!invoice_id) return FW.setAlert(document.getElementById('alert'), 'اختر فاتورة', 'err');
+      const body = {
+        ...payload(),
+        invoice_id,
+        title: document.getElementById('title').value.trim() || null,
+        notes: document.getElementById('notes').value.trim() || null
+      };
+      const res = await FW.api('POST', '/finance/e-invoice/queue', body);
+      if (!res.ok || !res.json?.success) return FW.setAlert(document.getElementById('alert'), res.json?.error || 'فشل', 'err');
+      document.getElementById('modal').hidden = true;
+      await load();
+      show(res.json.record.record_id);
+    };
+
+    document.getElementById('table-host').addEventListener('click', (e) => {
+      const id = e.target.closest('[data-view]')?.dataset.view || e.target.closest('[data-id]')?.dataset.id;
+      if (id) show(id);
+    });
+    document.getElementById('btn-enqueue').onclick = openEnqueue;
+    document.getElementById('btn-cancel').onclick = () => { document.getElementById('modal').hidden = true; };
+    document.getElementById('btn-reload').onclick = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+    ['q', 'filter-status', 'page-size'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', () => { state.page = 1; renderTable(); });
+      document.getElementById(id).addEventListener('change', () => { state.page = 1; renderTable(); });
+    });
+
+    const start = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+    window.whenFinanceContextReady ? window.whenFinanceContextReady(start) : start();
+  })();
+  </script>
 </body>
 </html>

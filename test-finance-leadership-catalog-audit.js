@@ -55,7 +55,7 @@ function postJson(urlPath, body) {
     ['sales', 'deposits', 'operational', 'عربون'],
     ['sales', 'offers-discounts', 'operational', 'خصومات'],
     ['sales', 'zatca', 'operational', 'ضرائب'],
-    ['sales', 'e-invoice', 'partial', 'إلكتروني'],
+    ['sales', 'e-invoice', 'operational', 'إلكتروني'],
     ['purchases', 'vendors', 'operational', 'مشتريات'],
     ['inventory', 'stock-vendors', 'partial', 'مصروف']
   ];
