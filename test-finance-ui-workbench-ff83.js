@@ -65,6 +65,7 @@ async function main() {
     ['/finance/accounting-integration.html', ['finance-workbench.css', 'fw-drawer', 'سجل الترحيل']],
     ['/finance/payments.html', ['finance-workbench.css', 'fw-drawer', 'تحصيل جديد']],
     ['/manage-tax-settings.html', ['finance-workbench.css', 'سجل التدقيق', 'effective_from']],
+    ['/finance/quick-offers.html', ['finance-workbench.css', 'fw-drawer', 'سجل العروض', 'تفعيل', '/finance/quick-offers']],
     ['/finance/pos.html', ['ops-shell.css', 'ops-ui.js', 'data-kind="pos-tickets"']],
     ['/finance/e-invoice-queue.html', ['ops-shell.css', 'e-invoice-queue']],
     ['/finance/expenses.html', ['التكامل المحاسبي', 'max-width:1680px']],
@@ -109,6 +110,46 @@ async function main() {
   Array.isArray(tax.json)
     ? pass('tax-api', String(tax.json.length))
     : fail('tax-api', tax.raw.slice(0, 200));
+
+  const offers = await httpReq('GET', '/finance/quick-offers?entity_id=HQ001', null, auth);
+  offers.status === 200 && offers.json?.success && Array.isArray(offers.json.offers)
+    ? pass('quick-offers-api', String(offers.json.offers.length))
+    : fail('quick-offers-api', offers.raw.slice(0, 200));
+
+  const offerCode = `UI-WB-${Date.now().toString(36).toUpperCase()}`;
+  const createOffer = await httpReq('POST', '/finance/quick-offers', {
+    entity_id: 'HQ001',
+    offer_code: offerCode,
+    title: 'عرض اختبار منضدة',
+    category: 'اختبار UI',
+    discount_type: 'percent',
+    discount_value: 7.5,
+    max_discount_pct: 15,
+    start_at: new Date().toISOString(),
+    end_at: new Date(Date.now() + 5 * 86400000).toISOString(),
+    channels: 'invoice,pos',
+    item_codes: '',
+    priority: 'متوسط',
+    notes: 'wave-2 workbench smoke'
+  }, auth);
+  const createdId = createOffer.json?.offer?.id;
+  createOffer.status === 200 || createOffer.status === 201
+    ? pass('quick-offers-create', String(createdId || createOffer.status))
+    : fail('quick-offers-create', createOffer.raw.slice(0, 240));
+
+  if (createdId) {
+    const activate = await httpReq('POST', `/finance/quick-offers/${createdId}/activate`, { entity_id: 'HQ001' }, auth);
+    activate.status === 200 && (activate.json?.offer?.status === 'active' || activate.json?.success)
+      ? pass('quick-offers-activate')
+      : fail('quick-offers-activate', activate.raw.slice(0, 240));
+    const deactivate = await httpReq('POST', `/finance/quick-offers/${createdId}/deactivate`, { entity_id: 'HQ001' }, auth);
+    deactivate.status === 200
+      ? pass('quick-offers-deactivate')
+      : fail('quick-offers-deactivate', deactivate.raw.slice(0, 240));
+  } else {
+    fail('quick-offers-activate', 'no id');
+    fail('quick-offers-deactivate', 'no id');
+  }
 
   const opsUi = await httpReq('GET', '/finance/ops-ui.js', null, auth);
   opsUi.raw.includes('ops-drawer') && opsUi.raw.includes('status-filter') && opsUi.raw.includes('pg-next')
