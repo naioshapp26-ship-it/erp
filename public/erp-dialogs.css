@@ -1,0 +1,236 @@
+/* NAIOSH ERP — unified in-app dialogs (replaces native alert/confirm/prompt) */
+:root {
+  --erp-dlg-bg: #ffffff;
+  --erp-dlg-fg: #0f172a;
+  --erp-dlg-muted: #64748b;
+  --erp-dlg-border: #e2e8f0;
+  --erp-dlg-overlay: rgba(15, 23, 42, 0.55);
+  --erp-dlg-danger: #b91c1c;
+  --erp-dlg-danger-bg: #fef2f2;
+  --erp-dlg-warn: #b45309;
+  --erp-dlg-warn-bg: #fffbeb;
+  --erp-dlg-ok: #047857;
+  --erp-dlg-ok-bg: #ecfdf5;
+  --erp-dlg-primary: #9f1239;
+  --erp-dlg-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+  --erp-dlg-radius: 14px;
+  --erp-dlg-font: 'Cairo', 'Tajawal', 'Segoe UI', Tahoma, sans-serif;
+}
+
+html[data-theme='dark'],
+body.dark-mode,
+body[data-theme='dark'] {
+  --erp-dlg-bg: #1a222c;
+  --erp-dlg-fg: #e8eef6;
+  --erp-dlg-muted: #94a3b8;
+  --erp-dlg-border: #2d3a48;
+  --erp-dlg-overlay: rgba(2, 6, 23, 0.72);
+  --erp-dlg-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+.erp-dlg-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--erp-dlg-overlay);
+  font-family: var(--erp-dlg-font);
+  direction: rtl;
+}
+
+.erp-dlg-root[hidden] { display: none !important; }
+
+.erp-dlg-sheet {
+  width: min(560px, 100%);
+  max-height: min(90vh, 820px);
+  overflow: auto;
+  background: var(--erp-dlg-bg);
+  color: var(--erp-dlg-fg);
+  border: 1px solid var(--erp-dlg-border);
+  border-radius: var(--erp-dlg-radius);
+  box-shadow: var(--erp-dlg-shadow);
+  padding: 20px 22px 16px;
+}
+
+.erp-dlg-sheet.erp-dlg-wide { width: min(720px, 100%); }
+
+.erp-dlg-sheet h2 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.erp-dlg-desc {
+  margin: 0 0 14px;
+  color: var(--erp-dlg-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.erp-dlg-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--erp-dlg-border) 35%, transparent);
+  border: 1px solid var(--erp-dlg-border);
+}
+
+.erp-dlg-meta div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.erp-dlg-meta span { font-size: 0.75rem; color: var(--erp-dlg-muted); font-weight: 700; }
+.erp-dlg-meta strong { font-size: 0.92rem; font-weight: 800; word-break: break-word; }
+.erp-dlg-meta .wide { grid-column: 1 / -1; }
+
+.erp-dlg-warnbox {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--erp-dlg-warn-bg);
+  color: var(--erp-dlg-warn);
+  border: 1px solid color-mix(in srgb, var(--erp-dlg-warn) 30%, transparent);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.erp-dlg-dangerbox {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--erp-dlg-danger-bg);
+  color: var(--erp-dlg-danger);
+  border: 1px solid color-mix(in srgb, var(--erp-dlg-danger) 30%, transparent);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.erp-dlg-fields { display: grid; gap: 10px; margin-bottom: 8px; }
+
+.erp-dlg-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.erp-dlg-fields input,
+.erp-dlg-fields select,
+.erp-dlg-fields textarea {
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--erp-dlg-border);
+  background: var(--erp-dlg-bg);
+  color: var(--erp-dlg-fg);
+}
+
+.erp-dlg-fields textarea { min-height: 88px; resize: vertical; }
+
+.erp-dlg-fields .erp-dlg-error {
+  color: var(--erp-dlg-danger);
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-height: 1.1em;
+}
+
+.erp-dlg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+  margin-top: 16px;
+}
+
+.erp-dlg-btn {
+  appearance: none;
+  border: 1px solid var(--erp-dlg-border);
+  background: var(--erp-dlg-bg);
+  color: var(--erp-dlg-fg);
+  font: inherit;
+  font-weight: 800;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.erp-dlg-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.erp-dlg-btn-primary {
+  background: var(--erp-dlg-primary);
+  border-color: var(--erp-dlg-primary);
+  color: #fff;
+}
+
+.erp-dlg-btn-danger {
+  background: var(--erp-dlg-danger);
+  border-color: var(--erp-dlg-danger);
+  color: #fff;
+}
+
+.erp-dlg-btn-ok {
+  background: var(--erp-dlg-ok);
+  border-color: var(--erp-dlg-ok);
+  color: #fff;
+}
+
+.erp-dlg-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--erp-dlg-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.erp-dlg-loading[hidden] { display: none !important; }
+
+.erp-dlg-toast-host {
+  position: fixed;
+  z-index: 2147483001;
+  inset-inline-end: 16px;
+  inset-block-end: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 24px));
+  pointer-events: none;
+  font-family: var(--erp-dlg-font);
+  direction: rtl;
+}
+
+.erp-dlg-toast {
+  pointer-events: auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--erp-dlg-border);
+  background: var(--erp-dlg-bg);
+  color: var(--erp-dlg-fg);
+  box-shadow: var(--erp-dlg-shadow);
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  animation: erp-dlg-in 0.18s ease-out;
+}
+
+.erp-dlg-toast.ok { border-color: color-mix(in srgb, var(--erp-dlg-ok) 45%, var(--erp-dlg-border)); background: var(--erp-dlg-ok-bg); color: var(--erp-dlg-ok); }
+.erp-dlg-toast.err { border-color: color-mix(in srgb, var(--erp-dlg-danger) 45%, var(--erp-dlg-border)); background: var(--erp-dlg-danger-bg); color: var(--erp-dlg-danger); }
+.erp-dlg-toast.warn { border-color: color-mix(in srgb, var(--erp-dlg-warn) 45%, var(--erp-dlg-border)); background: var(--erp-dlg-warn-bg); color: var(--erp-dlg-warn); }
+
+@keyframes erp-dlg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .erp-dlg-meta { grid-template-columns: 1fr; }
+  .erp-dlg-actions { flex-direction: column-reverse; }
+  .erp-dlg-btn { width: 100%; }
+}

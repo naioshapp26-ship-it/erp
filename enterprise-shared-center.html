@@ -105,7 +105,7 @@
         document.getElementById('mk-job').onclick=async()=>{ try{ await api('/backup/jobs',{method:'POST',body:{name:'نسخ يومي',schedule_cron:'daily',retention_days:30}}); toast('تم'); await load(); }catch(e){toast(e.message,'err');} };
         document.getElementById('run-bak').onclick=async()=>{ try{ const r=await api('/backup/run',{method:'POST',body:{}}); toast('نسخة: '+r.data.status); await load(); }catch(e){toast(e.message,'err');} };
         document.getElementById('run-restore').onclick=async()=>{
-          const token=prompt('اكتب CONFIRM_DESTRUCTIVE_RESTORE للموافقة:');
+          const token=await window.ErpDialog.prompt('اكتب CONFIRM_DESTRUCTIVE_RESTORE للموافقة:');
           try{ const r=await api('/backup/restore-test',{method:'POST',body:{confirmToken:token}}); toast(r.data.status+': '+(r.data.message||'')); await load(); }catch(e){toast(e.message,'err');}
         };
       } else if(state.tab==='tpl'){
@@ -151,9 +151,9 @@
     window.toggleInteg=async(key,en)=>{ try{ await api('/integrations/'+key+(en?'/enable':'/disable'),{method:'POST',body:{enabled:en}}); toast('تم'); await load(); }catch(e){toast(e.message,'err');} };
     window.testInteg=async(key)=>{ try{ const r=await api('/integrations/'+key+'/test',{method:'POST',body:{}}); toast(r.data.message|| (r.success?'OK':'FAIL'), r.success?'ok':'err'); await load(); }catch(e){toast(e.message,'err');} };
 
-    document.getElementById('tabs').onclick=(e)=>{ const btn=e.target.closest('.tab'); if(!btn) return; state.tab=btn.dataset.t; [...document.querySelectorAll('.tab')].forEach(x=>x.classList.toggle('active',x===btn)); render(); };
+    document.getElementById('tabs').onclick=async (e)=>{ const btn=e.target.closest('.tab'); if(!btn) return; state.tab=btn.dataset.t; [...document.querySelectorAll('.tab')].forEach(x=>x.classList.toggle('active',x===btn)); render(); };
     async function load(){ const res=await api('/bundle'); state.bundle=res.data; document.getElementById('tenant-label').textContent='#'+res.data.tenant.id+' · '+res.data.tenant.subdomain; render(); }
-    document.getElementById('btn-refresh').onclick=()=>load().catch(e=>toast(e.message,'err'));
+    document.getElementById('btn-refresh').onclick=async ()=>load().catch(e=>toast(e.message,'err'));
     load().catch(e=>{ const b=document.getElementById('auth-banner'); b.classList.remove('hidden'); b.textContent=e.message; });
   </script>
 </body>

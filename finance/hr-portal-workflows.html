@@ -799,7 +799,7 @@
                 card.classList.add('template-card');
                 card.setAttribute('role', 'button');
                 card.setAttribute('tabindex', '0');
-                card.addEventListener('click', () => openTemplateModal(title));
+                card.addEventListener('click', async () => openTemplateModal(title));
                 card.addEventListener('keydown', (event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
@@ -1403,7 +1403,7 @@ ______________________________
             setStatus('وضع التعديل مفعل للموظف المحدد', 'warning');
         }
 
-        function buildEntityValue(employee) {
+        async function buildEntityValue(employee) {
             if (!employee) return null;
             if (employee.assigned_entity_type === 'HQ' && employee.hq_id) return `HQ|${employee.hq_id}|${employee.entity_id || 'HQ001'}`;
             if (employee.assigned_entity_type === 'BRANCH' && employee.branch_id) return `BRANCH|${employee.branch_id}|${employee.entity_id || 'BR001'}`;
@@ -1415,7 +1415,7 @@ ______________________________
 
         async function deleteEmployee(id) {
             const cleanId = decodeURIComponent(id);
-            if (!confirm('هل أنت متأكد من حذف هذا الموظف؟')) return;
+            if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذا الموظف؟')) return;
             await fetchJSON(`${API_BASE}/api/employees/${cleanId}`, { method: 'DELETE' });
             employees = employees.filter(e => String(e.id) !== String(cleanId));
             renderTables();
@@ -1479,7 +1479,7 @@ ______________________________
             setStatus('تم حفظ الطلب بنجاح', 'success');
         }
 
-        function startEditRequest(id) {
+        async function startEditRequest(id) {
             const cleanId = decodeURIComponent(id);
             const request = requests.find(r => String(r.id) === String(cleanId));
             if (!request) return;
@@ -1501,7 +1501,7 @@ ______________________________
 
         async function deleteRequest(id) {
             const cleanId = decodeURIComponent(id);
-            if (!confirm('هل تريد حذف الطلب نهائياً؟')) return;
+            if (!await window.ErpDialog.confirm('هل تريد حذف الطلب نهائياً؟')) return;
             await fetchJSON(`${API_BASE}/api/employee-requests/${cleanId}`, { method: 'DELETE' });
             requests = requests.filter(r => String(r.id) !== String(cleanId));
             renderTables();
@@ -1557,7 +1557,7 @@ ______________________________
             setStatus('تم حفظ نوع الطلب بنجاح', 'success');
         }
 
-        function startEditType(id) {
+        async function startEditType(id) {
             const cleanId = decodeURIComponent(id);
             const type = requestTypes.find(t => String(t.id) === String(cleanId));
             if (!type) return;
@@ -1575,7 +1575,7 @@ ______________________________
 
         async function deleteType(id) {
             const cleanId = decodeURIComponent(id);
-            if (!confirm('تأكيد حذف نوع الطلب؟')) return;
+            if (!await window.ErpDialog.confirm('تأكيد حذف نوع الطلب؟')) return;
             await fetchJSON(`${API_BASE}/api/request-types/${cleanId}`, { method: 'DELETE' });
             requestTypes = requestTypes.filter(t => String(t.id) !== String(cleanId));
             populateSelectors();
@@ -1777,7 +1777,7 @@ ______________________________
         window.printReport = printReport;
 
         document.querySelectorAll('.modal-overlay').forEach(modal => {
-            modal.addEventListener('click', (e) => {
+            modal.addEventListener('click', async (e) => {
                 if (e.target === modal) modal.classList.remove('open');
             });
         });

@@ -631,7 +631,7 @@
             }
         });
 
-        document.addEventListener('click', (event) => {
+        document.addEventListener('click', async (event) => {
             const target = event.target;
             if (!target.closest('[data-finance-smart-search]')) {
                 resultsWrapper.classList.add('hidden');
@@ -1025,7 +1025,7 @@
                 deferredPrompt = null;
                 return;
             }
-            alert(getInstallInstructions());
+            window.ErpDialog.toast(getInstallInstructions());
         };
 
         if (!window.startPwaInstall) {
@@ -1038,7 +1038,7 @@
             deferredPrompt = event;
         });
 
-        document.addEventListener('click', (event) => {
+        document.addEventListener('click', async (event) => {
             const target = event.target.closest(installSelector);
             if (!target) return;
             event.preventDefault();
@@ -1185,7 +1185,7 @@
 
             if (!formsWithValidator.has(form)) {
                 formsWithValidator.add(form);
-                form.addEventListener('submit', (e) => {
+                form.addEventListener('submit', async (e) => {
                     const pairs = formPairs.get(form) || [];
                     let firstInvalidEnd = null;
                     pairs.forEach(([s, en]) => {

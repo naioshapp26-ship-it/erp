@@ -1201,7 +1201,7 @@
         // Initialization
         window.onload = async function() {
             if (!USER_ID) {
-                alert('يرجى تسجيل الدخول أولاً للوصول إلى لوحة المسؤول العام.');
+                window.ErpDialog.toast('يرجى تسجيل الدخول أولاً للوصول إلى لوحة المسؤول العام.');
                 window.location.href = '/login-page.html';
                 return;
             }
@@ -1278,7 +1278,7 @@
                 const result = await response.json();
                 if (!result.success) {
                     officeInfoDisplay.classList.add('hidden');
-                    alert(result.message || 'المكتب غير موجود');
+                    window.ErpDialog.toast(result.message || 'المكتب غير موجود');
                     return;
                 }
 
@@ -1290,7 +1290,7 @@
                 officeInfoDisplay.classList.remove('hidden');
             } catch (error) {
                 console.error(error);
-                alert('خطأ في الاتصال');
+                window.ErpDialog.toast('خطأ في الاتصال');
             }
         }
 
@@ -1343,7 +1343,7 @@
         async function saveOfficePageAccess() {
             const officeId = document.getElementById('officeIdInput').value.trim();
             if (!officeId) {
-                alert('يرجى إدخال رقم المستخدم أو المكتب أو entity_id');
+                window.ErpDialog.toast('يرجى إدخال رقم المستخدم أو المكتب أو entity_id');
                 return;
             }
 
@@ -1361,11 +1361,11 @@
                     showToast('تم حفظ صلاحيات المكتب', 'success');
                     updateOfficePagesDisplay();
                 } else {
-                    alert(result.message || 'تعذر حفظ الصلاحيات');
+                    window.ErpDialog.toast(result.message || 'تعذر حفظ الصلاحيات');
                 }
             } catch (error) {
                 console.error(error);
-                alert('خطأ في الاتصال');
+                window.ErpDialog.toast('خطأ في الاتصال');
             }
         }
 
@@ -1441,7 +1441,7 @@
                 const result = await response.json();
                 if (!result.success) {
                     tenantInfoDisplay.classList.add('hidden');
-                    alert(result.message || 'المستأجر غير موجود');
+                    window.ErpDialog.toast(result.message || 'المستأجر غير موجود');
                     return;
                 }
 
@@ -1454,7 +1454,7 @@
                 tenantInfoDisplay.classList.remove('hidden');
             } catch (error) {
                 console.error(error);
-                alert('خطأ في الاتصال');
+                window.ErpDialog.toast('خطأ في الاتصال');
             }
         }
 
@@ -1522,12 +1522,12 @@
                 tenantSystemPageFilters[system.key] = event.target.value;
                 renderTenantSystemsWorkspace();
             });
-            card.querySelector(`[data-select-all="${system.key}"]`)?.addEventListener('click', () => {
+            card.querySelector(`[data-select-all="${system.key}"]`)?.addEventListener('click', async () => {
                 tenantSystemPageSelection[system.key] = new Set(getUniqueSystemPageKeys(system));
                 renderTenantSystemsWorkspace();
                 updateTenantPagesDisplay();
             });
-            card.querySelector(`[data-clear-all="${system.key}"]`)?.addEventListener('click', () => {
+            card.querySelector(`[data-clear-all="${system.key}"]`)?.addEventListener('click', async () => {
                 tenantSystemPageSelection[system.key] = new Set([system.key]);
                 renderTenantSystemsWorkspace();
                 updateTenantPagesDisplay();
@@ -1626,7 +1626,7 @@
         async function saveTenantPageAccess() {
             const tenantId = document.getElementById('tenantIdInput').value.trim();
             if (!tenantId) {
-                alert('يرجى إدخال رقم المستأجر أو الاسم أو الإيميل أو الرابط');
+                window.ErpDialog.toast('يرجى إدخال رقم المستأجر أو الاسم أو الإيميل أو الرابط');
                 return;
             }
 
@@ -1648,11 +1648,11 @@
                     updateTenantPagesDisplay();
                     renderTenantSystemsWorkspace();
                 } else {
-                    alert(result.message || 'تعذر حفظ الصلاحيات');
+                    window.ErpDialog.toast(result.message || 'تعذر حفظ الصلاحيات');
                 }
             } catch (error) {
                 console.error(error);
-                alert('خطأ في الاتصال');
+                window.ErpDialog.toast('خطأ في الاتصال');
             }
         }
 
@@ -1743,7 +1743,7 @@
                     document.getElementById('editRoleMaxLimit').value = role.max_approval_limit || 0;
                     openModal('editRoleModal');
                 }
-            } catch (error) { alert('خطأ في الاتصال'); }
+            } catch (error) { window.ErpDialog.toast('خطأ في الاتصال'); }
         }
 
         async function updateRole() {
@@ -1769,8 +1769,8 @@
                     closeModal('editRoleModal');
                     loadRoles();
                     showToast('تم تحديث الدور بنجاح', 'success');
-                } else { alert(result.message); }
-            } catch (e) { alert('Error updating role'); }
+                } else { window.ErpDialog.toast(result.message); }
+            } catch (e) { window.ErpDialog.toast('Error updating role'); }
         }
 
         async function createRole() {
@@ -1784,7 +1784,7 @@
                 max_approval_limit: parseFloat(document.getElementById('newRoleMaxLimit').value) || 0
             };
 
-            if (!data.code || !data.title_ar) { alert('بيانات ناقصة'); return; }
+            if (!data.code || !data.title_ar) { window.ErpDialog.toast('بيانات ناقصة'); return; }
 
             try {
                 const response = await fetch(`${API_BASE}/roles`, {
@@ -1797,17 +1797,17 @@
                     closeModal('createRoleModal');
                     loadRoles();
                     showToast('تم إنشاء الدور بنجاح', 'success');
-                } else { alert(result.message); }
-            } catch (e) { alert('Error creating role'); }
+                } else { window.ErpDialog.toast(result.message); }
+            } catch (e) { window.ErpDialog.toast('Error creating role'); }
         }
         
-        function confirmDeleteRole(code) {
-           if(confirm('هل أنت متأكد من الحذف؟')) {
+        async function confirmDeleteRole(code) {
+           if(await window.ErpDialog.confirm('هل أنت متأكد من الحذف؟')) {
                fetch(`${API_BASE}/roles/${code}`, { method: 'DELETE', headers: getAdminHeaders() })
                    .then(res => res.json())
                    .then(data => {
                        if(data.success) { loadRoles(); showToast('تم الحذف', 'success'); }
-                       else alert(data.message);
+                       else window.ErpDialog.toast(data.message);
                    });
            }
         }
@@ -1883,8 +1883,8 @@
                 });
                 const result = await response.json();
                 if (result.success) showToast('تم حفظ الصلاحيات بنجاح', 'success');
-                else alert(result.message);
-            } catch(e) { alert('Error saving'); }
+                else window.ErpDialog.toast(result.message);
+            } catch(e) { window.ErpDialog.toast('Error saving'); }
         }
 
         // Users & Helper Functions
@@ -2034,7 +2034,7 @@
                 openModal('userModal');
             } catch (error) {
                 console.error(error);
-                alert(error.message || 'خطأ في تحميل المستخدم');
+                window.ErpDialog.toast(error.message || 'خطأ في تحميل المستخدم');
             }
         }
 
@@ -2054,12 +2054,12 @@
             };
 
             if (!payload.name || !payload.email || !payload.tenant_type || !payload.entity_id || !payload.entity_name) {
-                alert('يرجى تعبئة جميع الحقول الأساسية');
+                window.ErpDialog.toast('يرجى تعبئة جميع الحقول الأساسية');
                 return;
             }
 
             if (mode === 'create' && !payload.password) {
-                alert('كلمة المرور مطلوبة عند الإضافة');
+                window.ErpDialog.toast('كلمة المرور مطلوبة عند الإضافة');
                 return;
             }
 
@@ -2084,12 +2084,12 @@
                 }
             } catch (error) {
                 console.error(error);
-                alert(error.message || 'خطأ في حفظ المستخدم');
+                window.ErpDialog.toast(error.message || 'خطأ في حفظ المستخدم');
             }
         }
 
         async function deleteUser(userId) {
-            if (!confirm('هل أنت متأكد من حذف هذا المستخدم؟')) return;
+            if (!await window.ErpDialog.confirm('هل أنت متأكد من حذف هذا المستخدم؟')) return;
 
             try {
                 const response = await fetch(`${API_BASE}/users/${userId}`, {
@@ -2111,7 +2111,7 @@
                 await loadRoles();
             } catch (error) {
                 console.error(error);
-                alert(error.message || 'خطأ في حذف المستخدم');
+                window.ErpDialog.toast(error.message || 'خطأ في حذف المستخدم');
             }
         }
 
@@ -2442,29 +2442,29 @@
             }).join('');
         }
 
-        function escHtml(v) {
+        async function escHtml(v) {
             return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
-        function escAttr(v) {
+        async function escAttr(v) {
             return String(v || '').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         }
 
         let _heroMediaItems = [];
         async function deleteHeroMedia(id) {
-            if (!confirm('هل تريد حذف هذه الوسائط نهائيًا من قاعدة البيانات؟')) return;
+            if (!await window.ErpDialog.confirm('هل تريد حذف هذه الوسائط نهائيًا من قاعدة البيانات؟')) return;
             try {
                 const response = await fetch(`${API_BASE}/hero-media/${id}`, {
                     method: 'DELETE',
                     headers: getAdminHeaders()
                 });
                 const result = await response.json();
-                if (!result.success) { alert(result.message || 'تعذر الحذف'); return; }
+                if (!result.success) { window.ErpDialog.toast(result.message || 'تعذر الحذف'); return; }
                 renderHeroMediaList(result.heroMediaList || []);
                 _heroMediaItems = result.heroMediaList || [];
                 showToast('تم حذف الوسائط بنجاح', 'success');
             } catch (error) {
                 console.error(error);
-                alert('خطأ في حذف الوسائط');
+                window.ErpDialog.toast('خطأ في حذف الوسائط');
             }
         }
 
@@ -2475,13 +2475,13 @@
                     headers: getAdminHeaders()
                 });
                 const result = await response.json();
-                if (!result.success) { alert(result.message || 'تعذر التحديث'); return; }
+                if (!result.success) { window.ErpDialog.toast(result.message || 'تعذر التحديث'); return; }
                 renderHeroMediaList(result.heroMediaList || []);
                 _heroMediaItems = result.heroMediaList || [];
                 showToast(result.is_active ? 'تم تفعيل الوسائط' : 'تم إخفاء الوسائط', 'success');
             } catch (error) {
                 console.error(error);
-                alert('خطأ في تحديث الوسائط');
+                window.ErpDialog.toast('خطأ في تحديث الوسائط');
             }
         }
 
@@ -2507,12 +2507,12 @@
                     ]})
                 });
                 const result = await response.json();
-                if (!result.success) { alert(result.message || 'تعذر إعادة الترتيب'); return; }
+                if (!result.success) { window.ErpDialog.toast(result.message || 'تعذر إعادة الترتيب'); return; }
                 renderHeroMediaList(result.heroMediaList || []);
                 _heroMediaItems = result.heroMediaList || [];
             } catch (error) {
                 console.error(error);
-                alert('خطأ في إعادة الترتيب');
+                window.ErpDialog.toast('خطأ في إعادة الترتيب');
             }
         }
 
@@ -2520,7 +2520,7 @@
             const input = document.getElementById('hpLogoFile');
             const file = input?.files?.[0];
             if (!file) {
-                alert('يرجى اختيار صورة شعار أولاً');
+                window.ErpDialog.toast('يرجى اختيار صورة شعار أولاً');
                 return;
             }
             const formData = new FormData();
@@ -2533,7 +2533,7 @@
                 });
                 const result = await response.json();
                 if (!result.success) {
-                    alert(result.message || 'تعذر رفع الشعار');
+                    window.ErpDialog.toast(result.message || 'تعذر رفع الشعار');
                     return;
                 }
                 document.getElementById('hpLogoPreview').src = result.logoUrl;
@@ -2541,7 +2541,7 @@
                 showToast('تم رفع الشعار بنجاح', 'success');
             } catch (error) {
                 console.error(error);
-                alert('خطأ في رفع الشعار');
+                window.ErpDialog.toast('خطأ في رفع الشعار');
             }
         }
 
@@ -2549,7 +2549,7 @@
             const input = document.getElementById('hpHeroFile');
             const file = input?.files?.[0];
             if (!file) {
-                alert('يرجى اختيار صورة Hero أولاً');
+                window.ErpDialog.toast('يرجى اختيار صورة Hero أولاً');
                 return;
             }
             const formData = new FormData();
@@ -2565,7 +2565,7 @@
                 });
                 const result = await response.json();
                 if (!result.success) {
-                    alert(result.message || 'تعذر رفع صورة Hero');
+                    window.ErpDialog.toast(result.message || 'تعذر رفع صورة Hero');
                     return;
                 }
                 if (result.heroImageUrl) {
@@ -2578,14 +2578,14 @@
                 await loadHomepageSettings();
             } catch (error) {
                 console.error(error);
-                alert('خطأ في رفع صورة Hero');
+                window.ErpDialog.toast('خطأ في رفع صورة Hero');
             }
         }
 
         async function uploadTourImage() {
             const input = document.getElementById('hpTourImageFile');
             const file = input?.files?.[0];
-            if (!file) { alert('يرجى اختيار صورة الجولة أولاً'); return; }
+            if (!file) { window.ErpDialog.toast('يرجى اختيار صورة الجولة أولاً'); return; }
             const formData = new FormData();
             formData.append('tourImage', file);
             try {
@@ -2595,20 +2595,20 @@
                     body: formData
                 });
                 const result = await response.json();
-                if (!result.success) { alert(result.message || 'تعذر رفع صورة الجولة'); return; }
+                if (!result.success) { window.ErpDialog.toast(result.message || 'تعذر رفع صورة الجولة'); return; }
                 input.value = '';
                 showToast('تم رفع صورة الجولة بنجاح', 'success');
                 await loadHomepageSettings();
             } catch (error) {
                 console.error(error);
-                alert('خطأ في رفع صورة الجولة');
+                window.ErpDialog.toast('خطأ في رفع صورة الجولة');
             }
         }
 
         async function uploadTourVideo() {
             const input = document.getElementById('hpTourVideoFile');
             const file = input?.files?.[0];
-            if (!file) { alert('يرجى اختيار فيديو الجولة أولاً'); return; }
+            if (!file) { window.ErpDialog.toast('يرجى اختيار فيديو الجولة أولاً'); return; }
             const formData = new FormData();
             formData.append('tourVideo', file);
             try {
@@ -2618,13 +2618,13 @@
                     body: formData
                 });
                 const result = await response.json();
-                if (!result.success) { alert(result.message || 'تعذر رفع فيديو الجولة'); return; }
+                if (!result.success) { window.ErpDialog.toast(result.message || 'تعذر رفع فيديو الجولة'); return; }
                 input.value = '';
                 showToast('تم رفع فيديو الجولة بنجاح', 'success');
                 await loadHomepageSettings();
             } catch (error) {
                 console.error(error);
-                alert('خطأ في رفع فيديو الجولة');
+                window.ErpDialog.toast('خطأ في رفع فيديو الجولة');
             }
         }
 
@@ -2632,12 +2632,12 @@
             const input = document.getElementById('hpHeroVideoFile');
             const file = input?.files?.[0];
             if (!file) {
-                alert('يرجى اختيار فيديو Hero أولاً');
+                window.ErpDialog.toast('يرجى اختيار فيديو Hero أولاً');
                 return;
             }
             const maxBytes = 100 * 1024 * 1024;
             if (file.size > maxBytes) {
-                alert('حجم الفيديو كبير جداً. الحد الأقصى 100 ميجابايت.');
+                window.ErpDialog.toast('حجم الفيديو كبير جداً. الحد الأقصى 100 ميجابايت.');
                 return;
             }
             const formData = new FormData();
@@ -2655,13 +2655,13 @@
                 try {
                     result = await response.json();
                 } catch (_parseError) {
-                    alert(response.status === 413
+                    window.ErpDialog.toast(response.status === 413
                         ? 'حجم الفيديو كبير جداً. الحد الأقصى 100 ميجابايت.'
                         : 'تعذر قراءة رد الخادم أثناء رفع الفيديو');
                     return;
                 }
                 if (!result.success) {
-                    alert(result.message || 'تعذر رفع فيديو Hero');
+                    window.ErpDialog.toast(result.message || 'تعذر رفع فيديو Hero');
                     return;
                 }
                 input.value = '';
@@ -2675,7 +2675,7 @@
                 await loadHomepageSettings();
             } catch (error) {
                 console.error(error);
-                alert('خطأ في رفع فيديو Hero');
+                window.ErpDialog.toast('خطأ في رفع فيديو Hero');
             }
         }
 
@@ -2724,13 +2724,13 @@
                 });
                 const result = await response.json();
                 if (!result.success) {
-                    alert(result.message || 'تعذر حفظ إعدادات الصفحة الرئيسية');
+                    window.ErpDialog.toast(result.message || 'تعذر حفظ إعدادات الصفحة الرئيسية');
                     return;
                 }
                 showToast('تم حفظ إعدادات الصفحة الرئيسية', 'success');
             } catch (error) {
                 console.error(error);
-                alert('خطأ في حفظ إعدادات الصفحة الرئيسية');
+                window.ErpDialog.toast('خطأ في حفظ إعدادات الصفحة الرئيسية');
             }
         }
 
@@ -2774,7 +2774,7 @@
             }, 3000);
         }
 
-        document.addEventListener('click', (event) => {
+        document.addEventListener('click', async (event) => {
             const dropdown = document.getElementById('officePagesDropdown');
             const trigger = document.getElementById('officePagesToggle');
             if (!dropdown || dropdown.classList.contains('hidden')) return;
@@ -2813,7 +2813,7 @@
                      userInfoDisplay.classList.remove('hidden');
                  } else {
                      userInfoDisplay.classList.add('hidden');
-                     alert(result.message || 'المستخدم غير موجود');
+                     window.ErpDialog.toast(result.message || 'المستخدم غير موجود');
                  }
              } catch (error) {
                  console.error(error);
@@ -2825,7 +2825,7 @@
             const roleCode = document.getElementById('userRoleSelect').value;
 
             if (!userId || !roleCode) {
-                alert('الرجاء اختيار مستخدم ودور');
+                window.ErpDialog.toast('الرجاء اختيار مستخدم ودور');
                 return;
             }
 
@@ -2843,10 +2843,10 @@
                     loadUsersDirectory();
                     loadRoles();
                 } else {
-                    alert(result.message);
+                    window.ErpDialog.toast(result.message);
                 }
             } catch (error) {
-                alert('خطأ في الاتصال');
+                window.ErpDialog.toast('خطأ في الاتصال');
             }
         }
 
@@ -2854,7 +2854,7 @@
             const userId = document.getElementById('userIdInput').value;
             if (!userId) return;
 
-             if (confirm('هل أنت متأكد من إلغاء الدور؟')) {
+             if (await window.ErpDialog.confirm('هل أنت متأكد من إلغاء الدور؟')) {
                  try {
                      const response = await fetch(`${API_BASE}/users/${userId}/role`, {
                          method: 'DELETE',
@@ -2868,9 +2868,9 @@
                           loadUsersDirectory();
                           loadRoles();
                       } else {
-                          alert(result.message);
+                          window.ErpDialog.toast(result.message);
                       }
-                 } catch (e) { alert('خطأ'); }
+                 } catch (e) { window.ErpDialog.toast('خطأ'); }
              }
         }
 
@@ -3088,7 +3088,7 @@
 
         async function saveAccountTypeSidebar() {
             const accountType = document.getElementById('accountTypeSelect').value;
-            if (!accountType) { alert('الرجاء اختيار نوع الحساب أولاً'); return; }
+            if (!accountType) { window.ErpDialog.toast('الرجاء اختيار نوع الحساب أولاً'); return; }
             const saveBtn = document.getElementById('atsSaveBtn');
             saveBtn.disabled = true;
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';

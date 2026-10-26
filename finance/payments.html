@@ -203,7 +203,7 @@
             <a href="/finance/receivables-collections.html">التحصيل</a>
             <a href="/finance/customers.html">العملاء</a>
           </div>`;
-        document.getElementById('drawer-cancel')?.addEventListener('click', () => cancelPayment(id));
+        document.getElementById('drawer-cancel')?.addEventListener('click', async () => cancelPayment(id));
       }
 
       async function loadInvoices() {
@@ -284,7 +284,7 @@
       });
 
       async function cancelPayment(id) {
-        const reason = prompt('سبب إلغاء التحصيل (إلزامي):');
+        const reason = await window.ErpDialog.prompt('سبب إلغاء التحصيل (إلزامي):');
         if (!reason || !reason.trim()) return;
         const res = await FW.api('POST', `/finance/payments/${id}/cancel`, { reason: reason.trim() });
         if (!res.ok) {
@@ -295,7 +295,7 @@
         await load();
       }
 
-      document.getElementById('table-host').addEventListener('click', (e) => {
+      document.getElementById('table-host').addEventListener('click', async (e) => {
         const cancel = e.target.closest('[data-cancel]');
         const id = cancel?.getAttribute('data-cancel')
           || e.target.closest('[data-view]')?.getAttribute('data-view')
@@ -306,8 +306,8 @@
       });
 
       document.getElementById('btn-add').onclick = openCreate;
-      document.getElementById('btn-cancel').onclick = () => { document.getElementById('modal').hidden = true; };
-      document.getElementById('btn-reload').onclick = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+      document.getElementById('btn-cancel').onclick = async () => { document.getElementById('modal').hidden = true; };
+      document.getElementById('btn-reload').onclick = async () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
       ['q', 'filter-status', 'from_date', 'to_date', 'page-size'].forEach((id) => {
         document.getElementById(id).addEventListener('input', () => { state.page = 1; renderTable(); });
         document.getElementById(id).addEventListener('change', () => { state.page = 1; renderTable(); });

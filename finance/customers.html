@@ -775,7 +775,7 @@
             }
 
             if (missingFields.length) {
-                alert(`يرجى إدخال الحقول المطلوبة: ${missingFields.join('، ')}`);
+                window.ErpDialog.toast(`يرجى إدخال الحقول المطلوبة: ${missingFields.join('، ')}`);
                 return;
             }
 
@@ -799,12 +799,12 @@
                 await loadCustomers();
             } catch (error) {
                 console.error('❌ خطأ في حفظ العميل:', error);
-                alert(error.message || 'تعذر حفظ العميل');
+                window.ErpDialog.toast(error.message || 'تعذر حفظ العميل');
             }
         }
 
         async function deleteCustomer(customerId) {
-            if (!confirm('هل تريد حذف هذا العميل؟')) return;
+            if (!await window.ErpDialog.confirm('هل تريد حذف هذا العميل؟')) return;
             const res = await fetch(`${API_BASE}/finance/customers/${customerId}?entity_id=${encodeURIComponent(ENTITY_ID || '')}`, {
                 method: 'DELETE',
                 headers: window.getFinanceHeaders ? window.getFinanceHeaders() : {}
@@ -812,10 +812,10 @@
             let data = {};
             try { data = await res.json(); } catch (e) { /* */ }
             if (res.ok) {
-                alert(data.message || 'تم حذف العميل');
+                window.ErpDialog.toast(data.message || 'تم حذف العميل');
                 await loadCustomers();
             } else {
-                alert(data.error || 'تعذر حذف العميل');
+                window.ErpDialog.toast(data.error || 'تعذر حذف العميل');
             }
         }
 
@@ -824,7 +824,7 @@
             if (!customer) return;
             const shouldBlock = !customer.is_blocked;
             const confirmMsg = shouldBlock ? 'هل تريد حظر هذا العميل؟' : 'هل تريد إلغاء حظر هذا العميل؟';
-            if (!confirm(confirmMsg)) return;
+            if (!await window.ErpDialog.confirm(confirmMsg)) return;
 
             const payload = {
                 entity_id: ENTITY_ID,
@@ -874,7 +874,7 @@
 
             const data = await res.json();
             if (!data.success) {
-                alert(data.error || 'تعذر تحديث حالة العميل');
+                window.ErpDialog.toast(data.error || 'تعذر تحديث حالة العميل');
                 return;
             }
 

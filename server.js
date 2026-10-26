@@ -165,6 +165,16 @@ const injectFormValidationAssets = (html) => {
   return injectBodyAssetIfExists(withCss, '/public/form-validation.js', scriptTag);
 };
 
+const ERP_DIALOGS_ASSET_VERSION = '20261026dlg1';
+
+const injectErpDialogAssets = (html) => {
+  if (!html) return html;
+  const cssTag = `<link rel="stylesheet" href="/public/erp-dialogs.css?v=${ERP_DIALOGS_ASSET_VERSION}">`;
+  const scriptTag = `<script src="/public/erp-dialogs.js?v=${ERP_DIALOGS_ASSET_VERSION}"></script>`;
+  const output = injectHeadAssetIfExists(html, '/public/erp-dialogs.css', cssTag);
+  return injectBodyAssetIfExists(output, '/public/erp-dialogs.js', scriptTag);
+};
+
 const sendHtmlWithNumberFormat = (res, filePath, req = null) => {
   fs.readFile(filePath, 'utf8', (err, html) => {
     if (err) {
@@ -304,18 +314,19 @@ const prepareHtmlPayload = (html, filePath, req = null) => {
   }
   const withNumberFormat = injectNumberFormatScript(payload);
   const withFormValidation = injectFormValidationAssets(withNumberFormat);
+  const withErpDialogs = injectErpDialogAssets(withFormValidation);
   if (fileName === 'login-page.html' || fileName === 'register.html') {
-    return injectTenantBrandingAssets(injectDarkModeAssets(withFormValidation));
+    return injectTenantBrandingAssets(injectDarkModeAssets(withErpDialogs));
   }
   const isNewhomePage = filePath.includes(`${path.sep}newhome${path.sep}`);
   if (isNewhomePage) {
-    const withDarkMode = injectDarkModeAssets(withFormValidation);
+    const withDarkMode = injectDarkModeAssets(withErpDialogs);
     if (isPublicHomepageFile(filePath)) {
       return withDarkMode;
     }
     return injectGlobalBackButtonAssets(withDarkMode);
   }
-  const withGlobalBack = injectGlobalBackButtonAssets(withFormValidation);
+  const withGlobalBack = injectGlobalBackButtonAssets(withErpDialogs);
   const withBranding = injectTenantBrandingAssets(injectDarkModeAssets(withGlobalBack));
   const requestPath = String(req?.originalUrl || req?.path || '').split('?')[0];
   const { normalizeTenantAwareRequestPath } = require('./tenant-domain');
@@ -3502,7 +3513,9 @@ app.get('/finance*', (req, res, next) => {
       ? `    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="${TENANT_PATH_CLIENT_SRC}"></script>\n    <script src="/tenant-branding.js"></script>\n`
       : `    <link rel="stylesheet" href="/finance/brand-theme.css?v=20260215">\n    <script src="/finance/brand-theme.js"></script>\n    <script src="/finance/finance-context.js"></script>\n    <script src="/finance/finance-help.js?v=20260215"></script>\n    <script src="${TENANT_PATH_CLIENT_SRC}"></script>\n    <script src="/tenant-branding.js"></script>\n`;
     const injected = html.replace('</head>', `${injection}</head>`);
-    let payload = injectGlobalBackButtonAssets(injectFormValidationAssets(injected));
+    let payload = injectErpDialogAssets(
+      injectGlobalBackButtonAssets(injectFormValidationAssets(injected))
+    );
     if (req?.tenant && req?.tenantIdentity) {
       const { injectTenantBrandingHtml } = require('./tenant-branding-html-injector');
       payload = injectTenantBrandingHtml(payload, req.tenantIdentity, req.tenant);

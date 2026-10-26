@@ -890,7 +890,7 @@ function filterWorkflows() {
   renderTable(filtered);
 }
 
-function renderLogs() {
+async function renderLogs() {
   const cont = document.getElementById('log-container');
   cont.innerHTML = execLogs.map(l => `
     <div class="log-row log-${l.type}">
@@ -906,7 +906,7 @@ function renderLogs() {
   `).join('');
 }
 
-function refreshLogs() {
+async function refreshLogs() {
   execLogs.unshift({
     type: 'info',
     wf: 'النظام',
@@ -920,7 +920,7 @@ function refreshLogs() {
 // ═══════════════════════════════════════════
 // WORKFLOW ACTIONS
 // ═══════════════════════════════════════════
-function toggleStatus(id) {
+async function toggleStatus(id) {
   const wf = workflows.find(w => w.id === id);
   if (!wf) return;
   wf.status = wf.status === 'نشط' ? 'متوقف' : 'نشط';
@@ -931,7 +931,7 @@ function toggleStatus(id) {
   toast(`تم ${wf.status === 'نشط' ? 'تفعيل' : 'إيقاف'} "${wf.name}"`, wf.status === 'نشط' ? 'success' : '');
 }
 
-function runNow(id) {
+async function runNow(id) {
   const wf = workflows.find(w => w.id === id);
   if (!wf) return;
   wf.lastRun = 'الآن';
@@ -948,7 +948,7 @@ function runNow(id) {
 async function deleteWorkflow(id) {
   const wf = workflows.find(w => w.id === id);
   if (!wf) return;
-  if (!confirm(`هل تريد تعطيل "${wf.name}"؟`)) return;
+  if (!await window.ErpDialog.confirm(`هل تريد تعطيل "${wf.name}"؟`)) return;
   try {
     if (wf.dbId) {
       await sharedApi('/workflows/definitions/' + wf.dbId, {
@@ -1043,7 +1043,7 @@ function renderCanvas() {
       if (e.target.closest('.node-delete') || e.target.closest('.node-port')) return;
       startNodeDrag(e, node.id);
     });
-    el.addEventListener('click', (e) => {
+    el.addEventListener('click', async (e) => {
       if (e.target.closest('.node-delete') || e.target.closest('.node-port')) return;
       selectNode(node.id);
     });
@@ -1315,7 +1315,7 @@ function updateNodeLabel(id, val) {
   if (el) { const t = el.querySelector('.node-title'); if (t) t.textContent = val; }
 }
 
-function updateNodeConfig(id, key, val) {
+async function updateNodeConfig(id, key, val) {
   const node = builderState.nodes.find(n => n.id === id);
   if (!node) return;
   if (!node.config) node.config = {};
@@ -1331,7 +1331,7 @@ function updateNodeConfig(id, key, val) {
 // ═══════════════════════════════════════════
 // PORT CONNECTION
 // ═══════════════════════════════════════════
-function connectPort(nodeId, portType) {
+async function connectPort(nodeId, portType) {
   const s = builderState;
   if (portType === 'out') {
     s.connectingFrom = nodeId;
@@ -1352,7 +1352,7 @@ function connectPort(nodeId, portType) {
 // ═══════════════════════════════════════════
 // DELETE NODE
 // ═══════════════════════════════════════════
-function deleteNodeById(id) {
+async function deleteNodeById(id) {
   builderState.nodes = builderState.nodes.filter(n => n.id !== id);
   builderState.connections = builderState.connections.filter(([a,b]) => a!==id && b!==id);
   if (builderState.selectedNode === id) {
@@ -1365,8 +1365,8 @@ function deleteNodeById(id) {
 // ═══════════════════════════════════════════
 // CANVAS CONTROLS
 // ═══════════════════════════════════════════
-function clearCanvas() {
-  if (!confirm('هل تريد مسح جميع الكتل؟')) return;
+async function clearCanvas() {
+  if (!await window.ErpDialog.confirm('هل تريد مسح جميع الكتل؟')) return;
   builderState.nodes = [];
   builderState.connections = [];
   builderState.selectedNode = null;
@@ -1530,10 +1530,10 @@ function toast(msg, type='') {
 }
 
 // Close modals on overlay click
-document.getElementById('builder-modal').addEventListener('click', function(e) {
+document.getElementById('builder-modal').addEventListener('click', async function(e) {
   if (e.target === this) closeBuilder();
 });
-document.getElementById('test-modal').addEventListener('click', function(e) {
+document.getElementById('test-modal').addEventListener('click', async function(e) {
   if (e.target === this) closeTestModal();
 });
 

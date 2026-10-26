@@ -402,19 +402,19 @@
                 body: JSON.stringify(payload)
             });
             if (!res.ok) {
-                alert('تعذر حفظ التوقيع.');
+                window.ErpDialog.toast('تعذر حفظ التوقيع.');
                 return false;
             }
             await loadData();
             form.reset();
-            alert('تم حفظ التوقيع في قاعدة البيانات.');
+            window.ErpDialog.toast('تم حفظ التوقيع في قاعدة البيانات.');
             return false;
         }
 
         async function signDocument(key) {
             const doc = documentsMap[key];
             if (!doc) {
-                alert('المستند غير موجود.');
+                window.ErpDialog.toast('المستند غير موجود.');
                 return;
             }
             const payload = {
@@ -430,7 +430,7 @@
                 body: JSON.stringify(payload)
             });
             if (!res.ok) {
-                alert('تعذر توقيع المستند.');
+                window.ErpDialog.toast('تعذر توقيع المستند.');
                 return;
             }
             await loadData();
@@ -439,7 +439,7 @@
         async function verifySignature(key) {
             const doc = documentsMap[key];
             if (!doc) {
-                alert('المستند غير موجود.');
+                window.ErpDialog.toast('المستند غير موجود.');
                 return;
             }
             const document_key = getDocumentKey(doc);
@@ -449,17 +449,17 @@
                 body: JSON.stringify({ document_key, notes: 'تم التحقق' })
             });
             if (!res.ok) {
-                alert('تعذر التحقق من التوقيع.');
+                window.ErpDialog.toast('تعذر التحقق من التوقيع.');
                 return;
             }
             await loadData();
         }
 
-        function viewSignature(key) {
+        async function viewSignature(key) {
             const signature = signaturesByKey[key];
             const doc = documentsMap[key];
             if (!signature && !doc) {
-                alert('لا توجد بيانات للمعاينة');
+                window.ErpDialog.toast('لا توجد بيانات للمعاينة');
                 return;
             }
             const details = {
@@ -471,17 +471,17 @@
                 ملاحظات: signature?.notes || '-',
                 تاريخ_التحديث: signature?.updated_at || '-' 
             };
-            alert(JSON.stringify(details, null, 2));
+            window.ErpDialog.toast(JSON.stringify(details, null, 2));
         }
 
         async function editSignature(key) {
             const signature = signaturesByKey[key];
             if (!signature) {
-                alert('لا يوجد توقيع لتعديله');
+                window.ErpDialog.toast('لا يوجد توقيع لتعديله');
                 return;
             }
-            const newStatus = prompt('أدخل حالة التوقيع الجديدة', signature.signature_status || 'موقع');
-            const newNotes = prompt('أدخل ملاحظات إضافية', signature.notes || '');
+            const newStatus = await window.ErpDialog.prompt('أدخل حالة التوقيع الجديدة', signature.signature_status || 'موقع');
+            const newNotes = await window.ErpDialog.prompt('أدخل ملاحظات إضافية', signature.notes || '');
             if (newStatus === null && newNotes === null) return;
             const res = await fetch(`${API_BASE}/finance/electronic-signatures/${signature.signature_id}`, {
                 method: 'PUT',
@@ -489,7 +489,7 @@
                 body: JSON.stringify({ signature_status: newStatus || signature.signature_status, notes: newNotes || signature.notes })
             });
             if (!res.ok) {
-                alert('تعذر تعديل التوقيع.');
+                window.ErpDialog.toast('تعذر تعديل التوقيع.');
                 return;
             }
             await loadData();
@@ -498,37 +498,37 @@
         async function deleteSignature(key) {
             const signature = signaturesByKey[key];
             if (!signature) {
-                alert('لا يوجد توقيع للحذف');
+                window.ErpDialog.toast('لا يوجد توقيع للحذف');
                 return;
             }
-            if (!confirm('تأكيد حذف التوقيع؟')) return;
+            if (!await window.ErpDialog.confirm('تأكيد حذف التوقيع؟')) return;
             const res = await fetch(`${API_BASE}/finance/electronic-signatures/${signature.signature_id}`, {
                 method: 'DELETE'
             });
             if (!res.ok) {
-                alert('تعذر حذف التوقيع');
+                window.ErpDialog.toast('تعذر حذف التوقيع');
                 return;
             }
             await loadData();
         }
 
-        function viewLog(logId) {
+        async function viewLog(logId) {
             const log = logEntries.find(l => (l.log_id || l.id) === logId);
             if (!log) {
-                alert('السجل غير موجود');
+                window.ErpDialog.toast('السجل غير موجود');
                 return;
             }
-            alert(JSON.stringify(log, null, 2));
+            window.ErpDialog.toast(JSON.stringify(log, null, 2));
         }
 
         async function editLog(logId) {
             const log = logEntries.find(l => (l.log_id || l.id) === logId);
             if (!log) {
-                alert('السجل غير موجود');
+                window.ErpDialog.toast('السجل غير موجود');
                 return;
             }
-            const newAction = prompt('الإجراء الجديد', log.action);
-            const newUser = prompt('اسم المستخدم', log.user_name || log.user || '');
+            const newAction = await window.ErpDialog.prompt('الإجراء الجديد', log.action);
+            const newUser = await window.ErpDialog.prompt('اسم المستخدم', log.user_name || log.user || '');
             if (newAction === null && newUser === null) return;
             const res = await fetch(`${API_BASE}/finance/electronic-signature-logs/${logId}`, {
                 method: 'PUT',
@@ -536,17 +536,17 @@
                 body: JSON.stringify({ action: newAction || log.action, user_name: newUser || log.user_name })
             });
             if (!res.ok) {
-                alert('تعذر تعديل السجل');
+                window.ErpDialog.toast('تعذر تعديل السجل');
                 return;
             }
             await loadData();
         }
 
         async function deleteLog(logId) {
-            if (!confirm('تأكيد حذف السجل؟')) return;
+            if (!await window.ErpDialog.confirm('تأكيد حذف السجل؟')) return;
             const res = await fetch(`${API_BASE}/finance/electronic-signature-logs/${logId}`, { method: 'DELETE' });
             if (!res.ok) {
-                alert('تعذر حذف السجل');
+                window.ErpDialog.toast('تعذر حذف السجل');
                 return;
             }
             await loadData();

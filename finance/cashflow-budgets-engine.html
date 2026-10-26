@@ -280,7 +280,7 @@
 
         function notify(message) {
             console.log(message);
-            alert(message);
+            window.ErpDialog.toast(message);
         }
 
         async function fetchJson(url) {
@@ -793,27 +793,27 @@
             return map[value] || value || '-';
         }
 
-        function translateBudgetType(value) {
+        async function translateBudgetType(value) {
             const map = { revenue: 'إيرادات', expense: 'مصروفات', cashflow: 'تدفقات نقدية', capital: 'رأس مال' };
             return map[value] || value || '-';
         }
 
-        function translateScenario(value) {
+        async function translateScenario(value) {
             const map = { base: 'أساسي', optimistic: 'متفائل', pessimistic: 'متشائم' };
             return map[value] || value || '-';
         }
 
-        function translateStatus(value) {
+        async function translateStatus(value) {
             const map = { draft: 'مسودة', approved: 'معتمد', active: 'نشط', closed: 'مغلق' };
             return map[value] || value || '-';
         }
 
-        function translateEntityType(value) {
+        async function translateEntityType(value) {
             const map = { HQ: 'مركز رئيسي', BRANCH: 'فرع', PLATFORM: 'منصة', INCUBATOR: 'حاضنة' };
             return map[value] || value || '-';
         }
 
-        function translateModel(value) {
+        async function translateModel(value) {
             if (!value) return '-';
             const map = {
                 'LSTM Neural Network': 'شبكة عصبية طويلة قصيرة المدى'
@@ -821,7 +821,7 @@
             return map[value] || value;
         }
 
-        function translateInsights(value) {
+        async function translateInsights(value) {
             if (!value) return '-';
             try {
                 const parsed = typeof value === 'string' ? JSON.parse(value) : value;
@@ -834,8 +834,8 @@
             }
         }
 
-        function ask(label, fallback = '') {
-            const value = prompt(label, fallback ?? '');
+        async function ask(label, fallback = '') {
+            const value = await window.ErpDialog.prompt(label, fallback ?? '');
             return value === null ? null : value.trim();
         }
 
@@ -880,10 +880,10 @@
             });
         }
 
-        function viewCashflow(kind, id) {
+        async function viewCashflow(kind, id) {
             const row = findRow(kind, id);
             if (!row) return notify('السجل غير موجود');
-            alert(JSON.stringify(row, null, 2));
+            window.ErpDialog.toast(JSON.stringify(row, null, 2));
         }
 
         async function editCashflow(kind, id) {
@@ -912,7 +912,7 @@
 
         async function deleteCashflow(kind, id) {
             await withAction(async () => {
-                if (!confirm('تأكيد حذف السجل؟')) return;
+                if (!await window.ErpDialog.confirm('تأكيد حذف السجل؟')) return;
                 await apiRequest('DELETE', `${API_BASE}/finance/cashflow/${kind}/${id}?entity_id=${ENTITY_ID}`);
                 notify('تم حذف السجل');
                 await loadData();
@@ -922,7 +922,7 @@
         function viewForecast(id) {
             const row = store.forecasts.find(f => String(f.forecast_id) === String(id));
             if (!row) return notify('السجل غير موجود');
-            alert(JSON.stringify(row, null, 2));
+            window.ErpDialog.toast(JSON.stringify(row, null, 2));
         }
 
         async function addForecast() {
@@ -974,7 +974,7 @@
 
         async function deleteForecast(id) {
             await withAction(async () => {
-                if (!confirm('تأكيد حذف التوقع؟')) return;
+                if (!await window.ErpDialog.confirm('تأكيد حذف التوقع؟')) return;
                 await apiRequest('DELETE', `${API_BASE}/finance/ai-forecasts/${id}?entity_id=${ENTITY_ID}`);
                 notify('تم حذف التوقع');
                 await loadData();
@@ -984,7 +984,7 @@
         function viewBudget(id) {
             const row = store.budgets.find(b => String(b.budget_id) === String(id));
             if (!row) return notify('السجل غير موجود');
-            alert(JSON.stringify(row, null, 2));
+            window.ErpDialog.toast(JSON.stringify(row, null, 2));
         }
 
         async function addBudget() {
@@ -1035,7 +1035,7 @@
 
         async function deleteBudget(id) {
             await withAction(async () => {
-                if (!confirm('تأكيد حذف الميزانية؟')) return;
+                if (!await window.ErpDialog.confirm('تأكيد حذف الميزانية؟')) return;
                 await apiRequest('DELETE', `${API_BASE}/finance/budgets/${id}`);
                 notify('تم حذف الميزانية');
                 await loadData();
@@ -1045,7 +1045,7 @@
         function viewBudgetLine(id) {
             const row = store.budgetLines.find(l => String(l.line_id) === String(id));
             if (!row) return notify('السجل غير موجود');
-            alert(JSON.stringify(row, null, 2));
+            window.ErpDialog.toast(JSON.stringify(row, null, 2));
         }
 
         async function addBudgetLine() {
@@ -1093,7 +1093,7 @@
 
         async function deleteBudgetLine(id) {
             await withAction(async () => {
-                if (!confirm('تأكيد حذف خط الميزانية؟')) return;
+                if (!await window.ErpDialog.confirm('تأكيد حذف خط الميزانية؟')) return;
                 await apiRequest('DELETE', `${API_BASE}/finance/budget-lines/${id}`);
                 notify('تم حذف خط الميزانية');
                 await loadData();
@@ -1103,7 +1103,7 @@
         function viewVariance(id) {
             const row = store.budgetVariances.find(v => String(v.variance_id) === String(id));
             if (!row) return notify('السجل غير موجود');
-            alert(JSON.stringify(row, null, 2));
+            window.ErpDialog.toast(JSON.stringify(row, null, 2));
         }
 
         async function addVariance() {
@@ -1157,7 +1157,7 @@
 
         async function deleteVariance(id) {
             await withAction(async () => {
-                if (!confirm('تأكيد حذف الانحراف؟')) return;
+                if (!await window.ErpDialog.confirm('تأكيد حذف الانحراف؟')) return;
                 await apiRequest('DELETE', `${API_BASE}/finance/budget-variances/${id}`);
                 notify('تم حذف الانحراف');
                 await loadData();

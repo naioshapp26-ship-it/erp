@@ -126,15 +126,20 @@ router.get('/links', async (req, res) => {
       [entityId, limit]
     );
 
-    const items = rows.rows.map((row) => {
+    const items = [];
+    for (const row of rows.rows) {
       const balanced = Math.abs(Number(row.debit_total) - Number(row.credit_total)) <= 0.01;
-      return {
+      const refMeta = await resolveDisplayReference(row);
+      items.push({
         ...row,
         balanced,
         source_label: sourceLabel(row.reference_type),
+        status_label: statusLabelAr(row.status, row.is_posted),
+        ...refMeta,
+        source_href: sourceHref(row.reference_type, row.reference_id),
         can_reverse: !!(row.is_posted || row.status === 'POSTED') && !row.is_reversed && row.entry_type !== 'REVERSAL' && row.reference_type !== 'JOURNAL_REVERSAL'
-      };
-    });
+      });
+    }
 
     res.json({ success: true, items, count: items.length });
   } catch (error) {
@@ -153,7 +158,114 @@ function sourceLabel(type) {
     AUTO: 'قيد آلي',
     MANUAL: 'قيد يدوي'
   };
-  return map[String(type || '').toUpperCase()] || (type || 'غير محدد');
+  const key = String(type || '').toUpperCase();
+  if (!key) return 'غير محدد';
+  return map[key] || `مصدر غير معروف (${key})`;
+}
+
+function statusLabelAr(status, isPosted) {
+  const raw = String(status || '').toUpperCase();
+  if (isPosted || raw === 'POSTED') return 'مرحّل';
+  const map = {
+    APPROVED: 'معتمد',
+    DRAFT: 'مسودة',
+    PENDING: 'معلق',
+    CANCELLED: 'ملغى',
+    REVERSED: 'معكوس',
+    POSTED: 'مرحّل'
+  };
+  return map[raw] || (status ? String(status) : '—');
+}
+
+function isBadReference(value) {
+  const s = String(value == null ? '' : value).trim();
+  if (!s) return true;
+  return /nan/i.test(s) || /undefined/i.test(s) || /null/i.test(s);
+}
+
+function sourceHref(type, id) {
+  const key = String(type || '').toUpperCase();
+  const num = Number(id);
+  if (!Number.isFinite(num)) return null;
+  if (key === 'INVOICE') return `/finance/invoices-budgets-master.html#invoice-${num}`;
+  if (key === 'PAYMENT') return `/finance/payments.html#payment-${num}`;
+  if (key === 'EXPENSE') return `/finance/expenses.html#expense-${num}`;
+  if (key === 'STOCK_DOCUMENT') return `/finance/inventory.html#doc-${num}`;
+  if (key === 'JOURNAL_REVERSAL') return `/finance/journal.html#entry-${num}`;
+  return null;
+}
+
+async function resolveDisplayReference(row) {
+  const type = String(row.reference_type || '').toUpperCase();
+  const id = Number(row.reference_id);
+  const stored = row.reference_number;
+  if (!isBadReference(stored)) {
+    return { display_reference: String(stored), reference_quality: 'ok' };
+  }
+  if (!Number.isFinite(id)) {
+    return {
+      display_reference: stored ? String(stored) : '—',
+      reference_quality: 'missing',
+      reference_issue: stored ? 'مرجع مخزّن غير صالح' : 'لا يوجد رقم مرجع'
+    };
+  }
+  try {
+    if (type === 'INVOICE') {
+      const r = await db.query(
+        `SELECT invoice_number FROM finance_invoices WHERE invoice_id = $1 LIMIT 1`,
+        [id]
+      );
+      if (r.rows[0]?.invoice_number) {
+        return {
+          display_reference: r.rows[0].invoice_number,
+          reference_quality: 'resolved',
+          reference_issue: stored ? `المرجع المخزّن كان تالفًا (${stored})` : 'استُكمل من الفاتورة'
+        };
+      }
+    } else if (type === 'PAYMENT') {
+      const r = await db.query(
+        `SELECT payment_number FROM finance_payments WHERE payment_id = $1 LIMIT 1`,
+        [id]
+      );
+      if (r.rows[0]?.payment_number) {
+        return {
+          display_reference: r.rows[0].payment_number,
+          reference_quality: 'resolved',
+          reference_issue: stored ? `المرجع المخزّن كان تالفًا (${stored})` : 'استُكمل من الدفعة'
+        };
+      }
+    } else if (type === 'EXPENSE') {
+      const r = await db.query(
+        `SELECT expense_number FROM finance_expenses WHERE expense_id = $1 LIMIT 1`,
+        [id]
+      );
+      if (r.rows[0]?.expense_number) {
+        return {
+          display_reference: r.rows[0].expense_number,
+          reference_quality: 'resolved',
+          reference_issue: stored ? `المرجع المخزّن كان تالفًا (${stored})` : 'استُكمل من المصروف'
+        };
+      }
+    } else if (type === 'JOURNAL_REVERSAL') {
+      const r = await db.query(
+        `SELECT entry_number FROM finance_journal_entries WHERE entry_id = $1 LIMIT 1`,
+        [id]
+      );
+      if (r.rows[0]?.entry_number) {
+        return {
+          display_reference: r.rows[0].entry_number,
+          reference_quality: 'resolved',
+          reference_issue: 'مرجع قيد عكسي'
+        };
+      }
+    }
+  } catch (_) { /* keep honest missing state */ }
+
+  return {
+    display_reference: stored ? String(stored) : `معرف المصدر #${id}`,
+    reference_quality: 'unresolved',
+    reference_issue: stored ? `تعذر تصحيح المرجع التالف (${stored})` : 'تعذر إيجاد مستند المصدر'
+  };
 }
 
 router.get('/source/:type/:id', async (req, res) => {
@@ -265,6 +377,7 @@ router.get('/journals/:entryId', async (req, res) => {
     const debit = linesRes.rows.reduce((s, l) => s + Number(l.debit_amount || 0), 0);
     const credit = linesRes.rows.reduce((s, l) => s + Number(l.credit_amount || 0), 0);
     const reversal = await findActiveReversal(db.pool, entryId).catch(() => []);
+    const refMeta = await resolveDisplayReference(entry);
     res.json({
       success: true,
       entry,
@@ -273,6 +386,9 @@ router.get('/journals/:entryId', async (req, res) => {
       credit_total: credit,
       balanced: Math.abs(debit - credit) <= 0.01,
       source_label: sourceLabel(entry.reference_type),
+      status_label: statusLabelAr(entry.status, entry.is_posted),
+      ...refMeta,
+      source_href: sourceHref(entry.reference_type, entry.reference_id),
       reversals: reversal,
       can_reverse: !!(entry.is_posted || entry.status === 'POSTED')
         && !(reversal && reversal.length)

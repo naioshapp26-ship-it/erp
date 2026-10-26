@@ -773,13 +773,13 @@
             document.getElementById('riskCount').textContent = `عدد الصفوف: ${riskScores.length}`;
         }
 
-        function renderEnhancements() {
+        async function renderEnhancements() {
             renderCashflowQuality();
             renderCashflowAlerts();
             renderQuickIndicators();
         }
 
-        function getCashflowList(source) {
+        async function getCashflowList(source) {
             switch (source) {
                 case 'operating':
                     return cashflowOperating;
@@ -792,17 +792,17 @@
             }
         }
 
-        function findCashflowIndex(source, flowId) {
+        async function findCashflowIndex(source, flowId) {
             const list = getCashflowList(source);
             return list.findIndex((row) => String(row.flow_id) === String(flowId));
         }
 
-        function openCashflowCreate() {
-            const amount = parseFloat(prompt('أدخل مبلغ التدفق', '0'));
+        async function openCashflowCreate() {
+            const amount = parseFloat(await window.ErpDialog.prompt('أدخل مبلغ التدفق', '0'));
             if (Number.isNaN(amount)) return;
-            const flowType = prompt('نوع التدفق (collection/payment/expense)', 'collection') || 'collection';
-            const description = prompt('الوصف المختصر', '') || '';
-            const flowDate = prompt('تاريخ التدفق (YYYY-MM-DD)', new Date().toISOString().slice(0, 10)) || new Date().toISOString().slice(0, 10);
+            const flowType = await window.ErpDialog.prompt('نوع التدفق (collection/payment/expense)', 'collection') || 'collection';
+            const description = await window.ErpDialog.prompt('الوصف المختصر', '') || '';
+            const flowDate = await window.ErpDialog.prompt('تاريخ التدفق (YYYY-MM-DD)', new Date().toISOString().slice(0, 10)) || new Date().toISOString().slice(0, 10);
             cashflowOperating.unshift({
                 flow_id: `CF-${Date.now()}`,
                 flow_type: flowType,
@@ -819,21 +819,21 @@
             renderEnhancements();
         }
 
-        function viewCashflow(source, flowId) {
+        async function viewCashflow(source, flowId) {
             const list = getCashflowList(source);
             const row = list.find((item) => String(item.flow_id) === String(flowId));
             if (!row) return;
-            alert(JSON.stringify(row, null, 2));
+            window.ErpDialog.toast(JSON.stringify(row, null, 2));
         }
 
-        function editCashflow(source, flowId) {
+        async function editCashflow(source, flowId) {
             const list = getCashflowList(source);
             const index = findCashflowIndex(source, flowId);
             if (index < 0) return;
             const row = list[index];
-            const amount = parseFloat(prompt('تعديل المبلغ', row.amount ?? 0));
+            const amount = parseFloat(await window.ErpDialog.prompt('تعديل المبلغ', row.amount ?? 0));
             if (Number.isNaN(amount)) return;
-            const description = prompt('تعديل الوصف', row.description || '') || row.description;
+            const description = await window.ErpDialog.prompt('تعديل الوصف', row.description || '') || row.description;
             row.amount = amount;
             row.description = description;
             row.updated_at = new Date().toISOString();
@@ -843,8 +843,8 @@
             renderEnhancements();
         }
 
-        function deleteCashflow(source, flowId) {
-            if (!confirm('هل تريد حذف التدفق؟')) return;
+        async function deleteCashflow(source, flowId) {
+            if (!await window.ErpDialog.confirm('هل تريد حذف التدفق؟')) return;
             const list = getCashflowList(source);
             const index = findCashflowIndex(source, flowId);
             if (index < 0) return;
@@ -854,12 +854,12 @@
             renderEnhancements();
         }
 
-        function openForecastCreate() {
-            const period = prompt('فترة التوقع', '2026-Q1') || '2026-Q1';
-            const type = prompt('نوع التوقع (REVENUE/EXPENSE/CASHFLOW)', 'CASHFLOW') || 'CASHFLOW';
-            const amount = parseFloat(prompt('قيمة التوقع', '0'));
+        async function openForecastCreate() {
+            const period = await window.ErpDialog.prompt('فترة التوقع', '2026-Q1') || '2026-Q1';
+            const type = await window.ErpDialog.prompt('نوع التوقع (REVENUE/EXPENSE/CASHFLOW)', 'CASHFLOW') || 'CASHFLOW';
+            const amount = parseFloat(await window.ErpDialog.prompt('قيمة التوقع', '0'));
             if (Number.isNaN(amount)) return;
-            const confidence = parseFloat(prompt('مستوى الثقة (%)', '70'));
+            const confidence = parseFloat(await window.ErpDialog.prompt('مستوى الثقة (%)', '70'));
             if (Number.isNaN(confidence)) return;
             forecasts.unshift({
                 forecast_id: `FC-${Date.now()}`,
@@ -876,19 +876,19 @@
             renderTables();
         }
 
-        function viewForecast(forecastId) {
+        async function viewForecast(forecastId) {
             const row = forecasts.find((f) => String(f.forecast_id) === String(forecastId));
             if (!row) return;
-            alert(JSON.stringify(row, null, 2));
+            window.ErpDialog.toast(JSON.stringify(row, null, 2));
         }
 
-        function editForecast(forecastId) {
+        async function editForecast(forecastId) {
             const index = forecasts.findIndex((f) => String(f.forecast_id) === String(forecastId));
             if (index < 0) return;
             const row = forecasts[index];
-            const amount = parseFloat(prompt('تعديل قيمة التوقع', row.forecast_amount ?? 0));
+            const amount = parseFloat(await window.ErpDialog.prompt('تعديل قيمة التوقع', row.forecast_amount ?? 0));
             if (Number.isNaN(amount)) return;
-            const confidence = parseFloat(prompt('تعديل مستوى الثقة (%)', row.confidence_level ?? 0));
+            const confidence = parseFloat(await window.ErpDialog.prompt('تعديل مستوى الثقة (%)', row.confidence_level ?? 0));
             if (Number.isNaN(confidence)) return;
             row.forecast_amount = amount;
             row.confidence_level = confidence;
@@ -898,8 +898,8 @@
             renderTables();
         }
 
-        function deleteForecast(forecastId) {
-            if (!confirm('هل تريد حذف التوقع؟')) return;
+        async function deleteForecast(forecastId) {
+            if (!await window.ErpDialog.confirm('هل تريد حذف التوقع؟')) return;
             const index = forecasts.findIndex((f) => String(f.forecast_id) === String(forecastId));
             if (index < 0) return;
             forecasts.splice(index, 1);
@@ -907,11 +907,11 @@
             renderTables();
         }
 
-        function openRiskCreate() {
-            const customerId = prompt('رقم العميل', '') || '';
-            const score = parseFloat(prompt('درجة المخاطرة (%)', '0'));
+        async function openRiskCreate() {
+            const customerId = await window.ErpDialog.prompt('رقم العميل', '') || '';
+            const score = parseFloat(await window.ErpDialog.prompt('درجة المخاطرة (%)', '0'));
             if (Number.isNaN(score)) return;
-            const level = prompt('مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL)', 'LOW') || 'LOW';
+            const level = await window.ErpDialog.prompt('مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL)', 'LOW') || 'LOW';
             riskScores.unshift({
                 risk_id: `RS-${Date.now()}`,
                 customer_id: customerId,
@@ -932,19 +932,19 @@
             renderEnhancements();
         }
 
-        function viewRisk(riskId) {
+        async function viewRisk(riskId) {
             const row = riskScores.find((r) => String(r.risk_id) === String(riskId));
             if (!row) return;
-            alert(JSON.stringify(row, null, 2));
+            window.ErpDialog.toast(JSON.stringify(row, null, 2));
         }
 
-        function editRisk(riskId) {
+        async function editRisk(riskId) {
             const index = riskScores.findIndex((r) => String(r.risk_id) === String(riskId));
             if (index < 0) return;
             const row = riskScores[index];
-            const score = parseFloat(prompt('تعديل درجة المخاطرة (%)', row.risk_score ?? 0));
+            const score = parseFloat(await window.ErpDialog.prompt('تعديل درجة المخاطرة (%)', row.risk_score ?? 0));
             if (Number.isNaN(score)) return;
-            const level = prompt('تعديل مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL)', row.risk_level || 'LOW') || row.risk_level;
+            const level = await window.ErpDialog.prompt('تعديل مستوى المخاطرة (LOW/MEDIUM/HIGH/CRITICAL)', row.risk_level || 'LOW') || row.risk_level;
             row.risk_score = score;
             row.risk_level = level;
             row.updated_at = new Date().toISOString();
@@ -954,8 +954,8 @@
             renderEnhancements();
         }
 
-        function deleteRisk(riskId) {
-            if (!confirm('هل تريد حذف تقييم المخاطر؟')) return;
+        async function deleteRisk(riskId) {
+            if (!await window.ErpDialog.confirm('هل تريد حذف تقييم المخاطر؟')) return;
             const index = riskScores.findIndex((r) => String(r.risk_id) === String(riskId));
             if (index < 0) return;
             riskScores.splice(index, 1);

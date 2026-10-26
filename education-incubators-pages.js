@@ -226,7 +226,7 @@
     }
     const container = document.getElementById('toast-container');
     if (!container) {
-      window.alert(message);
+      window.ErpDialog.toast(message);
       return;
     }
     const colors = { success: 'bg-emerald-600', error: 'bg-red-600', info: 'bg-slate-800' };
@@ -607,7 +607,7 @@
     }
   }
 
-  function handleEtiAction(action, route, index) {
+  async function handleEtiAction(action, route, index) {
     const config = PAGE_CONFIGS[route];
     if (!config && action !== 'toast') return;
 
@@ -659,7 +659,7 @@
       const rows = getRows(route);
       const row = rows[index];
       if (!row) { toast('لا توجد بيانات', 'error'); return; }
-      if (!window.confirm(`هل تريد حذف "${row[0]}"؟`)) return;
+      if (!await window.ErpDialog.confirm(`هل تريد حذف "${row[0]}"؟`)) return;
       rows.splice(index, 1);
       saveLocalRows(route, rows);
       refreshPage(route, rows);

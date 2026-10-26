@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>التكامل المحاسبي — تشغيل مالي</title>
+  <title>القيود المرتبطة بالمصادر — تكامل محاسبي</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/finance/finance-workbench.css">
@@ -14,8 +14,8 @@
     <header class="fw-hero">
       <div>
         <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
-        <h1><i class="fas fa-network-wired"></i> التكامل المحاسبي</h1>
-        <p>خريطة ربط العمليات بالقيود المتوازنة: فواتير، تحصيل، مصروفات، مخزون — مع معاينة المصدر وعكس معتمد دون حذف الأثر.</p>
+        <h1><i class="fas fa-network-wired"></i> القيود المرتبطة بالمصادر</h1>
+        <p>مركز تشغيل للترحيل المحاسبي: فواتير، تحصيل، مصروفات، مخزون — معاينة المصدر، فلاتر، وعكس معتمد بنموذج داخلي دون نوافذ المتصفح.</p>
       </div>
       <div class="fw-actions">
         <button type="button" class="fw-btn" id="btn-reload"><i class="fas fa-rotate"></i> تحديث</button>
@@ -37,12 +37,22 @@
         <option value="EXPENSE">مصروفات</option>
         <option value="STOCK_DOCUMENT">مخزون</option>
         <option value="JOURNAL_REVERSAL">عكس قيد</option>
+        <option value="UNKNOWN">غير محدد / غير معروف</option>
+      </select>
+      <select id="filter-status">
+        <option value="">كل الحالات</option>
+        <option value="POSTED">مرحّل</option>
+        <option value="APPROVED">معتمد</option>
+        <option value="DRAFT">مسودة</option>
+        <option value="REVERSED">معكوس</option>
       </select>
       <select id="filter-balance">
         <option value="">كل حالات التوازن</option>
         <option value="ok">متوازن</option>
         <option value="bad">غير متوازن</option>
       </select>
+      <input type="date" id="from_date" title="من تاريخ">
+      <input type="date" id="to_date" title="إلى تاريخ">
       <select id="page-size">
         <option value="25">25 صف</option>
         <option value="50" selected>50 صف</option>
@@ -53,7 +63,7 @@
     <div class="fw-layout" id="layout">
       <section class="fw-card">
         <div class="fw-card-head">
-          <h2>سجل الترحيل والروابط</h2>
+          <h2>آخر القيود المرتبطة بالمصادر</h2>
           <span id="count-label" class="fw-badge muted">0</span>
         </div>
         <div id="table-host"></div>
@@ -70,7 +80,8 @@
   <script>
     (function () {
       const FW = window.FinanceWorkbench;
-      const state = { items: [], page: 1, selectedId: null };
+      const Dialog = () => window.ErpDialog;
+      const state = { items: [], page: 1, selectedId: null, reversing: false };
 
       document.getElementById('topnav').innerHTML = FW.topNav([
         ['/finance', 'اللوحة'],
@@ -85,26 +96,49 @@
       function filtered() {
         const q = document.getElementById('q').value.trim().toLowerCase();
         const src = document.getElementById('filter-source').value;
+        const st = document.getElementById('filter-status').value;
         const bal = document.getElementById('filter-balance').value;
+        const from = document.getElementById('from_date').value;
+        const to = document.getElementById('to_date').value;
         return state.items.filter((item) => {
-          if (src && String(item.reference_type || '').toUpperCase() !== src) return false;
+          const type = String(item.reference_type || '').toUpperCase();
+          if (src === 'UNKNOWN') {
+            if (type && !['', 'UNKNOWN', 'NULL'].includes(type) && item.source_label && !String(item.source_label).includes('غير')) {
+              /* keep only missing/unknown */
+            }
+            const unknown = !type || String(item.source_label || '').includes('غير محدد') || String(item.source_label || '').includes('غير معروف');
+            if (!unknown) return false;
+          } else if (src && type !== src) return false;
+          if (st === 'REVERSED' && !item.is_reversed) return false;
+          if (st && st !== 'REVERSED') {
+            const status = String(item.status || '').toUpperCase();
+            const posted = item.is_posted || status === 'POSTED';
+            if (st === 'POSTED' && !posted) return false;
+            if (st !== 'POSTED' && status !== st) return false;
+          }
           if (bal === 'ok' && !item.balanced) return false;
           if (bal === 'bad' && item.balanced) return false;
+          const day = String(item.entry_date || '').slice(0, 10);
+          if (from && day && day < from) return false;
+          if (to && day && day > to) return false;
           if (!q) return true;
-          const hay = [item.entry_number, item.source_label, item.reference_number, item.reference_id, item.reference_type, item.description]
+          const hay = [item.entry_number, item.source_label, item.display_reference, item.reference_number, item.reference_id, item.reference_type, item.description, item.status_label]
             .join(' ').toLowerCase();
           return hay.includes(q);
         });
       }
 
       function renderKpis(overview) {
+        const rows = state.items;
+        const unbalanced = rows.filter((r) => !r.balanced).length;
+        const pending = rows.filter((r) => !(r.is_posted || String(r.status).toUpperCase() === 'POSTED')).length;
         const cards = [
+          ['قيود مرحلة', overview.journals.posted, `عكوسات: ${overview.journals.reversals || 0}`],
           ['فواتير بقيود', `${overview.invoices.with_journal} / ${overview.invoices.total}`, 'من المالية'],
-          ['فواتير بلا قيد', overview.invoices.missing_journal, 'تحتاج مراجعة'],
           ['مدفوعات مربوطة', `${overview.payments.with_journal} / ${overview.payments.total}`, 'تحصيل'],
           ['مصروفات مربوطة', `${overview.expenses.with_journal} / ${overview.expenses.total}`, 'اعتماد/ترحيل'],
-          ['مخزون مربوط', `${overview.stock_documents.with_journal} / ${overview.stock_documents.total}`, 'مستندات'],
-          ['قيود مرحلة', overview.journals.posted, `عكوسات: ${overview.journals.reversals || 0}`]
+          ['غير متوازن (المعروض)', unbalanced, 'حسب الفلاتر الحالية'],
+          ['غير مرحّل (المعروض)', pending, 'مسودة/معلق']
         ];
         document.getElementById('kpis').innerHTML = cards.map(([label, value, note]) =>
           `<div class="fw-kpi"><span>${FW.esc(label)}</span><strong>${FW.esc(value)}</strong><em>${FW.esc(note)}</em></div>`
@@ -114,9 +148,19 @@
           document.getElementById('alert'),
           mapReady
             ? 'خريطة حسابات المخزون جاهزة لهذا الكيان.'
-            : 'خريطة حسابات المخزون ناقصة — اضبط الحسابات من شاشة المخزون قبل ترحيل استلام/صرف.',
+            : 'خريطة حسابات المخزون ناقصة — استلام وصرف المخزون المالي يحتاج ضبط الحسابات من شاشة المخزون.',
           mapReady ? 'ok' : 'err'
         );
+      }
+
+      function refCell(item) {
+        const text = item.display_reference || item.reference_number || item.reference_id || '—';
+        const issue = item.reference_issue ? `<div style="color:#b45309;font-size:.75rem;font-weight:700">${FW.esc(item.reference_issue)}</div>` : '';
+        const href = item.source_href;
+        if (href) {
+          return `<a href="${FW.esc(href)}" class="fw-num" style="font-weight:800">${FW.esc(text)}</a>${issue}`;
+        }
+        return `<span class="fw-num">${FW.esc(text)}</span>${issue}`;
       }
 
       function renderTable() {
@@ -135,17 +179,23 @@
 
         const body = page.rows.map((item) => {
           const active = Number(item.entry_id) === Number(state.selectedId) ? 'active' : '';
+          const statusHtml = item.is_reversed
+            ? FW.badge('معكوس', 'warn')
+            : FW.badge(item.status_label || (item.is_posted ? 'مرحّل' : item.status) || '—', item.is_posted || item.status === 'POSTED' ? 'ok' : 'muted');
           return `<tr class="${active}" data-id="${item.entry_id}">
             <td class="fw-num">${FW.esc(item.entry_number || item.entry_id)}</td>
-            <td>${FW.esc(item.source_label || item.reference_type || '—')}</td>
-            <td class="fw-num">${FW.esc(item.reference_number || item.reference_id || '—')}</td>
+            <td>${FW.esc(item.source_label || 'غير محدد')}</td>
+            <td>${refCell(item)}</td>
             <td class="fw-num">${FW.money(item.debit_total)}</td>
             <td class="fw-num">${FW.money(item.credit_total)}</td>
             <td>${item.balanced ? FW.badge('متوازن', 'ok') : FW.badge('غير متوازن', 'bad')}</td>
-            <td>${item.is_reversed ? FW.badge('معكوس', 'warn') : FW.statusBadge(item.is_posted || item.status === 'POSTED' ? 'مرحّل' : item.status)}</td>
+            <td>${statusHtml}</td>
             <td class="fw-actions" onclick="event.stopPropagation()">
-              <button type="button" class="fw-btn fw-btn-mini" data-view="${item.entry_id}">معاينة</button>
-              ${item.can_reverse ? `<button type="button" class="fw-btn fw-btn-mini fw-btn-warn" data-reverse="${item.entry_id}">عكس</button>` : ''}
+              <button type="button" class="fw-btn fw-btn-mini" data-view="${item.entry_id}" title="معاينة"><i class="fas fa-eye"></i> معاينة</button>
+              ${item.can_reverse
+                ? `<button type="button" class="fw-btn fw-btn-mini fw-btn-warn" data-reverse="${item.entry_id}" title="عكس محاسبي"><i class="fas fa-rotate-left"></i> عكس</button>`
+                : `<span class="fw-badge muted" title="غير قابل للعكس">—</span>`}
+              ${item.source_href ? `<a class="fw-btn fw-btn-mini" href="${FW.esc(item.source_href)}"><i class="fas fa-link"></i> المصدر</a>` : ''}
             </td>
           </tr>`;
         }).join('');
@@ -154,9 +204,13 @@
           <div class="fw-mcard" data-id="${item.entry_id}">
             <strong>${FW.esc(item.entry_number || item.entry_id)}</strong>
             <div class="row"><span>المصدر</span><span>${FW.esc(item.source_label || '—')}</span></div>
-            <div class="row"><span>المرجع</span><span class="fw-num">${FW.esc(item.reference_number || '—')}</span></div>
+            <div class="row"><span>المرجع</span><span class="fw-num">${FW.esc(item.display_reference || '—')}</span></div>
             <div class="row"><span>مدين / دائن</span><span class="fw-num">${FW.money(item.debit_total)} / ${FW.money(item.credit_total)}</span></div>
-            <div class="row"><span>الحالة</span><span>${item.balanced ? 'متوازن' : 'غير متوازن'}</span></div>
+            <div class="row"><span>الحالة</span><span>${FW.esc(item.status_label || item.status || '—')}</span></div>
+            <div class="fw-actions" style="margin-top:8px">
+              <button type="button" class="fw-btn fw-btn-mini" data-view="${item.entry_id}">معاينة</button>
+              ${item.can_reverse ? `<button type="button" class="fw-btn fw-btn-mini fw-btn-warn" data-reverse="${item.entry_id}">عكس</button>` : ''}
+            </div>
           </div>`).join('');
 
         host.innerHTML = `
@@ -164,7 +218,7 @@
             <table class="fw-table">
               <thead>
                 <tr>
-                  <th>رقم القيد</th><th>المصدر</th><th>المرجع</th><th>مدين</th><th>دائن</th><th>التوازن</th><th>الحالة</th><th>إجراءات</th>
+                  <th>رقم القيد</th><th>المصدر</th><th>المرجع</th><th>مدين</th><th>دائن</th><th>التوازن</th><th>الحالة</th><th>إجراء</th>
                 </tr>
               </thead>
               <tbody>${body}</tbody>
@@ -183,7 +237,8 @@
           drawer.innerHTML = `<div class="fw-error"><i class="fas fa-triangle-exclamation"></i>${FW.esc(res.json?.error || 'تعذر التحميل')}</div>`;
           return;
         }
-        const { entry, lines, debit_total, credit_total, balanced, source_label, can_reverse, reversals } = res.json;
+        const data = res.json;
+        const { entry, lines, debit_total, credit_total, balanced, source_label, can_reverse, reversals, status_label, display_reference, reference_issue, source_href } = data;
         const lineRows = (lines || []).map((line) => `
           <tr>
             <td class="fw-num">${FW.esc(line.line_number)}</td>
@@ -196,15 +251,17 @@
         drawer.innerHTML = `
           <h3>${FW.esc(entry.entry_number || entry.entry_id)}</h3>
           <div class="fw-meta">
-            <div><span>المصدر</span><strong>${FW.esc(source_label || entry.reference_type || '—')}</strong></div>
-            <div><span>المرجع</span><strong class="fw-num">${FW.esc(entry.reference_number || entry.reference_id || '—')}</strong></div>
+            <div><span>المصدر</span><strong>${FW.esc(source_label || entry.reference_type || 'غير محدد')}</strong></div>
+            <div><span>المرجع</span><strong class="fw-num">${FW.esc(display_reference || entry.reference_number || entry.reference_id || '—')}</strong></div>
             <div><span>التاريخ</span><strong>${FW.esc(String(entry.entry_date || '').slice(0, 10))}</strong></div>
-            <div><span>الحالة</span><strong>${balanced ? FW.badge('متوازن', 'ok') : FW.badge('غير متوازن', 'bad')}</strong></div>
+            <div><span>الحالة</span><strong>${FW.esc(status_label || entry.status || '—')}</strong></div>
             <div><span>مدين</span><strong class="fw-num">${FW.money(debit_total)}</strong></div>
             <div><span>دائن</span><strong class="fw-num">${FW.money(credit_total)}</strong></div>
-            <div class="wide" style="grid-column:1/-1"><span>الوصف</span><strong>${FW.esc(entry.description || '—')}</strong></div>
-            <div><span>أنشئ بواسطة</span><strong>${FW.esc(entry.created_by || '—')}</strong></div>
+            <div><span>التوازن</span><strong>${balanced ? FW.badge('متوازن', 'ok') : FW.badge('غير متوازن', 'bad')}</strong></div>
             <div><span>عكسات</span><strong>${(reversals || []).length}</strong></div>
+            <div class="wide" style="grid-column:1/-1"><span>الوصف</span><strong>${FW.esc(entry.description || '—')}</strong></div>
+            ${reference_issue ? `<div class="wide" style="grid-column:1/-1"><span>ملاحظة جودة المرجع</span><strong style="color:#b45309">${FW.esc(reference_issue)}</strong></div>` : ''}
+            <div><span>أنشئ بواسطة</span><strong>${FW.esc(entry.created_by || '—')}</strong></div>
           </div>
           <div class="fw-table-wrap" style="max-height:240px">
             <table class="fw-table" style="min-width:0">
@@ -213,7 +270,8 @@
             </table>
           </div>
           <div class="fw-actions" style="margin-top:12px">
-            ${can_reverse ? `<button type="button" class="fw-btn fw-btn-warn" id="drawer-reverse"><i class="fas fa-rotate-left"></i> عكس معتمد</button>` : ''}
+            ${can_reverse ? `<button type="button" class="fw-btn fw-btn-warn" id="drawer-reverse"><i class="fas fa-rotate-left"></i> عكس القيد</button>` : ''}
+            ${source_href ? `<a class="fw-btn" href="${FW.esc(source_href)}"><i class="fas fa-link"></i> المستند الأصلي</a>` : ''}
             <a class="fw-btn" href="/finance/journal.html">فتح مركز القيود</a>
           </div>
           <div class="fw-links">
@@ -222,28 +280,69 @@
             <a href="/finance/expenses.html">المصروفات</a>
             <a href="/finance/inventory.html#links">المخزون</a>
           </div>`;
-        document.getElementById('drawer-reverse')?.addEventListener('click', () => reverseEntry(entryId));
+        document.getElementById('drawer-reverse')?.addEventListener('click', () => reverseEntry(entryId, data));
       }
 
-      async function reverseEntry(entryId) {
-        const reason = window.prompt('سبب العكس المحاسبي (إلزامي):');
-        if (!reason || !reason.trim()) {
-          FW.setAlert(document.getElementById('alert'), 'أُلغي العكس — السبب مطلوب', 'err');
+      async function reverseEntry(entryId, detail) {
+        if (state.reversing) return;
+        const dlg = Dialog();
+        if (!dlg) {
+          FW.setAlert(document.getElementById('alert'), 'نظام الحوارات غير محمّل', 'err');
           return;
         }
-        FW.setAlert(document.getElementById('alert'), 'جاري إنشاء القيد العكسي…', 'info');
-        const res = await FW.api('POST', `/finance/accounting-integration/journals/${entryId}/reverse`, {
-          reason: reason.trim()
+        let payload = detail;
+        if (!payload || !payload.entry) {
+          const res = await FW.api('GET', `/finance/accounting-integration/journals/${entryId}`);
+          if (!res.ok || !res.json?.success) {
+            FW.setAlert(document.getElementById('alert'), res.json?.error || 'تعذر تحميل القيد للعكس', 'err');
+            return;
+          }
+          payload = res.json;
+        }
+        if (!payload.can_reverse) {
+          FW.setAlert(document.getElementById('alert'), 'هذا القيد غير قابل للعكس (معكوس مسبقًا أو غير مرحّل أو قيد عكسي)', 'err');
+          return;
+        }
+        const entry = payload.entry;
+        const result = await dlg.reverseJournal({
+          entry: {
+            entry_id: entry.entry_id,
+            entry_number: entry.entry_number,
+            source_label: payload.source_label,
+            reference_type: entry.reference_type,
+            entry_date: entry.entry_date,
+            status: entry.status,
+            status_label: payload.status_label,
+            debit_total: payload.debit_total,
+            credit_total: payload.credit_total,
+            debit_display: FW.money(payload.debit_total),
+            credit_display: FW.money(payload.credit_total),
+            display_reference: payload.display_reference,
+            reference_number: entry.reference_number
+          },
+          submit: async (reason, reverseDate) => {
+            state.reversing = true;
+            const res = await FW.api('POST', `/finance/accounting-integration/journals/${entryId}/reverse`, {
+              reason,
+              reverse_date: reverseDate || undefined
+            });
+            state.reversing = false;
+            if (!res.ok || !res.json?.success) {
+              const err = new Error(res.json?.error || 'فشل العكس');
+              err.code = res.json?.code;
+              throw err;
+            }
+            return res.json;
+          }
         });
-        if (!res.ok || !res.json?.success) {
-          FW.setAlert(document.getElementById('alert'), res.json?.error || 'فشل العكس', 'err');
+
+        if (!result) {
+          FW.setAlert(document.getElementById('alert'), 'أُلغي العكس دون تنفيذ', 'info');
           return;
         }
-        FW.setAlert(
-          document.getElementById('alert'),
-          'تم إنشاء قيد عكسي ' + (res.json.reversal?.entry_number || '') + ' دون حذف الأصل',
-          'ok'
-        );
+        const revNo = result.reversal?.entry_number || result.entry?.entry_number || '';
+        dlg.toast('تم إنشاء قيد عكسي ' + revNo + ' — الأصل محفوظ', 'ok');
+        FW.setAlert(document.getElementById('alert'), 'تم إنشاء قيد عكسي ' + revNo + ' دون حذف الأصل', 'ok');
         await refresh();
         if (state.selectedId) await showDetail(state.selectedId);
       }
@@ -257,8 +356,8 @@
         ]);
         if (!ov.ok || !ov.json?.success) throw new Error(ov.json?.error || 'فشل الملخص');
         if (!links.ok || !links.json?.success) throw new Error(links.json?.error || 'فشل الروابط');
-        renderKpis(ov.json);
         state.items = links.json.items || [];
+        renderKpis(ov.json);
         renderTable();
       }
 
@@ -270,11 +369,11 @@
           reverseEntry(rev.getAttribute('data-reverse'));
           return;
         }
-        const id = (view || row)?.getAttribute('data-id') || view?.getAttribute('data-view');
+        const id = view?.getAttribute('data-view') || row?.getAttribute('data-id');
         if (id) showDetail(id);
       });
 
-      ['q', 'filter-source', 'filter-balance', 'page-size'].forEach((id) => {
+      ['q', 'filter-source', 'filter-status', 'filter-balance', 'from_date', 'to_date', 'page-size'].forEach((id) => {
         document.getElementById(id).addEventListener('input', () => { state.page = 1; renderTable(); });
         document.getElementById(id).addEventListener('change', () => { state.page = 1; renderTable(); });
       });

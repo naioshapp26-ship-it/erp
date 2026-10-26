@@ -549,7 +549,7 @@
 
       if (!response.ok) {
         const errorData = await response.json();
-        alert(errorData.error || 'حدث خطأ اثناء الحفظ');
+        window.ErpDialog.toast(errorData.error || 'حدث خطأ اثناء الحفظ');
         return;
       }
 
@@ -559,12 +559,12 @@
 
     const deleteRecord = async (record) => {
       if (!record) return;
-      const confirmed = confirm('هل تريد حذف هذا السجل؟');
+      const confirmed = await window.ErpDialog.confirm('هل تريد حذف هذا السجل؟');
       if (!confirmed) return;
 
       const response = await fetch(`${API_BASE}/${record.id}`, { method: 'DELETE' });
       if (!response.ok) {
-        alert('تعذر حذف السجل');
+        window.ErpDialog.toast('تعذر حذف السجل');
         return;
       }
       await loadRecords();
@@ -573,18 +573,18 @@
     elements.searchInput.addEventListener('input', applyFilters);
     elements.riskFilter.addEventListener('change', applyFilters);
     elements.sortSelect.addEventListener('change', applyFilters);
-    elements.addBtn.addEventListener('click', () => openModal('add'));
+    elements.addBtn.addEventListener('click', async () => openModal('add'));
     elements.closeModal.addEventListener('click', closeModal);
     elements.cancelBtn.addEventListener('click', closeModal);
-    elements.modal.addEventListener('click', (event) => {
+    elements.modal.addEventListener('click', async (event) => {
       if (event.target === elements.modal) closeModal();
     });
-    elements.form.addEventListener('submit', (event) => {
+    elements.form.addEventListener('submit', async (event) => {
       event.preventDefault();
       saveRecord();
     });
 
-    elements.table.addEventListener('click', (event) => {
+    elements.table.addEventListener('click', async (event) => {
       const action = event.target?.dataset?.action;
       if (!action) return;
       const row = event.target.closest('tr');

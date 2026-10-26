@@ -158,7 +158,7 @@
   function toast(message, type) {
     const container = document.getElementById('toast-container');
     if (!container) {
-      window.alert(message);
+      window.ErpDialog.toast(message);
       return;
     }
     const colors = {
@@ -597,7 +597,7 @@
         toast('لا توجد بيانات لهذا السجل', 'error');
         return;
       }
-      const confirmed = window.confirm(`هل تريد حذف "${row[0]}"؟`);
+      const confirmed = await window.ErpDialog.confirm(`هل تريد حذف "${row[0]}"؟`);
       if (!confirmed) return;
       rows.splice(index, 1);
       saveLocalRows(route, rows);

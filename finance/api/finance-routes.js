@@ -116,12 +116,20 @@ const generateNextNumber = async (prefix, table, column) => {
 
   const lastNumber = result.rows[0]?.num || '';
   const numericMatches = String(lastNumber).match(/\d+/g) || [];
-  const lastNumeric = numericMatches.length ? parseInt(numericMatches[numericMatches.length - 1], 10) || 0 : 0;
+  const parsed = numericMatches.length ? parseInt(numericMatches[numericMatches.length - 1], 10) : 0;
+  const lastNumeric = Number.isFinite(parsed) ? parsed : 0;
   const nextNum = lastNumeric + 1;
-  const separator = prefix.endsWith('-') ? '' : '-';
-  const padded = nextNum < 10000 ? nextNum.toString().padStart(4, '0') : String(nextNum);
-
-  return `${prefix}${separator}${padded}`;
+  if (!Number.isFinite(nextNum) || nextNum < 1) {
+    throw new Error(`تعذر توليد رقم متسلسل للبادئة ${prefix}`);
+  }
+  const safePrefix = String(prefix || '').replace(/[^A-Za-z0-9_-]/g, '') || 'DOC';
+  const separator = safePrefix.endsWith('-') ? '' : '-';
+  const padded = nextNum < 10000 ? String(nextNum).padStart(4, '0') : String(nextNum);
+  const value = `${safePrefix}${separator}${padded}`;
+  if (/nan/i.test(value) || /undefined/i.test(value)) {
+    throw new Error('توليد المرجع أنتج قيمة غير صالحة');
+  }
+  return value;
 };
 
 const ensureSalesSettlementsTable = async () => {

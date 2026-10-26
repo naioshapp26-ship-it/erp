@@ -441,12 +441,29 @@
       }
     }
     async function remove(id) {
-      if (!confirm('حذف هذا السجل؟ السجل المرحّل يُلغى بسبب بدل المسح النهائي.')) return;
+      const D = window.ErpDialog;
+      const ok = D
+        ? await D.confirm({
+          title: 'حذف / إلغاء سجل',
+          message: 'حذف هذا السجل؟ السجل المرحّل يُلغى بسبب بدل المسح النهائي.',
+          destructive: true,
+          confirmLabel: 'متابعة'
+        })
+        : false;
+      if (!ok) return;
       const res = await fetch(`/finance/ops/${kind}/${id}${qs()}`, { method: 'DELETE', headers: headers() });
       const data = await res.json();
       if (res.ok) { alertMsg('تم الحذف', true); return load(); }
       if (res.status === 409) {
-        const reason = prompt(data.error + '\nسبب الإلغاء:');
+        const reason = D
+          ? await D.prompt({
+            title: 'سبب الإلغاء',
+            message: 'سبب الإلغاء (إلزامي)',
+            description: data.error || 'السجل مرحّل — يلزم سبب لإلغاء بعكس محاسبي',
+            required: true,
+            multiline: true
+          })
+          : null;
         if (!reason) return;
         const cancel = await fetch(`/finance/ops/${kind}/${id}/cancel${qs()}`, {
           method: 'POST', headers: headers(), body: JSON.stringify({ reason, entity_id: entity() || undefined })
@@ -459,7 +476,10 @@
       alertMsg(data.error || 'تعذر الحذف', false);
     }
     async function convert(id) {
-      const vendor_name = prompt('اسم المورد لتحويل الطلب إلى أمر شراء');
+      const D = window.ErpDialog;
+      const vendor_name = D
+        ? await D.prompt({ title: 'تحويل لطلب شراء', message: 'اسم المورد', required: true })
+        : null;
       if (!vendor_name) return;
       const res = await fetch(`/finance/ops/purchase-requests/${id}/convert${qs()}`, {
         method: 'POST', headers: headers(), body: JSON.stringify({ vendor_name, entity_id: entity() || undefined })
@@ -470,7 +490,10 @@
       load();
     }
     async function apply(id) {
-      const invoice_id = prompt('رقم الفاتورة لتطبيق العربون');
+      const D = window.ErpDialog;
+      const invoice_id = D
+        ? await D.prompt({ title: 'تطبيق عربون', message: 'رقم/معرّف الفاتورة', required: true, inputType: 'number' })
+        : null;
       if (!invoice_id) return;
       const res = await fetch(`/finance/ops/deposits/${id}/apply${qs()}`, {
         method: 'POST', headers: headers(), body: JSON.stringify({ invoice_id: Number(invoice_id), entity_id: entity() || undefined })
@@ -481,7 +504,10 @@
       load();
     }
     async function runRule(id) {
-      const amount = prompt('مبلغ القيد');
+      const D = window.ErpDialog;
+      const amount = D
+        ? await D.prompt({ title: 'تنفيذ قاعدة قيد', message: 'مبلغ القيد', required: true, inputType: 'number' })
+        : null;
       if (!amount) return;
       const res = await fetch(`/finance/ops/auto-rules/${id}/run${qs()}`, {
         method: 'POST', headers: headers(), body: JSON.stringify({ amount: Number(amount), entity_id: entity() || undefined })
@@ -492,9 +518,18 @@
       load();
     }
     async function transitionEInvoice(id, next) {
-      const note = next === 'FAILED' || next === 'REJECTED'
-        ? (prompt('ملاحظة الحالة (اختياري)') || '')
-        : '';
+      const D = window.ErpDialog;
+      let note = '';
+      if (next === 'FAILED' || next === 'REJECTED') {
+        note = D
+          ? ((await D.prompt({
+            title: 'ملاحظة الحالة',
+            message: 'ملاحظة (اختياري)',
+            required: false,
+            defaultValue: ''
+          })) || '')
+          : '';
+      }
       const res = await fetch(`/finance/ops/e-invoice-queue/${id}/transition${qs()}`, {
         method: 'POST',
         headers: headers(),

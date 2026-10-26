@@ -491,7 +491,7 @@
             document.getElementById('netCashflow').value = row.net_cashflow || '';
         }
 
-        function setSummaryFormDisabled(disabled) {
+        async function setSummaryFormDisabled(disabled) {
             ['flowType', 'fiscalYear', 'fiscalPeriod', 'cashIn', 'cashOut', 'netCashflow']
                 .forEach(id => {
                     const el = document.getElementById(id);
@@ -513,7 +513,7 @@
             };
 
             if (!payload.fiscal_year || !payload.fiscal_period) {
-                alert('يرجى إدخال السنة والفترة');
+                window.ErpDialog.toast('يرجى إدخال السنة والفترة');
                 return;
             }
 
@@ -525,7 +525,7 @@
                 );
                 const shouldUpdate = summaryModalMode === 'edit' || !!existing;
                 if (existing && summaryModalMode === 'create') {
-                    const confirmUpdate = confirm('هذا السجل موجود بالفعل. هل تريد تحديثه؟');
+                    const confirmUpdate = await window.ErpDialog.confirm('هذا السجل موجود بالفعل. هل تريد تحديثه؟');
                     if (!confirmUpdate) return;
                 }
 
@@ -546,15 +546,15 @@
                 document.getElementById('periodFilter').value = '';
                 document.getElementById('typeFilter').value = '';
                 await loadSummary();
-                alert(shouldUpdate ? 'تم تحديث السجل بنجاح' : 'تم إضافة السجل بنجاح');
+                window.ErpDialog.toast(shouldUpdate ? 'تم تحديث السجل بنجاح' : 'تم إضافة السجل بنجاح');
             } catch (error) {
                 console.error('❌ خطأ في حفظ السجل:', error);
-                alert(error.message || 'تعذر حفظ السجل');
+                window.ErpDialog.toast(error.message || 'تعذر حفظ السجل');
             }
         }
 
         async function deleteSummary(flowType, fiscalYear, fiscalPeriod) {
-            if (!confirm('هل تريد حذف هذا السجل؟')) return;
+            if (!await window.ErpDialog.confirm('هل تريد حذف هذا السجل؟')) return;
             const params = new URLSearchParams({
                 entity_id: ENTITY_ID,
                 flow_type: flowType,
@@ -569,7 +569,7 @@
                 await loadSummary();
             } else {
                 const data = await res.json();
-                alert(data.error || 'تعذر حذف السجل');
+                window.ErpDialog.toast(data.error || 'تعذر حذف السجل');
             }
         }
 
