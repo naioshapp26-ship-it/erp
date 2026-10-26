@@ -66,6 +66,8 @@ async function main() {
     ['/finance/payments.html', ['finance-workbench.css', 'fw-drawer', 'تحصيل جديد']],
     ['/manage-tax-settings.html', ['finance-workbench.css', 'سجل التدقيق', 'effective_from']],
     ['/finance/quick-offers.html', ['finance-workbench.css', 'fw-drawer', 'سجل العروض', 'تفعيل', '/finance/quick-offers']],
+    ['/finance/plan-installments.html', ['finance-workbench.css', 'fw-drawer', 'جدول الاستحقاقات', '/finance/plan-installments']],
+    ['/finance/item-invoice-discounts.html', ['finance-workbench.css', 'fw-drawer', 'سجل قواعد الخصم', '/finance/item-discounts']],
     ['/finance/pos.html', ['ops-shell.css', 'ops-ui.js', 'data-kind="pos-tickets"']],
     ['/finance/e-invoice-queue.html', ['ops-shell.css', 'e-invoice-queue']],
     ['/finance/expenses.html', ['التكامل المحاسبي', 'max-width:1680px']],
@@ -149,6 +151,45 @@ async function main() {
   } else {
     fail('quick-offers-activate', 'no id');
     fail('quick-offers-deactivate', 'no id');
+  }
+
+  const installments = await httpReq('GET', '/finance/plan-installments?entity_id=HQ001', null, auth);
+  installments.status === 200 && installments.json?.success && Array.isArray(installments.json.rows)
+    ? pass('plan-installments-api', String(installments.json.rows.length))
+    : fail('plan-installments-api', installments.raw.slice(0, 200));
+
+  const discList = await httpReq('GET', '/finance/item-discounts?entity_id=HQ001', null, auth);
+  discList.status === 200 && discList.json?.success && Array.isArray(discList.json.discounts)
+    ? pass('item-discounts-api', String(discList.json.discounts.length))
+    : fail('item-discounts-api', discList.raw.slice(0, 200));
+
+  const discCode = `DS-UI-${Date.now().toString(36).toUpperCase()}`;
+  const createDisc = await httpReq('POST', '/finance/item-discounts', {
+    entity_id: 'HQ001',
+    code: discCode,
+    name: 'خصم منضدة اختبار',
+    scope: 'فاتورة',
+    discount_type: 'نسبة',
+    value: 5,
+    cap_amount: 200,
+    min_qty: 1,
+    min_invoice: 50,
+    start_date: new Date().toISOString().slice(0, 10),
+    end_date: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+    channel: 'invoice',
+    approval: 'تلقائي',
+    status: 'نشط',
+    created_by: 'ui-workbench-test'
+  }, auth);
+  const discId = createDisc.json?.discount?.id;
+  createDisc.status === 200 || createDisc.status === 201
+    ? pass('item-discounts-create', String(discId || createDisc.status))
+    : fail('item-discounts-create', createDisc.raw.slice(0, 240));
+  if (discId) {
+    const pause = await httpReq('PUT', `/finance/item-discounts/${discId}`, { status: 'موقوف' }, auth);
+    pause.status === 200 ? pass('item-discounts-pause') : fail('item-discounts-pause', pause.raw.slice(0, 200));
+  } else {
+    fail('item-discounts-pause', 'no id');
   }
 
   const opsUi = await httpReq('GET', '/finance/ops-ui.js', null, auth);
