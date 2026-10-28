@@ -56,9 +56,9 @@ async function main() {
   const admin = await login();
   if (!admin.ok) throw new Error('login failed');
   const H = admin.headers;
-  const year = 2096;
-  const month = 5;
-  const code = '00061';
+  const year = 2098;
+  const month = 3;
+  const code = '00081';
 
   const browser = await puppeteer.launch({
     executablePath: CHROME,
@@ -138,7 +138,7 @@ async function main() {
   await page.reload({ waitUntil: 'networkidle2' });
   await new Promise((r) => setTimeout(r, 1200));
   await page.evaluate((c) => {
-    const tr = [...document.querySelectorAll('tr')].find((t) => t.innerText.includes('2096/05') || t.innerText.includes(c));
+    const tr = [...document.querySelectorAll('tr')].find((t) => t.innerText.includes('2098/03') || t.innerText.includes(c));
     (tr?.querySelector('[data-view],[data-id]') || document.querySelector('[data-view]'))?.click();
   }, code);
   await new Promise((r) => setTimeout(r, 1200));
@@ -164,13 +164,13 @@ async function main() {
     && Number(expRow.advance_deduction) === -600
     && Number(expRow.net_amount) === 10820
     && String(expRow.employee_code) === code;
-  row('تصدير Excel مطابق لنموذج مليكة (13 عمودًا + طي استقطاعات)', exportOk ? 'PASS' : 'FAIL', JSON.stringify(expRow));
+  row('تصدير Excel مطابق للمواصفات (13 عمودًا + طي استقطاعات)', exportOk ? 'PASS' : 'FAIL', JSON.stringify(expRow));
   row('أصفار الرقم الوظيفي في التصدير', String(expRow?.employee_code) === code ? 'PASS' : 'FAIL', expRow?.employee_code);
 
   // Compare headers to fixture
   const fixture = malika.parseMalikaWorkbook(fs.readFileSync(path.join(__dirname, '../finance/fixtures/malika-payroll-reference.xlsx')));
   const hdrMatch = malika.MALIKA_COLUMNS.every((c, i) => c.header === (fixture.payrollRows && malika.MALIKA_COLUMNS[i].header));
-  row('ترتيب أعمدة التصدير = مليكة المرجعي', hdrMatch ? 'PASS' : 'FAIL', malika.MALIKA_COLUMNS.map((c) => c.header.trim()).join(' | '));
+  row('ترتيب أعمدة التصدير = المواصفات المرجعية', hdrMatch ? 'PASS' : 'FAIL', malika.MALIKA_COLUMNS.map((c) => c.header.trim()).join(' | '));
 
   // Duplicate approve blocked conceptually - already approved; item edit locked
   const locked = await httpReq('PUT', `/finance/payroll-ops/runs/${runId}/items/${expRow ? (await httpReq('GET', `/finance/payroll-ops/runs/${runId}?entity_id=HQ001`, null, H)).json.items[0].item_id : 0}`, {

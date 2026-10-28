@@ -250,7 +250,7 @@ function parseMalikaWorkbook(buffer) {
     if (Object.keys(headerMap).length >= 10) break;
   }
   if (!Object.keys(headerMap).length) {
-    throw new Error('تعذر قراءة صف عناوين نموذج مليكة');
+    throw new Error('تعذر قراءة صف عناوين كشف الرواتب');
   }
   const dataStart = headerRow + 1;
   for (let R = dataStart; R <= range.e.r; R++) {

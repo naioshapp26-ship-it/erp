@@ -48,16 +48,12 @@
       <div>
         <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
         <h1 id="page-title"><i class="fas fa-file-invoice-dollar"></i> <span id="page-title-text">كشوف الرواتب</span></h1>
-        <p id="page-subtitle">نظام رواتب تشغيلي: إنشاء مسير → إضافة/تعديل رواتب الموظفين → احتساب → اعتماد → تصدير بنموذج مليكة المرجعي.</p>
+        <p id="page-subtitle">نظام رواتب تشغيلي: إنشاء مسير → إضافة/تعديل رواتب الموظفين → احتساب → اعتماد → تصدير.</p>
         <div id="custom-section" class="fw-alert info" hidden style="margin-top:10px"></div>
       </div>
       <div class="fw-actions">
         <button type="button" class="fw-btn fw-btn-ok" id="btn-generate"><i class="fas fa-plus"></i> إنشاء مسير</button>
         <button type="button" class="fw-btn fw-btn-primary" id="btn-add-emp"><i class="fas fa-user-plus"></i> موظف / راتب</button>
-        <label class="fw-btn import-secondary" id="btn-import-label" style="cursor:pointer" title="ميزة إضافية">
-          <i class="fas fa-file-import"></i> استيراد مليكة
-          <input type="file" id="import-file" accept=".xlsx,.xls" hidden>
-        </label>
         <a class="fw-btn" href="/finance/payroll-overtime.html">ساعات إضافية</a>
         <a class="fw-btn" href="/finance/coa-tree.html">شجرة الحسابات</a>
         <a class="fw-btn" href="/finance/leadership-doc-settings.html?doc=payroll-runs">إعدادات الصفحة</a>
@@ -87,6 +83,14 @@
         <div class="fw-empty"><i class="fas fa-hand-pointer"></i>أنشئ مسيرًا أو اختر مسيرًا لعرض جدول الرواتب التشغيلي</div>
       </aside>
     </div>
+    <details class="admin-tools" id="admin-tools" style="margin:18px 0 8px;padding:12px 14px;border:1px dashed var(--fw-line);border-radius:10px;background:#fafafa">
+      <summary style="cursor:pointer;font-weight:700">أدوات الإدارة</summary>
+      <p class="hint" style="margin:10px 0 8px">خيارات تشغيلية غير ظاهرة في الشريط الرئيسي.</p>
+      <label class="fw-btn" id="btn-import-label" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+        <i class="fas fa-file-import"></i> استيراد كشوف الرواتب
+        <input type="file" id="import-file" accept=".xlsx,.xls" hidden>
+      </label>
+    </details>
   </div>
 
   <!-- إنشاء مسير -->
@@ -111,7 +115,7 @@
           مسير فارغ — سأضيف الموظفين يدويًا من نموذج الراتب
         </label>
       </div>
-      <p class="hint">استيراد Excel اختياري. الدورة الأساسية: إنشاء مسير → إضافة رواتب → مراجعة → اعتماد → تصدير.</p>
+      <p class="hint">الدورة الأساسية: إنشاء مسير → إضافة رواتب → مراجعة → اعتماد → تصدير.</p>
       <div class="fw-sheet-actions">
         <button type="button" class="fw-btn" id="btn-cancel">إلغاء</button>
         <button type="submit" class="fw-btn fw-btn-primary">إنشاء المسير</button>
@@ -155,7 +159,7 @@
           <div><span>صافي الراتب (تلقائي)</span><strong id="sf_net" class="num">0</strong></div>
         </div>
       </div>
-      <p class="hint">الصافي = الإجمالي + التأمينات + السلف + الاستقطاعات الأخرى بإشاراتها السالبة داخليًا — دون خصم مزدوج. حقل «استقطاعات أخرى» تشغيلي؛ يُطوى في عمود السلفة عند تصدير نموذج مليكة الـ13.</p>
+      <p class="hint">الصافي = الإجمالي + التأمينات + السلف + الاستقطاعات الأخرى بإشاراتها السالبة داخليًا — دون خصم مزدوج. حقل «استقطاعات أخرى» تشغيلي؛ يُطوى في عمود السلفة عند تصدير Excel بالأعمدة الـ13 المعتمدة.</p>
       <div class="fw-sheet-actions">
         <button type="button" class="fw-btn" id="salary-cancel">إلغاء</button>
         <button type="submit" class="fw-btn fw-btn-primary" id="salary-save">حفظ في المسير</button>
@@ -217,16 +221,22 @@
       const title = s.page_title || 'كشوف الرواتب';
       document.getElementById('page-title-text').textContent = title;
       document.title = title + ' — القيادة المالية 360';
-      if (s.page_subtitle) document.getElementById('page-subtitle').textContent = s.page_subtitle;
+      const DEFAULT_SUB = 'نظام رواتب تشغيلي: إنشاء مسير → إضافة/تعديل رواتب الموظفين → احتساب → اعتماد → تصدير.';
+      let sub = s.page_subtitle || DEFAULT_SUB;
+      if (/مليكة|Malika/i.test(String(sub))) sub = DEFAULT_SUB;
+      document.getElementById('page-subtitle').textContent = sub;
       const sec = document.getElementById('custom-section');
       if (s.custom_section_text && String(s.custom_section_text).trim()) {
-        sec.hidden = false;
-        sec.innerHTML = `<strong>${FW.esc(s.custom_section_title || 'قسم إضافي')}</strong> — ${FW.esc(s.custom_section_text)}`;
+        const customText = String(s.custom_section_text).replace(/مليكة|Malika/gi, '').replace(/\s{2,}/g, ' ').trim();
+        sec.hidden = !customText;
+        sec.innerHTML = customText
+          ? `<strong>${FW.esc(s.custom_section_title || 'قسم إضافي')}</strong> — ${FW.esc(customText)}`
+          : '';
       } else { sec.hidden = true; sec.textContent = ''; }
       if (s.run_type_label) document.getElementById('run_type_label').placeholder = s.run_type_label;
       if (s.payroll_country) document.getElementById('run_country').value = s.payroll_country;
       if (s.currency) document.getElementById('run_currency').value = s.currency;
-      document.getElementById('btn-import-label').style.display = s.show_btn_import === false ? 'none' : '';
+      document.getElementById('admin-tools').hidden = s.show_btn_import === false;
     }
     function auditList(row) {
       const audit = Array.isArray(row.audit_log) ? row.audit_log : (() => { try { return JSON.parse(row.audit_log || '[]'); } catch { return []; } })();
@@ -498,8 +508,8 @@
             <button class="fw-btn fw-btn-ok" id="d-approve">اعتماد المسير</button>` : ''}
           ${st === 'APPROVED' ? `<button class="fw-btn fw-btn-primary" id="d-post">ترحيل قيد محاسبي</button>` : ''}
           ${['APPROVED', 'POSTED'].includes(st) && !run.closed_at ? `<button class="fw-btn" id="d-close">إقفال</button>` : ''}
-          <button class="fw-btn" id="d-xlsx">Excel (نموذج مليكة)</button>
-          <button class="fw-btn" id="d-pdf">PDF أفقي</button>
+          <button class="fw-btn" id="d-xlsx">تصدير Excel</button>
+          <button class="fw-btn" id="d-pdf">تصدير PDF</button>
           <button class="fw-btn" id="d-print">طباعة</button>
           <input type="search" id="item-q" placeholder="بحث في بنود المسير…" value="${FW.esc(state.itemQ)}" style="min-width:180px">
         </div>
@@ -716,7 +726,7 @@
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) throw new Error(json.error || 'فشل الاستيراد');
-        FW.setAlert(document.getElementById('alert'), json.message || 'تم الاستيراد (ميزة إضافية)', 'ok');
+        FW.setAlert(document.getElementById('alert'), json.message || 'تم استيراد كشوف الرواتب', 'ok');
         await load();
         show(json.run.run_id);
       } catch (err) {

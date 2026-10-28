@@ -2173,7 +2173,7 @@ router.post('/runs/import-malika', uploadMalika.single('file'), async (req, res)
       imported: parsed.payrollRows.length,
       excluded: parsed.excludedRows.length,
       title: titleOverride || malika.formatRunTitle(settings, updated.rows[0]),
-      message: 'استُورد نموذج مليكة إلى مسير معزول'
+      message: 'تم استيراد كشوف الرواتب إلى مسير معزول'
     });
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch { /* */ }
