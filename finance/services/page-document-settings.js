@@ -112,6 +112,80 @@ const DOC_DEFS = {
       allow_future_dates: false
     }
   },
+  overtime: {
+    label_ar: 'إعدادات ساعات العمل الإضافي',
+    default_value: {
+      page_title: 'ساعات العمل الإضافي',
+      page_subtitle: 'طلبات إضافية تشغيلية مع اعتماد وترحيل لكشف الرواتب مرة واحدة.',
+      custom_section_title: 'ملاحظات تشغيلية',
+      custom_section_text: '',
+      number_prefix: 'OT',
+      require_reason: true,
+      allow_overlap: false,
+      show_department: true,
+      show_day_type: true,
+      show_rate_column: true,
+      show_reason_column: false,
+      show_btn_policy: true,
+      show_btn_excel: true,
+      show_btn_csv: true,
+      show_btn_print: true,
+      export_excel: true,
+      export_pdf: true,
+      default_day_type: 'NORMAL',
+      print_footer: ''
+    }
+  },
+  'payroll-runs': {
+    label_ar: 'إعدادات كشوف الرواتب',
+    default_value: {
+      page_title: 'كشوف الرواتب',
+      page_subtitle: 'مسيرات رواتب: إنشاء → اعتماد → قيد محاسبي متوازن.',
+      custom_section_title: 'تنبيه صرف',
+      custom_section_text: 'التحويل البنكي يتطلب إعدادًا واعتمادًا صريحًا.',
+      number_prefix: 'PR',
+      tax_pct: 0,
+      insurance_pct: 0,
+      default_allowances: 0,
+      expense_account_code: '5100',
+      payable_account_code: '2150',
+      deductions_account_code: '',
+      require_approval_before_post: true,
+      show_col_allowances: true,
+      show_col_incentives: true,
+      show_col_overtime: true,
+      show_col_deductions: true,
+      show_btn_excel: true,
+      show_btn_csv: true,
+      show_btn_print: true,
+      show_btn_add_employee: true,
+      export_csv: true,
+      export_pdf: true,
+      bank_transfer_enabled: false,
+      print_footer: ''
+    }
+  },
+  'coa-tree': {
+    label_ar: 'إعدادات شجرة الحسابات',
+    default_value: {
+      page_title: 'شجرة الحسابات',
+      page_subtitle: 'شجرة هرمية من الحسابات الفعلية مع أرصدة القيود.',
+      custom_section_title: 'ملاحظة دليل',
+      custom_section_text: '',
+      show_english_name: true,
+      show_balances: true,
+      show_inactive: false,
+      show_btn_excel: true,
+      show_btn_csv: true,
+      show_btn_print: true,
+      show_btn_expand: true,
+      expand_levels: 2,
+      require_approval_for_edit: false,
+      default_currency: 'SAR',
+      export_excel: true,
+      print_footer: ''
+    }
+  },
   products: {
     label_ar: 'إعدادات المنتجات',
     default_value: {
