@@ -7,10 +7,25 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const db = require('../../db');
 const { denyUnless } = require('../services/hr-finance-authz');
 const { resolveScopedEntityId, resolveScopedEntityType } = require('./resolve-scoped-entity');
 const { getDocSettings } = require('../services/page-document-settings');
+const malika = require('../services/malika-payroll');
+
+const uploadMalika = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const name = String(file.originalname || '').toLowerCase();
+    if (name.endsWith('.xlsx') || name.endsWith('.xls') || (file.mimetype || '').includes('sheet')) {
+      cb(null, true);
+    } else {
+      cb(new Error('ملف Excel فقط (.xlsx)'));
+    }
+  }
+});
 
 let ready = false;
 
@@ -85,6 +100,20 @@ async function ensureSchema() {
       updated_by TEXT,
       audit_log JSONB DEFAULT '[]'::jsonb
     );
+    CREATE TABLE IF NOT EXISTS finance_payroll_excluded (
+      excluded_id SERIAL PRIMARY KEY,
+      run_id INTEGER NOT NULL REFERENCES finance_payroll_runs(run_id) ON DELETE CASCADE,
+      employee_id INTEGER,
+      employee_code TEXT NOT NULL,
+      full_name_ar TEXT,
+      reason TEXT,
+      added_by TEXT,
+      added_at TIMESTAMPTZ DEFAULT NOW(),
+      restored_at TIMESTAMPTZ,
+      restored_by TEXT,
+      is_active BOOLEAN DEFAULT true,
+      audit_log JSONB DEFAULT '[]'::jsonb
+    );
   `);
   const alters = [
     `ALTER TABLE finance_payroll_overtime ADD COLUMN IF NOT EXISTS request_number TEXT`,
@@ -98,6 +127,13 @@ async function ensureSchema() {
     `ALTER TABLE finance_payroll_overtime ADD COLUMN IF NOT EXISTS rejected_reason TEXT`,
     `ALTER TABLE finance_payroll_overtime ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
     `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS department TEXT`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS nationality TEXT`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS housing_allowance NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS nature_allowance NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS transport_allowance NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS other_allowances NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS default_insurance_amount NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS default_advance_deduction NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS base_salary NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS allowances NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS incentives NUMERIC(14,2) DEFAULT 0`,
@@ -106,15 +142,85 @@ async function ensureSchema() {
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS insurance_amount NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS audit_log JSONB DEFAULT '[]'::jsonb`,
+    `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS nationality TEXT`,
+    `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS housing_allowance NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS nature_allowance NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS transport_allowance NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS other_allowances NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS advance_deduction NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS department_snapshot TEXT`,
     `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS department TEXT`,
     `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS audit_log JSONB DEFAULT '[]'::jsonb`,
     `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ`,
-    `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS reverse_journal_entry_id INTEGER`
+    `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS reverse_journal_entry_id INTEGER`,
+    `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS run_type_label TEXT`,
+    `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS title_override TEXT`,
+    `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS source_import TEXT`,
+    `CREATE INDEX IF NOT EXISTS idx_finance_payroll_excluded_run ON finance_payroll_excluded(run_id) WHERE COALESCE(is_active,true)=true`
   ];
   for (const sql of alters) {
     await db.query(sql);
   }
   ready = true;
+}
+
+function payrollSettingsResolved(raw) {
+  const s = raw || {};
+  const country = String(s.payroll_country || 'CUSTOM').toUpperCase();
+  const preset = malika.countryPreset(country);
+  return {
+    ...s,
+    payroll_country: country,
+    currency: s.currency || preset.currency,
+    insurance_pct: s.insurance_pct != null ? Number(s.insurance_pct) : preset.insurance_pct,
+    tax_pct: s.tax_pct != null ? Number(s.tax_pct) : preset.tax_pct,
+    insurance_sign: s.insurance_sign || preset.insurance_sign,
+    insurance_base: s.insurance_base || preset.insurance_base,
+    bank_file_format: s.bank_file_format || preset.bank_file_format,
+    bank_file_note: s.bank_file_note || preset.bank_file_note,
+    ot_fold_into: s.ot_fold_into || 'other_allowances',
+    run_type_label: s.run_type_label || 'المسير العام',
+    payroll_title_template: s.payroll_title_template || 'مسير الرواتب لـ {date} - {run_type}',
+    excluded_title_template: s.excluded_title_template || 'الموظفين المستبعدين لـ {date} - {run_type}',
+    print_orientation: s.print_orientation || 'landscape',
+    country_preset: preset
+  };
+}
+
+async function refreshRunTotals(clientOrDb, runId, by, extraAudit) {
+  const q = clientOrDb.query.bind(clientOrDb);
+  const sums = await q(
+    `SELECT COALESCE(SUM(gross_amount),0) AS g,
+            COALESCE(SUM(deductions_amount),0) AS d,
+            COALESCE(SUM(net_amount),0) AS n
+     FROM finance_payroll_items WHERE run_id=$1`,
+    [runId]
+  );
+  const auditPayload = extraAudit ? [extraAudit] : [];
+  await q(
+    `UPDATE finance_payroll_runs
+     SET total_gross=$2, total_deductions=$3, total_net=$4, updated_at=NOW()
+         ${auditPayload.length ? `, audit_log = COALESCE(audit_log, '[]'::jsonb) || $5::jsonb` : ''}
+     WHERE run_id=$1`,
+    auditPayload.length
+      ? [runId, sums.rows[0].g, sums.rows[0].d, sums.rows[0].n, JSON.stringify(auditPayload)]
+      : [runId, sums.rows[0].g, sums.rows[0].d, sums.rows[0].n]
+  );
+  return sums.rows[0];
+}
+
+function mapItemRow(row) {
+  return {
+    ...row,
+    employee_code: malika.cellCode(row.employee_code),
+    housing_allowance: malika.n(row.housing_allowance),
+    nature_allowance: malika.n(row.nature_allowance),
+    transport_allowance: malika.n(row.transport_allowance),
+    other_allowances: malika.n(row.other_allowances),
+    insurance_amount: malika.n(row.insurance_amount),
+    advance_deduction: malika.n(row.advance_deduction != null ? row.advance_deduction : (row.advances != null ? -Math.abs(row.advances) : 0)),
+    department: row.department_snapshot || row.department || null
+  };
 }
 
 function entityOf(req, body) {
@@ -510,13 +616,19 @@ router.get('/employees', async (req, res) => {
     await ensureSchema();
     const eid = entityOf(req);
     const r = await db.query(
-      `SELECT employee_id, employee_code, full_name_ar, full_name_en, base_salary, department, is_active
+      `SELECT employee_id, employee_code, full_name_ar, full_name_en, base_salary, department, nationality,
+              housing_allowance, nature_allowance, transport_allowance, other_allowances,
+              default_insurance_amount, default_advance_deduction, is_active
        FROM finance_payroll_employees
        WHERE (entity_id = $1 OR entity_id IS NULL) AND COALESCE(is_active, true) = true
        ORDER BY full_name_ar NULLS LAST, employee_id`,
       [eid]
     );
-    res.json({ success: true, employees: r.rows });
+    res.json({
+      success: true,
+      employees: r.rows.map((e) => ({ ...e, employee_code: malika.cellCode(e.employee_code) })),
+      columns: malika.MALIKA_COLUMNS
+    });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -532,7 +644,7 @@ router.post('/employees', async (req, res) => {
     if (!b.full_name_ar && !b.employee_code) {
       return res.status(400).json({ success: false, error: 'اسم الموظف أو الرقم الوظيفي إلزامي' });
     }
-    const code = String(b.employee_code || `EMP-${Date.now().toString(36).toUpperCase()}`).trim();
+    const code = malika.cellCode(b.employee_code || `EMP-${Date.now().toString(36).toUpperCase()}`).trim();
     const dup = await db.query(
       `SELECT employee_id FROM finance_payroll_employees
        WHERE employee_code = $1 AND (entity_id = $2 OR entity_id IS NULL) LIMIT 1`,
@@ -543,20 +655,46 @@ router.post('/employees', async (req, res) => {
     }
     const ins = await db.query(
       `INSERT INTO finance_payroll_employees (
-         employee_code, full_name_ar, full_name_en, base_salary, department, entity_id, entity_type, is_active
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,true)
+         employee_code, full_name_ar, full_name_en, base_salary, department, nationality,
+         housing_allowance, nature_allowance, transport_allowance, other_allowances,
+         default_insurance_amount, default_advance_deduction,
+         entity_id, entity_type, is_active
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true)
        RETURNING *`,
       [
         code,
         String(b.full_name_ar || code).trim(),
         b.full_name_en || null,
-        Number(b.base_salary || 0),
+        malika.n(b.base_salary),
         b.department || null,
+        b.nationality || null,
+        malika.n(b.housing_allowance),
+        malika.n(b.nature_allowance),
+        malika.n(b.transport_allowance),
+        malika.n(b.other_allowances),
+        malika.n(b.default_insurance_amount ?? b.insurance_amount),
+        malika.n(b.default_advance_deduction ?? b.advance_deduction),
         eid,
         etype
       ]
     );
     res.status(201).json({ success: true, employee: ins.rows[0] });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.get('/malika/columns', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'view')) return;
+    const settings = payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || {});
+    res.json({
+      success: true,
+      columns: malika.MALIKA_COLUMNS,
+      excluded_columns: malika.EXCLUDED_COLUMNS,
+      country_presets: malika.COUNTRY_PRESETS,
+      settings
+    });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -655,28 +793,91 @@ router.get('/runs/:id/export.xlsx', async (req, res) => {
     await ensureSchema();
     const viewAll = require('../services/hr-finance-authz').assertAction(req, 'payroll_view_all');
     if (!viewAll.ok) return res.status(403).json({ success: false, error: 'غير مصرح بتصدير كامل المسير' });
-    const XLSX = require('xlsx');
+    const settings = payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || {});
+    if (settings.export_excel === false || settings.show_btn_excel === false) {
+      return res.status(403).json({ success: false, error: 'تصدير Excel معطّل من إعدادات الصفحة' });
+    }
     const eid = entityOf(req);
-    const items = await db.query(
-      `SELECT e.employee_code AS "الرقم الوظيفي", e.full_name_ar AS "الموظف",
-              i.base_salary AS "الأساسي", i.allowances AS "البدلات", i.incentives AS "الحوافز",
-              i.overtime_amount AS "الإضافي", i.deductions_amount AS "الاستقطاعات",
-              i.advances AS "السلف", i.tax_amount AS "الضريبة", i.insurance_amount AS "التأمينات",
-              i.gross_amount AS "الإجمالي", i.net_amount AS "الصافي", i.status AS "الحالة"
-       FROM finance_payroll_items i
-       JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
-       JOIN finance_payroll_runs r ON r.run_id = i.run_id
-       WHERE i.run_id = $1 AND r.entity_id = $2
-       ORDER BY e.full_name_ar`,
+    const run = await db.query(
+      `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2`,
       [req.params.id, eid]
     );
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(items.rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Payroll');
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    if (!run.rows[0]) return res.status(404).json({ success: false, error: 'المسير غير موجود' });
+    const items = await db.query(
+      `SELECT i.*, e.employee_code, e.full_name_ar,
+              COALESCE(i.department_snapshot, e.department) AS department,
+              COALESCE(i.nationality, e.nationality) AS nationality
+       FROM finance_payroll_items i
+       JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
+       WHERE i.run_id = $1
+       ORDER BY e.full_name_ar`,
+      [req.params.id]
+    );
+    const excluded = await db.query(
+      `SELECT employee_code, full_name_ar, reason, added_by
+       FROM finance_payroll_excluded
+       WHERE run_id = $1 AND COALESCE(is_active, true) = true
+       ORDER BY excluded_id`,
+      [req.params.id]
+    );
+    const title = run.rows[0].title_override || malika.formatRunTitle(settings, run.rows[0]);
+    const excludedTitle = malika.formatExcludedTitle(settings, run.rows[0]);
+    const buf = malika.buildMalikaWorkbook({
+      title,
+      excludedTitle,
+      items: items.rows.map(mapItemRow),
+      excluded: excluded.rows,
+      settings
+    });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="payroll-run-${req.params.id}.xlsx"`);
     res.send(buf);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.get('/runs/:id/export.pdf', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'view')) return;
+    await ensureSchema();
+    const viewAll = require('../services/hr-finance-authz').assertAction(req, 'payroll_view_all');
+    if (!viewAll.ok) return res.status(403).json({ success: false, error: 'غير مصرح بتصدير كامل المسير' });
+    const settings = payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || {});
+    if (settings.export_pdf === false) {
+      return res.status(403).json({ success: false, error: 'تصدير PDF معطّل من إعدادات الصفحة' });
+    }
+    const eid = entityOf(req);
+    const run = await db.query(
+      `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2`,
+      [req.params.id, eid]
+    );
+    if (!run.rows[0]) return res.status(404).json({ success: false, error: 'المسير غير موجود' });
+    const items = await db.query(
+      `SELECT i.*, e.employee_code, e.full_name_ar,
+              COALESCE(i.department_snapshot, e.department) AS department,
+              COALESCE(i.nationality, e.nationality) AS nationality
+       FROM finance_payroll_items i
+       JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
+       WHERE i.run_id = $1
+       ORDER BY e.full_name_ar`,
+      [req.params.id]
+    );
+    const excluded = await db.query(
+      `SELECT employee_code, full_name_ar, reason, added_by
+       FROM finance_payroll_excluded WHERE run_id = $1 AND COALESCE(is_active,true)=true ORDER BY excluded_id`,
+      [req.params.id]
+    );
+    const title = run.rows[0].title_override || malika.formatRunTitle(settings, run.rows[0]);
+    const pdf = malika.buildLandscapePayrollPdf({
+      title,
+      items: items.rows.map(mapItemRow),
+      excluded: excluded.rows,
+      footer: settings.print_footer || ''
+    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="payroll-run-${req.params.id}.pdf"`);
+    res.send(pdf);
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -697,7 +898,8 @@ router.get('/runs', async (req, res) => {
       runs: r.rows,
       count: r.rows.length,
       can_view_all: viewAll.ok,
-      settings: (await getDocSettings('payroll-runs').catch(() => null))?.value || null
+      columns: malika.MALIKA_COLUMNS,
+      settings: payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || null)
     });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -735,13 +937,21 @@ router.post('/runs/generate', async (req, res) => {
 
     await client.query('BEGIN');
     const by = actorLabel(req);
-    const runNumber = `PR-${year}${String(month).padStart(2, '0')}-${Date.now().toString(36).toUpperCase()}`;
+    const settings = payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || {});
+    const runType = b.run_type_label || settings.run_type_label || 'المسير العام';
+    const prefix = settings.number_prefix || 'PR';
+    const runNumber = `${prefix}-${year}${String(month).padStart(2, '0')}-${Date.now().toString(36).toUpperCase()}`;
     const runIns = await client.query(
       `INSERT INTO finance_payroll_runs (
-         run_number, period_year, period_month, run_date, status, entity_id, entity_type, department, created_by, audit_log
-       ) VALUES ($1,$2,$3,CURRENT_DATE,'DRAFT',$4,$5,$6,$7,$8::jsonb)
+         run_number, period_year, period_month, run_date, status, entity_id, entity_type, department,
+         created_by, audit_log, run_type_label, title_override
+       ) VALUES ($1,$2,$3,COALESCE($9::date, CURRENT_DATE),'DRAFT',$4,$5,$6,$7,$8::jsonb,$10,$11)
        RETURNING *`,
-      [runNumber, year, month, eid, etype, b.department || null, by, JSON.stringify([audit('generate', by)])]
+      [
+        runNumber, year, month, eid, etype, b.department || null, by,
+        JSON.stringify([audit('generate', by, { model: 'malika' })]),
+        b.run_date || null, runType, b.title_override || null
+      ]
     );
     const run = runIns.rows[0];
 
@@ -757,14 +967,8 @@ router.post('/runs/generate', async (req, res) => {
     }
     const emps = await client.query(empSql, empParams);
 
-    const settings = (await getDocSettings('payroll-runs').catch(() => null))?.value || {};
-    const taxPct = Number(settings.tax_pct != null ? settings.tax_pct : 0);
-    const insurancePct = Number(settings.insurance_pct != null ? settings.insurance_pct : 0);
-
-    let totalGross = 0;
-    let totalDed = 0;
-    let totalNet = 0;
     const linkedOt = [];
+    const applyInsPct = b.skip_auto_insurance ? 0 : settings.insurance_pct;
 
     for (const emp of emps.rows) {
       const ot = await client.query(
@@ -776,29 +980,49 @@ router.post('/runs/generate', async (req, res) => {
         [eid, emp.employee_id, year, month]
       );
       const overtimeAmount = ot.rows.reduce((s, row) => s + Number(row.amount || 0), 0);
-      const base = Number(emp.base_salary || 0);
-      const allowances = Number(b.default_allowances || settings.default_allowances || 0);
-      const incentives = Number(b.default_incentives || 0);
-      const advances = Number(b.default_advances || 0);
-      const gross = base + allowances + incentives + overtimeAmount;
-      const tax = Math.round(gross * taxPct) / 100;
-      const insurance = Math.round(base * insurancePct) / 100;
-      const deductions = tax + insurance + advances;
-      const net = Math.round((gross - deductions) * 100) / 100;
-      totalGross += gross;
-      totalDed += deductions;
-      totalNet += net;
+      const housing = malika.n(emp.housing_allowance);
+      const nature = malika.n(emp.nature_allowance);
+      const transport = malika.n(
+        emp.transport_allowance != null && emp.transport_allowance !== ''
+          ? emp.transport_allowance
+          : (b.default_allowances || settings.default_allowances || 0)
+      );
+      let other = malika.n(emp.other_allowances) + malika.n(b.default_incentives || 0);
+      const baseRow = {
+        base_salary: malika.n(emp.base_salary),
+        housing_allowance: housing,
+        nature_allowance: nature,
+        transport_allowance: transport,
+        other_allowances: other,
+        insurance_amount: emp.default_insurance_amount != null ? malika.n(emp.default_insurance_amount) : null,
+        advance_deduction: emp.default_advance_deduction != null
+          ? malika.n(emp.default_advance_deduction)
+          : (b.default_advances ? -Math.abs(malika.n(b.default_advances)) : 0)
+      };
+      const computed = malika.recomputeRow(baseRow, {
+        overtime_amount: overtimeAmount,
+        ot_fold_into: settings.ot_fold_into,
+        applyInsurancePct: baseRow.insurance_amount == null || baseRow.insurance_amount === 0 ? applyInsPct : 0,
+        forceInsurance: false,
+        insurance_sign: settings.insurance_sign,
+        insurance_base: settings.insurance_base
+      });
 
       await client.query(
         `INSERT INTO finance_payroll_items (
            run_id, employee_id, gross_amount, deductions_amount, net_amount, status, notes,
-           base_salary, allowances, incentives, overtime_amount, advances, tax_amount, insurance_amount, audit_log
-         ) VALUES ($1,$2,$3,$4,$5,'DRAFT',$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)`,
+           base_salary, allowances, incentives, overtime_amount, advances, tax_amount, insurance_amount,
+           housing_allowance, nature_allowance, transport_allowance, other_allowances, advance_deduction,
+           nationality, department_snapshot, audit_log
+         ) VALUES ($1,$2,$3,$4,$5,'DRAFT',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb)`,
         [
-          run.run_id, emp.employee_id, gross, deductions, net,
+          run.run_id, emp.employee_id, computed.gross_amount, computed.deductions_amount, computed.net_amount,
           `OT:${ot.rows.map((x) => x.overtime_id).join(',') || 'none'}`,
-          base, allowances, incentives, overtimeAmount, advances, tax, insurance,
-          JSON.stringify([audit('item_create', by)])
+          computed.base_salary, computed.allowances, malika.n(b.default_incentives || 0), overtimeAmount,
+          computed.advances, 0, computed.insurance_amount,
+          computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
+          computed.advance_deduction, emp.nationality || null, emp.department || null,
+          JSON.stringify([audit('item_create', by, { model: 'malika' })])
         ]
       );
 
@@ -814,19 +1038,16 @@ router.post('/runs/generate', async (req, res) => {
       }
     }
 
-    const updated = await client.query(
-      `UPDATE finance_payroll_runs
-       SET total_gross = $2, total_deductions = $3, total_net = $4, updated_at = NOW()
-       WHERE run_id = $1 RETURNING *`,
-      [run.run_id, totalGross, totalDed, totalNet]
-    );
+    await refreshRunTotals(client, run.run_id, by);
+    const updated = await client.query(`SELECT * FROM finance_payroll_runs WHERE run_id = $1`, [run.run_id]);
     await client.query('COMMIT');
     res.status(201).json({
       success: true,
       run: updated.rows[0],
       employees: emps.rows.length,
       overtime_linked: linkedOt.length,
-      message: 'أُنشئ مسير الرواتب وربط الساعات المعتمدة مرة واحدة'
+      title: updated.rows[0].title_override || malika.formatRunTitle(settings, updated.rows[0]),
+      message: 'أُنشئ مسير الرواتب بنموذج مليكة وربط الساعات المعتمدة مرة واحدة'
     });
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch { /* */ }
@@ -841,6 +1062,7 @@ router.get('/runs/:id', async (req, res) => {
     if (denyUnless(req, res, 'view')) return;
     await ensureSchema();
     const eid = entityOf(req);
+    const settings = payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || {});
     const run = await db.query(
       `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2`,
       [req.params.id, eid]
@@ -848,23 +1070,25 @@ router.get('/runs/:id', async (req, res) => {
     if (!run.rows[0]) return res.status(404).json({ success: false, error: 'المسير غير موجود' });
     const viewAll = require('../services/hr-finance-authz').assertAction(req, 'payroll_view_all');
     let itemsSql = `
-      SELECT i.*, e.employee_code, e.full_name_ar, e.full_name_en, e.department
+      SELECT i.*, e.employee_code, e.full_name_ar, e.full_name_en,
+             COALESCE(i.department_snapshot, e.department) AS department,
+             COALESCE(i.nationality, e.nationality) AS nationality
       FROM finance_payroll_items i
       JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
       WHERE i.run_id = $1`;
     const params = [req.params.id];
     if (!viewAll.ok && req.authUser?.email) {
-      // employee may only see own slip — match by email not available; restrict to empty unless view_all
       itemsSql += ` AND 1=0`;
     }
     const items = await db.query(itemsSql + ` ORDER BY e.full_name_ar`, params);
-    // If no view_all, still allow accountant/manager via viewAll; for employee role show own if employee_code matches header
     let rows = items.rows;
     if (!viewAll.ok) {
       const code = req.headers['x-employee-code'] || req.authUser?.employee_code;
       if (code) {
         const all = await db.query(
-          `SELECT i.*, e.employee_code, e.full_name_ar, e.full_name_en, e.department
+          `SELECT i.*, e.employee_code, e.full_name_ar, e.full_name_en,
+                  COALESCE(i.department_snapshot, e.department) AS department,
+                  COALESCE(i.nationality, e.nationality) AS nationality
            FROM finance_payroll_items i
            JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
            WHERE i.run_id = $1 AND e.employee_code = $2`,
@@ -875,7 +1099,39 @@ router.get('/runs/:id', async (req, res) => {
         rows = [];
       }
     }
-    res.json({ success: true, run: run.rows[0], items: rows, can_view_all: viewAll.ok });
+    const excluded = viewAll.ok
+      ? await db.query(
+        `SELECT * FROM finance_payroll_excluded
+         WHERE run_id = $1 AND COALESCE(is_active,true)=true
+         ORDER BY excluded_id`,
+        [req.params.id]
+      )
+      : { rows: [] };
+    const mapped = rows.map(mapItemRow);
+    const totals = {
+      base_salary: malika.round2(mapped.reduce((s, r) => s + malika.n(r.base_salary), 0)),
+      housing_allowance: malika.round2(mapped.reduce((s, r) => s + malika.n(r.housing_allowance), 0)),
+      nature_allowance: malika.round2(mapped.reduce((s, r) => s + malika.n(r.nature_allowance), 0)),
+      transport_allowance: malika.round2(mapped.reduce((s, r) => s + malika.n(r.transport_allowance), 0)),
+      other_allowances: malika.round2(mapped.reduce((s, r) => s + malika.n(r.other_allowances), 0)),
+      gross_amount: malika.round2(mapped.reduce((s, r) => s + malika.n(r.gross_amount), 0)),
+      insurance_amount: malika.round2(mapped.reduce((s, r) => s + malika.n(r.insurance_amount), 0)),
+      advance_deduction: malika.round2(mapped.reduce((s, r) => s + malika.n(r.advance_deduction), 0)),
+      net_amount: malika.round2(mapped.reduce((s, r) => s + malika.n(r.net_amount), 0))
+    };
+    res.json({
+      success: true,
+      run: run.rows[0],
+      items: mapped,
+      excluded: excluded.rows.map((ex) => ({ ...ex, employee_code: malika.cellCode(ex.employee_code) })),
+      columns: malika.MALIKA_COLUMNS,
+      excluded_columns: malika.EXCLUDED_COLUMNS,
+      totals,
+      title: run.rows[0].title_override || malika.formatRunTitle(settings, run.rows[0]),
+      excluded_title: malika.formatExcludedTitle(settings, run.rows[0]),
+      settings,
+      can_view_all: viewAll.ok
+    });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -933,43 +1189,57 @@ router.put('/runs/:id/items/:itemId', async (req, res) => {
       [req.params.itemId, req.params.id]
     );
     if (!existing.rows[0]) return res.status(404).json({ success: false, error: 'البند غير موجود' });
-    const base = b.base_salary != null ? Number(b.base_salary) : Number(existing.rows[0].base_salary || 0);
-    const allowances = b.allowances != null ? Number(b.allowances) : Number(existing.rows[0].allowances || 0);
-    const incentives = b.incentives != null ? Number(b.incentives) : Number(existing.rows[0].incentives || 0);
-    const overtimeAmount = b.overtime_amount != null ? Number(b.overtime_amount) : Number(existing.rows[0].overtime_amount || 0);
-    const advances = b.advances != null ? Number(b.advances) : Number(existing.rows[0].advances || 0);
-    const tax = b.tax_amount != null ? Number(b.tax_amount) : Number(existing.rows[0].tax_amount || 0);
-    const insurance = b.insurance_amount != null ? Number(b.insurance_amount) : Number(existing.rows[0].insurance_amount || 0);
-    const gross = Math.round((base + allowances + incentives + overtimeAmount) * 100) / 100;
-    const deductions = Math.round((tax + insurance + advances) * 100) / 100;
-    const net = Math.round((gross - deductions) * 100) / 100;
+    const ex = existing.rows[0];
+    const pick = (key, fallbackKey) => {
+      if (b[key] != null) return malika.n(b[key]);
+      if (fallbackKey && b[fallbackKey] != null) return malika.n(b[fallbackKey]);
+      return malika.n(ex[key]);
+    };
+    let advance = pick('advance_deduction');
+    if (b.advance_deduction == null && b.advances != null) {
+      advance = -Math.abs(malika.n(b.advances));
+    } else if (b.advance_deduction == null && (ex.advance_deduction == null || ex.advance_deduction === 0) && malika.n(ex.advances) > 0) {
+      advance = -Math.abs(malika.n(ex.advances));
+    }
+    const overtimeAmount = b.overtime_amount != null ? malika.n(b.overtime_amount) : malika.n(ex.overtime_amount);
+    const computed = malika.recomputeRow({
+      base_salary: pick('base_salary'),
+      housing_allowance: pick('housing_allowance'),
+      nature_allowance: pick('nature_allowance'),
+      transport_allowance: pick('transport_allowance'),
+      other_allowances: pick('other_allowances'),
+      insurance_amount: pick('insurance_amount'),
+      advance_deduction: advance
+    }, {
+      overtime_amount: 0, // already folded or kept separate — do not double-count on edit
+      ot_fold_into: 'detail_only'
+    });
+    computed.overtime_amount = overtimeAmount;
+    const nationality = b.nationality != null ? String(b.nationality) : ex.nationality;
+    const departmentSnapshot = b.department != null ? String(b.department) : ex.department_snapshot;
     const updated = await db.query(
       `UPDATE finance_payroll_items SET
-         base_salary=$3, allowances=$4, incentives=$5, overtime_amount=$6, advances=$7,
-         tax_amount=$8, insurance_amount=$9, gross_amount=$10, deductions_amount=$11, net_amount=$12,
-         notes=COALESCE($13, notes),
-         audit_log = COALESCE(audit_log, '[]'::jsonb) || $14::jsonb
+         base_salary=$3, allowances=$4, incentives=COALESCE($5, incentives), overtime_amount=$6, advances=$7,
+         tax_amount=COALESCE($8, tax_amount), insurance_amount=$9, gross_amount=$10, deductions_amount=$11, net_amount=$12,
+         housing_allowance=$13, nature_allowance=$14, transport_allowance=$15, other_allowances=$16,
+         advance_deduction=$17, nationality=COALESCE($18, nationality), department_snapshot=COALESCE($19, department_snapshot),
+         notes=COALESCE($20, notes),
+         audit_log = COALESCE(audit_log, '[]'::jsonb) || $21::jsonb
        WHERE item_id=$1 AND run_id=$2 RETURNING *`,
       [
         req.params.itemId, req.params.id,
-        base, allowances, incentives, overtimeAmount, advances, tax, insurance, gross, deductions, net,
+        computed.base_salary, computed.allowances, b.incentives != null ? malika.n(b.incentives) : null,
+        overtimeAmount, computed.advances,
+        b.tax_amount != null ? malika.n(b.tax_amount) : null,
+        computed.insurance_amount, computed.gross_amount, computed.deductions_amount, computed.net_amount,
+        computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
+        computed.advance_deduction, nationality, departmentSnapshot,
         b.notes != null ? String(b.notes) : null,
-        JSON.stringify([audit('item_update', by)])
+        JSON.stringify([audit('item_update', by, { model: 'malika' })])
       ]
     );
-    const sums = await db.query(
-      `SELECT COALESCE(SUM(gross_amount),0) AS g, COALESCE(SUM(deductions_amount),0) AS d, COALESCE(SUM(net_amount),0) AS n
-       FROM finance_payroll_items WHERE run_id=$1`,
-      [req.params.id]
-    );
-    await db.query(
-      `UPDATE finance_payroll_runs
-       SET total_gross=$2, total_deductions=$3, total_net=$4, updated_at=NOW(),
-           audit_log = COALESCE(audit_log, '[]'::jsonb) || $5::jsonb
-       WHERE run_id=$1`,
-      [req.params.id, sums.rows[0].g, sums.rows[0].d, sums.rows[0].n, JSON.stringify([audit('recalc_after_item_edit', by, { item_id: Number(req.params.itemId) })])]
-    );
-    res.json({ success: true, item: updated.rows[0] });
+    await refreshRunTotals(db, req.params.id, by, audit('recalc_after_item_edit', by, { item_id: Number(req.params.itemId) }));
+    res.json({ success: true, item: mapItemRow(updated.rows[0]) });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -1000,20 +1270,13 @@ router.get('/runs/:id/payslip/:itemId.pdf', async (req, res) => {
         return res.status(403).json({ success: false, error: 'غير مصرح بعرض قسيمة موظف آخر' });
       }
     }
-    const row = item.rows[0];
-    const lines = [
-      `Payslip / قسيمة راتب`,
-      `Run: ${row.run_number}  Period: ${row.period_year}/${row.period_month}`,
-      `Employee: ${row.employee_code} - ${row.full_name_ar}`,
-      `Base: ${row.base_salary}`,
-      `Allowances: ${row.allowances}`,
-      `Incentives: ${row.incentives}`,
-      `Overtime: ${row.overtime_amount}`,
-      `Deductions: ${row.deductions_amount}`,
-      `Net: ${row.net_amount}`,
-      settings.print_footer || ''
-    ].filter(Boolean);
-    const pdf = buildSimplePdf(lines);
+    const row = mapItemRow(item.rows[0]);
+    const pdf = malika.buildLandscapePayrollPdf({
+      title: `قسيمة راتب — ${row.employee_code} ${row.full_name_ar} — ${row.run_number || ''}`,
+      items: [row],
+      excluded: [],
+      footer: settings.print_footer || ''
+    });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="payslip-${row.employee_code}.pdf"`);
     res.send(pdf);
@@ -1229,9 +1492,16 @@ router.get('/runs/:id/export.csv', async (req, res) => {
     const eid = entityOf(req);
     const viewAll = require('../services/hr-finance-authz').assertAction(req, 'payroll_view_all');
     if (!viewAll.ok) return res.status(403).json({ success: false, error: 'غير مصرح بتصدير كامل المسير' });
+    const settings = payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || {});
+    if (settings.export_csv === false) {
+      return res.status(403).json({ success: false, error: 'تصدير CSV معطّل من إعدادات الصفحة' });
+    }
     const items = await db.query(
-      `SELECT e.employee_code, e.full_name_ar, i.base_salary, i.allowances, i.incentives, i.overtime_amount,
-              i.deductions_amount, i.advances, i.tax_amount, i.insurance_amount, i.gross_amount, i.net_amount, i.status
+      `SELECT e.employee_code, e.full_name_ar,
+              COALESCE(i.department_snapshot, e.department) AS department,
+              COALESCE(i.nationality, e.nationality) AS nationality,
+              i.base_salary, i.housing_allowance, i.nature_allowance, i.transport_allowance, i.other_allowances,
+              i.gross_amount, i.insurance_amount, i.advance_deduction, i.net_amount, i.status, i.overtime_amount
        FROM finance_payroll_items i
        JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
        JOIN finance_payroll_runs r ON r.run_id = i.run_id
@@ -1239,11 +1509,15 @@ router.get('/runs/:id/export.csv', async (req, res) => {
        ORDER BY e.full_name_ar`,
       [req.params.id, eid]
     );
-    const header = 'employee_code,name,base,allowances,incentives,overtime,deductions,advances,tax,insurance,gross,net,status\n';
-    const body = items.rows.map((r) =>
-      [r.employee_code, r.full_name_ar, r.base_salary, r.allowances, r.incentives, r.overtime_amount, r.deductions_amount, r.advances, r.tax_amount, r.insurance_amount, r.gross_amount, r.net_amount, r.status]
-        .map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
-    ).join('\n');
+    const header = malika.MALIKA_COLUMNS.map((c) => c.header.trim()).join(',') + ',overtime_detail,status\n';
+    const body = items.rows.map((r) => {
+      const mapped = mapItemRow(r);
+      return [
+        ...malika.MALIKA_COLUMNS.map((c) => mapped[c.key]),
+        r.overtime_amount,
+        r.status
+      ].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+    }).join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="payroll-run-${req.params.id}.csv"`);
     res.send('\uFEFF' + header + body);
@@ -1252,5 +1526,342 @@ router.get('/runs/:id/export.csv', async (req, res) => {
   }
 });
 
+router.post('/runs/:id/exclude', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    if (denyUnless(req, res, 'payroll_create')) return;
+    await ensureSchema();
+    const eid = entityOf(req, req.body);
+    const by = actorLabel(req);
+    const b = req.body || {};
+    const reason = String(b.reason || '').trim();
+    if (!reason) return res.status(400).json({ success: false, error: 'سبب الاستبعاد إلزامي' });
+    await client.query('BEGIN');
+    const run = await client.query(
+      `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2 FOR UPDATE`,
+      [req.params.id, eid]
+    );
+    if (!run.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'المسير غير موجود' });
+    }
+    if (String(run.rows[0].status).toUpperCase() !== 'DRAFT') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, error: 'الاستبعاد للمسودة فقط', code: 'LOCKED' });
+    }
+    let item;
+    if (b.item_id) {
+      item = await client.query(
+        `SELECT i.*, e.employee_code, e.full_name_ar
+         FROM finance_payroll_items i
+         JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
+         WHERE i.item_id = $1 AND i.run_id = $2`,
+        [b.item_id, req.params.id]
+      );
+    } else if (b.employee_code) {
+      item = await client.query(
+        `SELECT i.*, e.employee_code, e.full_name_ar
+         FROM finance_payroll_items i
+         JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
+         WHERE i.run_id = $1 AND e.employee_code = $2`,
+        [req.params.id, malika.cellCode(b.employee_code)]
+      );
+    }
+    if (!item?.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'بند الموظف غير موجود في المسير' });
+    }
+    const row = item.rows[0];
+    const ins = await client.query(
+      `INSERT INTO finance_payroll_excluded (
+         run_id, employee_id, employee_code, full_name_ar, reason, added_by, audit_log
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb) RETURNING *`,
+      [
+        req.params.id, row.employee_id, malika.cellCode(row.employee_code), row.full_name_ar, reason, by,
+        JSON.stringify([audit('exclude', by, { reason, item_id: row.item_id })])
+      ]
+    );
+    await client.query(`DELETE FROM finance_payroll_items WHERE item_id = $1`, [row.item_id]);
+    await refreshRunTotals(client, req.params.id, by, audit('exclude_recalc', by, { excluded_id: ins.rows[0].excluded_id }));
+    await client.query(
+      `UPDATE finance_payroll_runs
+       SET audit_log = COALESCE(audit_log, '[]'::jsonb) || $2::jsonb
+       WHERE run_id = $1`,
+      [req.params.id, JSON.stringify([audit('exclude_employee', by, { employee_code: row.employee_code, reason })])]
+    );
+    await client.query('COMMIT');
+    res.json({ success: true, excluded: ins.rows[0], message: 'استُبعد الموظف من المسير' });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch { /* */ }
+    res.status(500).json({ success: false, error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.put('/runs/:id/excluded/:excludedId', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'payroll_create')) return;
+    await ensureSchema();
+    const eid = entityOf(req, req.body);
+    const by = actorLabel(req);
+    const b = req.body || {};
+    const run = await db.query(
+      `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2`,
+      [req.params.id, eid]
+    );
+    if (!run.rows[0]) return res.status(404).json({ success: false, error: 'المسير غير موجود' });
+    if (String(run.rows[0].status).toUpperCase() !== 'DRAFT') {
+      return res.status(409).json({ success: false, error: 'تعديل المستبعدين للمسودة فقط', code: 'LOCKED' });
+    }
+    const reason = b.reason != null ? String(b.reason).trim() : null;
+    if (reason != null && !reason) return res.status(400).json({ success: false, error: 'سبب الاستبعاد لا يكون فارغًا' });
+    const updated = await db.query(
+      `UPDATE finance_payroll_excluded
+       SET reason = COALESCE($3, reason),
+           audit_log = COALESCE(audit_log, '[]'::jsonb) || $4::jsonb
+       WHERE excluded_id = $1 AND run_id = $2 AND COALESCE(is_active,true)=true
+       RETURNING *`,
+      [req.params.excludedId, req.params.id, reason, JSON.stringify([audit('excluded_reason_update', by, { reason })])]
+    );
+    if (!updated.rows[0]) return res.status(404).json({ success: false, error: 'سجل الاستبعاد غير موجود' });
+    res.json({ success: true, excluded: updated.rows[0] });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.post('/runs/:id/excluded/:excludedId/restore', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    if (denyUnless(req, res, 'payroll_approve')) return;
+    await ensureSchema();
+    const eid = entityOf(req, req.body);
+    const by = actorLabel(req);
+    const settings = payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || {});
+    await client.query('BEGIN');
+    const run = await client.query(
+      `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2 FOR UPDATE`,
+      [req.params.id, eid]
+    );
+    if (!run.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'المسير غير موجود' });
+    }
+    if (String(run.rows[0].status).toUpperCase() !== 'DRAFT') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, error: 'إعادة الإدراج للمسودة فقط', code: 'LOCKED' });
+    }
+    const ex = await client.query(
+      `SELECT * FROM finance_payroll_excluded
+       WHERE excluded_id = $1 AND run_id = $2 AND COALESCE(is_active,true)=true FOR UPDATE`,
+      [req.params.excludedId, req.params.id]
+    );
+    if (!ex.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'سجل الاستبعاد غير موجود' });
+    }
+    const emp = await client.query(
+      `SELECT * FROM finance_payroll_employees
+       WHERE (employee_id = $1 OR employee_code = $2)
+         AND (entity_id = $3 OR entity_id IS NULL)
+       ORDER BY CASE WHEN employee_id = $1 THEN 0 ELSE 1 END
+       LIMIT 1`,
+      [ex.rows[0].employee_id, ex.rows[0].employee_code, eid]
+    );
+    if (!emp.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'الموظف غير موجود لإعادته' });
+    }
+    const e = emp.rows[0];
+    const computed = malika.recomputeRow({
+      base_salary: e.base_salary,
+      housing_allowance: e.housing_allowance,
+      nature_allowance: e.nature_allowance,
+      transport_allowance: e.transport_allowance,
+      other_allowances: e.other_allowances,
+      insurance_amount: e.default_insurance_amount,
+      advance_deduction: e.default_advance_deduction
+    }, {
+      applyInsurancePct: !e.default_insurance_amount ? settings.insurance_pct : 0,
+      insurance_sign: settings.insurance_sign,
+      insurance_base: settings.insurance_base,
+      ot_fold_into: 'detail_only'
+    });
+    const item = await client.query(
+      `INSERT INTO finance_payroll_items (
+         run_id, employee_id, gross_amount, deductions_amount, net_amount, status, notes,
+         base_salary, allowances, overtime_amount, advances, insurance_amount,
+         housing_allowance, nature_allowance, transport_allowance, other_allowances, advance_deduction,
+         nationality, department_snapshot, audit_log
+       ) VALUES ($1,$2,$3,$4,$5,'DRAFT',$6,$7,$8,0,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb)
+       RETURNING *`,
+      [
+        req.params.id, e.employee_id, computed.gross_amount, computed.deductions_amount, computed.net_amount,
+        'restored_from_excluded',
+        computed.base_salary, computed.allowances, computed.advances, computed.insurance_amount,
+        computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
+        computed.advance_deduction, e.nationality, e.department,
+        JSON.stringify([audit('restore_to_run', by, { excluded_id: Number(req.params.excludedId) })])
+      ]
+    );
+    await client.query(
+      `UPDATE finance_payroll_excluded
+       SET is_active = false, restored_at = NOW(), restored_by = $3,
+           audit_log = COALESCE(audit_log, '[]'::jsonb) || $4::jsonb
+       WHERE excluded_id = $1 AND run_id = $2`,
+      [req.params.excludedId, req.params.id, by, JSON.stringify([audit('restore', by)])]
+    );
+    await refreshRunTotals(client, req.params.id, by, audit('restore_recalc', by));
+    await client.query('COMMIT');
+    res.json({ success: true, item: mapItemRow(item.rows[0]), message: 'أُعيد الموظف للمسير' });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch { /* */ }
+    res.status(500).json({ success: false, error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/runs/import-malika', uploadMalika.single('file'), async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    if (denyUnless(req, res, 'payroll_create')) return;
+    await ensureSchema();
+    if (!req.file?.buffer) return res.status(400).json({ success: false, error: 'ارفع ملف Excel النموذجي' });
+    const b = req.body || {};
+    const eid = entityOf(req, b);
+    const etype = entityTypeOf(req, b);
+    const settings = payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || {});
+    const parsed = malika.parseMalikaWorkbook(req.file.buffer);
+    const year = Number(b.period_year) || new Date().getFullYear();
+    const month = Number(b.period_month) || (new Date().getMonth() + 1);
+    const by = actorLabel(req);
+    const runType = b.run_type_label || settings.run_type_label || 'المسير العام';
+
+    await client.query('BEGIN');
+    const prefix = settings.number_prefix || 'PR';
+    const runNumber = `${prefix}-IMP-${year}${String(month).padStart(2, '0')}-${Date.now().toString(36).toUpperCase()}`;
+    const titleOverride = b.title_override || parsed.title || null;
+    const runIns = await client.query(
+      `INSERT INTO finance_payroll_runs (
+         run_number, period_year, period_month, run_date, status, entity_id, entity_type, department,
+         created_by, audit_log, run_type_label, title_override, source_import
+       ) VALUES ($1,$2,$3,COALESCE($4::date, CURRENT_DATE),'DRAFT',$5,$6,$7,$8,$9::jsonb,$10,$11,$12)
+       RETURNING *`,
+      [
+        runNumber, year, month, b.run_date || null, eid, etype, b.department || null, by,
+        JSON.stringify([audit('import_malika', by, { rows: parsed.payrollRows.length, file: req.file.originalname })]),
+        runType, titleOverride, req.file.originalname || 'malika.xlsx'
+      ]
+    );
+    const run = runIns.rows[0];
+
+    for (const row of parsed.payrollRows) {
+      let emp = await client.query(
+        `SELECT * FROM finance_payroll_employees
+         WHERE employee_code = $1 AND (entity_id = $2 OR entity_id IS NULL) LIMIT 1`,
+        [malika.cellCode(row.employee_code), eid]
+      );
+      if (!emp.rows[0]) {
+        emp = await client.query(
+          `INSERT INTO finance_payroll_employees (
+             employee_code, full_name_ar, base_salary, department, nationality,
+             housing_allowance, nature_allowance, transport_allowance, other_allowances,
+             default_insurance_amount, default_advance_deduction, entity_id, entity_type, is_active
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true)
+           RETURNING *`,
+          [
+            malika.cellCode(row.employee_code), row.full_name_ar, row.base_salary, row.department, row.nationality,
+            row.housing_allowance, row.nature_allowance, row.transport_allowance, row.other_allowances,
+            row.insurance_amount, row.advance_deduction, eid, etype
+          ]
+        );
+      } else {
+        await client.query(
+          `UPDATE finance_payroll_employees SET
+             full_name_ar = COALESCE($2, full_name_ar),
+             base_salary = $3, department = COALESCE($4, department), nationality = COALESCE($5, nationality),
+             housing_allowance = $6, nature_allowance = $7, transport_allowance = $8, other_allowances = $9,
+             default_insurance_amount = $10, default_advance_deduction = $11
+           WHERE employee_id = $1`,
+          [
+            emp.rows[0].employee_id, row.full_name_ar, row.base_salary, row.department, row.nationality,
+            row.housing_allowance, row.nature_allowance, row.transport_allowance, row.other_allowances,
+            row.insurance_amount, row.advance_deduction
+          ]
+        );
+        emp = await client.query(`SELECT * FROM finance_payroll_employees WHERE employee_id = $1`, [emp.rows[0].employee_id]);
+      }
+      const computed = malika.recomputeRow(row, { ot_fold_into: 'detail_only' });
+      // Prefer signed sheet values; recompute gross/net for consistency if sheet empty
+      if (!row.gross_amount) computed.gross_amount = malika.calcGross(computed);
+      if (!row.net_amount) computed.net_amount = malika.calcNet(computed);
+      computed.deductions_amount = malika.calcDeductionsPositive(computed);
+      await client.query(
+        `INSERT INTO finance_payroll_items (
+           run_id, employee_id, gross_amount, deductions_amount, net_amount, status, notes,
+           base_salary, allowances, overtime_amount, advances, insurance_amount,
+           housing_allowance, nature_allowance, transport_allowance, other_allowances, advance_deduction,
+           nationality, department_snapshot, audit_log
+         ) VALUES ($1,$2,$3,$4,$5,'DRAFT',$6,$7,$8,0,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb)`,
+        [
+          run.run_id, emp.rows[0].employee_id, computed.gross_amount, computed.deductions_amount, computed.net_amount,
+          'imported_malika',
+          computed.base_salary, computed.allowances, computed.advances, computed.insurance_amount,
+          computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
+          computed.advance_deduction, computed.nationality || row.nationality, computed.department || row.department,
+          JSON.stringify([audit('import_item', by)])
+        ]
+      );
+    }
+
+    for (const ex of parsed.excludedRows) {
+      let empId = null;
+      const found = await client.query(
+        `SELECT employee_id FROM finance_payroll_employees
+         WHERE employee_code = $1 AND (entity_id = $2 OR entity_id IS NULL) LIMIT 1`,
+        [malika.cellCode(ex.employee_code), eid]
+      );
+      if (found.rows[0]) empId = found.rows[0].employee_id;
+      else {
+        const created = await client.query(
+          `INSERT INTO finance_payroll_employees (employee_code, full_name_ar, entity_id, entity_type, is_active)
+           VALUES ($1,$2,$3,$4,true) RETURNING employee_id`,
+          [malika.cellCode(ex.employee_code), ex.full_name_ar || ex.employee_code, eid, etype]
+        );
+        empId = created.rows[0].employee_id;
+      }
+      await client.query(
+        `INSERT INTO finance_payroll_excluded (
+           run_id, employee_id, employee_code, full_name_ar, reason, added_by, audit_log
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`,
+        [
+          run.run_id, empId, malika.cellCode(ex.employee_code), ex.full_name_ar, ex.reason || 'مستورد من Excluded',
+          ex.added_by || by, JSON.stringify([audit('import_excluded', by)])
+        ]
+      );
+    }
+
+    await refreshRunTotals(client, run.run_id, by);
+    const updated = await client.query(`SELECT * FROM finance_payroll_runs WHERE run_id = $1`, [run.run_id]);
+    await client.query('COMMIT');
+    res.status(201).json({
+      success: true,
+      run: updated.rows[0],
+      imported: parsed.payrollRows.length,
+      excluded: parsed.excludedRows.length,
+      title: titleOverride || malika.formatRunTitle(settings, updated.rows[0]),
+      message: 'استُورد نموذج مليكة إلى مسير معزول'
+    });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch { /* */ }
+    res.status(500).json({ success: false, error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
 module.exports.ensureSchema = ensureSchema;
+module.exports.malika = malika;
