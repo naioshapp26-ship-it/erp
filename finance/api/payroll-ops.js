@@ -134,6 +134,9 @@ async function ensureSchema() {
     `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS other_allowances NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS default_insurance_amount NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS default_advance_deduction NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS default_other_deductions NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS audit_log JSONB DEFAULT '[]'::jsonb`,
+    `ALTER TABLE finance_payroll_employees ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS base_salary NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS allowances NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS incentives NUMERIC(14,2) DEFAULT 0`,
@@ -148,7 +151,10 @@ async function ensureSchema() {
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS transport_allowance NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS other_allowances NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS advance_deduction NUMERIC(14,2) DEFAULT 0`,
+    `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS other_deductions NUMERIC(14,2) DEFAULT 0`,
     `ALTER TABLE finance_payroll_items ADD COLUMN IF NOT EXISTS department_snapshot TEXT`,
+    `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS payroll_country TEXT`,
+    `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS currency TEXT`,
     `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS department TEXT`,
     `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS audit_log JSONB DEFAULT '[]'::jsonb`,
     `ALTER TABLE finance_payroll_runs ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ`,
@@ -218,9 +224,33 @@ function mapItemRow(row) {
     transport_allowance: malika.n(row.transport_allowance),
     other_allowances: malika.n(row.other_allowances),
     insurance_amount: malika.n(row.insurance_amount),
-    advance_deduction: malika.n(row.advance_deduction != null ? row.advance_deduction : (row.advances != null ? -Math.abs(row.advances) : 0)),
+    advance_deduction: malika.n(
+      row.advance_deduction != null ? row.advance_deduction : (row.advances != null ? -Math.abs(row.advances) : 0)
+    ),
+    other_deductions: malika.n(row.other_deductions),
     department: row.department_snapshot || row.department || null
   };
+}
+
+function salaryFieldsFromBody(b, existing = {}) {
+  const pick = (key, fallback = 0) => (b[key] != null ? malika.n(b[key]) : malika.n(existing[key] != null ? existing[key] : fallback));
+  let insurance = b.insurance_amount != null ? malika.n(b.insurance_amount)
+    : (b.default_insurance_amount != null ? malika.n(b.default_insurance_amount) : malika.n(existing.insurance_amount || existing.default_insurance_amount || 0));
+  let advance = b.advance_deduction != null ? malika.n(b.advance_deduction)
+    : (b.default_advance_deduction != null ? malika.n(b.default_advance_deduction) : malika.n(existing.advance_deduction || existing.default_advance_deduction || 0));
+  let otherDed = b.other_deductions != null ? malika.n(b.other_deductions)
+    : (b.default_other_deductions != null ? malika.n(b.default_other_deductions) : malika.n(existing.other_deductions || existing.default_other_deductions || 0));
+  if (b.advances != null && b.advance_deduction == null) advance = -Math.abs(malika.n(b.advances));
+  return malika.recomputeRow({
+    base_salary: pick('base_salary'),
+    housing_allowance: pick('housing_allowance'),
+    nature_allowance: pick('nature_allowance'),
+    transport_allowance: pick('transport_allowance'),
+    other_allowances: pick('other_allowances'),
+    insurance_amount: insurance,
+    advance_deduction: advance,
+    other_deductions: otherDed
+  }, { forceSignDeductions: true, ot_fold_into: 'detail_only' });
 }
 
 function entityOf(req, body) {
@@ -615,19 +645,56 @@ router.get('/employees', async (req, res) => {
     if (denyUnless(req, res, 'view')) return;
     await ensureSchema();
     const eid = entityOf(req);
-    const r = await db.query(
-      `SELECT employee_id, employee_code, full_name_ar, full_name_en, base_salary, department, nationality,
-              housing_allowance, nature_allowance, transport_allowance, other_allowances,
-              default_insurance_amount, default_advance_deduction, is_active
-       FROM finance_payroll_employees
-       WHERE (entity_id = $1 OR entity_id IS NULL) AND COALESCE(is_active, true) = true
-       ORDER BY full_name_ar NULLS LAST, employee_id`,
-      [eid]
-    );
+    const q = String(req.query.q || '').trim();
+    let sql = `
+      SELECT employee_id, employee_code, full_name_ar, full_name_en, base_salary, department, nationality,
+             housing_allowance, nature_allowance, transport_allowance, other_allowances,
+             default_insurance_amount, default_advance_deduction, default_other_deductions, is_active
+      FROM finance_payroll_employees
+      WHERE (entity_id = $1 OR entity_id IS NULL) AND COALESCE(is_active, true) = true`;
+    const params = [eid];
+    if (q) {
+      params.push(`%${q}%`);
+      sql += ` AND (employee_code ILIKE $2 OR full_name_ar ILIKE $2 OR department ILIKE $2)`;
+    }
+    sql += ` ORDER BY full_name_ar NULLS LAST, employee_id`;
+    const r = await db.query(sql, params);
     res.json({
       success: true,
       employees: r.rows.map((e) => ({ ...e, employee_code: malika.cellCode(e.employee_code) })),
       columns: malika.MALIKA_COLUMNS
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.get('/employees/:id', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'view')) return;
+    await ensureSchema();
+    const eid = entityOf(req);
+    const r = await db.query(
+      `SELECT * FROM finance_payroll_employees
+       WHERE employee_id = $1 AND (entity_id = $2 OR entity_id IS NULL)`,
+      [req.params.id, eid]
+    );
+    if (!r.rows[0]) return res.status(404).json({ success: false, error: 'الموظف غير موجود' });
+    const emp = r.rows[0];
+    const computed = salaryFieldsFromBody({
+      base_salary: emp.base_salary,
+      housing_allowance: emp.housing_allowance,
+      nature_allowance: emp.nature_allowance,
+      transport_allowance: emp.transport_allowance,
+      other_allowances: emp.other_allowances,
+      insurance_amount: emp.default_insurance_amount,
+      advance_deduction: emp.default_advance_deduction,
+      other_deductions: emp.default_other_deductions
+    });
+    res.json({
+      success: true,
+      employee: { ...emp, employee_code: malika.cellCode(emp.employee_code) },
+      computed
     });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -641,10 +708,14 @@ router.post('/employees', async (req, res) => {
     const b = req.body || {};
     const eid = entityOf(req, b);
     const etype = entityTypeOf(req, b);
-    if (!b.full_name_ar && !b.employee_code) {
-      return res.status(400).json({ success: false, error: 'اسم الموظف أو الرقم الوظيفي إلزامي' });
+    const by = actorLabel(req);
+    if (!String(b.full_name_ar || '').trim()) {
+      return res.status(400).json({ success: false, error: 'اسم الموظف إلزامي' });
     }
-    const code = malika.cellCode(b.employee_code || `EMP-${Date.now().toString(36).toUpperCase()}`).trim();
+    if (!String(b.employee_code || '').trim()) {
+      return res.status(400).json({ success: false, error: 'الرقم الوظيفي إلزامي' });
+    }
+    const code = malika.cellCode(b.employee_code).trim();
     const dup = await db.query(
       `SELECT employee_id FROM finance_payroll_employees
        WHERE employee_code = $1 AND (entity_id = $2 OR entity_id IS NULL) LIMIT 1`,
@@ -653,32 +724,98 @@ router.post('/employees', async (req, res) => {
     if (dup.rows[0]) {
       return res.status(409).json({ success: false, error: 'الرقم الوظيفي مكرر', code: 'DUPLICATE_CODE', employee_id: dup.rows[0].employee_id });
     }
+    const computed = salaryFieldsFromBody(b);
     const ins = await db.query(
       `INSERT INTO finance_payroll_employees (
          employee_code, full_name_ar, full_name_en, base_salary, department, nationality,
          housing_allowance, nature_allowance, transport_allowance, other_allowances,
-         default_insurance_amount, default_advance_deduction,
-         entity_id, entity_type, is_active
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true)
+         default_insurance_amount, default_advance_deduction, default_other_deductions,
+         entity_id, entity_type, is_active, audit_log
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,true,$16::jsonb)
        RETURNING *`,
       [
         code,
-        String(b.full_name_ar || code).trim(),
+        String(b.full_name_ar).trim(),
         b.full_name_en || null,
-        malika.n(b.base_salary),
+        computed.base_salary,
         b.department || null,
         b.nationality || null,
-        malika.n(b.housing_allowance),
-        malika.n(b.nature_allowance),
-        malika.n(b.transport_allowance),
-        malika.n(b.other_allowances),
-        malika.n(b.default_insurance_amount ?? b.insurance_amount),
-        malika.n(b.default_advance_deduction ?? b.advance_deduction),
+        computed.housing_allowance,
+        computed.nature_allowance,
+        computed.transport_allowance,
+        computed.other_allowances,
+        computed.insurance_amount,
+        computed.advance_deduction,
+        computed.other_deductions,
         eid,
-        etype
+        etype,
+        JSON.stringify([audit('employee_create', by)])
       ]
     );
-    res.status(201).json({ success: true, employee: ins.rows[0] });
+    res.status(201).json({ success: true, employee: ins.rows[0], computed });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.put('/employees/:id', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'payroll_create')) return;
+    await ensureSchema();
+    const b = req.body || {};
+    const eid = entityOf(req, b);
+    const by = actorLabel(req);
+    const existing = await db.query(
+      `SELECT * FROM finance_payroll_employees
+       WHERE employee_id = $1 AND (entity_id = $2 OR entity_id IS NULL)`,
+      [req.params.id, eid]
+    );
+    if (!existing.rows[0]) return res.status(404).json({ success: false, error: 'الموظف غير موجود' });
+    const ex = existing.rows[0];
+    let code = malika.cellCode(b.employee_code != null ? b.employee_code : ex.employee_code).trim();
+    if (code !== malika.cellCode(ex.employee_code)) {
+      const dup = await db.query(
+        `SELECT employee_id FROM finance_payroll_employees
+         WHERE employee_code = $1 AND (entity_id = $2 OR entity_id IS NULL) AND employee_id <> $3 LIMIT 1`,
+        [code, eid, req.params.id]
+      );
+      if (dup.rows[0]) {
+        return res.status(409).json({ success: false, error: 'الرقم الوظيفي مكرر', code: 'DUPLICATE_CODE' });
+      }
+    }
+    const computed = salaryFieldsFromBody(b, {
+      base_salary: ex.base_salary,
+      housing_allowance: ex.housing_allowance,
+      nature_allowance: ex.nature_allowance,
+      transport_allowance: ex.transport_allowance,
+      other_allowances: ex.other_allowances,
+      default_insurance_amount: ex.default_insurance_amount,
+      default_advance_deduction: ex.default_advance_deduction,
+      default_other_deductions: ex.default_other_deductions
+    });
+    const updated = await db.query(
+      `UPDATE finance_payroll_employees SET
+         employee_code=$3, full_name_ar=COALESCE($4, full_name_ar), full_name_en=COALESCE($5, full_name_en),
+         base_salary=$6, department=COALESCE($7, department), nationality=COALESCE($8, nationality),
+         housing_allowance=$9, nature_allowance=$10, transport_allowance=$11, other_allowances=$12,
+         default_insurance_amount=$13, default_advance_deduction=$14, default_other_deductions=$15,
+         updated_at=NOW(),
+         audit_log = COALESCE(audit_log, '[]'::jsonb) || $16::jsonb
+       WHERE employee_id=$1 AND (entity_id = $2 OR entity_id IS NULL)
+       RETURNING *`,
+      [
+        req.params.id, eid, code,
+        b.full_name_ar != null ? String(b.full_name_ar).trim() : null,
+        b.full_name_en != null ? b.full_name_en : null,
+        computed.base_salary,
+        b.department != null ? b.department : null,
+        b.nationality != null ? b.nationality : null,
+        computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
+        computed.insurance_amount, computed.advance_deduction, computed.other_deductions,
+        JSON.stringify([audit('employee_update', by, { computed })])
+      ]
+    );
+    res.json({ success: true, employee: updated.rows[0], computed });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -825,7 +962,7 @@ router.get('/runs/:id/export.xlsx', async (req, res) => {
     const buf = malika.buildMalikaWorkbook({
       title,
       excludedTitle,
-      items: items.rows.map(mapItemRow),
+      items: items.rows.map((row) => malika.toMalikaExportRow(mapItemRow(row))),
       excluded: excluded.rows,
       settings
     });
@@ -944,28 +1081,34 @@ router.post('/runs/generate', async (req, res) => {
     const runIns = await client.query(
       `INSERT INTO finance_payroll_runs (
          run_number, period_year, period_month, run_date, status, entity_id, entity_type, department,
-         created_by, audit_log, run_type_label, title_override
-       ) VALUES ($1,$2,$3,COALESCE($9::date, CURRENT_DATE),'DRAFT',$4,$5,$6,$7,$8::jsonb,$10,$11)
+         created_by, audit_log, run_type_label, title_override, payroll_country, currency, source_import
+       ) VALUES ($1,$2,$3,COALESCE($9::date, CURRENT_DATE),'DRAFT',$4,$5,$6,$7,$8::jsonb,$10,$11,$12,$13,$14)
        RETURNING *`,
       [
         runNumber, year, month, eid, etype, b.department || null, by,
-        JSON.stringify([audit('generate', by, { model: 'malika' })]),
-        b.run_date || null, runType, b.title_override || null
+        JSON.stringify([audit('generate', by, { model: 'native', seed_empty: !!b.seed_empty })]),
+        b.run_date || null, runType, b.title_override || null,
+        b.payroll_country || settings.payroll_country || 'SA',
+        b.currency || settings.currency || 'SAR',
+        b.seed_empty ? 'native-empty' : 'native'
       ]
     );
     const run = runIns.rows[0];
 
-    let empSql = `SELECT * FROM finance_payroll_employees WHERE (entity_id = $1 OR entity_id IS NULL) AND COALESCE(is_active,true)=true`;
-    const empParams = [eid];
-    if (b.department) {
-      empParams.push(b.department);
-      empSql += ` AND department = $${empParams.length}`;
+    let emps = { rows: [] };
+    if (!b.seed_empty) {
+      let empSql = `SELECT * FROM finance_payroll_employees WHERE (entity_id = $1 OR entity_id IS NULL) AND COALESCE(is_active,true)=true`;
+      const empParams = [eid];
+      if (b.department) {
+        empParams.push(b.department);
+        empSql += ` AND department = $${empParams.length}`;
+      }
+      if (Array.isArray(b.employee_ids) && b.employee_ids.length) {
+        empParams.push(b.employee_ids.map(Number));
+        empSql += ` AND employee_id = ANY($${empParams.length}::int[])`;
+      }
+      emps = await client.query(empSql, empParams);
     }
-    if (Array.isArray(b.employee_ids) && b.employee_ids.length) {
-      empParams.push(b.employee_ids.map(Number));
-      empSql += ` AND employee_id = ANY($${empParams.length}::int[])`;
-    }
-    const emps = await client.query(empSql, empParams);
 
     const linkedOt = [];
     const applyInsPct = b.skip_auto_insurance ? 0 : settings.insurance_pct;
@@ -997,13 +1140,15 @@ router.post('/runs/generate', async (req, res) => {
         insurance_amount: emp.default_insurance_amount != null ? malika.n(emp.default_insurance_amount) : null,
         advance_deduction: emp.default_advance_deduction != null
           ? malika.n(emp.default_advance_deduction)
-          : (b.default_advances ? -Math.abs(malika.n(b.default_advances)) : 0)
+          : (b.default_advances ? -Math.abs(malika.n(b.default_advances)) : 0),
+        other_deductions: malika.n(emp.default_other_deductions)
       };
       const computed = malika.recomputeRow(baseRow, {
         overtime_amount: overtimeAmount,
         ot_fold_into: settings.ot_fold_into,
         applyInsurancePct: baseRow.insurance_amount == null || baseRow.insurance_amount === 0 ? applyInsPct : 0,
         forceInsurance: false,
+        forceSignDeductions: true,
         insurance_sign: settings.insurance_sign,
         insurance_base: settings.insurance_base
       });
@@ -1013,16 +1158,16 @@ router.post('/runs/generate', async (req, res) => {
            run_id, employee_id, gross_amount, deductions_amount, net_amount, status, notes,
            base_salary, allowances, incentives, overtime_amount, advances, tax_amount, insurance_amount,
            housing_allowance, nature_allowance, transport_allowance, other_allowances, advance_deduction,
-           nationality, department_snapshot, audit_log
-         ) VALUES ($1,$2,$3,$4,$5,'DRAFT',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb)`,
+           other_deductions, nationality, department_snapshot, audit_log
+         ) VALUES ($1,$2,$3,$4,$5,'DRAFT',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb)`,
         [
           run.run_id, emp.employee_id, computed.gross_amount, computed.deductions_amount, computed.net_amount,
           `OT:${ot.rows.map((x) => x.overtime_id).join(',') || 'none'}`,
           computed.base_salary, computed.allowances, malika.n(b.default_incentives || 0), overtimeAmount,
           computed.advances, 0, computed.insurance_amount,
           computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
-          computed.advance_deduction, emp.nationality || null, emp.department || null,
-          JSON.stringify([audit('item_create', by, { model: 'malika' })])
+          computed.advance_deduction, computed.other_deductions, emp.nationality || null, emp.department || null,
+          JSON.stringify([audit('item_create', by, { model: 'native' })])
         ]
       );
 
@@ -1047,8 +1192,190 @@ router.post('/runs/generate', async (req, res) => {
       employees: emps.rows.length,
       overtime_linked: linkedOt.length,
       title: updated.rows[0].title_override || malika.formatRunTitle(settings, updated.rows[0]),
-      message: 'أُنشئ مسير الرواتب بنموذج مليكة وربط الساعات المعتمدة مرة واحدة'
+      message: b.seed_empty
+        ? 'أُنشئ مسير فارغ — أضف الموظفين من النموذج'
+        : 'أُنشئ مسير الرواتب وربط الساعات المعتمدة مرة واحدة'
     });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch { /* */ }
+    res.status(500).json({ success: false, error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+/** Add / upsert a salary line into a DRAFT run (native ERP flow). */
+router.post('/runs/:id/items', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    if (denyUnless(req, res, 'payroll_create')) return;
+    await ensureSchema();
+    const b = req.body || {};
+    const eid = entityOf(req, b);
+    const etype = entityTypeOf(req, b);
+    const by = actorLabel(req);
+    await client.query('BEGIN');
+    const run = await client.query(
+      `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2 FOR UPDATE`,
+      [req.params.id, eid]
+    );
+    if (!run.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'المسير غير موجود' });
+    }
+    if (String(run.rows[0].status).toUpperCase() !== 'DRAFT') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ success: false, error: 'إضافة البنود للمسودة فقط', code: 'LOCKED' });
+    }
+
+    let empId = b.employee_id ? Number(b.employee_id) : null;
+    if (!empId && b.employee_code) {
+      const found = await client.query(
+        `SELECT * FROM finance_payroll_employees
+         WHERE employee_code = $1 AND (entity_id = $2 OR entity_id IS NULL) LIMIT 1`,
+        [malika.cellCode(b.employee_code), eid]
+      );
+      if (found.rows[0]) empId = found.rows[0].employee_id;
+    }
+    if (!empId) {
+      if (!String(b.full_name_ar || '').trim() || !String(b.employee_code || '').trim()) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'الرقم الوظيفي واسم الموظف إلزاميان لموظف جديد' });
+      }
+      const code = malika.cellCode(b.employee_code).trim();
+      const dup = await client.query(
+        `SELECT employee_id FROM finance_payroll_employees
+         WHERE employee_code = $1 AND (entity_id = $2 OR entity_id IS NULL) LIMIT 1`,
+        [code, eid]
+      );
+      if (dup.rows[0]) {
+        empId = dup.rows[0].employee_id;
+      } else {
+        const computedEmp = salaryFieldsFromBody(b);
+        const created = await client.query(
+          `INSERT INTO finance_payroll_employees (
+             employee_code, full_name_ar, base_salary, department, nationality,
+             housing_allowance, nature_allowance, transport_allowance, other_allowances,
+             default_insurance_amount, default_advance_deduction, default_other_deductions,
+             entity_id, entity_type, is_active, audit_log
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true,$15::jsonb)
+           RETURNING employee_id`,
+          [
+            code, String(b.full_name_ar).trim(), computedEmp.base_salary, b.department || null, b.nationality || null,
+            computedEmp.housing_allowance, computedEmp.nature_allowance, computedEmp.transport_allowance, computedEmp.other_allowances,
+            computedEmp.insurance_amount, computedEmp.advance_deduction, computedEmp.other_deductions,
+            eid, etype, JSON.stringify([audit('employee_create_via_run', by)])
+          ]
+        );
+        empId = created.rows[0].employee_id;
+      }
+    }
+
+    const emp = await client.query(`SELECT * FROM finance_payroll_employees WHERE employee_id = $1`, [empId]);
+    if (!emp.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'الموظف غير موجود' });
+    }
+
+    const existingItem = await client.query(
+      `SELECT item_id FROM finance_payroll_items WHERE run_id = $1 AND employee_id = $2`,
+      [req.params.id, empId]
+    );
+    if (existingItem.rows[0] && !b.replace) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        success: false,
+        error: 'الموظف موجود بالفعل في المسير',
+        code: 'DUPLICATE_ITEM',
+        item_id: existingItem.rows[0].item_id
+      });
+    }
+
+    const computed = salaryFieldsFromBody(b, {
+      base_salary: emp.rows[0].base_salary,
+      housing_allowance: emp.rows[0].housing_allowance,
+      nature_allowance: emp.rows[0].nature_allowance,
+      transport_allowance: emp.rows[0].transport_allowance,
+      other_allowances: emp.rows[0].other_allowances,
+      default_insurance_amount: emp.rows[0].default_insurance_amount,
+      default_advance_deduction: emp.rows[0].default_advance_deduction,
+      default_other_deductions: emp.rows[0].default_other_deductions
+    });
+
+    // Sync master salary card when provided from form
+    if (b.sync_employee !== false) {
+      await client.query(
+        `UPDATE finance_payroll_employees SET
+           full_name_ar = COALESCE($2, full_name_ar),
+           base_salary=$3, department=COALESCE($4, department), nationality=COALESCE($5, nationality),
+           housing_allowance=$6, nature_allowance=$7, transport_allowance=$8, other_allowances=$9,
+           default_insurance_amount=$10, default_advance_deduction=$11, default_other_deductions=$12,
+           updated_at=NOW()
+         WHERE employee_id=$1`,
+        [
+          empId,
+          b.full_name_ar != null ? String(b.full_name_ar).trim() : null,
+          computed.base_salary, b.department != null ? b.department : null, b.nationality != null ? b.nationality : null,
+          computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
+          computed.insurance_amount, computed.advance_deduction, computed.other_deductions
+        ]
+      );
+    }
+
+    let item;
+    if (existingItem.rows[0] && b.replace) {
+      item = await client.query(
+        `UPDATE finance_payroll_items SET
+           gross_amount=$3, deductions_amount=$4, net_amount=$5, status='DRAFT',
+           base_salary=$6, allowances=$7, advances=$8, insurance_amount=$9,
+           housing_allowance=$10, nature_allowance=$11, transport_allowance=$12, other_allowances=$13,
+           advance_deduction=$14, other_deductions=$15,
+           nationality=COALESCE($16, nationality), department_snapshot=COALESCE($17, department_snapshot),
+           audit_log = COALESCE(audit_log, '[]'::jsonb) || $18::jsonb
+         WHERE item_id=$1 AND run_id=$2 RETURNING *`,
+        [
+          existingItem.rows[0].item_id, req.params.id,
+          computed.gross_amount, computed.deductions_amount, computed.net_amount,
+          computed.base_salary, computed.allowances, computed.advances, computed.insurance_amount,
+          computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
+          computed.advance_deduction, computed.other_deductions,
+          b.nationality || emp.rows[0].nationality, b.department || emp.rows[0].department,
+          JSON.stringify([audit('item_replace', by)])
+        ]
+      );
+    } else {
+      item = await client.query(
+        `INSERT INTO finance_payroll_items (
+           run_id, employee_id, gross_amount, deductions_amount, net_amount, status, notes,
+           base_salary, allowances, overtime_amount, advances, insurance_amount,
+           housing_allowance, nature_allowance, transport_allowance, other_allowances,
+           advance_deduction, other_deductions, nationality, department_snapshot, audit_log
+         ) VALUES ($1,$2,$3,$4,$5,'DRAFT',$6,$7,$8,0,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb)
+         RETURNING *`,
+        [
+          req.params.id, empId, computed.gross_amount, computed.deductions_amount, computed.net_amount,
+          'native_form',
+          computed.base_salary, computed.allowances, computed.advances, computed.insurance_amount,
+          computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
+          computed.advance_deduction, computed.other_deductions,
+          b.nationality || emp.rows[0].nationality, b.department || emp.rows[0].department,
+          JSON.stringify([audit('item_add', by)])
+        ]
+      );
+    }
+
+    await refreshRunTotals(client, req.params.id, by, audit('recalc_after_item_add', by, { employee_id: empId }));
+    await client.query('COMMIT');
+    const withCode = await db.query(
+      `SELECT i.*, e.employee_code, e.full_name_ar,
+              COALESCE(i.department_snapshot, e.department) AS department,
+              COALESCE(i.nationality, e.nationality) AS nationality
+       FROM finance_payroll_items i
+       JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
+       WHERE i.item_id = $1`,
+      [item.rows[0].item_id]
+    );
+    res.status(201).json({ success: true, item: mapItemRow(withCode.rows[0]), computed });
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch { /* */ }
     res.status(500).json({ success: false, error: e.message });
@@ -1117,6 +1444,7 @@ router.get('/runs/:id', async (req, res) => {
       gross_amount: malika.round2(mapped.reduce((s, r) => s + malika.n(r.gross_amount), 0)),
       insurance_amount: malika.round2(mapped.reduce((s, r) => s + malika.n(r.insurance_amount), 0)),
       advance_deduction: malika.round2(mapped.reduce((s, r) => s + malika.n(r.advance_deduction), 0)),
+      other_deductions: malika.round2(mapped.reduce((s, r) => s + malika.n(r.other_deductions), 0)),
       net_amount: malika.round2(mapped.reduce((s, r) => s + malika.n(r.net_amount), 0))
     };
     res.json({
@@ -1190,30 +1518,8 @@ router.put('/runs/:id/items/:itemId', async (req, res) => {
     );
     if (!existing.rows[0]) return res.status(404).json({ success: false, error: 'البند غير موجود' });
     const ex = existing.rows[0];
-    const pick = (key, fallbackKey) => {
-      if (b[key] != null) return malika.n(b[key]);
-      if (fallbackKey && b[fallbackKey] != null) return malika.n(b[fallbackKey]);
-      return malika.n(ex[key]);
-    };
-    let advance = pick('advance_deduction');
-    if (b.advance_deduction == null && b.advances != null) {
-      advance = -Math.abs(malika.n(b.advances));
-    } else if (b.advance_deduction == null && (ex.advance_deduction == null || ex.advance_deduction === 0) && malika.n(ex.advances) > 0) {
-      advance = -Math.abs(malika.n(ex.advances));
-    }
     const overtimeAmount = b.overtime_amount != null ? malika.n(b.overtime_amount) : malika.n(ex.overtime_amount);
-    const computed = malika.recomputeRow({
-      base_salary: pick('base_salary'),
-      housing_allowance: pick('housing_allowance'),
-      nature_allowance: pick('nature_allowance'),
-      transport_allowance: pick('transport_allowance'),
-      other_allowances: pick('other_allowances'),
-      insurance_amount: pick('insurance_amount'),
-      advance_deduction: advance
-    }, {
-      overtime_amount: 0, // already folded or kept separate — do not double-count on edit
-      ot_fold_into: 'detail_only'
-    });
+    const computed = salaryFieldsFromBody(b, ex);
     computed.overtime_amount = overtimeAmount;
     const nationality = b.nationality != null ? String(b.nationality) : ex.nationality;
     const departmentSnapshot = b.department != null ? String(b.department) : ex.department_snapshot;
@@ -1222,9 +1528,10 @@ router.put('/runs/:id/items/:itemId', async (req, res) => {
          base_salary=$3, allowances=$4, incentives=COALESCE($5, incentives), overtime_amount=$6, advances=$7,
          tax_amount=COALESCE($8, tax_amount), insurance_amount=$9, gross_amount=$10, deductions_amount=$11, net_amount=$12,
          housing_allowance=$13, nature_allowance=$14, transport_allowance=$15, other_allowances=$16,
-         advance_deduction=$17, nationality=COALESCE($18, nationality), department_snapshot=COALESCE($19, department_snapshot),
-         notes=COALESCE($20, notes),
-         audit_log = COALESCE(audit_log, '[]'::jsonb) || $21::jsonb
+         advance_deduction=$17, other_deductions=$18,
+         nationality=COALESCE($19, nationality), department_snapshot=COALESCE($20, department_snapshot),
+         notes=COALESCE($21, notes),
+         audit_log = COALESCE(audit_log, '[]'::jsonb) || $22::jsonb
        WHERE item_id=$1 AND run_id=$2 RETURNING *`,
       [
         req.params.itemId, req.params.id,
@@ -1233,13 +1540,27 @@ router.put('/runs/:id/items/:itemId', async (req, res) => {
         b.tax_amount != null ? malika.n(b.tax_amount) : null,
         computed.insurance_amount, computed.gross_amount, computed.deductions_amount, computed.net_amount,
         computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
-        computed.advance_deduction, nationality, departmentSnapshot,
+        computed.advance_deduction, computed.other_deductions, nationality, departmentSnapshot,
         b.notes != null ? String(b.notes) : null,
-        JSON.stringify([audit('item_update', by, { model: 'malika' })])
+        JSON.stringify([audit('item_update', by, { model: 'native' })])
       ]
     );
+    if (b.sync_employee !== false && ex.employee_id) {
+      await db.query(
+        `UPDATE finance_payroll_employees SET
+           base_salary=$2, housing_allowance=$3, nature_allowance=$4, transport_allowance=$5, other_allowances=$6,
+           default_insurance_amount=$7, default_advance_deduction=$8, default_other_deductions=$9,
+           department=COALESCE($10, department), nationality=COALESCE($11, nationality), updated_at=NOW()
+         WHERE employee_id=$1`,
+        [
+          ex.employee_id, computed.base_salary, computed.housing_allowance, computed.nature_allowance,
+          computed.transport_allowance, computed.other_allowances, computed.insurance_amount,
+          computed.advance_deduction, computed.other_deductions, departmentSnapshot, nationality
+        ]
+      );
+    }
     await refreshRunTotals(db, req.params.id, by, audit('recalc_after_item_edit', by, { item_id: Number(req.params.itemId) }));
-    res.json({ success: true, item: mapItemRow(updated.rows[0]) });
+    res.json({ success: true, item: mapItemRow(updated.rows[0]), computed });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -1852,7 +2173,7 @@ router.post('/runs/import-malika', uploadMalika.single('file'), async (req, res)
       imported: parsed.payrollRows.length,
       excluded: parsed.excludedRows.length,
       title: titleOverride || malika.formatRunTitle(settings, updated.rows[0]),
-      message: 'استُورد نموذج مليكة إلى مسير معزول'
+      message: 'تم استيراد كشوف الرواتب إلى مسير معزول'
     });
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch { /* */ }

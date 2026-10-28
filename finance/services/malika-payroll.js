@@ -82,19 +82,49 @@ function calcGross(row) {
 }
 
 /**
- * صافي المبلغ = إجمالي + التأمينات + السلفة بإشاراتهما المرجعية (سالب للاستقطاع).
- * لا تُحسب الاستقطاعات مرتين: لا نطرح insurance/advance مرة أخرى بعد جمع الإشارة.
+ * Normalize a deduction input to signed negative (Excel-style).
+ * Positive UI entry "500" → -500. Already-negative stays negative.
+ */
+function asSignedDeduction(v) {
+  const x = n(v);
+  if (x === 0) return 0;
+  return x > 0 ? round2(-x) : round2(x);
+}
+
+/**
+ * صافي المبلغ = إجمالي + التأمينات + السلفة + استقطاعات أخرى بإشاراتها (سالب للاستقطاع).
+ * لا تُحسب الاستقطاعات مرتين: نجمع الإشارة فقط ولا نطرح المطلق مرة ثانية.
  */
 function calcNet(row) {
   const gross = row.gross_amount != null ? n(row.gross_amount) : calcGross(row);
-  return round2(gross + n(row.insurance_amount) + n(row.advance_deduction));
+  return round2(
+    gross + n(row.insurance_amount) + n(row.advance_deduction) + n(row.other_deductions)
+  );
 }
 
 function calcDeductionsPositive(row) {
   const ins = n(row.insurance_amount);
   const adv = n(row.advance_deduction);
-  // Positive magnitude of negative signed components only (Excel-style)
-  return round2(Math.max(0, -ins) + Math.max(0, -adv));
+  const other = n(row.other_deductions);
+  return round2(Math.max(0, -ins) + Math.max(0, -adv) + Math.max(0, -other));
+}
+
+/** For Malika 13-col export: fold ERP-only other_deductions into استقطاع سلفة. */
+function toMalikaExportRow(row) {
+  const advanceExport = round2(n(row.advance_deduction) + n(row.other_deductions));
+  const mapped = {
+    ...row,
+    advance_deduction: advanceExport,
+    other_deductions: 0
+  };
+  mapped.gross_amount = row.gross_amount != null ? n(row.gross_amount) : calcGross(mapped);
+  mapped.net_amount = round2(mapped.gross_amount + n(mapped.insurance_amount) + advanceExport);
+  mapped.deductions_amount = calcDeductionsPositive({
+    insurance_amount: mapped.insurance_amount,
+    advance_deduction: advanceExport,
+    other_deductions: 0
+  });
+  return mapped;
 }
 
 function recomputeRow(input, opts = {}) {
@@ -113,9 +143,19 @@ function recomputeRow(input, opts = {}) {
     const sign = String(opts.insurance_sign || 'negative').toLowerCase() === 'positive' ? 1 : -1;
     row.insurance_amount = round2(sign * raw);
   }
-  row.insurance_amount = round2(row.insurance_amount);
-  row.advance_deduction = round2(row.advance_deduction);
-  // Legacy positive advances → signed negative once
+  // Keep signed values as stored; optionally coerce positive UI inputs to negative
+  if (opts.forceSignDeductions) {
+    if (n(row.insurance_amount) > 0) row.insurance_amount = asSignedDeduction(row.insurance_amount);
+    else row.insurance_amount = round2(row.insurance_amount);
+    if (n(row.advance_deduction) > 0) row.advance_deduction = asSignedDeduction(row.advance_deduction);
+    else row.advance_deduction = round2(row.advance_deduction);
+    if (n(row.other_deductions) > 0) row.other_deductions = asSignedDeduction(row.other_deductions);
+    else row.other_deductions = round2(row.other_deductions);
+  } else {
+    row.insurance_amount = round2(row.insurance_amount);
+    row.advance_deduction = round2(row.advance_deduction);
+    row.other_deductions = round2(row.other_deductions);
+  }
   if (opts.legacy_advances != null && row.advance_deduction === 0 && n(opts.legacy_advances) > 0) {
     row.advance_deduction = round2(-Math.abs(n(opts.legacy_advances)));
   }
@@ -210,7 +250,7 @@ function parseMalikaWorkbook(buffer) {
     if (Object.keys(headerMap).length >= 10) break;
   }
   if (!Object.keys(headerMap).length) {
-    throw new Error('تعذر قراءة صف عناوين نموذج مليكة');
+    throw new Error('تعذر قراءة صف عناوين كشف الرواتب');
   }
   const dataStart = headerRow + 1;
   for (let R = dataStart; R <= range.e.r; R++) {
@@ -514,6 +554,8 @@ module.exports = {
   calcNet,
   calcDeductionsPositive,
   recomputeRow,
+  toMalikaExportRow,
+  asSignedDeduction,
   formatRunTitle,
   formatExcludedTitle,
   formatDdMmYyyy,
