@@ -336,9 +336,9 @@ router.post('/overtime', async (req, res) => {
 });
 
 async function transitionOt(req, res, nextStatus, actionName, requireAction) {
+  if (denyUnless(req, res, requireAction)) return;
   const client = await db.pool.connect();
   try {
-    if (denyUnless(req, res, requireAction)) return;
     await ensureSchema();
     const eid = entityOf(req, req.body);
     const by = actorLabel(req);
@@ -377,20 +377,26 @@ async function transitionOt(req, res, nextStatus, actionName, requireAction) {
         return res.status(409).json({ success: false, error: 'مُرحّل للرواتب مسبقًا', code: 'ALREADY_POSTED' });
       }
     }
+    const rejectReason = nextStatus === 'REJECTED'
+      ? (String((req.body || {}).reason || '').trim() || null)
+      : null;
+    const payrollRunId = (req.body || {}).payroll_run_id != null
+      ? Number((req.body || {}).payroll_run_id)
+      : null;
     const updated = await client.query(
       `UPDATE finance_payroll_overtime
-       SET status = $3,
-           rejected_reason = CASE WHEN $3 = 'REJECTED' THEN $4 ELSE rejected_reason END,
-           posted_to_payroll_at = CASE WHEN $3 = 'POSTED' THEN NOW() ELSE posted_to_payroll_at END,
-           payroll_run_id = CASE WHEN $5::int IS NOT NULL THEN $5 ELSE payroll_run_id END,
+       SET status = $3::text,
+           rejected_reason = CASE WHEN $3::text = 'REJECTED' THEN $4::text ELSE rejected_reason END,
+           posted_to_payroll_at = CASE WHEN $3::text = 'POSTED' THEN NOW() ELSE posted_to_payroll_at END,
+           payroll_run_id = COALESCE($5::int, payroll_run_id),
            audit_log = COALESCE(audit_log, '[]'::jsonb) || $6::jsonb,
            updated_at = NOW()
        WHERE overtime_id = $1 AND entity_id = $2
        RETURNING *`,
       [
         req.params.id, eid, nextStatus,
-        String((req.body || {}).reason || '').trim() || null,
-        (req.body || {}).payroll_run_id || null,
+        rejectReason,
+        payrollRunId,
         JSON.stringify([audit(actionName, by, { from: cur, to: nextStatus })])
       ]
     );
@@ -1016,17 +1022,7 @@ router.post('/runs/:id/post-gl', async (req, res) => {
       );
     }
 
-    // update balances lightly
-    for (const line of lines) {
-      await client.query(
-        `INSERT INTO finance_account_balances (account_id, account_code, account_name_ar, account_type, entity_type, entity_id, total_debit, total_credit, balance)
-         SELECT a.account_id, a.account_code, a.account_name_ar, a.account_type, 'HQ', $2, $3, $4,
-                CASE WHEN a.normal_balance = 'CREDIT' THEN $4 - $3 ELSE $3 - $4 END
-         FROM finance_accounts a WHERE a.account_id = $1
-         ON CONFLICT DO NOTHING`,
-        [line.acc.account_id, eid, line.debit, line.credit]
-      ).catch(() => {});
-    }
+    // Balances come from finance_account_balances VIEW over journal lines — no direct write.
 
     const updated = await client.query(
       `UPDATE finance_payroll_runs
