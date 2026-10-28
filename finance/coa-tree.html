@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>شجرة الحسابات — القيادة المالية 360</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Tajawal:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/finance/finance-workbench.css">
+  <style>
+    .tree-ul{list-style:none;margin:0;padding:0}
+    .tree-ul ul{list-style:none;margin:0;padding-right:18px;border-right:1px dashed #e2e8f0}
+    .tree-node{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;cursor:pointer}
+    .tree-node:hover,.tree-node.active{background:#f1f5f9}
+    .tree-toggle{width:22px;height:22px;border:1px solid var(--fw-line);border-radius:6px;background:#fff;cursor:pointer;font-size:.7rem}
+    .tree-code{font-family:ui-monospace,monospace;font-weight:800;min-width:64px}
+    .tree-meta{margin-right:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .audit-list{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
+    .audit-list li{background:#f8fafc;border:1px solid var(--fw-line);border-radius:10px;padding:8px 10px;font-size:.85rem}
+    @media print{.fw-topnav,.fw-actions,.fw-toolbar,.fw-drawer,.fw-modal{display:none!important}}
+  </style>
+</head>
+<body class="fw-body" data-kind="coa-tree">
+  <div class="fw-shell">
+    <div id="topnav"></div>
+    <header class="fw-hero">
+      <div>
+        <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
+        <h1><i class="fas fa-sitemap"></i> شجرة الحسابات</h1>
+        <p>شجرة هرمية من `finance_accounts` مع أرصدة من القيود الفعلية. منع الأكواد المكررة والدورات والترحيل إلى حساب تجميعي. مربوطة بالرواتب والمشتريات والمبيعات.</p>
+      </div>
+      <div class="fw-actions">
+        <button type="button" class="fw-btn fw-btn-ok" id="btn-add"><i class="fas fa-plus"></i> حساب جديد</button>
+        <button type="button" class="fw-btn" id="btn-expand">توسيع</button>
+        <button type="button" class="fw-btn" id="btn-collapse">طي</button>
+        <button type="button" class="fw-btn" id="btn-export-xlsx"><i class="fas fa-file-excel"></i> Excel</button>
+        <button type="button" class="fw-btn" id="btn-export-csv">CSV</button>
+        <button type="button" class="fw-btn" id="btn-print"><i class="fas fa-print"></i> طباعة</button>
+        <a class="fw-btn" href="/finance/chart-of-accounts.html">دليل الحسابات</a>
+        <a class="fw-btn" href="/finance/leadership-doc-settings.html?doc=coa-tree">إعدادات الصفحة</a>
+        <button type="button" class="fw-btn" id="btn-reload"><i class="fas fa-rotate"></i> تحديث</button>
+      </div>
+    </header>
+    <div id="alert" class="fw-alert info" hidden></div>
+    <div class="fw-kpis" id="kpis"></div>
+    <div class="fw-toolbar">
+      <input type="search" id="q" class="fw-grow" placeholder="بحث بالكود أو الاسم عربي/إنجليزي…">
+      <select id="filter-type">
+        <option value="">كل الأنواع</option>
+        <option value="ASSET">أصول</option>
+        <option value="LIABILITY">خصوم</option>
+        <option value="EQUITY">حقوق ملكية</option>
+        <option value="REVENUE">إيرادات</option>
+        <option value="EXPENSE">مصروفات</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;white-space:nowrap">
+        <input type="checkbox" id="show-inactive"> إظهار المعطّل
+      </label>
+    </div>
+    <div class="fw-layout">
+      <section class="fw-card">
+        <div class="fw-card-head"><h2>الشجرة الهرمية</h2><span id="count" class="fw-badge muted">0</span></div>
+        <div id="tree-host"></div>
+      </section>
+      <aside class="fw-drawer" id="drawer">
+        <div class="fw-empty"><i class="fas fa-hand-pointer"></i>اختر حسابًا للمعاينة والتعديل</div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="fw-modal" id="modal" hidden>
+    <form class="fw-sheet" id="form" style="max-width:640px">
+      <h2 id="form-title">حساب جديد</h2>
+      <input type="hidden" id="edit_id">
+      <div class="fw-form-grid">
+        <label>كود الحساب *<input id="account_code" required></label>
+        <label>النوع *
+          <select id="account_type" required>
+            <option value="ASSET">أصول</option>
+            <option value="LIABILITY">خصوم</option>
+            <option value="EQUITY">حقوق ملكية</option>
+            <option value="REVENUE">إيرادات</option>
+            <option value="EXPENSE">مصروفات</option>
+          </select>
+        </label>
+        <label class="wide">الاسم بالعربية *<input id="account_name_ar" required></label>
+        <label class="wide">الاسم بالإنجليزية<input id="account_name_en"></label>
+        <label class="wide">الحساب الأب
+          <select id="parent_account_id"><option value="">— حساب رئيسي —</option></select>
+        </label>
+        <label>طبيعة الرصيد
+          <select id="normal_balance">
+            <option value="">تلقائي حسب النوع</option>
+            <option value="DEBIT">مدين</option>
+            <option value="CREDIT">دائن</option>
+          </select>
+        </label>
+        <label>العملة<input id="currency_code" placeholder="SAR"></label>
+        <label class="wide"><input type="checkbox" id="is_header"> حساب تجميعي (لا يُرحَّل إليه)</label>
+        <label class="wide"><input type="checkbox" id="is_active" checked> نشط</label>
+        <label class="wide">وصف<textarea id="description" rows="2"></textarea></label>
+      </div>
+      <div class="fw-sheet-actions">
+        <button type="button" class="fw-btn" id="btn-cancel">إلغاء</button>
+        <button type="submit" class="fw-btn fw-btn-primary">حفظ</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="/public/erp-dialogs.js"></script>
+  <script src="/finance/finance-context.js"></script>
+  <script src="/finance/finance-workbench.js"></script>
+  <script>
+  (function () {
+    const FW = window.FinanceWorkbench;
+    const TYPE_AR = { ASSET:'أصول', LIABILITY:'خصوم', EQUITY:'حقوق ملكية', REVENUE:'إيرادات', EXPENSE:'مصروفات' };
+    const state = { accounts: [], tree: [], selected: null, settings: {}, collapsed: new Set(), expandAll: false };
+
+    function qs() {
+      const p = new URLSearchParams();
+      const eid = FW.entityId();
+      if (eid) p.set('entity_id', eid);
+      if (document.getElementById('show-inactive').checked) p.set('show_inactive', '1');
+      const q = document.getElementById('q').value.trim();
+      if (q) p.set('q', q);
+      const t = document.getElementById('filter-type').value;
+      if (t) p.set('account_type', t);
+      return p.toString();
+    }
+    function payload() {
+      const eid = FW.entityId();
+      return eid ? { entity_id: eid } : {};
+    }
+    function auditList(row) {
+      const audit = Array.isArray(row.audit_log) ? row.audit_log : (() => { try { return JSON.parse(row.audit_log||'[]'); } catch { return []; } })();
+      return audit.slice().reverse().map((e) =>
+        `<li><strong>${FW.esc(e.action)}</strong> — ${FW.esc(e.by||'')} — ${FW.esc(e.at||'')}</li>`
+      ).join('') || '<li>لا أحداث</li>';
+    }
+    function renderKpis() {
+      const rows = state.accounts;
+      const by = (t) => rows.filter((r) => String(r.account_type).toUpperCase() === t).length;
+      const bal = rows.filter((r) => !r.is_header).reduce((s,r) => s + Math.abs(Number(r.balance||0)), 0);
+      document.getElementById('kpis').innerHTML = [
+        ['الحسابات', rows.length, `${rows.filter(r=>r.is_header).length} تجميعي`],
+        ['أصول / خصوم', `${by('ASSET')} / ${by('LIABILITY')}`, `${by('EQUITY')} ملكية`],
+        ['إيراد / مصروف', `${by('REVENUE')} / ${by('EXPENSE')}`, 'تصنيف'],
+        ['أرصدة مطلقة', FW.money(bal), 'من القيود']
+      ].map(([a,b,c]) => `<div class="fw-kpi"><span>${a}</span><strong>${b}</strong><em>${c}</em></div>`).join('');
+    }
+    function nodeHtml(node) {
+      const hasKids = node.children && node.children.length;
+      const collapsed = !state.expandAll && (state.collapsed.has(node.account_id) || (Number(node.level||1) > Number(state.settings.expand_levels||2) && hasKids && !state.collapsed.has('open-'+node.account_id)));
+      const showEn = state.settings.show_english_name !== false;
+      const showBal = state.settings.show_balances !== false;
+      return `<li data-id="${node.account_id}">
+        <div class="tree-node ${state.selected===node.account_id?'active':''}" data-select="${node.account_id}">
+          ${hasKids?`<button type="button" class="tree-toggle" data-toggle="${node.account_id}">${collapsed?'+':'−'}</button>`:`<span style="width:22px"></span>`}
+          <span class="tree-code">${FW.esc(node.account_code)}</span>
+          <span>${FW.esc(node.account_name_ar||'')}${showEn && node.account_name_en?` <small style="color:#64748b">/ ${FW.esc(node.account_name_en)}</small>`:''}</span>
+          <span class="tree-meta">
+            ${FW.badge(TYPE_AR[node.account_type]||node.account_type,'muted')}
+            ${node.is_header?FW.badge('تجميعي','warn'):''}
+            ${node.is_active===false?FW.badge('معطّل','bad'):''}
+            ${showBal && !node.is_header?`<span class="fw-num">${FW.money(node.balance)}</span>`:''}
+          </span>
+        </div>
+        ${hasKids && !collapsed ? `<ul class="tree-ul">${node.children.map(nodeHtml).join('')}</ul>` : ''}
+      </li>`;
+    }
+    function renderTree() {
+      const host = document.getElementById('tree-host');
+      document.getElementById('count').textContent = String(state.accounts.length);
+      if (!state.tree.length) {
+        host.innerHTML = FW.emptyState('لا حسابات مطابقة');
+        return;
+      }
+      host.innerHTML = `<ul class="tree-ul">${state.tree.map(nodeHtml).join('')}</ul>`;
+    }
+    function fillParents(excludeId) {
+      const sel = document.getElementById('parent_account_id');
+      const opts = state.accounts
+        .filter((a) => a.is_active !== false && String(a.account_id) !== String(excludeId))
+        .map((a) => `<option value="${a.account_id}">${FW.esc(a.account_code)} — ${FW.esc(a.account_name_ar||'')}</option>`)
+        .join('');
+      sel.innerHTML = `<option value="">— حساب رئيسي —</option>` + opts;
+    }
+    async function show(id) {
+      state.selected = Number(id);
+      renderTree();
+      const row = state.accounts.find((a) => Number(a.account_id) === Number(id));
+      const drawer = document.getElementById('drawer');
+      if (!row) { drawer.innerHTML = FW.emptyState('غير موجود'); return; }
+      drawer.innerHTML = `
+        <h3>${FW.esc(row.account_code)} — ${FW.esc(row.account_name_ar||'')}</h3>
+        <div class="fw-meta">
+          <div><span>النوع</span><strong>${FW.esc(TYPE_AR[row.account_type]||row.account_type)}</strong></div>
+          <div><span>المستوى</span><strong class="fw-num">${FW.esc(row.level)}</strong></div>
+          <div><span>طبيعة الرصيد</span><strong>${FW.esc(row.normal_balance||'—')}</strong></div>
+          <div><span>تجميعي</span><strong>${row.is_header?'نعم':'لا'}</strong></div>
+          <div><span>الحالة</span><strong>${row.is_active===false?FW.statusBadge('معطّل'):FW.statusBadge('نشط')}</strong></div>
+          <div><span>العملة</span><strong>${FW.esc(row.currency_code||state.settings.default_currency||'—')}</strong></div>
+          <div><span>مدين / دائن</span><strong class="fw-num">${FW.money(row.total_debit)} / ${FW.money(row.total_credit)}</strong></div>
+          <div><span>الرصيد</span><strong class="fw-num">${FW.money(row.balance)}</strong></div>
+        </div>
+        <div class="fw-actions" style="margin-top:12px;flex-wrap:wrap">
+          <button class="fw-btn" id="d-edit">تعديل</button>
+          <button class="fw-btn" id="d-child">فرع جديد</button>
+          ${row.is_active!==false?`<button class="fw-btn fw-btn-danger" id="d-deact">تعطيل</button>`:''}
+          <button class="fw-btn fw-btn-danger" id="d-del">حذف</button>
+        </div>
+        <h4 style="margin:14px 0 6px">التدقيق</h4>
+        <ul class="audit-list">${auditList(row)}</ul>`;
+      document.getElementById('d-edit')?.addEventListener('click', () => openEdit(row));
+      document.getElementById('d-child')?.addEventListener('click', () => openAdd(row.account_id));
+      document.getElementById('d-deact')?.addEventListener('click', async () => {
+        if (!(await window.ErpDialog?.confirm?.({ title: 'تعطيل', message: 'تعطيل الحساب؟' }))) return;
+        const r = await FW.api('POST', `/finance/coa-tree/accounts/${id}/deactivate`, payload());
+        if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error||'فشل', 'err');
+        await load(); show(id);
+      });
+      document.getElementById('d-del')?.addEventListener('click', async () => {
+        if (!(await window.ErpDialog?.confirm?.({ title: 'حذف', message: 'يحذف فقط إن لم يُستخدم في قيود أو فروع. وإلا عطّله.', destructive: true }))) return;
+        const r = await FW.api('DELETE', `/finance/coa-tree/accounts/${id}?${qs()}`);
+        if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error||'فشل', 'err');
+        state.selected = null;
+        await load();
+        document.getElementById('drawer').innerHTML = '<div class="fw-empty"><i class="fas fa-inbox"></i>اختر حسابًا</div>';
+      });
+    }
+    function openAdd(parentId) {
+      document.getElementById('form-title').textContent = 'حساب جديد';
+      document.getElementById('edit_id').value = '';
+      document.getElementById('account_code').disabled = false;
+      document.getElementById('account_code').value = '';
+      document.getElementById('account_name_ar').value = '';
+      document.getElementById('account_name_en').value = '';
+      document.getElementById('account_type').value = 'EXPENSE';
+      document.getElementById('normal_balance').value = '';
+      document.getElementById('currency_code').value = state.settings.default_currency || 'SAR';
+      document.getElementById('is_header').checked = false;
+      document.getElementById('is_active').checked = true;
+      document.getElementById('description').value = '';
+      fillParents();
+      document.getElementById('parent_account_id').value = parentId || '';
+      document.getElementById('modal').hidden = false;
+    }
+    function openEdit(row) {
+      document.getElementById('form-title').textContent = 'تعديل حساب';
+      document.getElementById('edit_id').value = row.account_id;
+      document.getElementById('account_code').value = row.account_code;
+      document.getElementById('account_code').disabled = true;
+      document.getElementById('account_name_ar').value = row.account_name_ar || '';
+      document.getElementById('account_name_en').value = row.account_name_en || '';
+      document.getElementById('account_type').value = row.account_type || 'ASSET';
+      document.getElementById('normal_balance').value = row.normal_balance || '';
+      document.getElementById('currency_code').value = row.currency_code || '';
+      document.getElementById('is_header').checked = !!row.is_header;
+      document.getElementById('is_active').checked = row.is_active !== false;
+      document.getElementById('description').value = row.description || '';
+      fillParents(row.account_id);
+      document.getElementById('parent_account_id').value = row.parent_account_id || '';
+      document.getElementById('modal').hidden = false;
+    }
+    async function load() {
+      document.getElementById('tree-host').innerHTML = FW.loadingState();
+      const res = await FW.api('GET', `/finance/coa-tree/tree?${qs()}`);
+      if (!res.ok || !res.json?.success) throw new Error(res.json?.error || 'فشل التحميل');
+      state.accounts = res.json.accounts || [];
+      state.tree = res.json.tree || [];
+      state.settings = res.json.settings || {};
+      renderKpis();
+      renderTree();
+      FW.setAlert(document.getElementById('alert'), `تم تحميل ${state.accounts.length} حساب`, 'ok');
+      if (state.selected) show(state.selected);
+    }
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const editId = document.getElementById('edit_id').value;
+      const body = {
+        ...payload(),
+        account_code: document.getElementById('account_code').value.trim(),
+        account_name_ar: document.getElementById('account_name_ar').value.trim(),
+        account_name_en: document.getElementById('account_name_en').value.trim() || null,
+        account_type: document.getElementById('account_type').value,
+        parent_account_id: document.getElementById('parent_account_id').value ? Number(document.getElementById('parent_account_id').value) : null,
+        normal_balance: document.getElementById('normal_balance').value || undefined,
+        currency_code: document.getElementById('currency_code').value.trim() || null,
+        is_header: document.getElementById('is_header').checked,
+        is_active: document.getElementById('is_active').checked,
+        description: document.getElementById('description').value.trim() || null
+      };
+      const res = editId
+        ? await FW.api('PUT', `/finance/coa-tree/accounts/${editId}`, body)
+        : await FW.api('POST', '/finance/coa-tree/accounts', body);
+      if (!res.ok || !res.json?.success) return FW.setAlert(document.getElementById('alert'), res.json?.error || 'فشل', 'err');
+      document.getElementById('modal').hidden = true;
+      await load();
+      show(res.json.account.account_id);
+    };
+    function downloadAuth(path, name) {
+      const eid = FW.entityId();
+      const url = path + (eid ? `?entity_id=${encodeURIComponent(eid)}` : '');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
+      fetch(url, { credentials: 'same-origin', headers: token ? { Authorization: 'Bearer ' + token } : {} })
+        .then(async (res) => {
+          if (!res.ok) throw new Error('فشل التصدير');
+          const blob = await res.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          a.click();
+        })
+        .catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+    }
+    document.getElementById('topnav').innerHTML = FW.topNav([
+      ['/finance/payroll-overtime.html', 'ساعات إضافية'],
+      ['/finance/payroll-runs.html', 'كشوف الرواتب'],
+      ['/finance/coa-tree.html', 'شجرة الحسابات'],
+      ['/finance/journal.html', 'القيود']
+    ], '/finance/coa-tree.html');
+    document.getElementById('tree-host').addEventListener('click', (e) => {
+      const tog = e.target.closest('[data-toggle]');
+      if (tog) {
+        const id = Number(tog.dataset.toggle);
+        if (state.collapsed.has(id)) state.collapsed.delete(id);
+        else state.collapsed.add(id);
+        state.collapsed.add('open-'+id);
+        state.expandAll = false;
+        renderTree();
+        return;
+      }
+      const sel = e.target.closest('[data-select]');
+      if (sel) show(sel.dataset.select);
+    });
+    document.getElementById('btn-add').onclick = () => openAdd();
+    document.getElementById('btn-cancel').onclick = () => { document.getElementById('modal').hidden = true; };
+    document.getElementById('btn-expand').onclick = () => { state.expandAll = true; state.collapsed.clear(); renderTree(); };
+    document.getElementById('btn-collapse').onclick = () => {
+      state.expandAll = false;
+      state.accounts.forEach((a) => { if (a.parent_account_id == null) state.collapsed.add(a.account_id); });
+      renderTree();
+    };
+    document.getElementById('btn-export-csv').onclick = () => downloadAuth('/finance/coa-tree/export.csv', 'coa-tree.csv');
+    document.getElementById('btn-export-xlsx').onclick = () => downloadAuth('/finance/coa-tree/export.xlsx', 'coa-tree.xlsx');
+    document.getElementById('btn-print').onclick = () => window.print();
+    document.getElementById('btn-reload').onclick = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+    ['q','filter-type','show-inactive'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', () => load().catch(()=>{}));
+      document.getElementById(id).addEventListener('change', () => load().catch(()=>{}));
+    });
+    const start = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+    window.whenFinanceContextReady ? window.whenFinanceContextReady(start) : start();
+  })();
+  </script>
+</body>
+</html>

@@ -112,6 +112,47 @@ const DOC_DEFS = {
       allow_future_dates: false
     }
   },
+  overtime: {
+    label_ar: 'إعدادات ساعات العمل الإضافي',
+    default_value: {
+      number_prefix: 'OT',
+      require_reason: true,
+      allow_overlap: false,
+      show_department: true,
+      show_day_type: true,
+      export_excel: true,
+      export_pdf: true,
+      default_day_type: 'NORMAL'
+    }
+  },
+  'payroll-runs': {
+    label_ar: 'إعدادات كشوف الرواتب',
+    default_value: {
+      number_prefix: 'PR',
+      tax_pct: 0,
+      insurance_pct: 0,
+      default_allowances: 0,
+      expense_account_code: '5100',
+      payable_account_code: '2150',
+      deductions_account_code: '',
+      require_approval_before_post: true,
+      export_csv: true,
+      export_pdf: true,
+      bank_transfer_enabled: false
+    }
+  },
+  'coa-tree': {
+    label_ar: 'إعدادات شجرة الحسابات',
+    default_value: {
+      show_english_name: true,
+      show_balances: true,
+      show_inactive: false,
+      expand_levels: 2,
+      require_approval_for_edit: false,
+      default_currency: 'SAR',
+      export_excel: true
+    }
+  },
   products: {
     label_ar: 'إعدادات المنتجات',
     default_value: {

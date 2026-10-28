@@ -3582,6 +3582,10 @@ const financeOpsRoutes = require('./finance/api/ops-ledgers');
 app.use('/finance/ops', financeOpsRoutes);
 const eInvoiceQueueRoutes = require('./finance/api/e-invoice-queue');
 app.use('/finance/e-invoice', eInvoiceQueueRoutes);
+const payrollOpsRoutes = require('./finance/api/payroll-ops');
+app.use('/finance/payroll-ops', payrollOpsRoutes);
+const coaTreeRoutes = require('./finance/api/coa-tree');
+app.use('/finance/coa-tree', coaTreeRoutes);
 const accountingIntegrationRoutes = require('./finance/api/accounting-integration');
 app.use('/finance/accounting-integration', accountingIntegrationRoutes);
 

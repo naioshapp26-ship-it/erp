@@ -209,9 +209,9 @@
         {
           id: 'coa-tree',
           label: 'شجرة الحسابات',
-          status: 'partial',
-          href: '/finance/chart-accounts-ui-design.html',
-          note: 'واجهة تصميم شجرة — مكملة لدليل الحسابات'
+          status: 'operational',
+          href: '/finance/coa-tree.html',
+          note: 'شجرة هرمية تشغيلية + أرصدة قيود + ربط الرواتب/الترحيل'
         },
         { id: 'cost-centers', label: 'مراكز التكلفة', status: 'operational', href: '/finance/cost-centers.html' },
         { id: 'expenses', label: 'المصروفات', status: 'operational', href: '/finance/expenses.html' },
@@ -227,9 +227,9 @@
         {
           id: 'payroll-link',
           label: 'الربط بكشوف الرواتب والدفعات',
-          status: 'partial',
+          status: 'operational',
           href: '/finance/payroll-runs.html',
-          note: 'يفتح كشوف الرواتب — جسر GL الكامل مرحلة لاحقة'
+          note: 'ساعات معتمدة ← مسير ← قيد متوازن عبر /finance/payroll-ops'
         }
       ]
     },
@@ -593,6 +593,27 @@
       status: 'operational',
       href: '/finance/leadership-doc-settings.html?doc=suppliers',
       note: 'تُطبَّق على إنشاء الموردين'
+    },
+    {
+      id: 'overtime',
+      label: 'ساعات العمل الإضافي',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=overtime',
+      note: 'بادئة الطلب والأسباب والتداخل والتصدير — تُطبَّق على /finance/payroll-overtime.html'
+    },
+    {
+      id: 'payroll-runs',
+      label: 'كشوف الرواتب',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=payroll-runs',
+      note: 'ضرائب/تأمينات وحسابات الترحيل — تُطبَّق على إنشاء المسير والقيد'
+    },
+    {
+      id: 'coa-tree',
+      label: 'شجرة الحسابات',
+      status: 'operational',
+      href: '/finance/leadership-doc-settings.html?doc=coa-tree',
+      note: 'عرض الأرصدة واللغة والمستويات واعتماد التعديل الحساس'
     }
   ];
 
@@ -643,7 +664,13 @@
     'pagesettings.journal-entries': 'operational',
     'pagesettings.products': 'operational',
     'pagesettings.customers': 'operational',
-    'pagesettings.suppliers': 'operational'
+    'pagesettings.suppliers': 'operational',
+    'pagesettings.overtime': 'operational',
+    'pagesettings.payroll-runs': 'operational',
+    'pagesettings.coa-tree': 'operational',
+    'payroll.overtime': 'operational',
+    'payroll.payroll-runs': 'operational',
+    'accounts.coa-tree': 'operational'
   };
 
   function resolveHref(page, sectionId) {
