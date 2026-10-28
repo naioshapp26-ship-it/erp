@@ -8,10 +8,48 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/finance/finance-workbench.css">
   <style>
+    :root {
+      --malika-line: #1e293b;
+      --malika-head: #0f172a;
+      --malika-zebra: #f8fafc;
+      --malika-total: #e2e8f0;
+    }
     .audit-list{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
     .audit-list li{background:#f8fafc;border:1px solid var(--fw-line);border-radius:10px;padding:8px 10px;font-size:.85rem}
     .slip{border:1px dashed var(--fw-line);border-radius:12px;padding:12px;margin-top:10px;background:#fff}
-    @media print{.fw-topnav,.fw-actions:not(.print-keep),.fw-toolbar,.fw-modal{display:none!important}}
+    .malika-tabs{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+    .malika-tabs button{border:1px solid var(--fw-line);background:#fff;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit}
+    .malika-tabs button.active{background:#0f172a;color:#fff;border-color:#0f172a}
+    .malika-sheet{
+      direction:rtl;background:#fff;border:1px solid var(--malika-line);overflow:auto;
+      box-shadow:0 1px 0 rgba(15,23,42,.06);
+    }
+    .malika-title{
+      text-align:center;font-weight:800;font-size:1.05rem;padding:14px 10px;border-bottom:1px solid var(--malika-line);
+      font-family:"Tajawal","Cairo",sans-serif;letter-spacing:0;
+    }
+    .malika-table{width:100%;border-collapse:collapse;min-width:1180px;font-size:.78rem}
+    .malika-table th,.malika-table td{
+      border:1px solid var(--malika-line);padding:6px 7px;vertical-align:middle;white-space:nowrap;
+    }
+    .malika-table thead th{
+      background:#f1f5f9;color:var(--malika-head);font-weight:800;text-align:center;
+    }
+    .malika-table tbody tr:nth-child(even){background:var(--malika-zebra)}
+    .malika-table .num{font-variant-numeric:tabular-nums;text-align:left;direction:ltr}
+    .malika-table .code{font-variant-numeric:tabular-nums;text-align:center;font-family:ui-monospace,monospace}
+    .malika-table tfoot td{background:var(--malika-total);font-weight:800}
+    .malika-neg{color:#b91c1c}
+    .detail-expand{margin-top:10px;font-size:.85rem;color:#64748b}
+    .layout-wide .fw-drawer{min-width:0}
+    .fw-layout.malika-focus{grid-template-columns:minmax(280px,340px) minmax(0,1fr)}
+    @media print{
+      .fw-topnav,.fw-actions:not(.print-keep),.fw-toolbar,.fw-modal,.fw-kpis,.runs-pane{display:none!important}
+      .fw-layout.malika-focus{display:block}
+      .malika-sheet{overflow:visible;box-shadow:none}
+      .malika-table{min-width:0;font-size:9pt}
+      @page{size:A4 landscape;margin:8mm}
+    }
   </style>
 </head>
 <body class="fw-body" data-kind="payroll-runs">
@@ -21,11 +59,15 @@
       <div>
         <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
         <h1 id="page-title"><i class="fas fa-file-invoice-dollar"></i> <span id="page-title-text">كشوف الرواتب</span></h1>
-        <p id="page-subtitle">مسيرات رواتب تشغيلية: إنشاء → مراجعة → اعتماد → قيد محاسبي متوازن في شجرة الحسابات. الساعات المعتمدة تُربط مرة واحدة فقط. التحويل البنكي معطّل بلا إعداد صريح.</p>
+        <p id="page-subtitle">مسير الرواتب بنموذج المؤسسة المعتمد: ترتيب أعمدة مليكة، RTL، مستبعدون، تصدير XLSX/PDF مطابق.</p>
         <div id="custom-section" class="fw-alert info" hidden style="margin-top:10px"></div>
       </div>
       <div class="fw-actions">
         <button type="button" class="fw-btn fw-btn-ok" id="btn-generate"><i class="fas fa-plus"></i> إنشاء مسير</button>
+        <label class="fw-btn" id="btn-import-label" style="cursor:pointer">
+          <i class="fas fa-file-import"></i> استيراد مليكة
+          <input type="file" id="import-file" accept=".xlsx,.xls" hidden>
+        </label>
         <button type="button" class="fw-btn" id="btn-add-emp"><i class="fas fa-user-plus"></i> موظف</button>
         <a class="fw-btn" href="/finance/payroll-overtime.html">ساعات إضافية</a>
         <a class="fw-btn" href="/finance/coa-tree.html">شجرة الحسابات</a>
@@ -47,14 +89,14 @@
       </select>
       <select id="page-size"><option value="25" selected>25</option><option value="50">50</option></select>
     </div>
-    <div class="fw-layout">
-      <section class="fw-card">
+    <div class="fw-layout malika-focus">
+      <section class="fw-card runs-pane">
         <div class="fw-card-head"><h2>مسيرات الرواتب</h2><span id="count" class="fw-badge muted">0</span></div>
         <div id="table-host"></div>
         <div class="fw-pager" id="pager"></div>
       </section>
       <aside class="fw-drawer" id="drawer">
-        <div class="fw-empty"><i class="fas fa-hand-pointer"></i>اختر مسيرًا للمعاينة والبنود</div>
+        <div class="fw-empty"><i class="fas fa-hand-pointer"></i>اختر مسيرًا لعرض نموذج مليكة</div>
       </aside>
     </div>
   </div>
@@ -67,12 +109,13 @@
         <label>الشهر *
           <select id="period_month" required></select>
         </label>
+        <label class="wide">نوع المسير<input id="run_type_label" placeholder="المسير العام"></label>
         <label class="wide">القسم (اختياري)<input id="department" placeholder="فارغ = كل الأقسام"></label>
-        <label>بدلات افتراضية<input type="number" id="default_allowances" min="0" step="0.01" value="0"></label>
-        <label>حوافز افتراضية<input type="number" id="default_incentives" min="0" step="0.01" value="0"></label>
-        <label>سلف افتراضية<input type="number" id="default_advances" min="0" step="0.01" value="0"></label>
+        <label>بدل مواصلات افتراضي<input type="number" id="default_allowances" min="0" step="0.01" value="0"></label>
+        <label>بدلات أخرى إضافية<input type="number" id="default_incentives" min="0" step="0.01" value="0"></label>
+        <label>سلفة افتراضية (موجب)<input type="number" id="default_advances" min="0" step="0.01" value="0"></label>
       </div>
-      <p style="font-size:.85rem;color:#64748b;margin:8px 0 0">تُضمَّن الساعات الإضافية المعتمدة للفترة مرة واحدة فقط وتتحول إلى «مُرحّل للرواتب».</p>
+      <p style="font-size:.85rem;color:#64748b;margin:8px 0 0">الإضافي المعتمد يُطوى في «بدلات اخرى» حسب الإعداد دون تغيير ترتيب الأعمدة الـ13.</p>
       <div class="fw-sheet-actions">
         <button type="button" class="fw-btn" id="btn-cancel">إلغاء</button>
         <button type="submit" class="fw-btn fw-btn-primary">إنشاء المسير</button>
@@ -81,17 +124,45 @@
   </div>
 
   <div class="fw-modal" id="emp-modal" hidden>
-    <form class="fw-sheet" id="emp-form" style="max-width:520px">
+    <form class="fw-sheet" id="emp-form" style="max-width:640px">
       <h2>إضافة موظف للرواتب</h2>
       <div class="fw-form-grid">
-        <label>الرقم الوظيفي *<input id="emp_code" required></label>
+        <label>الرقم الوظيفي *<input id="emp_code" required placeholder="يحافظ على الأصفار مثل 00029"></label>
         <label>الاسم بالعربية *<input id="emp_name" required></label>
-        <label>القسم<input id="emp_dept"></label>
+        <label>الادارة/القسم<input id="emp_dept"></label>
+        <label>الجنسية<input id="emp_nat"></label>
         <label>الراتب الأساسي *<input type="number" id="emp_base" min="0" step="0.01" required></label>
+        <label>بدل سكن<input type="number" id="emp_housing" min="0" step="0.01" value="0"></label>
+        <label>بدل طبيعة عمل<input type="number" id="emp_nature" min="0" step="0.01" value="0"></label>
+        <label>بدل مواصلات<input type="number" id="emp_transport" min="0" step="0.01" value="0"></label>
+        <label>بدلات اخرى<input type="number" id="emp_other" min="0" step="0.01" value="0"></label>
+        <label>تأمينات (بإشارتها)<input type="number" id="emp_ins" step="0.01" value="0"></label>
+        <label>استقطاع سلفة (سالب)<input type="number" id="emp_adv" step="0.01" value="0"></label>
       </div>
       <div class="fw-sheet-actions">
         <button type="button" class="fw-btn" id="emp-cancel">إلغاء</button>
         <button type="submit" class="fw-btn fw-btn-primary">حفظ</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="fw-modal" id="edit-modal" hidden>
+    <form class="fw-sheet" id="edit-form" style="max-width:640px">
+      <h2>تعديل بند موظف</h2>
+      <input type="hidden" id="edit_item_id">
+      <div class="fw-form-grid">
+        <label>الراتب الأساسي<input type="number" id="edit_base" step="0.01"></label>
+        <label>بدل سكن<input type="number" id="edit_housing" step="0.01"></label>
+        <label>بدل طبيعة عمل<input type="number" id="edit_nature" step="0.01"></label>
+        <label>بدل مواصلات<input type="number" id="edit_transport" step="0.01"></label>
+        <label>بدلات اخرى<input type="number" id="edit_other" step="0.01"></label>
+        <label>التأمينات الاجتماعية<input type="number" id="edit_ins" step="0.01"></label>
+        <label>استقطاع سلفة<input type="number" id="edit_adv" step="0.01"></label>
+      </div>
+      <p style="font-size:.85rem;color:#64748b">الصافي = الإجمالي + التأمينات + السلفة بإشاراتهما. لا يُحتسب الاستقطاع مرتين.</p>
+      <div class="fw-sheet-actions">
+        <button type="button" class="fw-btn" id="edit-cancel">إلغاء</button>
+        <button type="submit" class="fw-btn fw-btn-primary">إعادة الاحتساب</button>
       </div>
     </form>
   </div>
@@ -104,13 +175,40 @@
   (function () {
     const FW = window.FinanceWorkbench;
     const AR = { DRAFT:'مسودة', APPROVED:'معتمد', POSTED:'مُرحّل محاسبيًا', CLOSED:'مقفل', CANCELLED:'ملغى' };
-    const state = { runs: [], selected: null, detail: null, page: 1, settings: {}, canViewAll: false };
+    const COL_VIS = {
+      employee_code: 'show_col_employee_code',
+      full_name_ar: 'show_col_name',
+      department: 'show_col_department',
+      nationality: 'show_col_nationality',
+      base_salary: 'show_col_base',
+      housing_allowance: 'show_col_housing',
+      nature_allowance: 'show_col_nature',
+      transport_allowance: 'show_col_transport',
+      other_allowances: 'show_col_other',
+      gross_amount: 'show_col_gross',
+      insurance_amount: 'show_col_insurance',
+      advance_deduction: 'show_col_advance',
+      net_amount: 'show_col_net'
+    };
+    const DEFAULT_COLS = [
+      { key: 'employee_code', header: 'الرقم الوظيفي', kind: 'text' },
+      { key: 'full_name_ar', header: 'اسم الموظف', kind: 'text' },
+      { key: 'department', header: 'الادارة/القسم', kind: 'text' },
+      { key: 'nationality', header: 'الجنسية', kind: 'text' },
+      { key: 'base_salary', header: 'الراتب الأساسي', kind: 'money', total: true },
+      { key: 'housing_allowance', header: 'بدل سكن', kind: 'money', total: true },
+      { key: 'nature_allowance', header: 'بدل طبيعة عمل ', kind: 'money', total: true },
+      { key: 'transport_allowance', header: 'بدل مواصلات', kind: 'money', total: true },
+      { key: 'other_allowances', header: 'بدلات اخرى', kind: 'money', total: true },
+      { key: 'gross_amount', header: 'إجمالي الراتب', kind: 'money', total: true },
+      { key: 'insurance_amount', header: 'التأمينات الاجتماعية', kind: 'money', total: true },
+      { key: 'advance_deduction', header: 'استقطاع سلفة', kind: 'money', total: true },
+      { key: 'net_amount', header: 'صافي المبلغ', kind: 'money', total: true }
+    ];
+    const state = { runs: [], selected: null, detail: null, page: 1, settings: {}, canViewAll: false, tab: 'payroll', columns: DEFAULT_COLS };
 
     const monthSel = document.getElementById('period_month');
-    monthSel.innerHTML = Array.from({length:12}, (_,i) => {
-      const m = i+1;
-      return `<option value="${m}">${m}</option>`;
-    }).join('');
+    monthSel.innerHTML = Array.from({length:12}, (_,i) => `<option value="${i+1}">${i+1}</option>`).join('');
     const now = new Date();
     document.getElementById('period_year').value = now.getFullYear();
     monthSel.value = String(now.getMonth()+1);
@@ -122,6 +220,20 @@
     function payload() {
       const eid = FW.entityId();
       return eid ? { entity_id: eid } : {};
+    }
+    function money(v) {
+      if (v == null || v === '') return '';
+      const n = Number(v);
+      if (!Number.isFinite(n) || n === 0) return n === 0 ? '0' : '';
+      return FW.money(n).replace(/[^\d.,\-]/g, '') || String(n);
+    }
+    function visibleColumns() {
+      const s = state.settings || {};
+      return (state.columns || DEFAULT_COLS).filter((c) => {
+        const flag = COL_VIS[c.key];
+        if (!flag) return true;
+        return s[flag] !== false;
+      });
     }
     function applySettings(s) {
       state.settings = s || {};
@@ -139,11 +251,14 @@
       }
       const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on === false ? 'none' : ''; };
       show('btn-add-emp', s.show_btn_add_employee !== false);
+      show('btn-import-label', s.show_btn_import !== false);
+      if (s.run_type_label) document.getElementById('run_type_label').placeholder = s.run_type_label;
+      if (s.default_allowances != null) document.getElementById('default_allowances').value = s.default_allowances;
     }
     function auditList(row) {
       const audit = Array.isArray(row.audit_log) ? row.audit_log : (() => { try { return JSON.parse(row.audit_log||'[]'); } catch { return []; } })();
       return audit.slice().reverse().map((e) =>
-        `<li><strong>${FW.esc(e.action)}</strong> — ${FW.esc(e.by||'')} — ${FW.esc(e.at||'')}${e.journal_entry_id?` · قيد ${FW.esc(e.journal_entry_id)}`:''}</li>`
+        `<li><strong>${FW.esc(e.action)}</strong> — ${FW.esc(e.by||'')} — ${FW.esc(e.at||'')}${e.journal_entry_id?` · قيد ${FW.esc(e.journal_entry_id)}`:''}${e.reason?` · ${FW.esc(e.reason)}`:''}</li>`
       ).join('') || '<li>لا أحداث</li>';
     }
     function filtered() {
@@ -152,17 +267,18 @@
       return state.runs.filter((r) => {
         if (st && String(r.status).toUpperCase() !== st) return false;
         if (!q) return true;
-        return `${r.run_number} ${r.department||''} ${r.period_year}-${r.period_month}`.toLowerCase().includes(q);
+        return `${r.run_number} ${r.department||''} ${r.period_year}-${r.period_month} ${r.title_override||''}`.toLowerCase().includes(q);
       });
     }
     function renderKpis() {
       const rows = state.runs;
       const c = (s) => rows.filter((r) => String(r.status).toUpperCase() === s).length;
       const net = rows.reduce((s,r) => s + Number(r.total_net||0), 0);
+      const country = state.settings.payroll_country || 'CUSTOM';
       document.getElementById('kpis').innerHTML = [
         ['المسيرات', rows.length, `${c('DRAFT')} مسودة`],
         ['معتمدة', c('APPROVED'), `${c('POSTED')} مُرحّل`],
-        ['مقفلة', c('CLOSED'), 'بدون تعديل حر'],
+        ['الدولة', country, state.settings.currency || '—'],
         ['صافي مجمع', FW.money(net), state.settings.bank_transfer_enabled ? 'تحويل مفعّل' : 'بدون صرف بنكي']
       ].map(([a,b,c2]) => `<div class="fw-kpi"><span>${a}</span><strong>${b}</strong><em>${c2}</em></div>`).join('');
     }
@@ -178,21 +294,84 @@
         return;
       }
       host.innerHTML = `<div class="fw-table-wrap"><table class="fw-table"><thead><tr>
-        <th>رقم المسير</th><th>الفترة</th><th>القسم</th><th>الإجمالي</th><th>الاستقطاعات</th><th>الصافي</th><th>القيد</th><th>الحالة</th><th></th>
+        <th>رقم المسير</th><th>الفترة</th><th>النوع</th><th>الإجمالي</th><th>الصافي</th><th>القيد</th><th>الحالة</th><th></th>
       </tr></thead><tbody>${page.rows.map((r) => {
         const st = String(r.status).toUpperCase();
         return `<tr class="${state.selected===r.run_id?'active':''}" data-id="${r.run_id}">
           <td class="fw-num">${FW.esc(r.run_number)}</td>
           <td class="fw-num">${FW.esc(r.period_year)}/${String(r.period_month).padStart(2,'0')}</td>
-          <td>${FW.esc(r.department||'الكل')}</td>
+          <td>${FW.esc(r.run_type_label||state.settings.run_type_label||'المسير العام')}</td>
           <td class="fw-num">${FW.money(r.total_gross)}</td>
-          <td class="fw-num">${FW.money(r.total_deductions)}</td>
           <td class="fw-num">${FW.money(r.total_net)}</td>
           <td class="fw-num">${FW.esc(r.journal_entry_id||'—')}</td>
           <td>${FW.statusBadge(AR[st]||r.status)}</td>
-          <td><button type="button" class="fw-btn fw-btn-mini" data-view="${r.run_id}">معاينة</button></td>
+          <td><button type="button" class="fw-btn fw-btn-mini" data-view="${r.run_id}">مسير</button></td>
         </tr>`;
       }).join('')}</tbody></table></div>`;
+    }
+    function cellHtml(col, it) {
+      const v = it[col.key];
+      if (col.key === 'employee_code') return `<td class="code">${FW.esc(String(v ?? ''))}</td>`;
+      if (col.kind === 'money') {
+        const n = Number(v);
+        const cls = Number.isFinite(n) && n < 0 ? 'num malika-neg' : 'num';
+        return `<td class="${cls}">${v == null || v === '' ? '' : FW.esc(String(Number(v)))}</td>`;
+      }
+      return `<td>${FW.esc(v == null ? '' : String(v))}</td>`;
+    }
+    function renderMalikaSheet(title, items, totals) {
+      const cols = visibleColumns();
+      const head = cols.map((c) => `<th>${FW.esc(c.header)}</th>`).join('');
+      const body = items.map((it) => {
+        const st = String(state.detail?.run?.status || '').toUpperCase();
+        return `<tr>
+          ${cols.map((c) => cellHtml(c, it)).join('')}
+          <td style="border:1px solid var(--malika-line)">
+            ${st==='DRAFT'?`<button type="button" class="fw-btn fw-btn-mini" data-edit-item="${it.item_id}">تعديل</button>
+            <button type="button" class="fw-btn fw-btn-mini" data-exclude="${it.item_id}">استبعاد</button>`:''}
+            ${state.settings.export_pdf!==false?`<button type="button" class="fw-btn fw-btn-mini" data-payslip="${it.item_id}">قسيمة</button>`:''}
+            ${state.settings.show_col_overtime?`<span class="detail-expand">إضافي: ${FW.esc(String(it.overtime_amount||0))}</span>`:''}
+          </td>
+        </tr>`;
+      }).join('') || `<tr><td colspan="${cols.length+1}">لا بنود</td></tr>`;
+      const foot = cols.map((c) => {
+        if (c.key === 'employee_code') return '<td>المجموع</td>';
+        if (!c.total) return '<td></td>';
+        const v = totals?.[c.key];
+        const n = Number(v);
+        return `<td class="num${n<0?' malika-neg':''}">${v == null ? '' : FW.esc(String(Number(v)))}</td>`;
+      }).join('');
+      return `<div class="malika-sheet" id="malika-print-root">
+        <div class="malika-title">${FW.esc(title || 'مسير الرواتب')}</div>
+        <table class="malika-table">
+          <thead><tr>${head}<th>إجراءات</th></tr></thead>
+          <tbody>${body}</tbody>
+          <tfoot><tr>${foot}<td></td></tr></tfoot>
+        </table>
+      </div>`;
+    }
+    function renderExcludedSheet(title, excluded) {
+      const st = String(state.detail?.run?.status || '').toUpperCase();
+      return `<div class="malika-sheet">
+        <div class="malika-title">${FW.esc(title || 'الموظفين المستبعدين')}</div>
+        <table class="malika-table" style="min-width:720px">
+          <thead><tr>
+            <th>الرقم الوظيفي</th><th>اسم الموظف</th><th>سبب الاستبعاد</th><th>اضيف بواسطة</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${(excluded||[]).map((ex) => `<tr>
+              <td class="code">${FW.esc(ex.employee_code||'')}</td>
+              <td>${FW.esc(ex.full_name_ar||'')}</td>
+              <td>${FW.esc(ex.reason||'')}</td>
+              <td>${FW.esc(ex.added_by||'')}</td>
+              <td>
+                ${st==='DRAFT'?`<button type="button" class="fw-btn fw-btn-mini" data-fix-reason="${ex.excluded_id}">تصحيح السبب</button>
+                <button type="button" class="fw-btn fw-btn-mini fw-btn-ok" data-restore="${ex.excluded_id}">إعادة للمسير</button>`:''}
+              </td>
+            </tr>`).join('') || '<tr><td colspan="5">لا موظفون مستبعدون</td></tr>'}
+          </tbody>
+        </table>
+      </div>`;
     }
     async function show(id) {
       state.selected = Number(id);
@@ -205,104 +384,97 @@
         return;
       }
       state.detail = res.json;
+      if (res.json.columns?.length) state.columns = res.json.columns;
+      if (res.json.settings) applySettings({ ...state.settings, ...res.json.settings });
       const run = res.json.run;
       const items = res.json.items || [];
+      const excluded = res.json.excluded || [];
       const st = String(run.status).toUpperCase();
-      const bankNote = state.settings.bank_transfer_enabled
-        ? '<p class="fw-alert warn">التحويل البنكي مفعّل في الإعدادات — يتطلب اعتمادًا صريحًا منفصلًا قبل الصرف.</p>'
-        : '<p style="font-size:.85rem;color:#64748b">التحويل البنكي/الصرف الفعلي معطّل حتى تفعيل إعداد صريح.</p>';
+      const sheet = state.tab === 'excluded'
+        ? renderExcludedSheet(res.json.excluded_title, excluded)
+        : renderMalikaSheet(res.json.title, items, res.json.totals);
+
       drawer.innerHTML = `
         <h3>${FW.esc(run.run_number)}</h3>
         <div class="fw-meta">
           <div><span>الحالة</span><strong>${FW.statusBadge(AR[st]||run.status)}</strong></div>
           <div><span>الفترة</span><strong class="fw-num">${FW.esc(run.period_year)}/${String(run.period_month).padStart(2,'0')}</strong></div>
-          <div><span>القسم</span><strong>${FW.esc(run.department||'الكل')}</strong></div>
+          <div><span>النوع</span><strong>${FW.esc(run.run_type_label||state.settings.run_type_label||'المسير العام')}</strong></div>
           <div><span>الإجمالي / الصافي</span><strong class="fw-num">${FW.money(run.total_gross)} / ${FW.money(run.total_net)}</strong></div>
           <div><span>قيد محاسبي</span><strong class="fw-num">${FW.esc(run.journal_entry_id||'—')}</strong></div>
-          <div><span>اعتمد بواسطة</span><strong>${FW.esc(run.approved_by||'—')}</strong></div>
+          <div><span>المصدر</span><strong>${FW.esc(run.source_import||'تشغيل')}</strong></div>
         </div>
-        ${bankNote}
-        <div class="fw-actions print-keep" style="margin-top:12px;flex-wrap:wrap">
+        <div class="malika-tabs">
+          <button type="button" class="${state.tab==='payroll'?'active':''}" data-tab="payroll">مسير الرواتب (${items.length})</button>
+          <button type="button" class="${state.tab==='excluded'?'active':''}" data-tab="excluded">الموظفون المستبعدون (${excluded.length})</button>
+        </div>
+        <div class="fw-actions print-keep" style="margin:8px 0 12px;flex-wrap:wrap">
           ${st==='DRAFT'?`<button class="fw-btn fw-btn-ok" id="d-approve">اعتماد المسير</button>`:''}
           ${st==='APPROVED'?`<button class="fw-btn fw-btn-primary" id="d-post">ترحيل قيد محاسبي</button>`:''}
           ${['APPROVED','POSTED'].includes(st) && !run.closed_at?`<button class="fw-btn" id="d-close">إقفال</button>`:''}
-          <button class="fw-btn" id="d-csv">CSV</button>
-          <button class="fw-btn" id="d-xlsx">Excel</button>
-          <button class="fw-btn" id="d-print">طباعة / PDF</button>
+          ${state.settings.show_btn_csv!==false?`<button class="fw-btn" id="d-csv">CSV</button>`:''}
+          ${state.settings.show_btn_excel!==false?`<button class="fw-btn" id="d-xlsx">Excel (Payroll+Excluded)</button>`:''}
+          ${state.settings.export_pdf!==false?`<button class="fw-btn" id="d-pdf">PDF أفقي</button>`:''}
+          ${state.settings.show_btn_print!==false?`<button class="fw-btn" id="d-print">طباعة</button>`:''}
         </div>
-        <h4 style="margin:14px 0 6px">بنود الموظفين (${items.length})</h4>
         ${!res.json.can_view_all && !items.length ? '<p class="fw-alert warn">لا صلاحية لعرض رواتب الآخرين.</p>' : ''}
-        <div class="fw-table-wrap"><table class="fw-table"><thead><tr>
-          <th>الرقم</th><th>الموظف</th><th>أساسي</th>
-          ${state.settings.show_col_allowances!==false?'<th>بدلات</th>':''}
-          ${state.settings.show_col_incentives!==false?'<th>حوافز</th>':''}
-          ${state.settings.show_col_overtime!==false?'<th>إضافي</th>':''}
-          ${state.settings.show_col_deductions!==false?'<th>استقطاع</th>':''}
-          <th>صافي</th><th></th>
-        </tr></thead><tbody>
-        ${items.map((it) => `<tr>
-          <td class="fw-num">${FW.esc(it.employee_code||'')}</td>
-          <td>${FW.esc(it.full_name_ar||'')}</td>
-          <td class="fw-num">${FW.money(it.base_salary)}</td>
-          ${state.settings.show_col_allowances!==false?`<td class="fw-num">${FW.money(it.allowances)}</td>`:''}
-          ${state.settings.show_col_incentives!==false?`<td class="fw-num">${FW.money(it.incentives)}</td>`:''}
-          ${state.settings.show_col_overtime!==false?`<td class="fw-num">${FW.money(it.overtime_amount)}</td>`:''}
-          ${state.settings.show_col_deductions!==false?`<td class="fw-num">${FW.money(it.deductions_amount)}</td>`:''}
-          <td class="fw-num">${FW.money(it.net_amount)}</td>
-          <td>
-            ${st==='DRAFT'?`<button type="button" class="fw-btn fw-btn-mini" data-edit-item="${it.item_id}">تعديل</button>`:''}
-            ${state.settings.export_pdf!==false?`<button type="button" class="fw-btn fw-btn-mini" data-payslip="${it.item_id}">PDF</button>`:''}
-          </td>
-        </tr>`).join('') || '<tr><td colspan="9">لا بنود</td></tr>'}
-        </tbody></table></div>
-        ${items.map((it) => `
-          <div class="slip" id="slip-${it.item_id}">
-            <strong>قسيمة راتب — ${FW.esc(it.full_name_ar||'')} (${FW.esc(it.employee_code||'')})</strong>
-            <div class="fw-meta" style="margin-top:8px">
-              <div><span>الأساسي</span><strong class="fw-num">${FW.money(it.base_salary)}</strong></div>
-              <div><span>بدلات</span><strong class="fw-num">${FW.money(it.allowances)}</strong></div>
-              <div><span>حوافز</span><strong class="fw-num">${FW.money(it.incentives)}</strong></div>
-              <div><span>إضافي</span><strong class="fw-num">${FW.money(it.overtime_amount)}</strong></div>
-              <div><span>استقطاعات</span><strong class="fw-num">${FW.money(it.deductions_amount)}</strong></div>
-              <div><span>الصافي</span><strong class="fw-num">${FW.money(it.net_amount)}</strong></div>
-            </div>
-          </div>`).join('')}
+        <div id="sheet-host">${sheet}</div>
         <h4 style="margin:14px 0 6px">التدقيق</h4>
         <ul class="audit-list">${auditList(run)}</ul>`;
 
+      drawer.querySelectorAll('[data-tab]').forEach((btn) => {
+        btn.addEventListener('click', () => { state.tab = btn.dataset.tab; show(id); });
+      });
       drawer.querySelectorAll('[data-edit-item]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => {
           const item = items.find((x) => String(x.item_id) === String(btn.dataset.editItem));
           if (!item) return;
-          const allowances = await window.ErpDialog?.prompt?.({
-            title: 'تعديل بدل',
-            message: 'البدلات',
-            defaultValue: String(item.allowances || 0),
-            inputType: 'number'
-          });
-          if (allowances == null) return;
-          const incentives = await window.ErpDialog?.prompt?.({
-            title: 'تعديل حوافز',
-            message: 'الحوافز',
-            defaultValue: String(item.incentives || 0),
-            inputType: 'number'
-          });
-          if (incentives == null) return;
-          const r = await FW.api('PUT', `/finance/payroll-ops/runs/${id}/items/${item.item_id}`, {
-            ...payload(),
-            allowances: Number(allowances),
-            incentives: Number(incentives)
-          });
-          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل التعديل', 'err');
-          FW.setAlert(document.getElementById('alert'), 'عُدّل البند وأُعيد احتساب المسير', 'ok');
-          await load();
-          show(id);
+          document.getElementById('edit_item_id').value = item.item_id;
+          document.getElementById('edit_base').value = item.base_salary || 0;
+          document.getElementById('edit_housing').value = item.housing_allowance || 0;
+          document.getElementById('edit_nature').value = item.nature_allowance || 0;
+          document.getElementById('edit_transport').value = item.transport_allowance || 0;
+          document.getElementById('edit_other').value = item.other_allowances || 0;
+          document.getElementById('edit_ins').value = item.insurance_amount || 0;
+          document.getElementById('edit_adv').value = item.advance_deduction || 0;
+          document.getElementById('edit-modal').hidden = false;
+        });
+      });
+      drawer.querySelectorAll('[data-exclude]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const reason = await window.ErpDialog?.prompt?.({ title: 'استبعاد موظف', message: 'سبب الاستبعاد', defaultValue: '' });
+          if (reason == null) return;
+          if (!String(reason).trim()) return FW.setAlert(document.getElementById('alert'), 'السبب إلزامي', 'err');
+          const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/exclude`, { ...payload(), item_id: Number(btn.dataset.exclude), reason: String(reason).trim() });
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل', 'err');
+          state.tab = 'excluded';
+          FW.setAlert(document.getElementById('alert'), 'استُبعد الموظف', 'ok');
+          await load(); show(id);
+        });
+      });
+      drawer.querySelectorAll('[data-fix-reason]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const ex = excluded.find((x) => String(x.excluded_id) === String(btn.dataset.fixReason));
+          const reason = await window.ErpDialog?.prompt?.({ title: 'تصحيح السبب', message: 'سبب الاستبعاد', defaultValue: ex?.reason || '' });
+          if (reason == null) return;
+          const r = await FW.api('PUT', `/finance/payroll-ops/runs/${id}/excluded/${btn.dataset.fixReason}`, { ...payload(), reason: String(reason).trim() });
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل', 'err');
+          await load(); show(id);
+        });
+      });
+      drawer.querySelectorAll('[data-restore]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!(await window.ErpDialog?.confirm?.({ title: 'إعادة', message: 'إعادة الموظف للمسير؟ يتطلب صلاحية اعتماد.' }))) return;
+          const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/excluded/${btn.dataset.restore}/restore`, payload());
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل', 'err');
+          state.tab = 'payroll';
+          FW.setAlert(document.getElementById('alert'), 'أُعيد للمسير', 'ok');
+          await load(); show(id);
         });
       });
       drawer.querySelectorAll('[data-payslip]').forEach((btn) => {
         btn.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${id}/payslip/${btn.dataset.payslip}.pdf`, `payslip-${btn.dataset.payslip}.pdf`));
       });
-
       document.getElementById('d-approve')?.addEventListener('click', async () => {
         if (!(await window.ErpDialog?.confirm?.({ title: 'اعتماد', message: 'اعتماد مسير الرواتب؟' }))) return;
         const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/approve`, payload());
@@ -311,20 +483,21 @@
         await load(); show(id);
       });
       document.getElementById('d-post')?.addEventListener('click', async () => {
-        if (!(await window.ErpDialog?.confirm?.({ title: 'ترحيل', message: 'إنشاء قيد محاسبي متوازن وربطه بالمسير؟ لا يتكرر إن وُجد قيد.' }))) return;
+        if (!(await window.ErpDialog?.confirm?.({ title: 'ترحيل', message: 'إنشاء قيد محاسبي متوازن وربطه بالمسير مرة واحدة؟' }))) return;
         const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/post-gl`, payload());
         if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل', 'err');
         FW.setAlert(document.getElementById('alert'), r.json?.message || 'تم الترحيل', 'ok');
         await load(); show(id);
       });
       document.getElementById('d-close')?.addEventListener('click', async () => {
-        if (!(await window.ErpDialog?.confirm?.({ title: 'إقفال', message: 'إقفال المسير؟ التعديل لاحقًا يتطلب إجراءً تصحيحيًا.' }))) return;
+        if (!(await window.ErpDialog?.confirm?.({ title: 'إقفال', message: 'إقفال المسير؟' }))) return;
         const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/close`, payload());
         if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل', 'err');
         await load(); show(id);
       });
       document.getElementById('d-csv')?.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${id}/export.csv`, `payroll-${id}.csv`));
       document.getElementById('d-xlsx')?.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${id}/export.xlsx`, `payroll-${id}.xlsx`));
+      document.getElementById('d-pdf')?.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${id}/export.pdf`, `payroll-${id}.pdf`));
       document.getElementById('d-print')?.addEventListener('click', () => window.print());
     }
     function downloadAuth(path, name) {
@@ -351,11 +524,9 @@
       const res = await FW.api('GET', `/finance/payroll-ops/runs?${qs()}`);
       if (!res.ok || !res.json?.success) throw new Error(res.json?.error || 'فشل التحميل');
       state.runs = res.json.runs || [];
+      if (res.json.columns?.length) state.columns = res.json.columns;
       applySettings(res.json.settings || {});
       state.canViewAll = !!res.json.can_view_all;
-      if (state.settings.default_allowances != null) {
-        document.getElementById('default_allowances').value = state.settings.default_allowances;
-      }
       renderKpis();
       renderTable();
       FW.setAlert(document.getElementById('alert'), `تم تحميل ${state.runs.length} مسير`, 'ok');
@@ -368,6 +539,7 @@
         period_year: Number(document.getElementById('period_year').value),
         period_month: Number(document.getElementById('period_month').value),
         department: document.getElementById('department').value.trim() || null,
+        run_type_label: document.getElementById('run_type_label').value.trim() || state.settings.run_type_label || 'المسير العام',
         default_allowances: Number(document.getElementById('default_allowances').value || 0),
         default_incentives: Number(document.getElementById('default_incentives').value || 0),
         default_advances: Number(document.getElementById('default_advances').value || 0)
@@ -386,13 +558,67 @@
         employee_code: document.getElementById('emp_code').value.trim(),
         full_name_ar: document.getElementById('emp_name').value.trim(),
         department: document.getElementById('emp_dept').value.trim() || null,
-        base_salary: Number(document.getElementById('emp_base').value || 0)
+        nationality: document.getElementById('emp_nat').value.trim() || null,
+        base_salary: Number(document.getElementById('emp_base').value || 0),
+        housing_allowance: Number(document.getElementById('emp_housing').value || 0),
+        nature_allowance: Number(document.getElementById('emp_nature').value || 0),
+        transport_allowance: Number(document.getElementById('emp_transport').value || 0),
+        other_allowances: Number(document.getElementById('emp_other').value || 0),
+        default_insurance_amount: Number(document.getElementById('emp_ins').value || 0),
+        default_advance_deduction: Number(document.getElementById('emp_adv').value || 0)
       };
       const res = await FW.api('POST', '/finance/payroll-ops/employees', body);
       if (!res.ok || !res.json?.success) return FW.setAlert(document.getElementById('alert'), res.json?.error || 'فشل', 'err');
       document.getElementById('emp-modal').hidden = true;
       FW.setAlert(document.getElementById('alert'), 'أُضيف الموظف', 'ok');
     };
+    document.getElementById('edit-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = state.selected;
+      const itemId = document.getElementById('edit_item_id').value;
+      const body = {
+        ...payload(),
+        base_salary: Number(document.getElementById('edit_base').value || 0),
+        housing_allowance: Number(document.getElementById('edit_housing').value || 0),
+        nature_allowance: Number(document.getElementById('edit_nature').value || 0),
+        transport_allowance: Number(document.getElementById('edit_transport').value || 0),
+        other_allowances: Number(document.getElementById('edit_other').value || 0),
+        insurance_amount: Number(document.getElementById('edit_ins').value || 0),
+        advance_deduction: Number(document.getElementById('edit_adv').value || 0)
+      };
+      const r = await FW.api('PUT', `/finance/payroll-ops/runs/${id}/items/${itemId}`, body);
+      if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل التعديل', 'err');
+      document.getElementById('edit-modal').hidden = true;
+      FW.setAlert(document.getElementById('alert'), 'عُدّل البند وأُعيد احتساب المسير', 'ok');
+      await load(); show(id);
+    };
+    document.getElementById('import-file').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('period_year', String(document.getElementById('period_year').value || now.getFullYear()));
+      fd.append('period_month', String(document.getElementById('period_month').value || (now.getMonth()+1)));
+      const eid = FW.entityId();
+      if (eid) fd.append('entity_id', eid);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
+      try {
+        const res = await fetch('/finance/payroll-ops/runs/import-malika', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: token ? { Authorization: 'Bearer ' + token } : {},
+          body: fd
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) throw new Error(json.error || 'فشل الاستيراد');
+        FW.setAlert(document.getElementById('alert'), json.message || 'تم الاستيراد', 'ok');
+        await load();
+        show(json.run.run_id);
+      } catch (err) {
+        FW.setAlert(document.getElementById('alert'), err.message, 'err');
+      }
+    });
     document.getElementById('topnav').innerHTML = FW.topNav([
       ['/finance/payroll-overtime.html', 'ساعات إضافية'],
       ['/finance/payroll-runs.html', 'كشوف الرواتب'],
@@ -401,12 +627,13 @@
     ], '/finance/payroll-runs.html');
     document.getElementById('table-host').addEventListener('click', (e) => {
       const id = e.target.closest('[data-view]')?.dataset.view || e.target.closest('[data-id]')?.dataset.id;
-      if (id) show(id);
+      if (id) { state.tab = 'payroll'; show(id); }
     });
     document.getElementById('btn-generate').onclick = () => { document.getElementById('modal').hidden = false; };
     document.getElementById('btn-cancel').onclick = () => { document.getElementById('modal').hidden = true; };
     document.getElementById('btn-add-emp').onclick = () => { document.getElementById('emp-modal').hidden = false; };
     document.getElementById('emp-cancel').onclick = () => { document.getElementById('emp-modal').hidden = true; };
+    document.getElementById('edit-cancel').onclick = () => { document.getElementById('edit-modal').hidden = true; };
     document.getElementById('btn-reload').onclick = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
     ['q','filter-status','page-size'].forEach((id) => {
       document.getElementById(id).addEventListener('input', () => { state.page = 1; renderTable(); });
