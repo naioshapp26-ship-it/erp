@@ -909,6 +909,181 @@ router.post('/runs/:id/approve', async (req, res) => {
   }
 });
 
+router.put('/runs/:id/items/:itemId', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'payroll_create')) return;
+    await ensureSchema();
+    const eid = entityOf(req, req.body);
+    const by = actorLabel(req);
+    const b = req.body || {};
+    const run = await db.query(
+      `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2`,
+      [req.params.id, eid]
+    );
+    if (!run.rows[0]) return res.status(404).json({ success: false, error: 'المسير غير موجود' });
+    if (String(run.rows[0].status).toUpperCase() !== 'DRAFT') {
+      return res.status(409).json({
+        success: false,
+        error: 'تعديل البنود مسموح للمسودة فقط — بعد الاعتماد يلزم إجراء تصحيحي موثق',
+        code: 'LOCKED'
+      });
+    }
+    const existing = await db.query(
+      `SELECT * FROM finance_payroll_items WHERE item_id = $1 AND run_id = $2`,
+      [req.params.itemId, req.params.id]
+    );
+    if (!existing.rows[0]) return res.status(404).json({ success: false, error: 'البند غير موجود' });
+    const base = b.base_salary != null ? Number(b.base_salary) : Number(existing.rows[0].base_salary || 0);
+    const allowances = b.allowances != null ? Number(b.allowances) : Number(existing.rows[0].allowances || 0);
+    const incentives = b.incentives != null ? Number(b.incentives) : Number(existing.rows[0].incentives || 0);
+    const overtimeAmount = b.overtime_amount != null ? Number(b.overtime_amount) : Number(existing.rows[0].overtime_amount || 0);
+    const advances = b.advances != null ? Number(b.advances) : Number(existing.rows[0].advances || 0);
+    const tax = b.tax_amount != null ? Number(b.tax_amount) : Number(existing.rows[0].tax_amount || 0);
+    const insurance = b.insurance_amount != null ? Number(b.insurance_amount) : Number(existing.rows[0].insurance_amount || 0);
+    const gross = Math.round((base + allowances + incentives + overtimeAmount) * 100) / 100;
+    const deductions = Math.round((tax + insurance + advances) * 100) / 100;
+    const net = Math.round((gross - deductions) * 100) / 100;
+    const updated = await db.query(
+      `UPDATE finance_payroll_items SET
+         base_salary=$3, allowances=$4, incentives=$5, overtime_amount=$6, advances=$7,
+         tax_amount=$8, insurance_amount=$9, gross_amount=$10, deductions_amount=$11, net_amount=$12,
+         notes=COALESCE($13, notes),
+         audit_log = COALESCE(audit_log, '[]'::jsonb) || $14::jsonb
+       WHERE item_id=$1 AND run_id=$2 RETURNING *`,
+      [
+        req.params.itemId, req.params.id,
+        base, allowances, incentives, overtimeAmount, advances, tax, insurance, gross, deductions, net,
+        b.notes != null ? String(b.notes) : null,
+        JSON.stringify([audit('item_update', by)])
+      ]
+    );
+    const sums = await db.query(
+      `SELECT COALESCE(SUM(gross_amount),0) AS g, COALESCE(SUM(deductions_amount),0) AS d, COALESCE(SUM(net_amount),0) AS n
+       FROM finance_payroll_items WHERE run_id=$1`,
+      [req.params.id]
+    );
+    await db.query(
+      `UPDATE finance_payroll_runs
+       SET total_gross=$2, total_deductions=$3, total_net=$4, updated_at=NOW(),
+           audit_log = COALESCE(audit_log, '[]'::jsonb) || $5::jsonb
+       WHERE run_id=$1`,
+      [req.params.id, sums.rows[0].g, sums.rows[0].d, sums.rows[0].n, JSON.stringify([audit('recalc_after_item_edit', by, { item_id: Number(req.params.itemId) })])]
+    );
+    res.json({ success: true, item: updated.rows[0] });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.get('/runs/:id/payslip/:itemId.pdf', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'view')) return;
+    await ensureSchema();
+    const eid = entityOf(req);
+    const viewAll = require('../services/hr-finance-authz').assertAction(req, 'payroll_view_all');
+    const settings = (await getDocSettings('payroll-runs').catch(() => null))?.value || {};
+    if (settings.export_pdf === false) {
+      return res.status(403).json({ success: false, error: 'تصدير PDF معطّل من إعدادات الصفحة' });
+    }
+    const item = await db.query(
+      `SELECT i.*, e.employee_code, e.full_name_ar, r.run_number, r.period_year, r.period_month, r.entity_id
+       FROM finance_payroll_items i
+       JOIN finance_payroll_employees e ON e.employee_id = i.employee_id
+       JOIN finance_payroll_runs r ON r.run_id = i.run_id
+       WHERE i.item_id = $1 AND i.run_id = $2 AND r.entity_id = $3`,
+      [req.params.itemId, req.params.id, eid]
+    );
+    if (!item.rows[0]) return res.status(404).json({ success: false, error: 'القسيمة غير موجودة' });
+    if (!viewAll.ok) {
+      const code = req.headers['x-employee-code'] || req.authUser?.employee_code;
+      if (!code || String(code) !== String(item.rows[0].employee_code)) {
+        return res.status(403).json({ success: false, error: 'غير مصرح بعرض قسيمة موظف آخر' });
+      }
+    }
+    const row = item.rows[0];
+    const lines = [
+      `Payslip / قسيمة راتب`,
+      `Run: ${row.run_number}  Period: ${row.period_year}/${row.period_month}`,
+      `Employee: ${row.employee_code} - ${row.full_name_ar}`,
+      `Base: ${row.base_salary}`,
+      `Allowances: ${row.allowances}`,
+      `Incentives: ${row.incentives}`,
+      `Overtime: ${row.overtime_amount}`,
+      `Deductions: ${row.deductions_amount}`,
+      `Net: ${row.net_amount}`,
+      settings.print_footer || ''
+    ].filter(Boolean);
+    const pdf = buildSimplePdf(lines);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="payslip-${row.employee_code}.pdf"`);
+    res.send(pdf);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+function buildSimplePdf(lines) {
+  const esc = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  const contentLines = ['BT', '/F1 11 Tf', '50 780 Td'];
+  lines.forEach((line, idx) => {
+    if (idx === 0) contentLines.push(`(${esc(line)}) Tj`);
+    else contentLines.push(`0 -16 Td (${esc(line)}) Tj`);
+  });
+  contentLines.push('ET');
+  const stream = contentLines.join('\n');
+  const objs = [];
+  objs.push('1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n');
+  objs.push('2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n');
+  objs.push('3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources<< /Font<< /F1 5 0 R >> >> >>endobj\n');
+  objs.push(`4 0 obj<< /Length ${Buffer.byteLength(stream, 'utf8')} >>stream\n${stream}\nendstream\nendobj\n`);
+  objs.push('5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj\n');
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  objs.forEach((o) => {
+    offsets.push(Buffer.byteLength(pdf, 'utf8'));
+    pdf += o;
+  });
+  const xref = Buffer.byteLength(pdf, 'utf8');
+  pdf += `xref\n0 ${objs.length + 1}\n`;
+  pdf += '0000000000 65535 f \n';
+  for (let i = 1; i < offsets.length; i++) {
+    pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return Buffer.from(pdf, 'utf8');
+}
+
+router.get('/overtime/export.pdf', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'view')) return;
+    await ensureSchema();
+    const settings = (await getDocSettings('overtime').catch(() => null))?.value || {};
+    if (settings.export_pdf === false) {
+      return res.status(403).json({ success: false, error: 'تصدير PDF معطّل من إعدادات الصفحة' });
+    }
+    const eid = entityOf(req);
+    const r = await db.query(
+      `SELECT o.request_number, e.employee_code, e.full_name_ar, o.work_date, o.hours, o.amount, o.status
+       FROM finance_payroll_overtime o
+       JOIN finance_payroll_employees e ON e.employee_id = o.employee_id
+       WHERE o.entity_id = $1 ORDER BY o.overtime_id DESC LIMIT 200`,
+      [eid]
+    );
+    const lines = [
+      settings.page_title || 'Overtime Report',
+      `Generated: ${new Date().toISOString()}`,
+      ...r.rows.map((row) => `${row.request_number} | ${row.employee_code} | ${row.full_name_ar} | ${row.work_date} | ${row.hours}h | ${row.amount} | ${row.status}`),
+      settings.print_footer || ''
+    ].filter(Boolean);
+    const pdf = buildSimplePdf(lines);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="overtime.pdf"');
+    res.send(pdf);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 router.post('/runs/:id/post-gl', async (req, res) => {
   const client = await db.pool.connect();
   try {

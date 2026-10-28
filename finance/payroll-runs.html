@@ -20,8 +20,9 @@
     <header class="fw-hero">
       <div>
         <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
-        <h1><i class="fas fa-file-invoice-dollar"></i> كشوف الرواتب</h1>
-        <p>مسيرات رواتب تشغيلية: إنشاء → مراجعة → اعتماد → قيد محاسبي متوازن في شجرة الحسابات. الساعات المعتمدة تُربط مرة واحدة فقط. التحويل البنكي معطّل بلا إعداد صريح.</p>
+        <h1 id="page-title"><i class="fas fa-file-invoice-dollar"></i> <span id="page-title-text">كشوف الرواتب</span></h1>
+        <p id="page-subtitle">مسيرات رواتب تشغيلية: إنشاء → مراجعة → اعتماد → قيد محاسبي متوازن في شجرة الحسابات. الساعات المعتمدة تُربط مرة واحدة فقط. التحويل البنكي معطّل بلا إعداد صريح.</p>
+        <div id="custom-section" class="fw-alert info" hidden style="margin-top:10px"></div>
       </div>
       <div class="fw-actions">
         <button type="button" class="fw-btn fw-btn-ok" id="btn-generate"><i class="fas fa-plus"></i> إنشاء مسير</button>
@@ -95,6 +96,7 @@
     </form>
   </div>
 
+  <link rel="stylesheet" href="/public/erp-dialogs.css">
   <script src="/public/erp-dialogs.js"></script>
   <script src="/finance/finance-context.js"></script>
   <script src="/finance/finance-workbench.js"></script>
@@ -120,6 +122,23 @@
     function payload() {
       const eid = FW.entityId();
       return eid ? { entity_id: eid } : {};
+    }
+    function applySettings(s) {
+      state.settings = s || {};
+      const title = s.page_title || 'كشوف الرواتب';
+      document.getElementById('page-title-text').textContent = title;
+      document.title = title + ' — القيادة المالية 360';
+      if (s.page_subtitle) document.getElementById('page-subtitle').textContent = s.page_subtitle;
+      const sec = document.getElementById('custom-section');
+      if (s.custom_section_text && String(s.custom_section_text).trim()) {
+        sec.hidden = false;
+        sec.innerHTML = `<strong>${FW.esc(s.custom_section_title || 'قسم إضافي')}</strong> — ${FW.esc(s.custom_section_text)}`;
+      } else {
+        sec.hidden = true;
+        sec.textContent = '';
+      }
+      const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on === false ? 'none' : ''; };
+      show('btn-add-emp', s.show_btn_add_employee !== false);
     }
     function auditList(row) {
       const audit = Array.isArray(row.audit_log) ? row.audit_log : (() => { try { return JSON.parse(row.audit_log||'[]'); } catch { return []; } })();
@@ -214,24 +233,35 @@
         <h4 style="margin:14px 0 6px">بنود الموظفين (${items.length})</h4>
         ${!res.json.can_view_all && !items.length ? '<p class="fw-alert warn">لا صلاحية لعرض رواتب الآخرين.</p>' : ''}
         <div class="fw-table-wrap"><table class="fw-table"><thead><tr>
-          <th>الرقم</th><th>الموظف</th><th>أساسي</th><th>بدلات</th><th>حوافز</th><th>إضافي</th><th>استقطاع</th><th>صافي</th>
+          <th>الرقم</th><th>الموظف</th><th>أساسي</th>
+          ${state.settings.show_col_allowances!==false?'<th>بدلات</th>':''}
+          ${state.settings.show_col_incentives!==false?'<th>حوافز</th>':''}
+          ${state.settings.show_col_overtime!==false?'<th>إضافي</th>':''}
+          ${state.settings.show_col_deductions!==false?'<th>استقطاع</th>':''}
+          <th>صافي</th><th></th>
         </tr></thead><tbody>
         ${items.map((it) => `<tr>
           <td class="fw-num">${FW.esc(it.employee_code||'')}</td>
           <td>${FW.esc(it.full_name_ar||'')}</td>
           <td class="fw-num">${FW.money(it.base_salary)}</td>
-          <td class="fw-num">${FW.money(it.allowances)}</td>
-          <td class="fw-num">${FW.money(it.incentives)}</td>
-          <td class="fw-num">${FW.money(it.overtime_amount)}</td>
-          <td class="fw-num">${FW.money(it.deductions_amount)}</td>
+          ${state.settings.show_col_allowances!==false?`<td class="fw-num">${FW.money(it.allowances)}</td>`:''}
+          ${state.settings.show_col_incentives!==false?`<td class="fw-num">${FW.money(it.incentives)}</td>`:''}
+          ${state.settings.show_col_overtime!==false?`<td class="fw-num">${FW.money(it.overtime_amount)}</td>`:''}
+          ${state.settings.show_col_deductions!==false?`<td class="fw-num">${FW.money(it.deductions_amount)}</td>`:''}
           <td class="fw-num">${FW.money(it.net_amount)}</td>
-        </tr>`).join('') || '<tr><td colspan="8">لا بنود</td></tr>'}
+          <td>
+            ${st==='DRAFT'?`<button type="button" class="fw-btn fw-btn-mini" data-edit-item="${it.item_id}">تعديل</button>`:''}
+            ${state.settings.export_pdf!==false?`<button type="button" class="fw-btn fw-btn-mini" data-payslip="${it.item_id}">PDF</button>`:''}
+          </td>
+        </tr>`).join('') || '<tr><td colspan="9">لا بنود</td></tr>'}
         </tbody></table></div>
-        ${items.slice(0,3).map((it) => `
-          <div class="slip">
-            <strong>قسيمة راتب — ${FW.esc(it.full_name_ar||'')}</strong>
+        ${items.map((it) => `
+          <div class="slip" id="slip-${it.item_id}">
+            <strong>قسيمة راتب — ${FW.esc(it.full_name_ar||'')} (${FW.esc(it.employee_code||'')})</strong>
             <div class="fw-meta" style="margin-top:8px">
               <div><span>الأساسي</span><strong class="fw-num">${FW.money(it.base_salary)}</strong></div>
+              <div><span>بدلات</span><strong class="fw-num">${FW.money(it.allowances)}</strong></div>
+              <div><span>حوافز</span><strong class="fw-num">${FW.money(it.incentives)}</strong></div>
               <div><span>إضافي</span><strong class="fw-num">${FW.money(it.overtime_amount)}</strong></div>
               <div><span>استقطاعات</span><strong class="fw-num">${FW.money(it.deductions_amount)}</strong></div>
               <div><span>الصافي</span><strong class="fw-num">${FW.money(it.net_amount)}</strong></div>
@@ -239,6 +269,39 @@
           </div>`).join('')}
         <h4 style="margin:14px 0 6px">التدقيق</h4>
         <ul class="audit-list">${auditList(run)}</ul>`;
+
+      drawer.querySelectorAll('[data-edit-item]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const item = items.find((x) => String(x.item_id) === String(btn.dataset.editItem));
+          if (!item) return;
+          const allowances = await window.ErpDialog?.prompt?.({
+            title: 'تعديل بدل',
+            message: 'البدلات',
+            defaultValue: String(item.allowances || 0),
+            inputType: 'number'
+          });
+          if (allowances == null) return;
+          const incentives = await window.ErpDialog?.prompt?.({
+            title: 'تعديل حوافز',
+            message: 'الحوافز',
+            defaultValue: String(item.incentives || 0),
+            inputType: 'number'
+          });
+          if (incentives == null) return;
+          const r = await FW.api('PUT', `/finance/payroll-ops/runs/${id}/items/${item.item_id}`, {
+            ...payload(),
+            allowances: Number(allowances),
+            incentives: Number(incentives)
+          });
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل التعديل', 'err');
+          FW.setAlert(document.getElementById('alert'), 'عُدّل البند وأُعيد احتساب المسير', 'ok');
+          await load();
+          show(id);
+        });
+      });
+      drawer.querySelectorAll('[data-payslip]').forEach((btn) => {
+        btn.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${id}/payslip/${btn.dataset.payslip}.pdf`, `payslip-${btn.dataset.payslip}.pdf`));
+      });
 
       document.getElementById('d-approve')?.addEventListener('click', async () => {
         if (!(await window.ErpDialog?.confirm?.({ title: 'اعتماد', message: 'اعتماد مسير الرواتب؟' }))) return;
@@ -288,7 +351,7 @@
       const res = await FW.api('GET', `/finance/payroll-ops/runs?${qs()}`);
       if (!res.ok || !res.json?.success) throw new Error(res.json?.error || 'فشل التحميل');
       state.runs = res.json.runs || [];
-      state.settings = res.json.settings || {};
+      applySettings(res.json.settings || {});
       state.canViewAll = !!res.json.can_view_all;
       if (state.settings.default_allowances != null) {
         document.getElementById('default_allowances').value = state.settings.default_allowances;

@@ -26,8 +26,9 @@
     <header class="fw-hero">
       <div>
         <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
-        <h1><i class="fas fa-sitemap"></i> شجرة الحسابات</h1>
-        <p>شجرة هرمية من `finance_accounts` مع أرصدة من القيود الفعلية. منع الأكواد المكررة والدورات والترحيل إلى حساب تجميعي. مربوطة بالرواتب والمشتريات والمبيعات.</p>
+        <h1 id="page-title"><i class="fas fa-sitemap"></i> <span id="page-title-text">شجرة الحسابات</span></h1>
+        <p id="page-subtitle">شجرة هرمية من الحسابات الفعلية مع أرصدة من القيود. منع الأكواد المكررة والدورات والترحيل إلى حساب تجميعي.</p>
+        <div id="custom-section" class="fw-alert info" hidden style="margin-top:10px"></div>
       </div>
       <div class="fw-actions">
         <button type="button" class="fw-btn fw-btn-ok" id="btn-add"><i class="fas fa-plus"></i> حساب جديد</button>
@@ -107,6 +108,7 @@
     </form>
   </div>
 
+  <link rel="stylesheet" href="/public/erp-dialogs.css">
   <script src="/public/erp-dialogs.js"></script>
   <script src="/finance/finance-context.js"></script>
   <script src="/finance/finance-workbench.js"></script>
@@ -114,7 +116,7 @@
   (function () {
     const FW = window.FinanceWorkbench;
     const TYPE_AR = { ASSET:'أصول', LIABILITY:'خصوم', EQUITY:'حقوق ملكية', REVENUE:'إيرادات', EXPENSE:'مصروفات' };
-    const state = { accounts: [], tree: [], selected: null, settings: {}, collapsed: new Set(), expandAll: false };
+    const state = { accounts: [], tree: [], selected: null, settings: {}, collapsed: new Set(), expandAll: false, settingsAppliedOnce: false };
 
     function qs() {
       const p = new URLSearchParams();
@@ -130,6 +132,31 @@
     function payload() {
       const eid = FW.entityId();
       return eid ? { entity_id: eid } : {};
+    }
+    function applySettings(s) {
+      state.settings = s || {};
+      const title = s.page_title || 'شجرة الحسابات';
+      document.getElementById('page-title-text').textContent = title;
+      document.title = title + ' — القيادة المالية 360';
+      if (s.page_subtitle) document.getElementById('page-subtitle').textContent = s.page_subtitle;
+      const sec = document.getElementById('custom-section');
+      if (s.custom_section_text && String(s.custom_section_text).trim()) {
+        sec.hidden = false;
+        sec.innerHTML = `<strong>${FW.esc(s.custom_section_title || 'قسم إضافي')}</strong> — ${FW.esc(s.custom_section_text)}`;
+      } else {
+        sec.hidden = true;
+        sec.textContent = '';
+      }
+      const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on === false ? 'none' : ''; };
+      show('btn-export-xlsx', s.show_btn_excel !== false && s.export_excel !== false);
+      show('btn-export-csv', s.show_btn_csv !== false);
+      show('btn-print', s.show_btn_print !== false);
+      show('btn-expand', s.show_btn_expand !== false);
+      show('btn-collapse', s.show_btn_expand !== false);
+      if (!state.settingsAppliedOnce && s.show_inactive === true) {
+        document.getElementById('show-inactive').checked = true;
+      }
+      state.settingsAppliedOnce = true;
     }
     function auditList(row) {
       const audit = Array.isArray(row.audit_log) ? row.audit_log : (() => { try { return JSON.parse(row.audit_log||'[]'); } catch { return []; } })();
@@ -268,7 +295,7 @@
       if (!res.ok || !res.json?.success) throw new Error(res.json?.error || 'فشل التحميل');
       state.accounts = res.json.accounts || [];
       state.tree = res.json.tree || [];
-      state.settings = res.json.settings || {};
+      applySettings(res.json.settings || state.settings || {});
       renderKpis();
       renderTree();
       FW.setAlert(document.getElementById('alert'), `تم تحميل ${state.accounts.length} حساب`, 'ok');

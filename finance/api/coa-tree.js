@@ -220,24 +220,24 @@ router.put('/accounts/:id', async (req, res) => {
     const by = actorLabel(req);
     const updated = await client.query(
       `UPDATE finance_accounts SET
-         account_name_ar = COALESCE($3, account_name_ar),
-         account_name_en = COALESCE($4, account_name_en),
-         account_type = COALESCE($5, account_type),
-         parent_account_id = CASE WHEN $6::boolean THEN $7 ELSE parent_account_id END,
-         is_active = COALESCE($8, is_active),
-         is_header = COALESCE($9, is_header),
-         normal_balance = COALESCE($10, normal_balance),
-         currency_code = COALESCE($11, currency_code),
-         description = COALESCE($12, description),
-         notes = COALESCE($13, notes),
-         audit_log = COALESCE(audit_log, '[]'::jsonb) || $14::jsonb,
-         updated_by = $15,
+         account_name_ar = COALESCE($2, account_name_ar),
+         account_name_en = COALESCE($3, account_name_en),
+         account_type = COALESCE($4, account_type),
+         parent_account_id = CASE WHEN $5::boolean THEN $6 ELSE parent_account_id END,
+         is_active = COALESCE($7, is_active),
+         is_header = COALESCE($8, is_header),
+         normal_balance = COALESCE($9, normal_balance),
+         currency_code = COALESCE($10, currency_code),
+         description = COALESCE($11, description),
+         notes = COALESCE($12, notes),
+         audit_log = COALESCE(audit_log, '[]'::jsonb) || $13::jsonb,
+         updated_by = $14,
          updated_at = NOW()
        WHERE account_id = $1
+         AND (entity_id = $15 OR entity_id IS NULL)
        RETURNING *`,
       [
         req.params.id,
-        eid,
         b.account_name_ar || null,
         b.account_name_en != null ? b.account_name_en : null,
         b.account_type || null,
@@ -250,7 +250,8 @@ router.put('/accounts/:id', async (req, res) => {
         b.description != null ? b.description : null,
         b.notes != null ? b.notes : null,
         JSON.stringify([audit('update', by)]),
-        by
+        by,
+        eid
       ]
     );
     await client.query('COMMIT');

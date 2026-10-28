@@ -19,14 +19,17 @@
     <header class="fw-hero">
       <div>
         <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
-        <h1><i class="fas fa-business-time"></i> ساعات العمل الإضافي</h1>
-        <p>طلبات إضافية تشغيلية: مسودة → تقديم → اعتماد/رفض → ترحيل لكشف الرواتب مرة واحدة، مع سياسة معاملات قابلة للضبط وسجل تدقيق في PostgreSQL.</p>
+        <h1 id="page-title"><i class="fas fa-business-time"></i> <span id="page-title-text">ساعات العمل الإضافي</span></h1>
+        <p id="page-subtitle">طلبات إضافية تشغيلية: مسودة → تقديم → اعتماد/رفض → ترحيل لكشف الرواتب مرة واحدة، مع سياسة معاملات قابلة للضبط وسجل تدقيق في PostgreSQL.</p>
+        <div id="custom-section" class="fw-alert info" hidden style="margin-top:10px"></div>
+        <div id="print-footer" hidden></div>
       </div>
       <div class="fw-actions">
         <button type="button" class="fw-btn fw-btn-ok" id="btn-add"><i class="fas fa-plus"></i> طلب جديد</button>
         <button type="button" class="fw-btn" id="btn-policy"><i class="fas fa-sliders"></i> سياسة الاحتساب</button>
         <button type="button" class="fw-btn" id="btn-export-xlsx"><i class="fas fa-file-excel"></i> Excel</button>
         <button type="button" class="fw-btn" id="btn-export-csv"><i class="fas fa-file-csv"></i> CSV</button>
+        <button type="button" class="fw-btn" id="btn-export-pdf"><i class="fas fa-file-pdf"></i> PDF</button>
         <button type="button" class="fw-btn" id="btn-print"><i class="fas fa-print"></i> طباعة</button>
         <a class="fw-btn" href="/finance/leadership-doc-settings.html?doc=overtime">إعدادات الصفحة</a>
         <button type="button" class="fw-btn" id="btn-reload"><i class="fas fa-rotate"></i> تحديث</button>
@@ -109,6 +112,7 @@
     </form>
   </div>
 
+  <link rel="stylesheet" href="/public/erp-dialogs.css">
   <script src="/public/erp-dialogs.js"></script>
   <script src="/finance/finance-context.js"></script>
   <script src="/finance/finance-workbench.js"></script>
@@ -129,6 +133,29 @@
     function payload() {
       const eid = FW.entityId();
       return eid ? { entity_id: eid } : {};
+    }
+    function applySettings(s) {
+      state.settings = s || {};
+      const title = s.page_title || 'ساعات العمل الإضافي';
+      document.getElementById('page-title-text').textContent = title;
+      document.title = title + ' — القيادة المالية 360';
+      if (s.page_subtitle) document.getElementById('page-subtitle').textContent = s.page_subtitle;
+      const sec = document.getElementById('custom-section');
+      if (s.custom_section_text && String(s.custom_section_text).trim()) {
+        sec.hidden = false;
+        sec.innerHTML = `<strong>${FW.esc(s.custom_section_title || 'قسم إضافي')}</strong> — ${FW.esc(s.custom_section_text)}`;
+      } else {
+        sec.hidden = true;
+        sec.textContent = '';
+      }
+      const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on === false ? 'none' : ''; };
+      show('btn-policy', s.show_btn_policy !== false);
+      show('btn-export-xlsx', s.show_btn_excel !== false && s.export_excel !== false);
+      show('btn-export-csv', s.show_btn_csv !== false && s.export_csv !== false);
+      show('btn-export-pdf', s.show_btn_print !== false && s.export_pdf !== false);
+      show('btn-print', s.show_btn_print !== false);
+      document.getElementById('print-footer').textContent = s.print_footer || '';
+      if (s.default_day_type) document.getElementById('day_type').value = s.default_day_type;
     }
     function auditList(row) {
       const audit = Array.isArray(row.audit_log) ? row.audit_log : (() => { try { return JSON.parse(row.audit_log || '[]'); } catch { return []; } })();
@@ -172,10 +199,12 @@
         return;
       }
       const showDept = state.settings.show_department !== false;
+      const showDay = state.settings.show_day_type !== false;
+      const showReason = state.settings.show_reason_column === true;
       host.innerHTML = `<div class="fw-table-wrap"><table class="fw-table"><thead><tr>
         <th>رقم الطلب</th><th>الموظف</th><th>الرقم الوظيفي</th>${showDept?'<th>القسم</th>':''}
-        <th>التاريخ</th><th>الساعات</th>${state.settings.show_day_type!==false?'<th>نوع اليوم</th>':''}
-        <th>الاستحقاق</th><th>الحالة</th><th></th>
+        <th>التاريخ</th><th>البداية</th><th>النهاية</th><th>الساعات</th>${showDay?'<th>نوع اليوم</th>':''}
+        <th>الاستحقاق</th>${showReason?'<th>السبب</th>':''}<th>الحالة</th><th></th>
       </tr></thead><tbody>${page.rows.map((r) => {
         const st = String(r.status).toUpperCase();
         return `<tr class="${state.selected===r.overtime_id?'active':''}" data-id="${r.overtime_id}">
@@ -184,9 +213,12 @@
           <td class="fw-num">${FW.esc(r.employee_code||'—')}</td>
           ${showDept?`<td>${FW.esc(r.department||r.emp_department||'—')}</td>`:''}
           <td class="fw-num">${FW.esc(String(r.work_date||'').slice(0,10))}</td>
+          <td class="fw-num">${FW.esc(r.start_time?String(r.start_time).slice(0,5):'—')}</td>
+          <td class="fw-num">${FW.esc(r.end_time?String(r.end_time).slice(0,5):'—')}</td>
           <td class="fw-num">${FW.esc(r.hours)}</td>
-          ${state.settings.show_day_type!==false?`<td>${FW.esc(DAY[r.day_type]||r.day_type||'—')}</td>`:''}
+          ${showDay?`<td>${FW.esc(DAY[r.day_type]||r.day_type||'—')}</td>`:''}
           <td class="fw-num">${FW.money(r.amount)}</td>
+          ${showReason?`<td>${FW.esc((r.reason||'').slice(0,40)||'—')}</td>`:''}
           <td>${FW.statusBadge(AR[st]||r.status)}</td>
           <td><button type="button" class="fw-btn fw-btn-mini" data-view="${r.overtime_id}">معاينة</button></td>
         </tr>`;
@@ -208,7 +240,7 @@
           <div><span>القسم</span><strong>${FW.esc(row.department||row.emp_department||'—')}</strong></div>
           <div><span>التاريخ</span><strong class="fw-num">${FW.esc(String(row.work_date||'').slice(0,10))}</strong></div>
           <div><span>الوقت</span><strong class="fw-num">${FW.esc((row.start_time||'—')+' → '+(row.end_time||'—'))}</strong></div>
-          <div><span>الساعات × السعر × المعامل</span><strong class="fw-num">${FW.esc(row.hours)} × ${FW.money(row.rate)} × ${FW.esc(row.multiplier)}</strong></div>
+          <div><span>الساعات × السعر × المعامل</span><strong class="fw-num">${FW.esc(row.hours)}${state.settings.show_rate_column===false?'':` × ${FW.money(row.rate)}`} × ${FW.esc(row.multiplier)}</strong></div>
           <div><span>الاستحقاق</span><strong class="fw-num">${FW.money(row.amount)}</strong></div>
           <div><span>نوع اليوم</span><strong>${FW.esc(DAY[row.day_type]||row.day_type||'—')}</strong></div>
           <div><span>مسير الرواتب</span><strong class="fw-num">${FW.esc(row.payroll_run_id||'—')}</strong></div>
@@ -308,7 +340,7 @@
       ]);
       if (!ot.ok || !ot.json?.success) throw new Error(ot.json?.error || 'فشل التحميل');
       state.rows = ot.json.overtime || [];
-      state.settings = ot.json.settings || {};
+      applySettings(ot.json.settings || {});
       state.employees = emp.json?.employees || [];
       renderKpis();
       renderTable();
@@ -356,17 +388,21 @@
       document.getElementById('policy-modal').hidden = true;
       FW.setAlert(document.getElementById('alert'), 'حُفظت سياسة الاحتساب', 'ok');
     };
-    function downloadAuth(path) {
+    function downloadAuth(path, name) {
       const eid = FW.entityId();
       const url = path + (eid ? `?entity_id=${encodeURIComponent(eid)}` : '');
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
       fetch(url, { credentials: 'same-origin', headers: token ? { Authorization: 'Bearer ' + token } : {} })
         .then(async (res) => {
-          if (!res.ok) throw new Error('فشل التصدير');
+          if (!res.ok) {
+            let msg = 'فشل التصدير';
+            try { msg = (await res.json()).error || msg; } catch { /* */ }
+            throw new Error(msg);
+          }
           const blob = await res.blob();
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
-          a.download = path.includes('xlsx') ? 'overtime.xlsx' : 'overtime.csv';
+          a.download = name || (path.includes('pdf') ? 'overtime.pdf' : path.includes('xlsx') ? 'overtime.xlsx' : 'overtime.csv');
           a.click();
         })
         .catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
@@ -385,8 +421,9 @@
     document.getElementById('btn-cancel').onclick = () => { document.getElementById('modal').hidden = true; };
     document.getElementById('btn-policy').onclick = openPolicy;
     document.getElementById('policy-cancel').onclick = () => { document.getElementById('policy-modal').hidden = true; };
-    document.getElementById('btn-export-csv').onclick = () => downloadAuth('/finance/payroll-ops/overtime/export.csv');
-    document.getElementById('btn-export-xlsx').onclick = () => downloadAuth('/finance/payroll-ops/overtime/export.xlsx');
+    document.getElementById('btn-export-csv').onclick = () => downloadAuth('/finance/payroll-ops/overtime/export.csv', 'overtime.csv');
+    document.getElementById('btn-export-xlsx').onclick = () => downloadAuth('/finance/payroll-ops/overtime/export.xlsx', 'overtime.xlsx');
+    document.getElementById('btn-export-pdf')?.addEventListener('click', () => downloadAuth('/finance/payroll-ops/overtime/export.pdf', 'overtime.pdf'));
     document.getElementById('btn-print').onclick = () => window.print();
     document.getElementById('btn-reload').onclick = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
     ['q','filter-status','page-size'].forEach((id) => {
