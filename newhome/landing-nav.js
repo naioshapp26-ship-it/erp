@@ -3,6 +3,12 @@
 
   const NAV_LINKS = [
     { href: '/', label: 'الرئيسية', paths: ['/', ''] },
+    {
+      href: '/data-analysis',
+      label: 'نايوش لتحليل البيانات',
+      className: 'nav-data-analysis-drawer',
+      paths: ['/data-analysis', '/data-analysis.html']
+    },
     { href: '/products', label: 'منتجاتنا', paths: ['/products'] },
     { href: '/services', label: 'خدماتنا', paths: ['/services', '/newhome/services.html'] },
     { href: '/newhome/branches.html', label: 'الفروع', paths: ['/newhome/branches.html'] },
