@@ -959,7 +959,7 @@ router.get('/runs/:id/export.xlsx', async (req, res) => {
     );
     const title = run.rows[0].title_override || malika.formatRunTitle(settings, run.rows[0]);
     const excludedTitle = malika.formatExcludedTitle(settings, run.rows[0]);
-    const buf = malika.buildMalikaWorkbook({
+    const buf = await malika.buildMalikaWorkbook({
       title,
       excludedTitle,
       items: items.rows.map((row) => malika.toMalikaExportRow(mapItemRow(row))),
@@ -1006,9 +1006,9 @@ router.get('/runs/:id/export.pdf', async (req, res) => {
       [req.params.id]
     );
     const title = run.rows[0].title_override || malika.formatRunTitle(settings, run.rows[0]);
-    const pdf = malika.buildLandscapePayrollPdf({
+    const pdf = await malika.buildLandscapePayrollPdf({
       title,
-      items: items.rows.map(mapItemRow),
+      items: items.rows.map((row) => malika.toMalikaExportRow(mapItemRow(row))),
       excluded: excluded.rows,
       footer: settings.print_footer || ''
     });
@@ -1493,6 +1493,41 @@ router.post('/runs/:id/approve', async (req, res) => {
   }
 });
 
+router.delete('/runs/:id/items/:itemId', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'payroll_create')) return;
+    await ensureSchema();
+    const eid = entityOf(req, req.body || {});
+    const by = actorLabel(req);
+    const run = await db.query(
+      `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2`,
+      [req.params.id, eid]
+    );
+    if (!run.rows[0]) return res.status(404).json({ success: false, error: 'المسير غير موجود' });
+    if (String(run.rows[0].status).toUpperCase() !== 'DRAFT') {
+      return res.status(409).json({
+        success: false,
+        error: 'حذف البنود مسموح للمسودة فقط',
+        code: 'LOCKED'
+      });
+    }
+    const deleted = await db.query(
+      `DELETE FROM finance_payroll_items WHERE item_id = $1 AND run_id = $2 RETURNING item_id, employee_id`,
+      [req.params.itemId, req.params.id]
+    );
+    if (!deleted.rows[0]) return res.status(404).json({ success: false, error: 'البند غير موجود' });
+    await db.query(
+      `UPDATE finance_payroll_runs SET audit_log = COALESCE(audit_log,'[]'::jsonb) || $2::jsonb, updated_at=NOW()
+       WHERE run_id=$1`,
+      [req.params.id, JSON.stringify([audit('item_delete', by, { item_id: Number(req.params.itemId) })])]
+    );
+    await refreshRunTotals(db, req.params.id, by, audit('recalc_after_item_delete', by, { item_id: Number(req.params.itemId) }));
+    res.json({ success: true, deleted: deleted.rows[0] });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 router.put('/runs/:id/items/:itemId', async (req, res) => {
   try {
     if (denyUnless(req, res, 'payroll_create')) return;
@@ -1592,9 +1627,9 @@ router.get('/runs/:id/payslip/:itemId.pdf', async (req, res) => {
       }
     }
     const row = mapItemRow(item.rows[0]);
-    const pdf = malika.buildLandscapePayrollPdf({
+    const pdf = await malika.buildLandscapePayrollPdf({
       title: `قسيمة راتب — ${row.employee_code} ${row.full_name_ar} — ${row.run_number || ''}`,
-      items: [row],
+      items: [malika.toMalikaExportRow(row)],
       excluded: [],
       footer: settings.print_footer || ''
     });
@@ -2036,6 +2071,154 @@ router.post('/runs/:id/excluded/:excludedId/restore', async (req, res) => {
     await refreshRunTotals(client, req.params.id, by, audit('restore_recalc', by));
     await client.query('COMMIT');
     res.json({ success: true, item: mapItemRow(item.rows[0]), message: 'أُعيد الموظف للمسير' });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch { /* */ }
+    res.status(500).json({ success: false, error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+/** Isolated demo payroll — fake employees only. Blocked unless allow_demo / isolated DB. */
+const DEMO_PAYROLL_EMPLOYEES = [
+  { employee_code: '00029', full_name_ar: 'تجريبي — سارة العتيبي', department: 'الموارد البشرية', nationality: 'المملكة العربية السعودية', base_salary: 8000, housing_allowance: 2000, nature_allowance: 500, transport_allowance: 800, other_allowances: 200, insurance_amount: -780, advance_deduction: -500, other_deductions: -100 },
+  { employee_code: '00033', full_name_ar: 'تجريبي — أحمد محمود', department: 'المالية', nationality: 'مصر', base_salary: 6500, housing_allowance: 1500, nature_allowance: 0, transport_allowance: 650, other_allowances: 0, insurance_amount: -634, advance_deduction: 0, other_deductions: 0 },
+  { employee_code: '00027', full_name_ar: 'تجريبي — فهد القحطاني', department: 'تقنية المعلومات', nationality: 'المملكة العربية السعودية', base_salary: 12000, housing_allowance: 3000, nature_allowance: 1000, transport_allowance: 1000, other_allowances: 500, insurance_amount: -1170, advance_deduction: -2000, other_deductions: 0 },
+  { employee_code: '00028', full_name_ar: 'تجريبي — نورة الشمري', department: 'التسويق', nationality: 'المملكة العربية السعودية', base_salary: 5500, housing_allowance: 1375, nature_allowance: 300, transport_allowance: 550, other_allowances: 0, insurance_amount: -536, advance_deduction: -250, other_deductions: -50 },
+  { employee_code: 'D-041', full_name_ar: 'تجريبي — رامي الحسن', department: 'إدارة الشؤون الأكاديمية', nationality: 'الأردن', base_salary: 7200, housing_allowance: 1800, nature_allowance: 400, transport_allowance: 720, other_allowances: 150, insurance_amount: -702, advance_deduction: 0, other_deductions: -200 },
+  { employee_code: 'D-055', full_name_ar: 'تجريبي — لينا يوسف', department: 'الجودة', nationality: 'فلسطين', base_salary: 4800, housing_allowance: 1200, nature_allowance: 0, transport_allowance: 480, other_allowances: 0, insurance_amount: 0, advance_deduction: -300, other_deductions: 0 },
+  { employee_code: '00061', full_name_ar: 'تجريبي — خالد عبدالله', department: 'إدارة شؤون الطلاب', nationality: 'اليمن', base_salary: 9000, housing_allowance: 2250, nature_allowance: 750, transport_allowance: 900, other_allowances: 300, insurance_amount: -878, advance_deduction: -1000, other_deductions: -150 },
+  { employee_code: '00072', full_name_ar: 'تجريبي — مريم صالح', department: 'المالية', nationality: 'السودان', base_salary: 5100, housing_allowance: 1275, nature_allowance: 200, transport_allowance: 510, other_allowances: 100, insurance_amount: -497, advance_deduction: 0, other_deductions: 0 }
+];
+
+function demoSeedAllowed() {
+  const dbUrl = String(process.env.DATABASE_URL || '');
+  const isolated = /finance_pages_isolated|isolated|test/i.test(dbUrl) || process.env.PAYROLL_ALLOW_DEMO === '1';
+  return isolated;
+}
+
+router.post('/runs/demo-seed', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    if (denyUnless(req, res, 'payroll_create')) return;
+    if (!demoSeedAllowed()) {
+      return res.status(403).json({
+        success: false,
+        error: 'إنشاء المسير التجريبي مسموح فقط في بيئة الاختبار المعزولة',
+        code: 'DEMO_BLOCKED'
+      });
+    }
+    await ensureSchema();
+    const b = req.body || {};
+    const eid = entityOf(req, b);
+    const etype = entityTypeOf(req, b);
+    const year = Number(b.period_year) || 2099;
+    const month = Number(b.period_month) || 10;
+    const by = actorLabel(req);
+    const settings = payrollSettingsResolved((await getDocSettings('payroll-runs').catch(() => null))?.value || {});
+    const runType = b.run_type_label || settings.run_type_label || 'المسير العام';
+
+    await client.query('BEGIN');
+    // Cancel any prior demo draft for same period to keep UAT idempotent
+    await client.query(
+      `UPDATE finance_payroll_runs SET status='CANCELLED', updated_at=NOW(),
+         audit_log = COALESCE(audit_log,'[]'::jsonb) || $4::jsonb
+       WHERE entity_id=$1 AND period_year=$2 AND period_month=$3
+         AND source_import='demo-seed' AND UPPER(status)='DRAFT'`,
+      [eid, year, month, JSON.stringify([audit('demo_cancel_prior', by)])]
+    );
+
+    const prefix = settings.number_prefix || 'PR';
+    const runNumber = `${prefix}-DEMO-${year}${String(month).padStart(2, '0')}-${Date.now().toString(36).toUpperCase()}`;
+    const titleOverride = b.title_override || `مسير الرواتب لـ ${String(month).padStart(2, '0')}-${year} - ${runType} (تجريبي)`;
+    const runIns = await client.query(
+      `INSERT INTO finance_payroll_runs (
+         run_number, period_year, period_month, run_date, status, entity_id, entity_type, department,
+         created_by, audit_log, run_type_label, title_override, source_import, payroll_country, currency
+       ) VALUES ($1,$2,$3,CURRENT_DATE,'DRAFT',$4,$5,NULL,$6,$7::jsonb,$8,$9,'demo-seed',$10,$11)
+       RETURNING *`,
+      [
+        runNumber, year, month, eid, etype, by,
+        JSON.stringify([audit('demo_seed', by, { employees: DEMO_PAYROLL_EMPLOYEES.length })]),
+        runType, titleOverride,
+        b.payroll_country || settings.payroll_country || 'SA',
+        b.currency || settings.currency || 'SAR'
+      ]
+    );
+    const run = runIns.rows[0];
+
+    for (const row of DEMO_PAYROLL_EMPLOYEES) {
+      let emp = await client.query(
+        `SELECT * FROM finance_payroll_employees
+         WHERE employee_code = $1 AND (entity_id = $2 OR entity_id IS NULL) LIMIT 1`,
+        [malika.cellCode(row.employee_code), eid]
+      );
+      if (!emp.rows[0]) {
+        emp = await client.query(
+          `INSERT INTO finance_payroll_employees (
+             employee_code, full_name_ar, base_salary, department, nationality,
+             housing_allowance, nature_allowance, transport_allowance, other_allowances,
+             default_insurance_amount, default_advance_deduction, default_other_deductions,
+             entity_id, entity_type, is_active, created_at, updated_at
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true,NOW(),NOW())
+           RETURNING *`,
+          [
+            malika.cellCode(row.employee_code), row.full_name_ar, row.base_salary, row.department, row.nationality,
+            row.housing_allowance, row.nature_allowance, row.transport_allowance, row.other_allowances,
+            row.insurance_amount, row.advance_deduction, row.other_deductions,
+            eid, etype
+          ]
+        );
+      } else {
+        await client.query(
+          `UPDATE finance_payroll_employees SET
+             full_name_ar=$2, base_salary=$3, department=$4, nationality=$5,
+             housing_allowance=$6, nature_allowance=$7, transport_allowance=$8, other_allowances=$9,
+             default_insurance_amount=$10, default_advance_deduction=$11, default_other_deductions=$12,
+             updated_at=NOW()
+           WHERE employee_id=$1`,
+          [
+            emp.rows[0].employee_id, row.full_name_ar, row.base_salary, row.department, row.nationality,
+            row.housing_allowance, row.nature_allowance, row.transport_allowance, row.other_allowances,
+            row.insurance_amount, row.advance_deduction, row.other_deductions
+          ]
+        );
+        emp = await client.query(`SELECT * FROM finance_payroll_employees WHERE employee_id=$1`, [emp.rows[0].employee_id]);
+      }
+      const computed = malika.recomputeRow({
+        ...row,
+        overtime_amount: 0
+      }, { forceSignDeductions: true });
+      await client.query(
+        `INSERT INTO finance_payroll_items (
+           run_id, employee_id, base_salary, allowances, incentives, overtime_amount, advances,
+           tax_amount, insurance_amount, gross_amount, deductions_amount, net_amount, status, notes,
+           housing_allowance, nature_allowance, transport_allowance, other_allowances,
+           advance_deduction, other_deductions, nationality, department_snapshot, audit_log
+         ) VALUES (
+           $1,$2,$3,$4,0,0,$5,0,$6,$7,$8,$9,'DRAFT','demo_seed',
+           $10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb
+         )`,
+        [
+          run.run_id, emp.rows[0].employee_id,
+          computed.base_salary, computed.allowances, computed.advances,
+          computed.insurance_amount, computed.gross_amount, computed.deductions_amount, computed.net_amount,
+          computed.housing_allowance, computed.nature_allowance, computed.transport_allowance, computed.other_allowances,
+          computed.advance_deduction, computed.other_deductions, row.nationality, row.department,
+          JSON.stringify([audit('demo_item', by)])
+        ]
+      );
+    }
+
+    await refreshRunTotals(client, run.run_id, by, audit('demo_recalc', by));
+    const updated = await client.query(`SELECT * FROM finance_payroll_runs WHERE run_id=$1`, [run.run_id]);
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      run: updated.rows[0],
+      message: `مسير تجريبي بـ ${DEMO_PAYROLL_EMPLOYEES.length} موظفين وهميين — بدون بيانات إنتاج`,
+      demo: true
+    });
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch { /* */ }
     res.status(500).json({ success: false, error: e.message });
