@@ -1786,6 +1786,9 @@ const ensureAcceptedEmployeesTable = async () => {
       CREATE INDEX IF NOT EXISTS idx_accepted_employees_hire_date ON accepted_employees(hire_date);
       CREATE UNIQUE INDEX IF NOT EXISTS uq_accepted_employees_identity ON accepted_employees(full_name, job_title, hire_date, entity_id);
     `);
+    await db.query(`ALTER TABLE accepted_employees ADD COLUMN IF NOT EXISTS converted_employee_id TEXT`);
+    await db.query(`ALTER TABLE accepted_employees ADD COLUMN IF NOT EXISTS converted_at TIMESTAMP`);
+    await db.query(`ALTER TABLE accepted_employees ADD COLUMN IF NOT EXISTS conversion_note TEXT`);
     console.log('✅ accepted_employees table ready');
   } catch (error) {
     console.error('❌ Failed to ensure accepted_employees table:', error);
@@ -4620,7 +4623,7 @@ app.get('/u/:username', (req, res) => {
 // HR landing serve (direct path + nested)
 const hrRouteMap = {
   '/hr': 'hr-home.html',
-  '/hr/employees': 'admin-erp-hr.html',
+  '/hr/employees': 'hr-employee-360.html',
   '/hr/requests': 'requests-processing.html',
   '/hr/my-requests': 'hr-my-requests.html',
   '/hr/pending-actions': 'hr-pending-actions.html',
@@ -4683,7 +4686,8 @@ const hrRouteMap = {
   '/hr/third-party-services': 'hr-ops-workspace.html',
   '/hr/circulars': 'hr-ops-workspace.html',
   '/hr/letters': 'hr-ops-workspace.html',
-  '/hr/recruitment': 'hr-ops-workspace.html',
+  // التوظيف والاستقطاب = مسار المرشحين (new-hires)، وليس لوحة ops عامة
+  '/hr/recruitment': 'new-hires.html',
   '/hr/offers-benefits': 'hr-ops-workspace.html',
   '/hr/surveys': 'hr-ops-workspace.html',
   '/hr/reports': 'hr-ops-workspace.html'
@@ -11399,7 +11403,9 @@ app.get('/api/accepted-employees', async (req, res) => {
     const params = [];
     let idx = 1;
     let query = `
-      SELECT id, full_name, job_title, email, phone, hire_date, entity_id, created_at, updated_at
+      SELECT id, full_name, job_title, email, phone, hire_date, entity_id,
+             converted_employee_id, converted_at, conversion_note,
+             created_at, updated_at
       FROM accepted_employees
       WHERE 1=1
     `;
@@ -11495,6 +11501,181 @@ app.put('/api/accepted-employees/:id', async (req, res) => {
     }
 
     res.json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Convert accepted candidate → central employees roster (no duplicate)
+app.post('/api/accepted-employees/:id/convert-to-employee', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+    const params = [id];
+    let selectSql = `SELECT * FROM accepted_employees WHERE id = $1`;
+    if (req.userEntity.type !== 'HQ') {
+      selectSql += ' AND entity_id = $2';
+      params.push(req.userEntity.id);
+    }
+    const found = await db.query(selectSql, params);
+    if (!found.rows[0]) {
+      return res.status(404).json({ error: 'المرشح المقبول غير موجود أو غير مسموح بتحويله' });
+    }
+    const row = found.rows[0];
+    if (row.converted_employee_id) {
+      return res.status(409).json({
+        error: 'تم تحويل هذا المرشح مسبقًا إلى السجل المركزي',
+        code: 'ALREADY_CONVERTED',
+        employee_number: row.converted_employee_id,
+        converted_at: row.converted_at
+      });
+    }
+
+    const fullName = String(row.full_name || '').trim();
+    if (!fullName) return res.status(400).json({ error: 'اسم المرشح مطلوب للتحويل' });
+
+    // Prefer existing employee by email or exact name+title to avoid duplicates
+    let existing = null;
+    if (row.email) {
+      const byEmail = await db.query(
+        `SELECT id, employee_number, full_name FROM employees
+         WHERE lower(btrim(email)) = lower(btrim($1)) LIMIT 1`,
+        [row.email]
+      );
+      existing = byEmail.rows[0] || null;
+    }
+    if (!existing) {
+      const byName = await db.query(
+        `SELECT id, employee_number, full_name FROM employees
+         WHERE lower(btrim(full_name)) = lower(btrim($1))
+           AND COALESCE(lower(btrim(position)),'') = lower(btrim($2))
+         LIMIT 1`,
+        [fullName, String(row.job_title || '').trim()]
+      );
+      existing = byName.rows[0] || null;
+    }
+
+    let employeeNumber = existing?.employee_number || null;
+    let employeeDbId = existing?.id || null;
+    let created = false;
+
+    if (!existing) {
+      const requestedNumber = String(body.employee_number || '').trim();
+      employeeNumber = requestedNumber || `HIRE-${String(row.id).padStart(5, '0')}`;
+      const clash = await db.query(
+        `SELECT id FROM employees WHERE employee_number = $1 LIMIT 1`,
+        [employeeNumber]
+      );
+      if (clash.rows[0]) {
+        employeeNumber = `HIRE-${row.id}-${Date.now().toString(36).toUpperCase()}`;
+      }
+      const insert = await db.query(
+        `INSERT INTO employees (
+           employee_number, full_name, email, phone, position, department,
+           assigned_entity_type, hire_date, employment_type, is_active
+         ) VALUES ($1,$2,$3,$4,$5,$6,'HQ',$7,'FULL_TIME',true)
+         RETURNING id, employee_number, full_name`,
+        [
+          employeeNumber,
+          fullName,
+          row.email || null,
+          row.phone || null,
+          row.job_title || null,
+          body.department || null,
+          row.hire_date || new Date().toISOString().slice(0, 10)
+        ]
+      );
+      employeeDbId = insert.rows[0].id;
+      employeeNumber = insert.rows[0].employee_number;
+      created = true;
+
+      // Ensure 360 profile shell exists (no unique constraint — check first)
+      try {
+        const prof = await db.query(
+          `SELECT id FROM hr_employee_profiles WHERE employee_id = $1 AND (entity_id = $2 OR entity_id IS NULL) LIMIT 1`,
+          [employeeNumber, row.entity_id || 'HQ001']
+        );
+        if (!prof.rows[0]) {
+          await db.query(
+            `INSERT INTO hr_employee_profiles (employee_id, name, title, department, status, hire_date, entity_id, entity_type)
+             VALUES ($1,$2,$3,$4,'نشط',$5,$6,'HQ')`,
+            [
+              employeeNumber,
+              fullName,
+              row.job_title || null,
+              body.department || null,
+              row.hire_date || null,
+              row.entity_id || 'HQ001'
+            ]
+          );
+        }
+      } catch (profileErr) {
+        console.warn('Profile shell create skipped:', profileErr.message);
+      }
+    }
+
+    const note = String(body.note || 'تحويل من مرشح مقبول إلى السجل المركزي').trim();
+    const updated = await db.query(
+      `UPDATE accepted_employees
+       SET converted_employee_id = $2,
+           converted_at = NOW(),
+           conversion_note = $3,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [row.id, employeeNumber, note]
+    );
+
+    // Retain candidate photo when provided (base64) or already stored on the accepted row.
+    let photoAttached = false;
+    try {
+      let photoBuf = null;
+      let photoMime = 'image/png';
+      const b64 = String(body.photo_base64 || body.candidate_photo_base64 || '').trim();
+      if (b64) {
+        const cleaned = b64.replace(/^data:image\/\w+;base64,/, '');
+        photoBuf = Buffer.from(cleaned, 'base64');
+        photoMime = String(body.photo_mime || body.candidate_photo_mime || 'image/png').trim() || 'image/png';
+      } else if (row.candidate_photo_data) {
+        photoBuf = Buffer.isBuffer(row.candidate_photo_data)
+          ? row.candidate_photo_data
+          : Buffer.from(row.candidate_photo_data);
+        photoMime = row.candidate_photo_mime || 'image/png';
+      }
+      if (photoBuf && photoBuf.length > 32) {
+        const entityId = row.entity_id || 'HQ001';
+        await hrEmployeePhotoStorage.upsertEmployeePhotoAsset(db, {
+          entityId,
+          employeeId: employeeNumber,
+          mimeType: photoMime,
+          fileData: photoBuf
+        });
+        const persistentUrl = hrEmployeePhotoStorage.buildPersistentPhotoUrl(employeeNumber);
+        await db.query(
+          `UPDATE hr_employee_profiles
+           SET photo_url = $1, updated_at = NOW()
+           WHERE employee_id = $2 AND (entity_id = $3 OR entity_id IS NULL)`,
+          [persistentUrl, employeeNumber, entityId]
+        );
+        photoAttached = true;
+      }
+    } catch (photoErr) {
+      console.warn('Convert photo retention skipped:', photoErr.message);
+    }
+
+    res.json({
+      success: true,
+      created,
+      reused_existing: !created,
+      photo_attached: photoAttached,
+      employee_id: employeeDbId,
+      employee_number: employeeNumber,
+      accepted: updated.rows[0],
+      message: created
+        ? 'تم تحويل المرشح إلى موظف في السجل المركزي دون تكرار'
+        : 'الموظف موجود مسبقًا — رُبط المرشح بالسجل المركزي دون إنشاء سجل مكرر',
+      registry_url: `/hr/employee-360?employeeId=${encodeURIComponent(employeeNumber)}`
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -14589,6 +14770,11 @@ const assertEmployee360Access = async (req, requestedEmployeeId) => {
 
   if (!employeeId) {
     return { ok: false, status: 400, error: 'معرّف الموظف مطلوب' };
+  }
+
+  // Photos and 360 profiles must not be readable without an authenticated session.
+  if (!authUser?.id && !authUser?.role && !authUser?.email) {
+    return { ok: false, status: 401, error: 'يلزم تسجيل الدخول لعرض ملف الموظف أو صورته' };
   }
 
   if (hrPortalAccess.isEmployeePersona(persona)) {

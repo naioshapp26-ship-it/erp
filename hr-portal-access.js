@@ -200,48 +200,48 @@ const ESS_CARDS = [
 const MANAGER_CARD_CATALOG = {
   'employee-files': {
     key: 'admin-employee-files',
-    href: '/hr/employees',
+    href: '/hr/employee-360',
     label: 'ملفات الموظفين',
     icon: 'fa-briefcase',
     category: 'إدارة الموظفين',
     manager: true,
-    description: 'إضافة وتعديل موظفي الشركة والطلبات الإدارية'
+    description: 'السجل المركزي الموحد لجميع الموظفين مع الصور والملف الشامل — مصدر واحد بلا تكرار'
   },
   'employee-360': {
     key: 'employee-360',
     href: '/hr/employee-360',
-    label: 'موظف 360',
+    label: 'ملفات الموظفين (360)',
     icon: 'fa-id-card',
     category: 'إدارة الموظفين',
     manager: false,
-    description: 'قائمة الموظفين وملف 360 الشامل لكل موظف'
+    description: 'نفس السجل المركزي — ملف 360 لكل موظف (لا تسجيل منفصل)'
   },
   'new-hires': {
     key: 'new-hires',
-    href: '/hr/new-hires',
+    href: '/hr/employee-360?mode=add',
     label: 'الموظفون الجدد',
     icon: 'fa-user-plus',
     category: 'إدارة الموظفين',
     manager: true,
-    description: 'متابعة تعيين الموظفين الجدد'
+    description: 'إضافة موظف جديد إلى السجل المركزي مع الصورة الشخصية الإلزامية'
   },
   recruitment: {
     key: 'sc-recruitment',
-    href: '/hr/recruitment',
+    href: '/hr/new-hires',
     label: 'التوظيف والاستقطاب',
     icon: 'fa-magnifying-glass',
     category: 'إدارة الموظفين',
     manager: true,
-    description: 'إدارة عمليات التوظيف والاستقطاب'
+    description: 'إدارة المرشحين والمقابلات والقبول ثم التحويل إلى السجل المركزي دون تكرار'
   },
   'accepted-employees': {
     key: 'accepted-employees',
     href: '/hr/accepted-employees',
-    label: 'الموظفون المقبولون',
+    label: 'مرشحون مقبولون',
     icon: 'fa-user-check',
     category: 'إدارة الموظفين',
     manager: true,
-    description: 'قائمة الموظفين المقبولين قبل الإكمال'
+    description: 'مرحلة انتقالية بعد القبول — حوّل المرشح إلى موظف في السجل المركزي بإجراء واضح'
   },
   'hr-ops': {
     key: 'sc-hr-ops',
@@ -522,7 +522,7 @@ const MANAGER_SECTION_PLAN = [
   {
     id: 'employees-mgmt',
     title: 'إدارة الموظفين',
-    keys: ['employee-files', 'employee-360', 'new-hires', 'recruitment', 'accepted-employees', 'hr-ops']
+    keys: ['employee-files', 'new-hires', 'recruitment', 'accepted-employees', 'hr-ops']
   },
   {
     id: 'attendance-payroll',
