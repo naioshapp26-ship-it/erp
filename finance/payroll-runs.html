@@ -10,28 +10,37 @@
   <style>
     :root {
       --sheet-line:#1f2937; --sheet-header:#1F4E79; --sheet-zebra:#DDEBF7;
-      --sheet-total:#FCE4D6; --sheet-title:#FFFF00; --neg:#b91c1c;
+      --sheet-total:#FCE4D6; --sheet-title:#FFFF00; --sheet-hi:#DEEBF7; --neg:#b91c1c;
     }
+    .fw-shell{width:min(98vw,1800px)!important}
     .audit-list{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
     .audit-list li{background:#f8fafc;border:1px solid var(--fw-line);border-radius:10px;padding:8px 10px;font-size:.85rem}
-    .pay-tabs{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+    .pay-tabs{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
     .pay-tabs button{border:1px solid var(--fw-line);background:#fff;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit}
     .pay-tabs button.active{background:#0f172a;color:#fff;border-color:#0f172a}
-    .pay-sheet{direction:rtl;background:#fff;border:1px solid var(--sheet-line);overflow:auto;max-height:min(70vh,820px)}
-    .pay-title{text-align:center;font-weight:800;padding:14px 12px;background:var(--sheet-title);border-bottom:1px solid var(--sheet-line);font-family:Tajawal,Cairo,sans-serif;font-size:1.05rem}
-    .pay-table{width:100%;border-collapse:collapse;min-width:1320px;font-size:.78rem}
-    .pay-table th,.pay-table td{border:1px solid #334155;padding:6px 7px;vertical-align:middle;white-space:nowrap;text-align:center}
+    .pay-workspace{display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px;align-items:start;min-height:72vh}
+    .runs-pane{max-height:78vh;overflow:auto;position:sticky;top:8px}
+    .runs-pane .fw-card-head h2{font-size:.95rem}
+    .runs-pane table{font-size:.72rem}
+    .sheet-pane{min-width:0;background:#fff;border:1px solid var(--fw-line);border-radius:14px;padding:12px}
+    .pay-sheet{direction:rtl;background:#fff;border:1px solid var(--sheet-line);overflow:auto;max-height:calc(100vh - 220px);min-height:480px}
+    .pay-title{text-align:center;font-weight:800;padding:16px 12px;background:var(--sheet-title);border-bottom:1px solid var(--sheet-line);font-family:Tajawal,Cairo,sans-serif;font-size:1.15rem}
+    .pay-table{width:100%;border-collapse:collapse;min-width:1480px;font-size:.84rem}
+    .pay-table th,.pay-table td{border:1px solid #334155;padding:8px 9px;vertical-align:middle;white-space:nowrap;text-align:center}
     .pay-table thead th{background:var(--sheet-header);color:#fff;font-weight:800;position:sticky;top:0;z-index:2}
     .pay-table thead th .flt{display:inline-block;margin-inline-start:4px;opacity:.85;font-size:.65rem}
-    .pay-table thead .filter-row th{background:#e8eef5;padding:4px;position:sticky;top:34px;z-index:2}
-    .pay-table thead .filter-row select,.pay-table thead .filter-row input{width:100%;min-height:28px;font-size:.7rem;border:1px solid #94a3b8;border-radius:4px;padding:2px 4px}
+    .pay-table thead .filter-row th{background:#e8eef5;padding:4px;position:sticky;top:40px;z-index:2}
+    .pay-table thead .filter-row select,.pay-table thead .filter-row input{width:100%;min-height:28px;font-size:.72rem;border:1px solid #94a3b8;border-radius:4px;padding:2px 4px}
     .pay-table tbody tr:nth-child(even){background:var(--sheet-zebra)}
     .pay-table tbody tr:hover{background:#cfe2f5;cursor:pointer}
-    .pay-table .num{font-variant-numeric:tabular-nums;text-align:center;direction:ltr;font-family:ui-monospace,Consolas,monospace}
+    .pay-table .num{font-variant-numeric:tabular-nums;text-align:center;direction:ltr;unicode-bidi:bidi-override;font-family:ui-monospace,Consolas,monospace}
+    .pay-table .hi{background:var(--sheet-hi)}
+    .pay-table tbody tr:nth-child(even) .hi{background:#BDD7EE}
     .pay-table .code{font-family:ui-monospace,monospace;text-align:center;font-weight:700}
-    .pay-table tfoot td{background:var(--sheet-total);font-weight:800;position:sticky;bottom:0}
+    .pay-table .name{text-align:right}
+    .pay-table tfoot td{background:var(--sheet-total);font-weight:800;position:sticky;bottom:0;z-index:1}
+    .pay-table tfoot .hi{background:#F8CBAD}
     .pay-table .neg{color:var(--neg);font-weight:700}
-    .fw-layout.pay-focus{grid-template-columns:minmax(260px,320px) minmax(0,1fr)}
     .unit-chip{display:inline-flex;align-items:center;gap:6px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:999px;padding:4px 10px;font-size:.75rem;font-weight:700;margin-bottom:8px}
     .salary-form{max-width:760px}
     .salary-form .calc-box{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#f8fafc;border:1px solid var(--fw-line);border-radius:12px;padding:12px;margin-top:4px}
@@ -39,10 +48,14 @@
     .hint{font-size:.8rem;color:#64748b;margin:0}
     .toolbar-inline{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
     .toolbar-inline input,.toolbar-inline select{min-height:36px}
+    .meta-compact{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:.85rem;margin:4px 0 8px}
+    .meta-compact span{color:#64748b}
+    .meta-compact strong{margin-inline-start:4px}
+    @media (max-width:1100px){.pay-workspace{grid-template-columns:1fr}.runs-pane{position:static;max-height:220px}}
     @media print{
-      .fw-topnav,.fw-actions:not(.print-keep),.fw-toolbar,.fw-modal,.fw-kpis,.runs-pane,.no-print{display:none!important}
-      .fw-layout.pay-focus{display:block}
-      .pay-sheet{overflow:visible}
+      .fw-topnav,.fw-actions:not(.print-keep),.fw-toolbar,.fw-modal,.fw-kpis,.runs-pane,.no-print,.admin-tools{display:none!important}
+      .pay-workspace{display:block}
+      .pay-sheet{overflow:visible;max-height:none;border:0}
       @page{size:A4 landscape;margin:8mm}
     }
   </style>
@@ -81,15 +94,15 @@
       </select>
       <select id="page-size"><option value="25" selected>25</option><option value="50">50</option></select>
     </div>
-    <div class="fw-layout pay-focus">
-      <section class="fw-card runs-pane">
-        <div class="fw-card-head"><h2>مسيرات الرواتب</h2><span id="count" class="fw-badge muted">0</span></div>
+    <div class="pay-workspace">
+      <section class="fw-card runs-pane no-print">
+        <div class="fw-card-head"><h2>المسيرات</h2><span id="count" class="fw-badge muted">0</span></div>
         <div id="table-host"></div>
         <div class="fw-pager" id="pager"></div>
       </section>
-      <aside class="fw-drawer" id="drawer">
-        <div class="fw-empty"><i class="fas fa-hand-pointer"></i>أنشئ مسيرًا أو اختر مسيرًا لعرض جدول الرواتب التشغيلي</div>
-      </aside>
+      <section class="sheet-pane" id="drawer">
+        <div class="fw-empty"><i class="fas fa-hand-pointer"></i>اختر مسيرًا من القائمة لعرض جدول المسير كاملًا — أو أنشئ مسيرًا / مسيرًا تجريبيًا</div>
+      </section>
     </div>
     <details class="admin-tools" id="admin-tools" style="margin:18px 0 8px;padding:12px 14px;border:1px dashed var(--fw-line);border-radius:10px;background:#fafafa">
       <summary style="cursor:pointer;font-weight:700">أدوات الإدارة</summary>
@@ -397,13 +410,17 @@
       });
     });
 
-    function fmtMoney(v) {
+    function fmtMoneyEu(v, blankZero) {
       if (v == null || v === '') return '';
       const x = round2(v);
-      return x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (blankZero && x === 0) return '';
+      const neg = x < 0;
+      const abs = Math.abs(x);
+      const [intPart, dec] = abs.toFixed(2).split('.');
+      const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      return `${neg ? '-' : ''}${grouped},${dec}`;
     }
     function sheetRow(it) {
-      // 13 reference columns: fold other_deductions into advance for sheet display (same as export)
       const adv = round2(n(it.advance_deduction) + n(it.other_deductions));
       return {
         ...it,
@@ -418,9 +435,12 @@
       const nats = [...new Set(items.map((i) => i.nationality).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar'));
       const sortBtn = (key, label) =>
         `<th data-sort="${key}" style="cursor:pointer">${FW.esc(label)}<span class="flt">▾</span>${state.itemSort.key === key ? (state.itemSort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
-      const moneyCell = (v) => {
+      const blankKeys = { nature_allowance: 1, other_allowances: 1, insurance_amount: 1, advance_deduction: 1 };
+      const moneyCell = (key, v) => {
         const x = n(v);
-        return `<td class="num${x < 0 ? ' neg' : ''}">${v == null || v === '' ? '' : FW.esc(fmtMoney(x))}</td>`;
+        const hi = key === 'gross_amount' || key === 'net_amount';
+        const txt = fmtMoneyEu(v, !!blankKeys[key]);
+        return `<td class="num${x < 0 ? ' neg' : ''}${hi ? ' hi' : ''}">${FW.esc(txt)}</td>`;
       };
       const sum = (key) => mapped.reduce((s, r) => s + n(r[key]), 0);
       const st = String(state.detail?.run?.status || '').toUpperCase();
@@ -456,20 +476,21 @@
           <tbody>
             ${mapped.map((it) => `<tr data-edit-row="${it.item_id}">
               <td class="code">${FW.esc(String(it.employee_code || ''))}</td>
-              <td>${FW.esc(it.full_name_ar || '')}</td>
+              <td class="name">${FW.esc(it.full_name_ar || '')}</td>
               <td>${FW.esc(it.department || '')}</td>
               <td>${FW.esc(it.nationality || '')}</td>
-              ${moneyCell(it.base_salary)}
-              ${moneyCell(it.housing_allowance)}
-              ${moneyCell(it.nature_allowance)}
-              ${moneyCell(it.transport_allowance)}
-              ${moneyCell(it.other_allowances)}
-              ${moneyCell(it.gross_amount)}
-              ${moneyCell(it.insurance_amount)}
-              ${moneyCell(it.advance_deduction)}
-              ${moneyCell(it.net_amount)}
+              ${moneyCell('base_salary', it.base_salary)}
+              ${moneyCell('housing_allowance', it.housing_allowance)}
+              ${moneyCell('nature_allowance', it.nature_allowance)}
+              ${moneyCell('transport_allowance', it.transport_allowance)}
+              ${moneyCell('other_allowances', it.other_allowances)}
+              ${moneyCell('gross_amount', it.gross_amount)}
+              ${moneyCell('insurance_amount', it.insurance_amount)}
+              ${moneyCell('advance_deduction', it.advance_deduction)}
+              ${moneyCell('net_amount', it.net_amount)}
               <td class="no-print">
                 ${st === 'DRAFT' ? `<button type="button" class="fw-btn fw-btn-mini" data-edit-item="${it.item_id}">تعديل</button>
+                <button type="button" class="fw-btn fw-btn-mini" data-delete-item="${it.item_id}">حذف</button>
                 <button type="button" class="fw-btn fw-btn-mini" data-exclude="${it.item_id}">استبعاد</button>` : ''}
                 <button type="button" class="fw-btn fw-btn-mini" data-payslip="${it.item_id}">قسيمة</button>
               </td>
@@ -477,15 +498,15 @@
           </tbody>
           <tfoot><tr>
             <td>المجموع</td><td></td><td></td><td></td>
-            ${moneyCell(sum('base_salary'))}
-            ${moneyCell(sum('housing_allowance'))}
-            ${moneyCell(sum('nature_allowance'))}
-            ${moneyCell(sum('transport_allowance'))}
-            ${moneyCell(sum('other_allowances'))}
-            ${moneyCell(sum('gross_amount'))}
-            ${moneyCell(sum('insurance_amount'))}
-            ${moneyCell(sum('advance_deduction'))}
-            ${moneyCell(sum('net_amount'))}
+            ${moneyCell('base_salary', sum('base_salary'))}
+            ${moneyCell('housing_allowance', sum('housing_allowance'))}
+            ${moneyCell('nature_allowance', sum('nature_allowance'))}
+            ${moneyCell('transport_allowance', sum('transport_allowance'))}
+            ${moneyCell('other_allowances', sum('other_allowances'))}
+            ${moneyCell('gross_amount', sum('gross_amount'))}
+            ${moneyCell('insurance_amount', sum('insurance_amount'))}
+            ${moneyCell('advance_deduction', sum('advance_deduction'))}
+            ${moneyCell('net_amount', sum('net_amount'))}
             <td class="no-print"></td>
           </tr></tfoot>
         </table>
@@ -531,20 +552,18 @@
         : renderPayTable(res.json.title, items);
 
       drawer.innerHTML = `
-        <h3>${FW.esc(run.run_number)}</h3>
-        <div class="fw-meta">
+        <div class="meta-compact no-print">
+          <div><span>المسير</span><strong>${FW.esc(run.run_number)}</strong></div>
           <div><span>الحالة</span><strong>${FW.statusBadge(AR[st] || run.status)}</strong></div>
           <div><span>الفترة</span><strong class="fw-num">${FW.esc(run.period_year)}/${String(run.period_month).padStart(2, '0')}</strong></div>
-          <div><span>الدولة / العملة</span><strong>${FW.esc(run.payroll_country || state.settings.payroll_country || 'SA')} / ${FW.esc(run.currency || state.settings.currency || 'SAR')}</strong></div>
           <div><span>الإجمالي / الصافي</span><strong class="fw-num">${FW.money(run.total_gross)} / ${FW.money(run.total_net)}</strong></div>
-          <div><span>قيد محاسبي</span><strong class="fw-num">${FW.esc(run.journal_entry_id || '—')}</strong></div>
-          <div><span>المصدر</span><strong>${FW.esc(run.source_import || 'native')}</strong></div>
+          <div><span>العملة</span><strong>${FW.esc(run.currency || 'SAR')}</strong></div>
         </div>
-        <div class="pay-tabs">
+        <div class="pay-tabs no-print">
           <button type="button" class="${state.tab === 'payroll' ? 'active' : ''}" data-tab="payroll">مسير الرواتب (${items.length})</button>
           <button type="button" class="${state.tab === 'excluded' ? 'active' : ''}" data-tab="excluded">الموظفون المستبعدون (${excluded.length})</button>
         </div>
-        <div class="fw-actions print-keep toolbar-inline">
+        <div class="fw-actions print-keep toolbar-inline no-print">
           ${st === 'DRAFT' ? `<button class="fw-btn fw-btn-primary" id="d-add-salary"><i class="fas fa-user-plus"></i> إضافة راتب</button>
             <button class="fw-btn fw-btn-ok" id="d-approve">اعتماد المسير</button>` : ''}
           ${st === 'APPROVED' ? `<button class="fw-btn fw-btn-primary" id="d-post">ترحيل قيد محاسبي</button>` : ''}
@@ -556,8 +575,9 @@
         </div>
         ${!res.json.can_view_all && !items.length ? '<p class="fw-alert warn">لا صلاحية لعرض رواتب الآخرين.</p>' : ''}
         <div id="sheet-host">${sheet}</div>
-        <h4 style="margin:14px 0 6px">التدقيق</h4>
-        <ul class="audit-list">${auditList(run)}</ul>`;
+        <details class="no-print" style="margin-top:12px"><summary>سجل التدقيق</summary>
+          <ul class="audit-list">${auditList(run)}</ul>
+        </details>`;
 
       drawer.querySelectorAll('[data-tab]').forEach((btn) => {
         btn.addEventListener('click', () => { state.tab = btn.dataset.tab; show(id); });
@@ -629,9 +649,18 @@
 
     function bindSheetActions(id, items, excluded, st) {
       const drawer = document.getElementById('drawer');
+      drawer.querySelectorAll('[data-delete-item]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!(await window.ErpDialog?.confirm?.({ title: 'حذف', message: 'حذف بند الراتب من المسير؟' }))) return;
+          const r = await FW.api('DELETE', `/finance/payroll-ops/runs/${id}/items/${btn.dataset.deleteItem}?${qs()}`, payload());
+          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الحذف', 'err');
+          FW.setAlert(document.getElementById('alert'), 'تم الحذف', 'ok');
+          show(id);
+        });
+      });
       drawer.querySelectorAll('[data-edit-item],[data-edit-row]').forEach((el) => {
         el.addEventListener('click', (ev) => {
-          if (ev.target.closest('[data-exclude],[data-payslip]')) return;
+          if (ev.target.closest('[data-exclude],[data-payslip],[data-delete-item]')) return;
           const itemId = el.dataset.editItem || el.dataset.editRow;
           const item = items.find((x) => String(x.item_id) === String(itemId));
           if (item) openSalaryForm(item);

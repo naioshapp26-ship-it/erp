@@ -1006,9 +1006,9 @@ router.get('/runs/:id/export.pdf', async (req, res) => {
       [req.params.id]
     );
     const title = run.rows[0].title_override || malika.formatRunTitle(settings, run.rows[0]);
-    const pdf = malika.buildLandscapePayrollPdf({
+    const pdf = await malika.buildLandscapePayrollPdf({
       title,
-      items: items.rows.map(mapItemRow),
+      items: items.rows.map((row) => malika.toMalikaExportRow(mapItemRow(row))),
       excluded: excluded.rows,
       footer: settings.print_footer || ''
     });
@@ -1493,6 +1493,41 @@ router.post('/runs/:id/approve', async (req, res) => {
   }
 });
 
+router.delete('/runs/:id/items/:itemId', async (req, res) => {
+  try {
+    if (denyUnless(req, res, 'payroll_create')) return;
+    await ensureSchema();
+    const eid = entityOf(req, req.body || {});
+    const by = actorLabel(req);
+    const run = await db.query(
+      `SELECT * FROM finance_payroll_runs WHERE run_id = $1 AND entity_id = $2`,
+      [req.params.id, eid]
+    );
+    if (!run.rows[0]) return res.status(404).json({ success: false, error: 'المسير غير موجود' });
+    if (String(run.rows[0].status).toUpperCase() !== 'DRAFT') {
+      return res.status(409).json({
+        success: false,
+        error: 'حذف البنود مسموح للمسودة فقط',
+        code: 'LOCKED'
+      });
+    }
+    const deleted = await db.query(
+      `DELETE FROM finance_payroll_items WHERE item_id = $1 AND run_id = $2 RETURNING item_id, employee_id`,
+      [req.params.itemId, req.params.id]
+    );
+    if (!deleted.rows[0]) return res.status(404).json({ success: false, error: 'البند غير موجود' });
+    await db.query(
+      `UPDATE finance_payroll_runs SET audit_log = COALESCE(audit_log,'[]'::jsonb) || $2::jsonb, updated_at=NOW()
+       WHERE run_id=$1`,
+      [req.params.id, JSON.stringify([audit('item_delete', by, { item_id: Number(req.params.itemId) })])]
+    );
+    await refreshRunTotals(db, req.params.id, by, audit('recalc_after_item_delete', by, { item_id: Number(req.params.itemId) }));
+    res.json({ success: true, deleted: deleted.rows[0] });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 router.put('/runs/:id/items/:itemId', async (req, res) => {
   try {
     if (denyUnless(req, res, 'payroll_create')) return;
@@ -1592,9 +1627,9 @@ router.get('/runs/:id/payslip/:itemId.pdf', async (req, res) => {
       }
     }
     const row = mapItemRow(item.rows[0]);
-    const pdf = malika.buildLandscapePayrollPdf({
+    const pdf = await malika.buildLandscapePayrollPdf({
       title: `قسيمة راتب — ${row.employee_code} ${row.full_name_ar} — ${row.run_number || ''}`,
-      items: [row],
+      items: [malika.toMalikaExportRow(row)],
       excluded: [],
       footer: settings.print_footer || ''
     });
