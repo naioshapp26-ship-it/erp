@@ -342,96 +342,129 @@ function parseMalikaWorkbook(buffer) {
   return { title, payrollRows: rows, excludedRows: excluded, sheetNames: wb.SheetNames };
 }
 
-function buildMalikaWorkbook({ title, excludedTitle, items, excluded, settings }) {
-  const XLSX = require('xlsx');
-  const wb = XLSX.utils.book_new();
+async function buildMalikaWorkbookAsync({ title, excludedTitle, items, excluded }) {
+  const ExcelJS = require('exceljs');
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'NAIOSH ERP';
+  wb.views = [{ rightToLeft: true }];
 
-  // Payroll sheet — mirror Excel layout starting at B2 (row1 empty)
-  const aoa = [];
-  const titleRow = [null, title];
-  for (let i = 0; i < 12; i++) titleRow.push(title);
-  aoa.push([]); // Excel R1 empty
-  aoa.push(titleRow); // R2
-  aoa.push(titleRow.slice()); // R3
-  aoa.push([]); // R4 blank
-  aoa.push([null, ...MALIKA_COLUMNS.map((c) => c.header)]); // R5 headers
+  const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E79' } };
+  const TITLE_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+  const ZEBRA_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
+  const TOTAL_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE4D6' } };
+  const THIN = { style: 'thin', color: { argb: 'FF000000' } };
+  const BORDER = { top: THIN, left: THIN, bottom: THIN, right: THIN };
+  const moneyFmt = '#,##0.00';
 
-  const dataStartExcelRow = 6; // first data row
-  items.forEach((it) => {
-    aoa.push([
-      null,
-      cellCode(it.employee_code),
-      it.full_name_ar || '',
-      it.department || '',
-      it.nationality || '',
-      n(it.base_salary) || null,
-      n(it.housing_allowance) || null,
-      n(it.nature_allowance) || null,
-      n(it.transport_allowance) || null,
-      n(it.other_allowances) || null,
-      n(it.gross_amount) || null,
-      n(it.insurance_amount) || null,
-      n(it.advance_deduction) || null,
-      n(it.net_amount) || null
-    ]);
+  const exportItems = (items || []).map((it) => toMalikaExportRow(it));
+  const ws = wb.addWorksheet('Payroll', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 5 }] });
+  ws.getColumn(1).width = 3;
+  MALIKA_COLUMNS.forEach((c, i) => { ws.getColumn(i + 2).width = c.width; });
+
+  ws.mergeCells(2, 2, 3, 14);
+  const titleCell = ws.getCell(2, 2);
+  titleCell.value = title || 'مسير الرواتب';
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  titleCell.font = { bold: true, size: 14, name: 'Arial' };
+  titleCell.fill = TITLE_FILL;
+
+  const headerRow = ws.getRow(5);
+  MALIKA_COLUMNS.forEach((c, i) => {
+    const cell = headerRow.getCell(i + 2);
+    cell.value = c.header.trim();
+    cell.fill = HEADER_FILL;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Arial' };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.border = BORDER;
+  });
+  headerRow.height = 28;
+
+  const dataStart = 6;
+  exportItems.forEach((it, idx) => {
+    const row = ws.getRow(dataStart + idx);
+    const zebra = idx % 2 === 1;
+    MALIKA_COLUMNS.forEach((c, i) => {
+      const cell = row.getCell(i + 2);
+      let v = it[c.key];
+      if (c.kind === 'money') {
+        cell.value = v == null || v === '' ? null : round2(v);
+        cell.numFmt = moneyFmt;
+        cell.alignment = { horizontal: 'center' };
+      } else if (c.key === 'employee_code') {
+        cell.value = cellCode(v);
+        cell.alignment = { horizontal: 'center' };
+      } else {
+        cell.value = v == null ? '' : String(v);
+        cell.alignment = { horizontal: 'center', wrapText: true };
+      }
+      cell.border = BORDER;
+      cell.font = { size: 10, name: 'Arial' };
+      if (zebra) cell.fill = ZEBRA_FILL;
+    });
   });
 
-  // Client file: SUM(F5:F33) spans header through last data row (not totals)
-  const sumStart = 5;
-  const sumEnd = items.length ? dataStartExcelRow + items.length - 1 : sumStart;
-  aoa.push([null, 'المجموع', null, null, null, null, null, null, null, null, null, null, null, null]);
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: false });
-  // 0-based: R1 empty=0 … header=4, data=5.., totals=5+items.length
-  const totalsR = 4 + items.length + 1;
-  const moneyCols = [
-    { c: 5, letter: 'F' },
-    { c: 6, letter: 'G' },
-    { c: 7, letter: 'H' },
-    { c: 8, letter: 'I' },
-    { c: 9, letter: 'J' },
-    { c: 10, letter: 'K' },
-    { c: 11, letter: 'L' },
-    { c: 12, letter: 'M' },
-    { c: 13, letter: 'N' }
-  ];
-  moneyCols.forEach(({ c, letter }) => {
-    const addr = XLSX.utils.encode_cell({ r: totalsR, c });
-    const key = MALIKA_COLUMNS[c - 1].key;
-    const sum = items.reduce((s, it) => s + n(it[key]), 0);
-    ws[addr] = { t: 'n', f: `SUM(${letter}${sumStart}:${letter}${sumEnd})`, v: round2(sum), w: String(round2(sum)) };
+  const totalsRowIdx = dataStart + exportItems.length;
+  const totalsRow = ws.getRow(totalsRowIdx);
+  totalsRow.getCell(2).value = 'المجموع';
+  MALIKA_COLUMNS.forEach((c, i) => {
+    const cell = totalsRow.getCell(i + 2);
+    cell.fill = TOTAL_FILL;
+    cell.font = { bold: true, size: 10, name: 'Arial' };
+    cell.border = BORDER;
+    cell.alignment = { horizontal: 'center' };
+    if (c.total) {
+      const colLetter = ws.getColumn(i + 2).letter;
+      const end = Math.max(dataStart, totalsRowIdx - 1);
+      cell.value = { formula: `SUM(${colLetter}${dataStart}:${colLetter}${end})` };
+      cell.numFmt = moneyFmt;
+    } else if (i === 0) {
+      cell.value = 'المجموع';
+    } else {
+      cell.value = null;
+    }
   });
-  ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalsR, c: 13 } });
-  ws['!merges'] = [{ s: { c: 1, r: 1 }, e: { c: 13, r: 2 } }];
-  ws['!cols'] = [{ wch: 3 }, ...MALIKA_COLUMNS.map((c) => ({ wch: c.width }))];
-  ws['!dir'] = 'rtl';
-  XLSX.utils.book_append_sheet(wb, ws, 'Payroll');
 
-  const eTitle = excludedTitle || title.replace('مسير الرواتب', 'الموظفين المستبعدين');
-  const eAoa = [];
-  const eTitleRow = [null, eTitle, eTitle, eTitle, eTitle];
-  eAoa.push([]);
-  eAoa.push(eTitleRow);
-  eAoa.push(eTitleRow.slice());
-  eAoa.push([]);
-  eAoa.push([null, ...EXCLUDED_COLUMNS.map((c) => c.header)]);
-  (excluded || []).forEach((ex) => {
-    eAoa.push([
-      null,
-      cellCode(ex.employee_code),
-      ex.full_name_ar || '',
-      ex.reason || '',
-      ex.added_by || ''
-    ]);
+  if (exportItems.length) {
+    ws.autoFilter = {
+      from: { row: 5, column: 2 },
+      to: { row: totalsRowIdx - 1, column: 14 }
+    };
+  }
+
+  const eTitle = excludedTitle || String(title || '').replace('مسير الرواتب', 'الموظفين المستبعدين');
+  const ews = wb.addWorksheet('Excluded', { views: [{ rightToLeft: true }] });
+  ews.getColumn(1).width = 3;
+  EXCLUDED_COLUMNS.forEach((c, i) => { ews.getColumn(i + 2).width = c.width; });
+  ews.mergeCells(2, 2, 3, 5);
+  const eTitleCell = ews.getCell(2, 2);
+  eTitleCell.value = eTitle;
+  eTitleCell.fill = TITLE_FILL;
+  eTitleCell.font = { bold: true, size: 12 };
+  eTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  EXCLUDED_COLUMNS.forEach((c, i) => {
+    const cell = ews.getRow(5).getCell(i + 2);
+    cell.value = c.header;
+    cell.fill = HEADER_FILL;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.border = BORDER;
+    cell.alignment = { horizontal: 'center' };
   });
-  const ews = XLSX.utils.aoa_to_sheet(eAoa);
-  ews['!merges'] = [{ s: { c: 1, r: 1 }, e: { c: 4, r: 2 } }];
-  ews['!cols'] = [{ wch: 3 }, ...EXCLUDED_COLUMNS.map((c) => ({ wch: c.width }))];
-  ews['!dir'] = 'rtl';
-  XLSX.utils.book_append_sheet(wb, ews, 'Excluded');
+  (excluded || []).forEach((ex, idx) => {
+    const row = ews.getRow(6 + idx);
+    [cellCode(ex.employee_code), ex.full_name_ar || '', ex.reason || '', ex.added_by || ''].forEach((v, i) => {
+      const cell = row.getCell(i + 2);
+      cell.value = v;
+      cell.border = BORDER;
+      if (idx % 2 === 1) cell.fill = ZEBRA_FILL;
+    });
+  });
 
-  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
-  return buf;
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.from(buf);
+}
+
+function buildMalikaWorkbook(opts) {
+  return buildMalikaWorkbookAsync(opts);
 }
 
 function buildLandscapePayrollPdf({ title, items, excluded, footer }) {
@@ -561,6 +594,7 @@ module.exports = {
   formatDdMmYyyy,
   parseMalikaWorkbook,
   buildMalikaWorkbook,
+  buildMalikaWorkbookAsync,
   buildLandscapePayrollPdf,
   cellCode,
   round2,

@@ -189,6 +189,13 @@
       icon: 'fa-money-check-dollar',
       pages: [
         {
+          id: 'payroll-hub',
+          label: 'وحدة الرواتب (مستقلة)',
+          status: 'operational',
+          href: '/finance/payroll-hub.html',
+          note: 'واجهة تشغيل الرواتب منفصلة عن الحسابات — الربط المحاسبي عند الاعتماد/الترحيل فقط'
+        },
+        {
           id: 'attendance',
           label: 'الحضور والانصراف',
           status: 'operational',
@@ -196,7 +203,13 @@
           note: 'رابط تكامل — القسم الأساسي: الموارد البشرية'
         },
         { id: 'overtime', label: 'ساعات العمل الإضافي', status: 'operational', href: '/finance/payroll-overtime.html' },
-        { id: 'payroll-runs', label: 'كشوف الرواتب', status: 'operational', href: '/finance/payroll-runs.html' },
+        {
+          id: 'payroll-runs',
+          label: 'كشوف الرواتب',
+          status: 'operational',
+          href: '/finance/payroll-runs.html',
+          note: 'مسير 13 عمودًا + نموذج راتب + اعتماد/تصدير'
+        },
         { id: 'bank-batches', label: 'دفعات البنوك للرواتب', status: 'operational', href: '/finance/payroll-bank-batches.html' }
       ]
     },
@@ -226,10 +239,10 @@
         },
         {
           id: 'payroll-link',
-          label: 'الربط بكشوف الرواتب والدفعات',
+          label: 'الربط المحاسبي بكشوف الرواتب',
           status: 'operational',
-          href: '/finance/payroll-runs.html',
-          note: 'ساعات معتمدة ← مسير ← قيد متوازن عبر /finance/payroll-ops'
+          href: '/finance/journal.html',
+          note: 'بعد اعتماد المسير وترحيله — القيد يظهر في دفتر القيود؛ التشغيل اليومي من وحدة الرواتب'
         }
       ]
     },

@@ -8,34 +8,40 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/finance/finance-workbench.css">
   <style>
-    :root { --malika-line:#1e293b; --malika-zebra:#f8fafc; --malika-total:#e2e8f0; --neg:#b91c1c; }
+    :root {
+      --sheet-line:#1f2937; --sheet-header:#1F4E79; --sheet-zebra:#DDEBF7;
+      --sheet-total:#FCE4D6; --sheet-title:#FFFF00; --neg:#b91c1c;
+    }
     .audit-list{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
     .audit-list li{background:#f8fafc;border:1px solid var(--fw-line);border-radius:10px;padding:8px 10px;font-size:.85rem}
-    .malika-tabs{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
-    .malika-tabs button{border:1px solid var(--fw-line);background:#fff;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit}
-    .malika-tabs button.active{background:#0f172a;color:#fff;border-color:#0f172a}
-    .pay-sheet{direction:rtl;background:#fff;border:1px solid var(--malika-line);overflow:auto}
-    .pay-title{text-align:center;font-weight:800;padding:12px;border-bottom:1px solid var(--malika-line);font-family:Tajawal,Cairo,sans-serif}
-    .pay-table{width:100%;border-collapse:collapse;min-width:1280px;font-size:.78rem}
-    .pay-table th,.pay-table td{border:1px solid var(--malika-line);padding:6px 7px;vertical-align:middle;white-space:nowrap}
-    .pay-table thead th{background:#f1f5f9;font-weight:800;text-align:center}
-    .pay-table tbody tr:nth-child(even){background:var(--malika-zebra)}
-    .pay-table tbody tr:hover{background:#eff6ff;cursor:pointer}
-    .pay-table .num{font-variant-numeric:tabular-nums;text-align:left;direction:ltr}
-    .pay-table .code{font-family:ui-monospace,monospace;text-align:center}
-    .pay-table tfoot td{background:var(--malika-total);font-weight:800}
-    .pay-table .neg{color:var(--neg)}
-    .fw-layout.malika-focus{grid-template-columns:minmax(260px,320px) minmax(0,1fr)}
+    .pay-tabs{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+    .pay-tabs button{border:1px solid var(--fw-line);background:#fff;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit}
+    .pay-tabs button.active{background:#0f172a;color:#fff;border-color:#0f172a}
+    .pay-sheet{direction:rtl;background:#fff;border:1px solid var(--sheet-line);overflow:auto;max-height:min(70vh,820px)}
+    .pay-title{text-align:center;font-weight:800;padding:14px 12px;background:var(--sheet-title);border-bottom:1px solid var(--sheet-line);font-family:Tajawal,Cairo,sans-serif;font-size:1.05rem}
+    .pay-table{width:100%;border-collapse:collapse;min-width:1320px;font-size:.78rem}
+    .pay-table th,.pay-table td{border:1px solid #334155;padding:6px 7px;vertical-align:middle;white-space:nowrap;text-align:center}
+    .pay-table thead th{background:var(--sheet-header);color:#fff;font-weight:800;position:sticky;top:0;z-index:2}
+    .pay-table thead th .flt{display:inline-block;margin-inline-start:4px;opacity:.85;font-size:.65rem}
+    .pay-table thead .filter-row th{background:#e8eef5;padding:4px;position:sticky;top:34px;z-index:2}
+    .pay-table thead .filter-row select,.pay-table thead .filter-row input{width:100%;min-height:28px;font-size:.7rem;border:1px solid #94a3b8;border-radius:4px;padding:2px 4px}
+    .pay-table tbody tr:nth-child(even){background:var(--sheet-zebra)}
+    .pay-table tbody tr:hover{background:#cfe2f5;cursor:pointer}
+    .pay-table .num{font-variant-numeric:tabular-nums;text-align:center;direction:ltr;font-family:ui-monospace,Consolas,monospace}
+    .pay-table .code{font-family:ui-monospace,monospace;text-align:center;font-weight:700}
+    .pay-table tfoot td{background:var(--sheet-total);font-weight:800;position:sticky;bottom:0}
+    .pay-table .neg{color:var(--neg);font-weight:700}
+    .fw-layout.pay-focus{grid-template-columns:minmax(260px,320px) minmax(0,1fr)}
+    .unit-chip{display:inline-flex;align-items:center;gap:6px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:999px;padding:4px 10px;font-size:.75rem;font-weight:700;margin-bottom:8px}
     .salary-form{max-width:760px}
     .salary-form .calc-box{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#f8fafc;border:1px solid var(--fw-line);border-radius:12px;padding:12px;margin-top:4px}
     .salary-form .calc-box strong{font-size:1.15rem;font-variant-numeric:tabular-nums}
     .hint{font-size:.8rem;color:#64748b;margin:0}
-    .import-secondary{opacity:.85;font-size:.9rem}
     .toolbar-inline{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
     .toolbar-inline input,.toolbar-inline select{min-height:36px}
     @media print{
       .fw-topnav,.fw-actions:not(.print-keep),.fw-toolbar,.fw-modal,.fw-kpis,.runs-pane,.no-print{display:none!important}
-      .fw-layout.malika-focus{display:block}
+      .fw-layout.pay-focus{display:block}
       .pay-sheet{overflow:visible}
       @page{size:A4 landscape;margin:8mm}
     }
@@ -47,6 +53,7 @@
     <header class="fw-hero">
       <div>
         <a class="fw-kicker" href="/finance">القيادة المالية 360</a>
+        <div class="unit-chip"><i class="fas fa-sitemap"></i> وحدة الرواتب — مستقلة عن الحسابات (الربط المحاسبي عند الاعتماد/الترحيل فقط)</div>
         <h1 id="page-title"><i class="fas fa-file-invoice-dollar"></i> <span id="page-title-text">كشوف الرواتب</span></h1>
         <p id="page-subtitle">نظام رواتب تشغيلي: إنشاء مسير → إضافة/تعديل رواتب الموظفين → احتساب → اعتماد → تصدير.</p>
         <div id="custom-section" class="fw-alert info" hidden style="margin-top:10px"></div>
@@ -54,8 +61,9 @@
       <div class="fw-actions">
         <button type="button" class="fw-btn fw-btn-ok" id="btn-generate"><i class="fas fa-plus"></i> إنشاء مسير</button>
         <button type="button" class="fw-btn fw-btn-primary" id="btn-add-emp"><i class="fas fa-user-plus"></i> موظف / راتب</button>
+        <button type="button" class="fw-btn" id="btn-demo-seed" title="بيئة الاختبار فقط"><i class="fas fa-flask"></i> مسير تجريبي</button>
+        <a class="fw-btn" href="/finance/payroll-hub.html">وحدة الرواتب</a>
         <a class="fw-btn" href="/finance/payroll-overtime.html">ساعات إضافية</a>
-        <a class="fw-btn" href="/finance/coa-tree.html">شجرة الحسابات</a>
         <a class="fw-btn" href="/finance/leadership-doc-settings.html?doc=payroll-runs">إعدادات الصفحة</a>
         <button type="button" class="fw-btn" id="btn-reload"><i class="fas fa-rotate"></i> تحديث</button>
       </div>
@@ -73,7 +81,7 @@
       </select>
       <select id="page-size"><option value="25" selected>25</option><option value="50">50</option></select>
     </div>
-    <div class="fw-layout malika-focus">
+    <div class="fw-layout pay-focus">
       <section class="fw-card runs-pane">
         <div class="fw-card-head"><h2>مسيرات الرواتب</h2><span id="count" class="fw-badge muted">0</span></div>
         <div id="table-host"></div>
@@ -177,7 +185,8 @@
     const AR = { DRAFT:'مسودة', APPROVED:'معتمد', POSTED:'مُرحّل محاسبيًا', CLOSED:'مقفل', CANCELLED:'ملغى' };
     const state = {
       runs: [], selected: null, detail: null, page: 1, settings: {}, canViewAll: false,
-      tab: 'payroll', employees: [], itemSort: { key: 'full_name_ar', dir: 1 }, itemQ: ''
+      tab: 'payroll', employees: [],       itemSort: { key: 'full_name_ar', dir: 1 }, itemQ: '',
+      colFilters: { code: '', name: '', dept: '', nat: '' }
     };
 
     const monthSel = document.getElementById('period_month');
@@ -293,16 +302,23 @@
 
     function filteredItems(items) {
       const q = state.itemQ.trim().toLowerCase();
+      const cf = state.colFilters || {};
       let rows = items.slice();
       if (q) {
         rows = rows.filter((it) =>
           `${it.employee_code} ${it.full_name_ar} ${it.department || ''} ${it.nationality || ''}`.toLowerCase().includes(q)
         );
       }
+      if (cf.code) rows = rows.filter((it) => String(it.employee_code || '').includes(cf.code));
+      if (cf.name) rows = rows.filter((it) => String(it.full_name_ar || '').includes(cf.name));
+      if (cf.dept) rows = rows.filter((it) => String(it.department || '') === cf.dept);
+      if (cf.nat) rows = rows.filter((it) => String(it.nationality || '') === cf.nat);
       const { key, dir } = state.itemSort;
       rows.sort((a, b) => {
         const av = a[key], bv = b[key];
-        if (typeof av === 'number' || typeof bv === 'number') return (n(av) - n(bv)) * dir;
+        if (typeof av === 'number' || typeof bv === 'number' || key.includes('amount') || key.includes('salary') || key.includes('allowance') || key.includes('deduction')) {
+          return (n(av) - n(bv)) * dir;
+        }
         return String(av || '').localeCompare(String(bv || ''), 'ar') * dir;
       });
       return rows;
@@ -381,37 +397,64 @@
       });
     });
 
-    function renderPayTable(title, items, totals) {
-      const rows = filteredItems(items);
+    function fmtMoney(v) {
+      if (v == null || v === '') return '';
+      const x = round2(v);
+      return x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function sheetRow(it) {
+      // 13 reference columns: fold other_deductions into advance for sheet display (same as export)
+      const adv = round2(n(it.advance_deduction) + n(it.other_deductions));
+      return {
+        ...it,
+        advance_deduction: adv,
+        other_deductions: 0,
+        net_amount: round2(n(it.gross_amount) + n(it.insurance_amount) + adv)
+      };
+    }
+    function renderPayTable(title, items) {
+      const mapped = filteredItems(items).map(sheetRow);
+      const depts = [...new Set(items.map((i) => i.department).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar'));
+      const nats = [...new Set(items.map((i) => i.nationality).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ar'));
       const sortBtn = (key, label) =>
-        `<th data-sort="${key}" style="cursor:pointer">${FW.esc(label)}${state.itemSort.key === key ? (state.itemSort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+        `<th data-sort="${key}" style="cursor:pointer">${FW.esc(label)}<span class="flt">▾</span>${state.itemSort.key === key ? (state.itemSort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
       const moneyCell = (v) => {
         const x = n(v);
-        return `<td class="num${x < 0 ? ' neg' : ''}">${v == null || v === '' ? '' : FW.esc(String(x))}</td>`;
+        return `<td class="num${x < 0 ? ' neg' : ''}">${v == null || v === '' ? '' : FW.esc(fmtMoney(x))}</td>`;
       };
+      const sum = (key) => mapped.reduce((s, r) => s + n(r[key]), 0);
       const st = String(state.detail?.run?.status || '').toUpperCase();
       return `<div class="pay-sheet" id="pay-print-root">
         <div class="pay-title">${FW.esc(title || 'مسير الرواتب')}</div>
         <table class="pay-table">
-          <thead><tr>
-            ${sortBtn('employee_code', 'الرقم الوظيفي')}
-            ${sortBtn('full_name_ar', 'اسم الموظف')}
-            ${sortBtn('department', 'الادارة/القسم')}
-            ${sortBtn('nationality', 'الجنسية')}
-            ${sortBtn('base_salary', 'الراتب الأساسي')}
-            ${sortBtn('housing_allowance', 'بدل سكن')}
-            ${sortBtn('nature_allowance', 'بدل طبيعة عمل')}
-            ${sortBtn('transport_allowance', 'بدل مواصلات')}
-            ${sortBtn('other_allowances', 'بدلات اخرى')}
-            ${sortBtn('gross_amount', 'إجمالي الراتب')}
-            ${sortBtn('insurance_amount', 'التأمينات الاجتماعية')}
-            ${sortBtn('advance_deduction', 'استقطاع سلفة')}
-            ${sortBtn('other_deductions', 'استقطاعات أخرى')}
-            ${sortBtn('net_amount', 'صافي المبلغ')}
-            <th class="no-print">إجراءات</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              ${sortBtn('employee_code', 'الرقم الوظيفي')}
+              ${sortBtn('full_name_ar', 'اسم الموظف')}
+              ${sortBtn('department', 'الادارة/القسم')}
+              ${sortBtn('nationality', 'الجنسية')}
+              ${sortBtn('base_salary', 'الراتب الأساسي')}
+              ${sortBtn('housing_allowance', 'بدل سكن')}
+              ${sortBtn('nature_allowance', 'بدل طبيعة عمل')}
+              ${sortBtn('transport_allowance', 'بدل مواصلات')}
+              ${sortBtn('other_allowances', 'بدلات اخرى')}
+              ${sortBtn('gross_amount', 'إجمالي الراتب')}
+              ${sortBtn('insurance_amount', 'التأمينات الاجتماعية')}
+              ${sortBtn('advance_deduction', 'استقطاع سلفة')}
+              ${sortBtn('net_amount', 'صافي المبلغ')}
+              <th class="no-print">إجراءات</th>
+            </tr>
+            <tr class="filter-row no-print">
+              <th><input type="search" id="flt-code" placeholder="رقم…" value="${FW.esc(state.colFilters.code || '')}"></th>
+              <th><input type="search" id="flt-name" placeholder="اسم…" value="${FW.esc(state.colFilters.name || '')}"></th>
+              <th><select id="flt-dept"><option value="">الكل</option>${depts.map((d) => `<option value="${FW.esc(d)}"${state.colFilters.dept===d?' selected':''}>${FW.esc(d)}</option>`).join('')}</select></th>
+              <th><select id="flt-nat"><option value="">الكل</option>${nats.map((d) => `<option value="${FW.esc(d)}"${state.colFilters.nat===d?' selected':''}>${FW.esc(d)}</option>`).join('')}</select></th>
+              <th colspan="9"></th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody>
-            ${rows.map((it) => `<tr data-edit-row="${it.item_id}">
+            ${mapped.map((it) => `<tr data-edit-row="${it.item_id}">
               <td class="code">${FW.esc(String(it.employee_code || ''))}</td>
               <td>${FW.esc(it.full_name_ar || '')}</td>
               <td>${FW.esc(it.department || '')}</td>
@@ -424,27 +467,25 @@
               ${moneyCell(it.gross_amount)}
               ${moneyCell(it.insurance_amount)}
               ${moneyCell(it.advance_deduction)}
-              ${moneyCell(it.other_deductions)}
               ${moneyCell(it.net_amount)}
               <td class="no-print">
                 ${st === 'DRAFT' ? `<button type="button" class="fw-btn fw-btn-mini" data-edit-item="${it.item_id}">تعديل</button>
                 <button type="button" class="fw-btn fw-btn-mini" data-exclude="${it.item_id}">استبعاد</button>` : ''}
                 <button type="button" class="fw-btn fw-btn-mini" data-payslip="${it.item_id}">قسيمة</button>
               </td>
-            </tr>`).join('') || '<tr><td colspan="15">لا بنود — أضف موظفًا من نموذج الراتب</td></tr>'}
+            </tr>`).join('') || '<tr><td colspan="14">لا بنود — أضف موظفًا من نموذج الراتب</td></tr>'}
           </tbody>
           <tfoot><tr>
             <td>المجموع</td><td></td><td></td><td></td>
-            ${moneyCell(totals?.base_salary)}
-            ${moneyCell(totals?.housing_allowance)}
-            ${moneyCell(totals?.nature_allowance)}
-            ${moneyCell(totals?.transport_allowance)}
-            ${moneyCell(totals?.other_allowances)}
-            ${moneyCell(totals?.gross_amount)}
-            ${moneyCell(totals?.insurance_amount)}
-            ${moneyCell(totals?.advance_deduction)}
-            ${moneyCell(totals?.other_deductions)}
-            ${moneyCell(totals?.net_amount)}
+            ${moneyCell(sum('base_salary'))}
+            ${moneyCell(sum('housing_allowance'))}
+            ${moneyCell(sum('nature_allowance'))}
+            ${moneyCell(sum('transport_allowance'))}
+            ${moneyCell(sum('other_allowances'))}
+            ${moneyCell(sum('gross_amount'))}
+            ${moneyCell(sum('insurance_amount'))}
+            ${moneyCell(sum('advance_deduction'))}
+            ${moneyCell(sum('net_amount'))}
             <td class="no-print"></td>
           </tr></tfoot>
         </table>
@@ -487,7 +528,7 @@
       const st = String(run.status).toUpperCase();
       const sheet = state.tab === 'excluded'
         ? renderExcluded(res.json.excluded_title, excluded)
-        : renderPayTable(res.json.title, items, res.json.totals);
+        : renderPayTable(res.json.title, items);
 
       drawer.innerHTML = `
         <h3>${FW.esc(run.run_number)}</h3>
@@ -499,7 +540,7 @@
           <div><span>قيد محاسبي</span><strong class="fw-num">${FW.esc(run.journal_entry_id || '—')}</strong></div>
           <div><span>المصدر</span><strong>${FW.esc(run.source_import || 'native')}</strong></div>
         </div>
-        <div class="malika-tabs">
+        <div class="pay-tabs">
           <button type="button" class="${state.tab === 'payroll' ? 'active' : ''}" data-tab="payroll">مسير الرواتب (${items.length})</button>
           <button type="button" class="${state.tab === 'excluded' ? 'active' : ''}" data-tab="excluded">الموظفون المستبعدون (${excluded.length})</button>
         </div>
@@ -529,14 +570,19 @@
           show(id);
         });
       });
-      document.getElementById('item-q')?.addEventListener('input', (e) => {
-        state.itemQ = e.target.value;
+      const refreshSheet = () => {
         document.getElementById('sheet-host').innerHTML = state.tab === 'excluded'
           ? renderExcluded(res.json.excluded_title, excluded)
-          : renderPayTable(res.json.title, items, res.json.totals);
+          : renderPayTable(res.json.title, items);
         bindSheetActions(id, items, excluded, st);
+        bindColFilters(refreshSheet);
+      };
+      document.getElementById('item-q')?.addEventListener('input', (e) => {
+        state.itemQ = e.target.value;
+        refreshSheet();
       });
       bindSheetActions(id, items, excluded, st);
+      bindColFilters(refreshSheet);
 
       document.getElementById('d-add-salary')?.addEventListener('click', () => openSalaryForm({}));
       document.getElementById('d-approve')?.addEventListener('click', async () => {
@@ -562,6 +608,23 @@
       document.getElementById('d-xlsx')?.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${id}/export.xlsx`, `payroll-${id}.xlsx`));
       document.getElementById('d-pdf')?.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${id}/export.pdf`, `payroll-${id}.pdf`));
       document.getElementById('d-print')?.addEventListener('click', () => window.print());
+    }
+
+    function bindColFilters(refreshSheet) {
+      const map = [
+        ['flt-code', 'code'],
+        ['flt-name', 'name'],
+        ['flt-dept', 'dept'],
+        ['flt-nat', 'nat']
+      ];
+      map.forEach(([elId, key]) => {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        el.onchange = el.oninput = () => {
+          state.colFilters[key] = el.value;
+          refreshSheet();
+        };
+      });
     }
 
     function bindSheetActions(id, items, excluded, st) {
@@ -735,10 +798,10 @@
     });
 
     document.getElementById('topnav').innerHTML = FW.topNav([
-      ['/finance/payroll-overtime.html', 'ساعات إضافية'],
+      ['/finance/payroll-hub.html', 'وحدة الرواتب'],
       ['/finance/payroll-runs.html', 'كشوف الرواتب'],
-      ['/finance/coa-tree.html', 'شجرة الحسابات'],
-      ['/finance/journal.html', 'القيود']
+      ['/finance/payroll-overtime.html', 'ساعات إضافية'],
+      ['/finance/payroll-bank-batches.html', 'دفعات البنوك']
     ], '/finance/payroll-runs.html');
     document.getElementById('table-host').addEventListener('click', (e) => {
       const id = e.target.closest('[data-view]')?.dataset.view || e.target.closest('[data-id]')?.dataset.id;
@@ -748,6 +811,23 @@
     document.getElementById('btn-cancel').onclick = () => { document.getElementById('modal').hidden = true; };
     document.getElementById('btn-add-emp').onclick = () => openSalaryForm({});
     document.getElementById('salary-cancel').onclick = () => { document.getElementById('salary-modal').hidden = true; };
+    document.getElementById('btn-demo-seed').onclick = async () => {
+      if (!(await window.ErpDialog?.confirm?.({
+        title: 'مسير تجريبي',
+        message: 'إنشاء مسير بموظفين وهميين في بيئة الاختبار فقط؟ لن تُستخدم بيانات إنتاج ولن يُنفَّذ صرف بنكي.'
+      }))) return;
+      const r = await FW.api('POST', '/finance/payroll-ops/runs/demo-seed', {
+        ...payload(),
+        period_year: 2099,
+        period_month: 10
+      });
+      if (!r.ok || !r.json?.success) {
+        return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل المسير التجريبي', 'err');
+      }
+      FW.setAlert(document.getElementById('alert'), r.json.message || 'تم إنشاء المسير التجريبي', 'ok');
+      await load();
+      if (r.json.run?.run_id) show(r.json.run.run_id);
+    };
     document.getElementById('btn-reload').onclick = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
     ['q', 'filter-status', 'page-size'].forEach((id) => {
       document.getElementById(id).addEventListener('input', () => { state.page = 1; renderRuns(); });
