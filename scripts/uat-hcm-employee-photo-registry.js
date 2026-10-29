@@ -193,28 +193,35 @@ async function main() {
   await page.evaluate((t) => { localStorage.setItem('authToken', t); localStorage.setItem('token', t); }, token);
   await page.setCookie({ name: 'authToken', value: token, domain: '127.0.0.1', path: '/' });
 
-  await page.goto(`${BASE}/hr/employee-360?mode=add`, { waitUntil: 'networkidle2', timeout: 60000 });
-  await page.waitForSelector('#employeeFormModal.open, #employee360Form', { timeout: 20000 }).catch(() => {});
-  // force open if portal context delayed
-  const opened = await page.$('#employeeFormModal.open');
-  if (!opened) {
+  await page.goto(`${BASE}/hr/employee-360?mode=add`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForFunction(() => {
+    const modal = document.getElementById('employeeFormModal');
+    return !!(modal && (modal.classList.contains('open') || getComputedStyle(modal).display !== 'none'));
+  }, { timeout: 30000 }).catch(async () => {
     await page.evaluate(() => {
       const btn = document.getElementById('addEmployeeBtn');
       if (btn) { btn.classList.remove('hidden'); btn.click(); }
     });
-    await page.waitForTimeout?.(800);
-    await new Promise((r) => setTimeout(r, 800));
-  }
+  });
+  await new Promise((r) => setTimeout(r, 1000));
   const formShot = path.join(OUT, 'hcm-01-add-employee-photo-form.png');
-  await page.screenshot({ path: formShot, fullPage: true });
+  await page.screenshot({ path: formShot, fullPage: false });
   report.artifacts.push(formShot);
 
-  await page.goto(`${BASE}/hr/employee-360`, { waitUntil: 'networkidle2', timeout: 60000 });
-  await page.waitForSelector('#rosterGrid', { timeout: 20000 });
-  await page.type('#rosterSearch', empNumber).catch(() => {});
-  await new Promise((r) => setTimeout(r, 600));
+  await page.goto(`${BASE}/hr/employee-360`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForFunction(() => {
+    const count = document.getElementById('rosterCount');
+    const cards = document.querySelectorAll('.roster-card');
+    const txt = count ? count.textContent || '' : '';
+    return cards.length > 0 && !txt.includes('جاري التحميل');
+  }, { timeout: 45000 });
+  await page.waitForFunction(() => {
+    return [...document.querySelectorAll('.roster-photo img')].some((img) =>
+      (img.getAttribute('src') || '').includes('/api/hr/employee-profile/'));
+  }, { timeout: 20000 }).catch(() => {});
+  await new Promise((r) => setTimeout(r, 1200));
   const listShot = path.join(OUT, 'hcm-02-employee-roster-with-photo.png');
-  await page.screenshot({ path: listShot, fullPage: true });
+  await page.screenshot({ path: listShot, fullPage: false });
   report.artifacts.push(listShot);
 
   await page.goto(`${BASE}/hr`, { waitUntil: 'networkidle2', timeout: 60000 });

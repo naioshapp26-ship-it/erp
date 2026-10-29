@@ -14733,6 +14733,11 @@ const assertEmployee360Access = async (req, requestedEmployeeId) => {
     return { ok: false, status: 400, error: 'معرّف الموظف مطلوب' };
   }
 
+  // Photos and 360 profiles must not be readable without an authenticated session.
+  if (!authUser?.id && !authUser?.role && !authUser?.email) {
+    return { ok: false, status: 401, error: 'يلزم تسجيل الدخول لعرض ملف الموظف أو صورته' };
+  }
+
   if (hrPortalAccess.isEmployeePersona(persona)) {
     const selfId = await resolveEmployee360SelfId(authUser);
     if (!selfId || selfId !== employeeId) {
