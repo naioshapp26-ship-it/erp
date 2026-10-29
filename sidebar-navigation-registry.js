@@ -31,6 +31,7 @@
     'dashboard',
     'strategic-management',
     'smart-management',
+    'naiosh-data-analysis',
     'governed-administrative-integration',
     'incubators-platforms',
     'education-training-incubators',
@@ -115,6 +116,22 @@
     preferredOrder.forEach((id) => {
       if (!byId.has(id) || seen.has(id) || hidden.has(id)) return;
       ordered.push(byId.get(id));
+      seen.add(id);
+    });
+    // Insert newly added default-order items next to their default neighbors
+    // (saved custom orderIds may predate new nav entries like data-analysis).
+    const defaults = getDefaultSidebarOrder();
+    defaults.forEach((id, idx) => {
+      if (seen.has(id) || !byId.has(id) || hidden.has(id)) return;
+      let insertAt = ordered.length;
+      for (let i = idx - 1; i >= 0; i -= 1) {
+        const prevPos = ordered.findIndex((it) => it.id === defaults[i]);
+        if (prevPos !== -1) {
+          insertAt = prevPos + 1;
+          break;
+        }
+      }
+      ordered.splice(insertAt, 0, byId.get(id));
       seen.add(id);
     });
     items.forEach((item) => {
