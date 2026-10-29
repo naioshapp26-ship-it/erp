@@ -3170,6 +3170,7 @@ const protectedHtmlExactPaths = new Set([
   '/home',
   '/archive',
   '/smart-management',
+  // /data-analysis is public (landing-page visitor entry) — not gated
   '/incubators-platforms',
   '/services-events-center',
   '/hierarchy',
@@ -3207,6 +3208,10 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/dashboard.html' || p === '/home') return ['dashboard'];
   if (p === '/smart-management' || p.startsWith('/smart-management/')) {
     return ['hr', 'finance', 'records-archive-home'];
+  }
+  // Public marketing page linked from the ERP landing header (no session required).
+  if (p === '/data-analysis' || p.startsWith('/data-analysis/')) {
+    return null;
   }
   if (p === '/incubators-platforms' || p.startsWith('/incubators-platforms/')) {
     return ['branches-hub', 'incubators-hub', 'platforms', 'e-offices'];
@@ -4786,6 +4791,22 @@ const serveSmartManagement = (req, res, next) => {
 };
 app.get('/smart-management', serveSmartManagement);
 app.get('/smart-management/', serveSmartManagement);
+
+const serveErpDataAnalysis = (req, res, next) => {
+  try {
+    const hasExt = path.extname(req.path || '') !== '';
+    if (hasExt) return next();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    sendHtmlWithNumberFormat(res, path.join(__dirname, 'data-analysis.html'), req);
+  } catch (error) {
+    res.status(500).send('Data analysis page not available');
+  }
+};
+app.get('/data-analysis', serveErpDataAnalysis);
+app.get('/data-analysis/', serveErpDataAnalysis);
+app.get('/data-analysis.html', serveErpDataAnalysis);
 
 // Incubators & Business Platforms portal (entry hub only — does not alter the four systems)
 const serveIncubatorsPlatforms = (req, res, next) => {

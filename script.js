@@ -340,6 +340,7 @@ const app = (() => {
         'records-archive-home': '/archive',
         'records-archive': '/archive',
         'smart-management': '/smart-management',
+        'naiosh-data-analysis': '/data-analysis',
         'incubators-platforms': '/incubators-platforms',
         'services-events-center': '/services-events-center',
         'operational-policies': '/operational-policies',
@@ -938,6 +939,12 @@ const app = (() => {
             return isOfficeRouteAllowed('hr')
                 || isOfficeRouteAllowed('finance')
                 || isOfficeRouteAllowed('records-archive-home');
+        }
+        // Intro page for NAIOSH data analysis — visible with dashboard / finance / HR access
+        if (route === 'naiosh-data-analysis') {
+            return isOfficeRouteAllowed('dashboard')
+                || isOfficeRouteAllowed('finance')
+                || isOfficeRouteAllowed('hr');
         }
         // Unified portal: Branches / Nurseries / Platforms / E-Offices
         if (route === 'incubators-platforms') {
@@ -2094,6 +2101,11 @@ const app = (() => {
             return;
         }
 
+        if (route === 'naiosh-data-analysis') {
+            navigateToExternalRoute(route);
+            return;
+        }
+
         if (route === 'incubators-platforms') {
             navigateToExternalRoute(route);
             return;
@@ -2867,6 +2879,7 @@ const app = (() => {
         const map = { 
             'dashboard': 'لوحة القيادة (Tenant Dashboard)',
             'smart-management': 'الإدارة الذكية 360',
+            'naiosh-data-analysis': 'نايوش لتحليل البيانات',
             'incubators-platforms': 'حاضنات و منصات اعمال',
             'governed-administrative-integration': 'التكامل الإداري المحكوم',
             'records-archive-home': 'نظام الأرشفة',
@@ -3911,6 +3924,12 @@ const app = (() => {
                     ].filter((sub) => !strategicDedupe.has(sub.id))
                 },
                 { id: 'smart-management', icon: 'fa-crown', label: 'الإدارة الذكية 360', show: isOfficeRouteAllowed('smart-management') },
+                {
+                    id: 'naiosh-data-analysis',
+                    icon: 'fa-chart-area',
+                    label: 'نايوش لتحليل البيانات',
+                    show: isOfficeRouteAllowed('naiosh-data-analysis') || isOfficeRouteAllowed('dashboard')
+                },
                 {
                     id: 'governed-administrative-integration',
                     icon: 'fa-diagram-project',
@@ -18755,6 +18774,7 @@ const app = (() => {
                 dashboard: 'الرئيسية',
                 'strategic-management': 'الإدارة الاستراتيجية',
                 'smart-management': 'الإدارة الذكية 360',
+            'naiosh-data-analysis': 'نايوش لتحليل البيانات',
                 'governed-administrative-integration': 'التكامل الإداري المحكوم',
                 'incubators-platforms': 'حاضنات و منصات اعمال',
                 'education-training-incubators': 'التعليم والتدريب',

@@ -63,7 +63,7 @@
 
     getBackdrop().addEventListener('click', closeMenu);
 
-    header.querySelectorAll('.nav-links a, .auth-actions a').forEach((link) => {
+    header.querySelectorAll('.nav-links a, .auth-actions a, .nav-data-analysis').forEach((link) => {
       link.addEventListener('click', closeMenu);
     });
 
