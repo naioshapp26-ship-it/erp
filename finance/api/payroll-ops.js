@@ -1027,7 +1027,14 @@ router.get('/runs', async (req, res) => {
     const eid = entityOf(req);
     const viewAll = require('../services/hr-finance-authz').assertAction(req, 'payroll_view_all');
     const r = await db.query(
-      `SELECT * FROM finance_payroll_runs WHERE entity_id = $1 ORDER BY run_id DESC LIMIT 200`,
+      `SELECT r.*,
+              COALESCE((
+                SELECT COUNT(*)::int FROM finance_payroll_items i WHERE i.run_id = r.run_id
+              ), 0) AS item_count
+       FROM finance_payroll_runs r
+       WHERE r.entity_id = $1
+       ORDER BY r.period_year DESC, r.period_month DESC, r.run_id DESC
+       LIMIT 200`,
       [eid]
     );
     res.json({
