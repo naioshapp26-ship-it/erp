@@ -593,19 +593,26 @@
       const approved = st === 'APPROVED';
       const posted = st === 'POSTED';
       const closed = st === 'CLOSED' || !!run.closed_at;
-      const btn = (id, label, cls, enabled, title) =>
-        `<button class="fw-btn ${cls || ''} ${enabled ? '' : 'action-blocked'}" id="${id}" ${enabled ? '' : 'disabled'} title="${FW.esc(title || '')}">${label}</button>`;
-      return `
-        ${btn('d-add-salary', '<i class="fas fa-user-plus"></i> إضافة موظف للمسير', 'fw-btn-primary', draft, draft ? 'إضافة بند لهذا المسير' : 'متاح فقط للمسودة')}
-        ${btn('d-approve', 'اعتماد المسير', 'fw-btn-ok', draft, draft ? 'اعتماد بعد المراجعة' : 'المسير معتمد أو مقفل مسبقًا')}
-        ${btn('d-post', 'ترحيل محاسبي', 'fw-btn-primary', approved && !closed, approved ? 'قيد محاسبي مرة واحدة — بلا صرف بنكي' : 'الترحيل متاح بعد الاعتماد فقط')}
-        ${btn('d-close', 'إقفال', '', (approved || posted) && !closed, 'إقفال المسير')}
-        ${btn('d-xlsx', 'Excel', '', true, 'تصدير Excel')}
-        ${btn('d-pdf', 'PDF', '', true, 'تصدير PDF')}
-        ${btn('d-print', 'طباعة', '', true, 'طباعة')}
-        <a class="fw-btn" href="/finance/payroll-employees.html" title="تسجيل موظف في النظام وليس في المسير">إضافة موظف للنظام</a>
-        <input type="search" id="item-q" placeholder="بحث في بنود المسير…" value="${FW.esc(state.itemQ)}" style="min-width:180px">
-      `;
+      const canClose = (approved || posted) && !closed;
+      const parts = [];
+      if (draft) {
+        parts.push(`<button class="fw-btn fw-btn-primary" id="d-add-salary" title="إضافة بند راتب لهذا المسير فقط"><i class="fas fa-user-plus"></i> إضافة موظف للمسير</button>`);
+        parts.push(`<button class="fw-btn fw-btn-ok" id="d-approve" title="اعتماد بعد المراجعة">اعتماد المسير</button>`);
+        parts.push(`<a class="fw-btn" href="/finance/payroll-employees.html" title="تسجيل موظف في النظام وليس في المسير">إضافة موظف للنظام</a>`);
+      } else {
+        parts.push(`<span class="fw-badge muted" title="التعديل متاح للمسودة فقط">حالة ${FW.esc(AR[st] || st)} — التعديل مغلق</span>`);
+      }
+      if (approved && !closed) {
+        parts.push(`<button class="fw-btn fw-btn-primary" id="d-post" title="قيد محاسبي مرة واحدة — بلا صرف بنكي">ترحيل محاسبي</button>`);
+      }
+      if (canClose) {
+        parts.push(`<button class="fw-btn" id="d-close">إقفال</button>`);
+      }
+      parts.push(`<button class="fw-btn" id="d-xlsx">Excel</button>`);
+      parts.push(`<button class="fw-btn" id="d-pdf">PDF</button>`);
+      parts.push(`<button class="fw-btn" id="d-print">طباعة</button>`);
+      parts.push(`<input type="search" id="item-q" placeholder="بحث في بنود المسير…" value="${FW.esc(state.itemQ)}" style="min-width:180px">`);
+      return parts.join('\n');
     }
 
     async function show(id) {
