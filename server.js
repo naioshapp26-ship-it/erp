@@ -4686,7 +4686,8 @@ const hrRouteMap = {
   '/hr/third-party-services': 'hr-ops-workspace.html',
   '/hr/circulars': 'hr-ops-workspace.html',
   '/hr/letters': 'hr-ops-workspace.html',
-  '/hr/recruitment': 'hr-ops-workspace.html',
+  // التوظيف والاستقطاب = مسار المرشحين (new-hires)، وليس لوحة ops عامة
+  '/hr/recruitment': 'new-hires.html',
   '/hr/offers-benefits': 'hr-ops-workspace.html',
   '/hr/surveys': 'hr-ops-workspace.html',
   '/hr/reports': 'hr-ops-workspace.html'
