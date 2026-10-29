@@ -432,9 +432,9 @@
   <div class="container mx-auto px-4 py-8">
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <span class="chip bg-white text-slate-700 border border-slate-200" id="pageChip">موظف 360</span>
-        <h1 class="text-3xl md:text-4xl font-extrabold mt-3" id="pageTitle">موظف 360</h1>
-        <p class="text-slate-600" id="pageSubtitle">اختر موظفًا لعرض ملفه الشامل: البيانات، الحضور، الرواتب، والأداء.</p>
+        <span class="chip bg-white text-slate-700 border border-slate-200" id="pageChip">ملفات الموظفين</span>
+        <h1 class="text-3xl md:text-4xl font-extrabold mt-3" id="pageTitle">ملفات الموظفين</h1>
+        <p class="text-slate-600" id="pageSubtitle">السجل المركزي الموحد لجميع الموظفين. أضِف الموظف مرة واحدة مع صورته الشخصية، ثم افتح ملفه الشامل دون تكرار التسجيل.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" id="addEmployeeBtn" class="btn bg-emerald-600 text-white hidden">
@@ -445,9 +445,9 @@
           <i class="fas fa-arrow-right"></i>
           العودة للموارد البشرية
         </a>
-        <a href="/hr/employees" class="btn bg-rose-700 text-white">
-          <i class="fas fa-briefcase"></i>
-          ملفات الموظفين
+        <a href="/hr/new-hires" class="btn bg-violet-700 text-white">
+          <i class="fas fa-magnifying-glass"></i>
+          التوظيف والاستقطاب
         </a>
       </div>
     </div>
@@ -709,25 +709,26 @@
     <div class="modal-card">
       <div class="flex items-center justify-between mb-4">
         <div>
-          <div class="text-xs text-slate-500" id="employeeFormEyebrow">موظف 360</div>
+          <div class="text-xs text-slate-500" id="employeeFormEyebrow">السجل المركزي للموظفين</div>
           <h3 id="employeeFormTitle" class="text-xl font-extrabold mt-1">إضافة موظف جديد</h3>
         </div>
         <button type="button" id="closeEmployeeForm" class="btn bg-white text-slate-700 border border-slate-200">إغلاق</button>
       </div>
       <form id="employee360Form" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <div class="md:col-span-2 flex flex-col items-center gap-3 p-4 rounded-2xl border border-rose-100 bg-rose-50/40">
-          <div class="photo-preview-wrap" id="employeePhotoPreview">
+        <div class="md:col-span-2 flex flex-col items-center gap-3 p-4 rounded-2xl border border-rose-200 bg-rose-50/50">
+          <label class="text-sm font-extrabold text-rose-800" for="employeePhotoInput">الصورة الشخصية للموظف *</label>
+          <div class="photo-preview-wrap" id="employeePhotoPreview" aria-live="polite">
             <i class="fas fa-user text-3xl text-rose-300"></i>
           </div>
           <div class="flex flex-wrap gap-2 justify-center">
             <label class="btn bg-sky-700 text-white cursor-pointer">
               <i class="fas fa-camera"></i>
-              رفع صورة الموظف
+              رفع صورة JPG / PNG / WebP
               <input type="file" id="employeePhotoInput" accept="image/jpeg,image/png,image/webp" class="hidden">
             </label>
             <button type="button" id="clearEmployeePhoto" class="btn bg-white text-slate-700 border border-slate-200">إزالة المعاينة</button>
           </div>
-          <p class="text-xs text-slate-500 text-center">JPG / PNG / WebP — بحد أقصى 5 ميجابايت. تظهر الصورة في القائمة والملف الشامل.</p>
+          <p class="text-xs text-slate-600 text-center font-bold">متطلب أساسي عند الإضافة. تُحفظ في PostgreSQL وترتبط بسجل الموظف، وتظهر في الجدول والملف الشامل بعد الحفظ.</p>
         </div>
         <div>
           <label class="text-xs font-bold text-slate-500">الاسم الكامل *</label>
@@ -1209,6 +1210,10 @@
       }
       if (!payload.full_name || !payload.employee_number) {
         showEmployeeFormError('رقم الموظف والاسم الكامل مطلوبان');
+        return;
+      }
+      if (employeeFormMode !== 'edit' && !pendingPhotoFile) {
+        showEmployeeFormError('الصورة الشخصية للموظف مطلوبة عند الإضافة — ارفع صورة JPG أو PNG أو WebP');
         return;
       }
       if (employeeFormMode === 'edit' && !editingEmployeeDbId) {
@@ -2122,6 +2127,10 @@
 
       if (!employeeId) {
         await loadRoster();
+        const modeParam = String(urlParams.get('mode') || '').toLowerCase();
+        if ((modeParam === 'add' || modeParam === 'new') && canManageEmployees) {
+          openEmployeeForm('add');
+        }
         return;
       }
 

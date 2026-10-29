@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>👥 الموظفون المقبولون - نظام نايوش</title>
+  <title>مرشحون مقبولون — تحويل إلى السجل المركزي</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -290,13 +290,13 @@
         <div class="flex-1">
           <div class="hero-badge mb-5">
             <div class="hero-pulse"></div>
-            نظام إدارة الموظفين المقبولين — تشغيل مباشر
+            مرحلة انتقالية بعد قبول المرشح — قبل السجل المركزي
           </div>
           <h1 class="text-4xl md:text-5xl font-extrabold mb-4 leading-tight">
-            👥 الموظفون المقبولون
+            مرشحون مقبولون
           </h1>
           <p class="text-lg md:text-xl text-teal-100 mb-6 leading-relaxed">
-            صفحة متكاملة لإدارة الموظفين المقبولين وتتبع القرارات والتغييرات في الوقت الفعلي
+            قائمة المرشحين بعد القبول من التوظيف والاستقطاب. حوّل كل مرشح إلى السجل المركزي مرة واحدة دون تكرار، مع الاحتفاظ بالبيانات.
           </p>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
             <div class="flex items-center gap-2 text-sm text-teal-100">
@@ -325,11 +325,19 @@
             </div>
           </div>
           <div class="flex flex-wrap gap-3">
+            <a href="/hr/new-hires" class="btn text-sm bg-violet-600 text-white border-transparent">
+              <i class="fas fa-magnifying-glass"></i>
+              التوظيف والاستقطاب
+            </a>
+            <a href="/hr/employee-360" class="btn text-sm bg-emerald-600 text-white border-transparent">
+              <i class="fas fa-briefcase"></i>
+              ملفات الموظفين
+            </a>
             <button id="addBtn"
               class="btn text-sm"
               style="background:linear-gradient(135deg,#0d9488,#0f766e); color:#fff; border-color:transparent; box-shadow:0 8px 24px -8px rgba(13,148,136,0.5);">
               <i class="fas fa-user-plus"></i>
-              إضافة موظف جديد
+              إضافة مرشح مقبول
             </button>
             <button id="refreshBtn" class="btn bg-white/10 text-white border-white/20 text-sm">
               <i class="fas fa-rotate"></i>
@@ -914,8 +922,9 @@
               <div class="flex flex-wrap gap-2 text-xs">
                 <button class="btn bg-white text-slate-800 border border-slate-200" data-action="view" data-id="${emp.id}"><i class="fas fa-eye"></i> عرض</button>
                 <button class="btn bg-white text-slate-800 border border-slate-200" data-action="edit" data-id="${emp.id}"><i class="fas fa-pen"></i> تعديل</button>
-                <button class="btn bg-emerald-600 text-white" data-action="approve" data-id="${emp.id}"><i class="fas fa-check"></i> قبول</button>
-                <button class="btn bg-rose-600 text-white" data-action="reject" data-id="${emp.id}"><i class="fas fa-times"></i> رفض</button>
+                ${emp.converted_employee_id
+                  ? `<a class="btn bg-emerald-50 text-emerald-800 border border-emerald-200" href="/hr/employee-360?employeeId=${encodeURIComponent(emp.converted_employee_id)}"><i class="fas fa-link"></i> في السجل: ${sanitize(emp.converted_employee_id)}</a>`
+                  : `<button class="btn bg-indigo-600 text-white" data-action="convert" data-id="${emp.id}" title="إنشاء موظف في السجل المركزي دون تكرار"><i class="fas fa-right-left"></i> تحويل إلى السجل المركزي</button>`}
                 <button class="btn bg-white text-rose-600 border border-rose-200" data-action="delete" data-id="${emp.id}"><i class="fas fa-trash"></i> حذف</button>
               </div>
             </td>
@@ -1175,6 +1184,39 @@
     sortOrderEl.addEventListener('change', renderTable);
     form.addEventListener('submit', saveEmployee);
 
+    const convertToCentralRegistry = async (id) => {
+      const emp = acceptedEmployees.find((item) => String(item.id) === String(id));
+      if (!emp) return;
+      if (emp.converted_employee_id) {
+        showToast('تم التحويل مسبقًا إلى السجل المركزي');
+        return;
+      }
+      if (!await window.ErpDialog.confirm(
+        `تحويل المرشح «${emp.full_name}» إلى موظف في ملفات الموظفين؟ لن يُنشأ سجل مكرر إن وُجد موظف بنفس البريد أو الاسم والوظيفة.`
+      )) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/accepted-employees/${id}/convert-to-employee`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ note: 'تحويل من مرشح مقبول' })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'تعذر التحويل');
+        showToast(data.message || 'تم التحويل');
+        recordLog('تحويل إلى السجل المركزي', emp, {
+          details: data.employee_number,
+          status: 'converted'
+        });
+        await loadEmployees();
+        if (data.registry_url && await window.ErpDialog.confirm('هل تريد فتح ملف الموظف في السجل المركزي الآن؟')) {
+          window.location.href = data.registry_url;
+        }
+      } catch (error) {
+        showToast(error.message || 'خطأ أثناء التحويل', true);
+      }
+    };
+
     tableBody.addEventListener('click', async (event) => {
       const button = event.target.closest('button[data-action]');
       if (!button) return;
@@ -1185,6 +1227,7 @@
       if (action === 'view') return openViewModal(id);
       if (action === 'approve') return openDecisionModal(id, 'approve');
       if (action === 'reject') return openDecisionModal(id, 'reject');
+      if (action === 'convert') return convertToCentralRegistry(id);
     });
 
     document.addEventListener('DOMContentLoaded', () => {
