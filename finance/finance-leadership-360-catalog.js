@@ -193,7 +193,14 @@
           label: 'وحدة الرواتب (مستقلة)',
           status: 'operational',
           href: '/finance/payroll-hub.html',
-          note: 'واجهة تشغيل الرواتب منفصلة عن الحسابات — الربط المحاسبي عند الاعتماد/الترحيل فقط'
+          note: 'لوحة رئيسية: موظفون → إنشاء مسير → مسيرات سابقة → تقارير/تصدير'
+        },
+        {
+          id: 'payroll-employees',
+          label: 'الموظفون ورواتبهم',
+          status: 'operational',
+          href: '/finance/payroll-employees.html',
+          note: 'بطاقات راتب أساسية في PostgreSQL لاستخدامها في المسيرات التالية'
         },
         {
           id: 'attendance',
@@ -208,7 +215,7 @@
           label: 'كشوف الرواتب',
           status: 'operational',
           href: '/finance/payroll-runs.html',
-          note: 'مسير 13 عمودًا + نموذج راتب + اعتماد/تصدير'
+          note: 'معالج إنشاء + قائمة بدون فتح تلقائي + مسير 13 عمودًا بعد الاختيار'
         },
         { id: 'bank-batches', label: 'دفعات البنوك للرواتب', status: 'operational', href: '/finance/payroll-bank-batches.html' }
       ]
