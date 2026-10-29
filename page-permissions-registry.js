@@ -810,8 +810,9 @@ function getPageKeysForPath(requestPath) {
   if (normalized === '/smart-management' || normalized.startsWith('/smart-management/')) {
     return ['hr', 'finance', 'records-archive-home'];
   }
+  // Public visitor page from landing header — no ERP session required.
   if (normalized === '/data-analysis' || normalized === '/data-analysis.html' || normalized.startsWith('/data-analysis/')) {
-    return ['dashboard', 'finance', 'hr'];
+    return null;
   }
   // Portal hub: Branches / Nurseries / Platforms / E-Offices
   if (normalized === '/incubators-platforms' || normalized.startsWith('/incubators-platforms/')) {

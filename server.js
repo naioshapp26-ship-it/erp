@@ -3170,7 +3170,7 @@ const protectedHtmlExactPaths = new Set([
   '/home',
   '/archive',
   '/smart-management',
-  '/data-analysis',
+  // /data-analysis is public (landing-page visitor entry) — not gated
   '/incubators-platforms',
   '/services-events-center',
   '/hierarchy',
@@ -3209,8 +3209,9 @@ const getPageKeysForPath = (requestPath) => {
   if (p === '/smart-management' || p.startsWith('/smart-management/')) {
     return ['hr', 'finance', 'records-archive-home'];
   }
+  // Public marketing page linked from the ERP landing header (no session required).
   if (p === '/data-analysis' || p.startsWith('/data-analysis/')) {
-    return ['dashboard', 'finance', 'hr'];
+    return null;
   }
   if (p === '/incubators-platforms' || p.startsWith('/incubators-platforms/')) {
     return ['branches-hub', 'incubators-hub', 'platforms', 'e-offices'];
