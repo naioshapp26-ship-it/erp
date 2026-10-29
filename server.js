@@ -11625,10 +11625,48 @@ app.post('/api/accepted-employees/:id/convert-to-employee', async (req, res) => 
       [row.id, employeeNumber, note]
     );
 
+    // Retain candidate photo when provided (base64) or already stored on the accepted row.
+    let photoAttached = false;
+    try {
+      let photoBuf = null;
+      let photoMime = 'image/png';
+      const b64 = String(body.photo_base64 || body.candidate_photo_base64 || '').trim();
+      if (b64) {
+        const cleaned = b64.replace(/^data:image\/\w+;base64,/, '');
+        photoBuf = Buffer.from(cleaned, 'base64');
+        photoMime = String(body.photo_mime || body.candidate_photo_mime || 'image/png').trim() || 'image/png';
+      } else if (row.candidate_photo_data) {
+        photoBuf = Buffer.isBuffer(row.candidate_photo_data)
+          ? row.candidate_photo_data
+          : Buffer.from(row.candidate_photo_data);
+        photoMime = row.candidate_photo_mime || 'image/png';
+      }
+      if (photoBuf && photoBuf.length > 32) {
+        const entityId = row.entity_id || 'HQ001';
+        await hrEmployeePhotoStorage.upsertEmployeePhotoAsset(db, {
+          entityId,
+          employeeId: employeeNumber,
+          mimeType: photoMime,
+          fileData: photoBuf
+        });
+        const persistentUrl = hrEmployeePhotoStorage.buildPersistentPhotoUrl(employeeNumber);
+        await db.query(
+          `UPDATE hr_employee_profiles
+           SET photo_url = $1, updated_at = NOW()
+           WHERE employee_id = $2 AND (entity_id = $3 OR entity_id IS NULL)`,
+          [persistentUrl, employeeNumber, entityId]
+        );
+        photoAttached = true;
+      }
+    } catch (photoErr) {
+      console.warn('Convert photo retention skipped:', photoErr.message);
+    }
+
     res.json({
       success: true,
       created,
       reused_existing: !created,
+      photo_attached: photoAttached,
       employee_id: employeeDbId,
       employee_number: employeeNumber,
       accepted: updated.rows[0],
