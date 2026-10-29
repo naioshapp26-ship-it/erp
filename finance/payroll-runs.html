@@ -31,10 +31,23 @@
     .pay-tabs{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
     .pay-tabs button{border:1px solid var(--fw-line);background:#fff;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit}
     .pay-tabs button.active{background:#0f172a;color:#fff;border-color:#0f172a}
-    .pay-workspace{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:12px;align-items:start;min-height:60vh}
-    .runs-pane{max-height:78vh;overflow:auto;position:sticky;top:8px}
-    .sheet-pane{min-width:0;background:#fff;border:1px solid var(--fw-line);border-radius:14px;padding:12px}
-    .pay-sheet{direction:rtl;background:#fff;border:1px solid var(--sheet-line);overflow:auto;max-height:calc(100vh - 240px);min-height:420px}
+    .runs-full{background:#fff;border:1px solid var(--fw-line);border-radius:14px;padding:0;overflow:hidden}
+    .runs-full .fw-card-head{padding:14px 16px;border-bottom:1px solid var(--fw-line);margin:0}
+    .runs-full #table-host{padding:0}
+    .runs-full .fw-pager{padding:10px 16px;border-top:1px solid var(--fw-line)}
+    .runs-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .runs-table{width:100%;min-width:960px;border-collapse:collapse;font-size:.92rem}
+    .runs-table th,.runs-table td{padding:12px 14px;border-bottom:1px solid #e2e8f0;text-align:right;vertical-align:middle;white-space:nowrap}
+    .runs-table thead th{background:#f8fafc;font-weight:800;color:#0f172a;position:sticky;top:0;z-index:1}
+    .runs-table tbody tr:hover{background:#f1f5f9}
+    .runs-table .run-link{color:#047857;font-weight:800;text-decoration:none;font-family:ui-monospace,Consolas,monospace}
+    .runs-table .run-link:hover{text-decoration:underline}
+    .runs-table .num{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:bidi-override;font-family:ui-monospace,Consolas,monospace;font-weight:700}
+    .runs-table .actions{white-space:nowrap}
+    .runs-table .fw-btn{white-space:nowrap}
+    .detail-pane{background:#fff;border:1px solid var(--fw-line);border-radius:14px;padding:14px;min-width:0}
+    .back-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+    .pay-sheet{direction:rtl;background:#fff;border:1px solid var(--sheet-line);overflow:auto;max-height:calc(100vh - 220px);min-height:420px}
     .pay-title{text-align:center;font-weight:800;padding:16px 12px;background:var(--sheet-title);border-bottom:1px solid var(--sheet-line);font-family:Tajawal,Cairo,sans-serif;font-size:1.15rem}
     .pay-table{width:100%;border-collapse:collapse;min-width:1480px;font-size:.84rem}
     .pay-table th,.pay-table td{border:1px solid #334155;padding:8px 9px;vertical-align:middle;white-space:nowrap;text-align:center}
@@ -59,10 +72,14 @@
     .hint{font-size:.8rem;color:#64748b;margin:0}
     .salary-form .calc-box{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#f8fafc;border:1px solid var(--fw-line);border-radius:12px;padding:12px;margin-top:4px}
     .salary-form .calc-box strong{font-size:1.15rem;font-variant-numeric:tabular-nums}
-    @media (max-width:1100px){.pay-workspace{grid-template-columns:1fr}.runs-pane{position:static;max-height:240px}}
+    @media (max-width:760px){
+      .runs-table{min-width:820px;font-size:.82rem}
+      .runs-table th,.runs-table td{padding:10px 8px}
+      .toolbar-inline .fw-btn{flex:1 1 auto}
+    }
     @media print{
-      .fw-topnav,.fw-actions:not(.print-keep),.fw-toolbar,.fw-modal,.fw-kpis,.runs-pane,.no-print,.admin-tools,.wizard-steps,#list-panel .fw-hero .fw-actions{display:none!important}
-      .pay-workspace{display:block}
+      .fw-topnav,.fw-actions:not(.print-keep),.fw-toolbar,.fw-modal,.fw-kpis,.no-print,.admin-tools,.wizard-steps,.back-bar,#list-panel{display:none!important}
+      #detail-panel{display:block!important}
       .pay-sheet{overflow:visible;max-height:none;border:0}
       @page{size:A4 landscape;margin:8mm}
     }
@@ -156,14 +173,14 @@
       </section>
     </div>
 
-    <!-- ===== قائمة المسيرات + التفاصيل ===== -->
+    <!-- ===== جميع مسيرات الرواتب (عرض كامل) ===== -->
     <div id="list-panel" class="mode-panel">
       <header class="fw-hero">
         <div>
           <a class="fw-kicker" href="/finance/payroll-hub.html">وحدة الرواتب</a>
-          <h1 id="page-title"><i class="fas fa-list"></i> <span id="page-title-text">المسيرات السابقة</span></h1>
-          <p id="page-subtitle">اختر مسيرًا من القائمة لعرض جدول الرواتب ذي الـ13 عمودًا. لا يُفتح أي مسير تلقائيًا عند الدخول.</p>
-          <div class="next-hint" id="list-next-hint">ابدأ باختيار مسير من القائمة اليمنى، أو أنشئ مسيرًا جديدًا من المعالج.</div>
+          <h1 id="page-title"><i class="fas fa-list"></i> <span id="page-title-text">جميع مسيرات الرواتب</span></h1>
+          <p id="page-subtitle">جدول بعرض الصفحة لكل المسيرات. اضغط رقم المسير أو «فتح المسير» للانتقال إلى شاشة التفاصيل المستقلة بجدول الـ13 عمودًا.</p>
+          <div class="next-hint" id="list-next-hint">الترتيب من الأحدث للأقدم. استخدم البحث وفلاتر الحالة والفترة لتضييق النتائج.</div>
         </div>
         <div class="fw-actions">
           <a class="fw-btn" href="/finance/payroll-hub.html"><i class="fas fa-arrow-right"></i> رجوع للوحدة</a>
@@ -174,29 +191,32 @@
         </div>
       </header>
       <div id="alert" class="fw-alert info" hidden></div>
-      <div class="sep-note" id="exports-note" hidden>وضع التقارير والتصدير: افتح مسيرًا ثم استخدم Excel / PDF / طباعة. الترحيل المحاسبي يظهر فقط بعد الاعتماد ولا ينفّذ صرفًا بنكيًا.</div>
+      <div class="sep-note" id="exports-note" hidden>وضع التقارير والتصدير: افتح مسيرًا من الجدول ثم استخدم Excel / PDF / طباعة. الترحيل المحاسبي يظهر فقط بعد الاعتماد ولا ينفّذ صرفًا بنكيًا.</div>
       <div class="fw-kpis" id="kpis"></div>
       <div class="fw-toolbar">
-        <input type="search" id="q" class="fw-grow" placeholder="بحث برقم المسير أو القسم…">
-        <select id="filter-status">
+        <input type="search" id="q" class="fw-grow" placeholder="بحث برقم المسير أو القسم أو النوع…">
+        <select id="filter-status" aria-label="فلتر الحالة">
           <option value="">كل الحالات</option>
           <option value="DRAFT">مسودة</option>
           <option value="APPROVED">معتمد</option>
           <option value="POSTED">مُرحّل محاسبيًا</option>
           <option value="CLOSED">مقفل</option>
         </select>
-        <select id="page-size"><option value="25" selected>25</option><option value="50">50</option></select>
+        <select id="filter-year" aria-label="فلتر السنة"><option value="">كل السنوات</option></select>
+        <select id="filter-month" aria-label="فلتر الشهر">
+          <option value="">كل الأشهر</option>
+          <option value="1">01</option><option value="2">02</option><option value="3">03</option>
+          <option value="4">04</option><option value="5">05</option><option value="6">06</option>
+          <option value="7">07</option><option value="8">08</option><option value="9">09</option>
+          <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+        </select>
+        <select id="page-size"><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select>
       </div>
-      <div class="pay-workspace">
-        <section class="fw-card runs-pane no-print">
-          <div class="fw-card-head"><h2>قائمة المسيرات</h2><span id="count" class="fw-badge muted">0</span></div>
-          <div id="table-host"></div>
-          <div class="fw-pager" id="pager"></div>
-        </section>
-        <section class="sheet-pane" id="drawer">
-          <div class="fw-empty"><i class="fas fa-hand-pointer"></i>لم يُفتح أي مسير بعد. اضغط صفًا أو زر «فتح» لعرض جدول الـ13 عمودًا.</div>
-        </section>
-      </div>
+      <section class="runs-full">
+        <div class="fw-card-head"><h2>جميع مسيرات الرواتب</h2><span id="count" class="fw-badge muted">0</span></div>
+        <div id="table-host"></div>
+        <div class="fw-pager" id="pager"></div>
+      </section>
       <details class="admin-tools no-print" id="admin-tools" style="margin:18px 0 8px;padding:12px 14px;border:1px dashed var(--fw-line);border-radius:10px;background:#fafafa">
         <summary style="cursor:pointer;font-weight:700">أدوات الإدارة</summary>
         <p class="hint" style="margin:10px 0 8px">خيارات تشغيلية غير ظاهرة في الشريط الرئيسي.</p>
@@ -205,6 +225,30 @@
           <input type="file" id="import-file" accept=".xlsx,.xls" hidden>
         </label>
       </details>
+    </div>
+
+    <!-- ===== تفاصيل مسير مستقل بعرض كامل ===== -->
+    <div id="detail-panel" class="mode-panel">
+      <header class="fw-hero">
+        <div>
+          <a class="fw-kicker" href="/finance/payroll-hub.html">وحدة الرواتب</a>
+          <h1><i class="fas fa-file-invoice-dollar"></i> <span id="detail-title">تفاصيل المسير</span></h1>
+          <p id="detail-subtitle">جدول الرواتب ذو الـ13 عمودًا بعرض الصفحة. التمرير الأفقي للجدول فقط عند الحاجة.</p>
+          <div class="next-hint" id="detail-next-hint">راجع البنود ثم نفّذ الإجراء المناسب لحالة المسير.</div>
+        </div>
+        <div class="fw-actions">
+          <button type="button" class="fw-btn fw-btn-primary" id="btn-back-list"><i class="fas fa-arrow-right"></i> العودة إلى جميع المسيرات</button>
+          <a class="fw-btn" href="/finance/payroll-hub.html">وحدة الرواتب</a>
+        </div>
+      </header>
+      <div id="detail-alert" class="fw-alert info" hidden></div>
+      <div class="back-bar no-print">
+        <button type="button" class="fw-btn fw-btn-ok" id="btn-back-list-2"><i class="fas fa-list"></i> العودة إلى جميع المسيرات</button>
+        <span id="detail-run-chip" class="fw-badge muted">—</span>
+      </div>
+      <section class="detail-pane" id="drawer">
+        <div class="fw-loading"><i class="fas fa-spinner fa-spin"></i>جاري تحميل المسير…</div>
+      </section>
     </div>
   </div>
 
@@ -252,13 +296,44 @@
     const FW = window.FinanceWorkbench;
     const AR = { DRAFT:'مسودة', APPROVED:'معتمد', POSTED:'مُرحّل محاسبيًا', CLOSED:'مقفل', CANCELLED:'ملغى' };
     const params = new URLSearchParams(location.search);
-    const mode = params.get('wizard') === '1' ? 'wizard' : (params.get('view') === 'exports' ? 'exports' : 'list');
+    const initialRun = params.get('run') || params.get('opened') || '';
+    let mode = params.get('wizard') === '1' ? 'wizard' : (initialRun ? 'detail' : (params.get('view') === 'exports' ? 'exports' : 'list'));
     const state = {
       runs: [], selected: null, detail: null, page: 1, settings: {},
       tab: 'payroll', employees: [], itemSort: { key: 'full_name_ar', dir: 1 }, itemQ: '',
       colFilters: { code: '', name: '', dept: '', nat: '' },
       wizStep: 1, wizSelected: new Set()
     };
+
+    function setUrlMode(nextMode, runId) {
+      const u = new URL(location.href);
+      u.searchParams.delete('wizard');
+      u.searchParams.delete('opened');
+      u.searchParams.delete('run');
+      u.searchParams.delete('view');
+      if (nextMode === 'wizard') u.searchParams.set('wizard', '1');
+      else if (nextMode === 'exports') u.searchParams.set('view', 'exports');
+      else if (nextMode === 'detail' && runId) u.searchParams.set('run', String(runId));
+      history.replaceState({}, '', u.pathname + u.search);
+      mode = nextMode;
+    }
+
+    function showListScreen(msg) {
+      setUrlMode(params.get('view') === 'exports' ? 'exports' : 'list');
+      state.selected = null;
+      state.detail = null;
+      state.tab = 'payroll';
+      state.itemQ = '';
+      state.colFilters = { code: '', name: '', dept: '', nat: '' };
+      activateMode();
+      renderRuns();
+      if (msg) FW.setAlert(document.getElementById('alert'), msg, 'ok');
+    }
+
+    function detailAlert(text, kind) {
+      FW.setAlert(document.getElementById('detail-alert'), text, kind || 'info');
+      FW.setAlert(document.getElementById('alert'), text, kind || 'info');
+    }
 
     const monthSel = document.getElementById('period_month');
     monthSel.innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
@@ -278,17 +353,21 @@
     function round2(v) { return Math.round(n(v) * 100) / 100; }
     function asSigned(v) { const x = n(v); if (!x) return 0; return x > 0 ? -x : x; }
     function alertBlocked(action) {
-      FW.setAlert(document.getElementById('alert'), `الإجراء «${action}» غير مسموح بحالة المسير الحالية. عدّل المسير فقط وهو مسودة، والاعتماد قبل الترحيل.`, 'err');
+      detailAlert(`الإجراء «${action}» غير مسموح بحالة المسير الحالية. عدّل المسير فقط وهو مسودة، والاعتماد قبل الترحيل.`, 'err');
     }
 
     function activateMode() {
       document.getElementById('wizard-panel').classList.toggle('active', mode === 'wizard');
-      document.getElementById('list-panel').classList.toggle('active', mode !== 'wizard');
+      document.getElementById('list-panel').classList.toggle('active', mode === 'list' || mode === 'exports');
+      document.getElementById('detail-panel').classList.toggle('active', mode === 'detail');
       if (mode === 'exports') {
         document.getElementById('page-title-text').textContent = 'التقارير والتصدير';
-        document.getElementById('page-subtitle').textContent = 'اختر مسيرًا ثم صدّر Excel أو PDF أو اطبع. الترحيل المحاسبي منفصل بعد الاعتماد.';
-        document.getElementById('list-next-hint').textContent = 'افتح مسيرًا معتمدًا أو مرحّلًا للتصدير. الترحيل لا يصرف بنكيًا.';
+        document.getElementById('page-subtitle').textContent = 'افتح مسيرًا من الجدول ثم صدّر Excel أو PDF أو اطبع. الترحيل المحاسبي منفصل بعد الاعتماد.';
+        document.getElementById('list-next-hint').textContent = 'اضغط «فتح المسير» على مسير معتمد أو مرحّل للتصدير. الترحيل لا يصرف بنكيًا.';
         document.getElementById('exports-note').hidden = false;
+      } else if (mode === 'list') {
+        document.getElementById('page-title-text').textContent = 'جميع مسيرات الرواتب';
+        document.getElementById('exports-note').hidden = true;
       }
     }
 
@@ -324,13 +403,24 @@
         `<li><strong>${FW.esc(e.action)}</strong> — ${FW.esc(e.by || '')} — ${FW.esc(e.at || '')}</li>`
       ).join('') || '<li>لا أحداث</li>';
     }
+    function fillPeriodFilters() {
+      const yearSel = document.getElementById('filter-year');
+      const cur = yearSel.value;
+      const years = [...new Set(state.runs.map((r) => String(r.period_year)).filter(Boolean))].sort((a, b) => Number(b) - Number(a));
+      yearSel.innerHTML = '<option value="">كل السنوات</option>' + years.map((y) => `<option value="${FW.esc(y)}">${FW.esc(y)}</option>`).join('');
+      if (years.includes(cur)) yearSel.value = cur;
+    }
     function filteredRuns() {
       const q = document.getElementById('q').value.trim().toLowerCase();
       const st = document.getElementById('filter-status').value;
+      const year = document.getElementById('filter-year').value;
+      const month = document.getElementById('filter-month').value;
       return state.runs.filter((r) => {
         if (st && String(r.status).toUpperCase() !== st) return false;
+        if (year && String(r.period_year) !== year) return false;
+        if (month && String(Number(r.period_month)) !== String(Number(month))) return false;
         if (!q) return true;
-        return `${r.run_number} ${r.department || ''} ${r.period_year}-${r.period_month}`.toLowerCase().includes(q);
+        return `${r.run_number} ${r.department || ''} ${r.run_type_label || ''} ${r.period_year}-${r.period_month}`.toLowerCase().includes(q);
       });
     }
     function renderKpis() {
@@ -352,23 +442,27 @@
       FW.renderPager(document.getElementById('pager'), page, (p) => { state.page = p; renderRuns(); });
       if (!page.total) {
         host.innerHTML = FW.emptyState(
-          'لا مسيرات بعد. ابدأ بإنشاء مسير من المعالج بعد تسجيل الموظفين.',
+          state.runs.length
+            ? 'لا نتائج مطابقة للبحث أو الفلاتر الحالية.'
+            : 'لا مسيرات بعد. ابدأ بإنشاء مسير من المعالج بعد تسجيل الموظفين.',
           `<div style="margin-top:10px"><a class="fw-btn fw-btn-ok" href="/finance/payroll-runs.html?wizard=1">إنشاء مسير جديد</a></div>`
         );
         return;
       }
-      host.innerHTML = `<div class="fw-table-wrap"><table class="fw-table"><thead><tr>
-        <th>رقم المسير</th><th>الفترة</th><th>النوع</th><th>الإجمالي</th><th>الصافي</th><th>الحالة</th><th></th>
+      host.innerHTML = `<div class="runs-table-wrap"><table class="runs-table"><thead><tr>
+        <th>رقم المسير</th><th>الفترة</th><th>النوع</th><th>عدد الموظفين</th><th>الإجمالي</th><th>الصافي</th><th>الحالة</th><th>الإجراءات</th>
       </tr></thead><tbody>${page.rows.map((r) => {
         const st = String(r.status).toUpperCase();
-        return `<tr class="${state.selected === r.run_id ? 'active' : ''}" data-id="${r.run_id}">
-          <td class="fw-num">${FW.esc(r.run_number)}</td>
-          <td class="fw-num">${FW.esc(r.period_year)}/${String(r.period_month).padStart(2, '0')}</td>
+        const empCount = r.item_count != null ? r.item_count : '—';
+        return `<tr data-id="${r.run_id}">
+          <td><a class="run-link" href="/finance/payroll-runs.html?run=${r.run_id}" data-view="${r.run_id}">${FW.esc(r.run_number)}</a></td>
+          <td class="num">${FW.esc(r.period_year)}/${String(r.period_month).padStart(2, '0')}</td>
           <td>${FW.esc(r.run_type_label || 'المسير العام')}</td>
-          <td class="fw-num">${FW.money(r.total_gross)}</td>
-          <td class="fw-num">${FW.money(r.total_net)}</td>
+          <td class="num">${FW.esc(empCount)}</td>
+          <td class="num">${FW.money(r.total_gross)}</td>
+          <td class="num">${FW.money(r.total_net)}</td>
           <td>${FW.statusBadge(AR[st] || r.status)}</td>
-          <td><button type="button" class="fw-btn fw-btn-mini" data-view="${r.run_id}">فتح</button></td>
+          <td class="actions"><button type="button" class="fw-btn fw-btn-primary" data-view="${r.run_id}"><i class="fas fa-folder-open"></i> فتح المسير</button></td>
         </tr>`;
       }).join('')}</tbody></table></div>`;
     }
@@ -616,15 +710,28 @@
     }
 
     async function show(id) {
-      state.selected = Number(id);
-      renderRuns();
+      const runId = Number(id);
+      if (!runId) return;
+      state.selected = runId;
+      state.itemQ = '';
+      state.colFilters = { code: '', name: '', dept: '', nat: '' };
+      setUrlMode('detail', runId);
+      activateMode();
+      document.getElementById('detail-title').textContent = 'تفاصيل المسير';
+      document.getElementById('detail-run-chip').textContent = `المسير #${runId}`;
       const drawer = document.getElementById('drawer');
-      drawer.innerHTML = FW.loadingState();
-      const res = await FW.api('GET', `/finance/payroll-ops/runs/${id}?${qs()}`);
+      drawer.innerHTML = FW.loadingState('جاري تحميل المسير…');
+      const res = await FW.api('GET', `/finance/payroll-ops/runs/${runId}?${qs()}`);
       if (!res.ok || !res.json?.success) {
-        drawer.innerHTML = FW.emptyState(res.json?.error || 'فشل التحميل');
+        drawer.innerHTML = FW.emptyState(
+          res.json?.error || 'فشل تحميل المسير',
+          `<div style="margin-top:10px"><button type="button" class="fw-btn" id="fail-back">العودة إلى جميع المسيرات</button></div>`
+        );
+        document.getElementById('fail-back')?.addEventListener('click', () => showListScreen());
         return;
       }
+      // Guard against stale responses if user clicked another run quickly
+      if (state.selected !== runId) return;
       state.detail = res.json;
       if (res.json.settings) applySettings({ ...state.settings, ...res.json.settings });
       const run = res.json.run;
@@ -642,13 +749,19 @@
           : st === 'POSTED'
             ? 'المسير مرحّل محاسبيًا. يمكنك التصدير أو الإقفال.'
             : 'المسير مقفل — العرض والتصدير فقط.';
-      document.getElementById('list-next-hint').textContent = nextHint;
+      document.getElementById('detail-next-hint').textContent = nextHint;
+      document.getElementById('detail-title').textContent = `تفاصيل المسير ${run.run_number}`;
+      document.getElementById('detail-subtitle').textContent =
+        `الفترة ${run.period_year}/${String(run.period_month).padStart(2, '0')} — ${items.length} موظف — ${AR[st] || run.status}`;
+      document.getElementById('detail-run-chip').textContent =
+        `${run.run_number} · ${run.period_year}/${String(run.period_month).padStart(2, '0')} · ${AR[st] || run.status}`;
 
       drawer.innerHTML = `
         <div class="meta-compact no-print">
           <div><span>المسير</span><strong>${FW.esc(run.run_number)}</strong></div>
           <div><span>الحالة</span><strong>${FW.statusBadge(AR[st] || run.status)}</strong></div>
           <div><span>الفترة</span><strong class="fw-num">${FW.esc(run.period_year)}/${String(run.period_month).padStart(2, '0')}</strong></div>
+          <div><span>الموظفون</span><strong class="fw-num">${items.length}</strong></div>
           <div><span>الإجمالي / الصافي</span><strong class="fw-num">${FW.money(run.total_gross)} / ${FW.money(run.total_net)}</strong></div>
           <div><span>العملة</span><strong>${FW.esc(run.currency || 'SAR')}</strong></div>
         </div>
@@ -664,28 +777,29 @@
         </details>`;
 
       drawer.querySelectorAll('[data-tab]').forEach((btn) => {
-        btn.addEventListener('click', () => { state.tab = btn.dataset.tab; show(id); });
+        btn.addEventListener('click', () => { state.tab = btn.dataset.tab; show(runId); });
       });
       drawer.querySelectorAll('[data-sort]').forEach((th) => {
         th.addEventListener('click', () => {
           const key = th.dataset.sort;
           if (state.itemSort.key === key) state.itemSort.dir *= -1;
           else state.itemSort = { key, dir: 1 };
-          show(id);
+          show(runId);
         });
       });
       const refreshSheet = () => {
+        if (state.selected !== runId) return;
         document.getElementById('sheet-host').innerHTML = state.tab === 'excluded'
           ? renderExcluded(res.json.excluded_title, excluded)
           : renderPayTable(res.json.title, items);
-        bindSheetActions(id, items, excluded, st);
+        bindSheetActions(runId, items, excluded, st);
         bindColFilters(refreshSheet);
       };
       document.getElementById('item-q')?.addEventListener('input', (e) => {
         state.itemQ = e.target.value;
         refreshSheet();
       });
-      bindSheetActions(id, items, excluded, st);
+      bindSheetActions(runId, items, excluded, st);
       bindColFilters(refreshSheet);
 
       document.getElementById('d-add-salary')?.addEventListener('click', () => {
@@ -695,29 +809,29 @@
       document.getElementById('d-approve')?.addEventListener('click', async () => {
         if (st !== 'DRAFT') return alertBlocked('اعتماد المسير');
         if (!(await window.ErpDialog?.confirm?.({ title: 'اعتماد', message: 'اعتماد مسير الرواتب؟ التعديل لاحقًا غير متاح بدون إجراء تصحيحي.' }))) return;
-        const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/approve`, payload());
-        if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الاعتماد', 'err');
-        FW.setAlert(document.getElementById('alert'), 'تم اعتماد المسير بنجاح', 'ok');
-        await load(); show(id);
+        const r = await FW.api('POST', `/finance/payroll-ops/runs/${runId}/approve`, payload());
+        if (!r.ok) return detailAlert(r.json?.error || 'فشل الاعتماد', 'err');
+        detailAlert('تم اعتماد المسير بنجاح', 'ok');
+        await load(false); show(runId);
       });
       document.getElementById('d-post')?.addEventListener('click', async () => {
         if (st !== 'APPROVED') return alertBlocked('ترحيل محاسبي');
         if (!(await window.ErpDialog?.confirm?.({ title: 'ترحيل محاسبي', message: 'إنشاء قيد محاسبي متوازن مرة واحدة؟ لن يُنفَّذ صرف بنكي.' }))) return;
-        const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/post-gl`, payload());
-        if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الترحيل', 'err');
-        FW.setAlert(document.getElementById('alert'), r.json?.message || 'تم الترحيل المحاسبي (بدون صرف بنكي)', 'ok');
-        await load(); show(id);
+        const r = await FW.api('POST', `/finance/payroll-ops/runs/${runId}/post-gl`, payload());
+        if (!r.ok) return detailAlert(r.json?.error || 'فشل الترحيل', 'err');
+        detailAlert(r.json?.message || 'تم الترحيل المحاسبي (بدون صرف بنكي)', 'ok');
+        await load(false); show(runId);
       });
       document.getElementById('d-close')?.addEventListener('click', async () => {
         if (!['APPROVED', 'POSTED'].includes(st) || run.closed_at) return alertBlocked('إقفال');
         if (!(await window.ErpDialog?.confirm?.({ title: 'إقفال', message: 'إقفال المسير؟' }))) return;
-        const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/close`, payload());
-        if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الإقفال', 'err');
-        FW.setAlert(document.getElementById('alert'), 'تم إقفال المسير', 'ok');
-        await load(); show(id);
+        const r = await FW.api('POST', `/finance/payroll-ops/runs/${runId}/close`, payload());
+        if (!r.ok) return detailAlert(r.json?.error || 'فشل الإقفال', 'err');
+        detailAlert('تم إقفال المسير', 'ok');
+        await load(false); show(runId);
       });
-      document.getElementById('d-xlsx')?.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${id}/export.xlsx`, `payroll-${id}.xlsx`));
-      document.getElementById('d-pdf')?.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${id}/export.pdf`, `payroll-${id}.pdf`));
+      document.getElementById('d-xlsx')?.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${runId}/export.xlsx`, `payroll-${runId}.xlsx`));
+      document.getElementById('d-pdf')?.addEventListener('click', () => downloadAuth(`/finance/payroll-ops/runs/${runId}/export.pdf`, `payroll-${runId}.pdf`));
       document.getElementById('d-print')?.addEventListener('click', () => window.print());
     }
 
@@ -736,8 +850,8 @@
           if (st !== 'DRAFT') return alertBlocked('حذف بند');
           if (!(await window.ErpDialog?.confirm?.({ title: 'حذف', message: 'حذف بند الراتب من المسير؟' }))) return;
           const r = await FW.api('DELETE', `/finance/payroll-ops/runs/${id}/items/${btn.dataset.deleteItem}?${qs()}`, payload());
-          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الحذف', 'err');
-          FW.setAlert(document.getElementById('alert'), 'تم حذف البند من المسير', 'ok');
+          if (!r.ok) return detailAlert(r.json?.error || 'فشل الحذف', 'err');
+          detailAlert('تم حذف البند من المسير', 'ok');
           show(id);
         });
       });
@@ -756,9 +870,9 @@
           const reason = await window.ErpDialog?.prompt?.({ title: 'استبعاد', message: 'سبب الاستبعاد', defaultValue: '' });
           if (reason == null || !String(reason).trim()) return;
           const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/exclude`, { ...payload(), item_id: Number(btn.dataset.exclude), reason: String(reason).trim() });
-          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل الاستبعاد', 'err');
+          if (!r.ok) return detailAlert(r.json?.error || 'فشل الاستبعاد', 'err');
           state.tab = 'excluded';
-          await load(); show(id);
+          await load(false); show(id);
         });
       });
       drawer.querySelectorAll('[data-fix-reason]').forEach((btn) => {
@@ -768,7 +882,7 @@
           const reason = await window.ErpDialog?.prompt?.({ title: 'تصحيح السبب', message: 'سبب الاستبعاد', defaultValue: ex?.reason || '' });
           if (reason == null) return;
           await FW.api('PUT', `/finance/payroll-ops/runs/${id}/excluded/${btn.dataset.fixReason}`, { ...payload(), reason: String(reason).trim() });
-          await load(); show(id);
+          await load(false); show(id);
         });
       });
       drawer.querySelectorAll('[data-restore]').forEach((btn) => {
@@ -776,9 +890,9 @@
           if (st !== 'DRAFT') return alertBlocked('إعادة للمسير');
           if (!(await window.ErpDialog?.confirm?.({ title: 'إعادة', message: 'إعادة الموظف للمسير؟' }))) return;
           const r = await FW.api('POST', `/finance/payroll-ops/runs/${id}/excluded/${btn.dataset.restore}/restore`, payload());
-          if (!r.ok) return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل', 'err');
+          if (!r.ok) return detailAlert(r.json?.error || 'فشل', 'err');
           state.tab = 'payroll';
-          await load(); show(id);
+          await load(false); show(id);
         });
       });
       drawer.querySelectorAll('[data-payslip]').forEach((btn) => {
@@ -805,9 +919,9 @@
           a.href = URL.createObjectURL(blob);
           a.download = name;
           a.click();
-          FW.setAlert(document.getElementById('alert'), `تم تنزيل ${name}`, 'ok');
+          detailAlert(`تم تنزيل ${name}`, 'ok');
         })
-        .catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+        .catch((err) => detailAlert(err.message, 'err'));
     }
 
     /* ===== Wizard ===== */
@@ -918,7 +1032,7 @@
       }
       FW.setAlert(document.getElementById('wizard-alert'), res.json.message || 'تم حفظ المسير كمسودة', 'ok');
       const runId = res.json.run?.run_id;
-      location.href = `/finance/payroll-runs.html?opened=${runId || ''}`;
+      location.href = `/finance/payroll-runs.html?run=${runId || ''}`;
     }
 
     document.getElementById('wiz-next-1').onclick = () => {
@@ -950,33 +1064,36 @@
       renderWizEmployees();
     };
 
-    async function load() {
+    async function load(autoOpen = true) {
       if (mode === 'wizard') {
         await loadEmployees();
         return;
       }
-      document.getElementById('table-host').innerHTML = FW.loadingState();
+      if (mode !== 'detail') {
+        document.getElementById('table-host').innerHTML = FW.loadingState();
+      }
       const res = await FW.api('GET', `/finance/payroll-ops/runs?${qs()}`);
       if (!res.ok || !res.json?.success) throw new Error(res.json?.error || 'فشل التحميل');
       state.runs = res.json.runs || [];
       applySettings(res.json.settings || {});
+      fillPeriodFilters();
       renderKpis();
       renderRuns();
       await loadEmployees();
-      FW.setAlert(document.getElementById('alert'), `تم تحميل ${state.runs.length} مسير — لم يُفتح أي مسير تلقائيًا`, 'ok');
-      // Only open if user explicitly requested via ?opened= after wizard save
-      const opened = params.get('opened');
-      if (opened && state.runs.some((r) => String(r.run_id) === String(opened))) {
+      if (mode === 'list' || mode === 'exports') {
+        FW.setAlert(document.getElementById('alert'), `تم تحميل ${state.runs.length} مسير — اضغط «فتح المسير» لعرض التفاصيل`, 'ok');
+      }
+      if (autoOpen && initialRun && state.runs.some((r) => String(r.run_id) === String(initialRun))) {
         state.tab = 'payroll';
-        await show(opened);
-        FW.setAlert(document.getElementById('alert'), 'تم حفظ المسودة وفُتح المسير الجديد للمراجعة', 'ok');
+        await show(initialRun);
+        detailAlert('تم فتح المسير المحدد للمراجعة', 'ok');
       }
     }
 
     document.getElementById('salary-form').onsubmit = async (e) => {
       e.preventDefault();
       if (!state.selected) {
-        return FW.setAlert(document.getElementById('alert'), 'افتح مسيرًا أولًا قبل إضافة بند راتب', 'err');
+        return detailAlert('افتح مسيرًا أولًا قبل إضافة بند راتب', 'err');
       }
       const live = calcLive();
       const body = {
@@ -998,16 +1115,16 @@
         replace: true
       };
       if (!body.employee_code || !body.full_name_ar) {
-        return FW.setAlert(document.getElementById('alert'), 'الرقم الوظيفي والاسم إلزاميان', 'err');
+        return detailAlert('الرقم الوظيفي والاسم إلزاميان', 'err');
       }
       const itemId = document.getElementById('sf_item_id').value;
       const res = itemId
         ? await FW.api('PUT', `/finance/payroll-ops/runs/${state.selected}/items/${itemId}`, body)
         : await FW.api('POST', `/finance/payroll-ops/runs/${state.selected}/items`, body);
-      if (!res.ok || !res.json?.success) return FW.setAlert(document.getElementById('alert'), res.json?.error || 'فشل الحفظ', 'err');
+      if (!res.ok || !res.json?.success) return detailAlert(res.json?.error || 'فشل الحفظ', 'err');
       document.getElementById('salary-modal').hidden = true;
-      FW.setAlert(document.getElementById('alert'), 'تم حفظ بند الراتب في المسير وإعادة الاحتساب', 'ok');
-      await load();
+      detailAlert('تم حفظ بند الراتب في المسير وإعادة الاحتساب', 'ok');
+      await load(false);
       if (state.selected) show(state.selected);
     };
 
@@ -1030,7 +1147,7 @@
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) throw new Error(json.error || 'فشل الاستيراد');
         FW.setAlert(document.getElementById('alert'), json.message || 'تم الاستيراد كمسودة', 'ok');
-        await load();
+        await load(false);
       } catch (err) {
         FW.setAlert(document.getElementById('alert'), err.message, 'err');
       }
@@ -1045,9 +1162,14 @@
     ], mode === 'wizard' ? '/finance/payroll-runs.html?wizard=1' : '/finance/payroll-runs.html');
 
     document.getElementById('table-host').addEventListener('click', (e) => {
-      const id = e.target.closest('[data-view]')?.dataset.view || e.target.closest('[data-id]')?.dataset.id;
-      if (id) { state.tab = 'payroll'; show(id); }
+      const link = e.target.closest('[data-view]');
+      if (!link) return;
+      e.preventDefault();
+      state.tab = 'payroll';
+      show(link.dataset.view);
     });
+    document.getElementById('btn-back-list').onclick = () => showListScreen('عدت إلى جميع المسيرات');
+    document.getElementById('btn-back-list-2').onclick = () => showListScreen('عدت إلى جميع المسيرات');
     document.getElementById('salary-cancel').onclick = () => { document.getElementById('salary-modal').hidden = true; };
     document.getElementById('btn-demo-seed').onclick = async () => {
       if (!(await window.ErpDialog?.confirm?.({
@@ -1063,18 +1185,18 @@
         return FW.setAlert(document.getElementById('alert'), r.json?.error || 'فشل المسير التجريبي — متاح فقط في بيئة الاختبار المعزولة', 'err');
       }
       FW.setAlert(document.getElementById('alert'), r.json.message || 'تم إنشاء المسير التجريبي', 'ok');
-      await load();
+      await load(false);
     };
-    document.getElementById('btn-reload').onclick = () => load().catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
-    ['q', 'filter-status', 'page-size'].forEach((id) => {
+    document.getElementById('btn-reload').onclick = () => load(false).catch((err) => FW.setAlert(document.getElementById('alert'), err.message, 'err'));
+    ['q', 'filter-status', 'filter-year', 'filter-month', 'page-size'].forEach((id) => {
       document.getElementById(id).addEventListener('input', () => { state.page = 1; renderRuns(); });
       document.getElementById(id).addEventListener('change', () => { state.page = 1; renderRuns(); });
     });
 
     activateMode();
     if (mode === 'wizard') setWizStep(1);
-    const start = () => load().catch((err) => {
-      const el = mode === 'wizard' ? document.getElementById('wizard-alert') : document.getElementById('alert');
+    const start = () => load(true).catch((err) => {
+      const el = mode === 'wizard' ? document.getElementById('wizard-alert') : (mode === 'detail' ? document.getElementById('detail-alert') : document.getElementById('alert'));
       FW.setAlert(el, err.message, 'err');
     });
     window.whenFinanceContextReady ? window.whenFinanceContextReady(start) : start();
