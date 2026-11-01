@@ -459,6 +459,169 @@ const MANAGER_CARD_CATALOG = {
     manager: false,
     description: 'التعاميم وإشعارات الموارد البشرية'
   },
+
+  /* ── Absorbed from «حوكمة الموارد البشرية» (GAI) — routes unchanged; do not delete originals ── */
+  'employees-admin': {
+    key: 'gai-employees-admin',
+    href: '/hr/employees',
+    label: 'النظام الإداري والموارد البشرية',
+    icon: 'fa-briefcase',
+    category: 'إدارة الموظفين',
+    manager: true,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية — مسار /hr/employees (يبقى إلى جانب ملفات الموظفين 360)'
+  },
+  'my-requests-submit': {
+    key: 'gai-my-requests',
+    href: '/hr/my-requests',
+    label: 'تقديم ومتابعة الطلبات',
+    icon: 'fa-file-signature',
+    category: 'الطلبات والموافقات',
+    manager: true,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية — تقديم ومتابعة الطلبات'
+  },
+  'skills-management': {
+    key: 'gai-skills-management',
+    href: '/hr/skills-management',
+    label: 'إدارة المهارات',
+    icon: 'fa-layer-group',
+    category: 'التدريب والتطوير والمهارات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'talent-management': {
+    key: 'gai-talent-management',
+    href: '/hr/talent-management',
+    label: 'إدارة المواهب',
+    icon: 'fa-star',
+    category: 'التدريب والتطوير والمهارات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'succession-planning': {
+    key: 'gai-succession-planning',
+    href: '/hr/succession-planning',
+    label: 'تخطيط التعاقب الإداري',
+    icon: 'fa-chess-king',
+    category: 'التدريب والتطوير والمهارات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'innovation-management': {
+    key: 'gai-innovation-management',
+    href: '/hr/innovation-management',
+    label: 'إدارة الابتكارات',
+    icon: 'fa-lightbulb',
+    category: 'التدريب والتطوير والمهارات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'experience-management': {
+    key: 'gai-experience-management',
+    href: '/hr/experience-management',
+    label: 'إدارة الخبرات',
+    icon: 'fa-book-open',
+    category: 'التدريب والتطوير والمهارات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'human-risk': {
+    key: 'gai-human-risk',
+    href: '/hr/human-risk',
+    label: 'إدارة المخاطر البشرية',
+    icon: 'fa-triangle-exclamation',
+    category: 'الحوكمة والامتثال والمخاطر',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'process-automation': {
+    key: 'gai-process-automation',
+    href: '/hr/process-automation',
+    label: 'أتمتة الإجراءات إلكترونيًا',
+    icon: 'fa-gears',
+    category: 'الحوكمة والامتثال والمخاطر',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'admin-circulars': {
+    key: 'gai-admin-circulars',
+    href: '/hr/admin-circulars',
+    label: 'إدارة التعاميم الإدارية واللوائح',
+    icon: 'fa-bullhorn',
+    category: 'الحوكمة والامتثال والمخاطر',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية — مسار /hr/admin-circulars (يختلف عن التعاميم والإشعارات)'
+  },
+  'strategic-analytics': {
+    key: 'gai-strategic-analytics',
+    href: '/hr/strategic-analytics',
+    label: 'لوحة التحليلات الاستراتيجية',
+    icon: 'fa-chart-pie',
+    category: 'التحليلات والتقارير والتكاملات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'cost-optimization': {
+    key: 'gai-cost-optimization',
+    href: '/hr/cost-optimization',
+    label: 'إدارة خفض التكاليف التشغيلية',
+    icon: 'fa-chart-line',
+    category: 'التحليلات والتقارير والتكاملات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'productivity-comparison': {
+    key: 'gai-productivity-comparison',
+    href: '/hr/productivity-comparison',
+    label: 'مقارنة ساعات العمل بالإنتاجية',
+    icon: 'fa-wave-square',
+    category: 'التحليلات والتقارير والتكاملات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'integrations-erp': {
+    key: 'gai-integrations-erp',
+    href: '/hr/integrations-erp',
+    label: 'تكاملات ERP',
+    icon: 'fa-link',
+    category: 'التحليلات والتقارير والتكاملات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'integrations-comms': {
+    key: 'gai-integrations-comms',
+    href: '/hr/integrations-comms',
+    label: 'تكاملات البريد والتنبيهات',
+    icon: 'fa-envelope-open-text',
+    category: 'التحليلات والتقارير والتكاملات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+  'integrations-sso': {
+    key: 'gai-integrations-sso',
+    href: '/hr/integrations-sso',
+    label: 'تكاملات SSO والدخول الموحد',
+    icon: 'fa-shield-halved',
+    category: 'التحليلات والتقارير والتكاملات',
+    manager: false,
+    source: 'hr-governance',
+    description: 'منقول من حوكمة الموارد البشرية'
+  },
+
   'fin-expenses': { ...FINANCE_HOME_MOVED_TO_HR[0] },
   'fin-journal': { ...FINANCE_HOME_MOVED_TO_HR[1] },
   'fin-accounting': { ...FINANCE_HOME_MOVED_TO_HR[2] },
@@ -466,6 +629,18 @@ const MANAGER_CARD_CATALOG = {
   'fin-invoices': { ...FINANCE_HOME_MOVED_TO_HR[4] },
   'fin-workforce': { ...FINANCE_HOME_MOVED_TO_HR[5] }
 };
+
+/**
+ * Governance cards already present on HR 360 by the same href — kept as-is (no second card).
+ * Reported for review; neither side is deleted.
+ */
+const HR_GOVERNANCE_ALREADY_ON_HR360 = [
+  { href: '/hr/accepted-employees', governanceLabel: 'الموظفون المقبولون', hr360Key: 'accepted-employees', hr360Label: 'مرشحون مقبولون' },
+  { href: '/hr/requests', governanceLabel: 'معالجة الطلبات', hr360Key: 'requests', hr360Label: 'طلبات الموظفين' },
+  { href: '/hr/pending-actions', governanceLabel: 'عمليات بانتظار إجراء', hr360Key: 'approvals', hr360Label: 'الموافقات والرفض' },
+  { href: '/hr/attendance-hub', governanceLabel: 'مركز الحضور والنوبات الذكي', hr360Key: 'attendance-hub', hr360Label: 'مركز الحضور والنوبات' },
+  { href: '/hr/learning', governanceLabel: 'أكاديمية التطوير والتدريب', hr360Key: 'learning', hr360Label: 'التدريب والتطوير' }
+];
 
 /** Legacy export shape used by older tests — maps to roster + approvals + reports + settings. */
 const ADMIN_OPS_CARDS = [
@@ -521,8 +696,8 @@ const ADMIN_BLOCKED_FROM_EMPLOYEE = [
 const MANAGER_SECTION_PLAN = [
   {
     id: 'employees-mgmt',
-    title: 'إدارة الموظفين',
-    keys: ['employee-files', 'new-hires', 'recruitment', 'accepted-employees', 'hr-ops']
+    title: 'إدارة الموظفين والتوظيف',
+    keys: ['employee-files', 'new-hires', 'recruitment', 'accepted-employees', 'hr-ops', 'employees-admin']
   },
   {
     id: 'attendance-payroll',
@@ -530,19 +705,42 @@ const MANAGER_SECTION_PLAN = [
     keys: ['attendance', 'attendance-hub', 'payroll', 'payroll-hub']
   },
   {
+    id: 'requests-approvals',
+    title: 'الطلبات والعمليات',
+    keys: ['requests', 'approvals', 'manager-board', 'operations', 'my-requests-submit']
+  },
+  {
     id: 'performance-dev',
     title: 'الأداء والتطوير',
     keys: ['performance', 'satisfaction', 'benefits', 'learning', 'surveys']
   },
   {
-    id: 'requests-approvals',
-    title: 'الطلبات والموافقات',
-    keys: ['requests', 'approvals', 'manager-board', 'operations']
+    id: 'training-skills',
+    title: 'التدريب والتطوير والمهارات',
+    keys: ['skills-management', 'talent-management', 'succession-planning', 'innovation-management', 'experience-management']
+  },
+  {
+    id: 'governance-compliance',
+    title: 'الحوكمة والامتثال والمخاطر',
+    keys: ['human-risk', 'process-automation', 'admin-circulars', 'policies']
+  },
+  {
+    id: 'analytics-integrations',
+    title: 'التحليلات والتقارير والتكاملات',
+    keys: [
+      'strategic-analytics',
+      'cost-optimization',
+      'productivity-comparison',
+      'integrations-erp',
+      'integrations-comms',
+      'integrations-sso',
+      'reports'
+    ]
   },
   {
     id: 'reports-settings',
     title: 'التقارير والإعدادات',
-    keys: ['reports', 'settings', 'policies'],
+    keys: ['settings'],
     settingsOnlyKeys: ['settings']
   },
   {
@@ -741,6 +939,7 @@ module.exports = {
   ADMIN_SHORTCUT_CARDS,
   MANAGER_CARD_CATALOG,
   MANAGER_SECTION_PLAN,
+  HR_GOVERNANCE_ALREADY_ON_HR360,
   ESS_NAV,
   ADMIN_BLOCKED_FROM_EMPLOYEE,
   FINANCE_HOME_MOVED_TO_HR,
