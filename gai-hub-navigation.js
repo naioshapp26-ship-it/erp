@@ -639,20 +639,26 @@ function buildContextNav(context) {
   }
   if (context === 'gai-hr') {
     return {
-      brandTitle: 'حوكمة الموارد البشرية',
-      brandSubtitle: 'التكامل الإداري المحكوم',
+      brandTitle: 'الموارد البشرية 360',
+      brandSubtitle: 'مركز موحد — يشمل صفحات الحوكمة السابقة',
       links: [
-        backGai,
+        {
+          key: 'hr360-home',
+          href: '/hr',
+          icon: 'fa-people-group',
+          label: 'لوحة الموارد البشرية 360'
+        },
+        backHr,
         ...HR_MOVED.map((item, idx) => ({
           key: `hrg-${idx}`,
           href: item.href,
           icon: item.icon,
           label: item.label
         })),
-        backHr,
+        backGai,
         backHome
       ],
-      topbarMode: 'gai'
+      topbarMode: 'hr'
     };
   }
   if (context === 'gai-finance') {

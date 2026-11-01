@@ -25955,14 +25955,39 @@ const app = (() => {
                 cards: GAI_FINANCE_GOVERNANCE_CARDS,
                 ready: true
             })}
-            ${renderGaiSectionShell({
-                id: 'gai-hr-governance',
-                title: 'حوكمة الموارد البشرية',
-                icon: 'fa-user-shield',
-                description: 'مداخل صفحات الموارد البشرية المنقولة من القائمة الرئيسية (دون تكرار أدوات الأرشيف المشتركة).',
-                cards: GAI_HR_GOVERNANCE_CARDS,
-                ready: true
-            })}
+            <section id="gai-hr-governance" class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" aria-labelledby="gai-hr-governance-title">
+                <div class="px-5 py-4 border-b border-slate-100 bg-gradient-to-l from-rose-50 to-white flex items-start gap-3">
+                    <div class="w-11 h-11 rounded-xl bg-red-50 text-red-700 flex items-center justify-center shrink-0">
+                        <i class="fas fa-user-shield text-lg"></i>
+                    </div>
+                    <div class="text-right flex-1 min-w-0">
+                        <h3 id="gai-hr-governance-title" class="text-xl font-extrabold text-slate-800">حوكمة الموارد البشرية</h3>
+                        <p class="text-sm text-slate-500 mt-1 leading-relaxed">
+                            نُقلت جميع صفحات هذا القسم إلى المركز الموحد <strong>الموارد البشرية 360</strong>
+                            مع الإبقاء على كل المسارات والصلاحيات والبيانات. لا يوجد قسم مكرر هنا.
+                        </p>
+                    </div>
+                </div>
+                <div class="p-5 space-y-4">
+                    <a href="${resolveTenantAwarePath('/hr')}" class="w-full bg-red-600 hover:bg-red-700 text-white px-6 py-4 rounded-xl font-extrabold shadow-sm transition flex items-center gap-4 border border-red-700">
+                        <i class="fas fa-people-group text-xl w-8 text-center"></i>
+                        <span class="flex-1 text-right">فتح الموارد البشرية 360</span>
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        الجرد المرجعي (${GAI_HR_GOVERNANCE_CARDS.length} صفحة) ما زال محفوظًا في النظام ويظهر داخل مجموعات الموارد البشرية 360.
+                        الروابط القديمة مثل <code class="text-rose-700">/hr/employees</code> وبقية مسارات الحوكمة تعمل كما هي.
+                    </p>
+                    <details class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3">
+                        <summary class="cursor-pointer font-bold text-slate-700 text-sm">عرض قائمة المسارات المرجعية (للمراجعة)</summary>
+                        <ul class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-slate-600">
+                            ${GAI_HR_GOVERNANCE_CARDS.map((c) => `
+                                <li><a class="text-red-700 hover:underline font-bold" href="${resolveTenantAwarePath(c.href)}">${c.label}</a>
+                                <span class="text-slate-400 text-xs"> — ${c.href}</span></li>`).join('')}
+                        </ul>
+                    </details>
+                </div>
+            </section>
         </div>`;
 
     const renderPlaceholder = (msg = 'لا تملك صلاحية الوصول') => `
